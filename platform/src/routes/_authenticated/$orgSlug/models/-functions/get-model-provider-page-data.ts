@@ -2,15 +2,14 @@ import { createServerFn } from "@tanstack/react-start"
 import { Clock, Effect } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
-import { ModelPriceCatalogUnavailable } from "@/lib/model-providers/errors"
-import { Config } from "@/lib/config/config.server"
-import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
-import { catalogModelUsageConfiguration } from "@/lib/model-providers/pricing-catalog.server"
+import {
+  catalogModelUsageConfiguration,
+  readModelPriceCatalog,
+} from "@/lib/model-providers/pricing-catalog.server"
 import type { ModelProviderType } from "@/lib/model-providers/schemas"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
-import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh.server"
 import { ModelProviderPageInputSchema } from "../-lib/schemas"
 
 // Current provider lineups. GPT-6 tool restrictions keep it out of OpenRouter's Chat Completions suggestions.
@@ -39,17 +38,7 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
     runEffect(
       Effect.gen(function* () {
         const providers = yield* ModelProviders
-        const config = yield* Config
-        let pricing = yield* config.readModelPriceCatalog
-        if (!pricing?.fetchedAt) {
-          yield* modelPriceCatalogInitialization.execute({}).pipe(
-            provideClusterWorkflowEngine,
-            Effect.timeout("30 seconds"),
-            Effect.catchTag("TimeoutError", () => Effect.fail(new ModelPriceCatalogUnavailable())),
-          )
-          pricing = yield* config.readModelPriceCatalog
-        }
-        if (!pricing?.fetchedAt) return yield* new ModelPriceCatalogUnavailable()
+        const pricing = yield* readModelPriceCatalog
         const provider =
           data.id === null
             ? null
@@ -94,9 +83,7 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           },
           permissions: context.permissions,
         }
-      }).pipe(
-        Effect.catchTag(["ModelPriceCatalogUnavailable", "ClusterUnavailableError"], exposeError),
-      ),
+      }),
       serverFnMeta.name,
     ),
   )

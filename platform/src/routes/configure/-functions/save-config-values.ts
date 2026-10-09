@@ -42,19 +42,21 @@ export const saveConfigValues = createServerFn({ method: "POST" })
           (yield* config.setupState).setupComplete &&
           !(yield* config.readModelPriceCatalog)?.fetchedAt
         ) {
-          yield* modelPriceCatalogInitialization
-            .execute({}, { discard: true })
-            .pipe(provideClusterWorkflowEngine)
+          yield* modelPriceCatalogInitialization.execute({}, { discard: true }).pipe(
+            provideClusterWorkflowEngine,
+            Effect.catchCause(() =>
+              Effect.logWarning(
+                "Initial pricing catalog submission failed. Daily refresh remains scheduled",
+              ),
+            ),
+          )
         }
         return { fieldErrors: [] as readonly ConfigureFieldError[] }
       }).pipe(
         Effect.catchTag("ConfigUpdateInvalid", (error) =>
           Effect.succeed({ fieldErrors: error.issues }),
         ),
-        Effect.catchTag(
-          ["OwnerOnboardingFailed", "ConfigurationBusy", "ClusterUnavailableError"],
-          exposeError,
-        ),
+        Effect.catchTag(["OwnerOnboardingFailed", "ConfigurationBusy"], exposeError),
       ),
       serverFnMeta.name,
     ),

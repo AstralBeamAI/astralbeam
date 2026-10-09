@@ -60,7 +60,7 @@ export function ModelProviderForm({
   organizationSlug: string
   provider: OrganizationModelProvider | null
   catalog: Record<ModelProviderType, readonly ProviderModelFields[]>
-  pricingFetchedAt: string
+  pricingFetchedAt: string | null
   pricingIsStale: boolean
   readOnly: boolean
 }) {
@@ -299,11 +299,13 @@ export function ModelProviderForm({
               disabled={disabled}
               errors={fieldErrors("models")}
             />
-            <FieldDescription>
-              Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
-              {pricingIsStale &&
-                " Automatic updates are delayed. Last known defaults remain available."}
-            </FieldDescription>
+            {pricingFetchedAt && (
+              <FieldDescription>
+                Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
+                {pricingIsStale &&
+                  " Automatic updates are delayed. Last known defaults remain available."}
+              </FieldDescription>
+            )}
             <FieldDescription>
               Prices are USD per million tokens. Token limits are saved, but not enforced yet.
             </FieldDescription>

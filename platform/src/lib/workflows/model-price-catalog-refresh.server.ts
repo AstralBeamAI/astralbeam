@@ -4,7 +4,6 @@ import { Activity, Workflow } from "effect/workflow"
 
 import { Config } from "@/lib/config/config.server"
 import { ModelPriceCatalogProvidersSchema } from "../model-providers/pricing-catalog-schemas.ts"
-import { ModelPriceCatalogUnavailable } from "../model-providers/errors.ts"
 
 const modelPriceCatalogRefresh = Effect.gen(function* () {
   const body = yield* Effect.tryPromise(async (signal) => {
@@ -59,7 +58,7 @@ export const modelPriceCatalogInitializationLayer = modelPriceCatalogInitializat
       Effect.catchCause((cause) =>
         Cause.hasInterrupts(cause)
           ? Effect.failCause(cause)
-          : Effect.fail(new ModelPriceCatalogUnavailable()),
+          : Effect.fail(new Error("Initial pricing catalog refresh failed")),
       ),
       Effect.tapError(() => Effect.logWarning("Initial pricing catalog refresh failed. Retrying")),
       Effect.retry(Schedule.min([Schedule.exponential("1 second"), Schedule.spaced("30 seconds")])),
