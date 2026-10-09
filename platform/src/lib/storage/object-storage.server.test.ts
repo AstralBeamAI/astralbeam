@@ -165,15 +165,18 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     }
     const logs: string[] = []
     const denied = await Effect.runPromise(
-      Effect.flatMap(ObjectStorage, (storage) =>
-        storage.get({ key: "denied", maxBytes: 1024 }),
-      ).pipe(
+      Effect.gen(function* () {
+        const storage = yield* ObjectStorage
+        yield* storage.head({ key: "missing" }).pipe(Effect.result)
+        return yield* storage.get({ key: "denied", maxBytes: 1024 })
+      }).pipe(
         Effect.result,
         Effect.provide(layer),
         Effect.provide(Logger.layer([Logger.map(Logger.formatJson, (entry) => logs.push(entry))])),
       ),
     )
     expect(denied).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+    expect(logs).toHaveLength(1)
     expect(JSON.parse(logs[0]!)).toMatchObject({
       annotations: { errorType: "AccessDenied", httpStatusCode: 403, requestId: "fixture-request" },
     })

@@ -21,18 +21,21 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   }).pipe(
     Effect.timeout("30 seconds"),
     Effect.tapError((error) =>
-      Effect.logWarning("Object storage request failed").pipe(
-        Effect.annotateLogs({
-          errorType: error instanceof Error ? error.name : "Unknown",
-          errorCode:
-            error instanceof Error && "code" in error && typeof error.code === "string"
-              ? error.code
-              : undefined,
-          httpStatusCode:
-            error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
-          requestId: error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
-        }),
-      ),
+      error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
+        ? Effect.void
+        : Effect.logWarning("Object storage request failed").pipe(
+            Effect.annotateLogs({
+              errorType: error instanceof Error ? error.name : "Unknown",
+              errorCode:
+                error instanceof Error && "code" in error && typeof error.code === "string"
+                  ? error.code
+                  : undefined,
+              httpStatusCode:
+                error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
+              requestId:
+                error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
+            }),
+          ),
     ),
     Effect.mapError((error) =>
       error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)

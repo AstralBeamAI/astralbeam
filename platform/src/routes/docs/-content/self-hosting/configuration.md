@@ -112,6 +112,8 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
 
+For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
+
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
 ## Model providers
