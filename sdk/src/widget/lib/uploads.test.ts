@@ -445,7 +445,7 @@ test("an uncertain preparation retries the same attachment key and retains a pre
   disposeAttachmentUploads(uploads)
 })
 
-test.each(["identity", "api", "remove identity", "401 refresh", "prepare identity"] as const)(
+test.each(["identity", "api", "remove identity", "refresh", "prepare identity", "source"] as const)(
   "delayed attachment work respects authentication during %s",
   async (change) => {
     let user = {
@@ -456,26 +456,27 @@ test.each(["identity", "api", "remove identity", "401 refresh", "prepare identit
     }
     const cancellations: string[] = []
     const preparations = vi.fn()
+    const completed = { ...session, status: "completed", file_id: "verified" }
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const url = new URL(input)
       if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
       if (init?.method === "DELETE") {
         cancellations.push(url.href)
-        if (change === "401 refresh" && cancellations.length === 1)
+        if (change === "refresh" && cancellations.length === 1)
           return Promise.resolve(new Response(null, { status: 401 }))
         return Promise.resolve(new Response(null, { status: 204 }))
       }
       if (url.pathname.endsWith("/chat/uploads") && init?.method === "POST") {
         preparations()
-        return Promise.resolve(Response.json(session))
+        return Promise.resolve(Response.json(completed))
       }
+      if (url.pathname.includes("/chat/uploads/")) return Promise.resolve(Response.json(completed))
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     })
-    const chat = createAstralBeamChat({
-      fetchAstralBeamToken: () => ({
-        token: `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 300 }))}.signature`,
-      }),
+    const tokenSource = () => ({
+      token: `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 300 }))}.signature`,
     })
+    const chat = createAstralBeamChat({ fetchAstralBeamToken: () => tokenSource() })
     let finish = (_files: DraftAttachment[]) => {}
     let stored: DraftAttachment[] = [{ ...draft, prepareAttempted: true }]
     vi.mocked(storedThreadAttachments)
@@ -489,6 +490,8 @@ test.each(["identity", "api", "remove identity", "401 refresh", "prepare identit
       const auth = chat.getState().auth
       const isCurrentAuthentication = chat.captureAuthentication()
       const uploads = attachmentUploadState(chat)
+      const uploading = change === "prepare identity" || change === "source"
+      let uploadState = { ...draft }
       const waitForAuthChange = () =>
         vi.waitFor(() => {
           expect(chat.getState().auth.status).toBe("ready")
@@ -509,33 +512,37 @@ test.each(["identity", "api", "remove identity", "401 refresh", "prepare identit
           prepareAttempted: true,
           preparation: storedThreadAttachments(options).then(() => undefined),
         })
-      if (change === "prepare identity")
+      if (uploading)
         startAttachmentUpload({
           uploads,
           draft,
           file: new File(["hello"], "note.txt"),
           isCurrentAuthentication,
-          settle: () => {},
+          settle: (update) => {
+            uploadState = { ...uploadState, ...update }
+          },
           persist: (file) =>
             storedThreadAttachments({ ...options, update: () => [file] }).then(() => undefined),
         })
       const cleanup =
         change === "remove identity"
           ? removeAttachmentUpload({ uploads, draft, isCurrentAuthentication })
-          : change === "prepare identity"
+          : uploading
             ? undefined
             : discardAttachmentUploads(options)
       const result = cleanup?.catch((error: unknown) => error)
       await vi.waitFor(() => expect(storedThreadAttachments).toHaveBeenCalledOnce())
-      if (change !== "api" && change !== "401 refresh") {
+      if (uploading) chat.updateOptions({ fetchAstralBeamToken: tokenSource })
+      if (change === "source") chat.retryAuthentication()
+      else if (change !== "api" && change !== "refresh") {
         user = { ...user, user: { id: "replacement" } }
         chat.retryAuthentication()
       } else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
-      if (change !== "401 refresh") await waitForAuthChange()
+      if (change !== "refresh") await waitForAuthChange()
       finish([{ ...draft, prepareAttempted: true }])
+      if (uploading) await waitForUpload()
       const settle = vi.fn()
       if (change === "prepare identity") {
-        await waitForUpload()
         startAttachmentUpload({
           uploads,
           draft: { ...draft, id: "stale" },
@@ -547,20 +554,22 @@ test.each(["identity", "api", "remove identity", "401 refresh", "prepare identit
       }
       const error = await result
       expect(error instanceof Error ? error.message : undefined).toBe(
-        change === "401 refresh" || change === "prepare identity"
-          ? undefined
-          : "Authentication changed",
+        change === "refresh" || uploading ? undefined : "Authentication changed",
       )
-      expect(cancellations).toHaveLength(change === "401 refresh" ? 2 : 0)
+      expect(cancellations).toHaveLength(change === "refresh" ? 2 : 0)
       expect(chat.getState().auth).not.toBe(auth)
-      expect(isCurrentAuthentication()).toBe(change === "401 refresh")
+      expect(isCurrentAuthentication()).toBe(change === "refresh" || change === "source")
       expect(stored[0]?.prepareAttempted).toBe(
-        change === "401 refresh" ? undefined : change !== "prepare identity",
+        change === "refresh" ? undefined : change !== "prepare identity",
       )
       expect(storedThreadAttachments).toHaveBeenCalledTimes(
-        change === "401 refresh" || change === "prepare identity" ? 2 : 1,
+        change === "refresh" || change === "prepare identity" ? 2 : 1,
       )
-      expect(preparations).not.toHaveBeenCalled()
+      expect(preparations).toHaveBeenCalledTimes(change === "source" ? 1 : 0)
+      expect(uploadState.status).toBe(
+        change === "source" ? "ready" : uploading ? "uploading" : "reading",
+      )
+      expect(uploadState.fileId).toBe(change === "source" ? "verified" : undefined)
       expect(uploads.files.has("stale")).toBe(false)
       expect(settle).not.toHaveBeenCalled()
     } finally {
