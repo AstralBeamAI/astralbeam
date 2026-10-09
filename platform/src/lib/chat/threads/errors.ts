@@ -49,9 +49,11 @@ export class ChatIdentityNotSynchronized extends Schema.TaggedError<ChatIdentity
     "Synchronize your identity with POST /api/v1/me before opening saved conversations"
 }
 
-export type ChatThreadError =
-  | ChatThreadNotFound
-  | ChatThreadConflict
-  | ChatThreadForbidden
-  | ChatThreadInvalid
-  | ChatSteeringFinished
+export const ChatThreadErrorSchema = Schema.Union([
+  ChatThreadNotFound,
+  ChatThreadConflict,
+  ChatThreadForbidden,
+  ChatThreadInvalid,
+  ChatSteeringFinished,
+])
+export type ChatThreadError = typeof ChatThreadErrorSchema.Type

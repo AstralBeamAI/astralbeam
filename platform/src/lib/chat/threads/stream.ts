@@ -440,26 +440,15 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         if (state.failed) throw new Error("Generation did not complete")
         await completion
         await saveManagedProjection(options, state, ctx.messages, true)
-        state.nextClaim = await options.execute(
-          options.threads.finish({
-            claim: state.claim,
-            continueSteering: options.canContinueSteering?.(),
-          }),
-        )
-        state.turnState = (
+        Object.assign(
+          state,
           await options.execute(
-            options.threads.getMessage({
-              scope: state.claim.scope,
-              id: state.claim.threadId,
-              messageId: state.claim.inputMessageId,
+            options.threads.finish({
+              claim: state.claim,
+              continueSteering: options.canContinueSteering?.(),
             }),
-          )
-        ).turnState!
-        state.version = (
-          await options.execute(
-            options.threads.get({ scope: state.claim.scope, id: state.claim.threadId }),
-          )
-        ).lockVersion
+          ),
+        )
         state.finished = true
       } catch (error) {
         state.failed = true

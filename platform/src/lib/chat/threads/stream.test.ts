@@ -148,9 +148,12 @@ async function exerciseManagedStream(options: {
         ? Effect.die("Synthetic final save failure")
         : Effect.sync(() => {
             order.push("finish")
+            return {
+              nextClaim: undefined,
+              turnState: options.browser ? "waiting" : "completed",
+              version: 3,
+            }
           }),
-    get: () => Effect.succeed({ lockVersion: 3 }),
-    getMessage: () => Effect.succeed({ turnState: options.browser ? "waiting" : "completed" }),
   } as unknown as ChatThreads["Service"]
   const history: ModelMessage[] = [
     { id: managedStreamClaim.inputMessageId, role: "user", content: "Change it" },

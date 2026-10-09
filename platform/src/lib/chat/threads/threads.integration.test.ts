@@ -124,7 +124,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       runtime.runPromise(steerTestTurn(thread.id, first.inputMessage.id).pipe(Effect.result)),
       runtime.runPromise(service.finish({ claim: first.claim!, payload, continueSteering: true })),
     ])
-    expect(continuation?.inputMessageId).toBe(
+    expect(continuation.nextClaim?.inputMessageId).toBe(
       admitted._tag === "Success" ? first.inputMessage.id : undefined,
     )
     expect(admitted._tag === "Failure" ? admitted.failure._tag : undefined).toBe(
@@ -206,27 +206,17 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             )
           const chunks = [
             {
-              id: `phase-${prompts.length}`,
-              model: "test-model",
-              choices: [
-                {
-                  index: 0,
-                  delta: { role: "assistant", content: `Answer ${prompts.length}` },
-                  finish_reason: null,
-                },
-              ],
+              delta: { role: "assistant", content: `Answer ${prompts.length}` },
+              finish_reason: null,
             },
-            {
-              id: `phase-${prompts.length}`,
-              model: "test-model",
-              choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-            },
-          ]
-          return new Response(
-            chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
-              "data: [DONE]\n\n",
-            { headers: { "Content-Type": "text/event-stream" } },
+            { delta: {}, finish_reason: "stop" },
+          ].map(
+            (choice) =>
+              `data: ${JSON.stringify({ id: `phase-${prompts.length}`, model: "test-model", choices: [{ index: 0, ...choice }] })}\n\n`,
           )
+          return new Response(chunks.join("") + "data: [DONE]\n\n", {
+            headers: { "Content-Type": "text/event-stream" },
+          })
         },
       }
       const layer = Chat.layerNoDeps.pipe(
@@ -293,13 +283,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         true,
       )
       expect(guidance[0]?.metadata.steering?.appliedToMessageId).toBeDefined()
-      expect(
-        (
-          await runtime.runPromise(
-            steerTestTurn(thread.id, first.inputMessage.id).pipe(Effect.flip),
-          )
-        )._tag,
-      ).toBe("ChatSteeringFinished")
+      await expect(
+        runtime.runPromise(steerTestTurn(thread.id, first.inputMessage.id)),
+      ).rejects.toMatchObject({ _tag: "ChatSteeringFinished" })
       expect(events.find((event) => event.type === EventType.RUN_ERROR)?.message).toBe(
         exhaust
           ? "The response reached its limit. Review guidance marked as not delivered and resend it in a new message."

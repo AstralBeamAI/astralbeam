@@ -250,10 +250,33 @@ export class Chat extends Context.Service<
             : []),
           agent.systemPrompt,
         ]
-        const services = yield* Effect.context<never>()
+        const execute = Effect.runPromiseWith(yield* Effect.context<never>())
         let modelTurns = 0
         let execution = input.managed
         let phaseMessages = messages
+        const preparePhaseHistory = Effect.fnUntraced(function* (
+          claim: typeof input.managed.claim,
+          beforeModel = false,
+        ) {
+          const saved = yield* beforeModel
+            ? threads.modelHistory({ claim })
+            : threads.history({ scope: claim.scope, id: claim.threadId })
+          const normalized = yield* prepareChatHistory({
+            history: saved,
+            model,
+            sandbox: agent.sandboxProviderId !== null,
+          })
+          return {
+            ...normalized,
+            steeringMessageIds: saved
+              .filter(
+                (message) =>
+                  beforeModel &&
+                  message.payload.steering?.appliedToMessageId === claim.assistantMessageId,
+              )
+              .map((message) => message.id),
+          }
+        })
         const createManagedPhase = (phaseMessages: typeof messages) =>
           managedChatMiddleware({
             managed: execution,
@@ -262,22 +285,12 @@ export class Chat extends Context.Service<
             tools,
             model,
             agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-            execute: Effect.runPromiseWith(services),
+            execute,
             canContinueSteering: () => modelTurns < CHAT_MAX_MODEL_TURNS,
             refreshContext: (claim, beforeModel) =>
-              Effect.runPromiseWith(services)(
+              execute(
                 Effect.gen(function* () {
-                  const saved = beforeModel
-                    ? yield* threads.modelHistory({ claim })
-                    : yield* threads.history({
-                        scope: claim.scope,
-                        id: claim.threadId,
-                      })
-                  const normalized = yield* prepareChatHistory({
-                    history: saved,
-                    model,
-                    sandbox: agent.sandboxProviderId !== null,
-                  })
+                  const normalized = yield* preparePhaseHistory(claim, beforeModel)
                   files.splice(0, files.length, ...normalized.files)
                   inputMessages.splice(0, inputMessages.length, ...normalized.projected)
                   if (session) yield* session.prepareUploads(files)
@@ -296,15 +309,7 @@ export class Chat extends Context.Service<
                     providerMessages: convertMessagesToModelMessages(normalized.messages),
                     tools,
                     systemPrompts,
-                    steeringMessageIds: beforeModel
-                      ? saved
-                          .filter(
-                            (message) =>
-                              message.payload.steering?.appliedToMessageId ===
-                              claim.assistantMessageId,
-                          )
-                          .map((message) => message.id)
-                      : [],
+                    steeringMessageIds: normalized.steeringMessageIds,
                   }
                 }),
               ),
@@ -376,18 +381,8 @@ export class Chat extends Context.Service<
                   acceptedMessageId: undefined,
                   threadVersion: managed.state.version,
                 }
-                const saved = await Effect.runPromiseWith(services)(
-                  threads.history({ scope: execution.claim.scope, id: execution.claim.threadId }),
-                )
-                const normalized = await Effect.runPromiseWith(services)(
-                  prepareChatHistory({
-                    history: saved,
-                    model,
-                    sandbox: agent.sandboxProviderId !== null,
-                  }),
-                )
-                phaseMessages = normalized.messages
-                managed = createManagedPhase(normalized.messages)
+                phaseMessages = (await execute(preparePhaseHistory(execution.claim))).messages
+                managed = createManagedPhase(phaseMessages)
               }
             })
           }),

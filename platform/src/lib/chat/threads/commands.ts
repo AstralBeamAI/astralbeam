@@ -1,5 +1,5 @@
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
-import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
+import { Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
@@ -13,7 +13,7 @@ import {
   ChatThreadForbidden,
   ChatThreadInvalid,
   ChatThreadNotFound,
-  type ChatThreadError,
+  ChatThreadErrorSchema,
 } from "./errors"
 import { chatStoredJson } from "./projection"
 import {
@@ -59,6 +59,7 @@ const chatQuestionnaireArguments = Schema.fromJsonString(
 )
 const chatWidgetOutput = Schema.Struct({ widget: Schema.String, rendered: Schema.Boolean })
 const chatWidgetArguments = Schema.fromJsonString(Schema.Struct({ widget: Schema.String }))
+const chatAdmissionErrors = Schema.Union([ChatThreadErrorSchema, ChatAttachmentsDisabled])
 const chatAdmissionOperation = {
   name: "ChatAdmission/v1",
   parameters: Schema.Struct({
@@ -69,7 +70,7 @@ const chatAdmissionOperation = {
     agentId: Schema.optionalKey(Schema.String),
   }),
   success: ChatSubmissionReceiptSchema,
-  error: Schema.Never,
+  error: chatAdmissionErrors,
 }
 
 function storedResponseSchema(value: typeof Schema.Json.Type) {
@@ -138,7 +139,6 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   }
   const thread = yield* threads.get({ scope, id })
   let admission: ChatAdmission | undefined
-  let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
     id,
     parts,
@@ -191,27 +191,11 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
             namespace: "chat",
             scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
             key: input.idempotencyKey,
+            cacheFailures: false,
             operation: chatAdmissionOperation,
             parameters,
           },
-          (command) =>
-            accept(command).pipe(
-              Effect.catch((error) => {
-                // Rejected admission must not retain input. The shared helper caches typed failures.
-                // Restore this uncached failure after the transaction. See ../../../db/README.md#idempotent-database-writes.
-                rejected = error
-                return Effect.die(error)
-              }),
-            ),
-        ).pipe(
-          Effect.catchCause((cause) =>
-            rejected &&
-            cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected)
-              ? Effect.fail<
-                  ChatThreadError | ChatAttachmentsDisabled | Cause.Cause.Error<typeof cause>
-                >(rejected)
-              : Effect.failCause(cause),
-          ),
+          accept,
         )
   return { admission, receipt, clientId: options.clientId }
 })
@@ -225,7 +209,7 @@ const chatSteeringOperation = {
     parts: ChatUserPartsSchema,
   }),
   success: ChatSubmissionReceiptSchema,
-  error: Schema.Never,
+  error: chatAdmissionErrors,
 }
 
 export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(function* (input: {
@@ -239,13 +223,13 @@ export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(functi
   const threads = yield* ChatThreads
   const agents = yield* Agents
   const thread = yield* threads.get(input)
-  let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const { scope, idempotencyKey, ...parameters } = input
   return yield* withDatabaseIdempotency(
     {
       namespace: "chat",
       scope: [scope.organizationId, scope.tenantId, thread.id, scope.tenantUserId].join(":"),
       key: idempotencyKey,
+      cacheFailures: false,
       operation: chatSteeringOperation,
       parameters,
     },
@@ -269,7 +253,7 @@ export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(functi
           return yield* new ChatAttachmentsDisabled()
         if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
           return yield* new ChatThreadInvalid()
-        const accepted = yield* threads.steer({
+        return yield* threads.steer({
           scope,
           id: command.id,
           turnMessageId: command.turnMessageId,
@@ -279,26 +263,7 @@ export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(functi
             parts: command.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
           },
         })
-        return {
-          threadId: accepted.thread.id,
-          acceptedMessageId: accepted.message.id,
-          threadVersion: accepted.thread.lockVersion,
-        }
-      }).pipe(
-        Effect.catch((error) => {
-          rejected = error
-          return Effect.die(error)
-        }),
-      ),
-  ).pipe(
-    Effect.catchCause((cause) =>
-      rejected &&
-      cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected)
-        ? Effect.fail<ChatThreadError | ChatAttachmentsDisabled | Cause.Cause.Error<typeof cause>>(
-            rejected,
-          )
-        : Effect.failCause(cause),
-    ),
+      }),
   )
 })
 
