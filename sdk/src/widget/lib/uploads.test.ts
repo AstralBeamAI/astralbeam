@@ -39,8 +39,10 @@ const draft: DraftAttachment = {
   mimeType: "text/plain",
   kind: "text",
   status: "reading",
+  prepareAttempted: false,
   agentId: "origin-agent",
 }
+const persist = async () => {}
 
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
   const signUploadParts = vi.fn()
@@ -53,6 +55,7 @@ test("wrong-file reselection never signs parts and lets the picker try again", a
     uploads,
     draft: state,
     file: new File(["hello"], "note.txt"),
+    persist,
     settle: (update) => {
       state = { ...state, ...update }
     },
@@ -63,7 +66,7 @@ test("wrong-file reselection never signs parts and lets the picker try again", a
   expect(uploads.previews.size).toBe(0)
   expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:wrong-file")
   expect(signUploadParts).not.toHaveBeenCalled()
-  expect(resumeAttachmentUpload({ uploads, draft: state, settle: () => {} })).toBe(false)
+  expect(resumeAttachmentUpload({ uploads, draft: state, settle: () => {}, persist })).toBe(false)
   disposeAttachmentUploads(uploads)
 })
 
@@ -113,6 +116,7 @@ test("an expired part URL is replaced and progress completes only after server v
     uploads,
     draft: state,
     file: new File(["hello"], "note.txt"),
+    persist,
     settle: (update) => {
       state = { ...state, ...update }
     },
@@ -165,6 +169,7 @@ test("upload work caps two files and four part requests, and pause releases queu
       uploads,
       draft: { ...draft, id, size: file.size, agentId: "origin-agent" },
       file,
+      persist,
       settle: () => {},
     })
   await vi.waitFor(() => expect(requests).toHaveLength(4))
@@ -216,6 +221,7 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
       uploads,
       draft: state,
       file: new File(["hello"], "note.txt"),
+      persist,
       settle: (update) => {
         state = { ...state, ...update }
       },
@@ -240,7 +246,7 @@ test.each([true, false])(
     } as unknown as AstralBeamChatCore)
     uploads.files.set(draft.id, new File(["hello"], "note.txt"))
     const controller = new AbortController()
-    uploads.tasks.set(draft.id, controller)
+    uploads.tasks.set(draft.id, { controller, prepareAttempted: !known })
     const pending = {
       ...draft,
       ...(known ? { sessionId: "pending" } : {}),
@@ -252,6 +258,79 @@ test.each([true, false])(
     expect(cancelUpload).toHaveBeenCalledExactlyOnceWith(known ? "pending" : draft.id)
     await removeAttachmentUpload({ uploads, draft: pending })
     expect(cancelUpload).toHaveBeenCalledTimes(2)
+    disposeAttachmentUploads(uploads)
+  },
+)
+
+test("failed preparation metadata keeps local and inline files removable offline", async () => {
+  const prepareUpload = vi.fn()
+  const cancelPreparedUpload = vi.fn(() => Promise.reject(new Error("Offline")))
+  const uploads = attachmentUploadState({
+    prepareUpload,
+    cancelPreparedUpload,
+  } as unknown as AstralBeamChatCore)
+  let state = { ...draft }
+  startAttachmentUpload({
+    uploads,
+    draft: state,
+    file: new File(["hello"], "note.txt"),
+    settle: (update) => {
+      state = { ...state, ...update }
+    },
+    persist: () => Promise.reject(new Error("Draft storage unavailable")),
+  })
+  await vi.waitFor(() => expect(state.status).toBe("error"))
+  expect(prepareUpload).not.toHaveBeenCalled()
+  for (const file of [
+    state,
+    { ...draft, status: "ready" as const, data: "aGVsbG8=" },
+    { ...draft, kind: undefined },
+  ])
+    await removeAttachmentUpload({ uploads, draft: file })
+  expect(cancelPreparedUpload).not.toHaveBeenCalled()
+  disposeAttachmentUploads(uploads)
+})
+
+test.each([false, true])(
+  "removal waits for preparation writes, including an immediate retry: %s",
+  async (retry) => {
+    let finish = () => {}
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    let stored: DraftAttachment[] = []
+    const persist = vi.fn(async (file: DraftAttachment) => {
+      if (file.prepareAttempted) await gate
+      stored = [file]
+    })
+    const prepareUpload = vi.fn()
+    const cancelPreparedUpload = vi.fn()
+    const uploads = attachmentUploadState({
+      prepareUpload,
+      cancelPreparedUpload,
+    } as unknown as AstralBeamChatCore)
+    startAttachmentUpload({
+      uploads,
+      draft,
+      file: new File(["hello"], "note.txt"),
+      settle: () => {},
+      persist,
+    })
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    if (retry) resumeAttachmentUpload({ uploads, draft, settle: () => {}, persist })
+    let removed = false
+    const removal = removeAttachmentUpload({ uploads, draft }).then(() => {
+      stored = []
+      removed = true
+    })
+    await Promise.resolve()
+    expect(removed).toBe(false)
+    finish()
+    await removal
+    expect(stored).toEqual([])
+    expect(prepareUpload).not.toHaveBeenCalled()
+    expect(cancelPreparedUpload).not.toHaveBeenCalled()
+    expect(persist.mock.calls.at(-1)?.[0].prepareAttempted).toBe(false)
     disposeAttachmentUploads(uploads)
   },
 )
@@ -270,15 +349,32 @@ test("an uncertain preparation retries the same attachment key and retains a pre
   const settle = (update: Partial<DraftAttachment>) => {
     state = { ...state, ...update }
   }
-  startAttachmentUpload({ uploads, draft: state, file: new File(["hello"], "note.txt"), settle })
+  const persisted: DraftAttachment[] = []
+  const persist = (file: DraftAttachment) => {
+    persisted.push(file)
+    return Promise.resolve()
+  }
+  startAttachmentUpload({
+    uploads,
+    draft: state,
+    file: new File(["hello"], "note.txt"),
+    settle,
+    persist,
+  })
   await vi.waitFor(() => expect(state.status).toBe("error"))
-  resumeAttachmentUpload({ uploads, draft: state, settle })
+  resumeAttachmentUpload({ uploads, draft: state, settle, persist })
   await vi.waitFor(() => expect(state.status).toBe("error"), { timeout: 3_000 })
   expect(prepareUpload).toHaveBeenCalledTimes(2)
   for (const [input] of prepareUpload.mock.calls)
     expect(input).toMatchObject({ prepare_key: draft.id, agent_id: "origin-agent" })
   expect(state.sessionId).toBe("upload")
   expect(state.error).toContain("still preparing")
+  expect(persisted).toHaveLength(2)
+  expect(persisted[0]?.prepareAttempted).toBe(true)
+  expect(persisted[0]?.sha256).toHaveLength(64)
+  resumeAttachmentUpload({ uploads, draft: state, settle, persist })
+  await vi.waitFor(() => expect(prepareUpload).toHaveBeenCalledTimes(3))
+  expect(prepareUpload.mock.calls[2]?.[0]).toMatchObject({ prepare_key: draft.id })
   disposeAttachmentUploads(uploads)
 })
 

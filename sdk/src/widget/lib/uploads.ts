@@ -8,6 +8,11 @@ interface UploadSlots {
   limit: number
   waiting: (() => void)[]
 }
+interface UploadTask {
+  controller: AbortController
+  prepareAttempted: boolean
+  preparation?: Promise<void> | undefined
+}
 
 async function withUploadSlot<T>(
   slots: UploadSlots,
@@ -37,7 +42,7 @@ function putPart(url: string, bytes: Blob, signal: AbortSignal, progress: (bytes
       else resolve()
     }
     request.open("PUT", url)
-    request.timeout = 60_000
+    request.timeout = 5 * 60_000
     request.upload.onprogress = (event) => progress(event.loaded)
     request.onload = () =>
       finish(
@@ -61,7 +66,7 @@ export function attachmentUploadState(chat: AstralBeamChatCore) {
   return {
     chat,
     files: new Map<string, File>(),
-    tasks: new Map<string, AbortController>(),
+    tasks: new Map<string, UploadTask>(),
     previews: new Map<string, string>(),
     fileSlots: { active: 0, limit: 2, waiting: [] } as UploadSlots,
     partSlots: { active: 0, limit: 4, waiting: [] } as UploadSlots,
@@ -87,7 +92,7 @@ export function attachmentUploadPreview({
 }
 
 export function pauseAttachmentUpload({ uploads, id }: { uploads: AttachmentUploads; id: string }) {
-  uploads.tasks.get(id)?.abort()
+  uploads.tasks.get(id)?.controller.abort()
 }
 
 export async function getAttachmentUpload({
@@ -174,18 +179,28 @@ export function startAttachmentUpload({
   draft,
   file,
   settle,
+  persist,
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
   file: File
   settle: Settle
+  persist: (draft: DraftAttachment) => Promise<void>
 }) {
   const { chat, files, tasks } = uploads
+  const previous = tasks.get(draft.id)
+  const prepareAttempted =
+    !!draft.sessionId || !!previous?.prepareAttempted || (draft.prepareAttempted ?? !!draft.sha256)
   pauseAttachmentUpload({ uploads, id: draft.id })
   files.set(draft.id, file)
   const controller = new AbortController()
   const signal = controller.signal
-  tasks.set(draft.id, controller)
+  const task: UploadTask = {
+    controller,
+    prepareAttempted,
+    preparation: previous?.preparation?.catch(() => undefined),
+  }
+  tasks.set(draft.id, task)
   settle({
     status: "uploading",
     error: undefined,
@@ -196,6 +211,8 @@ export function startAttachmentUpload({
   void withUploadSlot(
     uploads.fileSlots,
     async () => {
+      await task.preparation
+      signal.throwIfAborted()
       const sha256 = await fingerprint(file)
       signal.throwIfAborted()
       if (
@@ -217,19 +234,31 @@ export function startAttachmentUpload({
         throw new Error("Upload expired or unavailable. Remove it and attach the file again.")
       if (!saved && !draft.agentId)
         throw new Error("The original agent is unavailable. Remove it and attach the file again.")
+      if (!saved || saved.status === "preparing") {
+        task.preparation = (async () => {
+          await persist({ ...draft, prepareAttempted: true, sha256 })
+          if (signal.aborted && !task.prepareAttempted)
+            await persist({ ...draft, prepareAttempted: false, sha256 })
+        })()
+        await task.preparation
+        signal.throwIfAborted()
+        task.prepareAttempted = true
+        settle({ prepareAttempted: true, sha256 })
+      }
       const session =
-        saved ??
-        (await chat.prepareUpload(
-          {
-            prepare_key: draft.id,
-            filename: draft.name,
-            content_type: draft.mimeType,
-            byte_size: file.size,
-            sha256,
-            ...(draft.agentId ? { agent_id: draft.agentId } : {}),
-          },
-          signal,
-        ))
+        saved && saved.status !== "preparing"
+          ? saved
+          : await chat.prepareUpload(
+              {
+                prepare_key: draft.id,
+                filename: draft.name,
+                content_type: draft.mimeType,
+                byte_size: file.size,
+                sha256,
+                ...(draft.agentId ? { agent_id: draft.agentId } : {}),
+              },
+              signal,
+            )
       settle({ sessionId: session.id, sha256 })
       await uploadParts({
         uploads,
@@ -249,7 +278,7 @@ export function startAttachmentUpload({
     signal,
   )
     .catch((error: unknown) => {
-      if (tasks.get(draft.id) !== controller) return
+      if (tasks.get(draft.id) !== task) return
       const paused = signal.aborted
       controller.abort()
       settle(
@@ -262,20 +291,22 @@ export function startAttachmentUpload({
       )
     })
     .finally(() => {
-      if (tasks.get(draft.id) === controller) tasks.delete(draft.id)
+      if (tasks.get(draft.id) === task && !task.prepareAttempted) tasks.delete(draft.id)
     })
 }
 export function resumeAttachmentUpload({
   uploads,
   draft,
   settle,
+  persist,
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
   settle: Settle
+  persist: (draft: DraftAttachment) => Promise<void>
 }) {
   const file = uploads.files.get(draft.id)
-  if (file) startAttachmentUpload({ uploads, draft, file, settle })
+  if (file) startAttachmentUpload({ uploads, draft, file, settle, persist })
   return !!file
 }
 
@@ -301,13 +332,18 @@ export async function removeAttachmentUpload({
   uploads: AttachmentUploads
   draft: DraftAttachment
 }) {
+  const task = uploads.tasks.get(draft.id)
   releaseAttachmentUpload({ uploads, id: draft.id })
+  await task?.preparation?.catch(() => undefined)
+  const attempted = task?.prepareAttempted ?? draft.prepareAttempted ?? !!draft.sha256
+  if (!draft.sessionId && !attempted) return
   await (
     draft.sessionId
       ? uploads.chat.cancelUpload(draft.sessionId)
       : uploads.chat.cancelPreparedUpload(draft.id)
   ).catch((error: unknown) => {
     if (isAstralBeamApiError(error) && error.status === 404) return
+    if (task?.prepareAttempted && !uploads.tasks.has(draft.id)) uploads.tasks.set(draft.id, task)
     throw error
   })
 }
@@ -325,12 +361,21 @@ export async function discardAttachmentUploads({
   threadId: string
   attachments: readonly DraftAttachment[]
 }) {
-  for (const file of attachments) releaseAttachmentUpload({ uploads, id: file.id })
   const persisted = await storedThreadAttachments({ apiUrl, identity, threadId })
-  const files = new Map([...persisted, ...attachments].map((file) => [file.id, file]))
+  const files = new Map(persisted.map((file) => [file.id, file]))
+  for (const file of attachments)
+    files.set(file.id, {
+      ...file,
+      prepareAttempted:
+        (file.prepareAttempted || files.get(file.id)?.prepareAttempted) ?? file.prepareAttempted,
+    })
   await Promise.all(
     [...files.values()].map(async (file) => {
+      const task = uploads.tasks.get(file.id)
       releaseAttachmentUpload({ uploads, id: file.id })
+      await task?.preparation?.catch(() => undefined)
+      const attempted = task?.prepareAttempted ?? file.prepareAttempted ?? !!file.sha256
+      if (!file.sessionId && !attempted) return
       await (
         file.sessionId
           ? uploads.chat.cancelUpload(file.sessionId)
@@ -355,7 +400,7 @@ export async function discardAttachmentUploads({
 }
 
 export function disposeAttachmentUploads(uploads: AttachmentUploads) {
-  for (const task of uploads.tasks.values()) task.abort()
+  for (const task of uploads.tasks.values()) task.controller.abort()
   uploads.tasks.clear()
   uploads.files.clear()
   for (const url of uploads.previews.values()) URL.revokeObjectURL(url)

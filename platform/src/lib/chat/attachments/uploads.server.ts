@@ -147,6 +147,32 @@ export class Uploads extends Context.Service<
                     existing.sha256 !== input.sha256
                   )
                     return yield* new UploadConflict()
+                  if (existing.status === "preparing") {
+                    const [claimed] = yield* tx
+                      .update(fileUpload)
+                      .set({
+                        objectKey: `upload-staging/${crypto.randomUUID()}`,
+                        updatedAt: sql`now()`,
+                      })
+                      .where(
+                        and(
+                          uploadOwnerWhere(scope, existing.id),
+                          eq(fileUpload.status, "preparing"),
+                          eq(fileUpload.objectKey, existing.objectKey),
+                          // Multipart creation is bounded to 30 seconds. A new key fences late creators.
+                          lte(fileUpload.updatedAt, sql`now() - interval '30 seconds'`),
+                          gt(fileUpload.expiresAt, sql`now()`),
+                        ),
+                      )
+                      .returning()
+                    if (claimed) {
+                      yield* tx
+                        .insert(multipartDeletion)
+                        .values({ objectKey: existing.objectKey })
+                        .onConflictDoNothing()
+                      return { row: claimed, created: true }
+                    }
+                  }
                   return { row: existing, created: false }
                 }
               }
@@ -197,29 +223,51 @@ export class Uploads extends Context.Service<
           .pipe(mapDatabaseErrors())
         const { row } = prepared
         if (!prepared.created) return uploadResource(row)
+        let uploadId: string | undefined
         return yield* Effect.gen(function* () {
-          const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
+          uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
           const [pending] = yield* db
             .update(fileUpload)
             .set({ uploadId, status: "pending" })
-            .where(and(uploadOwnerWhere(scope, row.id), eq(fileUpload.status, "preparing")))
+            .where(
+              and(
+                uploadOwnerWhere(scope, row.id),
+                eq(fileUpload.status, "preparing"),
+                eq(fileUpload.objectKey, row.objectKey),
+                gt(fileUpload.expiresAt, sql`now()`),
+              ),
+            )
             .returning()
             .pipe(mapDatabaseErrors())
-          if (!pending) {
-            yield* db
-              .insert(multipartDeletion)
-              .values({ objectKey: row.objectKey, uploadId })
-              .onConflictDoNothing()
-              .pipe(mapDatabaseErrors())
-            return yield* new UploadConflict()
-          }
+          if (!pending) return yield* new UploadConflict()
           return uploadResource(pending)
         }).pipe(
           Effect.onError(() =>
-            db
-              .delete(fileUpload)
-              .where(and(uploadOwnerWhere(scope, row.id), eq(fileUpload.status, "preparing")))
-              .pipe(mapDatabaseErrors(), Effect.asVoid),
+            Effect.gen(function* () {
+              yield* db
+                .delete(fileUpload)
+                .where(
+                  and(
+                    uploadOwnerWhere(scope, row.id),
+                    eq(fileUpload.status, "preparing"),
+                    eq(fileUpload.objectKey, row.objectKey),
+                  ),
+                )
+                .pipe(mapDatabaseErrors())
+              // A fresh deletion ID prevents an older cleanup from acknowledging a late creation.
+              yield* db
+                .execute(sql`
+                insert into ${multipartDeletion} (object_key, upload_id)
+                select ${row.objectKey}, ${uploadId ?? null} where not exists (
+                  select 1 from ${fileUpload} where ${fileUpload.objectKey} = ${row.objectKey}
+                    and ${fileUpload.status} in ('preparing', 'pending', 'completing')
+                    and ${fileUpload.expiresAt} > now()
+                ) on conflict (object_key) do update set
+                  id = uuidv7(), upload_id = null, updated_at = now(),
+                  retry_at = least(${multipartDeletion.retryAt}, now() + interval '1 minute')
+              `)
+                .pipe(mapDatabaseErrors())
+            }),
           ),
         )
       })
