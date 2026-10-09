@@ -277,6 +277,7 @@ export function releaseAttachmentUpload({
   id: string
 }) {
   pauseAttachmentUpload({ uploads, id })
+  uploads.tasks.delete(id)
   uploads.files.delete(id)
   const url = uploads.previews.get(id)
   if (url) URL.revokeObjectURL(url)

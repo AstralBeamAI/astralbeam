@@ -493,13 +493,22 @@ test("failed removal survives reload and retries cancellation", async ({ page })
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
   let cancellations = 0
+  let rejectRemoval = () => {}
   await page.route("**/api/v1/chat/uploads/*", async (route) => {
     if (route.request().method() !== "DELETE") return route.continue()
     cancellations++
-    if (cancellations === 1) return route.fulfill({ status: 503, json: { error: "Unavailable" } })
+    if (cancellations === 1) {
+      await new Promise<void>((resolve) => {
+        rejectRemoval = resolve
+      })
+      return route.fulfill({ status: 503, json: { error: "Unavailable" } })
+    }
     await route.continue()
   })
   await chat.attachmentChip(note.name).click()
+  await expect.poll(() => cancellations).toBe(1)
+  await expect(chat.sendButton()).toBeDisabled()
+  rejectRemoval()
   await expect(page.getByText("Removal failed. Try Remove again.", { exact: true })).toBeVisible()
   await captureMoment(page, "failed-file-removal-retains-the-draft")
   await page.reload()
