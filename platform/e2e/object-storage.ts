@@ -9,9 +9,16 @@ export async function startBrowserStorageFixture(state: {
   const server = createServer((request, response) => {
     const respond = async () => {
       if (state.inspect) await state.inspect()
-      const key = new URL(request.url!, "http://localhost").pathname
+      const url = new URL(request.url!, "http://localhost")
+      const key = url.pathname
       if (!key.startsWith("/storage/v1/s3/")) {
         response.writeHead(404).end()
+        return
+      }
+      if (url.searchParams.has("versions")) {
+        response
+          .writeHead(501, { "Content-Type": "application/xml" })
+          .end("<Error><Code>NotImplemented</Code></Error>")
         return
       }
       if (request.method === "PUT") {

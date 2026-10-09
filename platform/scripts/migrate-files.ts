@@ -115,7 +115,11 @@ try {
           for (const row of rows) {
             if (mode === "migrate") {
               const result = yield* profiles
-                .migrate({ kind: isAvatar ? "avatar" : "logo", id: row.id }, row.source, row.email)
+                .migrate({
+                  owner: { kind: isAvatar ? "avatar" : "logo", id: row.id },
+                  source: row.source,
+                  email: row.email,
+                })
                 .pipe(
                   Effect.tapError((error) =>
                     Effect.sync(() =>
@@ -128,8 +132,8 @@ try {
               counts[result] += 1
               console.log(`${tableName} ${row.id}: ${result}`)
             } else if (row.source) {
-              if (isAvatar) yield* profiles.validateAvatar(row.id, row.source)
-              else yield* profiles.validateLogo(row.id, row.source)
+              if (isAvatar) yield* profiles.validateAvatar({ userId: row.id, image: row.source })
+              else yield* profiles.validateLogo({ organizationId: row.id, image: row.source })
               const association = isAvatar ? userAvatar : organizationLogo
               const ownerId = isAvatar ? userAvatar.userId : organizationLogo.organizationId
               const [stored] = yield* db

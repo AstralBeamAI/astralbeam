@@ -1,13 +1,8 @@
-import { Cron, Effect, Layer } from "effect"
+import { Cron, Layer } from "effect"
 import { ClusterCron } from "effect/cluster"
 
-import { ProfileFiles } from "@/lib/storage/profile-files.server"
-import { Uploads } from "@/lib/chat/attachments/uploads.server"
-import { StoredFiles } from "@/lib/storage/stored-files.server"
-
-import { reportStorageHealth } from "@/lib/storage/health.server"
-
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
+import fileMaintenance from "./file-maintenance.server.ts"
 
 export const scheduledWorkflowsLayer = Layer.mergeAll(
   ClusterCron.make({
@@ -22,11 +17,6 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     cron: Cron.parseUnsafe("0 * * * * *", "UTC"),
     calculateNextRunFromPrevious: false,
     skipIfOlderThan: "10 minutes",
-    execute: Effect.gen(function* () {
-      yield* reportStorageHealth
-      yield* (yield* StoredFiles).cleanup
-      yield* (yield* ProfileFiles).processImports
-      yield* (yield* Uploads).maintenance
-    }),
+    execute: fileMaintenance,
   }),
 )

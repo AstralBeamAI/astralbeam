@@ -8,6 +8,7 @@ import { ChatThreadStorageUnavailable } from "./errors"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { StorageObjectMissing } from "@/lib/storage/errors"
+import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
 import { chatFile, fileObject, fileDeletion } from "@/db/schema.server"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
@@ -338,6 +339,51 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       content: { opaque: true },
     })
   })
+
+  test.each([
+    { byteSize: CHAT_ATTACHMENT_MAX_TOTAL_BYTES + 1, count: 1, decodes: 0 },
+    { byteSize: 11 * 1024 * 1024, count: 2, decodes: 1 },
+  ])(
+    "bounds inline decoding for $count files in checkpoints and admission",
+    async ({ byteSize, count, decodes }) => {
+      const thread = await create()
+      const files = await runtime.runPromise(ChatFiles)
+      const owner = { ...scope, threadId: thread.id }
+      const media = {
+        id: crypto.randomUUID(),
+        type: "document",
+        source: {
+          type: "data",
+          value: "A".repeat(Math.ceil((byteSize * 4) / 3)),
+          mimeType: "text/plain",
+        },
+      }
+      const parts = Array.from({ length: count }, () => ({ ...media, id: crypto.randomUUID() }))
+      const decode = vi.spyOn(globalThis, "atob")
+      try {
+        for (const operation of [
+          files.externalize(owner, { version: 1, parts }).pipe(Effect.asVoid),
+          files
+            .externalize(owner, {
+              version: 1,
+              parts: [],
+              modelMessages: [{ role: "assistant", content: parts }],
+            })
+            .pipe(Effect.asVoid),
+          files.identity(owner, parts).pipe(Effect.asVoid),
+        ]) {
+          decode.mockClear()
+          expect(await runtime.runPromise(operation.pipe(Effect.result))).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "ChatThreadInvalid" },
+          })
+          expect(decode).toHaveBeenCalledTimes(decodes)
+        }
+      } finally {
+        decode.mockRestore()
+      }
+    },
+  )
 
   test("unchanged checkpoints reuse exact verified identities while migration still reads back", async () => {
     const thread = await create()
