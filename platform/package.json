@@ -101,6 +101,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-email": "^6.11.1",
+    "redos-detector": "^6.1.4",
     "resend": "^6.33.0",
     "shadcn": "^4.21.5",
     "sharp": "^0.35.5",
