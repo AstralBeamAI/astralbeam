@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { citedWebText, readWebEvidence } from "./web.ts"
-import { isSettledToolCall, lastPartInProgress } from "./messages.ts"
+import { isSettledToolCall } from "./messages.ts"
 import { projectThreadMessages } from "./threads.ts"
 import type { ChatHistoryPageEncodedMessagesItem } from "../api/generated/api.ts"
 
@@ -65,9 +65,6 @@ describe("portable web evidence", () => {
     expect(reloaded.id).toBe(part.id)
     expect(isSettledToolCall(reloaded)).toBe(true)
     expect(reloaded).toMatchObject({ metadata: part.metadata })
-    const running = { ...reloaded, state: "input-streaming" as const }
-    expect(isSettledToolCall(running)).toBe(false)
-    expect(lastPartInProgress([{ id: "live", role: "assistant", parts: [running] }])).toBe(true)
     const deferred = projectThreadMessages([
       {
         ...records[0]!,

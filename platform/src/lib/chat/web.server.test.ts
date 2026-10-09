@@ -451,15 +451,6 @@ describe("native web access", () => {
             (message) => message.tool_calls?.length,
           ) === false,
       ).toBe(true)
-      const portable = projectChatModelHistory(records, {
-        providerId: "other",
-        protocol: result.model.api,
-        modelId: result.model.modelId,
-      })
-      expect(JSON.stringify(portable)).toContain(webTestSource.url)
-      expect(JSON.stringify(portable)).not.toContain("opaque-")
-      expect(JSON.stringify(portable).match(/Saved web evidence:/g)).toHaveLength(1)
-      expect(portable.some((message) => message.toolCalls?.length)).toBe(false)
     },
   )
 

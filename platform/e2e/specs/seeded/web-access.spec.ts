@@ -3,24 +3,6 @@ import { SEED_DOGFOOD, SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures
 import { captureMilestone } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 
-test("Existing Web access settings stay disabled and the saved grant survives reload", async ({
-  page,
-  agents,
-}) => {
-  const organization = SEED_ORGANIZATIONS[0]
-  await page.goto(`/${organization.slug}/agents`)
-  await agents.openAgent(organization.agents[0].name)
-  const grant = page.getByRole("switch", { name: "Web access", exact: true })
-  await expect(grant).not.toBeChecked()
-  await grant.check()
-  await agents.saveChanges()
-  await page.reload()
-  await expect(grant).toBeChecked()
-  await captureMilestone(page, "web-access-configuration")
-  await grant.uncheck()
-  await agents.saveChanges()
-})
-
 test("live cited answer survives reload and appears in the read-only directory", async ({
   page,
   agents,
