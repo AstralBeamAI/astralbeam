@@ -87,7 +87,10 @@ const chatAdmissionOperation = {
   error: Schema.Never,
 }
 
-function storedResponseSchema(value: typeof Schema.Json.Type) {
+function storedResponseSchema(
+  value: typeof Schema.Json.Type,
+  patternBudget: { remaining: number },
+) {
   return Effect.try({
     try: () =>
       SchemaRepresentation.fromJsonSchemaDocument(
@@ -99,7 +102,8 @@ function storedResponseSchema(value: typeof Schema.Json.Type) {
             for (const pattern of [schema.pattern, ...Object.keys(schema.patternProperties ?? {})])
               if (
                 typeof pattern === "string" &&
-                (pattern.length > 1024 ||
+                (--patternBudget.remaining < 0 ||
+                  pattern.length > 1024 ||
                   !isSafePattern(pattern, { unicode: true, timeout: 25, downgradePattern: false })
                     .safe)
               )
@@ -174,13 +178,15 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       ),
     catch: () => new ChatThreadInvalid(),
   })
+  const patternBudget = { remaining: 32 }
   for (const tool of tools) {
-    if (tool.outputSchema !== undefined) yield* storedResponseSchema(tool.outputSchema)
+    if (tool.outputSchema !== undefined)
+      yield* storedResponseSchema(tool.outputSchema, patternBudget)
     const descriptor = Schema.is(Schema.JsonObject)(tool.metadata)
       ? tool.metadata.astralbeam
       : undefined
     if (Schema.is(Schema.JsonObject)(descriptor) && descriptor.outputSchema !== undefined)
-      yield* storedResponseSchema(descriptor.outputSchema)
+      yield* storedResponseSchema(descriptor.outputSchema, patternBudget)
   }
   const thread = yield* threads.get({ scope, id })
   let admission: ChatAdmission | undefined
@@ -333,6 +339,7 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
 ) {
   const threads = yield* ChatThreads
   const results: ChatToolResolution[] = []
+  const patternBudget = { remaining: 32 }
   for (const result of input.results) {
     const source = yield* threads.getMessage({
       scope: input.scope,
@@ -381,7 +388,7 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
       declaration.outputSchema !== undefined &&
       !nativeOutput?.isError
     ) {
-      const schema = yield* storedResponseSchema(declaration.outputSchema)
+      const schema = yield* storedResponseSchema(declaration.outputSchema, patternBudget)
       yield* Schema.decodeUnknownEffect(schema)(native ? nativeOutput?.structuredContent : output, {
         onExcessProperty: "error",
       }).pipe(Effect.mapError(() => new ChatThreadInvalid()))

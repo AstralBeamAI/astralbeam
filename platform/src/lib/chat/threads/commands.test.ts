@@ -90,6 +90,24 @@ describe("managed conversation commands", () => {
       }).pipe(Effect.result)
       assert.equal(invalid._tag, "Failure")
       assert.lengthOf(admitted, 2)
+      const excessivePatterns = yield* prepareManagedChat({
+        ...input,
+        params: {
+          ...commandParams,
+          tools: ["first", "second"].map((name) => ({
+            ...params.tools[0]!,
+            name,
+            outputSchema: {
+              type: "object",
+              patternProperties: Object.fromEntries(
+                Array.from({ length: 17 }, (_, index) => [`^key${index}$`, { type: "string" }]),
+              ),
+            },
+          })),
+        },
+      }).pipe(Effect.result)
+      assert.equal(excessivePatterns._tag, "Failure")
+      assert.lengthOf(admitted, 2)
       for (const source of [
         { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
         {

@@ -83,3 +83,4 @@
 - Preserve part IDs across streaming and final snapshots, but allow draft positions to change when final reasoning precedes streamed text. Reorder transactionally without violating unique positions, and never drop an already saved part.
 - Preserve opaque provider context in storage, but replay it only with the same provider instance, API protocol, and model. Configuration changes use portable canonical parts with original uploads and tool-call/result identities.
 - Validate versioned SDK results against their saved declaration, keep UI data in saved results, and strip it from every model projection path. Never infer result versions from property names.
+- Limit regex safety analysis to 32 patterns across each admission or tool-resolution request, with the existing 25 ms per-pattern timeout. A per-pattern timeout alone does not bound aggregate work from untrusted declarations.
