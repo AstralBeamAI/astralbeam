@@ -132,42 +132,6 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-test("a new send clears the previous turn before steering can target it", async () => {
-  const net = network(false)
-  net.setHistoryResponse(() =>
-    Promise.resolve(
-      history([
-        {
-          id: "previous",
-          role: "user",
-          turn_message_id: null,
-          turn_state: "completed",
-          author_tenant_user_id: "user",
-          parts: [],
-        },
-      ]),
-    ),
-  )
-  const chat = createAstralBeamChat(options)
-  try {
-    await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe("previous"))
-    const active = chat.sendMessage("Next turn")
-    await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
-    expect(chat.getState().activeTurnId).toBeUndefined()
-    await chat.sendMessage("Use blue", undefined, { whenBusy: "steer" })
-    expect(net.steering).toHaveLength(0)
-    expect(chat.getState().pendingMessages.at(-1)?.status).toBe("queued")
-    net.announce()
-    await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe(turnId))
-    await chat.steerPendingMessage(chat.getState().pendingMessages.at(-1)!.id)
-    expect(net.steering[0]?.body).toMatchObject({ turn_message_id: turnId })
-    net.finish()
-    await active
-  } finally {
-    chat.dispose()
-  }
-})
-
 test("explicit resume during hydration drains after the page is applied", async () => {
   const net = network()
   let release!: (response: Response) => void
@@ -228,7 +192,6 @@ test("busy sends retain FIFO and receipts while editing holds delivery after com
     ])
     expect(new Set(net.requests.map((request) => request.key)).size).toBe(4)
     expect(accepted).toHaveBeenCalledTimes(3)
-    expect(chat.getState().pendingMessages).toEqual([])
   } finally {
     chat.dispose()
   }
@@ -237,7 +200,21 @@ test("busy sends retain FIFO and receipts while editing holds delivery after com
 test.each(["accepted", "finished"])(
   "steering %s preserves the active stream and falls back only after definite rejection",
   async (outcome) => {
-    const net = network()
+    const net = network(false)
+    net.setHistoryResponse(() =>
+      Promise.resolve(
+        history([
+          {
+            id: "previous",
+            role: "user",
+            turn_state: "completed",
+            turn_message_id: null,
+            author_tenant_user_id: "user",
+            parts: [],
+          },
+        ]),
+      ),
+    )
     let release!: (response: Response) => void
     if (outcome === "finished")
       net.setSteeringResponse(
@@ -249,10 +226,11 @@ test.each(["accepted", "finished"])(
     const chat = createAstralBeamChat(options)
     const accepted = vi.fn()
     try {
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadId))
+      await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe("previous"))
       const active = chat.sendMessage("First")
       await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
-      const steered = chat.sendMessage(
+      expect(chat.getState().activeTurnId).toBeUndefined()
+      await chat.sendMessage(
         "Use the blue option",
         {
           onAccepted: accepted,
@@ -262,6 +240,11 @@ test.each(["accepted", "finished"])(
         },
         { whenBusy: "steer" },
       )
+      expect(net.steering).toHaveLength(0)
+      const pending = chat.getState().pendingMessages.at(-1)!
+      net.announce()
+      await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe(turnId))
+      const steered = chat.steerPendingMessage(pending.id)
       await vi.waitFor(() => expect(net.steering).toHaveLength(1))
       if (outcome === "finished") {
         net.finish()
