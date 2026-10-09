@@ -61,7 +61,8 @@ test("definitions retain transformed input and inferred result types through wid
     }),
   } satisfies WidgetRegistry
   expectTypeOf(widgets.card.tools).toEqualTypeOf<typeof tools | undefined>()
-  expect(
-    tools.missing.execute({}, { signal: new AbortController().signal, invocationId: "test" }),
-  ).toMatchObject({ content: [{ type: "text", text: "Not found" }], isError: true })
+  expect(tools.missing.execute({}, { signal: new AbortController().signal })).toMatchObject({
+    content: [{ type: "text", text: "Not found" }],
+    isError: true,
+  })
 })

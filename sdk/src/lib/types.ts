@@ -76,14 +76,15 @@ export interface ToolContent {
 }
 
 export interface ToolExecutionContext {
-  signal: AbortSignal
-  invocationId: string
+  readonly signal: AbortSignal
+  readonly invocationId?: string
 }
 
 export interface WidgetContext<
   Input = Record<string, unknown>,
   Tools extends ToolRegistry = ToolRegistry,
 > extends ToolExecutionContext {
+  readonly invocationId: string
   input: Input
   result?: ToolResult
   status: "pending" | "complete" | "error" | "cancelled"

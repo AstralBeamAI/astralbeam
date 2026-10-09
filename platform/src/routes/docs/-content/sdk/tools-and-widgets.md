@@ -28,7 +28,7 @@ const tools = {
 
 - The object key is the unique, stable tool name. `title` labels the transcript. `annotations` carry advisory behavior hints, such as `readOnlyHint` and `destructiveHint`.
 - `visibility` defaults to `["model", "app"]`. An app-only tool can be called from widgets without being declared to the model.
-- `execute(input, context)` receives validated input, `context.invocationId`, and `context.signal`. Cancellation cannot undo a completed mutation.
+- `execute(input, context)` receives validated input and a required `context.signal`. `context.invocationId` is optional. Implementations may omit unused callback parameters. Cancellation cannot undo a completed mutation.
 - Return model-safe object data directly, including typed domain objects. The SDK supplies `structuredContent` and a JSON text fallback.
 - `outputSchema` validates successful `structuredContent`. Return `toolResult({ content: "Not found", isError: true })` for a known failure.
 - Return JSON-compatible values without `undefined`. A thrown error leaves the outcome unknown because the action may already have changed external state.
