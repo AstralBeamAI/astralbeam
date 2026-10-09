@@ -17,13 +17,21 @@ describe("portable web evidence", () => {
             startIndex: 3,
             endIndex: content.length,
           },
+          {
+            url: "https://example.com/second",
+            title: "Second",
+            startIndex: 3,
+            endIndex: content.length,
+          },
           { url: "https://user:secret@example.com/", startIndex: 0, endIndex: 1 },
           { url: "https://example.com/", startIndex: -1, endIndex: 2 },
         ],
       },
     }
     expect(readWebEvidence(metadata).sources).toEqual([])
-    expect(citedWebText(content, metadata)).toBe("🛰 Evidence. [1](https://example.com/a%28b%29)")
+    expect(citedWebText(content, metadata)).toBe(
+      "🛰 Evidence. [1](https://example.com/a%28b%29) [2](https://example.com/second)",
+    )
   })
 
   test("provider activity stays settled with the same saved part identity after reload", () => {
@@ -35,6 +43,7 @@ describe("portable web evidence", () => {
       arguments: "{}",
       state: "complete",
       executionLocation: "provider",
+      providerTurnId: "first-turn",
       targets: [],
       metadata: {
         providerExecuted: true,
@@ -68,5 +77,10 @@ describe("portable web evidence", () => {
       records[0]!,
     ])
     expect(deferred[0]!.parts[0]).toMatchObject({ id: "pending", state: "complete" })
+    const unrelated = projectThreadMessages([
+      { ...records[0]!, parts: [{ ...part, state: "input-complete" }] },
+      { ...records[0]!, id: "another-turn", parts: [{ ...part, providerTurnId: "another-turn" }] },
+    ])
+    expect(unrelated[0]!.parts[0]).toMatchObject({ state: "input-complete" })
   })
 })

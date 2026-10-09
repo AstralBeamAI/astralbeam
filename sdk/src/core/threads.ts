@@ -35,6 +35,7 @@ export interface SavedMessageMetadata {
 export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool-call" }> & {
   metadata?: WebPartMetadata
   executionLocation?: "server_api" | "sandbox" | "browser" | "provider"
+  providerTurnId?: string
   upstreamToolCallId?: string
   applicationPartId?: string
   sourceMessageId?: string
@@ -210,30 +211,23 @@ export function projectThreadMessages(
     })
   }
   const completed = new Map(
-    messages
-      .flatMap((message) => message.parts)
+    [...calls.values()]
       .filter(
         (part) =>
-          part.type === "tool-call" &&
-          (part as ChatToolCallPart).executionLocation === "provider" &&
+          part.executionLocation === "provider" &&
           (part.state === "complete" || part.state === "error"),
       )
-      .map((part) => [(part as ChatToolCallPart).upstreamToolCallId, part as ChatToolCallPart]),
+      .map((part) => [`${part.providerTurnId}:${part.upstreamToolCallId}`, part]),
   )
-  for (const message of messages)
-    for (const part of message.parts) {
-      if (
-        part.type !== "tool-call" ||
-        (part as ChatToolCallPart).executionLocation !== "provider" ||
-        isSettledToolCall(part)
-      )
-        continue
-      const result = completed.get((part as ChatToolCallPart).upstreamToolCallId)
-      if (result) {
-        part.state = result.state
-        part.output = result.state === "error" ? (result.output as unknown) : { sources: [] }
-      }
+  for (const part of calls.values()) {
+    if (part.executionLocation !== "provider" || !part.providerTurnId || isSettledToolCall(part))
+      continue
+    const result = completed.get(`${part.providerTurnId}:${part.upstreamToolCallId}`)
+    if (result) {
+      part.state = result.state
+      part.output = result.state === "error" ? (result.output as unknown) : { sources: [] }
     }
+  }
   return messages
 }
 

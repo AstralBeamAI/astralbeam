@@ -114,6 +114,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           id: crypto.randomUUID(),
           type: "tool-call",
           toolCallId: "provider-search",
+          providerTurnId: accepted.claim!.inputMessageId,
           name: "web_search",
           arguments: "{}",
           executionLocation: "provider",

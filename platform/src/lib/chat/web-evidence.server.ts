@@ -31,7 +31,7 @@ export interface ChatWebObservation {
   usage: ChatWebJson
   stopReason: string | undefined
   requestBody: ChatWebJson | undefined
-  continuation: ChatWebJson | undefined
+  continuation: ChatWebJson[] | undefined
   calls: number
   textOffset: number
 }
@@ -41,9 +41,7 @@ function chatWebRecord(value: unknown): ChatWebJson {
 }
 
 function chatWebArray(value: unknown): (typeof Schema.Json.Type)[] {
-  return Array.isArray(value)
-    ? Schema.decodeUnknownSync(Schema.Array(Schema.Json))(value).slice()
-    : []
+  return Schema.is(Schema.Array(Schema.Json))(value) ? value.slice() : []
 }
 
 function chatWebSource(value: ChatWebJson): ChatWebJson | undefined {
@@ -276,7 +274,7 @@ export async function fetchChatWebProvider(
         Schema.is(Schema.Array(Schema.Json))(raw) &&
         messages[index]
       )
-        messages[index].content = Schema.decodeUnknownSync(Schema.Array(Schema.Json))(raw)
+        messages[index].content = raw
     })
     body.messages = messages
   }
@@ -294,30 +292,27 @@ export async function fetchChatWebProvider(
           chatWebArray(block.annotations),
         )
       if (!Array.isArray(message.content) || !messages[index + offset]) return
-      const documents = message.content.filter(
-        (part) => part.type === "document" && part.source.type === "data",
-      )
+      const documents = message.content.flatMap((part) => {
+        if (part.type !== "document" || part.source.type !== "data") return []
+        const filename = chatWebRecord(part.metadata).filename
+        return [
+          {
+            type: "file",
+            file: {
+              filename: typeof filename === "string" ? filename : "document.pdf",
+              file_data: `data:${part.source.mimeType};base64,${part.source.value}`,
+            },
+          },
+        ]
+      })
       if (!documents.length) return
       const parts = chatWebArray(messages[index + offset]!.content)
       const content = parts.filter((part) => chatWebRecord(part).text !== "[Attached document]")
-      for (const part of documents) {
-        if (part.type !== "document" || part.source.type !== "data") continue
-        content.push({
-          type: "file",
-          file: {
-            filename:
-              typeof chatWebRecord(part.metadata).filename === "string"
-                ? chatWebRecord(part.metadata).filename!
-                : "document.pdf",
-            file_data: `data:${part.source.mimeType};base64,${part.source.value}`,
-          },
-        })
-      }
-      messages[index + offset]!.content = content
+      messages[index + offset]!.content = [...content, ...documents]
     })
     body.messages = messages
   }
-  if (state.continuation) body.messages = state.continuation.messages!
+  if (state.continuation) body.messages = state.continuation
   state.requestBody = body
   const response = await model.fetch(
     new Request(request, { method: "POST", body: JSON.stringify(body) }),

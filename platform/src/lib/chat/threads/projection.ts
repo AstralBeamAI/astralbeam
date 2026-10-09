@@ -168,7 +168,7 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
       id: record.id,
       role: "assistant" as const,
       content: "",
-      parts: record.payload.parts.map((part) => {
+      parts: record.payload.parts.map((part): typeof Schema.JsonObject.Type => {
         const visible = structuredClone(part)
         if (visible.type !== "tool-call" || visible.executionLocation === "provider") return visible
         const results = records.filter(
@@ -214,17 +214,18 @@ export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]
           part.executionLocation === "provider" &&
           (part.state === "complete" || part.state === "error"),
       )
-      .map((part) => [part.toolCallId, part]),
+      .map((part) => [JSON.stringify([part.providerTurnId, part.toolCallId]), part]),
   )
   for (const message of messages)
     for (const part of message.parts) {
       if (
         part.executionLocation !== "provider" ||
+        typeof part.providerTurnId !== "string" ||
         part.state === "complete" ||
         part.state === "error"
       )
         continue
-      const result = completed.get(part.toolCallId)
+      const result = completed.get(JSON.stringify([part.providerTurnId, part.toolCallId]))
       if (result) {
         Object.assign(part, {
           state: result.state,

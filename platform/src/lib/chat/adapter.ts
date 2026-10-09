@@ -132,12 +132,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
         observation.inputJson.clear()
         observation.usage = {}
         observation.stopReason = undefined
-        let finish:
-          | Extract<
-              Awaited<ReturnType<typeof original>> extends AsyncIterable<infer C> ? C : never,
-              { type: "RUN_FINISHED" }
-            >
-          | undefined
+        let finish: Extract<AdapterYieldChunk, { type: "RUN_FINISHED" }> | undefined
         let failure: Extract<AdapterYieldChunk, { type: "RUN_ERROR" }> | undefined
         // The maintained adapter rejects inline documents before serializing their supported wire format.
         // https://github.com/TanStack/ai/blob/main/packages/ai-openrouter/src/adapters/text.ts
@@ -210,12 +205,10 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
             (length, block) => length + (typeof block.text === "string" ? block.text.length : 0),
             0,
           )
-          observation.continuation = {
-            messages: [
-              ...((observation.requestBody?.messages as []) ?? []),
-              { role: "assistant", content: observation.blocks },
-            ],
-          }
+          observation.continuation = [
+            ...((observation.requestBody?.messages as []) ?? []),
+            { role: "assistant", content: observation.blocks },
+          ]
           continue
         }
         observation.blocks = raw

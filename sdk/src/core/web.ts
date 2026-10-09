@@ -76,7 +76,7 @@ export function citedWebText(content: string, metadata: unknown): string {
   let result = content
   for (const [index, citation] of citations
     .map((citation, index) => [index, citation] as const)
-    .sort((a, b) => b[1].endIndex - a[1].endIndex)) {
+    .sort((a, b) => b[1].endIndex - a[1].endIndex || b[0] - a[0])) {
     if (citation.endIndex > content.length) continue
     const url = citation.url.replaceAll("(", "%28").replaceAll(")", "%29")
     result = `${result.slice(0, citation.endIndex)} [${index + 1}](${url})${result.slice(citation.endIndex)}`

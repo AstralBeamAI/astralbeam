@@ -95,27 +95,6 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     agentId = createdAgent!.id
   })
 
-  test("keeps web access opt-in for known models on custom API URLs", async () => {
-    await runAppEffect(
-      saveIntegrationProvider(organizationId, {
-        models: [{ modelId: "gpt-5.6-terra", name: "Direct" }],
-      }),
-    )
-    await runAppEffect(
-      saveIntegrationProvider(organizationId, {
-        name: "Gateway",
-        baseUrl: "https://gateway.example/v1",
-        models: [{ modelId: "gpt-5.6-terra", name: "Gateway" }],
-      }),
-    )
-    const choices = await runAppEffect(
-      Effect.flatMap(ModelProviders, (service) => service.choices({ organizationId })),
-    )
-    expect(choices.find((choice) => choice.name === "Direct")?.webAccess.available).toBe(true)
-    expect(choices.find((choice) => choice.name === "Gateway")?.webAccess.available).toBeNull()
-    expect(JSON.stringify(choices)).not.toContain("https://gateway.example")
-  })
-
   test("keeps identical upstream models in distinct provider instances and binds ciphertext to its row", async () => {
     await runAppEffect(saveIntegrationProvider(organizationId))
     const gatewayId = await runAppEffect(

@@ -113,6 +113,7 @@ function managedToolPart(
     id: toolPartId,
     type: "tool-call",
     toolCallId: nativeId,
+    ...(provider ? { providerTurnId: state.claim.inputMessageId } : {}),
     executionLocation: provider
       ? "provider"
       : browser
@@ -233,7 +234,6 @@ function managedAssistantPayload(
           const citations = Schema.is(Schema.Array(Schema.JsonObject))(state.web.citations)
             ? state.web.citations.flatMap((citation) => {
                 if (
-                  !Schema.is(Schema.JsonObject)(citation) ||
                   typeof citation.endIndex !== "number" ||
                   typeof citation.startIndex !== "number" ||
                   citation.endIndex <= offset ||
@@ -715,15 +715,6 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
             : {}),
           ...chatStoredJson(chunk.metadata ?? {}),
         }
-        const result = Schema.is(Schema.JsonObject)(metadata.anthropic)
-          ? metadata.anthropic.result
-          : undefined
-        if (
-          Schema.is(Schema.JsonObject)(result) &&
-          typeof result.type === "string" &&
-          result.type.endsWith("_error")
-        )
-          metadata.failed = true
         state.nativeParts.set(chunk.toolCallId, {
           ...previous,
           id: chunk.toolCallId,
