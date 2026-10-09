@@ -4654,7 +4654,7 @@
             }
           }
         },
-        "description": "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
+        "description": "Read the selected agent's attachment grant and resolved public agent ID using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it. Bind queued drafts to the resolved ID to preserve their agent if the default changes.",
         "summary": "Get chat capabilities"
       }
     },
@@ -5265,6 +5265,7 @@
             }
           }
         },
+        "description": "Provide prepare_key to recover the same uploader-private session after a lost response. Retries must keep the filename, content type, size, and SHA-256 unchanged. A preparing session may be polled or cancelled. Use a new key for a new upload after cancellation or expiry.",
         "summary": "Prepare a private file upload",
         "requestBody": {
           "content": {
@@ -5276,6 +5277,299 @@
           },
           "required": true
         }
+      },
+      "delete": {
+        "tags": [
+          "uploads"
+        ],
+        "operationId": "cancelPreparedChatUpload",
+        "parameters": [
+          {
+            "name": "prepare_key",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "<No Content>"
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "description": "Cancel the current uploader's session for prepare_key after a lost preparation response. A missing key is an idempotent success. Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.",
+        "summary": "Cancel an upload by its preparation key"
       }
     },
     "/api/v1/chat/uploads/{id}": {
@@ -5868,6 +6162,7 @@
             }
           }
         },
+        "description": "Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.",
         "summary": "Cancel an unclaimed upload"
       }
     },
@@ -12062,6 +12357,11 @@
       "ChatUploadInputEncoded": {
         "type": "object",
         "properties": {
+          "prepare_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Reuse this key for retries of the same file while its upload session exists."
+          },
           "filename": {
             "type": "string",
             "minLength": 1,
@@ -12102,6 +12402,9 @@
               "attachments": {
                 "type": "boolean"
               },
+              "resolvedAgentId": {
+                "type": "string"
+              },
               "uploads": {
                 "type": "object",
                 "properties": {
@@ -12133,6 +12436,7 @@
             },
             "required": [
               "attachments",
+              "resolvedAgentId",
               "uploads"
             ],
             "additionalProperties": false

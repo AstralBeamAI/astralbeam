@@ -438,6 +438,7 @@ export const fileUpload = snakeCase.table(
     tenantId: uuid().notNull(),
     id: uuidV7(),
     tenantUserId: uuid().notNull(),
+    prepareKey: uuid(),
     objectKey: text().notNull(),
     uploadId: text(),
     filename: text().notNull(),
@@ -453,6 +454,12 @@ export const fileUpload = snakeCase.table(
   },
   (table) => [
     primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
+    uniqueIndex("file_upload_prepare_key_uidx").on(
+      table.organizationId,
+      table.tenantId,
+      table.tenantUserId,
+      table.prepareKey,
+    ),
     uniqueIndex("file_upload_object_key_uidx").on(table.objectKey),
     uniqueIndex("file_upload_file_uidx").on(table.fileId),
     index("file_upload_expiry_idx").on(table.expiresAt),

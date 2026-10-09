@@ -21,11 +21,25 @@ export const uploadApi = HttpApiGroup.make("uploads", { topLevel: true })
     HttpApiEndpoint.post("prepareChatUpload", "/chat/uploads", {
       payload: UploadInputSchema,
       success: UploadStatusSchema,
-    }).annotate(OpenApi.Summary, "Prepare a private file upload"),
+    })
+      .annotate(OpenApi.Summary, "Prepare a private file upload")
+      .annotate(
+        OpenApi.Description,
+        "Provide prepare_key to recover the same uploader-private session after a lost response. Retries must keep the filename, content type, size, and SHA-256 unchanged. A preparing session may be polled or cancelled. Use a new key for a new upload after cancellation or expiry.",
+      ),
     HttpApiEndpoint.get("getChatUpload", "/chat/uploads/:id", {
       params: uploadParams,
       success: UploadStatusSchema,
     }).annotate(OpenApi.Summary, "Read upload progress"),
+    HttpApiEndpoint.delete("cancelPreparedChatUpload", "/chat/uploads", {
+      query: Schema.Struct({ prepare_key: ApiUuidSchema }),
+      success: HttpApiSchema.NoContent,
+    })
+      .annotate(OpenApi.Summary, "Cancel an upload by its preparation key")
+      .annotate(
+        OpenApi.Description,
+        "Cancel the current uploader's session for prepare_key after a lost preparation response. A missing key is an idempotent success. Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.",
+      ),
     HttpApiEndpoint.post("signChatUploadParts", "/chat/uploads/:id/parts", {
       params: uploadParams,
       payload: Schema.Struct({
@@ -42,7 +56,12 @@ export const uploadApi = HttpApiGroup.make("uploads", { topLevel: true })
     HttpApiEndpoint.delete("cancelChatUpload", "/chat/uploads/:id", {
       params: uploadParams,
       success: HttpApiSchema.NoContent,
-    }).annotate(OpenApi.Summary, "Cancel an unclaimed upload"),
+    })
+      .annotate(OpenApi.Summary, "Cancel an unclaimed upload")
+      .annotate(
+        OpenApi.Description,
+        "Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.",
+      ),
     HttpApiEndpoint.get("downloadStoredChatFile", "/chat/files/:id", {
       params: uploadParams,
       success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
@@ -140,6 +159,12 @@ export function uploadHandlers(api: typeof ApiV1) {
           "cancelChatUpload",
           Effect.fn("cancelChatUpload")(function* ({ params, request }) {
             yield* uploads.cancel((yield* authorize(request)).scope, params.id)
+          }),
+        )
+        .handle(
+          "cancelPreparedChatUpload",
+          Effect.fn("cancelPreparedChatUpload")(function* ({ query, request }) {
+            yield* uploads.cancelPrepared((yield* authorize(request)).scope, query.prepare_key)
           }),
         )
         .handle(

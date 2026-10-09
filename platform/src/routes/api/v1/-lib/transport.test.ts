@@ -1,6 +1,7 @@
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { Uploads } from "@/lib/chat/attachments/uploads.server"
+import { UploadClaimed, UploadConflict } from "@/lib/chat/attachments/errors"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -34,6 +35,7 @@ import { Tenants } from "@/lib/tenants/tenants.server"
 import { organization } from "@/db/schema/organizations.server"
 import {
   createTenant as sdkCreateTenant,
+  cancelChatUpload as sdkCancelChatUpload,
   getChatFile as sdkGetChatFile,
   getCurrentUser as sdkGetCurrentUser,
   listTenants as sdkListTenants,
@@ -386,6 +388,44 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
+  test("upload cancellation exposes claimed ownership separately from retryable conflicts", async () => {
+    let failure: UploadClaimed | UploadConflict = new UploadClaimed()
+    const handler = HttpRouter.toWebHandler(
+      ApiV1Routes.pipe(
+        Layer.provideMerge(
+          Layer.merge(
+            restTestServices,
+            Layer.succeed(Uploads, {
+              cancel: () => Effect.fail(failure),
+            } as unknown as typeof Uploads.Service),
+          ),
+        ),
+        Layer.provide(HttpServer.layerServices),
+      ),
+      { disableLogger: true },
+    )
+    try {
+      for (const error of [new UploadClaimed(), new UploadConflict()]) {
+        failure = error
+        await expect(
+          sdkCancelChatUpload(restOtherId, {
+            astralBeamToken: restTenantJwt,
+            apiUrl: "http://localhost/api",
+            fetchClient: (input, init) => handler.handler(new Request(input, init)),
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          body: {
+            type: error instanceof UploadClaimed ? "urn:file-upload:claimed" : "about:blank",
+            detail: error.message,
+          },
+        })
+      }
+    } finally {
+      await handler.dispose()
+    }
+  })
+
   test("preserves safe 503 with CORS/no-store before setup", async () => {
     restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
     const response = await restRequest("/chat")

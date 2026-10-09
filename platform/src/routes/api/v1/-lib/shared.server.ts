@@ -38,6 +38,7 @@ export const RestApiErrorSchema = Schema.Struct({
 export interface RestError {
   readonly _tag: string
   readonly message: string
+  readonly type?: string
   readonly issues?: typeof RestApiErrorSchema.Type.issues
   readonly retryAfterSeconds?: number
   readonly reference?: string
@@ -47,6 +48,7 @@ export interface RestError {
 export class RestProblem extends Schema.TaggedError<RestProblem>()("RestProblem", {
   status: Schema.Int,
   message: Schema.String,
+  type: Schema.optionalKey(Schema.String),
   issues: RestApiErrorSchema.fields.issues,
   retryAfterSeconds: Schema.optionalKey(Schema.Int),
   reference: Schema.optionalKey(Schema.String),
@@ -79,7 +81,7 @@ const restProblemHeaders = {
 function restProblem(error: RestError) {
   const status = restErrorStatus(error) ?? 500
   const body: typeof RestApiErrorSchema.Type = {
-    type: "about:blank",
+    type: error.type ?? "about:blank",
     title: restErrorTitles[status] ?? "Request Failed",
     status,
     detail: error.message,
@@ -129,6 +131,7 @@ const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503]
           new RestProblem({
             status: body.status,
             message: body.detail,
+            type: body.type,
             ...(body.issues ? { issues: body.issues } : {}),
             ...(body.reference ? { reference: body.reference } : {}),
             ...(headers["Retry-After"]

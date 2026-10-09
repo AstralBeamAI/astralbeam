@@ -68,6 +68,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       success: Schema.Struct({
         capabilities: Schema.Struct({
           attachments: Schema.Boolean,
+          resolvedAgentId: Schema.String,
           uploads: Schema.Struct({
             available: Schema.Boolean,
             maxFiles: Schema.Int,
@@ -81,7 +82,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Get chat capabilities")
       .annotate(
         OpenApi.Description,
-        "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
+        "Read the selected agent's attachment grant and resolved public agent ID using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it. Bind queued drafts to the resolved ID to preserve their agent if the default changes.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })

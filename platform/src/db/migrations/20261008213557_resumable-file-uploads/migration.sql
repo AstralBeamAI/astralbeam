@@ -4,6 +4,7 @@ CREATE TABLE "file_upload" (
 	"tenant_id" uuid,
 	"id" uuid DEFAULT uuidv7(),
 	"tenant_user_id" uuid NOT NULL,
+	"prepare_key" uuid,
 	"object_key" text NOT NULL,
 	"upload_id" text,
 	"filename" text NOT NULL,
@@ -30,6 +31,7 @@ CREATE TABLE "multipart_deletion" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX "file_upload_prepare_key_uidx" ON "file_upload" ("organization_id","tenant_id","tenant_user_id","prepare_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "file_upload_object_key_uidx" ON "file_upload" ("object_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "file_upload_file_uidx" ON "file_upload" ("file_id");--> statement-breakpoint
 CREATE INDEX "file_upload_expiry_idx" ON "file_upload" ("expires_at");--> statement-breakpoint

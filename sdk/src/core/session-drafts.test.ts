@@ -123,44 +123,52 @@ test.each(["selection", "api", "identity"] as const)(
   },
 )
 
-test("a send awaiting authentication cannot follow the user into a new conversation", async () => {
-  const mutations: string[] = []
-  const onThreadReady = vi.fn()
-  const onAccepted = vi.fn()
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-    const url = new URL(input)
-    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (init?.method === "POST") mutations.push(url.pathname)
-    if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
-    if (url.pathname.endsWith("/threads"))
-      return Promise.resolve(
-        Response.json({
-          items: [thread(threadA)],
-          page_after: null,
-          page_before: null,
-        }),
-      )
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-  })
-  const chat = createAstralBeamChat({
-    threadId: threadA,
-    fetchAstralBeamToken: token,
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    const send = chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
-    chat.reset()
-    await send
-    expect(mutations).toEqual([])
-    expect(chat.getState().thread).toBeUndefined()
-    expect(chat.getState().unsentMessage).toBeUndefined()
-    expect(chat.getState().error).toBeUndefined()
-    expect(onThreadReady).not.toHaveBeenCalled()
-    expect(onAccepted).not.toHaveBeenCalled()
-  } finally {
-    chat.dispose()
-  }
-})
+test.each(["send", "delete"] as const)(
+  "a %s awaiting authentication cannot follow the user into a new conversation",
+  async (operation) => {
+    const mutations: string[] = []
+    const onThreadReady = vi.fn()
+    const onAccepted = vi.fn()
+    const beforeDelete = vi.fn()
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (init?.method === "POST" || init?.method === "DELETE") mutations.push(url.pathname)
+      if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
+      if (url.pathname.endsWith("/threads"))
+        return Promise.resolve(
+          Response.json({
+            items: [thread(threadA)],
+            page_after: null,
+            page_before: null,
+          }),
+        )
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({
+      threadId: threadA,
+      fetchAstralBeamToken: token,
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+      const send =
+        operation === "send"
+          ? chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
+          : chat.deleteThread(undefined, beforeDelete)
+      chat.reset()
+      await send
+      expect(mutations).toEqual([])
+      expect(chat.getState().thread).toBeUndefined()
+      expect(chat.getState().unsentMessage).toBeUndefined()
+      expect(chat.getState().error).toBeUndefined()
+      expect(onThreadReady).not.toHaveBeenCalled()
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(beforeDelete).not.toHaveBeenCalled()
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test("new-conversation callbacks survive a token refresh failure and acknowledge acceptance", async () => {
   const onThreadReady = vi.fn<(id: string) => void>()
