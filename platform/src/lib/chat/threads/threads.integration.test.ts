@@ -426,6 +426,42 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     }
   })
 
+  test("rejects generated images above their kind limit before storing either representation", async () => {
+    const thread = await create()
+    const files = await runtime.runPromise(ChatFiles)
+    const part = {
+      id: crypto.randomUUID(),
+      type: "image",
+      source: {
+        type: "data",
+        value: Buffer.alloc(6 * 1024 * 1024).toString("base64"),
+        mimeType: "image/png",
+      },
+    }
+    for (const output of [
+      { version: 1 as const, parts: [part] },
+      { version: 1 as const, parts: [], modelMessages: [{ role: "assistant", content: [part] }] },
+    ])
+      expect(
+        (
+          await runtime.runPromise(
+            files.externalize({ ...scope, threadId: thread.id }, output).pipe(Effect.flip),
+          )
+        )._tag,
+      ).toBe("ChatThreadInvalid")
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(
+          like(
+            fileObject.sourceIdentity,
+            `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+          ),
+        ),
+    ).toHaveLength(0)
+  })
+
   test("replacing checkpoint media releases only files absent from saved history", async () => {
     const thread = await create()
     const accepted = await admit(thread.id)
@@ -472,6 +508,18 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const saved = await runtime.runPromise(
       service.getMessage({ scope, id: thread.id, messageId: accepted.claim!.assistantMessageId }),
     )
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: accepted.claim!,
+        payload: {
+          version: 1,
+          parts: [{ id, type: "text", content: "The clip remains in provider continuation." }],
+          modelMessages: [{ role: "assistant", content: saved.payload.parts }],
+        },
+        state: "draft",
+      }),
+    )
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, after[0]!.id))).toHaveLength(1)
     await runtime.runPromise(
       service.admit({
         scope,
@@ -1263,6 +1311,34 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         )
       )._tag,
     ).toBe("ChatThreadConflict")
+    const late = {
+      version: 1 as const,
+      parts: [
+        {
+          id: crypto.randomUUID(),
+          type: "video",
+          source: { type: "data", value: "TGF0ZQ==", mimeType: "video/mp4" },
+        },
+      ],
+    }
+    for (const operation of [
+      service.checkpoint({ claim: claimed, payload: late, state: "draft" }),
+      service.finish({ claim: claimed, payload: late }),
+    ])
+      expect((await runtime.runPromise(operation.pipe(Effect.flip)))._tag).toBe(
+        "ChatThreadConflict",
+      )
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(
+          like(
+            fileObject.sourceIdentity,
+            `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+          ),
+        ),
+    ).toHaveLength(0)
   })
 
   test("orders admission activity by append time rather than transaction start", async () => {
