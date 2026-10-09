@@ -70,7 +70,7 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 
 Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files. The first application upload pins the destination, and subsequent seeds preserve it. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
 
-Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and setup to override them. Explicit RustFS credential overrides rotate only the managed local setup. Manage later changes in **File storage** at `/configure`.
+Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Reruns preserve all pinned storage settings. Manage credential changes in **File storage** at `/configure` or through `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` deployment overrides.
 
 ```sh
 ./scripts/setup.sh

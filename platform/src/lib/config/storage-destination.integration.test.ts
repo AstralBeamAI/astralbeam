@@ -45,45 +45,6 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     vi.unstubAllEnvs()
   })
 
-  test.each([
-    ["http://127.0.0.1:9000", true],
-    ["http://rustfs:9000", true],
-    ["http://127.0.0.1:9100", false],
-  ] as const)("RustFS credential rotation: %s", async (endpoint, rotates) => {
-    const localSettings = { ...destinationSettings, endpoint }
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const config = yield* Config
-        yield* config.update(
-          destinationUpdates.map((update) =>
-            update.key === "s3_endpoint" ? { ...update, value: localSettings.endpoint } : update,
-          ),
-        )
-        yield* config.reserveStorageDestination(localSettings)
-        for (const [accessKey, secret, expectedSecret] of [
-          ["new-local-key", "new-local-secret", "new-local-secret"],
-          ["", "", "new-local-secret"],
-          ["next-local-key", "", "development-only-storage-key"],
-        ]) {
-          vi.stubEnv("RUSTFS_ACCESS_KEY", accessKey)
-          vi.stubEnv("RUSTFS_SECRET_KEY", secret)
-          yield* Effect.promise(() =>
-            getAuthDatabase().transaction((transaction) =>
-              seedConfig(transaction, "another_worktree"),
-            ),
-          )
-          yield* config.invalidate
-          expect((yield* config.snapshot).values).toMatchObject({
-            s3_endpoint: localSettings.endpoint,
-            s3_bucket: localSettings.bucket,
-            s3_access_key_id: rotates ? accessKey || "new-local-key" : "first-key",
-            s3_secret_access_key: rotates ? expectedSecret : "first-secret",
-          })
-        }
-      }).pipe(Effect.provide(Config.layer)),
-    )
-  })
-
   test("pins the destination across runtimes, permits credential rotation and rejects environment drift", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {
@@ -140,6 +101,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
         ),
       )
       expect(values.s3_endpoint).toBe(destinationSettings.endpoint)
+      expect(values.s3_access_key_id).toBe("first-key")
       expect(values.s3_secret_access_key).toBe("rotated-secret")
       vi.stubEnv("S3_BUCKET", "environment-bucket")
       await restarted.runPromise(Effect.flatMap(Config, (config) => config.invalidate))

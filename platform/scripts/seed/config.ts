@@ -6,10 +6,7 @@ import { eq, like, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "../../src/db/schema.server.ts"
-import {
-  StorageEndpointSchema,
-  StoredStorageDestinationSchema,
-} from "../../src/lib/storage/schemas.ts"
+import { StorageEndpointSchema } from "../../src/lib/storage/schemas.ts"
 import { BooleanSettingSchema, parseEnvironmentConfigValue } from "../../src/lib/config/schemas.ts"
 import { NonEmptyStringSchema } from "../../src/lib/schemas.ts"
 
@@ -39,7 +36,7 @@ export async function seedConfig(
     sql`select pg_advisory_xact_lock(hashtextextended('file-storage-destination', 0))`,
   )
   const [storagePin] = await transaction
-    .select()
+    .select({ key: configTable.key })
     .from(configTable)
     .where(eq(configTable.key, "s3_destination"))
   const values = {
@@ -52,24 +49,8 @@ export async function seedConfig(
     s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
   }
-  const localStorage = storagePin
-    ? localStorageEndpoint(
-        Schema.decodeUnknownSync(StoredStorageDestinationSchema)(storagePin.value.value).endpoint,
-      )
-    : undefined
-  const rotateCredentials =
-    localStorage &&
-    localStorage.protocol === "http:" &&
-    localStorage.port ===
-      (localStorage.hostname === "rustfs" ? "9000" : new URL(values.s3_endpoint).port) &&
-    (process.env.RUSTFS_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY)
   for (const [key, value] of Object.entries(values)) {
-    if (
-      storagePin &&
-      key.startsWith("s3_") &&
-      !(rotateCredentials && ["s3_access_key_id", "s3_secret_access_key"].includes(key))
-    )
-      continue
+    if (storagePin && key.startsWith("s3_")) continue
     if (process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue
