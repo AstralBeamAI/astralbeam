@@ -175,8 +175,8 @@ export class ProfileFiles extends Context.Service<
         userId: string
         bytes: Uint8Array
       }) {
-        const image = yield* verifiedImage(bytes)
         yield* consumeUpload(userId)
+        const image = yield* verifiedImage(bytes)
         const file = yield* files.prepare(image)
         yield* db
           .insert(userAvatar)
@@ -191,8 +191,8 @@ export class ProfileFiles extends Context.Service<
         source: string
         userId: string
       }) {
-        const image = yield* embeddedImage(source)
         yield* consumeUpload(userId)
+        const image = yield* embeddedImage(source)
         return (yield* files.prepare(image)).id
       })
       const attachLogo = Effect.fn("ProfileFiles.attachLogo")(function* ({
@@ -428,6 +428,33 @@ export class ProfileFiles extends Context.Service<
       const importLogo = Effect.fn("ProfileFiles.importLogo")(function* (
         pending: typeof organizationImageImport.$inferSelect,
       ) {
+        const pendingImport = and(
+          eq(organizationImageImport.organizationId, pending.organizationId),
+          eq(organizationImageImport.generation, pending.generation),
+          eq(organizationImageImport.sourceUrl, pending.sourceUrl),
+          eq(organizationImageImport.status, "pending"),
+        )
+        const [owner] = yield* db
+          .select({ logo: organization.logo, generation: organization.logoImportGeneration })
+          .from(organization)
+          .innerJoin(
+            organizationImageImport,
+            eq(organizationImageImport.organizationId, organization.id),
+          )
+          .where(pendingImport)
+          .pipe(mapDatabaseErrors())
+        if (!owner) return
+        if (
+          owner.logo !== pending.expectedLogo ||
+          (owner.generation && owner.generation !== pending.generation)
+        ) {
+          yield* db
+            .update(organizationImageImport)
+            .set({ status: "superseded", reason: "NewerImage" })
+            .where(pendingImport)
+            .pipe(mapDatabaseErrors())
+          return
+        }
         const file = yield* prepareImportedProfileImage(
           pending.sourceUrl,
           `logo:${pending.organizationId}:${pending.generation}`,
@@ -444,13 +471,7 @@ export class ProfileFiles extends Context.Service<
               const [current] = yield* tx
                 .select()
                 .from(organizationImageImport)
-                .where(
-                  and(
-                    eq(organizationImageImport.organizationId, pending.organizationId),
-                    eq(organizationImageImport.generation, pending.generation),
-                    eq(organizationImageImport.status, "pending"),
-                  ),
-                )
+                .where(pendingImport)
                 .pipe(mapDatabaseErrors())
               if (!owner || !current) return
               if (
@@ -460,12 +481,7 @@ export class ProfileFiles extends Context.Service<
                 yield* tx
                   .update(organizationImageImport)
                   .set({ status: "superseded", reason: "NewerImage" })
-                  .where(
-                    and(
-                      eq(organizationImageImport.organizationId, pending.organizationId),
-                      eq(organizationImageImport.generation, pending.generation),
-                    ),
-                  )
+                  .where(pendingImport)
                   .pipe(mapDatabaseErrors())
                 return
               }
