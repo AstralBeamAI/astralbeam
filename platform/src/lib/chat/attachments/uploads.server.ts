@@ -14,11 +14,18 @@ import type { ChatThreadScope } from "../threads/schemas"
 import { normalizeChatAttachments, normalizeMimeType } from "./attachments.server"
 import { UPLOAD_PART_BYTES, type UploadStatus, type UploadInputSchema } from "./upload-schemas"
 
-import { UploadNotFound, UploadConflict, UploadInvalid, UploadRateLimited } from "./errors"
+import {
+  UploadNotFound,
+  UploadConflict,
+  UploadClaimed,
+  UploadInvalid,
+  UploadRateLimited,
+} from "./errors"
 
 type UploadFailure =
   | UploadNotFound
   | UploadConflict
+  | UploadClaimed
   | UploadInvalid
   | UploadRateLimited
   | ChatThreadStorageUnavailable
@@ -66,6 +73,10 @@ export class Uploads extends Context.Service<
       id: string,
     ) => Effect.Effect<UploadStatus, UploadFailure>
     readonly cancel: (scope: ChatThreadScope, id: string) => Effect.Effect<void, UploadFailure>
+    readonly cancelPrepared: (
+      scope: ChatThreadScope,
+      prepareKey: string,
+    ) => Effect.Effect<void, UploadFailure>
     readonly maintenance: Effect.Effect<void>
   }
 >()("astralbeam/chat/Uploads") {
@@ -90,6 +101,20 @@ export class Uploads extends Context.Service<
       })
       const active = (row: UploadRow) =>
         row.expiresAt.getTime() > Date.now() && row.uploadId !== null
+      const lockUploader = Effect.fnUntraced(function* (scope: ChatThreadScope) {
+        const [person] = yield* db
+          .select({ id: tenantUser.id })
+          .from(tenantUser)
+          .where(
+            and(
+              eq(tenantUser.organizationId, scope.organizationId),
+              eq(tenantUser.tenantId, scope.tenantId),
+              eq(tenantUser.id, scope.tenantUserId),
+            ),
+          )
+          .for("update")
+        if (!person) return yield* new UploadNotFound()
+      })
       const status = Effect.fn("Uploads.status")(function* (scope: ChatThreadScope, id: string) {
         const row = yield* owned(scope, id)
         const parts =
@@ -105,38 +130,26 @@ export class Uploads extends Context.Service<
         const contentType = normalizeMimeType(input.contentType)
         if (!/^[\w.+-]+\/[\w.+-]+$/.test(contentType) || contentType.length > 255)
           return yield* new UploadInvalid()
-        yield* limiter
-          .consume({
-            key: hashedRateLimitKey("file-upload", [
-              scope.organizationId,
-              scope.tenantId,
-              scope.tenantUserId,
-            ]),
-            limit: 60,
-            window: "1 hour",
-          })
-          .pipe(
-            Effect.mapError((error) =>
-              error.reason._tag === "RateLimitExceeded"
-                ? new UploadRateLimited()
-                : new ChatThreadStorageUnavailable(),
-            ),
-          )
-        const row = yield* db
+        const prepared = yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
-              const [person] = yield* tx
-                .select({ id: tenantUser.id })
-                .from(tenantUser)
-                .where(
-                  and(
-                    eq(tenantUser.organizationId, scope.organizationId),
-                    eq(tenantUser.tenantId, scope.tenantId),
-                    eq(tenantUser.id, scope.tenantUserId),
-                  ),
-                )
-                .for("update")
-              if (!person) return yield* new UploadNotFound()
+              yield* lockUploader(scope)
+              if (input.prepareKey) {
+                const [existing] = yield* tx
+                  .select()
+                  .from(fileUpload)
+                  .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, input.prepareKey)))
+                if (existing) {
+                  if (
+                    existing.filename !== input.filename ||
+                    existing.contentType !== contentType ||
+                    existing.byteSize !== input.byteSize ||
+                    existing.sha256 !== input.sha256
+                  )
+                    return yield* new UploadConflict()
+                  return { row: existing, created: false }
+                }
+              }
               const pending = yield* tx
                 .select({ id: fileUpload.id })
                 .from(fileUpload)
@@ -149,10 +162,28 @@ export class Uploads extends Context.Service<
                 )
                 .limit(10)
               if (pending.length >= 10) return yield* new UploadRateLimited()
+              yield* limiter
+                .consume({
+                  key: hashedRateLimitKey("file-upload", [
+                    scope.organizationId,
+                    scope.tenantId,
+                    scope.tenantUserId,
+                  ]),
+                  limit: 60,
+                  window: "1 hour",
+                })
+                .pipe(
+                  Effect.mapError((error) =>
+                    error.reason._tag === "RateLimitExceeded"
+                      ? new UploadRateLimited()
+                      : new ChatThreadStorageUnavailable(),
+                  ),
+                )
               const [created] = yield* tx
                 .insert(fileUpload)
                 .values({
                   ...scope,
+                  prepareKey: input.prepareKey,
                   filename: input.filename,
                   contentType,
                   byteSize: input.byteSize,
@@ -160,10 +191,12 @@ export class Uploads extends Context.Service<
                   objectKey: `upload-staging/${crypto.randomUUID()}`,
                 })
                 .returning()
-              return created!
+              return { row: created!, created: true }
             }),
           )
           .pipe(mapDatabaseErrors())
+        const { row } = prepared
+        if (!prepared.created) return uploadResource(row)
         return yield* Effect.gen(function* () {
           const uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
           const [pending] = yield* db
@@ -359,7 +392,7 @@ export class Uploads extends Context.Service<
                   .select({ id: chatFile.id })
                   .from(chatFile)
                   .where(eq(chatFile.id, row.fileId))
-                if (claimed) return yield* new UploadConflict()
+                if (claimed) return yield* new UploadClaimed()
               }
               const [cancelled] = yield* tx
                 .update(fileUpload)
@@ -377,6 +410,23 @@ export class Uploads extends Context.Service<
                 .insert(multipartDeletion)
                 .values({ objectKey: row.objectKey, uploadId: row.uploadId })
                 .onConflictDoNothing()
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+      })
+      const cancelPrepared = Effect.fn("Uploads.cancelPrepared")(function* (
+        scope: ChatThreadScope,
+        prepareKey: string,
+      ) {
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* lockUploader(scope)
+              const [row] = yield* tx
+                .select({ id: fileUpload.id })
+                .from(fileUpload)
+                .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, prepareKey)))
+              if (row) yield* cancel(scope, row.id)
             }),
           )
           .pipe(mapDatabaseErrors())
@@ -418,7 +468,7 @@ export class Uploads extends Context.Service<
         if (pending.length)
           yield* Effect.logInfo("Multipart cleanup processed", { count: pending.length })
       }).pipe(Effect.catch(() => Effect.logWarning("Upload maintenance will retry")))
-      return Uploads.of({ prepare, status, sign, complete, cancel, maintenance })
+      return Uploads.of({ prepare, status, sign, complete, cancel, cancelPrepared, maintenance })
     }),
   )
   static readonly layer = Uploads.layerNoDeps.pipe(

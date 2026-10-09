@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi, assert } from "vitest"
 import { createAstralBeamChat } from "./session.ts"
 
 const thread = {
@@ -1611,13 +1611,15 @@ test("API changes clear multipart capability immediately and a failed handshake 
   }
 })
 
-test("multipart preparation honors the draft agent after conversation selection changes", async () => {
+test("multipart preparation honors the resolved default agent after conversation selection changes", async () => {
   let prepared: unknown
   vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
     const url = new URL(input)
     if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
     if (url.pathname.endsWith("/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return Promise.resolve(
+        Response.json({ capabilities: { attachments: true, resolvedAgentId: "default-agent" } }),
+      )
     if (url.pathname.endsWith("/uploads")) {
       prepared = JSON.parse(init!.body as string)
       return Promise.resolve(Response.json({ id: "prepared" }))
@@ -1627,19 +1629,24 @@ test("multipart preparation honors the draft agent after conversation selection 
   const chat = createAstralBeamChat({
     fetchAstralBeamToken: token,
     threadId: "new",
-    agentId: "selected-agent",
   })
   try {
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
     await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
+    await vi.waitFor(() =>
+      expect(chat.getState().capabilities.resolvedAgentId).toBe("default-agent"),
+    )
+    const draftAgent = chat.getState().capabilities.resolvedAgentId
+    assert(draftAgent)
+    chat.updateOptions({ agentId: "different-agent" })
     await chat.prepareUpload({
-      agent_id: "draft-agent",
+      agent_id: draftAgent,
       filename: "note.txt",
       content_type: "text/plain",
       byte_size: 5,
       sha256: "0".repeat(64),
     })
-    expect(prepared).toMatchObject({ agent_id: "draft-agent" })
+    expect(prepared).toMatchObject({ agent_id: "default-agent" })
   } finally {
     chat.dispose()
   }

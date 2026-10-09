@@ -19,11 +19,13 @@ export function ConversationTitle({
   state,
   thread,
   onDelete,
+  beforeDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
   thread: ChatThread
   onDelete: (threadId: string) => void
+  beforeDelete: (threadId: string) => Promise<void>
 }) {
   const container = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -123,9 +125,11 @@ export function ConversationTitle({
                 variant="destructive"
                 disabled={!editable}
                 onClick={() => {
-                  void chat.deleteThread().then((deleted) => {
-                    if (deleted) onDelete(thread.id)
-                  })
+                  void chat
+                    .deleteThread(thread, () => beforeDelete(thread.id))
+                    .then((deleted) => {
+                      if (deleted) onDelete(thread.id)
+                    })
                 }}
               >
                 <TrashIcon />

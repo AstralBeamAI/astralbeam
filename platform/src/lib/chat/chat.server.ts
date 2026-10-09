@@ -24,6 +24,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
+import { formatAgentId } from "@/lib/agents/schemas"
 import { createChatAdapter } from "./adapter.server"
 import { createChatAttachmentTools } from "./attachments/tools.server"
 import {
@@ -166,7 +167,10 @@ export class Chat extends Context.Service<
     readonly capabilities: (input: {
       readonly principal: ChatPrincipal
       readonly agentId?: string | undefined
-    }) => Effect.Effect<{ readonly attachments: boolean }, ChatAgentNotFound>
+    }) => Effect.Effect<
+      { readonly attachments: boolean; readonly resolvedAgentId: string },
+      ChatAgentNotFound
+    >
   }
 >()("astralbeam/chat/Chat") {
   static readonly layerNoDeps = Layer.effect(
@@ -426,7 +430,13 @@ export class Chat extends Context.Service<
             agentId: input.agentId,
           })
           .pipe(Effect.mapError(() => new ChatAgentNotFound()))
-        return { attachments: agent.attachmentsEnabled }
+        return {
+          attachments: agent.attachmentsEnabled,
+          resolvedAgentId: formatAgentId({
+            organizationId: input.principal.organization.id,
+            id: agent.id,
+          }),
+        }
       })
 
       return Chat.of({ run, capabilities })

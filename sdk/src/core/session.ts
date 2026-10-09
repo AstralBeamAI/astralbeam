@@ -22,6 +22,7 @@ import {
   signChatUploadParts,
   completeChatUpload,
   cancelChatUpload,
+  cancelPreparedChatUpload,
   downloadStoredChatFile,
   type ChatUploadEncoded as ChatUpload,
   type ChatUploadInputEncoded as ChatUploadInput,
@@ -153,7 +154,11 @@ export interface AstralBeamChatState {
   error: Error | undefined
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
-  capabilities: { attachments: boolean; uploads?: ChatConfiguration["capabilities"]["uploads"] }
+  capabilities: {
+    attachments: boolean
+    resolvedAgentId?: string
+    uploads?: ChatConfiguration["capabilities"]["uploads"]
+  }
   capabilitiesLoading: boolean
   /** The tool set currently declared to the agent, in declaration order. */
   agentTools: readonly AgentToolInfo[]
@@ -206,7 +211,7 @@ export interface AstralBeamChatCore {
   openThread: (id: string) => Promise<void>
   renameThread: (title: string) => Promise<boolean>
   /** Deletes a listed conversation, the selected one by default; resolves whether it succeeded. */
-  deleteThread: (thread?: ChatThread) => Promise<boolean>
+  deleteThread: (thread?: ChatThread, beforeDelete?: () => Promise<void>) => Promise<boolean>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
@@ -220,6 +225,7 @@ export interface AstralBeamChatCore {
   ) => Promise<{ parts: { number: number; url: string }[] }>
   completeUpload: (id: string, signal?: AbortSignal) => Promise<ChatUpload>
   cancelUpload: (id: string) => Promise<void>
+  cancelPreparedUpload: (prepareKey: string) => Promise<void>
   getUploadedFile: (id: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -376,7 +382,11 @@ export function createAstralBeamChat(
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
       update({
-        capabilities: { attachments, uploads: body.capabilities.uploads },
+        capabilities: {
+          attachments,
+          resolvedAgentId: body.capabilities.resolvedAgentId,
+          uploads: body.capabilities.uploads,
+        },
         capabilitiesLoading: false,
       })
       debug?.("mount", "agent capabilities resolved", { attachments })
@@ -1094,15 +1104,15 @@ export function createAstralBeamChat(
     }
   }
 
-  const deleteThread = async (thread = state.thread) => {
+  const deleteThread = async (thread = state.thread, beforeDelete?: () => Promise<void>) => {
     if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
     try {
-      await deleteChatThread(
-        thread.id,
-        { expected_version: String(thread.version) },
-        await requestOptions(),
-      )
+      const options = await requestOptions()
+      if (generation !== selectionGeneration) return false
+      await beforeDelete?.()
+      if (generation !== selectionGeneration) return false
+      await deleteChatThread(thread.id, { expected_version: String(thread.version) }, options)
       if (generation === selectionGeneration && state.thread?.id === thread.id) newThread()
       return true
     } catch (error) {
@@ -1423,6 +1433,8 @@ export function createAstralBeamChat(
       signChatUploadParts(id, { parts }, await uploadOptions(signal)),
     completeUpload: async (id, signal) => completeChatUpload(id, await uploadOptions(signal)),
     cancelUpload: async (id) => cancelChatUpload(id, await uploadOptions()),
+    cancelPreparedUpload: async (prepareKey) =>
+      cancelPreparedChatUpload({ prepare_key: prepareKey }, await uploadOptions()),
     getUploadedFile: async (id) =>
       (await downloadStoredChatFile(id, await requestOptions())).blob(),
     abandonToolCall,

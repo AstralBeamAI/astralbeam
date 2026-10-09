@@ -345,6 +345,8 @@ export interface ChatUploadEncoded {
 }
 
 export interface ChatUploadInputEncoded {
+  /** Reuse this key for retries of the same file while its upload session exists. */
+  prepare_key?: string
   /**
    * @minLength 1
    * @maxLength 120
@@ -375,6 +377,7 @@ export type ChatConfigurationCapabilitiesUploads = {
 
 export type ChatConfigurationCapabilities = {
   attachments: boolean
+  resolvedAgentId: string
   uploads: ChatConfigurationCapabilitiesUploads
 }
 
@@ -685,6 +688,10 @@ export type GetChatConfigParams = {
 
 export type GetChatFileParams = {
   ticket: string
+}
+
+export type CancelPreparedChatUploadParams = {
+  prepare_key: string
 }
 
 export type SignChatUploadPartsBody = {
@@ -1211,7 +1218,7 @@ export const getGetChatConfigUrl = (params: GetChatConfigParams) => {
 }
 
 /**
- * Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.
+ * Read the selected agent's attachment grant and resolved public agent ID using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it. Bind queued drafts to the resolved ID to preserve their agent if the default changes.
  * @summary Get chat capabilities
  */
 export const getChatConfig = (
@@ -1259,6 +1266,7 @@ export const getPrepareChatUploadUrl = () => {
 }
 
 /**
+ * Provide prepare_key to recover the same uploader-private session after a lost response. Retries must keep the filename, content type, size, and SHA-256 unchanged. A preparing session may be polled or cancelled. Use a new key for a new upload after cancellation or expiry.
  * @summary Prepare a private file upload
  */
 export const prepareChatUpload = (
@@ -1292,6 +1300,36 @@ export const prepareChatUpload = (
   })
 }
 
+export const getCancelPreparedChatUploadUrl = (params: CancelPreparedChatUploadParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/uploads?${stringifiedParams}`
+    : `/api/v1/chat/uploads`
+}
+
+/**
+ * Cancel the current uploader's session for prepare_key after a lost preparation response. A missing key is an idempotent success. Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.
+ * @summary Cancel an upload by its preparation key
+ */
+export const cancelPreparedChatUpload = (
+  params: CancelPreparedChatUploadParams,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<void>(getCancelPreparedChatUploadUrl(params), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
 export const getGetChatUploadUrl = (id: string) => {
   return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}`
 }
@@ -1311,6 +1349,7 @@ export const getCancelChatUploadUrl = (id: string) => {
 }
 
 /**
+ * Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.
  * @summary Cancel an unclaimed upload
  */
 export const cancelChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {

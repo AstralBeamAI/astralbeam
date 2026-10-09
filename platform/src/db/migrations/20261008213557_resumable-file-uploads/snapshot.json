@@ -2097,6 +2097,19 @@
       "table": "file_upload"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "prepare_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -4925,6 +4938,48 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "file_object"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "tenant_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "prepare_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_upload_prepare_key_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_upload"
     },
     {
       "nameExplicit": true,

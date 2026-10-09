@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer"
+import { fileURLToPath } from "node:url"
 // @deno-types="../../../../../sdk/dist/server.d.ts"
 import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { expect, test } from "../../fixtures.ts"
@@ -479,11 +480,9 @@ test("a missing session keeps fingerprint validation when upload discovery is un
   )
   await page.route("**/api/v1/chat/config?*", async (route) => {
     const response = await route.fetch()
-    const { uploads: _uploads, ...capabilities } = (await response.json()) as Record<
-      string,
-      unknown
-    >
-    await route.fulfill({ json: capabilities })
+    const body = (await response.json()) as { capabilities: Record<string, unknown> }
+    const { uploads: _uploads, ...capabilities } = body.capabilities
+    await route.fulfill({ json: { ...body, capabilities } })
   })
   await page.reload()
   await expect(page.getByText("Choose the original file to resume", { exact: true })).toBeVisible()
@@ -496,17 +495,58 @@ test("a missing session keeps fingerprint validation when upload discovery is un
   const original = page.waitForEvent("filechooser")
   await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
   await (await original).setFiles(note)
+  await expect(
+    page.getByText("Upload expired or unavailable. Remove it and attach the file again."),
+  ).toBeVisible()
+  await chat.attachmentChip(note.name).click()
+  await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
 })
 
-test("failed removal survives reload and retries cancellation", async ({ page }) => {
-  await todosPage(page).open()
+test("failed removal after a narrower file limit survives reload and retries cancellation", async ({
+  page,
+}) => {
+  await page.route("**/__draft-sdk/*.js", (route) =>
+    route.fulfill({
+      path: fileURLToPath(
+        new URL(
+          `../../../../../sdk/dist/${new URL(route.request().url()).pathname.split("/").pop()}`,
+          import.meta.url,
+        ),
+      ),
+      contentType: "text/javascript",
+    }),
+  )
+  await page.route("**/__upload-draft", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: `<!doctype html><title>Upload draft</title><button id="narrow">Narrow file limit</button><aside class="chat-sidebar" style="height:90vh"></aside>
+        <script type="module">
+          import { mountAstralBeamChat } from '/__draft-sdk/client.js';
+          const chat = mountAstralBeamChat(document.querySelector('aside'), { apiUrl: ${JSON.stringify(`${platformUrl}/api`)}, fetchAstralBeamToken: { url: '/api/astralbeam/token' }, threadId: 'new' });
+          document.getElementById('narrow').onclick = () => chat.update({ attachments: { maxFileBytes: 1 } });
+        </script>`,
+    }),
+  )
+  const capabilityResponse = page.waitForResponse((response) =>
+    response.url().includes("/chat/config"),
+  )
+  await page.goto("/__upload-draft")
+  const { capabilities } = (await (await capabilityResponse).json()) as {
+    capabilities: { resolvedAgentId: string }
+  }
   const chat = chatWidget(page)
   await chat.waitForReady()
+  const prepared = page.waitForResponse((response) => response.url().endsWith("/chat/uploads"))
   const completed = page.waitForResponse((response) => response.url().endsWith("/complete"))
   await chat.attach(note)
+  expect((await prepared).request().postDataJSON()).toMatchObject({
+    agent_id: capabilities.resolvedAgentId,
+  })
   await completed
   await expect(chat.sendButton()).toBeEnabled()
+  await page.getByRole("button", { name: "Narrow file limit" }).click()
+  await expect(page.getByText("Too large (max 1 B)", { exact: true })).toBeVisible()
   let cancellations = 0
   let rejectRemoval = () => {}
   await page.route("**/api/v1/chat/uploads/*", async (route) => {
@@ -531,6 +571,34 @@ test("failed removal survives reload and retries cancellation", async ({ page })
   await chat.attachmentChip(note.name).click()
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
   expect(cancellations).toBe(2)
+})
+
+test("inline draft reselection checks the original name and size without a fingerprint", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/chat/config?*", (route) => route.fulfill({ status: 503 }))
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.reload()
+  await expect(page.getByText("Choose the original file to resume", { exact: true })).toBeVisible()
+  for (const wrong of [
+    { ...note, name: "different.txt" },
+    { ...note, buffer: Buffer.from("different size") },
+  ]) {
+    const picker = page.waitForEvent("filechooser")
+    await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
+    await (await picker).setFiles(wrong)
+    await expect(
+      page.getByText("Choose the original file to resume this upload.", { exact: true }),
+    ).toBeVisible()
+  }
+  const original = page.waitForEvent("filechooser")
+  await page.getByRole("button", { name: `Resume ${note.name}`, exact: true }).click()
+  await (await original).setFiles(note)
+  await expect(chat.sendButton()).toBeEnabled()
 })
 
 test("the draft database upgrade preserves attachment metadata and removes legacy bytes", async ({
@@ -632,17 +700,39 @@ test("deleting an unopened persisted draft cancels its unfinished upload", async
   await page.reload()
   await chat.waitForReady()
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  let deleted = 0
   await page.route(
     (url) => url.pathname === `/api/v1/chat/threads/${thread.id}`,
-    (route) => route.fulfill({ status: 204 }),
+    (route) => {
+      deleted++
+      return route.fulfill({ status: 204 })
+    },
   )
+  await page.evaluate((threadId) => {
+    document.documentElement.dataset.rejectDraftRead = "true"
+    const read = Reflect.get(IDBObjectStore.prototype, "get")
+    IDBObjectStore.prototype.get = function (key) {
+      if (
+        document.documentElement.dataset.rejectDraftRead &&
+        typeof key === "string" &&
+        key.includes(threadId)
+      )
+        throw new DOMException("Draft storage unavailable", "InvalidStateError")
+      return read.call(this, key)
+    }
+  }, thread.id)
   const cancelled = page.waitForResponse(
     (response) =>
       response.url().endsWith(`/chat/uploads/${id}`) && response.request().method() === "DELETE",
   )
   await chat.root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
   await page.getByRole("button", { name: `Delete ${thread.title}`, exact: true }).click()
+  await expect(chat.errorAlert()).toBeVisible()
+  expect(deleted).toBe(0)
+  await page.evaluate(() => delete document.documentElement.dataset.rejectDraftRead)
+  await page.getByRole("button", { name: `Delete ${thread.title}`, exact: true }).click()
   expect((await cancelled).status()).toBe(204)
+  await expect.poll(() => deleted).toBe(1)
   const status = await page.request.get(`${platformUrl}/api/v1/chat/uploads/${id}`, {
     headers: { authorization },
   })

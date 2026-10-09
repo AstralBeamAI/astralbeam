@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { eq, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { HttpServerResponse } from "effect/http"
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 import { Database, getAuthDatabase } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import {
@@ -112,6 +112,155 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
   })
   afterAll(async () => {
     await runtime.dispose()
+  })
+
+  test("preparation retries recover one session without duplicating multipart work or changing its file", async () => {
+    const prepareKey = crypto.randomUUID()
+    const request = { ...input, prepareKey }
+    const multipart = await runtime.runPromise(MultipartStorage)
+    let enter: () => void = () => {}
+    let release: () => void = () => {}
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let creates = 0
+    const gated = Uploads.layerNoDeps.pipe(
+      Layer.provide([
+        Database.layer,
+        DatabaseRateLimiter.layer,
+        ObjectStorage.layer,
+        StoredFiles.layer,
+        Layer.succeed(MultipartStorage, {
+          ...multipart,
+          create: (key, contentType) =>
+            Effect.promise(() => {
+              creates += 1
+              enter()
+              return gate
+            }).pipe(Effect.andThen(multipart.create(key, contentType))),
+        }),
+      ]),
+    )
+    const preparation = runtime.runPromise(
+      Effect.flatMap(Uploads, (service) => service.prepare(scope, request)).pipe(
+        Effect.provide(Layer.fresh(gated)),
+      ),
+    )
+    await entered
+    try {
+      expect(await runtime.runPromise(uploads.prepare(scope, request))).toMatchObject({
+        status: "preparing",
+      })
+      expect(await db.select().from(fileUpload)).toHaveLength(1)
+    } finally {
+      release()
+    }
+    const session = await preparation
+    expect(creates).toBe(1)
+    expect(session.id).not.toBe(prepareKey)
+    await runtime.dispose()
+    runtime = makeRuntime()
+    uploads = await runtime.runPromise(Uploads)
+    for (let retry = 0; retry < 61; retry++)
+      expect(await runtime.runPromise(uploads.prepare(scope, request))).toEqual(session)
+    expect(await db.select().from(fileUpload)).toHaveLength(1)
+    for (const changed of [
+      { filename: "different.txt" },
+      { contentType: "application/json" },
+      { byteSize: input.byteSize + 1 },
+      { sha256: "0".repeat(64) },
+    ])
+      await expect(
+        runtime.runPromise(uploads.prepare(scope, { ...request, ...changed })),
+      ).rejects.toMatchObject({ _tag: "UploadConflict" })
+    for (const stranger of [other, foreign]) {
+      const privateSession = await runtime.runPromise(uploads.prepare(stranger, request))
+      expect(privateSession.id).not.toBe(session.id)
+      await expect(runtime.runPromise(uploads.status(stranger, session.id))).rejects.toMatchObject({
+        _tag: "UploadNotFound",
+      })
+    }
+    await uploadPart(session.id)
+    const completed = await runtime.runPromise(uploads.complete(scope, session.id))
+    expect(await runtime.runPromise(uploads.prepare(scope, request))).toEqual(completed)
+    await runtime.runPromise(uploads.cancel(scope, session.id))
+    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("cancelled")
+    await db
+      .update(fileUpload)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(fileUpload.id, session.id))
+    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("expired")
+  })
+
+  test("key cancellation waits for an in-progress preparation transaction", async () => {
+    const prepareKey = crypto.randomUUID()
+    const limiter = await runtime.runPromise(DatabaseRateLimiter)
+    let enter: () => void = () => {}
+    let release: () => void = () => {}
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const gated = Uploads.layerNoDeps.pipe(
+      Layer.provide([
+        Database.layer,
+        ObjectStorage.layer,
+        StoredFiles.layer,
+        MultipartStorage.layer,
+        Layer.succeed(DatabaseRateLimiter, {
+          ...limiter,
+          consume: (options) =>
+            Effect.promise(() => {
+              enter()
+              return gate
+            }).pipe(Effect.andThen(limiter.consume(options))),
+        }),
+      ]),
+    )
+    const preparation = runtime.runPromise(
+      Effect.flatMap(Uploads, (service) => service.prepare(scope, { ...input, prepareKey })).pipe(
+        Effect.provide(Layer.fresh(gated)),
+        Effect.result,
+      ),
+    )
+    await entered
+    const cancellation = runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await db.execute(
+          sql`select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%"tenant_user"%' and query like '%for update%'`,
+        )
+        expect(waiting.rows).toHaveLength(1)
+      })
+    } finally {
+      release()
+    }
+    await cancellation
+    const result = await preparation
+    expect(result._tag === "Success" || result.failure._tag === "UploadConflict").toBe(true)
+    const [row] = await db.select().from(fileUpload).where(eq(fileUpload.prepareKey, prepareKey))
+    expect(row!.status).toBe("cancelled")
+  })
+
+  test("a lost preparation response can be cancelled by its private key and free an active slot", async () => {
+    const prepareKey = crypto.randomUUID()
+    const uncertain = await runtime.runPromise(uploads.prepare(scope, { ...input, prepareKey }))
+    for (let file = 0; file < 9; file++) await runtime.runPromise(uploads.prepare(scope, input))
+    for (const stranger of [other, foreign])
+      await runtime.runPromise(uploads.cancelPrepared(stranger, prepareKey))
+    expect((await runtime.runPromise(uploads.status(scope, uncertain.id))).status).toBe("pending")
+    await expect(runtime.runPromise(uploads.prepare(scope, input))).rejects.toMatchObject({
+      _tag: "UploadRateLimited",
+    })
+    await runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
+    expect((await runtime.runPromise(uploads.status(scope, uncertain.id))).status).toBe("cancelled")
+    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
+    await runtime.runPromise(uploads.cancelPrepared(scope, crypto.randomUUID()))
   })
 
   test("failed multipart preparation frees active slots and records unknown-upload cleanup", async () => {
@@ -338,7 +487,7 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
       ),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
     await expect(runtime.runPromise(uploads.cancel(scope, session.id))).rejects.toMatchObject({
-      _tag: "UploadConflict",
+      _tag: "UploadClaimed",
     })
     await db.delete(fileUpload).where(eq(fileUpload.id, session.id))
     expect(
