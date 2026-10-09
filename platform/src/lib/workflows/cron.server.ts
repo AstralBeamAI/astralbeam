@@ -2,7 +2,7 @@ import { Cron, Effect, Layer } from "effect"
 import { ClusterCron } from "effect/cluster"
 
 import expiredCacheCleanup from "./expired-cache-cleanup.server.ts"
-import { refreshModelPriceCatalog } from "../model-providers/pricing-catalog.server.ts"
+import modelPriceCatalogRefresh from "./model-price-catalog-refresh.server.ts"
 
 export const scheduledWorkflowsLayer = Layer.mergeAll(
   ClusterCron.make({
@@ -17,7 +17,7 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     cron: Cron.parseUnsafe("0 0 3 * * *", "UTC"),
     calculateNextRunFromPrevious: false,
     skipIfOlderThan: "1 hour",
-    execute: refreshModelPriceCatalog.pipe(
+    execute: modelPriceCatalogRefresh.pipe(
       Effect.catchCause(() =>
         Effect.logWarning("Pricing catalog refresh failed. Keeping the last valid catalog"),
       ),

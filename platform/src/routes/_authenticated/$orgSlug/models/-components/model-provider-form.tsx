@@ -330,7 +330,7 @@ export function ModelProviderForm({
             />
             <FieldDescription>
               {pricingFetchedAt === null ? (
-                "Using bundled catalog defaults. No successful refresh yet."
+                "Using bundled catalog defaults. No successful refresh yet. Prices may be outdated."
               ) : (
                 <>
                   Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.

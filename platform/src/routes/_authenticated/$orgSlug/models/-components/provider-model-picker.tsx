@@ -43,12 +43,13 @@ export function ProviderModelPicker({
 }) {
   const [search, setSearch] = useState("")
   const [customModelId, setCustomModelId] = useState("")
-  const [customModels, setCustomModels] = useState<readonly ProviderModelFields[]>(models)
+  const [customModels, setCustomModels] = useState<readonly ProviderModelFields[]>([])
   const [customError, setCustomError] = useState<string | null>(null)
   const lookup = useMutation({
     mutationKey: ["model-usage-defaults", organizationSlug],
     mutationFn: async (model: ProviderModelFields): Promise<ProviderModelFields> =>
       models.find((item) => item.modelId === model.modelId) ??
+      customModels.find((item) => item.modelId === model.modelId) ??
       catalog.find((item) => item.modelId === model.modelId) ?? {
         ...model,
         usageConfiguration: await getModelUsageDefaults({
@@ -117,13 +118,18 @@ export function ProviderModelPicker({
                     id={`provider-model-${modelId}`}
                     checked={selected}
                     disabled={disabled}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) => {
+                      if (!checked)
+                        setCustomModels((current) => [
+                          ...current.filter((model) => model.modelId !== modelId),
+                          choice,
+                        ])
                       onChange(
                         checked
                           ? [...models, choice]
                           : models.filter((model) => model.modelId !== modelId),
                       )
-                    }
+                    }}
                   />
                   <FieldLabel htmlFor={`provider-model-${modelId}`} className="font-normal">
                     {modelId}

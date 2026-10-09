@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest"
+import { Schema } from "effect"
 
 import { modelUsageTestConfiguration } from "./usage.test-support.ts"
 import {
@@ -6,6 +7,7 @@ import {
   effectiveModelUsageConfiguration,
 } from "./pricing-catalog.server.ts"
 import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
+import { ModelUsageConfigurationSchema } from "./usage-schemas.ts"
 
 const testPriceCatalog: ModelPriceCatalog = {
   revision: "test",
@@ -29,6 +31,7 @@ const testPriceCatalog: ModelPriceCatalog = {
             },
             output_mtok: 8,
             cache_read_mtok: 0.25,
+            cache_write_mtok: 1 / 24,
           },
         },
       ],
@@ -48,6 +51,7 @@ describe("model pricing catalog", () => {
       inputPerMillion: "2",
       outputPerMillion: "8",
       cacheReadPerMillion: "0.25",
+      cacheWritePerMillion: "0.041666666667",
     })
     expect(card.contextTiers).toMatchObject([
       { aboveInputTokens: 20_000, prices: { inputPerMillion: "4" } },
@@ -72,6 +76,12 @@ describe("model pricing catalog", () => {
     expect(
       effectiveModelUsageConfiguration({ ...lookup, configured: modelUsageTestConfiguration }),
     ).toBe(modelUsageTestConfiguration)
+    expect(
+      Schema.is(ModelUsageConfigurationSchema)({
+        ...modelUsageTestConfiguration,
+        contextTiers: [{ aboveInputTokens: 20_000, prices: modelUsageTestConfiguration.prices }],
+      }),
+    ).toBe(false)
     const configured = {
       ...modelUsageTestConfiguration,
       outputCap: 1024,

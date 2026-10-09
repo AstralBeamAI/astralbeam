@@ -38,6 +38,11 @@ export const ModelUsageConfigurationSchema = Schema.Struct({
   outputCap: modelTokenBoundSchema,
 }).check(
   Schema.makeFilter((configuration) => {
+    if (configuration.pricingSource.kind === "manual" && configuration.contextTiers.length > 0)
+      return {
+        path: ["contextTiers"],
+        issue: "Manual overrides use flat prices without context tiers",
+      }
     if (configuration.maxInputTokens === null && configuration.contextWindowTokens === null)
       return { path: ["maxInputTokens"], issue: "Configure an input or context token limit" }
     if (configuration.outputCap > configuration.maxOutputTokens)

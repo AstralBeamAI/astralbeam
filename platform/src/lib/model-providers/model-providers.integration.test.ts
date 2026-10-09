@@ -28,11 +28,8 @@ import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
-import {
-  catalogModelUsageConfiguration,
-  readModelPriceCatalog,
-  refreshModelPriceCatalog,
-} from "./pricing-catalog.server.ts"
+import { catalogModelUsageConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.server.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
@@ -172,7 +169,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     }))
     vi.stubGlobal("fetch", () => Promise.resolve(Response.json(providers)))
     try {
-      await runAppEffect(refreshModelPriceCatalog)
+      await runAppEffect(modelPriceCatalogRefresh)
       const refreshed = await runAppEffect(readModelPriceCatalog)
       const [stored] = await db
         .select({
@@ -242,7 +239,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       vi.stubGlobal("fetch", () =>
         Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
       )
-      await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
+      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
       expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
       const cancelDownload = vi.fn()
       vi.stubGlobal("fetch", () =>
@@ -257,7 +254,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           ),
         ),
       )
-      await expect(runAppEffect(refreshModelPriceCatalog)).rejects.toThrow()
+      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
       expect(cancelDownload).toHaveBeenCalledOnce()
       expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
     } finally {
@@ -292,7 +289,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
               ),
             ),
           )
-          const fiber = yield* refreshModelPriceCatalog.pipe(Effect.forkChild)
+          const fiber = yield* modelPriceCatalogRefresh.pipe(Effect.forkChild)
           const signal = yield* Deferred.await(started)
           yield* TestClock.adjust("30 seconds")
           expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
