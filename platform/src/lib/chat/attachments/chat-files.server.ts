@@ -10,8 +10,17 @@ import { APP_HANDLE } from "@/lib/constants"
 import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "../threads/errors"
 import type { ChatMessagePayload, ChatThreadScope } from "../threads/schemas"
-import { base64ByteLength, decodeAttachmentBytes, normalizeMimeType } from "./attachments.server"
-import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants.server"
+import {
+  attachmentKind,
+  base64ByteLength,
+  decodeAttachmentBytes,
+  normalizeMimeType,
+} from "./attachments.server"
+import {
+  CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
+  CHAT_ATTACHMENT_MAX_COUNT,
+  CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+} from "./constants.server"
 import { chatMediaPart, storedChatMediaSource } from "./stored-media"
 
 type ChatFileScope = Pick<ChatThreadScope, "organizationId" | "tenantId"> & { threadId: string }
@@ -141,7 +150,7 @@ export class ChatFiles extends Context.Service<
             if (!chatMediaPart(part)) continue
             const source = part.source
             const stored = storedChatMediaSource(part)
-            let key: string, size: number
+            let key: string, size: number, contentType: string
             if (Option.isSome(stored)) {
               const [file] = yield* db
                 .select({
@@ -160,6 +169,7 @@ export class ChatFiles extends Context.Service<
                 .pipe(mapDatabaseErrors())
               if (!file) return yield* new ChatThreadInvalid()
               size = file.size
+              contentType = file.contentType
               key = `${file.sha256}:${file.contentType}`
             } else if (Schema.is(Schema.JsonObject)(source) && source.type === "data") {
               if (
@@ -171,8 +181,12 @@ export class ChatFiles extends Context.Service<
               const bytes = decodeAttachmentBytes(source.value)
               if (!bytes) return yield* new ChatThreadInvalid()
               size = bytes.length
-              key = `${createHash("sha256").update(bytes).digest("hex")}:${normalizeMimeType(source.mimeType) || "application/octet-stream"}`
+              contentType = normalizeMimeType(source.mimeType) || "application/octet-stream"
+              key = `${createHash("sha256").update(bytes).digest("hex")}:${contentType}`
             } else continue
+            const kind = attachmentKind(contentType)
+            if (kind && size > CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind])
+              return yield* new ChatThreadInvalid()
             representationBytes += size
             if (representationBytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
               return yield* new ChatThreadInvalid()
@@ -349,7 +363,7 @@ export class ChatFiles extends Context.Service<
                 chatFileOwnerWhere(scope),
                 eq(chatFile.id, id),
                 sql`not exists (select 1 from chat_message_part p where p.organization_id = ${scope.organizationId}::uuid and p.tenant_id = ${scope.tenantId}::uuid and p.thread_id = ${scope.threadId}::uuid and p.payload @> ${JSON.stringify({ source: { type: "file", provider: APP_HANDLE, value: id } })}::jsonb)`,
-                sql`not exists (select 1 from chat_message m where m.organization_id = ${scope.organizationId}::uuid and m.tenant_id = ${scope.tenantId}::uuid and m.thread_id = ${scope.threadId}::uuid and jsonb_path_exists(m.metadata, '$.modelMessages[*].content[*].source ? (@.type == "file" && @.provider == "astralbeam" && @.value == $fileId)', jsonb_build_object('fileId', ${id}::text)))`,
+                sql`not exists (select 1 from chat_message m where m.organization_id = ${scope.organizationId}::uuid and m.tenant_id = ${scope.tenantId}::uuid and m.thread_id = ${scope.threadId}::uuid and jsonb_path_exists(m.metadata, '$.modelMessages[*].content[*].source ? (@.type == "file" && @.provider == $provider && @.value == $fileId)', jsonb_build_object('provider', ${APP_HANDLE}::text, 'fileId', ${id}::text)))`,
               ),
             )
             .pipe(mapDatabaseErrors())
