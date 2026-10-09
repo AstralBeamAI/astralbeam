@@ -1,12 +1,101 @@
 import { createServer } from "node:http"
 import { once } from "node:events"
 
-import { S3Client } from "@aws-sdk/client-s3"
+import { DeleteObjectCommand, ListObjectVersionsCommand, S3Client } from "@aws-sdk/client-s3"
 import { Effect, Layer, Logger, ManagedRuntime } from "effect"
-import { expect, test, vi } from "vitest"
+import { expect, test, vi, type MockInstance } from "vitest"
 
 import { Config } from "@/lib/config/config.server"
 import { ObjectStorage } from "./object-storage.server"
+
+test("purges only exact-key versions and markers, retries truncated pages and limits fallback", async () => {
+  const layer = ObjectStorage.layerNoDeps.pipe(
+    Layer.provide(
+      Layer.succeed(Config, {
+        snapshot: Effect.succeed({
+          issues: [],
+          values: {
+            s3_endpoint: "http://127.0.0.1:9000",
+            s3_region: "us-east-1",
+            s3_bucket: "test",
+            s3_access_key_id: "fixture-key",
+            s3_secret_access_key: "fixture-secret",
+            s3_path_style: "true",
+          },
+        }),
+      } as unknown as Config["Service"]),
+    ),
+  )
+  const runtime = ManagedRuntime.make(layer)
+  const requests = vi.spyOn(S3Client.prototype, "send") as unknown as MockInstance<
+    (command: ListObjectVersionsCommand | DeleteObjectCommand) => Promise<unknown>
+  >
+  const remove = Effect.flatMap(ObjectStorage, (storage) =>
+    storage.remove({ key: "files/avatar" }),
+  ).pipe(Effect.result)
+  try {
+    requests
+      .mockResolvedValueOnce({
+        Versions: [
+          { Key: "files/avatar", VersionId: "old" },
+          { Key: "files/avatar", VersionId: "null" },
+          { Key: "files/avatar-other", VersionId: "sibling" },
+        ],
+        DeleteMarkers: [{ Key: "files/avatar", VersionId: "marker" }],
+        IsTruncated: true,
+      })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+    expect(await runtime.runPromise(remove)).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "StorageUnavailable" },
+    })
+    expect(requests.mock.calls[0]![0]).toBeInstanceOf(ListObjectVersionsCommand)
+    expect(requests.mock.calls[0]![0].input).toEqual({
+      Bucket: "test",
+      Prefix: "files/avatar",
+      MaxKeys: 1000,
+    })
+    expect(requests.mock.calls.slice(1).map(([command]) => command.input)).toEqual(
+      ["old", "null", "marker"].map((VersionId) => ({
+        Bucket: "test",
+        Key: "files/avatar",
+        VersionId,
+      })),
+    )
+    requests.mockReset().mockResolvedValueOnce({ Versions: [], DeleteMarkers: [] })
+    expect((await runtime.runPromise(remove))._tag).toBe("Success")
+    expect(requests).toHaveBeenCalledTimes(1)
+    requests
+      .mockReset()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("private provider details"), { name: "NotImplemented" }),
+      )
+      .mockResolvedValueOnce(undefined)
+    expect((await runtime.runPromise(remove))._tag).toBe("Success")
+    expect(requests).toHaveBeenCalledTimes(2)
+    expect(requests.mock.calls[1]![0]).toBeInstanceOf(DeleteObjectCommand)
+    expect(requests.mock.calls[1]![0].input).toEqual({
+      Bucket: "test",
+      Key: "files/avatar",
+      VersionId: undefined,
+    })
+    requests
+      .mockReset()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("private provider details"), { name: "AccessDenied" }),
+      )
+    expect((await runtime.runPromise(remove))._tag).toBe("Failure")
+    expect(requests).toHaveBeenCalledTimes(1)
+    requests.mockReset().mockResolvedValueOnce({ Versions: [{ Key: "files/avatar" }] })
+    expect((await runtime.runPromise(remove))._tag).toBe("Failure")
+    expect(requests).toHaveBeenCalledTimes(1)
+  } finally {
+    requests.mockRestore()
+    await runtime.dispose()
+  }
+})
 
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
@@ -19,6 +108,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
   let omitHeadSize = false
   let corruptDownloads = true
   let denyMissing = false
+  let denyVersions = false
   let stall = false
   let notifyHead: () => void = () => undefined
   const headStarted = new Promise<void>((resolve) => {
@@ -28,6 +118,26 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     const respond = async () => {
       const url = new URL(request.url!, "http://localhost")
       const key = url.pathname
+      if (url.searchParams.has("versions")) {
+        if (denyVersions) {
+          response.writeHead(403, { "Content-Type": "application/xml" })
+          response.end("<Error><Code>AccessDenied</Code></Error>")
+          return
+        }
+        response.writeHead(200, { "Content-Type": "application/xml" })
+        response.end(
+          `<ListVersionsResult><IsTruncated>false</IsTruncated>${[...versions]
+            .filter((storedKey) =>
+              storedKey.slice("/test/".length).startsWith(url.searchParams.get("prefix")!),
+            )
+            .map(
+              (storedKey) =>
+                `<Version><Key>${storedKey.slice("/test/".length)}</Key><VersionId>fixture-version</VersionId></Version>`,
+            )
+            .join("")}</ListVersionsResult>`,
+        )
+        return
+      }
       if (key === "/test/oversized") {
         response.on("close", finishOversized)
         response.writeHead(200, { "Content-Length": 1024 * 1024 })
@@ -151,6 +261,17 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     objects.delete("/test/metadata")
     omitHeadSize = false
     corruptDownloads = false
+    denyVersions = true
+    expect(
+      await Effect.runPromise(
+        Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
+          Effect.result,
+          Effect.provide(layer),
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+    expect(versions.size).toBe(0)
+    denyVersions = false
     for (const denied of [true, false]) {
       denyMissing = denied
       const checked = await Effect.runPromise(

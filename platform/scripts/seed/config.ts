@@ -69,14 +69,6 @@ export async function seedConfig(
   return { written, fromEnvironment }
 }
 
-function localStorageEndpoint(value: string) {
-  const endpoint = new URL(value)
-  return ["127.0.0.1", "localhost", "[::1]", "rustfs"].includes(endpoint.hostname) &&
-    endpoint.pathname === "/"
-    ? endpoint
-    : undefined
-}
-
 export async function initializeStorage(database: SeedDatabase): Promise<void> {
   if (process.env.SKIP_DOCKER_COMPOSE === "true") return
   const rows = await database.select().from(configTable).where(like(configTable.key, "s3_%"))
@@ -94,8 +86,12 @@ export async function initializeStorage(database: SeedDatabase): Promise<void> {
         : rows.find((row) => row.key === key && row.value.key === key)?.value.value || "",
     )
   }
-  const endpoint = localStorageEndpoint(value("s3_endpoint"))
-  if (!endpoint) return
+  const endpoint = new URL(value("s3_endpoint"))
+  if (
+    !["127.0.0.1", "localhost", "[::1]", "rustfs"].includes(endpoint.hostname) ||
+    endpoint.pathname !== "/"
+  )
+    return
   const bucket = value("s3_bucket")
   const client = new S3Client({
     endpoint: endpoint.href,
