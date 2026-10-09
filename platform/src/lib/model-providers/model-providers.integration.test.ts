@@ -14,7 +14,6 @@ const modelProviderIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { modelUsageTestConfiguration } from "./usage.test-support.ts"
 import { getAuthDatabase } from "@/db/database.server"
 import {
   agent,
@@ -28,9 +27,25 @@ import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
-import { catalogModelUsageConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import {
+  catalogModelUsageConfiguration,
+  readModelPriceCatalog,
+  writeModelPriceCatalog,
+} from "./pricing-catalog.server.ts"
+import type { ModelUsageConfiguration } from "./schemas.ts"
 import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.server.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
+
+const modelUsageTestConfiguration: ModelUsageConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "2", outputPerMillion: "8" },
+  contextTiers: [],
+  maxInputTokens: 128_000,
+  contextWindowTokens: null,
+  maxOutputTokens: 8192,
+  outputCap: 4096,
+}
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
 
@@ -209,9 +224,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           })),
         })),
       }
-      await runAppEffect(
-        Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(withoutModel)),
-      )
+      await runAppEffect(writeModelPriceCatalog(withoutModel))
       await runAppEffect(
         saveIntegrationProvider(organizationId, {
           id: providerId,
@@ -265,9 +278,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       )
       expect((await runAppEffect(readModelPriceCatalog)).fetchedAt).toBeNull()
     } finally {
-      await runAppEffect(
-        Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(previous)),
-      )
+      await runAppEffect(writeModelPriceCatalog(previous))
       vi.unstubAllGlobals()
     }
   })

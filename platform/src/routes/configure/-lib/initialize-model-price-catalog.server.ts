@@ -2,14 +2,12 @@ import { Effect } from "effect"
 
 import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
 import { Config } from "@/lib/config/config.server"
+import { readModelPriceCatalog } from "@/lib/model-providers/pricing-catalog.server"
 import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh.server"
 
 export const initializeModelPriceCatalog = Effect.gen(function* () {
   const config = yield* Config
-  if (
-    (yield* config.setupState).setupComplete &&
-    !(yield* config.readModelPriceCatalog)?.fetchedAt
-  ) {
+  if ((yield* config.setupState).setupComplete && !(yield* readModelPriceCatalog).fetchedAt) {
     yield* modelPriceCatalogInitialization
       .execute({}, { discard: true })
       .pipe(provideClusterWorkflowEngine)

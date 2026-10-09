@@ -35,13 +35,13 @@ import {
   effectiveModelUsageConfiguration,
   readModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
-import type { ModelUsageConfiguration } from "./usage-schemas.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
   type ModelProviderFields,
   type ModelProviderApi,
   type ModelProviderType,
+  type ModelUsageConfiguration,
 } from "./schemas.ts"
 
 interface ModelProviderModel {

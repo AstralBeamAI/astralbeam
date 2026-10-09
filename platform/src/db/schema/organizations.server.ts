@@ -22,11 +22,11 @@ import {
 } from "../../lib/sandboxes/schemas.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
+  ModelUsageConfigurationSchema,
   type ModelProviderType,
   type ModelProviderApi,
 } from "../../lib/model-providers/schemas.ts"
 import { UuidV7Schema } from "../../lib/schemas.ts"
-import { ModelUsageConfigurationSchema } from "../../lib/model-providers/usage-schemas.ts"
 
 import {
   caseInsensitiveText,

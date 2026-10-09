@@ -2,11 +2,11 @@
 
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
-import type { ProviderModelFields } from "@/lib/model-providers/schemas"
 import {
   modelInputAllowance,
   type ModelUsageConfiguration,
-} from "@/lib/model-providers/usage-schemas"
+  type ProviderModelFields,
+} from "@/lib/model-providers/schemas"
 import { ModelProviderField } from "./model-provider-field"
 
 const modelPricingFields = [

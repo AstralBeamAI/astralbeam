@@ -4,10 +4,14 @@ import { BigDecimal, Effect, Option, Schema } from "effect"
 import { Config } from "@/lib/config/config.server"
 import {
   ModelPriceCatalogProvidersSchema,
+  ModelPriceCatalogSchema,
   type ModelPriceCatalog,
 } from "./pricing-catalog-schemas.ts"
-import { ModelUsageConfigurationSchema, type ModelUsageConfiguration } from "./usage-schemas.ts"
-import type { ModelProviderType } from "./schemas.ts"
+import {
+  ModelUsageConfigurationSchema,
+  type ModelUsageConfiguration,
+  type ModelProviderType,
+} from "./schemas.ts"
 
 const bundledModelProviders = Schema.decodeUnknownSync(ModelPriceCatalogProvidersSchema)(
   ["openai", "anthropic", "openrouter"].map((id) => findProvider({ providerId: id })),
@@ -16,10 +20,25 @@ const bundledModelPriceCatalog: ModelPriceCatalog = {
   fetchedAt: null,
   providers: bundledModelProviders,
 }
+const modelPriceCatalogJsonSchema = Schema.fromJsonString(ModelPriceCatalogSchema)
 
 export const readModelPriceCatalog = Effect.gen(function* () {
   const config = yield* Config
-  return (yield* config.readModelPriceCatalog) ?? bundledModelPriceCatalog
+  const value = yield* config.readStoredValue("model_price_catalog")
+  if (value === null) return bundledModelPriceCatalog
+  const catalog = Schema.decodeUnknownOption(modelPriceCatalogJsonSchema)(value)
+  if (Option.isSome(catalog)) return catalog.value
+  yield* Effect.logWarning("Ignoring invalid stored model pricing catalog")
+  return bundledModelPriceCatalog
+})
+
+export const writeModelPriceCatalog = Effect.fn("writeModelPriceCatalog")(function* (
+  catalog: ModelPriceCatalog,
+) {
+  const config = yield* Config
+  yield* config.write([
+    { key: "model_price_catalog", value: Schema.encodeSync(modelPriceCatalogJsonSchema)(catalog) },
+  ])
 })
 
 const modelCatalogPriceKeys = {

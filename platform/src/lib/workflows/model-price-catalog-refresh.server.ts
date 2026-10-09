@@ -2,8 +2,8 @@ import { calcPrice, REMOTE_DATA_JSON_URL, type Provider } from "@pydantic/genai-
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
-import { Config } from "@/lib/config/config.server"
 import { ModelPriceCatalogProvidersSchema } from "../model-providers/pricing-catalog-schemas.ts"
+import { writeModelPriceCatalog } from "../model-providers/pricing-catalog.server.ts"
 
 const modelPriceCatalogRefresh = Effect.gen(function* () {
   const body = yield* Effect.tryPromise(async (signal) => {
@@ -32,8 +32,7 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
       yield* Effect.try(() => calcPrice({}, model.id, { provider: provider as Provider }))
     }
   }
-  const config = yield* Config
-  yield* config.writeModelPriceCatalog({
+  yield* writeModelPriceCatalog({
     fetchedAt: DateTime.formatIso(yield* DateTime.now),
     providers,
   })

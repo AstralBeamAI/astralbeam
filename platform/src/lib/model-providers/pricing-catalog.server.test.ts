@@ -1,12 +1,22 @@
 import { describe, expect, test } from "vitest"
 
-import { modelUsageTestConfiguration } from "./usage.test-support.ts"
 import {
   catalogModelUsageConfiguration,
   effectiveModelUsageConfiguration,
 } from "./pricing-catalog.server.ts"
 import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
-import { modelInputAllowance } from "./usage-schemas.ts"
+import { modelInputAllowance, type ModelUsageConfiguration } from "./schemas.ts"
+
+const modelUsageTestConfiguration: ModelUsageConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "2", outputPerMillion: "8" },
+  contextTiers: [],
+  maxInputTokens: 128_000,
+  contextWindowTokens: null,
+  maxOutputTokens: 8192,
+  outputCap: 4096,
+}
 
 const testPriceCatalog: ModelPriceCatalog = {
   fetchedAt: null,

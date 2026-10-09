@@ -14,7 +14,6 @@ import {
 import { SqlClient } from "effect/sql"
 
 import { Database } from "@/db/database.server"
-import type { ModelPriceCatalog } from "@/lib/model-providers/pricing-catalog-schemas"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
 import {
   DatabaseMigrations,
@@ -40,9 +39,8 @@ import {
   type DatabaseConfigChange,
   type DatabaseConfigState,
   readDatabaseConfig,
-  readDatabaseModelPriceCatalog,
+  readDatabaseConfigValue,
   writeDatabaseConfig,
-  writeDatabaseModelPriceCatalog,
 } from "./store.server.ts"
 import {
   type ConfigUpdate,
@@ -137,9 +135,8 @@ export class Config extends Context.Service<
     readonly publicConfig: Effect.Effect<PublicConfig | null>
     /** Stored values without environment overrides, for owner onboarding. */
     readonly readStored: Effect.Effect<DatabaseConfigState>
-    /** Shared catalog reads bypass the process-local settings snapshot. */
-    readonly readModelPriceCatalog: Effect.Effect<ModelPriceCatalog | null>
-    readonly writeModelPriceCatalog: (catalog: ModelPriceCatalog) => Effect.Effect<void>
+    /** Reads a database-only value without the process-local snapshot or environment overrides. */
+    readonly readStoredValue: (key: string) => Effect.Effect<string | null>
     /**
      * Writes system-managed or pre-validated values, joining the caller's transaction. Invalidate
      * after it commits.
@@ -200,10 +197,6 @@ export class Config extends Context.Service<
           setupComplete: current.issues.length === 0 && migrations.pending.length === 0,
         })),
       )
-
-      const write = Effect.fn("Config.write")(function* (changes: readonly DatabaseConfigChange[]) {
-        yield* writeDatabaseConfig(db, changes)
-      })
 
       const update = Effect.fn("Config.update")(function* (updates: readonly ConfigUpdate[]) {
         const current = yield* snapshot
@@ -267,9 +260,8 @@ export class Config extends Context.Service<
           state.setupComplete ? publicConfigFromValues(state.snapshot.values) : null,
         ),
         readStored: readDatabaseConfig(db),
-        readModelPriceCatalog: readDatabaseModelPriceCatalog(db),
-        writeModelPriceCatalog: (catalog) => writeDatabaseModelPriceCatalog(db, catalog),
-        write,
+        readStoredValue: (key) => readDatabaseConfigValue(db, key),
+        write: (changes) => writeDatabaseConfig(db, changes),
         update,
         generate,
         reveal,

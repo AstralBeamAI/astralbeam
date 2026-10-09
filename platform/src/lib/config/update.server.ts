@@ -64,7 +64,7 @@ export function validateConfigUpdates(
 /** Generates each required value that is neither stored, effective, nor being changed. */
 export function generateMissingConfigValues(
   current: { readonly rows: readonly ConfigStorageEntry[] | null; readonly values: ConfigValues },
-  changedKeys: ReadonlySet<ConfigKey>,
+  changedKeys: ReadonlySet<string>,
 ) {
   const values: { key: ConfigKey; value: string }[] = []
   const issues: ConfigUpdateIssue[] = []
