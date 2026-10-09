@@ -29,9 +29,18 @@ export type {
   ParametersSchema,
   StandardSchemaV1,
   ToolDefinition,
+  ToolRegistry,
+  ToolInput,
+  ToolResult,
+  ToolContent,
+  ToolAnnotations,
+  ToolExecutionContext,
+  WidgetContext,
+  WidgetRenderHandle,
   WidgetDefinition,
+  WidgetRegistry,
 } from "../lib/types.ts"
-export { defineTool, defineWidget } from "../lib/define.ts"
+export { defineTool, defineWidget, toolResult } from "../lib/define.ts"
 export type { TypedToolDefinition, TypedWidgetDefinition } from "../lib/define.ts"
 export {
   mountAstralBeamThreadList,

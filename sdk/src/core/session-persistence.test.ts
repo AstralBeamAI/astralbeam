@@ -281,6 +281,7 @@ test.each([
       if (path.endsWith("/threads"))
         return Promise.resolve(Response.json({ items: [thread], page_after: null }))
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      bodies.push(JSON.parse(init!.body as string) as (typeof bodies)[number])
       if (uncertain && keys.length === 1)
         return Promise.reject(new TypeError("Acknowledgment lost"))
       return Promise.resolve(
@@ -758,7 +759,7 @@ test.each<
           source_part_id: "application-part",
           response_target_id: "target",
           outcome: throwsAfterCommit ? "unknown" : "succeeded",
-          output: throwsAfterCommit ? { error: "Response lost after mutation" } : { changed: true },
+          output: throwsAfterCommit ? { error: "Response lost after mutation" } : { content: [{ type: "text", text: '{"changed":true}' }], structuredContent: { changed: true } },
         },
       ],
     })
@@ -914,12 +915,12 @@ test("a browser tool and widget can continue through consecutive committed turns
   const executed = vi.fn(() => ({ done: true }))
   const rendered = vi.fn()
   const outputs: unknown[] = []
-  const input = { widget: "card", props: {} }
+  const input = {}
   const call = (index: number) => ({
     id: `part-${index}`,
     type: "tool-call",
     toolCallId: "reused-call",
-    name: index === 1 ? "change_data" : "render_widget",
+    name: index === 1 ? "change_data" : "show_card",
     arguments: JSON.stringify(index === 1 ? {} : input),
     input: index === 1 ? {} : input,
     state: "input-complete",
@@ -1946,4 +1947,43 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first account")
   expect(sends).not.toHaveBeenCalled()
+})
+
+test("a host update during send keeps metadata paired with the captured tools", async () => {
+  let body:
+    | {
+        tools: { name: string }[]
+        forwardedProps: { toolMetadata: Record<string, unknown> }
+      }
+    | undefined
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
+    if (path.endsWith("/threads"))
+      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+    body = JSON.parse(init!.body as string) as typeof body
+    return Promise.resolve(new Response("Rejected", { status: 400 }))
+  })
+  const chat = createTestSession({
+    threadId: thread.id,
+    tools: { old_tool: { description: "Old", execute: () => ({}) } },
+    streamCallbacks: {
+      onResponse: () =>
+        chat.updateOptions({
+          tools: { new_tool: { description: "New", execute: () => ({}) } },
+        }),
+    },
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.sendMessage("Check snapshot")
+    expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+    expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+    expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+  } finally {
+    chat.dispose()
+  }
 })
