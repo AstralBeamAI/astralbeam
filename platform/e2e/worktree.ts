@@ -163,6 +163,13 @@ export function e2eWebServers() {
       env: {
         PORT: String(platformPort),
         DATABASE_URL: e2eDatabaseUrl,
+        // Keep operator storage fields editable regardless of development overrides.
+        S3_ENDPOINT: "",
+        S3_REGION: "",
+        S3_BUCKET: "",
+        S3_ACCESS_KEY_ID: "",
+        S3_SECRET_ACCESS_KEY: "",
+        S3_PATH_STYLE: "",
         EMAIL_PROVIDER: "smtp",
         SMTP_HOST: "127.0.0.1",
         SMTP_PORT: "",

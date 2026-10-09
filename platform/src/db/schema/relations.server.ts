@@ -280,9 +280,45 @@ const chatRelations = defineRelationsPart(schema, (relations) => ({
   },
 }))
 
+const filesRelations = defineRelationsPart(schema, (relations) => ({
+  userAvatar: {
+    user: relations.one.user({
+      from: relations.userAvatar.userId,
+      to: relations.user.id,
+    }),
+    file: relations.one.fileObject({
+      from: relations.userAvatar.id,
+      to: relations.fileObject.id,
+    }),
+  },
+  organizationLogo: {
+    organization: relations.one.organization({
+      from: relations.organizationLogo.organizationId,
+      to: relations.organization.id,
+    }),
+    file: relations.one.fileObject({
+      from: relations.organizationLogo.id,
+      to: relations.fileObject.id,
+    }),
+  },
+  userImageImport: {
+    user: relations.one.user({
+      from: relations.userImageImport.userId,
+      to: relations.user.id,
+    }),
+  },
+  organizationImageImport: {
+    organization: relations.one.organization({
+      from: relations.organizationImageImport.organizationId,
+      to: relations.organization.id,
+    }),
+  },
+}))
+
 // Relation parts follow the base definition, and each source table belongs to one part. https://orm.drizzle.team/docs/relations#relations-parts
 export const databaseRelations = {
   ...baseRelations,
   ...authRelations,
   ...chatRelations,
+  ...filesRelations,
 }

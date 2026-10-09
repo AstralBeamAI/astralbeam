@@ -38,11 +38,15 @@ import {
   chatParticipant,
   chatThread,
   chatToolResponse,
+  fileDeletion,
+  fileObject,
   modelProvider,
   providerModel,
   member,
   organization,
   organizationConfiguration,
+  organizationImageImport,
+  organizationLogo,
   sandboxProvider,
   tenant,
   tenantUser,
@@ -658,6 +662,25 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const kept = await createOrganization("kept", deleted.tenantId)
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
+    for (const { organizationId } of [deleted, kept]) {
+      const [logo] = await db
+        .insert(fileObject)
+        .values({
+          objectKey: `workflow-logo:${organizationId}`,
+          contentType: "image/png",
+          byteSize: 1,
+          sha256: "0".repeat(64),
+          verifiedAt: new Date(),
+          expiresAt: null,
+        })
+        .returning()
+      await db.insert(organizationLogo).values({ organizationId, id: logo!.id })
+      await db.insert(organizationImageImport).values({
+        organizationId,
+        sourceUrl: "https://images.example.com/logo.png",
+        status: "pending",
+      })
+    }
     const deletedChat = await createDeletionChat(deleted)
     const [anotherTenant] = await db
       .insert(tenant)
@@ -721,6 +744,35 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         { organizationId: keptId },
       ])
     }
+    for (const table of [organizationLogo, organizationImageImport]) {
+      expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
+        { organizationId: keptId },
+      ])
+    }
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.objectKey, `workflow-logo:${deletedId}`)),
+    ).toEqual([])
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.objectKey, `workflow-logo:${keptId}`)),
+    ).toHaveLength(1)
+    expect(
+      await db
+        .select()
+        .from(fileDeletion)
+        .where(eq(fileDeletion.objectKey, `workflow-logo:${deletedId}`)),
+    ).toHaveLength(1)
+    expect(
+      await db
+        .select()
+        .from(fileDeletion)
+        .where(eq(fileDeletion.objectKey, `workflow-logo:${keptId}`)),
+    ).toEqual([])
   })
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {
