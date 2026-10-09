@@ -456,6 +456,7 @@ export function ChatWidget({
     debug?.("attachment", "attachment removed", { id })
     const file = attachments.find((attachment) => attachment.id === id)
     if (!file) return
+    settleAttachment(id, { status: "reading", error: undefined })
     void removeAttachmentUpload({ uploads, draft: file }).then(
       () => setAttachments((current) => current.filter((attachment) => attachment.id !== id)),
       () => settleAttachment(id, { status: "error", error: "Removal failed. Try Remove again." }),
