@@ -247,6 +247,19 @@ test("new-conversation callbacks survive a token refresh failure and acknowledge
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1))
     expect(chat.getState().unsentMessage).toBeUndefined()
     expect(settled).not.toHaveBeenCalled()
+    failAuthentication = true
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("error"))
+    const onBusyAccepted = vi.fn()
+    await chat.sendMessage("Wait for the active response", { onAccepted: onBusyAccepted })
+    stream!.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ ...accepted, value: { ...accepted.value, version: 3 } })}\n\n`,
+      ),
+    )
+    await vi.waitFor(() => expect(chat.getState().thread?.version).toBe(3))
+    expect(onBusyAccepted).not.toHaveBeenCalled()
+    expect(chat.getState().unsentMessage).toBeUndefined()
     chat.reset()
     stream?.close()
     stream = undefined

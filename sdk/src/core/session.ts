@@ -1185,6 +1185,10 @@ export function createAstralBeamChat(
       await getValidChatAuthToken(authentication)
     } catch (error) {
       if (navigation !== navigationGeneration) return
+      if (sending || state.status === "streaming") {
+        reportError(error)
+        return
+      }
       if (!pendingSend || pendingSend.accepted || pendingSend.tools === undefined) {
         pendingSend = {
           content,
