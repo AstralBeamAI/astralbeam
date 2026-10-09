@@ -83,6 +83,16 @@ test.beforeEach(async ({ context }) => {
 test("unsent text, images, and large files recover, and accepted files stay cleared", async ({
   page,
 }) => {
+  let releaseCapabilities = () => {}
+  const capabilitiesReady = new Promise<void>((resolve) => {
+    releaseCapabilities = resolve
+  })
+  let capabilitiesRequested = false
+  await page.route("**/api/v1/chat/config?*", async (route) => {
+    capabilitiesRequested = true
+    await capabilitiesReady
+    await route.continue()
+  })
   const large = {
     name: "large.csv",
     mimeType: "text/csv",
@@ -113,6 +123,9 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
+  await expect.poll(() => capabilitiesRequested).toBe(true)
+  await expect(chat.root.getByRole("button", { name: "Attach files", exact: true })).toHaveCount(0)
+  releaseCapabilities()
   await chat.composer().fill("  Keep my unsent question\nwith these files  ")
   await chat.attach([note, image, large])
   await expect(chat.sendButton()).toBeEnabled()
@@ -487,11 +500,9 @@ test("a missing session keeps fingerprint validation when upload discovery is un
 })
 
 test("failed removal survives reload and retries cancellation", async ({ page }) => {
-  const capabilities = page.waitForResponse((response) => response.url().includes("/chat/config"))
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
-  await capabilities
   const completed = page.waitForResponse((response) => response.url().endsWith("/complete"))
   await chat.attach(note)
   await completed
