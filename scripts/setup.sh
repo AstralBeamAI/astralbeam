@@ -141,29 +141,6 @@ start_databases() {
   fi
 }
 
-initialize_storage() {
-  [ "${SKIP_DOCKER_COMPOSE:-false}" != true ] || return 0
-  set +x
-  local endpoint="${S3_ENDPOINT:-http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}}"
-  while [ "${endpoint%/}" != "$endpoint" ]; do endpoint="${endpoint%/}"; done
-  case "$endpoint" in
-    "http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}" | "http://localhost:${RUSTFS_HOST_PORT:-9000}" | http://rustfs:9000) ;;
-    *) echo "Skipped local bucket creation: storage uses an external endpoint."; set -x; return 0 ;;
-  esac
-  # curl already supports S3 request signing: https://curl.se/docs/manpage.html#--aws-sigv4
-  local request=(--silent --show-error --connect-timeout 5 --max-time 15
-    --aws-sigv4 "aws:amz:${S3_REGION:-us-east-1}:s3"
-    --user "${S3_ACCESS_KEY_ID:-${RUSTFS_ACCESS_KEY:-development}}:${S3_SECRET_ACCESS_KEY:-${RUSTFS_SECRET_KEY:-development-only-storage-key}}")
-  local bucket_url="$endpoint/${S3_BUCKET:-development-files}" status
-  status=$(curl "${request[@]}" --head --output /dev/null --write-out '%{http_code}' "$bucket_url")
-  case "$status" in
-    200) ;;
-    404) curl "${request[@]}" --fail --request PUT "$bucket_url" ;;
-    *) echo "Local storage setup failed (HTTP $status). Check the RustFS credentials." >&2; return 1 ;;
-  esac
-  set -x
-}
-
 # Vite loads `platform/.env.development[.local]`, and a shell value always wins, so this reads the
 # same order the platform does. https://vite.dev/guide/env-and-mode
 platform_database_url() {
@@ -213,7 +190,6 @@ bootstrap_workspace() {
   fi
   set -x
   (cd "$WORKSPACE_PATH/platform" && deno task db migrate)
-  initialize_storage
   (cd "$WORKSPACE_PATH/platform" && deno task db-seed)
   (cd "$WORKSPACE_PATH/sdk" && deno task build)
 }

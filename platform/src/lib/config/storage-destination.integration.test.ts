@@ -51,10 +51,11 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       vi.stubEnv("RUSTFS_HOST_PORT", "19000")
       vi.stubEnv("RUSTFS_ACCESS_KEY", "override-key")
       vi.stubEnv("RUSTFS_SECRET_KEY", "override-secret")
-      await getAuthDatabase().transaction(seedConfig)
+      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_a"))
       const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
       expect(seeded.values).toMatchObject({
         s3_endpoint: "http://127.0.0.1:19000",
+        s3_bucket: "astralbeam-worktree-a",
         s3_access_key_id: "override-key",
         s3_secret_access_key: "override-secret",
       })
@@ -74,7 +75,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     }
     const restarted = ManagedRuntime.make(Config.layer)
     try {
-      await getAuthDatabase().transaction(seedConfig)
+      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
       const result = await restarted.runPromise(
         Effect.flatMap(Config, (config) =>
           config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),
