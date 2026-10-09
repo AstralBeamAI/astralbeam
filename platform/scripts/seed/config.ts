@@ -1,6 +1,6 @@
 import process from "node:process"
 
-import { sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import { configTable } from "../../src/db/schema.server.ts"
 
@@ -23,7 +23,21 @@ export type SeedConfigResult = {
 export async function seedConfig(transaction: SeedTransaction): Promise<SeedConfigResult> {
   const written: string[] = []
   const fromEnvironment: string[] = []
-  for (const [key, value] of Object.entries(SEED_CONFIG_VALUES)) {
+  await transaction.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended('file-storage-destination', 0))`,
+  )
+  const [storagePin] = await transaction
+    .select({ key: configTable.key })
+    .from(configTable)
+    .where(eq(configTable.key, "s3_destination"))
+  const values = {
+    ...SEED_CONFIG_VALUES,
+    s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
+    s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,
+    s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
+  }
+  for (const [key, value] of Object.entries(values)) {
+    if (storagePin && key.startsWith("s3_")) continue
     if (process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue

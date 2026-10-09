@@ -16,6 +16,7 @@ const storageDatabase = vi.hoisted(() => {
 import { getAuthDatabase } from "@/db/database.server"
 import { configTable } from "@/db/schema.server"
 import { Config } from "./config.server"
+import { seedConfig } from "../../../scripts/seed/config"
 
 const destinationSettings = {
   endpoint: "http://127.0.0.1:9000/storage/v1/s3",
@@ -47,6 +48,16 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   test("pins the destination across runtimes, permits credential rotation and rejects environment drift", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {
+      vi.stubEnv("RUSTFS_HOST_PORT", "19000")
+      vi.stubEnv("RUSTFS_ACCESS_KEY", "override-key")
+      vi.stubEnv("RUSTFS_SECRET_KEY", "override-secret")
+      await getAuthDatabase().transaction(seedConfig)
+      const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
+      expect(seeded.values).toMatchObject({
+        s3_endpoint: "http://127.0.0.1:19000",
+        s3_access_key_id: "override-key",
+        s3_secret_access_key: "override-secret",
+      })
       await runtime.runPromise(
         Effect.flatMap(Config, (config) => config.update(destinationUpdates)),
       )
@@ -63,6 +74,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     }
     const restarted = ManagedRuntime.make(Config.layer)
     try {
+      await getAuthDatabase().transaction(seedConfig)
       const result = await restarted.runPromise(
         Effect.flatMap(Config, (config) =>
           config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),

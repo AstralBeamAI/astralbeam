@@ -145,6 +145,7 @@ initialize_storage() {
   [ "${SKIP_DOCKER_COMPOSE:-false}" != true ] || return 0
   set +x
   local endpoint="${S3_ENDPOINT:-http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}}"
+  while [ "${endpoint%/}" != "$endpoint" ]; do endpoint="${endpoint%/}"; done
   case "$endpoint" in
     "http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}" | "http://localhost:${RUSTFS_HOST_PORT:-9000}" | http://rustfs:9000) ;;
     *) echo "Skipped local bucket creation: storage uses an external endpoint."; set -x; return 0 ;;

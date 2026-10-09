@@ -5,7 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Schema, SynchronizedRef } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -70,6 +70,7 @@ export class ObjectStorage extends Context.Service<
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
+      const destinationReserved = yield* SynchronizedRef.make(false)
       const settings = Effect.map(config.snapshot, ({ values, issues }) => {
         if (issues.some((issue) => issue.key.startsWith("s3_")))
           return Option.none<StorageConnection>()
@@ -144,7 +145,11 @@ export class ObjectStorage extends Context.Service<
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
           withClient((client, connection) =>
-            config.reserveStorageDestination(connection).pipe(
+            SynchronizedRef.updateEffect(destinationReserved, (reserved) =>
+              reserved
+                ? Effect.succeed(true)
+                : config.reserveStorageDestination(connection).pipe(Effect.as(true)),
+            ).pipe(
               Effect.catchTag("StorageDestinationLocked", () =>
                 Effect.fail(new StorageUnavailable()),
               ),
