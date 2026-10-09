@@ -1,5 +1,5 @@
-import { and, eq, isNotNull, notInArray, sql } from "drizzle-orm"
-import { Effect, Option, Result } from "effect"
+import { and, eq, ne, notInArray, sql } from "drizzle-orm"
+import { Effect, Option, Result, Schema } from "effect"
 
 import type { EffectDatabase } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
@@ -7,7 +7,10 @@ import { decryptDatabaseValue } from "@/db/lib/encryption.server"
 import { sqlState } from "@/db/lib/sqlstate.server"
 import { configTable } from "@/db/schema.server"
 import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
-import type { ModelPriceCatalog } from "@/lib/model-providers/pricing-catalog-schemas"
+import {
+  ModelPriceCatalogSchema,
+  type ModelPriceCatalog,
+} from "@/lib/model-providers/pricing-catalog-schemas"
 import { CONFIG_DEFINITIONS, decodeConfigValue, findConfigDefinition } from "./registry.server.ts"
 import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
@@ -81,7 +84,7 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
     .from(configTable)
     .where(
       and(
-        isNotNull(configTable.value),
+        ne(configTable.key, MODEL_PRICE_CATALOG_CONFIG_KEY),
         excludedKeys.length > 0 ? notInArray(configTable.key, [...excludedKeys]) : undefined,
       ),
     )
@@ -102,29 +105,42 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
 })
 
 const MODEL_PRICE_CATALOG_CONFIG_KEY = "model_price_catalog"
+const modelPriceCatalogPayloadSchema = Schema.Struct({
+  key: Schema.Literal(MODEL_PRICE_CATALOG_CONFIG_KEY),
+  value: Schema.fromJsonString(ModelPriceCatalogSchema),
+})
 
 export const readDatabaseModelPriceCatalog = Effect.fn("readDatabaseModelPriceCatalog")(function* (
   db: EffectDatabase,
 ) {
   const rows = yield* db
-    .select({ catalog: configTable.jsonValue })
+    .select({ payload: configTable.value })
     .from(configTable)
     .where(eq(configTable.key, MODEL_PRICE_CATALOG_CONFIG_KEY))
     .limit(1)
     .pipe(Effect.orDie)
-  return rows[0]?.catalog ?? null
+  if (!rows[0]) return null
+  const payload = yield* Schema.decodeUnknownEffect(modelPriceCatalogPayloadSchema)(
+    rows[0].payload,
+  ).pipe(Effect.orDie)
+  return payload.value
 })
 
 export const writeDatabaseModelPriceCatalog = Effect.fn("writeDatabaseModelPriceCatalog")(
-  (db: EffectDatabase, catalog: ModelPriceCatalog) =>
-    db
+  function* (db: EffectDatabase, catalog: ModelPriceCatalog) {
+    const value = yield* Schema.encodeEffect(modelPriceCatalogPayloadSchema)({
+      key: MODEL_PRICE_CATALOG_CONFIG_KEY,
+      value: catalog,
+    }).pipe(Effect.orDie)
+    yield* db
       .insert(configTable)
-      .values({ key: MODEL_PRICE_CATALOG_CONFIG_KEY, jsonValue: catalog })
+      .values({ key: MODEL_PRICE_CATALOG_CONFIG_KEY, value })
       .onConflictDoUpdate({
         target: configTable.key,
-        set: { jsonValue: catalog, value: null, updatedAt: sql`now()` },
+        set: { value, updatedAt: sql`now()` },
       })
-      .pipe(Effect.asVoid, Effect.orDie),
+      .pipe(Effect.asVoid, Effect.orDie)
+  },
 )
 
 const storedConfigValue = Effect.fnUntraced(function* (key: ConfigKey, value: string) {

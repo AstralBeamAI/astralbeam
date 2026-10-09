@@ -40,8 +40,6 @@ function NewModelProviderPage() {
         organizationSlug={orgSlug}
         provider={null}
         catalog={data.catalog}
-        pricingFetchedAt={data.pricingFetchedAt}
-        pricingIsStale={data.pricingIsStale}
         readOnly={false}
       />
     </div>

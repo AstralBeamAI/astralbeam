@@ -39,7 +39,6 @@ import { ModelProviderField } from "./model-provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
 import { ProviderModelUsageFields } from "./provider-model-usage-fields"
-import { LocalDateTime } from "@/components/local-date-time"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
@@ -53,15 +52,11 @@ export function ModelProviderForm({
   organizationSlug,
   provider: existing,
   catalog,
-  pricingFetchedAt,
-  pricingIsStale,
   readOnly,
 }: {
   organizationSlug: string
   provider: OrganizationModelProvider | null
   catalog: Record<ModelProviderType, readonly ProviderModelFields[]>
-  pricingFetchedAt: string | null
-  pricingIsStale: boolean
   readOnly: boolean
 }) {
   const navigate = useNavigate()
@@ -299,13 +294,6 @@ export function ModelProviderForm({
               disabled={disabled}
               errors={fieldErrors("models")}
             />
-            {pricingFetchedAt && (
-              <FieldDescription>
-                Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
-                {pricingIsStale &&
-                  " Automatic updates are delayed. Last known defaults remain available."}
-              </FieldDescription>
-            )}
             <FieldDescription>
               Prices are USD per million tokens. Token limits are saved, but not enforced yet.
             </FieldDescription>

@@ -46,7 +46,7 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
   })
 })
 
-export const modelPriceCatalogInitialization = Workflow.make("ModelPriceCatalogInitialization/v1", {
+export const modelPriceCatalogInitialization = Workflow.make("ModelPriceCatalogInitialization/v2", {
   payload: {},
   idempotencyKey: () => "initial",
 })

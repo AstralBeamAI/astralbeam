@@ -49,7 +49,6 @@ export function modelsPage(page: Page) {
       })
       await page.getByRole("button", { name: "Save provider", exact: true }).click()
       await expect(page.getByRole("heading", { level: 1, name: input.name })).toBeVisible()
-      await expect(page.getByText(/^Catalog updated /)).toBeVisible()
       await expect(page.locator("body")).not.toHaveAttribute("data-key-error-shown")
     },
 

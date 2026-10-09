@@ -173,13 +173,16 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       const refreshed = await runAppEffect(readModelPriceCatalog)
       const [stored] = await db
         .select({
-          catalog: configTable.jsonValue,
+          catalog: configTable.value,
           encryptedValue: sql<string | null>`${configTable.value}::text`,
         })
         .from(configTable)
         .where(eq(configTable.key, "model_price_catalog"))
-      expect(stored!.catalog).toEqual(refreshed)
-      expect(stored!.encryptedValue).toBeNull()
+      expect(stored!.catalog).toEqual({
+        key: "model_price_catalog",
+        value: JSON.stringify(refreshed),
+      })
+      expect(stored!.encryptedValue).not.toContain("test-model")
       const settings = await runAppEffect(Effect.flatMap(Config, (config) => config.readStored))
       expect(settings.rows?.some((row) => row.key === "model_price_catalog")).toBe(false)
       expect(refreshed.fetchedAt).not.toBeNull()

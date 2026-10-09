@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start"
-import { Clock, Effect } from "effect"
+import { Effect } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import {
@@ -15,7 +15,15 @@ import { ModelProviderPageInputSchema } from "../-lib/schemas"
 // Current provider lineups. GPT-6 tool restrictions keep it out of OpenRouter's Chat Completions suggestions.
 // https://developers.openai.com/api/docs/guides/latest-model | https://platform.claude.com/docs/en/models/overview | https://ai.google.dev/gemini-api/docs/models
 const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
-  openai: ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-luna"],
+  openai: [
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+  ],
   anthropic: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
   openrouter: [
     "openai/gpt-5.6-sol",
@@ -71,16 +79,8 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           anthropic: pricedModels("anthropic"),
           openrouter: pricedModels("openrouter"),
         }
-        const now = yield* Clock.currentTimeMillis
         return {
-          data: {
-            provider,
-            catalog,
-            pricingFetchedAt: pricing.fetchedAt,
-            pricingIsStale:
-              pricing.fetchedAt !== null &&
-              now - Date.parse(pricing.fetchedAt) > 48 * 60 * 60 * 1000,
-          },
+          data: { provider, catalog },
           permissions: context.permissions,
         }
       }),
