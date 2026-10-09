@@ -1,6 +1,5 @@
 import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore } from "../../core/session.ts"
-import type { ChatAuthenticationState } from "../../core/auth.ts"
 import type { DraftAttachment } from "./types.ts"
 import { storedThreadAttachments } from "./drafts.ts"
 import { readAttachmentData } from "./attachments.ts"
@@ -77,9 +76,8 @@ export function attachmentUploadState(chat: AstralBeamChatCore) {
 type AttachmentUploads = ReturnType<typeof attachmentUploadState>
 type Settle = (update: Partial<DraftAttachment>) => void
 
-function checkUploadAuthentication(uploads: AttachmentUploads, auth: ChatAuthenticationState) {
-  if (uploads.chat.getState().auth !== auth)
-    throw new DOMException("Authentication changed", "AbortError")
+function checkUploadAuthentication(isCurrentAuthentication: () => boolean) {
+  if (!isCurrentAuthentication()) throw new DOMException("Authentication changed", "AbortError")
 }
 
 export function attachmentUploadPreview({
@@ -125,19 +123,24 @@ async function uploadParts({
   file,
   signal,
   progress,
+  check,
 }: {
   uploads: AttachmentUploads
   sessionId: string
   file: File
   signal: AbortSignal
   progress: (fraction: number) => void
+  check: () => void
 }) {
   const { chat } = uploads
+  check()
   let session = await chat.getUpload(sessionId, signal)
+  check()
   for (let attempt = 0; session.status === "preparing" && attempt < 5; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 250))
-    signal.throwIfAborted()
+    check()
     session = await chat.getUpload(sessionId, signal)
+    check()
   }
   if (session.status === "preparing") throw new Error("Upload is still preparing. Retry to resume.")
   if (session.status === "completed" || session.status === "completing") return
@@ -153,22 +156,25 @@ async function uploadParts({
       withUploadSlot(
         uploads.partSlots,
         async () => {
+          check()
           const start = (number - 1) * session.part_size
           const bytes = file.slice(start, Math.min(start + session.part_size, file.size))
           if (sizes.get(number) === bytes.size) return
           for (let attempt = 0; attempt < 3; attempt += 1) {
-            signal.throwIfAborted()
+            check()
             const signed = await chat.signUploadParts(sessionId, [number], signal)
+            check()
             try {
               await putPart(signed.parts[0]!.url, bytes, signal, (loaded) => {
                 sizes.set(number, loaded)
                 update()
               })
+              check()
               sizes.set(number, bytes.size)
               update()
               return
             } catch (error) {
-              signal.throwIfAborted()
+              check()
               sizes.set(number, 0)
               update()
               if (attempt === 2) throw error
@@ -187,13 +193,16 @@ export function startAttachmentUpload({
   file,
   settle,
   persist,
+  isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
   file: File
   settle: Settle
   persist: (draft: DraftAttachment) => Promise<void>
+  isCurrentAuthentication?: () => boolean
 }) {
+  if (!isCurrentAuthentication()) return
   const { chat, files, tasks } = uploads
   const previous = tasks.get(draft.id)
   const prepareAttempted =
@@ -202,6 +211,11 @@ export function startAttachmentUpload({
   files.set(draft.id, file)
   const controller = new AbortController()
   const signal = controller.signal
+  const check = () => {
+    if (!isCurrentAuthentication()) controller.abort()
+    checkUploadAuthentication(isCurrentAuthentication)
+    signal.throwIfAborted()
+  }
   const task: UploadTask = {
     controller,
     prepareAttempted,
@@ -218,10 +232,11 @@ export function startAttachmentUpload({
   void withUploadSlot(
     uploads.fileSlots,
     async () => {
+      check()
       await task.preparation
-      signal.throwIfAborted()
+      check()
       const sha256 = await fingerprint(file)
-      signal.throwIfAborted()
+      check()
       if (
         draft.size !== file.size ||
         draft.name !== file.name ||
@@ -237,6 +252,7 @@ export function startAttachmentUpload({
       const saved = draft.sessionId
         ? await getAttachmentUpload({ chat, id: draft.sessionId, signal })
         : undefined
+      check()
       if (draft.sessionId && (!saved || saved.status === "expired" || saved.status === "cancelled"))
         throw new Error("Upload expired or unavailable. Remove it and attach the file again.")
       if (!saved && !draft.agentId)
@@ -244,6 +260,7 @@ export function startAttachmentUpload({
       if (!saved || saved.status === "preparing") {
         task.preparation = (async () => {
           await persist({ ...draft, prepareAttempted: true, sha256 })
+          if (!isCurrentAuthentication()) controller.abort()
           if (signal.aborted && !task.prepareAttempted)
             await persist({ ...draft, prepareAttempted: false, sha256 })
         })()
@@ -251,13 +268,13 @@ export function startAttachmentUpload({
           await task.preparation
         } catch (error) {
           if (task.prepareAttempted) throw error
-          signal.throwIfAborted()
+          check()
           const data = await readAttachmentData(file)
-          signal.throwIfAborted()
+          check()
           settle({ status: "ready", data, prepareAttempted: false })
           return
         }
-        signal.throwIfAborted()
+        check()
         task.prepareAttempted = true
         settle({ prepareAttempted: true, sha256 })
       }
@@ -275,18 +292,22 @@ export function startAttachmentUpload({
               },
               signal,
             )
+      check()
       settle({ sessionId: session.id, sha256 })
       await uploadParts({
         uploads,
         sessionId: session.id,
         file,
         signal,
+        check,
         progress: (progress) => {
+          if (!isCurrentAuthentication()) controller.abort()
           if (!signal.aborted) settle({ progress })
         },
       })
+      check()
       const finished = await chat.completeUpload(session.id, signal)
-      signal.throwIfAborted()
+      check()
       if (!finished.file_id || finished.status !== "completed")
         throw new Error("Upload did not complete")
       settle({ status: "ready", fileId: finished.file_id, progress: 1, data: undefined })
@@ -297,6 +318,7 @@ export function startAttachmentUpload({
       if (tasks.get(draft.id) !== task) return
       const paused = signal.aborted
       controller.abort()
+      if (!isCurrentAuthentication()) return
       settle(
         paused
           ? { status: "paused" }
@@ -315,14 +337,17 @@ export function resumeAttachmentUpload({
   draft,
   settle,
   persist,
+  isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
   settle: Settle
   persist: (draft: DraftAttachment) => Promise<void>
+  isCurrentAuthentication?: () => boolean
 }) {
   const file = uploads.files.get(draft.id)
-  if (file) startAttachmentUpload({ uploads, draft, file, settle, persist })
+  if (file)
+    startAttachmentUpload({ uploads, draft, file, settle, persist, isCurrentAuthentication })
   return !!file
 }
 
@@ -344,17 +369,17 @@ export function releaseAttachmentUpload({
 export async function removeAttachmentUpload({
   uploads,
   draft,
-  auth = uploads.chat.getState().auth,
+  isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
-  auth?: ChatAuthenticationState
+  isCurrentAuthentication?: () => boolean
 }) {
-  checkUploadAuthentication(uploads, auth)
+  checkUploadAuthentication(isCurrentAuthentication)
   const task = uploads.tasks.get(draft.id)
   releaseAttachmentUpload({ uploads, id: draft.id })
   await task?.preparation?.catch(() => undefined)
-  checkUploadAuthentication(uploads, auth)
+  checkUploadAuthentication(isCurrentAuthentication)
   const attempted = task?.prepareAttempted ?? draft.prepareAttempted ?? !!draft.sha256
   if (!draft.sessionId && !attempted) return
   await (
@@ -366,7 +391,7 @@ export async function removeAttachmentUpload({
     if (task?.prepareAttempted && !uploads.tasks.has(draft.id)) uploads.tasks.set(draft.id, task)
     throw error
   })
-  checkUploadAuthentication(uploads, auth)
+  checkUploadAuthentication(isCurrentAuthentication)
 }
 
 export async function discardAttachmentUploads({
@@ -375,16 +400,16 @@ export async function discardAttachmentUploads({
   identity,
   threadId,
   attachments,
-  auth,
+  isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
   apiUrl: string
   identity: string
   threadId: string
   attachments: readonly DraftAttachment[]
-  auth: ChatAuthenticationState
+  isCurrentAuthentication?: () => boolean
 }) {
-  checkUploadAuthentication(uploads, auth)
+  checkUploadAuthentication(isCurrentAuthentication)
   const persisted = await storedThreadAttachments({ apiUrl, identity, threadId })
   const files = new Map(persisted.map((file) => [file.id, file]))
   for (const file of attachments)
@@ -395,11 +420,11 @@ export async function discardAttachmentUploads({
     })
   await Promise.all(
     [...files.values()].map(async (file) => {
-      checkUploadAuthentication(uploads, auth)
+      checkUploadAuthentication(isCurrentAuthentication)
       const task = uploads.tasks.get(file.id)
-      releaseAttachmentUpload({ uploads, id: file.id })
+      pauseAttachmentUpload({ uploads, id: file.id })
       await task?.preparation?.catch(() => undefined)
-      checkUploadAuthentication(uploads, auth)
+      checkUploadAuthentication(isCurrentAuthentication)
       const attempted = task?.prepareAttempted ?? file.prepareAttempted ?? !!file.sha256
       if (!file.sessionId && !attempted) return
       await (
@@ -422,10 +447,12 @@ export async function discardAttachmentUploads({
     identity,
     threadId,
     update: (current) => {
-      checkUploadAuthentication(uploads, auth)
+      checkUploadAuthentication(isCurrentAuthentication)
       return current.filter((file) => !files.has(file.id))
     },
   })
+  checkUploadAuthentication(isCurrentAuthentication)
+  for (const id of files.keys()) releaseAttachmentUpload({ uploads, id })
 }
 
 export function disposeAttachmentUploads(uploads: AttachmentUploads) {

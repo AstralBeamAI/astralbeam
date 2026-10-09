@@ -52,6 +52,7 @@ import { fileSha256 } from "@/lib/storage/images"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
+import type { StoredFile } from "@/lib/storage/stored-files.server"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
@@ -1065,6 +1066,8 @@ export class ChatThreads extends Context.Service<
       const db = yield* Database
       const files = yield* ChatFiles
       const storedFiles = yield* StoredFiles
+      // Reconstructed claims start fresh. Only this producer's verified metadata is reused.
+      const preparedFiles = new WeakMap<ChatWriterClaim, Map<string, StoredFile>>()
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
         db
           .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
@@ -1677,9 +1680,11 @@ export class ChatThreads extends Context.Service<
         state: "draft" | "complete"
       }) {
         yield* assertActive({ claim: input.claim })
+        const prepared = new Map(preparedFiles.get(input.claim))
         const payload = yield* files.externalize(
           { ...input.claim.scope, threadId: input.claim.threadId },
           input.payload,
+          prepared,
         )
         yield* db
           .transaction((tx) =>
@@ -1689,6 +1694,7 @@ export class ChatThreads extends Context.Service<
             }),
           )
           .pipe(mapDatabaseErrors())
+        preparedFiles.set(input.claim, prepared)
       })
 
       const publishArtifact = Effect.fn("ChatThreads.publishArtifact")(function* ({
@@ -1857,8 +1863,13 @@ export class ChatThreads extends Context.Service<
         }) =>
           Effect.gen(function* () {
             if (payload) yield* assertActive({ claim })
+            const cached = new Map(preparedFiles.get(claim))
             const prepared = payload
-              ? yield* files.externalize({ ...claim.scope, threadId: claim.threadId }, payload)
+              ? yield* files.externalize(
+                  { ...claim.scope, threadId: claim.threadId },
+                  payload,
+                  cached,
+                )
               : undefined
             yield* db
               .transaction((tx) =>
@@ -1880,6 +1891,7 @@ export class ChatThreads extends Context.Service<
                 }),
               )
               .pipe(mapDatabaseErrors())
+            preparedFiles.delete(claim)
           }),
       )
 
