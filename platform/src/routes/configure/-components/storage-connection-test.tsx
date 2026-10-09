@@ -54,7 +54,7 @@ export function StorageConnectionTest({
       </Button>
       {!settings && (
         <p className="text-sm text-muted-foreground">
-          Enter or reveal the storage credentials to test the connection.
+          Complete the connection settings and enter or reveal the credentials to test.
         </p>
       )}
       {current && (

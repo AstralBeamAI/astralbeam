@@ -51,6 +51,23 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await expect(button).toBeDisabled()
     await configure.setValue("s3_access_key_id", "fixture-key")
     await configure.setValue("s3_secret_access_key", "fixture-secret")
+    await page.getByRole("button", { name: "AWS S3 (us-east-1)", exact: true }).click()
+    await expect(configure.field("s3_endpoint")).toHaveValue("https://s3.us-east-1.amazonaws.com")
+    await expect(configure.field("s3_region")).toHaveValue("us-east-1")
+    await expect(configure.field("s3_path_style")).toContainText("Virtual host")
+    await page.getByRole("button", { name: "Cloudflare R2", exact: true }).click()
+    await expect(configure.field("s3_endpoint")).toHaveValue(
+      "https://<account-id>.r2.cloudflarestorage.com",
+    )
+    await expect(configure.field("s3_region")).toHaveValue("auto")
+    await expect(button).toBeDisabled()
+    await page.getByRole("button", { name: "Local RustFS / MinIO", exact: true }).click()
+    await expect(configure.field("s3_endpoint")).toHaveValue("http://127.0.0.1:9000")
+    await expect(configure.field("s3_region")).toHaveValue("us-east-1")
+    await expect(configure.field("s3_path_style")).toContainText("Path style")
+    await expect(configure.field("s3_bucket")).toHaveValue("e2e-files")
+    await expect(configure.field("s3_access_key_id")).toHaveValue("fixture-key")
+    await expect(configure.field("s3_secret_access_key")).toHaveValue("fixture-secret")
     await configure.setValue("s3_endpoint", "ftp://example.test")
     await expect(button).toBeDisabled()
     await configure.setValue("s3_endpoint", `http://127.0.0.1:${address.port}/storage/v1/s3`)
@@ -66,6 +83,10 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await storageGroup.screenshot({
       path: test.info().outputPath("storage-connection-success.png"),
     })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await storageGroup.scrollIntoViewIfNeeded()
+    await page.evaluate(() => window.scrollBy(0, -80))
+    await storageGroup.screenshot({ path: test.info().outputPath("storage-presets-mobile.png") })
     corrupt = true
     await button.click()
     await expect(page.getByText("Storage connection failed", { exact: true })).toBeVisible()

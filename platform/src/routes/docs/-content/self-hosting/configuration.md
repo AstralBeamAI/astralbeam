@@ -106,7 +106,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
 1. Create a private bucket and credentials with object read, write, and delete access.
-2. Enter its settings in **File storage** at `/configure`.
+2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, and delete a temporary object using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.
 
