@@ -21,8 +21,7 @@ export function modelsPage(page: Page) {
       }
       await page.getByLabel("API key", { exact: true }).fill(input.apiKey)
       if (input.baseUrl) await page.getByLabel("API URL", { exact: true }).fill(input.baseUrl)
-      await page.getByLabel("Custom model ID", { exact: true }).fill(input.modelId)
-      await page.getByRole("button", { name: "Add model", exact: true }).click()
+      await page.getByRole("checkbox", { name: input.modelId, exact: true }).check()
       const override = page.getByRole("switch", {
         name: `Override catalog defaults for ${input.modelId}`,
         exact: true,

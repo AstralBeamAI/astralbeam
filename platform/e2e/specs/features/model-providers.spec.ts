@@ -14,7 +14,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
   const { runId } = makeRunIdentity()
   const primaryName = `OpenAI primary ${runId}`
   const secondaryName = `OpenAI secondary ${runId}`
-  const upstreamModel = "private-chat-model"
+  const upstreamModel = "gpt-5.6-terra"
   const firstChoice = `${upstreamModel} (${primaryName})`
   const secondChoice = `${upstreamModel} (${secondaryName})`
   const modelPath = `/${baseline.organizationSlug}/models`
@@ -68,6 +68,9 @@ test("independent OpenAI connections supply distinct agent models and protect as
   await test.step("persist explicit zero pricing and reject an output cap above the maximum", async () => {
     await page.goto(modelPath)
     await models.open(primaryName)
+    await page
+      .getByRole("switch", { name: `Override catalog defaults for ${upstreamModel}`, exact: true })
+      .check()
     await page.getByLabel(`Input price for ${upstreamModel}`, { exact: true }).fill("0")
     await page.getByLabel(`Output price for ${upstreamModel}`, { exact: true }).fill("0")
     await page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }).fill("4097")
@@ -120,15 +123,14 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await waitForHydration(page.locator("#model-provider-name"))
     await page.getByLabel("Name", { exact: true }).fill(`Catalog defaults ${runId}`)
     await page.getByLabel("API key", { exact: true }).fill("sk-catalog-browser-fixture")
-    await page.getByLabel("Custom model ID", { exact: true }).fill("gpt-4.1-2025-04-14")
-    await page.getByLabel("Custom model ID", { exact: true }).press("Enter")
+    await page.getByRole("checkbox", { name: "gpt-5.6-terra", exact: true }).check()
     const override = page.getByRole("switch", {
-      name: "Override catalog defaults for gpt-4.1-2025-04-14",
+      name: "Override catalog defaults for gpt-5.6-terra",
       exact: true,
     })
-    const inputPrice = page.getByLabel("Input price for gpt-4.1-2025-04-14", { exact: true })
+    const inputPrice = page.getByLabel("Input price for gpt-5.6-terra", { exact: true })
     const summary = page
-      .getByRole("group", { name: "Usage settings for gpt-4.1-2025-04-14", exact: true })
+      .getByRole("group", { name: "Usage settings for gpt-5.6-terra", exact: true })
       .locator("dl")
     await expect(override).toBeVisible()
     await expect(override).not.toBeChecked()
@@ -141,21 +143,15 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await expect(inputPrice).toHaveCount(0)
     await override.check()
     await inputPrice.fill("7")
-    const customModel = page.getByRole("checkbox", { name: "gpt-4.1-2025-04-14", exact: true })
-    await customModel.uncheck()
-    await customModel.check()
-    await expect(inputPrice).toHaveValue("7")
-    await page.getByLabel("Custom model ID", { exact: true }).fill("gpt-4.1-2025-04-14")
-    await page.getByRole("button", { name: "Add model", exact: true }).click()
-    await expect(inputPrice).toHaveValue("7")
-    await customModel.uncheck()
-    await customModel.check()
+    const modelChoice = page.getByRole("checkbox", { name: "gpt-5.6-terra", exact: true })
+    await modelChoice.uncheck()
+    await modelChoice.check()
     await expect(inputPrice).toHaveValue("7")
     await override.uncheck()
     await expect(summary).toContainText("$2")
     await override.check()
     await inputPrice.fill("7")
-    await page.getByLabel("Output cap for gpt-4.1-2025-04-14", { exact: true }).fill("1024")
+    await page.getByLabel("Output cap for gpt-5.6-terra", { exact: true }).fill("1024")
     await page.getByRole("button", { name: "Save provider", exact: true }).click()
     await expect(
       page.getByRole("heading", { level: 1, name: `Catalog defaults ${runId}`, exact: true }),
@@ -164,13 +160,13 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await waitForHydration(page.locator("#model-provider-name"))
     await expect(override).toBeChecked()
     await expect(inputPrice).toHaveValue("7")
-    await expect(page.getByLabel("Output cap for gpt-4.1-2025-04-14", { exact: true })).toHaveValue(
+    await expect(page.getByLabel("Output cap for gpt-5.6-terra", { exact: true })).toHaveValue(
       "1024",
     )
     await captureMilestone(page, "06-explicit-model-overrides")
     await override.uncheck()
-    await customModel.uncheck()
-    await customModel.check()
+    await modelChoice.uncheck()
+    await modelChoice.check()
     await expect(override).not.toBeChecked()
     await expect(summary).toContainText("$2")
     await expect(inputPrice).toHaveCount(0)
@@ -200,7 +196,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await models.create({
       name: `Anthropic ${runId}`,
       provider: "Anthropic",
-      modelId: "claude-sonnet-4-6",
+      modelId: "claude-sonnet-5-5",
       apiKey: "sk-ant-browser-fixture-3333",
     })
     await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(
@@ -210,7 +206,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await models.create({
       name: `OpenRouter ${runId}`,
       provider: "OpenRouter",
-      modelId: "anthropic/claude-sonnet-4.6",
+      modelId: "anthropic/claude-sonnet-5.5",
       apiKey: "sk-or-browser-fixture-4444",
     })
     await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(

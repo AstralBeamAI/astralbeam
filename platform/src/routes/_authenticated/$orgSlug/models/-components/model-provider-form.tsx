@@ -66,8 +66,6 @@ export function ModelProviderForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const lookingUpModel =
-    useIsMutating({ mutationKey: ["model-usage-defaults", organizationSlug] }) > 0
   const testing = useIsMutating({ mutationKey: ["test-model-provider", existing?.id] }) > 0
   const [name, setName] = useState(existing?.name ?? "")
   const [providerType, setProviderType] = useState<ModelProviderType>(
@@ -82,11 +80,6 @@ export function ModelProviderForm({
       name: modelName,
       usageConfiguration,
     })) ?? [],
-  )
-  const [catalogDefaults, setCatalogDefaults] = useState<readonly ProviderModelFields[]>(
-    existing?.models.filter(
-      (model) => model.usageConfiguration?.pricingSource.kind === "catalog",
-    ) ?? [],
   )
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -134,10 +127,9 @@ export function ModelProviderForm({
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
-  const disabled = saving || readOnly || testing || lookingUpModel
+  const disabled = saving || readOnly || testing
   const testDisabled =
     saving ||
-    lookingUpModel ||
     existing === null ||
     Result.isFailure(input) ||
     !equalModelProviderFields(input.success, { ...existing, apiKey: null })
@@ -215,7 +207,6 @@ export function ModelProviderForm({
                   setApi(modelProviderDescriptors[next].api)
                   setBaseUrl(modelProviderDescriptors[next].baseUrl)
                   setModels([])
-                  setCatalogDefaults([])
                 }}
               >
                 <SelectTrigger id="model-provider-type" className="w-full">
@@ -300,30 +291,11 @@ export function ModelProviderForm({
                   : "Encrypted when saved. The stored key is never returned to your browser."
               }
             />
-            {providerType === "openrouter" && (
-              <FieldDescription>
-                Use full OpenRouter model IDs, such as anthropic/claude-sonnet-5.5.
-              </FieldDescription>
-            )}
             <ProviderModelPicker
               key={providerType}
-              organizationSlug={organizationSlug}
-              providerType={providerType}
               catalog={catalog[providerType]}
               models={models}
-              onChange={(next) => {
-                setModels(next)
-                setCatalogDefaults((current) => [
-                  ...new Map(
-                    [
-                      ...current,
-                      ...next.filter(
-                        (model) => model.usageConfiguration?.pricingSource.kind === "catalog",
-                      ),
-                    ].map((model) => [model.modelId, model]),
-                  ).values(),
-                ])
-              }}
+              onChange={setModels}
               disabled={disabled}
               errors={fieldErrors("models")}
             />
@@ -348,8 +320,11 @@ export function ModelProviderForm({
                 catalogConfiguration={
                   catalog[providerType].find((item) => item.modelId === model.modelId)
                     ?.usageConfiguration ??
-                  catalogDefaults.find((item) => item.modelId === model.modelId)
-                    ?.usageConfiguration ??
+                  existing?.models.find(
+                    (item) =>
+                      item.modelId === model.modelId &&
+                      item.usageConfiguration?.pricingSource.kind === "catalog",
+                  )?.usageConfiguration ??
                   null
                 }
                 disabled={disabled}
