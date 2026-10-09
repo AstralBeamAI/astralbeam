@@ -105,7 +105,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
-1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
+1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads and [`s3:ListBucketVersions`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectVersions.html) for file cleanup. Grant [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html) so cleanup permanently removes file versions and delete markers, including unversioned objects with a null version ID.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.
@@ -116,7 +116,7 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
-Avatars and Organization logos are stored in this bucket and served through authenticated application URLs. External profile images and logos are imported by the server. While an import retries, the previous stored image or initials remain visible. A failed profile import does not prevent sign-in, and manually selected avatars are preserved.
+Avatars and Organization logos are stored in this bucket and served through authenticated application URLs. External profile images and logos are imported by the server. While an import retries, the previous stored image or initials remain visible. External-fetch failures retry up to eight times with increasing backoff, while storage failures retain pending imports. A failed profile import does not prevent sign-in, and manually selected avatars are preserved.
 
 For an existing deployment, let's stop all application writers and scheduled runners before applying the file schema migration. Keep a database backup, configure storage, and migrate each source before starting the new server code. Run the following commands from the repository root to inspect the actual inventory, migrate one source, and verify its stored content:
 
@@ -134,7 +134,7 @@ deno task --cwd platform files migrate --table cache_entry.value --writers-stopp
 deno task --cwd platform files verify --table cache_entry.value
 ```
 
-Omit `--table` to process all five sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return `404` or `410` are cleared and recorded in private import metadata. Unsupported provider continuation structures are reported and preserved for inspection.
+Omit `--table` to process all five sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return a permanent HTTP client error, including `403`, `404`, or `410`, are cleared and recorded in private import metadata. Timeouts, rate limits, and server errors stop migration so it can be retried. Unsupported provider continuation structures are reported and preserved for inspection.
 
 Saved conversation attachments keep their existing download URLs and permissions. Older clients may still submit inline files, which the server stores in S3 before accepting the message. Admission records retain content identities and the accepted result, so an authorized retry can recover its receipt during a storage outage.
 

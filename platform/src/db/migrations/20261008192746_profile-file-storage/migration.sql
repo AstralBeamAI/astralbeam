@@ -70,6 +70,7 @@ CREATE TABLE "user_image_import" (
 );
 --> statement-breakpoint
 ALTER TABLE "organization" ADD COLUMN "logo_file_id" uuid;--> statement-breakpoint
+ALTER TABLE "organization" ADD COLUMN "logo_import_generation" uuid;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "avatar_file_id" uuid;--> statement-breakpoint
 CREATE UNIQUE INDEX "file_deletion_key_uidx" ON "file_deletion" ("object_key");--> statement-breakpoint
 CREATE INDEX "file_deletion_retry_idx" ON "file_deletion" ("retry_at");--> statement-breakpoint
@@ -162,6 +163,9 @@ CREATE TRIGGER user_avatar_link BEFORE UPDATE OF image ON "user" FOR EACH ROW EX
 --> statement-breakpoint
 CREATE FUNCTION link_organization_logo() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.logo_import_generation IS NOT DISTINCT FROM OLD.logo_import_generation THEN
+    NEW.logo_import_generation = uuidv7();
+  END IF;
   NEW.logo_file_id = CASE WHEN NEW.logo LIKE '/api/files/organizations/' || NEW.id || '/logos/%' THEN substring(NEW.logo from '/logos/([0-9a-f-]{36})$')::uuid ELSE NULL END;
   RETURN NEW;
 END;

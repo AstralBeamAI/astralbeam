@@ -20,7 +20,7 @@ describe("image import boundaries", () => {
     "https://[fc00::1]/photo.png",
   ])("refuses %s before an HTTPS request", (source) =>
     Effect.gen(function* () {
-      const result = yield* Effect.flatMap(ImageSources, (images) => images.fetch(source)).pipe(
+      const result = yield* Effect.flatMap(ImageSources, (images) => images.fetch({ source })).pipe(
         Effect.result,
         Effect.provide(ImageSources.layer),
       )

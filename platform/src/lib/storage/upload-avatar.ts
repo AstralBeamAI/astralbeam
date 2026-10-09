@@ -17,7 +17,7 @@ export const uploadAvatar = createServerFn({ method: "POST" })
         const auth = yield* Auth
         const session = yield* auth.requireSession({ headers: server.request.headers })
         const files = yield* ProfileFiles
-        return yield* files.uploadAvatar(session.user.id, data.bytes)
+        return yield* files.uploadAvatar({ userId: session.user.id, bytes: data.bytes })
       }).pipe(
         Effect.catchTag(
           [

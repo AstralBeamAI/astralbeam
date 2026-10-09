@@ -41,51 +41,68 @@ type ProfileFileFailure =
   | ImageSourceMissing
 type ImageOwner = { kind: "avatar" | "logo"; id: string }
 
+const importFailure = (error: ProfileFileFailure, attempts: number) => ({
+  status:
+    error instanceof ImageSourceMissing ||
+    error instanceof InvalidImage ||
+    (error instanceof ImageImportUnavailable && attempts >= 7)
+      ? ("unavailable" as const)
+      : ("pending" as const),
+  reason: error._tag,
+  attempts: sql`attempts + 1`,
+  retryAt: sql`now() + ${Math.min(5 * 2 ** attempts, 24 * 60)} * interval '1 minute'`,
+})
+
 export class ProfileFiles extends Context.Service<
   ProfileFiles,
   {
-    readonly uploadAvatar: (
-      userId: string,
-      bytes: Uint8Array,
-    ) => Effect.Effect<
+    readonly uploadAvatar: (options: {
+      userId: string
+      bytes: Uint8Array
+    }) => Effect.Effect<
       string,
       InvalidImage | StorageUnavailable | StorageObjectMissing | ImageUploadRateLimited
     >
-    readonly validateAvatar: (
-      userId: string,
-      image: string | null | undefined,
-    ) => Effect.Effect<void, InvalidImage>
-    readonly validateLogo: (
-      organizationId: string,
-      image: string,
-    ) => Effect.Effect<void, InvalidImage>
-    readonly prepareLogo: (
-      source: string,
-      userId: string,
-    ) => Effect.Effect<
+    readonly validateAvatar: (options: {
+      userId: string
+      image: string | null | undefined
+    }) => Effect.Effect<void, InvalidImage>
+    readonly validateLogo: (options: {
+      organizationId: string
+      image: string
+    }) => Effect.Effect<void, InvalidImage>
+    readonly prepareLogo: (options: {
+      source: string
+      userId: string
+    }) => Effect.Effect<
       string,
       InvalidImage | StorageUnavailable | StorageObjectMissing | ImageUploadRateLimited
     >
-    readonly attachLogo: (organizationId: string, fileId: string) => Effect.Effect<string>
-    readonly adoptLogo: (organizationId: string, fileId: string) => Effect.Effect<string>
+    readonly attachLogo: (options: {
+      organizationId: string
+      fileId: string
+    }) => Effect.Effect<string>
+    readonly adoptLogo: (options: {
+      organizationId: string
+      fileId: string
+    }) => Effect.Effect<string>
     readonly queueAvatar: (input: {
       userId: string
       email: string
       source?: string
     }) => Effect.Effect<void>
-    readonly queueLogo: (
-      organizationId: string,
-      source: string,
-      expectedLogo: string | null,
-      generation?: string,
-    ) => Effect.Effect<void>
-    readonly stageLogo: (organizationId: string, source: string) => Effect.Effect<string>
+    readonly queueLogo: (options: {
+      organizationId: string
+      source: string
+      expectedLogo: string | null
+      generation: string
+    }) => Effect.Effect<void>
     readonly processImports: Effect.Effect<void>
-    readonly migrate: (
-      owner: ImageOwner,
-      source: string | null,
-      email?: string,
-    ) => Effect.Effect<"migrated" | "unavailable" | "unchanged", ProfileFileFailure>
+    readonly migrate: (options: {
+      owner: ImageOwner
+      source: string | null
+      email?: string
+    }) => Effect.Effect<"migrated" | "unavailable" | "unchanged", ProfileFileFailure>
   }
 >()("astralbeam/storage/ProfileFiles") {
   static readonly layerNoDeps = Layer.effect(
@@ -109,18 +126,24 @@ export class ProfileFiles extends Context.Service<
           )
           .limit(1)
           .pipe(mapDatabaseErrors())
-      const validateAvatar = Effect.fn("ProfileFiles.validateAvatar")(function* (
-        userId: string,
-        image: string | null | undefined,
-      ) {
+      const validateAvatar = Effect.fn("ProfileFiles.validateAvatar")(function* ({
+        userId,
+        image,
+      }: {
+        userId: string
+        image: string | null | undefined
+      }) {
         if (image == null) return
         if (!avatarFileId(image) || !(yield* ownedAvatar(userId, image)).length)
           return yield* new InvalidImage()
       })
-      const validateLogo = Effect.fn("ProfileFiles.validateLogo")(function* (
-        organizationId: string,
-        image: string,
-      ) {
+      const validateLogo = Effect.fn("ProfileFiles.validateLogo")(function* ({
+        organizationId,
+        image,
+      }: {
+        organizationId: string
+        image: string
+      }) {
         const [row] = yield* db
           .select({ id: fileObject.id })
           .from(organizationLogo)
@@ -147,10 +170,13 @@ export class ProfileFiles extends Context.Service<
             ),
           )
       })
-      const uploadAvatar = Effect.fn("ProfileFiles.uploadAvatar")(function* (
-        userId: string,
-        bytes: Uint8Array,
-      ) {
+      const uploadAvatar = Effect.fn("ProfileFiles.uploadAvatar")(function* ({
+        userId,
+        bytes,
+      }: {
+        userId: string
+        bytes: Uint8Array
+      }) {
         const image = yield* verifiedImage(bytes)
         yield* consumeUpload(userId)
         const file = yield* files.prepare(image)
@@ -160,18 +186,24 @@ export class ProfileFiles extends Context.Service<
           .pipe(mapDatabaseErrors())
         return avatarFileUrl(file.id)
       })
-      const prepareLogo = Effect.fn("ProfileFiles.prepareLogo")(function* (
-        source: string,
-        userId: string,
-      ) {
+      const prepareLogo = Effect.fn("ProfileFiles.prepareLogo")(function* ({
+        source,
+        userId,
+      }: {
+        source: string
+        userId: string
+      }) {
         const image = yield* embeddedImage(source)
         yield* consumeUpload(userId)
         return (yield* files.prepare(image)).id
       })
-      const attachLogo = Effect.fn("ProfileFiles.attachLogo")(function* (
-        organizationId: string,
-        fileId: string,
-      ) {
+      const attachLogo = Effect.fn("ProfileFiles.attachLogo")(function* ({
+        organizationId,
+        fileId,
+      }: {
+        organizationId: string
+        fileId: string
+      }) {
         yield* db
           .insert(organizationLogo)
           .values({ organizationId, id: fileId })
@@ -179,11 +211,14 @@ export class ProfileFiles extends Context.Service<
           .pipe(mapDatabaseErrors())
         return logoFileUrl(organizationId, fileId)
       })
-      const adoptLogo = Effect.fn("ProfileFiles.adoptLogo")(function* (
-        organizationId: string,
-        fileId: string,
-      ) {
-        const image = yield* attachLogo(organizationId, fileId)
+      const adoptLogo = Effect.fn("ProfileFiles.adoptLogo")(function* ({
+        organizationId,
+        fileId,
+      }: {
+        organizationId: string
+        fileId: string
+      }) {
+        const image = yield* attachLogo({ organizationId, fileId })
         yield* db
           .update(organization)
           .set({ logo: image })
@@ -261,27 +296,17 @@ export class ProfileFiles extends Context.Service<
           )
           .pipe(mapDatabaseErrors())
       })
-      const stageLogo = Effect.fn("ProfileFiles.stageLogo")(function* (
-        organizationId: string,
-        source: string,
-      ) {
-        const [pending] = yield* db
-          .insert(organizationImageImport)
-          .values({ organizationId, sourceUrl: source, status: "superseded" })
-          .onConflictDoUpdate({
-            target: organizationImageImport.organizationId,
-            set: { sourceUrl: source, status: "superseded", generation: sql`uuidv7()` },
-          })
-          .returning({ generation: organizationImageImport.generation })
-          .pipe(mapDatabaseErrors())
-        return pending!.generation
-      })
-      const queueLogo = Effect.fn("ProfileFiles.queueLogo")(function* (
-        organizationId: string,
-        source: string,
-        expectedLogo: string | null,
-        generation?: string,
-      ) {
+      const queueLogo = Effect.fn("ProfileFiles.queueLogo")(function* ({
+        organizationId,
+        source,
+        expectedLogo,
+        generation,
+      }: {
+        organizationId: string
+        source: string
+        expectedLogo: string | null
+        generation: string
+      }) {
         yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
@@ -292,21 +317,14 @@ export class ProfileFiles extends Context.Service<
                 .for("update")
                 .pipe(mapDatabaseErrors())
               if (!owner || owner.logo !== expectedLogo) return
-              if (generation) {
-                const [intent] = yield* tx
-                  .select({ generation: organizationImageImport.generation })
-                  .from(organizationImageImport)
-                  .where(eq(organizationImageImport.organizationId, organizationId))
-                  .for("update")
-                  .pipe(mapDatabaseErrors())
-                if (intent?.generation !== generation) return
-              }
+              if (owner.logoImportGeneration !== generation) return
               yield* tx
                 .insert(organizationImageImport)
                 .values({
                   organizationId,
                   sourceUrl: source,
                   expectedLogo: owner.logo,
+                  generation,
                   status: "pending",
                 })
                 .onConflictDoUpdate({
@@ -314,13 +332,13 @@ export class ProfileFiles extends Context.Service<
                   set: {
                     sourceUrl: source,
                     expectedLogo: owner.logo,
-                    generation: sql`uuidv7()`,
+                    generation,
                     status: "pending",
                     reason: null,
                     attempts: 0,
                     retryAt: sql`now()`,
                   },
-                  setWhere: sql`${organizationImageImport.sourceUrl} <> ${source} or ${organizationImageImport.status} <> 'pending' or ${organizationImageImport.expectedLogo} is distinct from ${expectedLogo}`,
+                  setWhere: sql`${organizationImageImport.generation} <> ${generation} or ${organizationImageImport.sourceUrl} <> ${source} or ${organizationImageImport.status} <> 'pending' or ${organizationImageImport.expectedLogo} is distinct from ${expectedLogo}`,
                 })
                 .pipe(mapDatabaseErrors())
             }),
@@ -333,7 +351,7 @@ export class ProfileFiles extends Context.Service<
       ) {
         const prepared = yield* files.resume(identity)
         if (prepared) return prepared
-        const image = yield* sources.fetch(source)
+        const image = yield* sources.fetch({ source })
         return yield* files.prepare({ ...image, sourceIdentity: identity })
       })
       const importAvatar = Effect.fn("ProfileFiles.importAvatar")(function* (
@@ -432,7 +450,10 @@ export class ProfileFiles extends Context.Service<
                 )
                 .pipe(mapDatabaseErrors())
               if (!owner || !current) return
-              if (owner.logo !== pending.expectedLogo) {
+              if (
+                owner.logo !== pending.expectedLogo ||
+                (owner.logoImportGeneration && owner.logoImportGeneration !== pending.generation)
+              ) {
                 yield* tx
                   .update(organizationImageImport)
                   .set({ status: "superseded", reason: "NewerImage" })
@@ -473,30 +494,6 @@ export class ProfileFiles extends Context.Service<
           )
           .limit(20)
           .pipe(mapDatabaseErrors())
-        for (const pending of avatars)
-          yield* importAvatar(pending).pipe(
-            Effect.catch((error) =>
-              db
-                .update(userImageImport)
-                .set({
-                  status:
-                    error instanceof ImageSourceMissing || error instanceof InvalidImage
-                      ? "unavailable"
-                      : "pending",
-                  reason: error._tag,
-                  attempts: sql`${userImageImport.attempts} + 1`,
-                  retryAt: sql`now() + interval '5 minutes'`,
-                })
-                .where(
-                  and(
-                    eq(userImageImport.userId, pending.userId),
-                    eq(userImageImport.generation, pending.generation),
-                    eq(userImageImport.status, "pending"),
-                  ),
-                )
-                .pipe(mapDatabaseErrors(), Effect.asVoid),
-            ),
-          )
         const logos = yield* db
           .select()
           .from(organizationImageImport)
@@ -508,41 +505,60 @@ export class ProfileFiles extends Context.Service<
           )
           .limit(20)
           .pipe(mapDatabaseErrors())
-        for (const pending of logos)
-          yield* importLogo(pending).pipe(
-            Effect.catch((error) =>
-              db
-                .update(organizationImageImport)
-                .set({
-                  status:
-                    error instanceof ImageSourceMissing || error instanceof InvalidImage
-                      ? "unavailable"
-                      : "pending",
-                  reason: error._tag,
-                  attempts: sql`${organizationImageImport.attempts} + 1`,
-                  retryAt: sql`now() + interval '5 minutes'`,
-                })
-                .where(
-                  and(
-                    eq(organizationImageImport.organizationId, pending.organizationId),
-                    eq(organizationImageImport.generation, pending.generation),
-                    eq(organizationImageImport.status, "pending"),
-                  ),
-                )
-                .pipe(mapDatabaseErrors(), Effect.asVoid),
+        yield* Effect.all(
+          [
+            ...avatars.map((pending) =>
+              importAvatar(pending).pipe(
+                Effect.catch((error) =>
+                  db
+                    .update(userImageImport)
+                    .set(importFailure(error, pending.attempts))
+                    .where(
+                      and(
+                        eq(userImageImport.userId, pending.userId),
+                        eq(userImageImport.generation, pending.generation),
+                        eq(userImageImport.status, "pending"),
+                      ),
+                    )
+                    .pipe(mapDatabaseErrors(), Effect.asVoid),
+                ),
+              ),
             ),
-          )
+            ...logos.map((pending) =>
+              importLogo(pending).pipe(
+                Effect.catch((error) =>
+                  db
+                    .update(organizationImageImport)
+                    .set(importFailure(error, pending.attempts))
+                    .where(
+                      and(
+                        eq(organizationImageImport.organizationId, pending.organizationId),
+                        eq(organizationImageImport.generation, pending.generation),
+                        eq(organizationImageImport.status, "pending"),
+                      ),
+                    )
+                    .pipe(mapDatabaseErrors(), Effect.asVoid),
+                ),
+              ),
+            ),
+          ],
+          { concurrency: 4, discard: true },
+        )
         if (avatars.length || logos.length)
           yield* Effect.logInfo("Profile image imports processed", {
             avatars: avatars.length,
             logos: logos.length,
           })
       })
-      const migrate = Effect.fn("ProfileFiles.migrate")(function* (
-        owner: ImageOwner,
-        source: string | null,
-        email?: string,
-      ) {
+      const migrate = Effect.fn("ProfileFiles.migrate")(function* ({
+        owner,
+        source,
+        email,
+      }: {
+        owner: ImageOwner
+        source: string | null
+        email?: string
+      }) {
         if (source?.startsWith("/api/files/")) return "unchanged" as const
         if (!source && owner.kind === "logo") return "unchanged" as const
         if (!source) {
@@ -562,7 +578,7 @@ export class ProfileFiles extends Context.Service<
           const image = yield* (
             importSource.startsWith("data:")
               ? embeddedImage(importSource)
-              : sources.fetch(importSource)
+              : sources.fetch({ source: importSource })
           ).pipe(Effect.catchTag("ImageSourceMissing", () => Effect.succeed(null)))
           file = image ? yield* files.prepare({ ...image, sourceIdentity: identity }) : null
         }
@@ -669,7 +685,6 @@ export class ProfileFiles extends Context.Service<
         adoptLogo,
         queueAvatar,
         queueLogo,
-        stageLogo,
         processImports,
         migrate,
       })

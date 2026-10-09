@@ -2327,6 +2327,19 @@
       "table": "organization"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "logo_import_generation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organization"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
