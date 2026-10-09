@@ -436,6 +436,14 @@ const checkAttachmentBudget = Effect.fnUntraced(function* (
             and(
               chatPartWhere(input.scope, input.id),
               eq(chatMessage.role, "user"),
+              sql`not (${chatMessage.metadata}->'steering'->>'appliedToMessageId' is null and exists (
+                select 1 from ${chatMessage} as finished_turn
+                where finished_turn.organization_id = ${chatMessage.organizationId}
+                  and finished_turn.tenant_id = ${chatMessage.tenantId}
+                  and finished_turn.thread_id = ${chatMessage.threadId}
+                  and finished_turn.id = ${chatMessage.turnMessageId}
+                  and finished_turn.turn_state in ('completed', 'interrupted')
+              ))`,
               sql`${chatMessagePart.payload}->>'type' in ('image', 'document', 'audio', 'video')`,
               inArray(
                 chatMessagePart.messageId,

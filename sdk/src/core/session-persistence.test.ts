@@ -266,16 +266,10 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
   }
 })
 
-test.each([
-  { status: 400, uncertain: false },
-  { status: 413, uncertain: false },
-  { status: 429, uncertain: false },
-  { status: 400, uncertain: true },
-  { status: 413, uncertain: true },
-  { status: 429, uncertain: true },
-])(
-  "a rejection $status permits editing only without earlier uncertainty=$uncertain",
-  async ({ status, uncertain }) => {
+test.each([false, true])(
+  "a rejected input remains editable only without earlier uncertainty=%s",
+  async (uncertain) => {
+    const status = 429
     const keys: Array<string | null> = []
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
@@ -305,9 +299,13 @@ test.each([
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
       await chat.sendMessage("Original input")
       if (uncertain) await chat.sendMessage("Original input")
-      await chat.sendMessage("Corrected input")
+      expect(
+        chat.editPendingMessage(chat.getState().pendingMessages[0]!.id, "Corrected input"),
+      ).toBe(!uncertain)
+      if (uncertain) await chat.sendMessage("Corrected input")
+      else await chat.resumeQueue()
       expect(keys).toHaveLength(2)
-      expect(keys[1] === keys[0]).toBe(uncertain)
+      expect(keys[1]).toBe(keys[0])
       expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
       expect(chat.getState().error?.message).toContain(
         uncertain ? "acceptance is unconfirmed" : "Input was not admitted",

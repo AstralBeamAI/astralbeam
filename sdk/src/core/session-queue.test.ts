@@ -25,11 +25,21 @@ const options = { threadId, fetchAstralBeamToken: token }
 const history = (messages: object[] = []) =>
   Response.json({ thread, messages, pending_interactions: [], page_after: null, page_before: null })
 const encode = (event: object) => new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
+const rejected = (status: number, detail: string) =>
+  Response.json({ type: "about:blank", status, title: "Rejected", detail }, { status })
 
 function network(announceTurn = true) {
   const requests: Array<{ key: string | null; body: { messages: unknown[] } }> = []
   const steering: Array<{ key: string | null; body: unknown }> = []
   let controller: ReadableStreamDefaultController<Uint8Array>
+  let followupResponse = () =>
+    Promise.resolve(
+      Response.json({
+        thread_id: threadId,
+        accepted_message_id: `input-${requests.length}`,
+        thread_version: 4,
+      }),
+    )
   let historyResponse = () => Promise.resolve(history())
   let steeringResponse = () =>
     Promise.resolve(
@@ -76,14 +86,7 @@ function network(announceTurn = true) {
         key: new Headers(init?.headers).get("Idempotency-Key"),
         body: JSON.parse(init!.body as string) as (typeof requests)[number]["body"],
       })
-      if (requests.length > 1)
-        return Promise.resolve(
-          Response.json({
-            thread_id: threadId,
-            accepted_message_id: `input-${requests.length}`,
-            thread_version: 4,
-          }),
-        )
+      if (requests.length > 1) return followupResponse()
       return Promise.resolve(
         new Response(
           new ReadableStream<Uint8Array>({
@@ -107,6 +110,9 @@ function network(announceTurn = true) {
     emit,
     finish,
     announce,
+    setFollowupResponse: (next: typeof followupResponse) => {
+      followupResponse = next
+    },
     setHistoryResponse: (next: typeof historyResponse) => {
       historyResponse = next
     },
@@ -232,19 +238,13 @@ test.each(["accepted", "finished"])(
   "steering %s preserves the active stream and falls back only after definite rejection",
   async (outcome) => {
     const net = network()
+    let release!: (response: Response) => void
     if (outcome === "finished")
-      net.setSteeringResponse(() =>
-        Promise.resolve(
-          Response.json(
-            {
-              type: "about:blank",
-              status: 409,
-              title: "Conflict",
-              detail: "This turn has finished. Queue your message as a new turn",
-            },
-            { status: 409 },
-          ),
-        ),
+      net.setSteeringResponse(
+        () =>
+          new Promise((resolve) => {
+            release = resolve
+          }),
       )
     const chat = createAstralBeamChat(options)
     const accepted = vi.fn()
@@ -252,26 +252,37 @@ test.each(["accepted", "finished"])(
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadId))
       const active = chat.sendMessage("First")
       await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
-      await chat.sendMessage("Use the blue option", { onAccepted: accepted }, { whenBusy: "steer" })
+      const steered = chat.sendMessage(
+        "Use the blue option",
+        {
+          onAccepted: accepted,
+          onQueued: () => {
+            throw new Error("Host callback failed")
+          },
+        },
+        { whenBusy: "steer" },
+      )
+      await vi.waitFor(() => expect(net.steering).toHaveLength(1))
+      if (outcome === "finished") {
+        net.finish()
+        await vi.waitUntil(() => chat.getState().status === "ready")
+        release(rejected(409, "This turn has finished. Queue your message as a new turn"))
+      }
+      await steered
       expect(net.steering[0]?.body).toMatchObject({
         turn_message_id: turnId,
         parts: [{ type: "text", content: "Use the blue option" }],
       })
-      expect(chat.getState().status).toBe("streaming")
-      expect(chat.getState().pendingMessages[0]?.status).toBe(
-        outcome === "accepted" ? "accepted" : "queued",
-      )
-      expect(chat.getState().pendingMessages[0]?.steeringFallback).toBe(
-        outcome === "finished" ? true : undefined,
-      )
       if (outcome === "accepted")
         net.emit({
           type: "CUSTOM",
           name: "astralbeam_thread",
           value: { threadId, appliedSteeringMessageIds: ["guidance"] },
         })
-      net.finish()
+      if (outcome === "accepted") net.finish()
       await active
+      await chat.resumeQueue()
+      expect(net.steering).toHaveLength(1)
       expect(net.requests).toHaveLength(outcome === "accepted" ? 1 : 2)
       expect(accepted).toHaveBeenCalledOnce()
       expect(net.requests[1]?.key).not.toBe(net.steering[0]?.key)
@@ -308,11 +319,7 @@ test("reload pauses text recovery, retains steering receipt keys, and blocks mis
   chat.dispose()
   net.finish()
   await active
-  net.setSteeringResponse(() =>
-    Promise.resolve(
-      Response.json({ thread_id: threadId, accepted_message_id: "guidance", thread_version: 2 }),
-    ),
-  )
+  net.setSteeringResponse(() => Promise.resolve(rejected(429, "Try later")))
   const restored = createAstralBeamChat(options)
   try {
     await vi.waitFor(() => expect(restored.getState().thread?.id).toBe(threadId))
@@ -323,9 +330,16 @@ test("reload pauses text recovery, retains steering receipt keys, and blocks mis
       attachmentsRequired: true,
     })
     await restored.resumeQueue()
-    expect(net.steering).toHaveLength(2)
-    expect(net.steering[1]?.key).toBe(net.steering[0]?.key)
-    expect(net.steering[1]?.body).toEqual(net.steering[0]?.body)
+    expect(restored.getState().pendingMessages[0]?.status).toBe("sending")
+    net.setSteeringResponse(() =>
+      Promise.resolve(
+        Response.json({ thread_id: threadId, accepted_message_id: "guidance", thread_version: 2 }),
+      ),
+    )
+    await restored.resumeQueue()
+    expect(net.steering).toHaveLength(3)
+    expect(net.steering[2]?.key).toBe(net.steering[0]?.key)
+    expect(net.steering[2]?.body).toEqual(net.steering[0]?.body)
     expect(net.requests).toHaveLength(1)
     const file = restored.getState().pendingMessages.find((entry) => entry.attachmentsRequired)!
     restored.editPendingMessage(file.id, "Edited text")
@@ -333,6 +347,48 @@ test("reload pauses text recovery, retains steering receipt keys, and blocks mis
       restored.getState().pendingMessages.find((entry) => entry.id === file.id)
         ?.attachmentsRequired,
     ).toBe(true)
+  } finally {
+    restored.dispose()
+  }
+})
+
+test("rejected queued text survives reload and remains editable before FIFO resumes", async () => {
+  const net = network()
+  net.setFollowupResponse(() => Promise.resolve(rejected(429, "Try later")))
+  const chat = createAstralBeamChat(options)
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadId))
+  const active = chat.sendMessage("First")
+  await vi.waitFor(() => expect(chat.getState().status).toBe("streaming"))
+  await chat.sendMessage("Second")
+  await chat.sendMessage("Third")
+  net.finish()
+  await active
+  expect(chat.getState().pendingMessages[0]).toMatchObject({ content: "Second", status: "queued" })
+  chat.dispose()
+  net.setFollowupResponse(() =>
+    Promise.resolve(
+      Response.json({
+        thread_id: threadId,
+        accepted_message_id: "followup",
+        thread_version: 4,
+      }),
+    ),
+  )
+  const restored = createAstralBeamChat(options)
+  try {
+    await vi.waitFor(() => expect(restored.getState().thread?.id).toBe(threadId))
+    expect(net.requests).toHaveLength(2)
+    expect(
+      restored.editPendingMessage(restored.getState().pendingMessages[0]!.id, "Second edited"),
+    ).toBe(true)
+    await restored.resumeQueue()
+    expect(net.requests.map((request) => JSON.stringify(request.body.messages))).toEqual([
+      expect.stringContaining("First"),
+      expect.stringContaining("Second"),
+      expect.stringContaining("Second edited"),
+      expect.stringContaining("Third"),
+    ])
+    expect(restored.getState().pendingMessages).toEqual([])
   } finally {
     restored.dispose()
   }

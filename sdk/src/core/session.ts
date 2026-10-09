@@ -656,8 +656,11 @@ export function createAstralBeamChat(
         (error.status === 400 || error.status === 413 || error.status === 429)
       ) {
         delete submission.tools
-        pendingMessages = pendingMessages.filter((entry) => entry.id !== submission.key)
-        pendingCallbacks.delete(submission.key)
+        const queued = pendingMessages.find((entry) => entry.id === submission.key)
+        if (queued) {
+          delete queued.tools
+          queued.status = "queued"
+        }
         publishQueue()
       }
       throw error
@@ -1389,7 +1392,7 @@ export function createAstralBeamChat(
     })
     return draining
   }
-  const dispatchSteering = async (entry: PendingChatMessage) => {
+  const requestSteering = async (entry: PendingChatMessage) => {
     const generation = selectionGeneration
     const thread = state.thread
     const turnMessageId = entry.turnMessageId ?? state.activeTurnId
@@ -1446,7 +1449,11 @@ export function createAstralBeamChat(
         entry.turnMessageId = undefined
         publishQueue()
       } else {
-        if (!attempted && isAstralBeamApiError(error) && [400, 413, 429].includes(error.status))
+        if (
+          !attempted &&
+          isAstralBeamApiError(error) &&
+          [400, 403, 404, 413, 429].includes(error.status)
+        )
           entry.status = "queued"
         const failure = error instanceof Error ? error : new Error(String(error))
         update({ queuePaused: true, error: failure })
@@ -1454,6 +1461,14 @@ export function createAstralBeamChat(
         live.streamCallbacks?.onError?.(failure)
       }
     }
+  }
+  const steeringRequests = new Map<PendingChatMessage, Promise<void>>()
+  const dispatchSteering = (entry: PendingChatMessage): Promise<void> => {
+    const pending = steeringRequests.get(entry)
+    if (pending) return pending
+    const request = requestSteering(entry).finally(() => steeringRequests.delete(entry))
+    steeringRequests.set(entry, request)
+    return request
   }
   const sendMessage = async (
     content: string | MultimodalContent,
@@ -1501,14 +1516,14 @@ export function createAstralBeamChat(
     if (!retry) pendingMessages.push(entry)
     if (callbacks) pendingCallbacks.set(entry.id, callbacks)
     publishQueue()
-    if (busy) {
-      callbacks?.onQueued?.()
-      if (options?.whenBusy === "steer" && liveTurn && state.activeTurnId)
+    if (busy || awaitingResume) {
+      try {
+        callbacks?.onQueued?.()
+      } catch (error) {
+        debug?.("error", "Queued callback failed", error)
+      }
+      if (busy && options?.whenBusy === "steer" && liveTurn && state.activeTurnId)
         await dispatchSteering(entry)
-      return
-    }
-    if (awaitingResume) {
-      callbacks?.onQueued?.()
       return
     }
     if (retry) {

@@ -804,6 +804,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           .from(chatMessage)
           .where(eq(chatMessage.threadId, thread.id)),
       ).toHaveLength(mode === "message" ? 6 : 5)
+      if (mode === "steering") {
+        await runtime.runPromise(service.finish({ claim: first.claim!, continueSteering: false }))
+        await runtime.runPromise(service.admit({ scope, id: thread.id, payload: uploadPayload() }))
+      }
     },
   )
 
