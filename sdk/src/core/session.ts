@@ -312,6 +312,13 @@ export function createAstralBeamChat(
   let sending = false
   let liveTurn = false
   const pendingSends = new Map<string, NonNullable<typeof pendingSend>>()
+  const notifySubmission = (callback: (() => void) | undefined) => {
+    try {
+      callback?.()
+    } catch (error) {
+      debug?.("error", "Submission callback failed", error)
+    }
+  }
   const acceptPendingSend = () => {
     const submission = pendingSend
     if (!submission || submission.accepted) return
@@ -320,7 +327,7 @@ export function createAstralBeamChat(
     pendingCallbacks.delete(submission.key)
     publishQueue()
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    submission.callbacks?.onAccepted?.()
+    notifySubmission(submission.callbacks?.onAccepted)
   }
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
@@ -653,7 +660,7 @@ export function createAstralBeamChat(
         submission &&
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
-        (error.status === 400 || error.status === 413 || error.status === 429)
+        [400, 403, 404, 413, 429].includes(error.status)
       ) {
         delete submission.tools
         const queued = pendingMessages.find((entry) => entry.id === submission.key)
@@ -869,8 +876,10 @@ export function createAstralBeamChat(
         update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
       },
       onStatusChange: (status) => {
-        if (client === next && generation === selectionGeneration)
-          update({ status, error: next.getError() })
+        if (client === next && generation === selectionGeneration) {
+          const error = next.getError()
+          update({ status, error, ...(error ? { queuePaused: true } : {}) })
+        }
       },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
@@ -1232,27 +1241,35 @@ export function createAstralBeamChat(
     }
     scopeCompletedToolCalls()
     liveTurn = true
-    if (
-      pending &&
-      (!("tool" in result) ||
-        result.toolCallId ===
-          savedToolCallId(pending.sourceMessageId, pending.sourcePartId, pending.responseTargetId))
-    ) {
-      replaceClient()
-      await hydration
-      if (generation !== selectionGeneration) return
-      update({ threadLoading: false })
-      await client.append({
-        role: "tool",
-        toolCallId: result.toolCallId,
-        content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
-      })
-    } else if ("tool" in result) {
-      await client.addToolResult(result)
+    try {
+      if (
+        pending &&
+        (!("tool" in result) ||
+          result.toolCallId ===
+            savedToolCallId(
+              pending.sourceMessageId,
+              pending.sourcePartId,
+              pending.responseTargetId,
+            ))
+      ) {
+        replaceClient()
+        await hydration
+        if (generation !== selectionGeneration) return
+        update({ threadLoading: false })
+        await client.append({
+          role: "tool",
+          toolCallId: result.toolCallId,
+          content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
+        })
+      } else if ("tool" in result) {
+        await client.addToolResult(result)
+      }
+      if (generation === selectionGeneration)
+        await refreshThread(client.getError() !== undefined, false)
+      void drainQueue()
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
     }
-    if (generation === selectionGeneration)
-      await refreshThread(client.getError() !== undefined, false)
-    void drainQueue()
   }
   const abandonToolCall = (toolCallId: string) => addToolResult({ toolCallId })
 
@@ -1429,7 +1446,7 @@ export function createAstralBeamChat(
           version: Math.max(state.thread!.version, receipt.thread_version),
         },
       })
-      pendingCallbacks.get(entry.id)?.onAccepted?.()
+      notifySubmission(pendingCallbacks.get(entry.id)?.onAccepted)
       pendingCallbacks.delete(entry.id)
       publishQueue()
     } catch (error) {
@@ -1517,11 +1534,7 @@ export function createAstralBeamChat(
     if (callbacks) pendingCallbacks.set(entry.id, callbacks)
     publishQueue()
     if (busy || awaitingResume) {
-      try {
-        callbacks?.onQueued?.()
-      } catch (error) {
-        debug?.("error", "Queued callback failed", error)
-      }
+      notifySubmission(callbacks?.onQueued)
       if (busy && options?.whenBusy === "steer" && liveTurn && state.activeTurnId)
         await dispatchSteering(entry)
       return
