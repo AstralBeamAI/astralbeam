@@ -79,7 +79,8 @@ async function downloadPublicImage(source: string, signal: AbortSignal): Promise
         url = new URL(response.headers.location, url)
         continue
       }
-      if (status === 404 || status === 410) throw new ImageSourceMissing({ status })
+      if (status >= 400 && status < 500 && ![408, 425, 429].includes(status))
+        throw new ImageSourceMissing({ status })
       if (status !== 200) throw new ImageImportUnavailable()
       const declaredSize = Number(response.headers["content-length"])
       if (declaredSize > IMAGE_MAX_BYTES) throw new InvalidImage()
@@ -99,7 +100,7 @@ async function downloadPublicImage(source: string, signal: AbortSignal): Promise
   throw new InvalidImage()
 }
 
-const fetchExternalImage = Effect.fn("fetchExternalImage")((source: string) =>
+const fetchExternalImage = Effect.fn("ImageSources.fetch")(({ source }: { source: string }) =>
   Effect.tryPromise({
     try: (signal) => downloadPublicImage(source, signal),
     catch: (error) =>
@@ -118,9 +119,9 @@ const fetchExternalImage = Effect.fn("fetchExternalImage")((source: string) =>
 export class ImageSources extends Context.Service<
   ImageSources,
   {
-    readonly fetch: (
-      source: string,
-    ) => Effect.Effect<
+    readonly fetch: (options: {
+      source: string
+    }) => Effect.Effect<
       { bytes: Uint8Array; contentType: string },
       InvalidImage | ImageSourceMissing | ImageImportUnavailable
     >

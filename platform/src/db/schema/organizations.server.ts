@@ -67,6 +67,7 @@ export const organization = snakeCase.table(
     slug: text().notNull(),
     logo: text(),
     logoFileId: uuid(),
+    logoImportGeneration: uuid(),
     metadata: text(),
     ...timestamps(),
   },

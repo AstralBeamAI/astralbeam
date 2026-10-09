@@ -11,7 +11,7 @@ import { APP_HANDLE } from "@/lib/constants"
 import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "../threads/errors"
 import type { ChatMessagePayload, ChatThreadScope } from "../threads/schemas"
-import { decodeAttachmentBytes, normalizeMimeType } from "./attachments.server"
+import { base64ByteLength, decodeAttachmentBytes, normalizeMimeType } from "./attachments.server"
 import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants.server"
 import { chatMediaPart, storedChatMediaSource } from "./stored-media"
 
@@ -180,6 +180,7 @@ export class ChatFiles extends Context.Service<
         const copies = new Map<string, number>()
         for (const entries of [payload.parts, continuation]) {
           const representation = new Map<string, number>()
+          let representationBytes = 0
           for (const part of entries) {
             if (!chatMediaPart(part)) continue
             const source = part.source
@@ -190,12 +191,20 @@ export class ChatFiles extends Context.Service<
               size = file.byteSize
               key = `${file.sha256}:${file.contentType}`
             } else if (Schema.is(Schema.JsonObject)(source) && source.type === "data") {
-              const bytes =
-                typeof source.value === "string" ? decodeAttachmentBytes(source.value) : null
+              if (
+                typeof source.value !== "string" ||
+                representationBytes + base64ByteLength(source.value) >
+                  CHAT_ATTACHMENT_MAX_TOTAL_BYTES
+              )
+                return yield* new ChatThreadInvalid()
+              const bytes = decodeAttachmentBytes(source.value)
               if (!bytes) return yield* new ChatThreadInvalid()
               size = bytes.length
               key = `${createHash("sha256").update(bytes).digest("hex")}:${normalizeMimeType(source.mimeType) || "application/octet-stream"}`
             } else continue
+            representationBytes += size
+            if (representationBytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+              return yield* new ChatThreadInvalid()
             const occurrence = (representation.get(key) ?? 0) + 1
             representation.set(key, occurrence)
             // The same file can appear in both representations. Copies within either still count.
@@ -270,6 +279,7 @@ export class ChatFiles extends Context.Service<
         parts: readonly (typeof Schema.JsonObject.Type)[],
       ) {
         const identities = []
+        let total = 0
         for (const part of parts) {
           if (!chatMediaPart(part)) {
             identities.push(part)
@@ -289,12 +299,15 @@ export class ChatFiles extends Context.Service<
               typeof source.value !== "string"
             )
               return yield* new ChatThreadInvalid()
-            const bytes = decodeAttachmentBytes(source.value)
-            if (!bytes || bytes.length > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+            if (total + base64ByteLength(source.value) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
               return yield* new ChatThreadInvalid()
+            const bytes = decodeAttachmentBytes(source.value)
+            if (!bytes) return yield* new ChatThreadInvalid()
             sha256 = createHash("sha256").update(bytes).digest("hex")
             byteSize = bytes.length
           }
+          total += byteSize
+          if (total > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return yield* new ChatThreadInvalid()
           const source = part.source as typeof Schema.JsonObject.Type
           identities.push({
             ...part,

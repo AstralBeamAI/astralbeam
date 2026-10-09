@@ -18,6 +18,12 @@ interface ImageRequest {
   logoFileId?: string
 }
 const requests = defineRequestState<ImageRequest>(() => ({}))
+export const logoImportGenerationField = {
+  type: "string",
+  input: false,
+  returned: false,
+  required: false,
+} as const
 
 export async function oauthProfileImage(source: string | undefined): Promise<{ image: string }> {
   const request = await requests.get()
@@ -56,7 +62,9 @@ export async function assertOwnedAvatar(
       code: "INVALID_IMAGE",
       message: "Upload your avatar after creating your account.",
     })
-  await imageApiEffect(Effect.flatMap(ProfileFiles, (files) => files.validateAvatar(userId, image)))
+  await imageApiEffect(
+    Effect.flatMap(ProfileFiles, (files) => files.validateAvatar({ userId, image })),
+  )
 }
 
 export async function enqueueAuthImage(user: { id: string; email: string }): Promise<void> {
@@ -94,15 +102,19 @@ export const organizationImageHooks = {
     const state = await requests.get()
     if (source.startsWith("data:"))
       state.logoFileId = await imageApiEffect(
-        Effect.flatMap(ProfileFiles, (files) => files.prepareLogo(source, input.user.id)),
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.prepareLogo({ source, userId: input.user.id }),
+        ),
       )
-    else if (externalImageUrl(source)) state.logoSource = source
-    else
+    else if (externalImageUrl(source)) {
+      state.logoSource = source
+      state.logoGeneration = crypto.randomUUID()
+    } else
       throw new APIError("BAD_REQUEST", {
         code: "INVALID_IMAGE",
         message: "Use a valid image or public HTTPS image URL.",
       })
-    return { data: { logo: null } }
+    return { data: { logo: null, logoImportGeneration: state.logoGeneration } }
   },
   afterCreateOrganization: async (input) => {
     await organizationProvisioningHooks.afterCreateOrganization(input)
@@ -110,17 +122,18 @@ export const organizationImageHooks = {
     if (state.logoFileId)
       input.organization.logo = await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.adoptLogo(input.organization.id, state.logoFileId!),
+          files.adoptLogo({ organizationId: input.organization.id, fileId: state.logoFileId! }),
         ),
       )
     if (state.logoSource)
       await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.queueLogo(
-            input.organization.id,
-            state.logoSource!,
-            input.organization.logo ?? null,
-          ),
+          files.queueLogo({
+            organizationId: input.organization.id,
+            source: state.logoSource!,
+            expectedLogo: input.organization.logo ?? null,
+            generation: state.logoGeneration!,
+          }),
         ),
       )
   },
@@ -128,47 +141,44 @@ export const organizationImageHooks = {
     await organizationRoleHooks.beforeUpdateOrganization(input)
     const source = input.organization.logo
     if (source === undefined) return undefined
-    if (source === null) return undefined
+    const logoImportGeneration = crypto.randomUUID()
+    if (source === null) return { data: { logo: null, logoImportGeneration } }
     const state = await requests.get()
     if (source.startsWith("data:")) {
       const logo = await imageApiEffect(
         Effect.gen(function* () {
           const files = yield* ProfileFiles
-          const fileId = yield* files.prepareLogo(source, input.user.id)
-          return yield* files.attachLogo(input.member.organizationId, fileId)
+          const fileId = yield* files.prepareLogo({ source, userId: input.user.id })
+          return yield* files.attachLogo({ organizationId: input.member.organizationId, fileId })
         }),
       )
-      return { data: { logo } }
+      return { data: { logo, logoImportGeneration } }
     }
     if (externalImageUrl(source)) {
       state.logoSource = source
-      state.logoGeneration = await imageApiEffect(
-        Effect.flatMap(ProfileFiles, (files) =>
-          files.stageLogo(input.member.organizationId, source),
-        ),
-      )
+      state.logoGeneration = logoImportGeneration
       // An import retains the prior logo until its replacement is verified.
       delete input.organization.logo
-      return undefined
+      return { data: { ...input.organization, logoImportGeneration } }
     }
     await imageApiEffect(
       Effect.flatMap(ProfileFiles, (files) =>
-        files.validateLogo(input.member.organizationId, source),
+        files.validateLogo({ organizationId: input.member.organizationId, image: source }),
       ),
     )
-    return undefined
+    return { data: { ...input.organization, logoImportGeneration } }
   },
   afterUpdateOrganization: async (input) => {
     const { logoSource: source, logoGeneration } = await requests.get()
     if (source && input.organization)
       await runAppEffect(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.queueLogo(
-            input.member.organizationId,
+          files.queueLogo({
+            organizationId: input.member.organizationId,
             source,
-            input.organization!.logo ?? null,
-            logoGeneration,
-          ),
+            expectedLogo: input.organization!.logo ?? null,
+            generation: logoGeneration!,
+          }),
         ),
       )
   },
