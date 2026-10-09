@@ -24,7 +24,7 @@ import {
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
-import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
+import type { MountAstralBeamChatOptions, WidgetRegistry } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
@@ -39,7 +39,7 @@ import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
 // a fresh `{}` would rebuild the memoized session options (and push them through the session).
-const NO_WIDGETS: Record<string, WidgetDefinition> = {}
+const NO_WIDGETS: WidgetRegistry = {}
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
 const EMPTY_DRAFT = {
   text: "",

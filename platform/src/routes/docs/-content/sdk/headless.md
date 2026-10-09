@@ -44,7 +44,7 @@ await chat.sendMessage("What can you do?")
 chat.dispose()
 ```
 
-- Widgets declare `{ description, parameters }`. The session validates props and calls `onRenderWidget`, which draws the widget and may return cleanup.
+- Widgets use a keyed object, `{ card: { description, parameters? } }`. `onRenderWidget` receives validated `props` and invocation `context` and may return cleanup or `{ update, dispose }`.
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
 - Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
 - `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
@@ -57,7 +57,7 @@ The core exports the part helpers the widget itself renders with.
 
 - `isSandboxTool`, `readSandboxFileWrite`, `readSandboxCommandRun`, `readSandboxArtifact`, `collectSandboxActivity`.
 - `isSettledToolCall`, `lastPartInProgress`, `hasPendingToolRun` for busy states.
-- Protocol names (`RENDER_WIDGET_TOOL`, `ASK_QUESTIONNAIRE_TOOL`, sandbox tool names) for custom renderers.
+- Protocol names (`ASK_QUESTIONNAIRE_TOOL`, sandbox tool names) and `agentTools[].widget` for custom renderers. `RENDER_WIDGET_TOOL` identifies older saved calls.
 
 ## Saved conversation controls
 

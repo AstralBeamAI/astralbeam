@@ -192,8 +192,8 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
   const tools = () => ({
     refresh: {
       description: "Refresh the host's list",
-      metadata: { title: "Refresh the list" },
-      execute: () => "done",
+      title: "Refresh the list",
+      execute: () => ({ done: true }),
     },
   })
   const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken, tools: tools() })
@@ -207,19 +207,24 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
 
   expect(notifications).toBe(0)
   expect(chat.getState().agentTools).toEqual([
-    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined },
-    { name: "refresh", title: "Refresh the list" },
+    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined, widget: undefined },
+    { name: "refresh", title: "Refresh the list", widget: undefined },
   ])
 
   // A real change still reaches the store, so a title update relabels its transcript entry.
   chat.updateOptions({
-    tools: { refresh: { description: "Refresh the host's list", execute: () => "done" } },
+    tools: {
+      refresh: {
+        description: "Refresh the host's list",
+        execute: () => ({ done: true }),
+      },
+    },
   })
 
   expect(notifications).toBe(1)
   expect(chat.getState().agentTools).toEqual([
-    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined },
-    { name: "refresh", title: undefined },
+    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined, widget: undefined },
+    { name: "refresh", title: undefined, widget: undefined },
   ])
   chat.dispose()
 })

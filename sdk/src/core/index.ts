@@ -43,11 +43,19 @@ export type {
   SandboxStatus,
 } from "./types.ts"
 // No defineWidget: a core widget is declared without a render, so its generic would type nothing.
-export { defineTool } from "../lib/define.ts"
+export { defineTool, toolResult } from "../lib/define.ts"
 export type {
   InferParameters,
   JsonSchemaObject,
   ParametersSchema,
   StandardSchemaV1,
   ToolDefinition,
+  ToolRegistry,
+  ToolInput,
+  ToolResult,
+  ToolContent,
+  ToolAnnotations,
+  ToolExecutionContext,
+  WidgetContext,
+  WidgetRenderHandle,
 } from "../lib/types.ts"

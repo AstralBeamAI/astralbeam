@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { Bubble, BubbleContent } from "@/widget/components/ui/bubble"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Spinner } from "@/widget/components/ui/spinner"
-import type { WidgetDefinition } from "../../lib/types.ts"
+import type { WidgetRegistry, ToolResult } from "../../lib/types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../../core/protocol.ts"
 import { isSandboxTool } from "../../core/sandbox.ts"
 import type { RenderWidgetInput } from "../../core/types.ts"
@@ -26,7 +26,7 @@ interface AssistantPartProps {
   readOnly?: boolean | undefined
   part: MessagePart
   apiUrl: string
-  widgets: Record<string, WidgetDefinition>
+  widgets: WidgetRegistry
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
   activeSlots: ReadonlyMap<string, string>
@@ -129,34 +129,39 @@ function WidgetCallPart({
 }: Pick<AssistantPartProps, "widgets" | "activeSlots"> & {
   part: ChatToolCallPart
 }) {
-  const input = part.input as RenderWidgetInput | undefined
+  const input =
+    part.name === RENDER_WIDGET_TOOL
+      ? (part.input as RenderWidgetInput | undefined)
+      : part.widget
+        ? { widget: part.widget, props: part.input as Record<string, unknown> }
+        : undefined
   const definition = input ? getWidget(widgets, input.widget) : undefined
-  // While the agent still streams the call's input, the widget name may be absent or
-  // partial; show progress rather than a blank transcript.
-  if (!input || !definition) {
-    return isSettledToolCall(part) ? (
-      <FailureMarker>This widget is unavailable.</FailureMarker>
-    ) : (
-      <ToolCallMarker running>Preparing a widget</ToolCallMarker>
-    )
-  }
   const renderId = part.widgetRenderId ?? part.id
   const slotName = slotNameForToolCall(renderId)
-  // A saved call without a render may be incompatible, unavailable, or evicted.
-  // Its stored success describes the original rendering, not this client's view.
-  if (!activeSlots.has(slotName)) {
+  if (!definition || !activeSlots.has(slotName)) {
     if (isSettledToolCall(part)) {
-      return (
-        <FailureMarker>
-          Widget <span className="font-mono">{input.widget}</span> is unavailable.
-        </FailureMarker>
-      )
+      if (part.resultVersion === 1) {
+        const result = part.output as ToolResult | undefined
+        const text = result?.content
+          ? result.content
+              .filter((block) => block.type === "text" && typeof block.text === "string")
+              .map((block) => block.text)
+              .join("\n")
+          : ""
+        return (
+          <div>
+            {text && <p className="whitespace-pre-wrap">{text}</p>}
+            <ToolCallDisclosure
+              part={part}
+              title={undefined}
+              failed={part.state === "error" || result?.isError === true}
+            />
+          </div>
+        )
+      }
+      return <FailureMarker>This widget is unavailable.</FailureMarker>
     }
-    return (
-      <ToolCallMarker running>
-        Rendering <span className="font-mono">{input.widget}</span>
-      </ToolCallMarker>
-    )
+    return <ToolCallMarker running>Preparing a widget</ToolCallMarker>
   }
   // Neither framed nor captioned: a widget render is the host app's own UI, and the
   // definition's `description` is written for the agent, not for the transcript. A bare
@@ -222,12 +227,14 @@ export function AssistantPart({
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+      const failed =
+        part.state === "error" ||
+        ((part as ChatToolCallPart).resultVersion === 1 &&
+          (part.output as ToolResult | undefined)?.isError === true)
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
           return <SandboxPart part={part} apiUrl={apiUrl} />
-        return (
-          <ToolCallDisclosure part={part} title={title} failed={part.state === "error"} readOnly />
-        )
+        return <ToolCallDisclosure part={part} title={title} failed={failed} readOnly />
       }
       if (interrupted && !isSettledToolCall(part))
         return <FailureMarker>This action request was interrupted.</FailureMarker>
@@ -250,11 +257,11 @@ export function AssistantPart({
       if (isSandboxTool(part.name)) {
         return <SandboxPart part={part} apiUrl={apiUrl} />
       }
-      if (part.state === "error") {
-        return <ToolCallDisclosure part={part} title={title} failed />
-      }
-      if (part.name === RENDER_WIDGET_TOOL) {
+      if (part.name === RENDER_WIDGET_TOOL || (part as ChatToolCallPart).widget) {
         return <WidgetCallPart part={part} widgets={widgets} activeSlots={activeSlots} />
+      }
+      if (failed) {
+        return <ToolCallDisclosure part={part} title={title} failed />
       }
       if (part.name === ASK_QUESTIONNAIRE_TOOL) {
         return <QuestionnaireCallPart part={part} onQuestionnaireAnswers={onQuestionnaireAnswers} />

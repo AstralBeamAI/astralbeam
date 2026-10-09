@@ -35,12 +35,18 @@ import {
   type AstralBeamTokenRequest,
   type AstralBeamTokenSource,
   defineTool,
+  type TypedWidgetDefinition,
+  toolResult,
+  type WidgetContext,
+  type ToolResult,
+  type ToolExecutionContext,
   type InferParameters,
   type JsonSchemaObject,
   mountAstralBeamChat,
   type MountAstralBeamChatOptions,
   type ParametersSchema,
   type ToolDefinition,
+  type ToolRegistry,
   type WidgetDefinition as ClientWidgetDefinition,
 } from "@astralbeam/sdk/client"
 // A constant-only module, safe to import relatively: it pulls no React into this entry.
@@ -64,26 +70,36 @@ export type {
   InferParameters,
   ParametersSchema,
   ToolDefinition,
+  ToolRegistry,
+  ToolResult,
+  ToolExecutionContext,
+  WidgetContext,
 }
-export { defineTool }
+export { defineTool, toolResult }
 
 export interface WidgetDefinition extends Omit<ClientWidgetDefinition, "render"> {
-  /** Draws the widget with the agent-chosen props, in the host's own React tree. */
-  render: (props: Record<string, unknown>) => ReactNode
+  /** Draws the widget with validated props and invocation context, in the host's own React tree. */
+  render(props: Record<string, unknown>, context: WidgetContext): ReactNode
 }
 
-export interface TypedReactWidgetDefinition<S extends ParametersSchema = JsonSchemaObject> {
-  description: string
-  parameters?: S
-  render: (props: InferParameters<S>) => ReactNode
+export type WidgetRegistry = Readonly<Record<string, WidgetDefinition>>
+
+export interface TypedReactWidgetDefinition<
+  S extends ParametersSchema = JsonSchemaObject,
+  Tools extends ToolRegistry = ToolRegistry,
+> extends Omit<TypedWidgetDefinition<S, Tools>, "render"> {
+  render: (
+    props: InferParameters<S>,
+    context: WidgetContext<InferParameters<S>, Tools>,
+  ) => ReactNode
 }
 
-/** Declares a host widget; a Standard Schema `parameters` types (and validates) `render`'s props. */
-export function defineWidget<const S extends ParametersSchema = JsonSchemaObject>(
-  widget: TypedReactWidgetDefinition<S>,
-): WidgetDefinition {
-  // The chat validates a Standard Schema before render runs, so the narrowed type holds.
-  return widget as unknown as WidgetDefinition
+/** Declares a host widget; a Standard Schema `parameters` types and validates its props. */
+export function defineWidget<
+  const S extends ParametersSchema = JsonSchemaObject,
+  const Tools extends ToolRegistry = ToolRegistry,
+>(widget: TypedReactWidgetDefinition<S, Tools>): TypedReactWidgetDefinition<S, Tools> {
+  return widget
 }
 
 export type { AstralBeamChatCore, AstralBeamChatCoreOptions, AstralBeamChatState }
@@ -148,8 +164,8 @@ export interface AstralBeamChatRef {
  * documented once, on `MountAstralBeamChatOptions`.
  */
 export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "widgets" | "slots"> {
-  /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
-  widgets?: Record<string, WidgetDefinition> | undefined
+  /** Host-defined widgets the agent can render inline in the conversation, identified by a stable ID. */
+  widgets?: WidgetRegistry | undefined
   /** Replaces the header's title with the host's own React content; `showHeader` still applies. */
   header?: ReactNode
   /** Extra host controls at the end of the header, after the history and new chat buttons. */
@@ -163,7 +179,7 @@ export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "w
 interface ActiveRender {
   widget: string
   container: HTMLElement
-  props: Record<string, unknown>
+  context: WidgetContext
 }
 
 const CHROME_SLOT_NAMES = ["header", "headerActions", "empty", "composerActions"] as const
@@ -223,10 +239,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       for (const [name, definition] of Object.entries(tools ?? {})) {
         adapted[name] = {
           ...definition,
-          execute: (input: Record<string, unknown>) => {
-            const current = toolsRef.current?.[name]
+          execute: (input: Record<string, unknown>, context: ToolExecutionContext) => {
+            const registered = toolsRef.current
+            const current =
+              registered && Object.hasOwn(registered, name) ? registered[name] : undefined
             if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-            return current.execute(input)
+            return current.execute(input, context)
           },
         }
       }
@@ -239,19 +257,25 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
             name,
             {
               ...definition,
-              // The chat provides a slotted container; record it and portal the JSX into it below,
-              // so the widget renders in the host's React tree with working state and context.
-              render: (props: Record<string, unknown>, container: HTMLElement) => {
+              render: (
+                _props: Record<string, unknown>,
+                container: HTMLElement,
+                context: WidgetContext,
+              ) => {
                 const key = `astralbeam-render-${nextRenderKey.current++}`
-                setActiveRenders((previous) =>
-                  new Map(previous).set(key, { widget: name, container, props }),
-                )
-                return () => {
-                  setActiveRenders((previous) => {
-                    const next = new Map(previous)
-                    next.delete(key)
-                    return next
-                  })
+                const update = (next: WidgetContext) =>
+                  setActiveRenders((previous) =>
+                    new Map(previous).set(key, { widget: name, container, context: next }),
+                  )
+                update(context)
+                return {
+                  update,
+                  dispose: () =>
+                    setActiveRenders((previous) => {
+                      const next = new Map(previous)
+                      next.delete(key)
+                      return next
+                    }),
                 }
               },
             },
@@ -359,10 +383,12 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     }
     return (
       <div style={{ height: "100%" }} ref={targetRef}>
-        {[...activeRenders].map(([key, { widget, container, props }]) => {
+        {[...activeRenders].map(([key, { widget, container, context }]) => {
           // Read the current prop on every render, so live host state flows into the widget.
-          const definition = widgets[widget]
-          return definition ? createPortal(definition.render(props), container, key) : null
+          const definition = Object.hasOwn(widgets, widget) ? widgets[widget] : undefined
+          return definition
+            ? createPortal(definition.render(context.input, context), container, key)
+            : null
         })}
         {[...chromeContainers].map(([name, container]) =>
           createPortal(chromeContent[name], container, `astralbeam-chrome-${name}`),

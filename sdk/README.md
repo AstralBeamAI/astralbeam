@@ -115,29 +115,42 @@ By default, `threadId: "auto"` restores this tab's selection after reload using 
 
 ## Tools and widgets
 
-A tool does something: its `execute` runs in your page. A widget shows something: its `render` draws your UI into the conversation. Both are declared with a `description` and a `parameters` schema. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).
+Tools execute in your page. Widgets present your UI in the conversation. Object keys name tools and identify widgets, with no repeated `name` or `id` fields. See [Tools and widgets](https://astralbeam.ai/docs/sdk/tools-and-widgets).
 
 ```tsx
-tools: {
-  restart_service: {
-    metadata: { title: "Restart a service" },
-    description: "Restart one of the host app's services by name",
-    parameters: { type: "object", properties: { service: { type: "string" } }, required: ["service"] },
-    execute: async ({ service }) => await restartService(String(service)),
-  },
-},
-widgets: {
-  systemStatus: {
-    description: "Shows the current status of the host app's systems",
-    parameters: { type: "object", properties: { degraded: { type: "boolean" } } },
-    render: ({ degraded }) => <StatusCard degraded={Boolean(degraded)} />,
-  },
+import { defineTool, defineWidget } from "@astralbeam/sdk/react"
+
+const tools = {
+  restart_service: defineTool({
+    title: "Restart a service",
+    description: "Restart a service by name",
+    widget: "systemStatus",
+    parameters: {
+      type: "object",
+      properties: { service: { type: "string" } },
+      required: ["service"],
+    },
+    execute: async ({ service }, { signal }) => ({
+      restarted: await restartService(String(service), { signal }),
+    }),
+  }),
+}
+const widgets = {
+  systemStatus: defineWidget({
+    description: "Show system status",
+    render: (_props, { result, status }) => (
+      <StatusCard data={result?.structuredContent} loading={status === "pending"} />
+    ),
+  }),
 }
 ```
 
-- Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
-- Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
-- Return plain JSON values from tools, with no `undefined` fields. If a result cannot be sent, the action may still have happened.
+- Set a tool's `widget` to a widget ID for result presentation. Standalone widgets expose their own `show_<id>` tools.
+- Return object data directly, including typed domain objects. The SDK builds the envelope. `toolResult({ content: "Done" })` supplies custom text.
+- Custom results keep `uiData` out of model context. `structuredContent` remains model-safe. Set `isError: true` for a known failure.
+- Schemas are object JSON Schema, or Standard Schema with JSON Schema export. Both validate input. `outputSchema` validates `structuredContent`.
+- Render receives props first, then context with result, status, cancellation, and `callTool` for app-visible actions. Local calls return the tool's data. React keeps host state and context.
+- Return plain JSON without `undefined`. An invalid result does not prove its business action failed.
 
 ## Documentation
 

@@ -18,6 +18,7 @@
     "npm:@vitest/eslint-plugin@^1.6.27": "1.6.27_eslint@10.11.0_typescript@6.0.3_vitest@4.1.11",
     "npm:class-variance-authority@~0.7.1": "0.7.1",
     "npm:cn@~0.2.4": "0.2.4",
+    "npm:effect@^4.0.1": "4.0.1",
     "npm:eslint-plugin-jsx-a11y-x@0.2": "0.2.0_eslint@10.11.0",
     "npm:eslint-plugin-react-dom@^5.20.5": "5.20.5_eslint@10.11.0_typescript@6.0.3",
     "npm:eslint-plugin-react-hooks@^7.1.1": "7.1.1_eslint@10.11.0",
@@ -26,7 +27,7 @@
     "npm:eslint-plugin-regexp@^3.3.1": "3.3.1_eslint@10.11.0",
     "npm:jose@^6.2.9": "6.2.9",
     "npm:knip@^6.32.2": "6.32.2",
-    "npm:orval@8.39.0": "8.39.0_@tanstack+react-query@5.104.1_react@19.3.0",
+    "npm:orval@8.39.0": "8.39.0_effect@4.0.1",
     "npm:oxfmt@0.70": "0.70.0",
     "npm:oxlint-tsgolint@^7.0.2002": "7.0.2002",
     "npm:oxlint@^1.85.0": "1.85.0_oxlint-tsgolint@7.0.2002",
@@ -813,10 +814,14 @@
         "tinyglobby"
       ]
     },
-    "@orval/effect@8.39.0": {
+    "@orval/effect@8.39.0_effect@4.0.1": {
       "integrity": "sha512-4X77niRHuQWpdx45vlbkG0Bxg6h0gscVHK4khjNkDCWSsjtwAq6LpJkgvFFXJlQ0WFKUfs/rJ2hyRmVUkcfP9A==",
       "dependencies": [
-        "@orval/core"
+        "@orval/core",
+        "effect"
+      ],
+      "optionalPeers": [
+        "effect"
       ]
     },
     "@orval/fetch@8.39.0": {
@@ -2445,6 +2450,9 @@
     "ee-first@1.1.1": {
       "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="
     },
+    "effect@4.0.1": {
+      "integrity": "sha512-b1VlQG9g8fwxE5QnIZuPoOP/0MsqHJSRKxUijjoM80E5q95FXrX5yWtY5XI8G+GJsBQAVSDbLS458z9a++uVvw=="
+    },
     "electron-to-chromium@1.5.434": {
       "integrity": "sha512-7EeFW9OLf1NN9NKQP9xdOE/XKqjxv7JDPP6AEAkHli11+Fae1OaLoNuAf13hQv1PPNtuES0pLQSPk2+fS3s8ww=="
     },
@@ -3625,7 +3633,7 @@
         "strip-ansi@7.2.0"
       ]
     },
-    "orval@8.39.0_@tanstack+react-query@5.104.1_react@19.3.0": {
+    "orval@8.39.0_effect@4.0.1": {
       "integrity": "sha512-QHMA1sYzmUCAh5CJN3t/s+/JfphIM8JUjShi1oRhhX4YDk59nAnl/lDXMSMWprw0kFmZJs3HTnYBInLW4CafyQ==",
       "dependencies": [
         "@commander-js/extra-typings",
@@ -4636,6 +4644,7 @@
         "npm:@vitest/eslint-plugin@^1.6.27",
         "npm:class-variance-authority@~0.7.1",
         "npm:cn@~0.2.4",
+        "npm:effect@^4.0.1",
         "npm:eslint-plugin-jsx-a11y-x@0.2",
         "npm:eslint-plugin-react-dom@^5.20.5",
         "npm:eslint-plugin-react-hooks@^7.1.1",

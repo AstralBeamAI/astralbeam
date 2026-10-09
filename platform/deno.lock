@@ -88,6 +88,7 @@
     "npm:react-email@6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
     "npm:react-email@^6.9.2": "6.9.2_react@19.3.0_react-dom@19.3.0",
     "npm:react@^19.3.0": "19.3.0",
+    "npm:redos-detector@^6.1.4": "6.1.4",
     "npm:resend@^6.21.0": "6.21.0_@react-email+render@2.1.0_react@19.3.0_react-dom@19.3.0",
     "npm:seroval@1.6.8": "1.6.8",
     "npm:shadcn@^4.20.1": "4.20.1_typescript@6.0.3",
@@ -8244,6 +8245,13 @@
         "tslib@2.8.1"
       ]
     },
+    "redos-detector@6.1.4": {
+      "integrity": "sha512-lPlka1rEH6kK42gtgokvvxMmpAvyc28DcRjQbGxeP5RJsJWgAduBOdGedVCDPdSyCr4ay/JDxq3nGYsJZyt8tA==",
+      "dependencies": [
+        "regjsparser"
+      ],
+      "bin": true
+    },
     "refa@0.12.1": {
       "integrity": "sha512-J8rn6v4DBb2nnFqkqwy6/NnTYMcgLA+sLr0iIO41qpv0n+ngb7ksag2tMRl0inb1bbO/esUwzW1vbJi7K0sI0g==",
       "dependencies": [
@@ -8259,6 +8267,13 @@
         "@eslint-community/regexpp",
         "refa"
       ]
+    },
+    "regjsparser@0.13.0": {
+      "integrity": "sha512-NZQZdC5wOE/H3UT28fVGL+ikOZcEzfMGk/c3iN9UGxzWHMa1op7274oyiUVrAG4B2EuFhus8SvkaYnhvW92p9Q==",
+      "dependencies": [
+        "jsesc"
+      ],
+      "bin": true
     },
     "rehype-external-links@3.0.0": {
       "integrity": "sha512-yp+e5N9V3C6bwBeAC4n796kc86M4gJCdlVhiMTxIrJG5UHDMh+PJANf9heqORJbt1nrCbDwIlAZKjANIaVBbvw==",
@@ -9545,6 +9560,7 @@
         "npm:react-dom@^19.3.0",
         "npm:react-email@^6.9.2",
         "npm:react@^19.3.0",
+        "npm:redos-detector@^6.1.4",
         "npm:resend@^6.21.0",
         "npm:seroval@1.6.8",
         "npm:shadcn@^4.20.1",

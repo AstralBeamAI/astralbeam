@@ -97,6 +97,75 @@ describe("stored conversation model projection", () => {
     ).toEqual(["a", "b"])
   })
 
+  test.each([1, 2])(
+    "UI data stays out of complete and incomplete context for %i responders",
+    (count) => {
+      const call = projectionRecord("decision", {
+        parts: [
+          {
+            id: "part",
+            type: "tool-call",
+            toolCallId: "provider",
+            name: "read",
+            arguments: "{}",
+            targets: Array.from({ length: count }, (_, index) => ({ id: String(index) })),
+          },
+        ],
+      })
+      const output = {
+        content: [{ type: "text", text: "Model fallback" }],
+        structuredContent: { safe: true },
+        uiData: { secret: "UI_ONLY_SENTINEL" },
+      }
+      const responses = Array.from({ length: count }, (_, index) => ({
+        ...projectionRecord(
+          `result-${index}`,
+          {
+            parts: [
+              {
+                id: "result",
+                type: "tool-result",
+                toolCallId: "provider",
+                outcome: "succeeded",
+                resultVersion: 1,
+                output,
+              },
+            ],
+            provenance: projectionTarget,
+            modelMessages: [{ id: "opaque", role: "tool", content: JSON.stringify(output) }],
+          },
+          "tool",
+        ),
+        sourceAssistantMessageId: "decision",
+        sourceToolPartId: "part",
+        responseTargetId: String(index),
+      }))
+      const before = structuredClone(responses)
+      for (const target of [undefined, projectionTarget])
+        for (const accepted of [responses, responses.slice(0, -1)]) {
+          const context = JSON.stringify(projectChatModelHistory([call, ...accepted], target))
+          expect(context).not.toContain("UI_ONLY_SENTINEL")
+          expect(context).not.toContain("uiData")
+          expect(context.includes("Model fallback")).toBe(accepted.length > 0)
+        }
+      expect(responses).toEqual(before)
+      const legacy = responses.map((record) => ({
+        ...record,
+        payload: {
+          ...record.payload,
+          parts: record.payload.parts.map((part) => {
+            const legacyPart = { ...part }
+            delete legacyPart.resultVersion
+            return legacyPart
+          }),
+        },
+      }))
+      expect(JSON.stringify(projectChatModelHistory([call, ...legacy]))).toContain(
+        "UI_ONLY_SENTINEL",
+      )
+    },
+  )
+
   test("round-trips compatible provider signatures and metadata without mutating stored rows", () => {
     const model = chatStoredJson({
       id: "upstream-message",

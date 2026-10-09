@@ -1,4 +1,4 @@
-// Public types of the client entry, re-exported by src/client.ts. Type-only, so the
+// Public types of the client entry, re-exported by src/client/index.ts. Type-only, so the
 // chat chunk may import them freely without pulling runtime code across the boundary.
 
 // Minimal Standard Schema interface, vendored as the spec suggests: just enough to
@@ -14,8 +14,8 @@ export interface StandardSchemaV1<Input = unknown, Output = Input> {
 }
 
 /**
- * Input type `defineTool`/`defineWidget` derive from a `parameters` schema: a Standard Schema's
- * validated output, or untyped props for a plain JSON Schema, which nothing validates in the browser.
+ * Input type `defineTool`/`defineWidget` derive from an input schema: a Standard Schema's
+ * validated output, or untyped props for a plain JSON Schema.
  */
 export type InferParameters<S extends ParametersSchema> =
   S extends StandardSchemaV1<unknown, infer O> ? O : Record<string, unknown>
@@ -32,39 +32,110 @@ export interface JsonSchemaObject {
 export type ParametersSchema = StandardSchemaV1 | JsonSchemaObject
 
 export interface WidgetDefinition {
-  /** Tells the agent what the widget shows so it can decide when to render it. */
   description: string
   /**
-   * Forwarded to the agent as JSON Schema. Only a Standard Schema also validates the
-   * props before `render` runs; with a plain JSON Schema, treat the props as untrusted.
+   * Forwarded to the agent as JSON Schema. Both JSON Schema and Standard Schema validate input before rendering.
    */
   parameters?: ParametersSchema
   /**
-   * Draws the widget with the agent-chosen props into `container`, a light-DOM child of
-   * the mount target. May return a cleanup, called before a re-render and on unmount.
+   * Draws validated props into `container`, with invocation context as the third argument.
+   * Return cleanup, or an update handle that preserves the presentation.
    */
-  render: (props: Record<string, unknown>, container: HTMLElement) => (() => void) | void
+  render(
+    props: Record<string, unknown>,
+    container: HTMLElement,
+    context: WidgetContext,
+  ): WidgetRenderHandle | (() => void) | void
+}
+
+export type WidgetRegistry = Readonly<Record<string, WidgetDefinition>>
+
+export interface WidgetRenderHandle<
+  Input = Record<string, unknown>,
+  Tools extends ToolRegistry = ToolRegistry,
+> {
+  update(this: void, context: WidgetContext<Input, Tools>): void
+  dispose: () => void
+}
+
+export interface ToolResult<Output = Record<string, unknown>> {
+  /** Model-safe content, also useful when no widget renderer is available. */
+  content: readonly ToolContent[]
+  /** Model-safe data validated against outputSchema. */
+  structuredContent?: Output
+  /** Widget data excluded from model context, including saved history. */
+  uiData?: Record<string, unknown>
+  isError?: boolean
+}
+
+/** Protocol-neutral content blocks. Additional JSON fields retain media/resource metadata. */
+export interface ToolContent {
+  type: string
+  text?: string
+  [key: string]: unknown
+}
+
+export interface ToolExecutionContext {
+  signal: AbortSignal
+  invocationId: string
+}
+
+export interface WidgetContext<
+  Input = Record<string, unknown>,
+  Tools extends ToolRegistry = ToolRegistry,
+> extends ToolExecutionContext {
+  input: Input
+  result?: ToolResult
+  status: "pending" | "complete" | "error" | "cancelled"
+  /** Runs an app-visible tool and returns its data or custom result without another assistant response. */
+  callTool: <Name extends keyof Tools & string>(
+    name: Name,
+    ...args: {} extends ToolInput<Tools[Name]>
+      ? [input?: ToolInput<Tools[Name]>]
+      : [input: ToolInput<Tools[Name]>]
+  ) => Promise<Awaited<ReturnType<Tools[Name]["execute"]>>>
+}
+
+/** Callers supply schema input, while execute receives its validated output. */
+export type ToolInput<Tool extends ToolDefinition> = Tool extends {
+  parameters?: infer S extends ParametersSchema
+}
+  ? S extends StandardSchemaV1<infer Input, unknown>
+    ? Input
+    : Record<string, unknown>
+  : Record<string, unknown>
+
+export interface ToolAnnotations {
+  readOnlyHint?: boolean
+  destructiveHint?: boolean
+  idempotentHint?: boolean
+  openWorldHint?: boolean
+  untrustedContentHint?: boolean
+  consequentialHint?: boolean
 }
 
 export interface ToolDefinition {
+  title?: string
   /** Tells the agent what the tool does so it can decide when to call it. */
   description: string
+  /** Advisory protocol hints. Authorization remains the application's responsibility. */
+  annotations?: ToolAnnotations
+  visibility?: readonly ("model" | "app")[]
+  /** Identifier of a registered widget presenting this tool's input and result. */
+  widget?: string
   /**
-   * Forwarded verbatim as the tool definition's metadata. A string `title` labels the tool's
-   * transcript entry instead of its registry name (`refresh_invoices` reads as "Refresh invoices").
-   */
-  metadata?: Record<string, unknown> | undefined
-  /**
-   * Forwarded to the agent as JSON Schema. Only a Standard Schema also validates the
-   * input before `execute` runs; with a plain JSON Schema, treat the input as untrusted.
+   * Forwarded to the agent as JSON Schema. Both JSON Schema and Standard Schema validate input before execution.
    */
   parameters?: ParametersSchema
+  outputSchema?: ParametersSchema
   /**
-   * Runs in the host page with the agent-chosen input. The resolved value is returned
-   * to the agent as the tool result; a thrown error is returned as a tool error.
+   * Return JSON object data for an automatic envelope, or toolResult(...) for a custom one.
+   * A thrown error leaves the outcome unknown because the action may already have run.
    */
-  execute: (input: Record<string, unknown>) => unknown
+  execute(input: Record<string, unknown>, context: ToolExecutionContext): object | Promise<object>
 }
+
+export type ToolRegistry = Readonly<Record<string, ToolDefinition>>
 
 /**
  * Limits and accepted types for the composer's file attachments. Every field is optional;
@@ -190,10 +261,10 @@ export interface MountAstralBeamChatOptions {
    * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
    */
   fetchAstralBeamToken?: AstralBeamTokenSource | undefined
-  /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
-  tools?: Record<string, ToolDefinition> | undefined
-  /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
-  widgets?: Record<string, WidgetDefinition> | undefined
+  /** Host-defined tools the agent can call, executed in the host page. */
+  tools?: ToolRegistry | undefined
+  /** Host-defined widgets the agent can render inline in the conversation. */
+  widgets?: WidgetRegistry | undefined
   /** Host-rendered replacements for parts of the widget's chrome; see `AstralBeamChatSlots`. */
   slots?: AstralBeamChatSlots | undefined
   /**

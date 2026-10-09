@@ -1,5 +1,6 @@
 import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
 import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
+import { isSafePattern } from "redos-detector"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
@@ -91,6 +92,21 @@ function storedResponseSchema(value: typeof Schema.Json.Type) {
     try: () =>
       SchemaRepresentation.fromJsonSchemaDocument(
         JsonSchema.fromSchemaDraft2020_12(value as JsonSchema.JsonSchema),
+        {
+          patterns: "apply",
+          onEnter: (schema) => {
+            // Browser declarations are untrusted. https://github.com/tjenkinson/redos-detector#options
+            for (const pattern of [schema.pattern, ...Object.keys(schema.patternProperties ?? {})])
+              if (
+                typeof pattern === "string" &&
+                (pattern.length > 1024 ||
+                  !isSafePattern(pattern, { unicode: true, timeout: 25, downgradePattern: false })
+                    .safe)
+              )
+                throw new Error("Unsupported or expensive JSON Schema pattern")
+            return schema
+          },
+        },
       ).pipe(Schema.toType),
     catch: () => new ChatThreadInvalid(),
   })
@@ -143,12 +159,28 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const parts = yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )
+  const metadata = yield* Schema.decodeUnknownEffect(
+    Schema.Record(Schema.String, Schema.JsonObject),
+  )(params.forwardedProps?.toolMetadata ?? {}, { onExcessProperty: "error" }).pipe(
+    Effect.mapError(() => new ChatThreadInvalid()),
+  )
   const tools = yield* Effect.try({
-    try: () => params.tools.map(chatStoredJson),
+    try: () =>
+      params.tools.map((tool) =>
+        chatStoredJson({
+          ...tool,
+          ...(metadata[tool.name] ? { metadata: metadata[tool.name] } : {}),
+        }),
+      ),
     catch: () => new ChatThreadInvalid(),
   })
   for (const tool of tools) {
     if (tool.outputSchema !== undefined) yield* storedResponseSchema(tool.outputSchema)
+    const descriptor = Schema.is(Schema.JsonObject)(tool.metadata)
+      ? tool.metadata.astralbeam
+      : undefined
+    if (Schema.is(Schema.JsonObject)(descriptor) && descriptor.outputSchema !== undefined)
+      yield* storedResponseSchema(descriptor.outputSchema)
   }
   const thread = yield* threads.get({ scope, id })
   let admission: ChatAdmission | undefined
@@ -284,6 +316,15 @@ const validateBuiltinChatResult = Effect.fnUntraced(function* (
   }
 })
 
+const nativeToolResult = Schema.Struct({
+  content: Schema.Array(
+    Schema.StructWithRest(Schema.Struct({ type: Schema.String }), [Schema.JsonObject]),
+  ),
+  structuredContent: Schema.optionalKey(Schema.JsonObject),
+  uiData: Schema.optionalKey(Schema.JsonObject),
+  isError: Schema.optionalKey(Schema.Boolean),
+})
+
 export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(function* (
   input: ThreadInput & {
     readonly clientId: string
@@ -309,15 +350,41 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
       Effect.mapError(() => new ChatThreadInvalid()),
     )
     const declaration = part.declaration
+    const native = Schema.is(Schema.JsonObject)(declaration) && declaration.resultVersion === 1
+    const decoded = native
+      ? Schema.decodeUnknownExit(nativeToolResult, { onExcessProperty: "error" })(output)
+      : undefined
+    if (native && result.outcome === "succeeded" && decoded?._tag !== "Success")
+      return yield* new ChatThreadInvalid()
+    const nativeOutput = decoded?._tag === "Success" ? decoded.value : undefined
+    // Keep failures versioned too so model projection always excludes UI data.
+    const storedOutput =
+      native && result.outcome !== "succeeded"
+        ? nativeOutput
+          ? { ...nativeOutput, isError: true }
+          : {
+              content: [
+                {
+                  type: "text",
+                  text:
+                    Schema.is(Schema.JsonObject)(output) && typeof output.error === "string"
+                      ? output.error
+                      : "Tool execution did not succeed",
+                },
+              ],
+              isError: true,
+            }
+        : output
     if (
       result.outcome === "succeeded" &&
       Schema.is(Schema.JsonObject)(declaration) &&
-      declaration.outputSchema !== undefined
+      declaration.outputSchema !== undefined &&
+      !nativeOutput?.isError
     ) {
       const schema = yield* storedResponseSchema(declaration.outputSchema)
-      yield* Schema.decodeUnknownEffect(schema)(output, { onExcessProperty: "error" }).pipe(
-        Effect.mapError(() => new ChatThreadInvalid()),
-      )
+      yield* Schema.decodeUnknownEffect(schema)(native ? nativeOutput?.structuredContent : output, {
+        onExcessProperty: "error",
+      }).pipe(Effect.mapError(() => new ChatThreadInvalid()))
     }
     results.push({
       assistantMessageId: result.sourceMessageId,
@@ -331,7 +398,8 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
             type: "tool-result",
             toolCallId: part.toolCallId,
             outcome: result.outcome,
-            output,
+            ...(native ? { resultVersion: 1 } : {}),
+            output: storedOutput,
           },
         ],
       },

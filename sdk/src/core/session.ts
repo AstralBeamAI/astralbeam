@@ -25,8 +25,13 @@ import {
   type JwtOptions,
 } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
-import type { MountAstralBeamChatOptions } from "../lib/types.ts"
-import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
+import type {
+  MountAstralBeamChatOptions,
+  ToolResult,
+  WidgetContext,
+  WidgetRenderHandle,
+} from "../lib/types.ts"
+import { buildAgentTools, executeHostTool, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   authenticationIdentity,
   authenticationState,
@@ -60,6 +65,7 @@ import {
 export interface WidgetRenderRequest {
   widget: string
   props: Record<string, unknown>
+  context: WidgetContext
   /** Keys the render: a repeat of the same call replaces its own render, not another's. */
   toolCallId: string
   /**
@@ -96,9 +102,11 @@ export interface AstralBeamChatCoreOptions extends Pick<
   "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug" | "threadId"
 > {
   /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
-  widgets?: Record<string, WidgetDeclaration> | undefined
+  widgets?: Readonly<Record<string, WidgetDeclaration>> | undefined
   /** Draws an agent-requested widget however the host wants; may return a cleanup. */
-  onRenderWidget?: ((request: WidgetRenderRequest) => (() => void) | void) | undefined
+  onRenderWidget?:
+    | ((request: WidgetRenderRequest) => WidgetRenderHandle | (() => void) | void)
+    | undefined
   /** Stream lifecycle callbacks, read per event so they follow an update. */
   streamCallbacks?: ChatStreamCallbacks | undefined
 }
@@ -123,6 +131,7 @@ export const CORE_OPTION_KEYS = Object.keys({
 export interface AgentToolInfo {
   name: string
   title: string | undefined
+  widget: string | undefined
 }
 
 function sameAgentTools(
@@ -132,7 +141,10 @@ function sameAgentTools(
   return (
     current.length === next.length &&
     current.every(
-      (tool, index) => tool.name === next[index]?.name && tool.title === next[index]?.title,
+      (tool, index) =>
+        tool.name === next[index]?.name &&
+        tool.title === next[index]?.title &&
+        tool.widget === next[index]?.widget,
     )
   )
 }
@@ -254,6 +266,7 @@ export function createAstralBeamChat(
   let historyGeneration = 0
   let hydration: Promise<unknown> = Promise.resolve()
   let requestController = new AbortController()
+  let toolController = new AbortController()
   let threadKey: string | undefined
   let startWithNewThread = false
   let threadRecords: Awaited<ReturnType<typeof loadThreadMessages>>["messages"] = []
@@ -264,6 +277,7 @@ export function createAstralBeamChat(
         accepted: boolean
         key: string
         tools?: Array<Record<string, unknown>>
+        toolMetadata?: Record<string, unknown>
         callbacks?: ChatSubmissionCallbacks | undefined
       }
     | undefined
@@ -278,8 +292,11 @@ export function createAstralBeamChat(
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
   const historicalToolIds = new Map<string, Map<string, string>>()
-  type ToolResult = { outcome: "succeeded" | "failed" | "skipped" | "unknown"; output: unknown }
-  let toolResults = new Map<string, ToolResult>()
+  type SubmittedToolResult = {
+    outcome: "succeeded" | "failed" | "skipped" | "unknown"
+    output: unknown
+  }
+  let toolResults = new Map<string, SubmittedToolResult>()
   const threadToolResults = new Map<string, typeof toolResults>()
   const toolResultKey = (id: string) => {
     const messageId = liveToolMessageIds.get(id)
@@ -356,61 +373,127 @@ export function createAstralBeamChat(
   // Live widget renders, keyed per tool call like the styled widget's, so a repeated call
   // replaces its own render and a reset disposes them all.
   const renderCleanups = new Map<string, () => void>()
+  const renderControllers = new Map<string, AbortController>()
+  const renderUpdates = new Map<string, (context: WidgetContext) => void>()
   const restoredWidgets = new Set<string>()
   const restoringWidgets = new Set<string>()
   const disposeRenders = () => {
     for (const cleanup of renderCleanups.values()) cleanup()
     renderCleanups.clear()
+    renderUpdates.clear()
+    renderControllers.clear()
     restoredWidgets.clear()
     restoringWidgets.clear()
   }
   const renderWidget = async (
     input: RenderWidgetInput,
     toolCallId: string,
+    result?: ToolResult,
+    status: WidgetContext["status"] = "complete",
   ): Promise<{ widget: string; rendered: boolean }> => {
     const generation = selectionGeneration
-    const widgets = live.widgets ?? {}
-    if (!Object.hasOwn(widgets, input.widget)) {
+    if (status === "cancelled") renderControllers.get(toolCallId)?.abort()
+    const declaration =
+      live.widgets && Object.hasOwn(live.widgets, input.widget)
+        ? live.widgets[input.widget]
+        : undefined
+    if (!declaration) {
       throw new Error(`Unknown widget "${input.widget}"`)
     }
-    const declaration = widgets[input.widget]
-    const validated = await validateParameters(declaration?.parameters, input.props ?? {})
+    const validated = declaration.parameters
+      ? await validateParameters(declaration.parameters, input.props ?? {})
+      : (input.props ?? {})
     if (generation !== selectionGeneration || state.thread?.role === "viewer")
       return { widget: input.widget, rendered: false }
-    if (declaration !== live.widgets?.[input.widget]) return renderWidget(input, toolCallId)
+    if (declaration !== live.widgets?.[input.widget])
+      return renderWidget(input, toolCallId, result, status)
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
     const onRenderWidget = live.onRenderWidget
     if (!onRenderWidget) return { widget: input.widget, rendered: false }
-    renderCleanups.get(toolCallId)?.()
-    renderCleanups.delete(toolCallId)
+    if (renderControllers.get(toolCallId)?.signal.aborted) status = "cancelled"
+    const previousUpdate = renderUpdates.get(toolCallId)
+    if (!previousUpdate) {
+      renderCleanups.get(toolCallId)?.()
+      renderCleanups.delete(toolCallId)
+    }
+    const controller = renderControllers.get(toolCallId) ?? new AbortController()
+    renderControllers.set(toolCallId, controller)
+    if (status === "cancelled") controller.abort()
+    const context: WidgetContext = {
+      input: validated,
+      ...(result ? { result } : {}),
+      status,
+      invocationId: toolCallId,
+      signal: AbortSignal.any([
+        controller.signal,
+        requestController.signal,
+        authentication.session.abortController.signal,
+      ]),
+      callTool: async (name, args) => {
+        context.signal.throwIfAborted()
+        const tool = live.tools && Object.hasOwn(live.tools, name) ? live.tools[name] : undefined
+        if (!tool || (tool.visibility && !tool.visibility.includes("app")))
+          throw new Error(`Tool "${name}" is unavailable to widgets`)
+        if (state.thread?.role === "viewer") throw new Error("This conversation is read-only")
+        const { value } = await executeHostTool({ ...tool, name }, args ?? {}, {
+          signal: context.signal,
+          invocationId: newUuid(),
+        })
+        return value
+      },
+    }
+    if (previousUpdate) {
+      previousUpdate(context)
+      return { widget: input.widget, rendered: true }
+    }
     // Compared by identity, so a late release cannot forget the cleanup of a newer render that
     // has meanwhile taken over the same tool call.
-    let registered: (() => void) | undefined
     const release = () => {
-      if (renderCleanups.get(toolCallId) === registered) renderCleanups.delete(toolCallId)
+      if (renderControllers.get(toolCallId) === controller) {
+        controller.abort()
+        renderCleanups.delete(toolCallId)
+        renderUpdates.delete(toolCallId)
+        renderControllers.delete(toolCallId)
+      }
     }
-    const cleanup = onRenderWidget({
+    const handle = onRenderWidget({
       widget: input.widget,
       props: validated,
+      context,
       toolCallId,
       release,
     })
-    if (cleanup) {
-      registered = cleanup
-      renderCleanups.set(toolCallId, cleanup)
+    if (handle && typeof handle !== "function") renderUpdates.set(toolCallId, handle.update)
+    const registered = () => {
+      controller.abort()
+      if (typeof handle === "function") handle()
+      else handle?.dispose()
+      renderUpdates.delete(toolCallId)
+      renderControllers.delete(toolCallId)
     }
+    renderCleanups.set(toolCallId, registered)
     restoredWidgets.add(toolCallId)
     return { widget: input.widget, rendered: true }
   }
 
+  const widgetForPart = (part: ChatToolCallPart): RenderWidgetInput | undefined => {
+    if (part.name === RENDER_WIDGET_TOOL) return part.input as RenderWidgetInput | undefined
+    const widget =
+      part.widget ??
+      live.tools?.[part.name]?.widget ??
+      (part.name.startsWith("show_")
+        ? Object.keys(live.widgets ?? {}).find((id) => `show_${id}` === part.name)
+        : undefined)
+    return widget ? { widget, props: part.input as Record<string, unknown> } : undefined
+  }
   const restoreCompletedWidgets = (messages: readonly UIMessage[]) => {
     if (state.thread?.role === "viewer") return
     const renderIds = new Map<string, string>()
     for (const message of state.messages) {
       for (const part of message.parts) {
-        if (part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL) continue
+        if (part.type !== "tool-call" || !widgetForPart(part)) continue
         const stored = part as ChatToolCallPart
         if (!stored.widgetRenderId) continue
         renderIds.set(savedToolCallId(message.id, part.id), stored.widgetRenderId)
@@ -423,14 +506,22 @@ export function createAstralBeamChat(
     }
     for (const message of messages) {
       for (const part of message.parts) {
+        if (part.type !== "tool-call") continue
+        const stored = part as ChatToolCallPart
+        const widget = state.agentTools.find((tool) => tool.name === part.name)?.widget
+        if (widget) stored.widget ??= widget
         if (
-          part.type !== "tool-call" ||
-          part.name !== RENDER_WIDGET_TOOL ||
-          part.state !== "complete" ||
+          liveToolCalls.has(part.id) &&
+          part.name !== ASK_QUESTIONNAIRE_TOOL &&
+          part.name !== RENDER_WIDGET_TOOL
+        )
+          stored.resultVersion = 1
+        if (
+          !widgetForPart(part) ||
+          (part.state !== "complete" && part.state !== "error") ||
           !part.input
         )
           continue
-        const stored = part as ChatToolCallPart
         const upstream = stored.upstreamToolCallId
         const renderId =
           stored.widgetRenderId ??
@@ -450,7 +541,15 @@ export function createAstralBeamChat(
         restoringWidgets.add(renderId)
         const generation = selectionGeneration
         const { widgets, onRenderWidget } = live
-        void renderWidget(part.input as RenderWidgetInput, renderId)
+        void renderWidget(
+          widgetForPart(stored)!,
+          renderId,
+          stored.resultVersion === 1 ? (part.output as ToolResult) : undefined,
+          part.state === "error" ||
+            (stored.resultVersion === 1 && (part.output as ToolResult | undefined)?.isError)
+            ? "error"
+            : "complete",
+        )
           .catch((error: unknown) => debug?.("error", "Saved widget could not be rendered", error))
           .finally(() => {
             if (generation !== selectionGeneration) return
@@ -462,8 +561,17 @@ export function createAstralBeamChat(
     }
   }
 
-  const buildTools = () =>
-    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug).map((tool) => {
+  const buildTools = () => {
+    const generation = selectionGeneration
+    return buildAgentTools(
+      live.widgets ?? {},
+      live.tools ?? {},
+      (...args) =>
+        generation === selectionGeneration
+          ? renderWidget(...args)
+          : Promise.resolve({ widget: args[0].widget, rendered: false }),
+      debug,
+    ).map((tool) => {
       if (!tool.execute) return tool
       const execute = tool.execute
       return {
@@ -483,7 +591,15 @@ export function createAstralBeamChat(
           const resultIdentity = identity
           const apiUrl = authentication.apiUrl
           try {
-            const output: unknown = await execute(input, context)
+            const output: unknown = await execute(input, {
+              ...context,
+              abortSignal: AbortSignal.any([
+                ...(context?.abortSignal ? [context.abortSignal] : []),
+                toolController.signal,
+                requestController.signal,
+                authentication.session.abortController.signal,
+              ]),
+            })
             if (identity === resultIdentity && authentication.apiUrl === apiUrl)
               results.set(key, {
                 outcome: "succeeded",
@@ -501,15 +617,25 @@ export function createAstralBeamChat(
         },
       }
     })
+  }
   // Published as state so a UI can label a tool's transcript entry with its own title, including
   // the widget and questionnaire tools this session declares itself.
+  let declaredToolMetadata: Record<string, unknown> = {}
   const declareTools = () => {
     const tools = buildTools()
+    declaredToolMetadata = Object.fromEntries(
+      tools.filter((tool) => tool.metadata).map((tool) => [tool.name, tool.metadata]),
+    )
     const agentTools = tools.map((tool) => {
       const title = tool.metadata?.["title"]
       return {
         name: tool.name,
         title: typeof title === "string" && title.length > 0 ? title : undefined,
+        widget:
+          typeof (tool.metadata?.astralbeam as { widget?: unknown } | undefined)?.widget ===
+          "string"
+            ? (tool.metadata!.astralbeam as { widget: string }).widget
+            : undefined,
       }
     })
     // Compared by value: a host that rebuilds equivalent tool objects every render would
@@ -546,6 +672,8 @@ export function createAstralBeamChat(
         forwardedProps: {
           ...body.forwardedProps,
           clientId,
+          // AG-UI serializes only tool name, description and parameters.
+          toolMetadata: submission.toolMetadata,
         },
       }
     } else {
@@ -601,8 +729,10 @@ export function createAstralBeamChat(
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
         (error.status === 400 || error.status === 413 || error.status === 429)
-      )
+      ) {
         delete submission.tools
+        delete submission.toolMetadata
+      }
       throw error
     })
     if (generation !== selectionGeneration)
@@ -836,7 +966,11 @@ export function createAstralBeamChat(
         live.streamCallbacks?.onChunk?.(chunk)
       },
       onResponse: (response) => {
-        if (client === next) live.streamCallbacks?.onResponse?.(response)
+        if (client !== next) return
+        // Capture tool metadata before host callbacks can update the captured definitions.
+        // https://github.com/TanStack/ai/blob/main/packages/ai-client/src/chat-client.ts
+        if (pendingSend) pendingSend.toolMetadata ??= declaredToolMetadata
+        live.streamCallbacks?.onResponse?.(response)
       },
       onFinish: (message) => {
         if (client === next) live.streamCallbacks?.onFinish?.(message)
@@ -883,8 +1017,7 @@ export function createAstralBeamChat(
             ...part,
             upstreamToolCallId,
             id,
-            ...(part.name === RENDER_WIDGET_TOOL &&
-            liveToolMessageIds.get(upstreamToolCallId) === message.id
+            ...(widgetForPart(stored) && liveToolMessageIds.get(upstreamToolCallId) === message.id
               ? { widgetRenderId: stored.widgetRenderId ?? part.id }
               : {}),
           }
@@ -908,7 +1041,7 @@ export function createAstralBeamChat(
     requestController.abort()
     requestController = new AbortController()
     pendingSend = undefined
-    toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
+    toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, SubmittedToolResult>()
     historicalToolIds.clear()
     threadRecords = []
     disposeRenders()
@@ -1310,7 +1443,11 @@ export function createAstralBeamChat(
     },
     sendMessage,
     addToolResult,
-    stop: () => client.stop(),
+    stop: () => {
+      toolController.abort()
+      toolController = new AbortController()
+      client.stop()
+    },
     retryAuthentication: () => {
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },

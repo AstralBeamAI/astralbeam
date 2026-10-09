@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { toolResult } from "../lib/define.ts"
 
 import { RENDER_WIDGET_TOOL } from "./protocol.ts"
 import { createAstralBeamChat, type WidgetRenderRequest } from "./session.ts"
@@ -130,6 +131,7 @@ test("hydration restores distinct widget calls and skips missing or incompatible
           "~standard": {
             version: 1,
             vendor: "test",
+            jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
             validate: () => ({ issues: [{ message: "Required field missing" }] }),
           },
         },
@@ -161,8 +163,12 @@ test.each(["manager", "viewer"])(
     const chat = createAstralBeamChat({
       fetchAstralBeamToken: chatAuthToken,
       threadId: thread.id,
-      widgets: { card: { description: "A host card" } },
-      tools: { change_data: { description: "Change data", execute } },
+      widgets: {
+        card: { description: "A host card" },
+      },
+      tools: {
+        change_data: { description: "Change data", execute },
+      },
       onRenderWidget,
     })
     try {
@@ -222,7 +228,9 @@ test.each(["definition", "renderer", "failed-render"])(
   "saved widgets recover when an unavailable %s is supplied in place",
   async (missing) => {
     savedMessages = savedWidget("card", "late")
-    const widgets = { card: { description: "A host card" } }
+    const widgets = {
+      card: { description: "A host card" },
+    }
     const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
     const chat = createAstralBeamChat({
       fetchAstralBeamToken: chatAuthToken,
@@ -260,7 +268,14 @@ test.each(["saved", "live"])(
     const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
     const card = {
       description: "A host card",
-      parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
+      parameters: {
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
+          validate,
+        },
+      },
     }
     const chat = createAstralBeamChat({
       fetchAstralBeamToken: chatAuthToken,
@@ -279,16 +294,19 @@ test.each(["saved", "live"])(
       const execution =
         mode === "live"
           ? mocked.tools
-              .find((tool) => tool.name === RENDER_WIDGET_TOOL)
-              ?.execute?.({ widget: "card", props: {} }, { toolCallId: "call" })
+              .find((tool) => tool.name === "show_card")
+              ?.execute?.({}, { toolCallId: "call" })
           : undefined
       await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
       chat.updateOptions({
-        widgets: { card: { description: "A card without parameter transforms" } },
+        widgets: {
+          card: { description: "A card without parameter transforms" },
+        },
       })
       validation.resolve({ value: { obsolete: true } })
       await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
       expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
+      expect(onRenderWidget.mock.calls[0]?.[0].context.input).toEqual({})
       await execution
     } finally {
       chat.dispose()
@@ -310,6 +328,7 @@ test("an old async restoration cannot release a newly selected thread's pending 
           "~standard": {
             version: 1,
             vendor: "test",
+            jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
             validate: () => new Promise((resolve) => complete.push(resolve)),
           },
         },
@@ -474,9 +493,9 @@ test("a released render leaves no cleanup behind in the session", async () => {
     saved: true,
     executableToolCallIds: Array.from({ length: 21 }, (_, index) => `call-${index}`),
   })
-  const renderWidget = mocked.tools.find((tool) => tool.name === RENDER_WIDGET_TOOL)
+  const renderWidget = mocked.tools.find((tool) => tool.name === "show_card")
   for (let call = 0; call < 21; call += 1) {
-    await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: `call-${call}` })
+    await renderWidget?.execute?.({}, { toolCallId: `call-${call}` })
   }
 
   // What eviction past the render cap does: the host disposed its own DOM and forgets the cleanup.
@@ -510,9 +529,9 @@ test("a late release keeps the cleanup of the render that took over the tool cal
     saved: true,
     executableToolCallIds: Array.from({ length: 21 }, (_, index) => `call-${index}`),
   })
-  const renderWidget = mocked.tools.find((tool) => tool.name === RENDER_WIDGET_TOOL)
-  await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: "call-1" })
-  await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: "call-1" })
+  const renderWidget = mocked.tools.find((tool) => tool.name === "show_card")
+  await renderWidget?.execute?.({}, { toolCallId: "call-1" })
+  await renderWidget?.execute?.({}, { toolCallId: "call-1" })
 
   releases[0]?.()
   chat.reset()
@@ -521,3 +540,181 @@ test("a late release keeps the cleanup of the render that took over the tool cal
 
   chat.dispose()
 })
+
+test("attached widgets receive results and app controls without remounting", async () => {
+  const result = {
+    content: [{ type: "text", text: "Updated" }],
+    structuredContent: { updated: true },
+    uiData: { label: "For the widget" },
+  }
+  const pending = Promise.withResolvers<ReturnType<typeof toolResult>>()
+  const action = vi.fn(() => Promise.resolve({ updated: true }))
+  const updates = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
+  const dispose = vi.fn()
+  const render = vi.fn((_request: WidgetRenderRequest) => ({ update: updates, dispose }))
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    threadId: thread.id,
+    widgets: { card: { description: "Card" } },
+    tools: {
+      change: { description: "Change", widget: "card", execute: () => pending.promise },
+      action: { description: "Widget action", visibility: ["app"], execute: action },
+      model_only: { description: "Model action", visibility: ["model"], execute: action },
+    },
+    onRenderWidget: render,
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+    mocked.onCustomEvent?.("astralbeam_thread", {
+      threadId: thread.id,
+      version: 1,
+      saved: true,
+      executableToolCallIds: ["attached-call"],
+    })
+    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+      {},
+      { toolCallId: "attached-call" },
+    )
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const context = render.mock.calls[0]![0].context
+    expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
+    await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
+    await expect(context.callTool("toString")).rejects.toThrow("unavailable")
+    await expect(context.callTool("action")).resolves.toEqual({ updated: true })
+    expect(action).toHaveBeenCalledTimes(1)
+    pending.resolve(toolResult(result))
+    await execution
+    expect(updates).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "complete", result }),
+    )
+    expect(render).toHaveBeenCalledTimes(1)
+    chat.reset()
+    expect(dispose).toHaveBeenCalledTimes(1)
+    await expect(context.callTool("action", {})).rejects.toThrow()
+    expect(action).toHaveBeenCalledTimes(1)
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("saved attached widgets hydrate UI data without replaying their business action", async () => {
+  const result = {
+    content: [{ type: "text", text: "Found" }],
+    structuredContent: { id: "record" },
+    uiData: { label: "UI only" },
+  }
+  const [call, output] = savedWidget("card", "attached")
+  savedMessages = [
+    {
+      ...call,
+      parts: [
+        {
+          ...call!.parts[0],
+          name: "lookup",
+          input: {},
+          arguments: "{}",
+          declaration: { resultVersion: 1, widget: "card" },
+        },
+      ],
+    },
+    { ...output, parts: [{ ...output!.parts[0], resultVersion: 1, output: result }] },
+  ]
+  const execute = vi.fn()
+  const render = vi.fn<(request: WidgetRenderRequest) => void>()
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    threadId: thread.id,
+    widgets: { card: { description: "Card" } },
+    tools: { lookup: { description: "Lookup", execute } },
+    onRenderWidget: render,
+  })
+  try {
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    expect(render.mock.calls[0]![0].context).toMatchObject({
+      input: {},
+      result,
+      status: "complete",
+    })
+    expect(execute).not.toHaveBeenCalled()
+    await chat.refreshThread()
+    expect(render).toHaveBeenCalledTimes(1)
+    expect(execute).not.toHaveBeenCalled()
+  } finally {
+    chat.dispose()
+  }
+})
+
+test.each([true, false])(
+  "cancellation blocks actions and survives late validation with updates=%s",
+  async (updates) => {
+    const completion = Promise.withResolvers<{ value: Record<string, unknown> }>()
+    const cancellation = Promise.withResolvers<{ value: Record<string, unknown> }>()
+    const pending = Promise.withResolvers<object>()
+    let validations = 0
+    const update = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
+    const render = vi.fn((_request: WidgetRenderRequest) =>
+      updates ? { update, dispose: vi.fn() } : vi.fn(),
+    )
+    const action = vi.fn(() => ({ updated: true }))
+    const chat = createAstralBeamChat({
+      fetchAstralBeamToken: chatAuthToken,
+      threadId: thread.id,
+      widgets: {
+        card: {
+          description: "Card",
+          parameters: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
+              validate: () => {
+                validations++
+                if (validations === 1) return { value: {} }
+                return validations === 2 ? completion.promise : cancellation.promise
+              },
+            },
+          },
+        },
+      },
+      tools: {
+        change: { description: "Change", widget: "card", execute: () => pending.promise },
+        action: { description: "Action", visibility: ["app"], execute: action },
+      },
+      onRenderWidget: render,
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+      mocked.onCustomEvent?.("astralbeam_thread", {
+        threadId: thread.id,
+        version: 1,
+        saved: true,
+        executableToolCallIds: ["async-validation"],
+      })
+      const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+        {},
+        { toolCallId: "async-validation" },
+      )
+      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+      const context = render.mock.calls[0]![0].context
+      pending.resolve({ updated: true })
+      await vi.waitFor(() => expect(validations).toBe(2))
+      chat.stop()
+      await expect(context.callTool("action")).rejects.toThrow()
+      expect(action).not.toHaveBeenCalled()
+      cancellation.resolve({ value: {} })
+      await vi.waitFor(() =>
+        expect(updates ? update : render).toHaveBeenCalledTimes(updates ? 1 : 2),
+      )
+      completion.resolve({ value: {} })
+      await execution
+      const latest = updates ? update.mock.calls.at(-1)![0] : render.mock.calls.at(-1)![0].context
+      expect(latest.status).toBe("cancelled")
+      expect(latest.signal.aborted).toBe(true)
+    } finally {
+      completion.resolve({ value: {} })
+      cancellation.resolve({ value: {} })
+      pending.resolve({ updated: true })
+      chat.dispose()
+    }
+  },
+)
