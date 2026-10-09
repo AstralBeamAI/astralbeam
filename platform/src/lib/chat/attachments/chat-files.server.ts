@@ -212,10 +212,7 @@ export class ChatFiles extends Context.Service<
           Effect.fnUntraced(function* (part) {
             if (!chatMediaPart(part)) return part
             const stored = storedChatMediaSource(part)
-            if (Option.isSome(stored)) {
-              yield* findPrepared(scope, stored.value.value)
-              return part
-            }
+            if (Option.isSome(stored)) return part
             const source = part.source
             if (!Schema.is(Schema.JsonObject)(source) || source.type !== "data") return part
             if (typeof source.value !== "string") return yield* new ChatThreadInvalid()

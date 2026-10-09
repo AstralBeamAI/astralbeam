@@ -27,8 +27,8 @@ export function StorageConnectionTest({
         input: identity,
         ok,
         message: ok
-          ? "Object upload, inspection, download, byte verification, and deletion passed."
-          : "Storage test failed. Check the endpoint, bucket, credentials, and object permissions.",
+          ? "Object upload, inspection, download, byte verification, deletion, and missing-file detection passed."
+          : "Storage test failed. Check the endpoint, bucket, credentials, and permissions.",
       })
     } catch (error) {
       setResult({ input: identity, ok: false, message: parseServerFnError(error).message })
@@ -54,7 +54,7 @@ export function StorageConnectionTest({
       </Button>
       {!settings && (
         <p className="text-sm text-muted-foreground">
-          Enter or reveal the storage credentials to test the connection.
+          Complete the connection settings and enter or reveal the credentials to test.
         </p>
       )}
       {current && (

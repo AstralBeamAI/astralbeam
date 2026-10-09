@@ -10,6 +10,10 @@ export async function startBrowserStorageFixture(state: {
     const respond = async () => {
       if (state.inspect) await state.inspect()
       const key = new URL(request.url!, "http://localhost").pathname
+      if (!key.startsWith("/storage/v1/s3/")) {
+        response.writeHead(404).end()
+        return
+      }
       if (request.method === "PUT") {
         const chunks: Uint8Array[] = []
         for await (const chunk of request) chunks.push(chunk as Uint8Array)
@@ -46,7 +50,7 @@ export async function startBrowserStorageFixture(state: {
   await once(server, "listening")
   const address = server.address()
   if (!address || typeof address === "string") throw new Error("No storage fixture address")
-  return { server, endpoint: `http://127.0.0.1:${address.port}` }
+  return { server, endpoint: `http://127.0.0.1:${address.port}/storage/v1/s3` }
 }
 
 export function stopBrowserStorageFixture(server: Server): Promise<void> {

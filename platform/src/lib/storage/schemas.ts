@@ -1,21 +1,22 @@
 import { Schema, SchemaGetter } from "effect"
 
-import { NonEmptyStringSchema } from "@/lib/schemas"
+import { NonEmptyStringSchema } from "../schemas.ts"
 
 export const StorageEndpointSchema = Schema.URLFromString.check(
   Schema.makeFilter(
     (url) =>
-      ["http:", "https:"].includes(url.protocol) &&
+      (url.protocol === "https:" ||
+        (url.protocol === "http:" &&
+          ["localhost", "127.0.0.1", "[::1]", "rustfs", "minio"].includes(url.hostname))) &&
       !url.username &&
       !url.password &&
       !url.search &&
-      !url.hash &&
-      url.pathname === "/",
-    { message: "Use an HTTP(S) origin without credentials, path, query, or fragment" },
+      !url.hash,
+    { message: "Use HTTPS outside local development, without credentials, query, or fragment" },
   ),
 ).pipe(
   Schema.decodeTo(Schema.String, {
-    decode: SchemaGetter.transform((url) => url.origin),
+    decode: SchemaGetter.transform((url) => url.origin + url.pathname.replace(/\/+$/, "")),
     encode: SchemaGetter.transform((value) => new URL(value)),
   }),
 )

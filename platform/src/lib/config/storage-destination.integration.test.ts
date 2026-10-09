@@ -1,5 +1,6 @@
-import { like } from "drizzle-orm"
-import { Effect, ManagedRuntime } from "effect"
+import { S3Client } from "@aws-sdk/client-s3"
+import { eq, like } from "drizzle-orm"
+import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const storageDatabase = vi.hoisted(() => {
@@ -14,30 +15,27 @@ const storageDatabase = vi.hoisted(() => {
 })
 
 import { getAuthDatabase } from "@/db/database.server"
-import { configTable } from "@/db/schema.server"
+import { configTable, fileDeletion } from "@/db/schema.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { Config } from "./config.server"
+import { seedConfig } from "../../../scripts/seed/config"
 
 const destinationSettings = {
-  endpoint: "http://127.0.0.1:9000",
+  endpoint: "http://127.0.0.1:9000/storage/v1/s3",
   region: "us-east-1",
   bucket: "test-files",
   accessKeyId: "first-key",
   secretAccessKey: "first-secret",
   pathStyle: true,
 }
-const destinationUpdates = Object.entries(destinationSettings).map(([key, value]) => ({
-  key: (
-    {
-      endpoint: "s3_endpoint",
-      region: "s3_region",
-      bucket: "s3_bucket",
-      accessKeyId: "s3_access_key_id",
-      secretAccessKey: "s3_secret_access_key",
-      pathStyle: "s3_path_style",
-    } as Record<string, string>
-  )[key]!,
-  value: String(value),
-}))
+const destinationUpdates = [
+  { key: "s3_endpoint", value: destinationSettings.endpoint },
+  { key: "s3_region", value: destinationSettings.region },
+  { key: "s3_bucket", value: destinationSettings.bucket },
+  { key: "s3_access_key_id", value: destinationSettings.accessKeyId },
+  { key: "s3_secret_access_key", value: destinationSettings.secretAccessKey },
+  { key: "s3_path_style", value: "true" },
+]
 
 describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   beforeEach(async () => {
@@ -52,6 +50,28 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   test("pins the destination across runtimes, permits credential rotation and rejects environment drift", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {
+      vi.stubEnv("RUSTFS_HOST_PORT", "19000")
+      vi.stubEnv("RUSTFS_ACCESS_KEY", "override-key")
+      vi.stubEnv("RUSTFS_SECRET_KEY", "override-secret")
+      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_a"))
+      const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
+      expect(seeded.values).toMatchObject({
+        s3_endpoint: "http://127.0.0.1:19000",
+        s3_bucket: "astralbeam-worktree-a-87a94f0b35f63660202c7253320e5053",
+        s3_access_key_id: "override-key",
+        s3_secret_access_key: "override-secret",
+      })
+      const buckets = new Set<string>()
+      for (const name of ["worktree_a", "worktree-a", "Worktree_a", "x".repeat(63)]) {
+        await getAuthDatabase().transaction((transaction) => seedConfig(transaction, name))
+        await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
+        const { values } = await runtime.runPromise(
+          Effect.flatMap(Config, (config) => config.snapshot),
+        )
+        expect(values.s3_bucket).toMatch(/^[a-z0-9-]{3,63}$/)
+        buckets.add(values.s3_bucket!)
+      }
+      expect(buckets.size).toBe(4)
       await runtime.runPromise(
         Effect.flatMap(Config, (config) => config.update(destinationUpdates)),
       )
@@ -66,11 +86,14 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     } finally {
       await runtime.dispose()
     }
-    const restarted = ManagedRuntime.make(Config.layer)
+    const restarted = ManagedRuntime.make(Layer.merge(Config.layer, StoredFiles.layer))
     try {
+      vi.stubEnv("S3_ENDPOINT", "http://127.0.0.1:9000")
+      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
+      vi.stubEnv("S3_ENDPOINT", "")
       const result = await restarted.runPromise(
         Effect.flatMap(Config, (config) =>
-          config.update([{ key: "s3_bucket", value: "other-bucket" }]),
+          config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),
         ).pipe(Effect.result),
       )
       expect(result._tag).toBe("Failure")
@@ -79,7 +102,8 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
           Effect.map((snapshot) => snapshot.values),
         ),
       )
-      expect(values.s3_bucket).toBe(destinationSettings.bucket)
+      expect(values.s3_endpoint).toBe(destinationSettings.endpoint)
+      expect(values.s3_access_key_id).toBe("first-key")
       expect(values.s3_secret_access_key).toBe("rotated-secret")
       vi.stubEnv("S3_BUCKET", "environment-bucket")
       await restarted.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
@@ -96,6 +120,23 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
         ).pipe(Effect.result),
       )
       expect(pin._tag).toBe("Failure")
+      const objectKey = `destination-test/${crypto.randomUUID()}`
+      await getAuthDatabase()
+        .insert(fileDeletion)
+        .values({ objectKey, retryAt: new Date(0) })
+      const requests = vi.spyOn(S3Client.prototype, "send").mockResolvedValue(undefined)
+      try {
+        await restarted.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
+        expect(requests).not.toHaveBeenCalled()
+        const [pending] = await getAuthDatabase()
+          .select()
+          .from(fileDeletion)
+          .where(eq(fileDeletion.objectKey, objectKey))
+        expect(pending?.attempts).toBe(1)
+      } finally {
+        requests.mockRestore()
+        await getAuthDatabase().delete(fileDeletion).where(eq(fileDeletion.objectKey, objectKey))
+      }
     } finally {
       await restarted.dispose()
     }

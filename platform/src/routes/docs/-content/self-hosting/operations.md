@@ -54,13 +54,15 @@ deno task --cwd platform db check
 
 ## Backups and restore
 
-All state is in PostgreSQL, so a logical dump of the one database is a complete backup.
+Because file state spans PostgreSQL and the configured S3 bucket, let's stop all application replicas before taking the database dump and bucket backup.
 
 Run this command to take that dump:
 
 ```sh
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 ```
+
+Keep the replicas stopped and use your storage provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode from **File storage** alongside the backup.
 
 Two things make an AstralBeam dump different from an ordinary one. The dump is useless without the matching `DATABASE_ENCRYPTION_KEY`, because deployment settings, model provider credentials, and sandbox provider credentials are stored as ciphertext keyed from it, as described in [Security](./security.md). Restoring also needs a server at the same PostgreSQL major version or newer, with the `citext` extension available.
 
@@ -71,6 +73,8 @@ Run this command against an empty database to restore:
 ```sh
 pg_restore --dbname="$DATABASE_URL" astralbeam.dump
 ```
+
+Restore the bucket objects at the same storage endpoint, region, bucket name, and addressing mode recorded in the restored configuration. Pinned destinations cannot change through `/configure`.
 
 Then start the application with that `DATABASE_URL` and the encryption keyring that was in effect when the dump was taken. If the restored data predates the running version, the setup gate closes until you approve the missing migrations. Test a restore before you need one, and confirm afterwards that `/configure` can read the stored secrets rather than reporting them unreadable.
 
