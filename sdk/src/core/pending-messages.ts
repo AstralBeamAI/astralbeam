@@ -39,7 +39,7 @@ export function storePendingMessages(
             attachmentsRequired:
               message.attachmentsRequired ||
               (typeof message.content !== "string" &&
-                Array.isArray(message.content.content) &&
+                typeof message.content.content !== "string" &&
                 message.content.content.some((part) => part.type !== "text")),
           })),
         ),
@@ -57,32 +57,23 @@ export function loadPendingMessages(key: string | undefined): PendingChatMessage
     return stored.filter((value: unknown): value is PendingChatMessage => {
       if (value === null || typeof value !== "object") return false
       const entry = value as Record<string, unknown>
-      const content = entry.content
-      const parts =
-        typeof content === "string"
-          ? content
-          : content !== null && typeof content === "object" && "content" in content
-            ? content.content
-            : undefined
+      const content = entry.content as string | { content?: unknown } | null
+      const parts = typeof content === "string" ? content : content?.content
       return (
         typeof entry.id === "string" &&
         (typeof parts === "string" ||
           (Array.isArray(parts) &&
-            parts.every(
-              (part: unknown) =>
-                part !== null &&
-                typeof part === "object" &&
-                "type" in part &&
-                part.type === "text" &&
-                "content" in part &&
-                typeof part.content === "string",
-            ))) &&
+            parts.every((value: unknown) => {
+              const part = value as { type?: unknown; content?: unknown } | null
+              return part?.type === "text" && typeof part.content === "string"
+            }))) &&
         (entry.mode === "queue" || entry.mode === "steer") &&
         (entry.status === "queued" || entry.status === "sending" || entry.status === "accepted") &&
         typeof entry.attachmentsRequired === "boolean" &&
         (entry.steeringFallback === undefined || typeof entry.steeringFallback === "boolean") &&
-        (entry.turnMessageId === undefined || typeof entry.turnMessageId === "string") &&
-        (entry.acceptedMessageId === undefined || typeof entry.acceptedMessageId === "string") &&
+        [entry.turnMessageId, entry.acceptedMessageId].every(
+          (id) => id === undefined || typeof id === "string",
+        ) &&
         (entry.tools === undefined ||
           (Array.isArray(entry.tools) &&
             entry.tools.every(

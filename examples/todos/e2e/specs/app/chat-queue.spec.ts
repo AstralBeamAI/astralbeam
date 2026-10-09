@@ -198,4 +198,8 @@ test("reload restores paused text and requires files before resume", async ({ pa
   await expect
     .poll(() => page.evaluate(() => (globalThis as HarnessWindow).queueHarness.requests.length))
     .toBe(2)
+  await page.reload()
+  await widget.waitForReady()
+  await expect(widget.root.getByRole("button", { name: "Remove note.txt" })).toHaveCount(0)
+  await expect(widget.root.getByRole("button", { name: "Reattach files" })).toHaveCount(0)
 })
