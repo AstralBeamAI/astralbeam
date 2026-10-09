@@ -126,7 +126,7 @@ async function uploadParts({
   if (session.status !== "pending")
     throw new Error("Upload expired. Remove it and attach the file again.")
   const sizes = new Map(session.parts.map((part) => [part.number, part.size]))
-  const count = Math.ceil(file.size / session.partSize)
+  const count = Math.ceil(file.size / session.part_size)
   const update = () =>
     progress([...sizes.values()].reduce((sum, bytes) => sum + bytes, 0) / file.size)
   update()
@@ -135,8 +135,8 @@ async function uploadParts({
       withUploadSlot(
         uploads.partSlots,
         async () => {
-          const start = (number - 1) * session.partSize
-          const bytes = file.slice(start, Math.min(start + session.partSize, file.size))
+          const start = (number - 1) * session.part_size
+          const bytes = file.slice(start, Math.min(start + session.part_size, file.size))
           if (sizes.get(number) === bytes.size) return
           for (let attempt = 0; attempt < 3; attempt += 1) {
             signal.throwIfAborted()
@@ -213,10 +213,10 @@ export function startAttachmentUpload({
           : await chat.prepareUpload(
               {
                 filename: draft.name,
-                contentType: draft.mimeType,
-                byteSize: file.size,
+                content_type: draft.mimeType,
+                byte_size: file.size,
                 sha256,
-                ...(draft.agentId ? { agentId: draft.agentId } : {}),
+                ...(draft.agentId ? { agent_id: draft.agentId } : {}),
               },
               signal,
             )
@@ -232,9 +232,9 @@ export function startAttachmentUpload({
       })
       const finished = await chat.completeUpload(session.id, signal)
       signal.throwIfAborted()
-      if (!finished.fileId || finished.status !== "completed")
+      if (!finished.file_id || finished.status !== "completed")
         throw new Error("Upload did not complete")
-      settle({ status: "ready", fileId: finished.fileId, progress: 1, data: undefined })
+      settle({ status: "ready", fileId: finished.file_id, progress: 1, data: undefined })
     },
     signal,
   )
@@ -283,7 +283,7 @@ export function releaseAttachmentUpload({
   uploads.previews.delete(id)
 }
 
-export function removeAttachmentUpload({
+export async function removeAttachmentUpload({
   uploads,
   draft,
 }: {
@@ -291,7 +291,11 @@ export function removeAttachmentUpload({
   draft: DraftAttachment
 }) {
   releaseAttachmentUpload({ uploads, id: draft.id })
-  if (draft.sessionId) void uploads.chat.cancelUpload(draft.sessionId).catch(() => undefined)
+  if (draft.sessionId)
+    await uploads.chat.cancelUpload(draft.sessionId).catch((error: unknown) => {
+      if (isAstralBeamApiError(error) && error.status === 404) return
+      throw error
+    })
 }
 
 export async function discardAttachmentUploads({
