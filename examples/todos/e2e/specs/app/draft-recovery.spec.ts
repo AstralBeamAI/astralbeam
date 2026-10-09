@@ -4,7 +4,7 @@ import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { expect, test } from "../../fixtures.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { todosPage } from "../../pages/todos-page.ts"
-import { seedTarget } from "../../worktree.ts"
+import { seedTarget, platformUrl } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
 const thread = {
@@ -49,8 +49,9 @@ const acceptedStream = [
   .join("")
 
 test.beforeEach(async ({ context }) => {
-  // Each fixture owns its upload budget and sessions. Preflight checks the real token route.
-  const user = { ...seedTarget.user, id: `upload-draft-${crypto.randomUUID()}` }
+  // Fixtures have separate budgets and names. Preflight checks the real host token route.
+  const id = `upload-draft-${crypto.randomUUID()}`
+  const user = { ...seedTarget.user, id, name: id }
   await context.route("**/api/astralbeam/token", async (route) =>
     route.fulfill({
       json: {
@@ -461,4 +462,43 @@ test("resetting a fresh draft cancels its unclaimed upload", async ({ page }) =>
   await chat.reset()
   expect((await cancelled).status()).toBe(204)
   await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})
+
+test("deleting an unopened persisted draft cancels its unfinished upload", async ({ page }) => {
+  await page.route(
+    (url) => url.searchParams.has("partNumber"),
+    (route) => route.abort(),
+  )
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.selectConversation(thread.title)
+  const prepared = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/chat/uploads") && response.request().method() === "POST",
+  )
+  await chat.attach(note)
+  const response = await prepared
+  const { id } = (await response.json()) as { id: string }
+  const authorization = (await response.request().allHeaders()).authorization!
+  await expect(page.getByRole("button", { name: `Resume ${note.name}`, exact: true })).toBeVisible()
+  await chat.selectConversation(otherThread.title)
+  await page.reload()
+  await chat.waitForReady()
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+  await page.route(
+    (url) => url.pathname === `/api/v1/chat/threads/${thread.id}`,
+    (route) => route.fulfill({ status: 204 }),
+  )
+  const cancelled = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/chat/uploads/${id}`) && response.request().method() === "DELETE",
+  )
+  await chat.root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
+  await page.getByRole("button", { name: `Delete ${thread.title}`, exact: true }).click()
+  expect((await cancelled).status()).toBe(204)
+  const status = await page.request.get(`${platformUrl}/api/v1/chat/uploads/${id}`, {
+    headers: { authorization },
+  })
+  expect(await status.json()).toMatchObject({ status: "cancelled" })
 })

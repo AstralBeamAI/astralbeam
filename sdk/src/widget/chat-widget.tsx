@@ -34,6 +34,7 @@ import {
   removeAttachmentUpload,
   releaseAttachmentUpload,
   disposeAttachmentUploads,
+  discardAttachmentUploads,
 } from "./lib/uploads.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
@@ -609,14 +610,13 @@ export function ChatWidget({
     // resets resume state, and disposes the live widget renders.
     chat.reset()
     setSubmittedAttachmentIds(new Set())
-    for (const file of drafts.threads.get("")?.attachments ?? [])
-      removeAttachmentUpload({ uploads, draft: file })
     storedThreadDraft(apiUrl, draftIdentity, "", "")
-    void storedThreadAttachments({
+    void discardAttachmentUploads({
+      uploads,
       apiUrl,
       identity: draftIdentity,
       threadId: "",
-      update: () => [],
+      attachments: drafts.threads.get("")?.attachments ?? [],
     }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
     setDrafts((current) => {
       const threads = new Map(current.threads)
@@ -632,13 +632,13 @@ export function ChatWidget({
     const files = drafts.threads.get(id)?.attachments ?? []
     const removed = new Set(files.map((file) => file.id))
     setSubmittedAttachmentIds((current) => new Set([...current].filter((id) => !removed.has(id))))
-    for (const file of files) removeAttachmentUpload({ uploads, draft: file })
     storedThreadDraft(apiUrl, draftIdentity, id, "")
-    void storedThreadAttachments({
+    void discardAttachmentUploads({
+      uploads,
       apiUrl,
       identity: draftIdentity,
       threadId: id,
-      update: () => [],
+      attachments: files,
     }).catch((error: unknown) =>
       debug?.("error", "Deleted conversation's draft files could not be cleared", error),
     )
