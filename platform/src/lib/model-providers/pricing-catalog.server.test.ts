@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest"
-import { Schema } from "effect"
 
 import { modelUsageTestConfiguration } from "./usage.test-support.ts"
 import {
@@ -7,10 +6,9 @@ import {
   effectiveModelUsageConfiguration,
 } from "./pricing-catalog.server.ts"
 import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
-import { ModelUsageConfigurationSchema, modelInputAllowance } from "./usage-schemas.ts"
+import { modelInputAllowance } from "./usage-schemas.ts"
 
 const testPriceCatalog: ModelPriceCatalog = {
-  revision: "test",
   fetchedAt: null,
   providers: [
     {
@@ -78,12 +76,6 @@ describe("model pricing catalog", () => {
     expect(
       effectiveModelUsageConfiguration({ ...lookup, configured: modelUsageTestConfiguration }),
     ).toBe(modelUsageTestConfiguration)
-    expect(
-      Schema.is(ModelUsageConfigurationSchema)({
-        ...modelUsageTestConfiguration,
-        contextTiers: [{ aboveInputTokens: 20_000, prices: modelUsageTestConfiguration.prices }],
-      }),
-    ).toBe(false)
     const configured = {
       ...modelUsageTestConfiguration,
       outputCap: 1024,

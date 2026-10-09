@@ -32,15 +32,8 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
       yield* Effect.try(() => calcPrice({}, model.id, { provider: provider as Provider }))
     }
   }
-  const digest = yield* Effect.tryPromise(() =>
-    crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)),
-  )
-  const revision = Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("")
   const config = yield* Config
   yield* config.writeModelPriceCatalog({
-    revision,
     fetchedAt: DateTime.formatIso(yield* DateTime.now),
     providers,
   })

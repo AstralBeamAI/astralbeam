@@ -1,5 +1,5 @@
 import { calcPrice, findProvider, type Provider } from "@pydantic/genai-prices"
-import { BigDecimal, Effect, Hash, Option, Schema } from "effect"
+import { BigDecimal, Effect, Option, Schema } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import {
@@ -13,7 +13,6 @@ const bundledModelProviders = Schema.decodeUnknownSync(ModelPriceCatalogProvider
   ["openai", "anthropic", "openrouter"].map((id) => findProvider({ providerId: id })),
 )
 const bundledModelPriceCatalog: ModelPriceCatalog = {
-  revision: `genai-prices-v2:bundled:${Hash.string(JSON.stringify(bundledModelProviders))}`,
   fetchedAt: null,
   providers: bundledModelProviders,
 }
