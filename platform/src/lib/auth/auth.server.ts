@@ -38,7 +38,7 @@ import {
   enqueueAuthImage,
   oauthProfileImage,
   organizationImageHooks,
-  logoImportGenerationField,
+  privateLogoImportField,
 } from "@/lib/storage/auth-images.server"
 import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
 import {
@@ -471,7 +471,8 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         schema: {
           organization: {
             additionalFields: {
-              logoImportGeneration: logoImportGenerationField,
+              logoImportGeneration: privateLogoImportField,
+              logoImportSourceUrl: privateLogoImportField,
               updatedAt: {
                 type: "date",
                 input: false,

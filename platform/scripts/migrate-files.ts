@@ -1,19 +1,17 @@
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 import { Command, Option } from "commander"
-import { and, asc, eq, gt, sql } from "drizzle-orm"
+import { asc, gt, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { loadEnv } from "vite"
 
 import { closeDatabase, Database } from "../src/db/database.server.ts"
 import { mapDatabaseErrors } from "../src/db/lib/sqlstate.server.ts"
 import { user } from "../src/db/schema/authentication.server.ts"
-import { fileObject, organizationLogo, userAvatar } from "../src/db/schema/files.server.ts"
 import { organization } from "../src/db/schema/organizations.server.ts"
 import { ProfileFiles } from "../src/lib/storage/profile-files.server.ts"
 import { ChatFiles } from "../src/lib/chat/attachments/chat-files.server.ts"
 import { isChatMigrationTable, migrateChatFiles } from "../src/lib/storage/chat-migration.server.ts"
-import { StoredFiles } from "../src/lib/storage/stored-files.server.ts"
 
 import { ChatSandboxes } from "../src/lib/chat/sandbox/sandbox.server.ts"
 import { migrateSandboxArtifacts } from "../src/lib/storage/artifact-migration.server.ts"
@@ -50,20 +48,13 @@ if (mode === "migrate" && !options.writersStopped)
   )
 
 const runtime = ManagedRuntime.make(
-  Layer.mergeAll(
-    Database.layer,
-    ProfileFiles.layer,
-    StoredFiles.layer,
-    ChatFiles.layer,
-    ChatSandboxes.layer,
-  ),
+  Layer.mergeAll(Database.layer, ProfileFiles.layer, ChatFiles.layer, ChatSandboxes.layer),
 )
 try {
   await runtime.runPromise(
     Effect.gen(function* () {
       const db = yield* Database
       const profiles = yield* ProfileFiles
-      const files = yield* StoredFiles
       for (const tableName of options.table
         ? [options.table]
         : [
@@ -132,24 +123,10 @@ try {
               counts[result] += 1
               console.log(`${tableName} ${row.id}: ${result}`)
             } else if (row.source) {
-              if (isAvatar) yield* profiles.validateAvatar({ userId: row.id, image: row.source })
-              else yield* profiles.validateLogo({ organizationId: row.id, image: row.source })
-              const association = isAvatar ? userAvatar : organizationLogo
-              const ownerId = isAvatar ? userAvatar.userId : organizationLogo.organizationId
-              const [stored] = yield* db
-                .select({ file: fileObject })
-                .from(association)
-                .innerJoin(fileObject, eq(fileObject.id, association.id))
-                .where(
-                  and(
-                    eq(ownerId, row.id),
-                    sql`${row.source} = ${isAvatar ? sql`'/api/files/avatars/' || ${association.id}` : sql`'/api/files/organizations/' || ${row.id} || '/logos/' || ${association.id}`}`,
-                  ),
-                )
-                .pipe(mapDatabaseErrors())
-              if (!stored || !stored.file.verifiedAt || stored.file.expiresAt)
-                return yield* Effect.die(new Error(`Unclaimed file: ${tableName} ${row.id}`))
-              yield* files.read(stored.file)
+              yield* profiles.verify({
+                owner: { kind: isAvatar ? "avatar" : "logo", id: row.id },
+                source: row.source,
+              })
               counts.verified += 1
             }
           }
