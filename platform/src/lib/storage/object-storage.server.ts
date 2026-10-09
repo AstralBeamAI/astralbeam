@@ -5,9 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
-import { createHash } from "node:crypto"
-import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
-import type { StoredFile } from "./stored-files.server"
+import { Context, Effect, Layer, Option, Schema } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -65,17 +63,6 @@ export const objectStorageConnection = (config: typeof Config.Service) =>
       Option.isSome(value) ? Effect.succeed(value.value) : Effect.fail(new StorageUnavailable()),
     ),
   )
-
-export const objectStorageStream = Effect.fn("objectStorageStream")(function* (file: StoredFile) {
-  const objects = yield* ObjectStorage
-  const bytes = yield* objects.get({ key: file.objectKey, maxBytes: file.byteSize })
-  if (
-    bytes.length !== file.byteSize ||
-    createHash("sha256").update(bytes).digest("hex") !== file.sha256
-  )
-    return yield* new StorageUnavailable()
-  return Stream.fromIterable([bytes])
-})
 
 export class ObjectStorage extends Context.Service<
   ObjectStorage,
