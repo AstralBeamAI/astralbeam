@@ -1,3 +1,4 @@
+import { verifiedImage, embeddedImage } from "./image-validation.server"
 import { and, eq, isNull, isNotNull, lte, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
@@ -23,14 +24,7 @@ import {
   StorageUnavailable,
 } from "./errors"
 import { ImageSources } from "./image-source.server"
-import {
-  avatarFileId,
-  avatarFileUrl,
-  embeddedImage,
-  fileSha256,
-  logoFileUrl,
-  verifiedImage,
-} from "./images"
+import { avatarFileId, avatarFileUrl, fileSha256, logoFileUrl } from "./images"
 import { StoredFiles } from "./stored-files.server"
 
 type ProfileFileFailure =

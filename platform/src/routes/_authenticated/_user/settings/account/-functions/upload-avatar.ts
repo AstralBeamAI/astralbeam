@@ -5,8 +5,8 @@ import { Auth } from "@/lib/auth/auth.server"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { toValidationSchema } from "@/lib/schemas"
-import { AvatarUploadSchema } from "./images"
-import { ProfileFiles } from "./profile-files.server"
+import { AvatarUploadSchema } from "@/lib/storage/images"
+import { ProfileFiles } from "@/lib/storage/profile-files.server"
 
 export const uploadAvatar = createServerFn({ method: "POST" })
   .validator(toValidationSchema(AvatarUploadSchema))

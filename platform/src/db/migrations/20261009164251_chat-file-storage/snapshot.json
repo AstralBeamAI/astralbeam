@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d13f03b1-5a03-46cf-9c1f-6035e7f61322",
+  "id": "900268cd-1adf-4e58-b4b6-d82fa1cb2ee5",
   "prevIds": [
-    "7e6f6fa2-429e-489f-8406-0a51eb7b56e5"
+    "0acc1450-3fe1-460d-a598-b77501bb2ba3"
   ],
   "ddl": [
     {
@@ -106,6 +106,12 @@
     {
       "isRlsEnabled": false,
       "name": "cache_entry",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "chat_file",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1012,6 +1018,84 @@
       "entityType": "columns",
       "schema": "public",
       "table": "cache_entry"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "thread_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chat_file"
     },
     {
       "type": "uuid",
@@ -2730,6 +2814,19 @@
       "table": "provider_model"
     },
     {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "configuration",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_model"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -4004,6 +4101,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "chat_file_object_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
           "isExpression": false,
           "asc": true,
@@ -5238,6 +5356,44 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "chat_file_XTbF6HP2uYtW_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "file_object",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "chat_file_id_file_object_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "chat_file"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id",
+        "tenant_id",
+        "thread_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "chat_thread",
+      "columnsTo": [
+        "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "chat_message_GZHbGL4wY2dX_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -5891,6 +6047,19 @@
       "entityType": "pks",
       "schema": "public",
       "table": "agent_model"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "tenant_id",
+        "thread_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "chat_file_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "chat_file"
     },
     {
       "columns": [

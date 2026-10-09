@@ -213,9 +213,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       const [file] = await db.select().from(fileObject).where(eq(fileObject.id, source.value))
       await objects.runPromise(storage.remove({ key: file!.objectKey }))
       expect(await runtime.runPromise(files.externalize(owner, checkpoint))).toEqual(first)
-      expect(await objects.runPromise(storage.get({ key: file!.objectKey }))).toEqual(
-        new TextEncoder().encode("Generated clip"),
-      )
+      expect(
+        await objects.runPromise(storage.get({ key: file!.objectKey, maxBytes: file!.byteSize })),
+      ).toEqual(new TextEncoder().encode("Generated clip"))
       await db
         .update(fileObject)
         .set({ sha256: "0".repeat(64) })
