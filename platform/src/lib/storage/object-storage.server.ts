@@ -4,6 +4,7 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
+  S3ServiceException,
 } from "@aws-sdk/client-s3"
 import { Context, Effect, Layer, Option, Schema, SynchronizedRef } from "effect"
 
@@ -16,13 +17,28 @@ type StorageFailure = StorageObjectMissing | StorageUnavailable
 const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   Effect.tryPromise({
     try: call,
-    catch: (error) =>
+    catch: (error) => error,
+  }).pipe(
+    Effect.timeout("30 seconds"),
+    Effect.tapError((error) =>
+      Effect.logWarning("Object storage request failed").pipe(
+        Effect.annotateLogs({
+          errorType: error instanceof Error ? error.name : "Unknown",
+          errorCode:
+            error instanceof Error && "code" in error && typeof error.code === "string"
+              ? error.code
+              : undefined,
+          httpStatusCode:
+            error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
+          requestId: error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
+        }),
+      ),
+    ),
+    Effect.mapError((error) =>
       error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
         ? new StorageObjectMissing()
         : new StorageUnavailable(),
-  }).pipe(
-    Effect.timeout("30 seconds"),
-    Effect.catchTag("TimeoutError", () => Effect.fail(new StorageUnavailable())),
+    ),
   )
 
 const acquireStorageClient = (settings: StorageConnection) =>

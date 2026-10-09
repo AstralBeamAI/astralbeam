@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import { once } from "node:events"
 
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Logger } from "effect"
 import { expect, test } from "vitest"
 
 import { Config } from "@/lib/config/config.server"
@@ -18,6 +18,16 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
   const server = createServer((request, response) => {
     const respond = async () => {
       const key = new URL(request.url!, "http://localhost").pathname
+      if (key === "/test/denied") {
+        response.writeHead(403, {
+          "Content-Type": "application/xml",
+          "x-amz-request-id": "fixture-request",
+        })
+        response.end(
+          "<Error><Code>AccessDenied</Code><Message>private-failure-details</Message></Error>",
+        )
+        return
+      }
       if (request.method === "PUT") {
         const chunks = []
         for await (const chunk of request) chunks.push(chunk as Uint8Array)
@@ -53,8 +63,8 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     endpoint: `http://127.0.0.1:${address.port}`,
     region: "us-east-1",
     bucket: "test",
-    accessKeyId: "test",
-    secretAccessKey: "test",
+    accessKeyId: "fixture-access-key",
+    secretAccessKey: "fixture-secret-key",
     pathStyle: true,
   }
   const layer = ObjectStorage.layerNoDeps.pipe(
@@ -94,6 +104,27 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
     objects.delete("/test/metadata")
     omitHeadSize = false
+    const logs: string[] = []
+    const denied = await Effect.runPromise(
+      Effect.flatMap(ObjectStorage, (storage) =>
+        storage.get({ key: "denied", maxBytes: 1024 }),
+      ).pipe(
+        Effect.result,
+        Effect.provide(layer),
+        Effect.provide(Logger.layer([Logger.map(Logger.formatJson, (entry) => logs.push(entry))])),
+      ),
+    )
+    expect(denied).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+    expect(JSON.parse(logs[0]!)).toMatchObject({
+      annotations: { errorType: "AccessDenied", httpStatusCode: 403, requestId: "fixture-request" },
+    })
+    for (const privateValue of [
+      "private-failure-details",
+      settings.endpoint,
+      settings.accessKeyId,
+      settings.secretAccessKey,
+    ])
+      expect(logs.join("")).not.toContain(privateValue)
     stall = true
     const controller = new AbortController()
     const interrupted = Effect.runPromiseExit(

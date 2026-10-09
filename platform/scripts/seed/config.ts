@@ -1,4 +1,5 @@
 import process from "node:process"
+import { createHash } from "node:crypto"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
 import { inArray, like, sql } from "drizzle-orm"
@@ -38,7 +39,10 @@ export async function seedConfig(
   const values = {
     ...SEED_CONFIG_VALUES,
     s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
-    s3_bucket: `astralbeam-${databaseName.replaceAll("_", "-")}`,
+    s3_bucket: `astralbeam-${databaseName
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .slice(0, 19)}-${createHash("sha256").update(databaseName).digest("hex").slice(0, 32)}`,
     s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
   }

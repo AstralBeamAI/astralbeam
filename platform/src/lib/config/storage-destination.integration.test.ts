@@ -90,10 +90,21 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
       expect(seeded.values).toMatchObject({
         s3_endpoint: "http://127.0.0.1:19000",
-        s3_bucket: "astralbeam-worktree-a",
+        s3_bucket: "astralbeam-worktree-a-87a94f0b35f63660202c7253320e5053",
         s3_access_key_id: "override-key",
         s3_secret_access_key: "override-secret",
       })
+      const buckets = new Set<string>()
+      for (const name of ["worktree_a", "worktree-a", "Worktree_a", "x".repeat(63)]) {
+        await getAuthDatabase().transaction((transaction) => seedConfig(transaction, name))
+        await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
+        const { values } = await runtime.runPromise(
+          Effect.flatMap(Config, (config) => config.snapshot),
+        )
+        expect(values.s3_bucket).toMatch(/^[a-z0-9-]{3,63}$/)
+        buckets.add(values.s3_bucket!)
+      }
+      expect(buckets.size).toBe(4)
       await runtime.runPromise(
         Effect.flatMap(Config, (config) => config.update(destinationUpdates)),
       )
