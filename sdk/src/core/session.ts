@@ -1253,6 +1253,18 @@ export function createAstralBeamChat(
   }
   const abandonToolCall = (toolCallId: string) => addToolResult({ toolCallId })
 
+  const canSubmitMessage = (retrying: boolean) => {
+    const reason = state.threadLoadFailed
+      ? "Reopen this conversation or start a new one before sending."
+      : !retrying && state.thread?.role === "viewer"
+        ? "You have read-only access to this conversation."
+        : !retrying && state.thread?.agentId === null
+          ? "This conversation’s agent is unavailable. Start a new conversation to continue."
+          : undefined
+    if (reason) reportError(new Error(reason))
+    return reason === undefined
+  }
+
   const dispatchMessage = async (entry: PendingChatMessage) => {
     const { content } = entry
     const callbacks = pendingCallbacks.get(entry.id)
@@ -1260,27 +1272,12 @@ export function createAstralBeamChat(
       reportError(new Error("Wait for this client's current request to finish before sending."))
       return
     }
-    if (state.threadLoadFailed) {
-      reportError(new Error("Reopen this conversation or start a new one before sending."))
-      return
-    }
     const samePendingContent =
       pendingSend !== undefined && JSON.stringify(pendingSend.content) === JSON.stringify(content)
     const uncertainSend =
       pendingSend?.tools !== undefined && !pendingSend.accepted ? pendingSend : undefined
     const retrying = uncertainSend !== undefined && samePendingContent
-    if (state.thread?.agentId === null && !retrying) {
-      reportError(
-        new Error(
-          "This conversation’s agent is unavailable. Start a new conversation to continue.",
-        ),
-      )
-      return
-    }
-    if (state.thread?.role === "viewer" && !retrying) {
-      reportError(new Error("You have read-only access to this conversation."))
-      return
-    }
+    if (!canSubmitMessage(retrying)) return
     if (uncertainSend && !samePendingContent) {
       update({ unsentMessage: uncertainSend.content })
       reportError(
@@ -1406,20 +1403,15 @@ export function createAstralBeamChat(
       if (generation !== selectionGeneration) return
       entry.status = "sending"
       publishQueue()
+      const parts = typeof entry.content === "string" ? entry.content : entry.content.content
       const receipt = await steerChatTurn(
         thread.id,
         {
           client_id: clientId,
           turn_message_id: turnMessageId,
-          parts: (typeof entry.content === "string" || typeof entry.content.content === "string"
-            ? [
-                {
-                  type: "text",
-                  content:
-                    typeof entry.content === "string" ? entry.content : entry.content.content,
-                },
-              ]
-            : entry.content.content) as Parameters<typeof steerChatTurn>[1]["parts"],
+          parts: (typeof parts === "string"
+            ? [{ type: "text", content: parts }]
+            : parts) as Parameters<typeof steerChatTurn>[1]["parts"],
         },
         { ...auth, headers: { "Idempotency-Key": entry.id } },
       )
@@ -1488,22 +1480,7 @@ export function createAstralBeamChat(
             JSON.stringify(entry.content) === JSON.stringify(content),
         )
       : undefined
-    if (state.threadLoadFailed) {
-      reportError(new Error("Reopen this conversation or start a new one before sending."))
-      return
-    }
-    if (state.thread?.role === "viewer" && !retry) {
-      reportError(new Error("You have read-only access to this conversation."))
-      return
-    }
-    if (state.thread?.agentId === null && !retry) {
-      reportError(
-        new Error(
-          "This conversation’s agent is unavailable. Start a new conversation to continue.",
-        ),
-      )
-      return
-    }
+    if (!canSubmitMessage(Boolean(retry))) return
     if (uncertain && !busy && !retry) {
       update({ unsentMessage: uncertain.content })
       reportError(

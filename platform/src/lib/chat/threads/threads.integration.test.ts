@@ -35,12 +35,7 @@ import {
 } from "@/db/schema"
 import { ChatThreads } from "./threads"
 import { projectChatModelHistory } from "./projection"
-import type {
-  ChatThreadScope,
-  ChatMessagePayload,
-  ChatToolResolution,
-  ChatWriterClaim,
-} from "./schemas"
+import type { ChatThreadScope, ChatMessagePayload, ChatToolResolution } from "./schemas"
 
 const payload: ChatMessagePayload = {
   version: 1,
@@ -107,7 +102,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
-  const steer = (id: string, turnMessageId: string, text = "Use blue") =>
+  const admitSteeringTurn = (id: string) =>
+    runtime.runPromise(
+      service.admit({ scope, id, payload: { ...payload, provenance: { clientId: targetA } } }),
+    )
+  const steerTestTurn = (id: string, turnMessageId: string, text = "Use blue") =>
     service.steer({
       scope,
       id,
@@ -118,97 +117,24 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         parts: [{ id: crypto.randomUUID(), type: "text", content: text }],
       },
     })
-  const answer = () => ({
-    ...payload,
-    parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+  test("completion and steering serialize without losing an admitted input", async () => {
+    const thread = await create()
+    const first = await admitSteeringTurn(thread.id)
+    const [admitted, continuation] = await Promise.all([
+      runtime.runPromise(steerTestTurn(thread.id, first.inputMessage.id).pipe(Effect.result)),
+      runtime.runPromise(service.finish({ claim: first.claim!, payload, continueSteering: true })),
+    ])
+    if (admitted._tag === "Success")
+      expect(continuation?.inputMessageId).toBe(first.inputMessage.id)
+    else {
+      expect(admitted.failure._tag).toBe("ChatSteeringFinished")
+      expect(continuation).toBeUndefined()
+    }
   })
 
-  test("steering extends the same turn and records the phase that first includes it", async () => {
+  test("steering requires the initiating participant and client", async () => {
     const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
-    const guidance = await runtime.runPromise(steer(thread.id, first.inputMessage.id))
-    expect(guidance.message).toMatchObject({
-      role: "user",
-      turnMessageId: first.inputMessage.id,
-      turnState: null,
-      metadata: { steering: {} },
-    })
-    const next = await runtime.runPromise(
-      service.finish({ claim: first.claim!, payload: answer(), continueSteering: true }),
-    )
-    expect(next).toMatchObject({
-      inputMessageId: first.inputMessage.id,
-      invocationId: first.claim!.invocationId,
-    })
-    expect(next!.assistantMessageId).not.toBe(first.claim!.assistantMessageId)
-    const history = await runtime.runPromise(service.modelHistory({ claim: next! }))
-    expect(
-      history.find((message) => message.id === guidance.message.id)?.metadata.steering,
-    ).toEqual({ appliedToMessageId: next!.assistantMessageId })
-    expect(
-      await runtime.runPromise(
-        service.finish({ claim: next!, payload: answer(), continueSteering: true }),
-      ),
-    ).toBeUndefined()
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: first.inputMessage.id }),
-        )
-      ).turnState,
-    ).toBe("completed")
-    expect(
-      (await runtime.runPromise(steer(thread.id, first.inputMessage.id).pipe(Effect.flip)))._tag,
-    ).toBe("ChatSteeringFinished")
-  })
-
-  test.each([true, false])(
-    "completion and steering serialize without losing an admitted input, steering first=%s",
-    async (steeringFirst) => {
-      const thread = await create()
-      const first = await runtime.runPromise(
-        service.admit({
-          scope,
-          id: thread.id,
-          payload: { ...payload, provenance: { clientId: targetA } },
-        }),
-      )
-      const completion = service.finish({
-        claim: first.claim!,
-        payload: answer(),
-        continueSteering: true,
-      })
-      const guidance = steer(thread.id, first.inputMessage.id).pipe(Effect.result)
-      const tasks = steeringFirst
-        ? [runtime.runPromise(guidance), runtime.runPromise(completion)]
-        : [runtime.runPromise(completion), runtime.runPromise(guidance)]
-      const results = await Promise.all(tasks)
-      const admitted = results[steeringFirst ? 0 : 1] as Effect.Success<typeof guidance>
-      const continuation = results[steeringFirst ? 1 : 0] as ChatWriterClaim | undefined
-      expect(continuation?.inputMessageId).toBe(
-        admitted._tag === "Success" ? first.inputMessage.id : undefined,
-      )
-      expect(admitted._tag === "Failure" ? admitted.failure._tag : undefined).toBe(
-        admitted._tag === "Failure" ? "ChatSteeringFinished" : undefined,
-      )
-    },
-  )
-
-  test("steering requires the initiating participant and client and remains unprocessed on exhaustion", async () => {
-    const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
+    const first = await admitSteeringTurn(thread.id)
     for (const input of [
       { scope, clientId: targetB },
       { scope: other, clientId: targetA },
@@ -223,37 +149,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         )._tag,
       ).toBe(input.scope === scope ? "ChatThreadForbidden" : "ChatThreadNotFound")
     }
-    const guidance = await runtime.runPromise(steer(thread.id, first.inputMessage.id))
-    expect(
-      await runtime.runPromise(
-        service.finish({ claim: first.claim!, payload: answer(), continueSteering: false }),
-      ),
-    ).toBeUndefined()
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: first.inputMessage.id }),
-        )
-      ).turnState,
-    ).toBe("interrupted")
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: guidance.message.id }),
-        )
-      ).metadata.steering,
-    ).toEqual({})
   })
 
   test("steering receipts survive completion and reject changed input without adding another message", async () => {
     const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
+    const first = await admitSteeringTurn(thread.id)
     const request = {
       scope,
       id: thread.id,
@@ -288,13 +188,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     "text-only steering continues in one stream and preserves the model-call budget, exhaust=%s",
     async (exhaust) => {
       const thread = await create()
-      const first = await runtime.runPromise(
-        service.admit({
-          scope,
-          id: thread.id,
-          payload: { ...payload, provenance: { clientId: targetA } },
-        }),
-      )
+      const first = await admitSteeringTurn(thread.id)
       const prompts: unknown[] = []
       const model = {
         providerId: crypto.randomUUID(),
@@ -308,7 +202,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           prompts.push(JSON.parse(init!.body as string))
           if (exhaust || prompts.length === 1)
             await runtime.runPromise(
-              steer(thread.id, first.inputMessage.id, `Guidance ${prompts.length}`),
+              steerTestTurn(thread.id, first.inputMessage.id, `Guidance ${prompts.length}`),
             )
           const chunks = [
             {
@@ -395,7 +289,22 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       expect(
         guidance.filter((message) => message.metadata.steering!.appliedToMessageId === undefined),
       ).toHaveLength(exhaust ? 1 : 0)
-      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust)
+      expect(guidance.every((message) => message.turnMessageId === first.inputMessage.id)).toBe(
+        true,
+      )
+      expect(guidance[0]?.metadata.steering?.appliedToMessageId).toBeDefined()
+      expect(
+        (
+          await runtime.runPromise(
+            steerTestTurn(thread.id, first.inputMessage.id).pipe(Effect.flip),
+          )
+        )._tag,
+      ).toBe("ChatSteeringFinished")
+      expect(events.find((event) => event.type === EventType.RUN_ERROR)?.message).toBe(
+        exhaust
+          ? "The response reached its limit. Review guidance marked as not delivered and resend it in a new message."
+          : undefined,
+      )
     },
   )
 

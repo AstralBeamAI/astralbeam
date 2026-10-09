@@ -38,6 +38,7 @@ import {
 } from "./constants"
 import { chatDebugLog, withChatDebugLog } from "./debug"
 import {
+  CHAT_TURN_LIMIT_MESSAGE,
   ChatAgentNotFound,
   ChatDefaultAgentMissing,
   ChatModelMissing,
@@ -60,8 +61,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
   rate_limit_error: "The model provider is receiving too many requests. Please try again later.",
   model_not_found:
     "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
-  turn_limit:
-    "The response reached its limit. Send a new message to continue with your saved guidance.",
+  turn_limit: CHAT_TURN_LIMIT_MESSAGE,
 }
 
 /**

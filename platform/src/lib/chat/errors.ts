@@ -1,5 +1,8 @@
 import { Schema } from "effect"
 
+export const CHAT_TURN_LIMIT_MESSAGE =
+  "The response reached its limit. Review guidance marked as not delivered and resend it in a new message."
+
 // Errors with an `httpApiStatus` reach the tenant user's widget verbatim, so their messages are
 // written for that reader.
 

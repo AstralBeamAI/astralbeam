@@ -21,6 +21,7 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson } from "./projection"
+import { CHAT_TURN_LIMIT_MESSAGE } from "../errors"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -523,7 +524,6 @@ export async function* managedChatDelivery(input: {
     yield {
       type: EventType.RUN_ERROR,
       code: "turn_limit",
-      message:
-        "The response reached its limit. Review guidance marked as not delivered and resend it in a new message.",
+      message: CHAT_TURN_LIMIT_MESSAGE,
     }
 }
