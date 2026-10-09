@@ -4,7 +4,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/
 import { Switch } from "@/components/ui/switch"
 import {
   modelInputAllowance,
-  type ModelUsageConfiguration,
+  type ModelConfiguration,
   type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
 import { ModelProviderField } from "./model-provider-field"
@@ -23,7 +23,7 @@ const modelBoundFields = [
   ["outputCap", "Output cap"],
 ] as const
 
-export function ProviderModelUsageFields({
+export function ProviderModelConfigurationFields({
   model,
   disabled,
   catalogConfiguration,
@@ -32,12 +32,12 @@ export function ProviderModelUsageFields({
 }: {
   model: ProviderModelFields
   disabled: boolean
-  catalogConfiguration: ModelUsageConfiguration | null
+  catalogConfiguration: ModelConfiguration | null
   errors: (field: string) => readonly { message: string }[]
-  onChange: (configuration: ModelUsageConfiguration | null) => void
+  onChange: (configuration: ModelConfiguration | null) => void
 }) {
-  const overridden = model.usageConfiguration?.pricingSource.kind === "manual"
-  const configuration: ModelUsageConfiguration = model.usageConfiguration ??
+  const overridden = model.configuration?.pricingSource.kind === "manual"
+  const configuration: ModelConfiguration = model.configuration ??
     catalogConfiguration ?? {
       currency: "USD",
       pricingSource: { kind: "manual" },
@@ -88,18 +88,20 @@ export function ProviderModelUsageFields({
             Override catalog defaults<span className="sr-only"> for {model.modelId}</span>
           </FieldLabel>
           <FieldDescription id={`${overrideId}-description`}>
-            {overridden
-              ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
-              : hasCatalogDefaults
-                ? "Base prices shown below. Cache and long-context rates also apply where available. Catalog defaults update automatically."
-                : "No catalog defaults are available. Turn on to configure this model manually."}
+            {overridden && !hasCatalogDefaults
+              ? "Your settings stay fixed. Catalog defaults are unavailable for this model."
+              : overridden
+                ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
+                : hasCatalogDefaults
+                  ? "Base prices shown below. Cache and long-context rates also apply where available. Catalog defaults update automatically."
+                  : "No catalog defaults are available. Turn on to configure this model manually."}
           </FieldDescription>
         </FieldContent>
         <Switch
           id={overrideId}
           aria-describedby={`${overrideId}-description`}
           checked={overridden}
-          disabled={disabled}
+          disabled={disabled || (overridden && !hasCatalogDefaults)}
           onCheckedChange={(checked) =>
             onChange(
               checked

@@ -8,8 +8,8 @@ import {
   type ModelPriceCatalog,
 } from "./pricing-catalog-schemas.ts"
 import {
-  ModelUsageConfigurationSchema,
-  type ModelUsageConfiguration,
+  ModelConfigurationSchema,
+  type ModelConfiguration,
   type ModelProviderType,
 } from "./schemas.ts"
 
@@ -17,7 +17,6 @@ const bundledModelProviders = Schema.decodeUnknownSync(ModelPriceCatalogProvider
   ["openai", "anthropic", "openrouter"].map((id) => findProvider({ providerId: id })),
 )
 const bundledModelPriceCatalog: ModelPriceCatalog = {
-  fetchedAt: null,
   providers: bundledModelProviders,
 }
 const modelPriceCatalogJsonSchema = Schema.fromJsonString(ModelPriceCatalogSchema)
@@ -49,11 +48,11 @@ const modelCatalogPriceKeys = {
   cacheWrite1hPerMillion: "cache_write_1h_mtok",
 } as const
 
-export function catalogModelUsageConfiguration(input: {
+export function catalogModelConfiguration(input: {
   catalog: ModelPriceCatalog
   providerType: ModelProviderType
   modelId: string
-}): ModelUsageConfiguration | null {
+}): ModelConfiguration | null {
   const provider = input.catalog.providers.find((item) => item.id === input.providerType)
   if (!provider) return null
   const result = calcPrice({}, input.modelId, { provider: provider as Provider })
@@ -90,7 +89,7 @@ export function catalogModelUsageConfiguration(input: {
         return [[field, BigDecimal.format(BigDecimal.ceil(BigDecimal.fromNumberUnsafe(value), 12))]]
       }),
     )
-  const decoded = Schema.decodeUnknownOption(ModelUsageConfigurationSchema)({
+  const decoded = Schema.decodeUnknownOption(ModelConfigurationSchema)({
     currency: "USD",
     pricingSource: { kind: "catalog", modelId: result.model.id },
     prices: ratesAt(0),
@@ -106,13 +105,13 @@ export function catalogModelUsageConfiguration(input: {
   return Option.getOrNull(decoded)
 }
 
-export function effectiveModelUsageConfiguration(input: {
+export function effectiveModelConfiguration(input: {
   catalog: ModelPriceCatalog
   providerType: ModelProviderType
   modelId: string
-  configured: ModelUsageConfiguration | null | undefined
+  configured: ModelConfiguration | null | undefined
 }) {
   const configured = input.configured
   if (configured?.pricingSource.kind === "manual") return configured
-  return catalogModelUsageConfiguration(input) ?? configured ?? null
+  return catalogModelConfiguration(input) ?? configured ?? null
 }

@@ -38,7 +38,7 @@ import { SaveModelProviderInputSchema } from "../-lib/schemas"
 import { ModelProviderField } from "./model-provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
-import { ProviderModelUsageFields } from "./provider-model-usage-fields"
+import { ProviderModelConfigurationFields } from "./provider-model-configuration-fields"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
@@ -70,10 +70,10 @@ export function ModelProviderForm({
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? "https://api.openai.com/v1")
   const [apiKey, setApiKey] = useState("")
   const [models, setModels] = useState<ProviderModelFields[]>(
-    existing?.models.map(({ modelId, name: modelName, usageConfiguration }) => ({
+    existing?.models.map(({ modelId, name: modelName, configuration }) => ({
       modelId,
       name: modelName,
-      usageConfiguration,
+      configuration,
     })) ?? [],
   )
   const [saving, setSaving] = useState(false)
@@ -108,7 +108,7 @@ export function ModelProviderForm({
       ? issues.filter(
           (issue) =>
             issue.path?.[0] === field &&
-            !(field === "models" && issue.path?.[2] === "usageConfiguration"),
+            !(field === "models" && issue.path?.[2] === "configuration"),
         )
       : []),
     ...(submitted && field === "apiKey" && missingKey
@@ -157,7 +157,7 @@ export function ModelProviderForm({
         failure.tag === "ModelProviderUnreadable"
       )
         setServerFieldError({ field: "apiKey", message: failure.message })
-      else if (failure.tag === "ModelUsageConfigurationMissing")
+      else if (failure.tag === "ModelConfigurationMissing")
         setServerFieldError({ field: "models", message: failure.message })
       else toast.add({ title: failure.message, type: "error" })
       if (failure.tag === "ModelProviderChanged") await router.invalidate()
@@ -299,12 +299,12 @@ export function ModelProviderForm({
               negotiated or gateway rates. Token limits are saved, but not enforced yet.
             </FieldDescription>
             {models.map((model, index) => (
-              <ProviderModelUsageFields
+              <ProviderModelConfigurationFields
                 key={model.modelId}
                 model={model}
                 catalogConfiguration={
                   catalog[providerType].find((item) => item.modelId === model.modelId)
-                    ?.usageConfiguration ?? null
+                    ?.configuration ?? null
                 }
                 disabled={disabled}
                 errors={(field) =>
@@ -313,15 +313,15 @@ export function ModelProviderForm({
                         (issue) =>
                           issue.path?.[0] === "models" &&
                           issue.path?.[1] === index &&
-                          issue.path?.[2] === "usageConfiguration" &&
+                          issue.path?.[2] === "configuration" &&
                           issue.path?.at(-1) === field,
                       )
                     : []
                 }
-                onChange={(usageConfiguration) =>
+                onChange={(configuration) =>
                   setModels((current) =>
                     current.map((item) =>
-                      item.modelId === model.modelId ? { ...item, usageConfiguration } : item,
+                      item.modelId === model.modelId ? { ...item, configuration } : item,
                     ),
                   )
                 }

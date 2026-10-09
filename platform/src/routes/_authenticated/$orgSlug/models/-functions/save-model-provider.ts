@@ -33,7 +33,7 @@ export const saveModelProvider = createServerFn({ method: "POST" })
             "ModelProviderInUse",
             "ModelProviderUnreadable",
             "ModelProviderKeyMissing",
-            "ModelUsageConfigurationMissing",
+            "ModelConfigurationMissing",
           ],
           exposeError,
         ),

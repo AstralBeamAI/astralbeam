@@ -28,15 +28,15 @@ import { Config } from "@/lib/config/config.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import {
-  catalogModelUsageConfiguration,
+  catalogModelConfiguration,
   readModelPriceCatalog,
   writeModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
-import type { ModelUsageConfiguration } from "./schemas.ts"
+import type { ModelConfiguration } from "./schemas.ts"
 import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.server.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
 
-const modelUsageTestConfiguration: ModelUsageConfiguration = {
+const modelTestConfiguration: ModelConfiguration = {
   currency: "USD",
   pricingSource: { kind: "manual" },
   prices: { inputPerMillion: "2", outputPerMillion: "8" },
@@ -66,7 +66,7 @@ function saveIntegrationProvider(
       models: [
         {
           modelId: "same-model",
-          usageConfiguration: modelUsageTestConfiguration,
+          configuration: modelTestConfiguration,
           name: "Shared model name",
         },
       ],
@@ -154,15 +154,15 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           {
             modelId: "unknown",
             name: "Unknown",
-            usageConfiguration: {
-              ...modelUsageTestConfiguration,
+            configuration: {
+              ...modelTestConfiguration,
               pricingSource: { kind: "catalog", modelId: "unknown" },
             },
           },
         ],
       }).pipe(Effect.flip),
     )
-    expect(untrusted._tag).toBe("ModelUsageConfigurationMissing")
+    expect(untrusted._tag).toBe("ModelConfigurationMissing")
     const previous = await runAppEffect(readModelPriceCatalog)
     const providers = ["openai", "anthropic", "openrouter"].map((id) => ({
       id,
@@ -200,9 +200,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       expect(stored!.encryptedValue).not.toContain("test-model")
       const settings = await runAppEffect(Effect.flatMap(Config, (config) => config.readStored))
       expect(settings.rows?.some((row) => row.key === "model_price_catalog")).toBe(false)
-      expect(refreshed.fetchedAt).not.toBeNull()
       expect(
-        catalogModelUsageConfiguration({
+        catalogModelConfiguration({
           catalog: refreshed,
           providerType: "openai",
           modelId: "test-model",
@@ -234,8 +233,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
             {
               modelId: "test-model",
               name: "Catalog model",
-              usageConfiguration: {
-                ...modelUsageTestConfiguration,
+              configuration: {
+                ...modelTestConfiguration,
                 pricingSource: { kind: "catalog", modelId: "test-model" },
               },
             },
@@ -247,7 +246,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           service.get({ organizationId, id: providerId }),
         ),
       )
-      expect(retained!.models[0]!.usageConfiguration).toMatchObject({
+      expect(retained!.models[0]!.configuration).toMatchObject({
         pricingSource: { kind: "catalog" },
         prices: { inputPerMillion: "3", outputPerMillion: "4" },
       })
@@ -276,7 +275,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       await db.execute(
         sql`update config set value = 'unreadable' where key = 'model_price_catalog'`,
       )
-      expect((await runAppEffect(readModelPriceCatalog)).fetchedAt).toBeNull()
+      expect(await runAppEffect(readModelPriceCatalog)).not.toEqual(withoutModel)
     } finally {
       await runAppEffect(writeModelPriceCatalog(previous))
       vi.unstubAllGlobals()
@@ -503,8 +502,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const providerId = await runAppEffect(
       saveIntegrationProvider(organizationId, {
         models: [
-          { modelId: "first", usageConfiguration: modelUsageTestConfiguration, name: "First" },
-          { modelId: "second", usageConfiguration: modelUsageTestConfiguration, name: "Second" },
+          { modelId: "first", configuration: modelTestConfiguration, name: "First" },
+          { modelId: "second", configuration: modelTestConfiguration, name: "Second" },
         ],
       }),
     )

@@ -1,13 +1,10 @@
 import { describe, expect, test } from "vitest"
 
-import {
-  catalogModelUsageConfiguration,
-  effectiveModelUsageConfiguration,
-} from "./pricing-catalog.server.ts"
+import { catalogModelConfiguration, effectiveModelConfiguration } from "./pricing-catalog.server.ts"
 import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
-import { modelInputAllowance, type ModelUsageConfiguration } from "./schemas.ts"
+import { modelInputAllowance, type ModelConfiguration } from "./schemas.ts"
 
-const modelUsageTestConfiguration: ModelUsageConfiguration = {
+const modelTestConfiguration: ModelConfiguration = {
   currency: "USD",
   pricingSource: { kind: "manual" },
   prices: { inputPerMillion: "2", outputPerMillion: "8" },
@@ -19,7 +16,6 @@ const modelUsageTestConfiguration: ModelUsageConfiguration = {
 }
 
 const testPriceCatalog: ModelPriceCatalog = {
-  fetchedAt: null,
   providers: [
     {
       id: "openai",
@@ -54,7 +50,7 @@ describe("model pricing catalog", () => {
       providerType: "openai" as const,
       modelId: "test-model",
     }
-    const card = catalogModelUsageConfiguration(lookup)!
+    const card = catalogModelConfiguration(lookup)!
     expect(modelInputAllowance(card)).toBe(128_000)
     expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(128_000)
     expect(card.prices).toEqual({
@@ -67,7 +63,7 @@ describe("model pricing catalog", () => {
       { aboveInputTokens: 20_000, prices: { inputPerMillion: "4" } },
       { aboveInputTokens: 60_000, prices: { inputPerMillion: "6" } },
     ])
-    expect(catalogModelUsageConfiguration({ ...lookup, modelId: "unknown" })).toBeNull()
+    expect(catalogModelConfiguration({ ...lookup, modelId: "unknown" })).toBeNull()
     const unsupported = {
       ...testPriceCatalog,
       providers: [
@@ -82,23 +78,23 @@ describe("model pricing catalog", () => {
         },
       ],
     }
-    expect(catalogModelUsageConfiguration({ ...lookup, catalog: unsupported })).toBeNull()
-    expect(
-      effectiveModelUsageConfiguration({ ...lookup, configured: modelUsageTestConfiguration }),
-    ).toBe(modelUsageTestConfiguration)
+    expect(catalogModelConfiguration({ ...lookup, catalog: unsupported })).toBeNull()
+    expect(effectiveModelConfiguration({ ...lookup, configured: modelTestConfiguration })).toBe(
+      modelTestConfiguration,
+    )
     const configured = {
-      ...modelUsageTestConfiguration,
+      ...modelTestConfiguration,
       outputCap: 1024,
       pricingSource: { kind: "catalog" as const, modelId: "test-model" },
     }
-    expect(effectiveModelUsageConfiguration({ ...lookup, configured })).toMatchObject({
+    expect(effectiveModelConfiguration({ ...lookup, configured })).toMatchObject({
       outputCap: 4096,
       maxInputTokens: 128_000,
       contextWindowTokens: null,
       prices: { inputPerMillion: "2" },
       contextTiers: [{ aboveInputTokens: 20_000 }, { aboveInputTokens: 60_000 }],
     })
-    expect(effectiveModelUsageConfiguration({ ...lookup, modelId: "unknown", configured })).toBe(
+    expect(effectiveModelConfiguration({ ...lookup, modelId: "unknown", configured })).toBe(
       configured,
     )
   })

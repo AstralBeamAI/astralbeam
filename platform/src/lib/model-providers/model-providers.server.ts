@@ -29,26 +29,23 @@ import {
   ModelProviderUnreadable,
   ModelProviderTestFailed,
   ModelProviderTestRateLimited,
-  ModelUsageConfigurationMissing,
+  ModelConfigurationMissing,
 } from "./errors.ts"
-import {
-  effectiveModelUsageConfiguration,
-  readModelPriceCatalog,
-} from "./pricing-catalog.server.ts"
+import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
   type ModelProviderFields,
   type ModelProviderApi,
   type ModelProviderType,
-  type ModelUsageConfiguration,
+  type ModelConfiguration,
 } from "./schemas.ts"
 
 interface ModelProviderModel {
   readonly id: string
   readonly modelId: string
   readonly name: string
-  readonly usageConfiguration: ModelUsageConfiguration | null
+  readonly configuration: ModelConfiguration | null
 }
 
 export interface OrganizationModelProvider {
@@ -68,7 +65,7 @@ export interface OrganizationModelProvider {
 
 export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
 
-export interface ModelChoice extends Omit<ModelProviderModel, "usageConfiguration"> {
+export interface ModelChoice extends Omit<ModelProviderModel, "configuration"> {
   readonly providerId: string
   readonly providerName: string
 }
@@ -105,7 +102,7 @@ type ModelProviderWriteError =
   | ModelProviderNameTaken
   | ModelProviderKeyMissing
   | ModelProviderUnreadable
-  | ModelUsageConfigurationMissing
+  | ModelConfigurationMissing
 
 const modelProviderReadColumns = {
   id: modelProvider.id,
@@ -268,15 +265,15 @@ export class ModelProviders extends Context.Service<
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name, usageConfiguration }) => ({
+              .map(({ id, modelId, name, configuration }) => ({
                 id,
                 modelId,
                 name,
-                usageConfiguration: effectiveModelUsageConfiguration({
+                configuration: effectiveModelConfiguration({
                   catalog,
                   providerType: row.providerType,
                   modelId,
-                  configured: usageConfiguration,
+                  configured: configuration,
                 }),
               })),
           }
@@ -297,7 +294,7 @@ export class ModelProviders extends Context.Service<
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
-            usageConfiguration: providerModel.usageConfiguration,
+            configuration: providerModel.configuration,
           })
           .from(providerModel)
           .where(
@@ -313,11 +310,11 @@ export class ModelProviders extends Context.Service<
           credentialsReadable: apiKey !== null,
           models: models.map((model) => ({
             ...model,
-            usageConfiguration: effectiveModelUsageConfiguration({
+            configuration: effectiveModelConfiguration({
               catalog,
               providerType: row.providerType,
               modelId: model.modelId,
-              configured: model.usageConfiguration,
+              configured: model.configuration,
             }),
           })),
         }
@@ -368,7 +365,7 @@ export class ModelProviders extends Context.Service<
             ? yield* db
                 .select({
                   modelId: providerModel.modelId,
-                  usageConfiguration: providerModel.usageConfiguration,
+                  configuration: providerModel.configuration,
                 })
                 .from(providerModel)
                 .where(
@@ -382,22 +379,22 @@ export class ModelProviders extends Context.Service<
         const catalog = yield* readPricing
         const configuredModels = input.models.map((model) => ({
           ...model,
-          usageConfiguration: effectiveModelUsageConfiguration({
+          configuration: effectiveModelConfiguration({
             catalog,
             providerType: input.providerType,
             modelId: model.modelId,
             configured:
-              model.usageConfiguration?.pricingSource.kind === "manual"
-                ? model.usageConfiguration
+              model.configuration?.pricingSource.kind === "manual"
+                ? model.configuration
                 : savedModels.find(
                     (saved) =>
                       saved.modelId === model.modelId &&
-                      saved.usageConfiguration?.pricingSource.kind === "catalog",
-                  )?.usageConfiguration,
+                      saved.configuration?.pricingSource.kind === "catalog",
+                  )?.configuration,
           }),
         }))
-        if (configuredModels.some((model) => model.usageConfiguration === null))
-          return yield* new ModelUsageConfigurationMissing()
+        if (configuredModels.some((model) => model.configuration === null))
+          return yield* new ModelConfigurationMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -476,7 +473,7 @@ export class ModelProviders extends Context.Service<
                     ],
                     set: {
                       name: sql`excluded.name`,
-                      usageConfiguration: sql`excluded.usage_configuration`,
+                      configuration: sql`excluded.configuration`,
                       updatedAt: sql`now()`,
                     },
                   })

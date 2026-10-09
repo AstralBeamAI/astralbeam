@@ -21,7 +21,7 @@ const ModelTokenPricesSchema = Schema.Struct({
   cacheWrite1hPerMillion: Schema.optionalKey(modelPriceSchema),
 })
 
-export const ModelUsageConfigurationSchema = Schema.Struct({
+export const ModelConfigurationSchema = Schema.Struct({
   currency: Schema.Literal("USD"),
   pricingSource: Schema.Union([
     Schema.Struct({ kind: Schema.Literal("catalog"), modelId: Schema.String }),
@@ -65,9 +65,9 @@ export const ModelUsageConfigurationSchema = Schema.Struct({
   }),
 )
 
-export type ModelUsageConfiguration = typeof ModelUsageConfigurationSchema.Type
+export type ModelConfiguration = typeof ModelConfigurationSchema.Type
 
-export function modelInputAllowance(configuration: ModelUsageConfiguration) {
+export function modelInputAllowance(configuration: ModelConfiguration) {
   return Math.min(
     configuration.maxInputTokens ?? Infinity,
     configuration.contextWindowTokens === null
@@ -116,7 +116,7 @@ const ProviderModelFieldsSchema = Schema.Struct({
     Schema.check(Schema.isMaxLength(256)),
   ),
   name: DisplayNameSchema,
-  usageConfiguration: Schema.optionalKey(Schema.NullOr(ModelUsageConfigurationSchema)),
+  configuration: Schema.optionalKey(Schema.NullOr(ModelConfigurationSchema)),
 })
 
 export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type

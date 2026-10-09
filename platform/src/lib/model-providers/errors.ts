@@ -62,8 +62,8 @@ export class ModelProviderKeyMissing extends Schema.TaggedError<ModelProviderKey
   override readonly message = "Enter an API key for this provider"
 }
 
-export class ModelUsageConfigurationMissing extends Schema.TaggedError<ModelUsageConfigurationMissing>()(
-  "ModelUsageConfigurationMissing",
+export class ModelConfigurationMissing extends Schema.TaggedError<ModelConfigurationMissing>()(
+  "ModelConfigurationMissing",
   {},
   { httpApiStatus: 422 },
 ) {

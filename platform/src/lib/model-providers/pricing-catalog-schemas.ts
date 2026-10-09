@@ -74,7 +74,6 @@ const catalogProviderSchema = Schema.Struct({
 export const ModelPriceCatalogProvidersSchema = Schema.Array(catalogProviderSchema)
 
 export const ModelPriceCatalogSchema = Schema.Struct({
-  fetchedAt: Schema.NullOr(Schema.String),
   providers: ModelPriceCatalogProvidersSchema,
 })
 export type ModelPriceCatalog = typeof ModelPriceCatalogSchema.Type
