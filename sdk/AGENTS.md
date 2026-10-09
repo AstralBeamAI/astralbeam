@@ -30,7 +30,7 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - Follow chat's live-option lifecycle for directory wrappers: mount once and update callbacks and token sources without clearing state on reference changes. Unmount during sign-out or account transitions. Reset reloads immediately and requires a ready host session. API-base changes clear directory authentication and rows. Keep public refresh able to recover failed authentication, and report shared authentication failures once through the latest `onError` callback.
 - Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
 - `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
-- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
+- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`. Keep framework imports confined to their entry points. Effect Schema is bundled for validation under the code conventions below.
 
 ## CDN delivery
 

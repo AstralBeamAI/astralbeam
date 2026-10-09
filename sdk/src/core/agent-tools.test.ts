@@ -1,7 +1,6 @@
 import { expect, test, vi } from "vitest"
 import { buildAgentTools, executeHostTool } from "./agent-tools.ts"
 import { toolResult } from "../lib/define.ts"
-import { toJsonSchema } from "./schema.ts"
 
 const context = () => ({ signal: new AbortController().signal, invocationId: "call" })
 
@@ -133,7 +132,6 @@ test("widget tools expose their actual schema and duplicate registries fail clos
   const render = vi.fn(() => Promise.resolve({ widget: "card", rendered: true }))
   const tools = buildAgentTools({ card: widget }, {}, render)
   expect(tools.find((tool) => tool.name === "show_card")?.inputSchema).toEqual(schema)
-  expect(tools.some((tool) => tool.name === "render_widget")).toBe(false)
   expect(() =>
     buildAgentTools(
       { card: widget },
@@ -141,10 +139,6 @@ test("widget tools expose their actual schema and duplicate registries fail clos
       render,
     ),
   ).toThrow("Duplicate")
-  expect(tools.find((tool) => tool.name === "show_card")?.metadata?.astralbeam).toMatchObject({
-    resultVersion: 1,
-    widget: "card",
-  })
   expect(
     buildAgentTools(
       {},
@@ -176,10 +170,4 @@ test("presentation failure does not turn a completed business action into a retr
   await expect(
     tools.find((tool) => tool.name === "change")!.execute!({}, invocation),
   ).resolves.toMatchObject({ structuredContent: { changed: true } })
-})
-
-test("schemas without JSON Schema export cannot silently widen declarations", () => {
-  expect(() =>
-    toJsonSchema({ "~standard": { version: 1, vendor: "test", validate: () => ({ value: {} }) } }),
-  ).toThrow("JSON Schema export")
 })

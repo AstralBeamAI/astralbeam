@@ -631,11 +631,7 @@ export function createAstralBeamChat(
       return {
         name: tool.name,
         title: typeof title === "string" && title.length > 0 ? title : undefined,
-        widget:
-          typeof (tool.metadata?.astralbeam as { widget?: unknown } | undefined)?.widget ===
-          "string"
-            ? (tool.metadata!.astralbeam as { widget: string }).widget
-            : undefined,
+        widget: (tool.metadata?.astralbeam as { widget?: string } | undefined)?.widget,
       }
     })
     // Compared by value: a host that rebuilds equivalent tool objects every render would

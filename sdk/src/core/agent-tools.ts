@@ -29,16 +29,14 @@ type RenderWidget = (
 export type WidgetDeclaration = Pick<WidgetDefinition, "description" | "parameters">
 type NamedTool = HostToolDefinition & { name: string }
 
-// Source ownership stays internal. Later protocol adapters can contribute declarations here.
 export function buildAgentTools(
   widgets: Readonly<Record<string, WidgetDeclaration>>,
   hostTools: ToolRegistry,
   renderWidget: RenderWidget,
   debug?: DebugLogger,
 ) {
-  const registry = new Map<string, { source: "host" | "widget"; tool: NamedTool }>()
-  const ids = new Set(Object.keys(widgets))
-  const register = (tool: NamedTool, source: "host" | "widget") => {
+  const registry = new Map<string, { tool: NamedTool; presentation: boolean }>()
+  const register = (tool: NamedTool, presentation = false) => {
     // Match WebMCP names. https://webmachinelearning.github.io/webmcp/#dom-modelcontext-registertool
     if (
       !/^[\w.-]{1,128}$/.test(tool.name) ||
@@ -46,14 +44,14 @@ export function buildAgentTools(
       [ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL].includes(tool.name)
     )
       throw new Error(`Duplicate, reserved or invalid tool name "${tool.name}"`)
-    if (tool.widget !== undefined && !ids.has(tool.widget))
+    if (tool.widget !== undefined && !Object.hasOwn(widgets, tool.widget))
       throw new Error(`Unknown widget "${tool.widget}"`)
     const inputSchema = toJsonSchema(tool.parameters)
     if (!tool.parameters || !("~standard" in tool.parameters)) compileJsonSchema(inputSchema)
     if (tool.outputSchema) compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
-    registry.set(tool.name, { source, tool })
+    registry.set(tool.name, { tool, presentation })
   }
-  for (const [name, tool] of Object.entries(hostTools)) register({ ...tool, name }, "host")
+  for (const [name, tool] of Object.entries(hostTools)) register({ ...tool, name })
   for (const [id, widget] of Object.entries(widgets)) {
     if (!id) throw new Error("A widget ID cannot be empty")
     register(
@@ -65,14 +63,14 @@ export function buildAgentTools(
         annotations: { readOnlyHint: true },
         execute: () => toolResult({ content: `Displayed ${id}` }),
       },
-      "widget",
+      true,
     )
   }
   return [
     buildAskQuestionnaireTool(),
     ...[...registry.values()]
       .filter(({ tool }) => !tool.visibility || tool.visibility.includes("model"))
-      .map(({ tool, source }) => buildHostTool(tool, source === "widget", renderWidget, debug)),
+      .map(({ tool, presentation }) => buildHostTool(tool, presentation, renderWidget, debug)),
   ]
 }
 
@@ -143,21 +141,21 @@ export async function executeHostTool(
   tool: NamedTool,
   input: unknown,
   context: ToolExecutionContext,
-  onValidated?: (input: Record<string, unknown>) => Promise<void>,
+  onValidated?: () => Promise<void>,
 ) {
   context.signal.throwIfAborted()
-  if (tool.outputSchema) compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
+  const outputSchema = tool.outputSchema
+    ? compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
+    : undefined
   const validated = await validateParameters(tool.parameters, input ?? {})
   if (validated === null) throw new Error(`Input for tool "${tool.name}" failed schema validation`)
   context.signal.throwIfAborted()
-  await onValidated?.(validated)
+  await onValidated?.()
   context.signal.throwIfAborted()
   const output = await tool.execute(validated, context)
   try {
     canonicalInterruptJson(output)
-    const validated = await validateToolResult(output, tool.outputSchema)
-    canonicalInterruptJson(validated)
-    return { result: validated, value: output }
+    return { result: validateToolResult(output, outputSchema), value: output }
   } catch {
     throw new Error(
       `Tool "${tool.name}" ran, but its result failed JSON or output validation. Its changes may already be applied. Read current state before retrying.`,
