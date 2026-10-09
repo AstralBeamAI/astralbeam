@@ -149,11 +149,12 @@ test("avatars and existing logo APIs store files privately and enforce their own
       data: { organizationId, data: { logo: null } },
     })
     expect(clearedLogo.status()).toBe(200)
-    const cancelled = await pool.query<{ status: string }>(
-      "select status from organization_image_import where organization_id = $1",
+    const cancelled = await pool.query<{ logo: null; source: null; status: string | null }>(
+      "select o.logo, o.logo_import_source_url as source, i.status from organization o left join organization_image_import i on i.organization_id = o.id where o.id = $1",
       [organizationId],
     )
-    expect(cancelled.rows[0]!.status).toBe("disabled")
+    expect(cancelled.rows[0]).toMatchObject({ logo: null, source: null })
+    expect([null, "disabled"]).toContain(cancelled.rows[0]!.status)
     await userSettings.removeAvatar()
     expect((await page.request.get(avatarUrl!)).status()).toBe(404)
   } finally {

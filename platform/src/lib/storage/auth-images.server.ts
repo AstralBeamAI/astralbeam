@@ -13,12 +13,10 @@ import { ProfileFiles } from "./profile-files.server"
 interface ImageRequest {
   oauth?: boolean
   oauthSource?: string
-  logoGeneration?: string
-  logoSource?: string
   logoFileId?: string
 }
 const requests = defineRequestState<ImageRequest>(() => ({}))
-export const logoImportGenerationField = {
+export const privateLogoImportField = {
   type: "string",
   input: false,
   returned: false,
@@ -100,21 +98,22 @@ export const organizationImageHooks = {
     const source = input.organization.logo
     if (!source) return
     const state = await requests.get()
+    let logoImportSourceUrl: string | null = null
     if (source.startsWith("data:"))
       state.logoFileId = await imageApiEffect(
         Effect.flatMap(ProfileFiles, (files) =>
           files.prepareLogo({ source, userId: input.user.id }),
         ),
       )
-    else if (externalImageUrl(source)) {
-      state.logoSource = source
-      state.logoGeneration = crypto.randomUUID()
-    } else
+    else if (externalImageUrl(source)) logoImportSourceUrl = source
+    else
       throw new APIError("BAD_REQUEST", {
         code: "INVALID_IMAGE",
         message: "Use a valid image or public HTTPS image URL.",
       })
-    return { data: { logo: null, logoImportGeneration: state.logoGeneration } }
+    return {
+      data: { logo: null, logoImportGeneration: crypto.randomUUID(), logoImportSourceUrl },
+    }
   },
   afterCreateOrganization: async (input) => {
     await organizationProvisioningHooks.afterCreateOrganization(input)
@@ -125,25 +124,14 @@ export const organizationImageHooks = {
           files.adoptLogo({ organizationId: input.organization.id, fileId: state.logoFileId! }),
         ),
       )
-    if (state.logoSource)
-      await runAppEffect(
-        Effect.flatMap(ProfileFiles, (files) =>
-          files.queueLogo({
-            organizationId: input.organization.id,
-            source: state.logoSource!,
-            expectedLogo: input.organization.logo ?? null,
-            generation: state.logoGeneration!,
-          }),
-        ),
-      )
   },
   beforeUpdateOrganization: async (input) => {
     await organizationRoleHooks.beforeUpdateOrganization(input)
     const source = input.organization.logo
     if (source === undefined) return undefined
     const logoImportGeneration = crypto.randomUUID()
-    if (source === null) return { data: { logo: null, logoImportGeneration } }
-    const state = await requests.get()
+    if (source === null)
+      return { data: { logo: null, logoImportGeneration, logoImportSourceUrl: null } }
     if (source.startsWith("data:")) {
       const logo = await imageApiEffect(
         Effect.gen(function* () {
@@ -152,34 +140,20 @@ export const organizationImageHooks = {
           return yield* files.attachLogo({ organizationId: input.member.organizationId, fileId })
         }),
       )
-      return { data: { logo, logoImportGeneration } }
+      return { data: { logo, logoImportGeneration, logoImportSourceUrl: null } }
     }
     if (externalImageUrl(source)) {
-      state.logoSource = source
-      state.logoGeneration = logoImportGeneration
       // An import retains the prior logo until its replacement is verified.
       delete input.organization.logo
-      return { data: { ...input.organization, logoImportGeneration } }
+      return {
+        data: { ...input.organization, logoImportGeneration, logoImportSourceUrl: source },
+      }
     }
     await imageApiEffect(
       Effect.flatMap(ProfileFiles, (files) =>
         files.validateLogo({ organizationId: input.member.organizationId, image: source }),
       ),
     )
-    return { data: { ...input.organization, logoImportGeneration } }
-  },
-  afterUpdateOrganization: async (input) => {
-    const { logoSource: source, logoGeneration } = await requests.get()
-    if (source && input.organization)
-      await runAppEffect(
-        Effect.flatMap(ProfileFiles, (files) =>
-          files.queueLogo({
-            organizationId: input.member.organizationId,
-            source,
-            expectedLogo: input.organization!.logo ?? null,
-            generation: logoGeneration!,
-          }),
-        ),
-      )
+    return { data: { ...input.organization, logoImportGeneration, logoImportSourceUrl: null } }
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
