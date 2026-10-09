@@ -335,7 +335,9 @@ export async function fetchChatWebProvider(
   )
 }
 
-export function chatWebEvidenceChunk(state: ChatWebObservation): StreamChunk {
+export function chatWebEvidenceChunk(
+  state: ChatWebObservation,
+): Extract<StreamChunk, { type: "CUSTOM" }> {
   return {
     type: EventType.CUSTOM,
     name: CHAT_WEB_EVIDENCE_EVENT,

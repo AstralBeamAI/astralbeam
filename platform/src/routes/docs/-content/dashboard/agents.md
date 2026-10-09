@@ -62,7 +62,7 @@ Web access uses the selected model's existing connection. Choose OpenAI Response
 
 Citations link evidence to answer text, and web activity lists consulted sources separately. Both remain available in saved conversations and read-only transcripts. If you switch providers or models, follow-ups retain source links and available excerpts, while private provider evidence stays with its original connection and model.
 
-**NOTE**: web tools may add charges to the selected provider's bill. Each provider request permits up to five native calls, or five calls per tool when the provider exposes only a per-tool limit. Long Anthropic web operations share the existing model-turn budget. AstralBeam does not retry through a different provider.
+**NOTE**: web tools may add charges to the selected provider's bill. Each provider request permits up to five native calls, or five calls per tool when the provider exposes only a per-tool limit. Long Anthropic web operations share the existing model-turn budget. Requests are not retried through a different provider.
 
 ## Sandboxes
 

@@ -65,7 +65,11 @@ function createProviderChatAdapter(
   })
 }
 
-export function createChatAdapter(configuration: ChatModelConfiguration, webAccessEnabled = false) {
+export function createChatAdapter(
+  configuration: ChatModelConfiguration,
+  webAccessEnabled = false,
+  observeWebEvidence?: (value: unknown) => void,
+) {
   const observation: ChatWebObservation = {
     messages: [],
     replay: new Map(),
@@ -197,7 +201,9 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
           }
           yield chunk
         }
-        raw.push(...observation.blocks)
+        const blocks = observation.blocks
+        raw.push(...blocks)
+        observation.blocks = []
         const requestUsage = !Array.isArray(terminal?.usage) ? terminal?.usage : undefined
         calls.push({
           ...requestUsage,
@@ -210,13 +216,13 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
             usage.cost = (usage.cost ?? 0) + requestUsage.cost
         }
         if (terminal?.type !== EventType.RUN_ERROR && observation.stopReason === "pause_turn") {
-          observation.textOffset += observation.blocks.reduce(
+          observation.textOffset += blocks.reduce(
             (length, block) => length + (typeof block.text === "string" ? block.text.length : 0),
             0,
           )
           observation.continuation = [
             ...((observation.requestBody?.messages as []) ?? []),
-            { role: "assistant", content: observation.blocks },
+            { role: "assistant", content: blocks },
           ]
           continue
         }
@@ -236,6 +242,10 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
       }
     } finally {
       observation.continuation = undefined
+      // TanStack stops chunk middleware on cancellation. Checkpoint received evidence directly.
+      // https://github.com/TanStack/ai/blob/main/packages/ai/src/activities/chat/index.ts
+      if (observation.blocks !== raw) observation.blocks = [...raw, ...observation.blocks]
+      observeWebEvidence?.(chatWebEvidenceChunk(observation).value)
     }
   }
   return adapter

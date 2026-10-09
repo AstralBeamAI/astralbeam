@@ -320,7 +320,11 @@ export class Chat extends Context.Service<
             )
             return chatEventStream((abortController) => {
               const source = chat({
-                adapter: createChatAdapter(model, agent.webAccessEnabled),
+                adapter: createChatAdapter(
+                  model,
+                  agent.webAccessEnabled,
+                  managed.observeWebEvidence,
+                ),
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`

@@ -263,7 +263,7 @@ async function nativeWebRun(
     failure?: boolean
     application?: boolean
     fetchPage?: boolean
-    cancel?: boolean
+    cancel?: typeof EventType.TOOL_CALL_START | typeof EventType.TEXT_MESSAGE_CONTENT
     history?: ModelMessage[]
     publicHistory?: ReturnType<typeof projectChatPublicHistory>
     turnId?: string
@@ -357,7 +357,11 @@ async function nativeWebRun(
     agentId: "agent",
     execute: Effect.runPromise,
   })
-  const adapter = createChatAdapter(model, options.webAccessEnabled ?? true)
+  const adapter = createChatAdapter(
+    model,
+    options.webAccessEnabled ?? true,
+    bridge.observeWebEvidence,
+  )
   const abortController = new AbortController()
   if (options.cancel) {
     const original = adapter.chatStream.bind(adapter) as (
@@ -366,7 +370,7 @@ async function nativeWebRun(
     adapter.chatStream = async function* (input: TextOptions) {
       for await (const chunk of original(input)) {
         yield chunk
-        if (chunk.type === EventType.TOOL_CALL_START) abortController.abort()
+        if (chunk.type === options.cancel) abortController.abort()
       }
     }
   }
@@ -663,19 +667,38 @@ describe("native web access", () => {
     ).toBe(false)
   })
 
-  test("interrupted native calls persist as failed activity without pending application results", async () => {
-    const result = await nativeWebRun("anthropic", { cancel: true })
-    expect(result.error).toMatchObject({ message: "Conversation could not be saved" })
-    expect(result.signals.every((signal) => signal.aborted)).toBe(true)
-    expect(result.requests).toHaveLength(1)
-    expect(result).toMatchObject({ executed: 0, results: 0 })
-    expect(result.saved.at(-1)?.parts.find((part) => part.type === "tool-call")).toMatchObject({
-      state: "error",
-      executionLocation: "provider",
-      targets: [],
-      output: { error: "Web retrieval failed" },
-    })
-  })
+  test.each([EventType.TOOL_CALL_START, EventType.TEXT_MESSAGE_CONTENT] as const)(
+    "interrupted native calls retain observed evidence at %s without pending application results",
+    async (cancel) => {
+      const completed = cancel === EventType.TEXT_MESSAGE_CONTENT
+      const result = await nativeWebRun("anthropic", {
+        cancel,
+        application: !completed,
+        ...(completed ? {} : { response: () => deferredAnthropicFixture(true, true) }),
+      })
+      expect(result.error).toMatchObject({ message: "Conversation could not be saved" })
+      expect(result.signals.every((signal) => signal.aborted)).toBe(true)
+      expect(result.requests).toHaveLength(1)
+      expect(result).toMatchObject({ executed: 0, results: 0 })
+      expect(
+        result.saved.at(-1)?.parts.find((part) => part.executionLocation === "provider"),
+      ).toMatchObject({
+        state: completed ? "complete" : "error",
+        executionLocation: "provider",
+        targets: [],
+        output: completed
+          ? { sources: [{ url: webTestSource.url }] }
+          : { error: "Web retrieval failed" },
+      })
+      expect(result.saved.at(-1)!.parts.filter((part) => part.type === "text")).toMatchObject(
+        completed ? [{ metadata: { web: { citations: [{ url: webTestSource.url }] } } }] : [],
+      )
+      expect(JSON.stringify(result.saved.at(-1)!.modelMessages).includes("opaque-evidence")).toBe(
+        completed,
+      )
+      expect(JSON.stringify(result.saved.at(-1)!.parts)).not.toContain("opaque-")
+    },
+  )
   test("Anthropic fetched-document citations resolve to the returned URL and excerpt", async () => {
     const result = await nativeWebRun("anthropic", { fetchPage: true })
     const payload = result.saved.at(-1)!

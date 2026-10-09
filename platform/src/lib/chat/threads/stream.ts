@@ -443,6 +443,73 @@ function bufferManagedWebSnapshot(
   )
 }
 
+function observeManagedWebEvidence(
+  options: ManagedChatStreamOptions,
+  state: ManagedChatStreamState,
+  value: unknown,
+) {
+  const evidence = Schema.decodeUnknownSync(Schema.JsonObject)(value)
+  state.web = Schema.decodeUnknownSync(ChatWebEvidenceSchema)(evidence.web)
+  state.rawWeb = Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(evidence.raw)
+  state.providerUsage = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.providerUsage)
+  // TanStack pairs server uses and results only within one request. Reconcile deferred calls.
+  // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
+  for (const block of state.rawWeb)
+    if (block.type === "server_tool_use" && typeof block.id === "string")
+      state.nativeUses.set(block.id, block)
+  state.rawWeb.forEach((block) => {
+    const id = typeof block.tool_use_id === "string" ? block.tool_use_id : block.id
+    if (typeof id !== "string") return
+    const use = state.nativeUses.get(id)
+    if (!use && block.type !== "web_search_call") return
+    const previous = state.nativeParts.get(id)
+    const content = Schema.is(Schema.JsonObject)(block.content) ? block.content : undefined
+    const failed =
+      block.status === "failed" ||
+      (typeof content?.type === "string" && content.type.endsWith("_error"))
+    state.nativeParts.set(id, {
+      ...previous,
+      id,
+      name: use ? use.name! : "web_search",
+      arguments: JSON.stringify(use ? (use.input ?? {}) : (block.action ?? {})),
+      state: use
+        ? typeof block.tool_use_id === "string"
+          ? "complete"
+          : (previous?.state ?? "input-complete")
+        : block.status === "completed"
+          ? "complete"
+          : "input-complete",
+      metadata: {
+        ...previous?.metadata,
+        providerExecuted: true,
+        ...(failed ? { failed: true } : {}),
+      },
+    })
+  })
+  if (options.model.providerType === "openrouter") {
+    const counts = Schema.is(Schema.JsonObject)(state.providerUsage.server_tool_use)
+      ? state.providerUsage.server_tool_use
+      : {}
+    for (const name of ["web_search", "web_fetch"]) {
+      const count = counts[`${name}_requests`]
+      if (typeof count !== "number" || count <= 0) continue
+      const id = `${state.claim.assistantMessageId}:${name}`
+      state.nativeParts.set(id, {
+        id,
+        name,
+        arguments: "{}",
+        state: "complete",
+        metadata: {
+          providerExecuted: true,
+          aggregate: true,
+          requests: count,
+          web: state.web,
+        },
+      })
+    }
+  }
+}
+
 function managedContextMessages(state: ManagedChatStreamState, messages: readonly ModelMessage[]) {
   for (const message of messages) {
     const blocks: unknown = message.metadata?.astralbeamWeb
@@ -608,66 +675,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     },
     onChunk(_ctx, chunk) {
       if (chunk.type === EventType.CUSTOM && chunk.name === CHAT_WEB_EVIDENCE_EVENT) {
-        const evidence = Schema.decodeUnknownSync(Schema.JsonObject)(chunk.value)
-        state.web = Schema.decodeUnknownSync(ChatWebEvidenceSchema)(evidence.web)
-        state.rawWeb = Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(evidence.raw)
-        state.providerUsage = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.providerUsage)
-        // TanStack pairs server uses and results only within one request. Reconcile deferred calls.
-        // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
-        for (const block of state.rawWeb)
-          if (block.type === "server_tool_use" && typeof block.id === "string")
-            state.nativeUses.set(block.id, block)
-        for (const block of state.rawWeb) {
-          const id = typeof block.tool_use_id === "string" ? block.tool_use_id : block.id
-          if (typeof id !== "string") continue
-          const use = state.nativeUses.get(id)
-          if (!use && block.type !== "web_search_call") continue
-          const previous = state.nativeParts.get(id)
-          const content = Schema.is(Schema.JsonObject)(block.content) ? block.content : undefined
-          const failed =
-            block.status === "failed" ||
-            (typeof content?.type === "string" && content.type.endsWith("_error"))
-          state.nativeParts.set(id, {
-            ...previous,
-            id,
-            name: use ? use.name! : "web_search",
-            arguments: JSON.stringify(use ? (use.input ?? {}) : (block.action ?? {})),
-            state: use
-              ? typeof block.tool_use_id === "string"
-                ? "complete"
-                : (previous?.state ?? "input-complete")
-              : block.status === "completed"
-                ? "complete"
-                : "input-complete",
-            metadata: {
-              ...previous?.metadata,
-              providerExecuted: true,
-              ...(failed ? { failed: true } : {}),
-            },
-          })
-        }
-        if (options.model.providerType === "openrouter") {
-          const counts = Schema.is(Schema.JsonObject)(state.providerUsage.server_tool_use)
-            ? state.providerUsage.server_tool_use
-            : {}
-          for (const name of ["web_search", "web_fetch"]) {
-            const count = counts[`${name}_requests`]
-            if (typeof count !== "number" || count <= 0) continue
-            const id = `${state.claim.assistantMessageId}:${name}`
-            state.nativeParts.set(id, {
-              id,
-              name,
-              arguments: "{}",
-              state: "complete",
-              metadata: {
-                providerExecuted: true,
-                aggregate: true,
-                requests: count,
-                web: state.web,
-              },
-            })
-          }
-        }
+        observeManagedWebEvidence(options, state, chunk.value)
         return null
       }
       if (
@@ -727,7 +735,11 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     onError: checkpointInterrupted,
     onAbort: checkpointInterrupted,
   }
-  return { state, middleware: [persistence, gates] }
+  return {
+    state,
+    middleware: [persistence, gates],
+    observeWebEvidence: (value: unknown) => observeManagedWebEvidence(options, state, value),
+  }
 }
 
 export async function* managedChatDelivery(input: {
