@@ -224,7 +224,9 @@ test.each(["accepted", "finished"])(
           }),
       )
     const chat = createAstralBeamChat(options)
-    const accepted = vi.fn()
+    const accepted = vi.fn(() => {
+      throw new Error("Host callback failed")
+    })
     try {
       await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe("previous"))
       const active = chat.sendMessage("First")
@@ -252,6 +254,7 @@ test.each(["accepted", "finished"])(
         release(rejected(409, "This turn has finished. Queue your message as a new turn"))
       }
       await steered
+      expect(chat.getState().error).toBeUndefined()
       expect(net.steering[0]?.body).toMatchObject({
         turn_message_id: turnId,
         parts: [{ type: "text", content: "Use the blue option" }],
