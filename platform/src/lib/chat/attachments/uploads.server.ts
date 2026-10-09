@@ -4,7 +4,14 @@ import { Context, Effect, Layer } from "effect"
 import { Database } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
-import { chatFile, fileObject, fileUpload, multipartDeletion, tenantUser } from "@/db/schema.server"
+import {
+  cacheEntry,
+  chatFile,
+  fileObject,
+  fileUpload,
+  multipartDeletion,
+  tenantUser,
+} from "@/db/schema.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { MultipartStorage, type StoragePart } from "@/lib/storage/multipart-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -30,6 +37,8 @@ type UploadFailure =
   | UploadRateLimited
   | ChatThreadStorageUnavailable
 type UploadRow = typeof fileUpload.$inferSelect
+const uploadCancellationKey = (scope: ChatThreadScope, prepareKey: string) =>
+  `${scope.organizationId}:${scope.tenantId}:${scope.tenantUserId}:${prepareKey}`
 const uploadOwnerWhere = (scope: ChatThreadScope, id?: string) =>
   and(
     eq(fileUpload.organizationId, scope.organizationId),
@@ -175,6 +184,17 @@ export class Uploads extends Context.Service<
                   }
                   return { row: existing, created: false }
                 }
+                const [cancelled] = yield* tx
+                  .select({ id: cacheEntry.id })
+                  .from(cacheEntry)
+                  .where(
+                    and(
+                      eq(cacheEntry.namespace, "UploadCancellation/v1"),
+                      eq(cacheEntry.key, uploadCancellationKey(scope, input.prepareKey)),
+                      gt(cacheEntry.expiresAt, sql`statement_timestamp()`),
+                    ),
+                  )
+                if (cancelled) return yield* new UploadConflict()
               }
               const pending = yield* tx
                 .select({ id: fileUpload.id })
@@ -475,6 +495,19 @@ export class Uploads extends Context.Service<
                 .from(fileUpload)
                 .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, prepareKey)))
               if (row) yield* cancel(scope, row.id)
+              else
+                yield* tx
+                  .insert(cacheEntry)
+                  .values({
+                    namespace: "UploadCancellation/v1",
+                    key: uploadCancellationKey(scope, prepareKey),
+                    value: "true",
+                    expiresAt: sql`statement_timestamp() + interval '24 hours'`,
+                  })
+                  .onConflictDoUpdate({
+                    target: [cacheEntry.namespace, cacheEntry.key],
+                    set: { expiresAt: sql`statement_timestamp() + interval '24 hours'` },
+                  })
             }),
           )
           .pipe(mapDatabaseErrors())
