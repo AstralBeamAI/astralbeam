@@ -1,5 +1,6 @@
 import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore } from "../../core/session.ts"
+import type { ChatAuthenticationState } from "../../core/auth.ts"
 import type { DraftAttachment } from "./types.ts"
 import { storedThreadAttachments } from "./drafts.ts"
 
@@ -74,6 +75,11 @@ export function attachmentUploadState(chat: AstralBeamChatCore) {
 }
 type AttachmentUploads = ReturnType<typeof attachmentUploadState>
 type Settle = (update: Partial<DraftAttachment>) => void
+
+function checkUploadAuthentication(uploads: AttachmentUploads, auth: ChatAuthenticationState) {
+  if (uploads.chat.getState().auth !== auth)
+    throw new DOMException("Authentication changed", "AbortError")
+}
 
 export function attachmentUploadPreview({
   uploads,
@@ -328,13 +334,17 @@ export function releaseAttachmentUpload({
 export async function removeAttachmentUpload({
   uploads,
   draft,
+  auth = uploads.chat.getState().auth,
 }: {
   uploads: AttachmentUploads
   draft: DraftAttachment
+  auth?: ChatAuthenticationState
 }) {
+  checkUploadAuthentication(uploads, auth)
   const task = uploads.tasks.get(draft.id)
   releaseAttachmentUpload({ uploads, id: draft.id })
   await task?.preparation?.catch(() => undefined)
+  checkUploadAuthentication(uploads, auth)
   const attempted = task?.prepareAttempted ?? draft.prepareAttempted ?? !!draft.sha256
   if (!draft.sessionId && !attempted) return
   await (
@@ -346,6 +356,7 @@ export async function removeAttachmentUpload({
     if (task?.prepareAttempted && !uploads.tasks.has(draft.id)) uploads.tasks.set(draft.id, task)
     throw error
   })
+  checkUploadAuthentication(uploads, auth)
 }
 
 export async function discardAttachmentUploads({
@@ -354,13 +365,16 @@ export async function discardAttachmentUploads({
   identity,
   threadId,
   attachments,
+  auth,
 }: {
   uploads: AttachmentUploads
   apiUrl: string
   identity: string
   threadId: string
   attachments: readonly DraftAttachment[]
+  auth: ChatAuthenticationState
 }) {
+  checkUploadAuthentication(uploads, auth)
   const persisted = await storedThreadAttachments({ apiUrl, identity, threadId })
   const files = new Map(persisted.map((file) => [file.id, file]))
   for (const file of attachments)
@@ -371,9 +385,11 @@ export async function discardAttachmentUploads({
     })
   await Promise.all(
     [...files.values()].map(async (file) => {
+      checkUploadAuthentication(uploads, auth)
       const task = uploads.tasks.get(file.id)
       releaseAttachmentUpload({ uploads, id: file.id })
       await task?.preparation?.catch(() => undefined)
+      checkUploadAuthentication(uploads, auth)
       const attempted = task?.prepareAttempted ?? file.prepareAttempted ?? !!file.sha256
       if (!file.sessionId && !attempted) return
       await (
@@ -395,7 +411,10 @@ export async function discardAttachmentUploads({
     apiUrl,
     identity,
     threadId,
-    update: (current) => current.filter((file) => !files.has(file.id)),
+    update: (current) => {
+      checkUploadAuthentication(uploads, auth)
+      return current.filter((file) => !files.has(file.id))
+    },
   })
 }
 
