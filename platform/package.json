@@ -78,7 +78,6 @@
     "commander": "^15.0.0",
     "drizzle-orm": "^1.0.0-rc.5",
     "effect": "^4.0.0",
-    "eventsource-parser": "^4.1.1",
     "fflate": "^0.8.3",
     "jose": "^6.2.10",
     "minisearch": "^7.2.0",

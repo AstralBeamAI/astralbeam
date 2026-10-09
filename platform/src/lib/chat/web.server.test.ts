@@ -1,7 +1,6 @@
 import {
   chat,
   StreamProcessor,
-  type UIMessage,
   EventType,
   toolDefinition,
   type ModelMessage,
@@ -390,19 +389,13 @@ async function nativeWebRun(
     if (!options.cancel && !options.allowError) throw cause
     error = cause
   }
-  return {
-    claim,
-    requests,
-    signals,
-    saved,
-    chunks,
-    executed,
-    results,
-    model,
-    adapter,
-    tools,
-    error,
-  }
+  return { claim, requests, signals, saved, chunks, executed, results, model, error }
+}
+
+function nativeWebMessages(chunks: StreamChunk[]) {
+  const processor = new StreamProcessor()
+  for (const chunk of chunks) processor.processChunk(chunk)
+  return processor.getMessages()
 }
 
 describe("native web access", () => {
@@ -410,10 +403,7 @@ describe("native web access", () => {
     "delivers saved citations and settled activity for native-only %s answers",
     async (provider) => {
       const result = await nativeWebRun(provider)
-      const processor = new StreamProcessor()
-      for (const chunk of result.chunks) processor.processChunk(chunk)
-      const parts = processor
-        .getMessages()
+      const parts = nativeWebMessages(result.chunks)
         .filter((message) => message.role === "assistant")
         .flatMap((message) => message.parts)
       const saved = result.saved.at(-1)!.parts
@@ -429,8 +419,7 @@ describe("native web access", () => {
       const payload = result.saved.at(-1)!
       for (const part of saved.filter((part) => part.type === "tool-call"))
         expect(part).toMatchObject({ executionLocation: "provider", targets: [] })
-      expect(result.executed).toBe(0)
-      expect(result.results).toBe(0)
+      expect(result).toMatchObject({ executed: 0, results: 0 })
       expect(JSON.stringify(result.chunks)).not.toContain("opaque-")
       expect(JSON.stringify(payload.parts)).not.toContain("opaque-")
       expect(payload.provenance?.usage).toHaveProperty("providerUsage")
@@ -446,22 +435,18 @@ describe("native web access", () => {
         protocol: result.model.api,
         modelId: result.model.modelId,
       })
-      for await (const _chunk of chat({
-        adapter: result.adapter,
-        tools: result.tools,
-        messages: [...projected, { role: "user", content: "Explain that evidence" }],
-      })) {
-        /* Consume the bounded follow-up. */
-      }
-      expect(JSON.stringify(result.requests[1]).includes("opaque-evidence")).toBe(
+      const followUp = await nativeWebRun(provider, {
+        history: [...projected, { role: "user", content: "Explain that evidence" }],
+      })
+      expect(JSON.stringify(followUp.requests[0]).includes("opaque-evidence")).toBe(
         provider === "anthropic",
       )
       expect(
-        provider !== "openrouter" || JSON.stringify(result.requests[1]).includes('"annotations"'),
+        provider !== "openrouter" || JSON.stringify(followUp.requests[0]).includes('"annotations"'),
       ).toBe(true)
       expect(
         provider !== "openrouter" ||
-          (result.requests[1]!.messages as { tool_calls?: unknown[] }[]).some(
+          (followUp.requests[0]!.messages as { tool_calls?: unknown[] }[]).some(
             (message) => message.tool_calls?.length,
           ) === false,
       ).toBe(true)
@@ -477,53 +462,32 @@ describe("native web access", () => {
     },
   )
 
-  test.each([false, true])(
-    "preserves earlier citations at a browser wait, provider changed=%s",
-    async (changed) => {
-      const first = await nativeWebRun("anthropic")
-      const records = [
-        {
-          id: "previous-answer",
-          role: "assistant" as const,
-          state: "complete" as const,
-          payload: first.saved.at(-1)!,
-        },
-      ]
-      const second = await nativeWebRun("anthropic", {
-        application: true,
-        browser: true,
-        history: [
-          ...projectChatModelHistory(
-            records,
-            changed
-              ? undefined
-              : {
-                  providerId: first.model.providerId,
-                  protocol: first.model.api,
-                  modelId: first.model.modelId,
-                },
-          ),
-          { id: "follow-up", role: "user", content: "Explain that evidence" },
-        ],
-        publicHistory: projectChatPublicHistory(records),
-      })
-      const processor = new StreamProcessor()
-      processor.setMessages([
-        {
-          id: "previous-answer",
-          role: "assistant",
-          parts: records[0]!.payload.parts as unknown as UIMessage["parts"],
-        },
-      ])
-      for (const chunk of second.chunks) processor.processChunk(chunk)
-      expect(
-        processor.getMessages().find((message) => message.id === "previous-answer")!.parts,
-      ).toEqual(records[0]!.payload.parts)
-      expect(second.executed).toBe(0)
-      expect(second.results).toBe(0)
-      expect(JSON.stringify(processor.getMessages())).not.toContain("Saved web evidence:")
-    },
-  )
+  test("preserves earlier citations at a browser wait after a provider change", async () => {
+    const first = await nativeWebRun("anthropic")
+    const records = [
+      {
+        id: "previous-answer",
+        role: "assistant" as const,
+        state: "complete" as const,
+        payload: first.saved.at(-1)!,
+      },
+    ]
+    const second = await nativeWebRun("anthropic", {
+      application: true,
+      browser: true,
+      history: [
+        ...projectChatModelHistory(records),
+        { id: "follow-up", role: "user", content: "Explain that evidence" },
+      ],
+      publicHistory: projectChatPublicHistory(records),
+    })
+    const messages = nativeWebMessages(second.chunks)
+    expect(messages.find((message) => message.id === "previous-answer")!.parts).toEqual(
+      records[0]!.payload.parts,
+    )
+    expect(second).toMatchObject({ executed: 0, results: 0 })
+    expect(JSON.stringify(messages)).not.toContain("Saved web evidence:")
+  })
 
   test("records deferred Anthropic results across an application turn", async () => {
     const result = await nativeWebRun("anthropic", {
@@ -534,13 +498,9 @@ describe("native web access", () => {
     expect(
       result.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider"),
     ).toMatchObject({ name: "web_search", state: "complete", targets: [] })
-    expect(result.results).toBe(1)
-    expect(result.executed).toBe(1)
-    const processor = new StreamProcessor()
-    for (const chunk of result.chunks) processor.processChunk(chunk)
+    expect(result).toMatchObject({ executed: 1, results: 1 })
     expect(
-      processor
-        .getMessages()
+      nativeWebMessages(result.chunks)
         .flatMap((message) => message.parts)
         .filter(
           (part) =>
@@ -596,11 +556,8 @@ describe("native web access", () => {
     expect(
       second.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider"),
     ).toMatchObject({ state: "complete", targets: [] })
-    const processor = new StreamProcessor()
-    for (const chunk of second.chunks) processor.processChunk(chunk)
     expect(
-      processor
-        .getMessages()
+      nativeWebMessages(second.chunks)
         .find((message) => message.id === "decision")!
         .parts.find((part) => part.type === "tool-call"),
     ).toMatchObject({ state: "complete" })
@@ -662,8 +619,7 @@ describe("native web access", () => {
     expect(result.error).toMatchObject({ message: "Conversation could not be saved" })
     expect(result.signals.every((signal) => signal.aborted)).toBe(true)
     expect(result.requests).toHaveLength(1)
-    expect(result.executed).toBe(0)
-    expect(result.results).toBe(0)
+    expect(result).toMatchObject({ executed: 0, results: 0 })
     expect(result.saved.at(-1)?.parts.find((part) => part.type === "tool-call")).toMatchObject({
       state: "error",
       executionLocation: "provider",

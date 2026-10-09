@@ -1,6 +1,6 @@
 import { EventType, type ModelMessage, type StreamChunk } from "@tanstack/ai"
-import { createParser } from "eventsource-parser"
 import { Schema } from "effect"
+import { Sse } from "effect/encoding"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { chatStoredJson } from "./threads/projection.server"
@@ -17,7 +17,7 @@ const ChatWebCitationSchema = Schema.Struct({
   startIndex: Schema.Number,
   endIndex: Schema.Number,
 })
-const ChatWebEvidenceSchema = Schema.Struct({
+export const ChatWebEvidenceSchema = Schema.Struct({
   sources: Schema.Array(ChatWebSourceSchema),
   citations: Schema.Array(ChatWebCitationSchema),
 })
@@ -319,10 +319,9 @@ export async function fetchChatWebProvider(
   )
   if (!response.ok || !response.body) return response
   const decoder = new TextDecoder()
-  const parser = createParser({
-    onEvent({ data }) {
-      if (data !== "[DONE]") observeChatWebEvent(state, model, chatWebRecord(JSON.parse(data)))
-    },
+  const parser = Sse.makeParser((event) => {
+    if (event._tag === "Event" && event.data !== "[DONE]")
+      observeChatWebEvent(state, model, chatWebRecord(JSON.parse(event.data)))
   })
   return new Response(
     response.body.pipeThrough(

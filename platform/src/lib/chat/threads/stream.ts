@@ -22,7 +22,11 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson, settleChatWebActivity } from "./projection"
-import { CHAT_WEB_EVIDENCE_EVENT, publicChatWebPart } from "../web-evidence.server"
+import {
+  CHAT_WEB_EVIDENCE_EVENT,
+  ChatWebEvidenceSchema,
+  publicChatWebPart,
+} from "../web-evidence.server"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -84,8 +88,8 @@ interface ManagedChatStreamState {
   readonly savedMessages: Map<string, ManagedAssistantMessage>
   readonly nativeParts: Map<string, typeof Schema.JsonObject.Type>
   readonly nativeUses: Map<string, typeof Schema.JsonObject.Type>
-  web: typeof Schema.JsonObject.Type | undefined
-  rawWeb: readonly (typeof Schema.Json.Type)[] | undefined
+  web: typeof ChatWebEvidenceSchema.Type | undefined
+  rawWeb: readonly (typeof Schema.JsonObject.Type)[] | undefined
   providerUsage: typeof Schema.JsonObject.Type | undefined
 }
 
@@ -211,9 +215,6 @@ function managedAssistantPayload(
                     ...(Schema.is(Schema.JsonObject)(json.metadata)
                       ? chatStoredJson(json.metadata)
                       : {}),
-                    ...(Schema.is(Schema.JsonObject)(native.metadata)
-                      ? chatStoredJson(native.metadata)
-                      : {}),
                     ...(state.web
                       ? {
                           web:
@@ -231,24 +232,13 @@ function managedAssistantPayload(
         if (part.type === "text" && state.web) {
           const offset = textOffset
           textOffset += part.content.length
-          const citations = Schema.is(Schema.Array(Schema.JsonObject))(state.web.citations)
-            ? state.web.citations.flatMap((citation) => {
-                if (
-                  typeof citation.endIndex !== "number" ||
-                  typeof citation.startIndex !== "number" ||
-                  citation.endIndex <= offset ||
-                  citation.endIndex > textOffset
-                )
-                  return []
-                return [
-                  {
-                    ...citation,
-                    startIndex: Math.max(0, citation.startIndex - offset),
-                    endIndex: citation.endIndex - offset,
-                  },
-                ]
-              })
-            : []
+          const citations = state.web.citations
+            .filter((citation) => citation.endIndex > offset && citation.endIndex <= textOffset)
+            .map((citation) => ({
+              ...citation,
+              startIndex: Math.max(0, citation.startIndex - offset),
+              endIndex: citation.endIndex - offset,
+            }))
           json.metadata = {
             web: { sources: state.nativeParts.size ? [] : (state.web.sources ?? []), citations },
           }
@@ -621,20 +611,15 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     onChunk(_ctx, chunk) {
       if (chunk.type === EventType.CUSTOM && chunk.name === CHAT_WEB_EVIDENCE_EVENT) {
         const evidence = Schema.decodeUnknownSync(Schema.JsonObject)(chunk.value)
-        state.web = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.web)
-        state.rawWeb = Schema.decodeUnknownSync(Schema.Array(Schema.Json))(evidence.raw)
+        state.web = Schema.decodeUnknownSync(ChatWebEvidenceSchema)(evidence.web)
+        state.rawWeb = Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(evidence.raw)
         state.providerUsage = Schema.decodeUnknownSync(Schema.JsonObject)(evidence.providerUsage)
         // TanStack pairs server uses and results only within one request. Reconcile deferred calls.
         // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
         for (const block of state.rawWeb)
-          if (
-            Schema.is(Schema.JsonObject)(block) &&
-            block.type === "server_tool_use" &&
-            typeof block.id === "string"
-          )
+          if (block.type === "server_tool_use" && typeof block.id === "string")
             state.nativeUses.set(block.id, block)
         for (const block of state.rawWeb) {
-          if (!Schema.is(Schema.JsonObject)(block)) continue
           if (block.type === "web_search_call" && typeof block.id === "string") {
             state.nativeParts.set(block.id, {
               id: block.id,
@@ -665,14 +650,13 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
               },
             })
           }
-          const id = typeof block.tool_use_id === "string" ? block.tool_use_id : block.id
           const content = Schema.is(Schema.JsonObject)(block.content) ? block.content : undefined
           const failed =
             block.status === "failed" ||
             (typeof content?.type === "string" && content.type.endsWith("_error"))
-          const part = typeof id === "string" ? state.nativeParts.get(id) : undefined
-          if (failed && part && typeof id === "string")
-            state.nativeParts.set(id, {
+          const part = typeof useId === "string" ? state.nativeParts.get(useId) : undefined
+          if (failed && part && typeof useId === "string")
+            state.nativeParts.set(useId, {
               ...part,
               metadata: {
                 ...Schema.decodeUnknownSync(Schema.JsonObject)(part.metadata),
