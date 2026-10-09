@@ -50,7 +50,7 @@ const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
 const testObjects = new Map<string, Uint8Array>()
-const testStorage = process.env.S3_ENDPOINT
+const baseStorage = process.env.S3_ENDPOINT
   ? ObjectStorage.layer
   : Layer.succeed(ObjectStorage, {
       put: ({ key, bytes }) =>
@@ -78,6 +78,18 @@ const testStorage = process.env.S3_ENDPOINT
         }),
       testConnection: () => Effect.void,
     })
+const storageReads = vi.fn()
+const testStorage = Layer.effect(
+  ObjectStorage,
+  Effect.map(ObjectStorage, (storage) => ({
+    ...storage,
+    get: (input) =>
+      Effect.suspend(() => {
+        storageReads()
+        return storage.get(input)
+      }),
+  })),
+).pipe(Layer.provide(baseStorage))
 const filesLayer = ChatFiles.layerNoDeps.pipe(
   Layer.provideMerge([
     Database.layer,
@@ -101,6 +113,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.dispose()
   })
   beforeEach(async () => {
+    storageReads.mockClear()
     await db.execute(sql`truncate organization cascade`)
     const [org] = await db.insert(organization).values({ name: "Chat", slug: "chat" }).returning()
     const organizationId = org!.id
@@ -187,41 +200,65 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     },
   )
 
-  test("reused checkpoint identities restore missing objects and reject changed metadata", async () => {
-    const thread = await create()
+  test("producer checkpoints reuse verified media but a fresh claim heals missing objects", async () => {
     const objects = ManagedRuntime.make(testStorage)
     try {
-      const storage = await objects.runPromise(ObjectStorage)
-      const files = await runtime.runPromise(ChatFiles)
+      const thread = await create()
+      const accepted = await admit(thread.id)
       const part = {
         id: crypto.randomUUID(),
         type: "video",
-        source: {
-          type: "data",
-          value: Buffer.from("Generated clip").toString("base64"),
-          mimeType: "video/mp4",
-        },
+        source: { type: "data", value: "R2VuZXJhdGVkIGNsaXA=", mimeType: "video/mp4" },
       }
-      const checkpoint = {
+      const output = {
         version: 1 as const,
         parts: [part],
         modelMessages: [{ role: "assistant", content: [part] }],
       }
-      const owner = { ...scope, threadId: thread.id }
-      const first = await runtime.runPromise(files.externalize(owner, checkpoint))
-      const source = first.parts[0]!.source as { value: string }
-      const [file] = await db.select().from(fileObject).where(eq(fileObject.id, source.value))
-      await objects.runPromise(storage.remove({ key: file!.objectKey }))
-      expect(await runtime.runPromise(files.externalize(owner, checkpoint))).toEqual(first)
+      for (let count = 0; count < 2; count += 1)
+        await runtime.runPromise(
+          service.checkpoint({ claim: accepted.claim!, payload: output, state: "draft" }),
+        )
+      expect(storageReads).toHaveBeenCalledOnce()
+      const [removed] = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+      await db.delete(fileObject).where(eq(fileObject.id, removed!.id))
+      await runtime.runPromise(
+        service.checkpoint({ claim: accepted.claim!, payload: output, state: "draft" }),
+      )
+      expect(storageReads).toHaveBeenCalledTimes(2)
+      await runtime.runPromise(service.finish({ claim: accepted.claim!, payload: output }))
+      expect(storageReads).toHaveBeenCalledTimes(2)
+      const [file] = await db
+        .select({ file: fileObject })
+        .from(chatFile)
+        .innerJoin(fileObject, eq(fileObject.id, chatFile.id))
+        .where(eq(chatFile.threadId, thread.id))
+      expect(file!.file.id).not.toBe(removed!.id)
+      const storage = await objects.runPromise(ObjectStorage)
+      await objects.runPromise(storage.remove({ key: file!.file.objectKey }))
+      const next = await admit(thread.id)
+      const resumed = { ...output, parts: [{ ...part, id: crypto.randomUUID() }] }
+      await runtime.runPromise(
+        service.checkpoint({ claim: next.claim!, payload: resumed, state: "draft" }),
+      )
+      expect(storageReads).toHaveBeenCalledTimes(4)
       expect(
-        await objects.runPromise(storage.get({ key: file!.objectKey, maxBytes: file!.byteSize })),
+        await objects.runPromise(
+          storage.get({ key: file!.file.objectKey, maxBytes: file!.file.byteSize }),
+        ),
       ).toEqual(new TextEncoder().encode("Generated clip"))
       await db
         .update(fileObject)
         .set({ sha256: "0".repeat(64) })
-        .where(eq(fileObject.id, source.value))
+        .where(eq(fileObject.id, file!.file.id))
       expect(
-        (await runtime.runPromise(files.externalize(owner, checkpoint).pipe(Effect.flip)))._tag,
+        (
+          await runtime.runPromise(
+            service
+              .checkpoint({ claim: next.claim!, payload: resumed, state: "draft" })
+              .pipe(Effect.flip),
+          )
+        )._tag,
       ).toBe("ChatThreadStorageUnavailable")
     } finally {
       await objects.dispose()
@@ -351,6 +388,17 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
     expect(await db.select().from(chatFile).where(eq(chatFile.id, after[0]!.id))).toHaveLength(1)
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: first, state: "draft" }),
+    )
+    const returned = await runtime.runPromise(
+      service.getMessage({ scope, id: thread.id, messageId: accepted.claim!.assistantMessageId }),
+    )
+    const source = returned.payload.parts[0]!.source as { value: string }
+    expect(source.value).not.toBe(before[0]!.id)
+    expect(await db.select().from(fileObject).where(eq(fileObject.id, source.value))).toHaveLength(
+      1,
+    )
   })
 
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
