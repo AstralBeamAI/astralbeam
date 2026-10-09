@@ -224,21 +224,18 @@ export class ObjectStorage extends Context.Service<
               const bytes = crypto.getRandomValues(new Uint8Array(32))
               let versionId: string | undefined
               yield* Effect.gen(function* () {
-                yield* storageRequest((abortSignal) =>
-                  client
-                    .send(
-                      new PutObjectCommand({
-                        Bucket: connection.bucket,
-                        Key: key,
-                        Body: bytes,
-                        ContentType: "application/octet-stream",
-                      }),
-                      { abortSignal },
-                    )
-                    .then((object) => {
-                      versionId = object.VersionId
+                yield* storageRequest(async (abortSignal) => {
+                  const object = await client.send(
+                    new PutObjectCommand({
+                      Bucket: connection.bucket,
+                      Key: key,
+                      Body: bytes,
+                      ContentType: "application/octet-stream",
                     }),
-                )
+                    { abortSignal },
+                  )
+                  versionId = object.VersionId
+                })
                 const object = yield* storageRequest((abortSignal) =>
                   client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
                     abortSignal,
