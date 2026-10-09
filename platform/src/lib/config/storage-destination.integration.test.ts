@@ -121,7 +121,9 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     }
     const restarted = ManagedRuntime.make(Config.layer)
     try {
+      vi.stubEnv("S3_ENDPOINT", "http://127.0.0.1:9000")
       await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
+      vi.stubEnv("S3_ENDPOINT", "")
       const result = await restarted.runPromise(
         Effect.flatMap(Config, (config) =>
           config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),

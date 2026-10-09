@@ -133,7 +133,8 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     key: "s3_access_key_id",
     group: "File storage",
     label: "S3 access-key ID",
-    description: "Storage credential with object read, write, and delete permissions.",
+    description:
+      "Object read, write, and delete permissions. AWS also needs s3:ListBucket to detect missing files.",
     kind: "secret",
     required: true,
     schema: NonEmptyStringSchema,

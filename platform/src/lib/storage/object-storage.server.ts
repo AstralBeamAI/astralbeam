@@ -247,6 +247,17 @@ export class ObjectStorage extends Context.Service<
                 ),
               )
               yield* removeObject(client, connection.bucket, key)
+              yield* storageRequest((abortSignal) =>
+                client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
+                  abortSignal,
+                }),
+              ).pipe(
+                Effect.matchEffect({
+                  onFailure: (error) =>
+                    error._tag === "StorageObjectMissing" ? Effect.void : Effect.fail(error),
+                  onSuccess: () => Effect.fail(new StorageUnavailable()),
+                }),
+              )
             }),
           ),
         ),

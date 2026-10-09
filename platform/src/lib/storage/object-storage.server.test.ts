@@ -10,6 +10,8 @@ import { ObjectStorage } from "./object-storage.server"
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
   let omitHeadSize = false
+  let corruptDownloads = true
+  let denyMissing = false
   let stall = false
   let notifyHead: () => void = () => undefined
   const headStarted = new Promise<void>((resolve) => {
@@ -39,7 +41,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
       } else {
         const bytes = objects.get(key)
         if (!bytes) {
-          response.writeHead(404).end()
+          response.writeHead(denyMissing ? 403 : 404).end()
           return
         }
         if (request.method === "HEAD" && stall) {
@@ -50,7 +52,13 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
           200,
           request.method === "HEAD" && omitHeadSize ? {} : { "Content-Length": bytes.length },
         )
-        response.end(request.method === "HEAD" ? undefined : new Uint8Array(bytes.length))
+        response.end(
+          request.method === "HEAD"
+            ? undefined
+            : corruptDownloads
+              ? new Uint8Array(bytes.length)
+              : bytes,
+        )
       }
     }
     void respond().catch(() => response.writeHead(500).end())
@@ -104,6 +112,18 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
     objects.delete("/test/metadata")
     omitHeadSize = false
+    corruptDownloads = false
+    for (const denied of [true, false]) {
+      denyMissing = denied
+      const checked = await Effect.runPromise(
+        Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
+          Effect.result,
+          Effect.provide(layer),
+        ),
+      )
+      expect(checked._tag).toBe(denied ? "Failure" : "Success")
+      expect(objects.size).toBe(0)
+    }
     const logs: string[] = []
     const denied = await Effect.runPromise(
       Effect.flatMap(ObjectStorage, (storage) =>

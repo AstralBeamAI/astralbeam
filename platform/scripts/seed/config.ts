@@ -3,8 +3,10 @@ import { createHash } from "node:crypto"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
 import { inArray, like, sql } from "drizzle-orm"
+import { Schema } from "effect"
 
 import { configTable } from "../../src/db/schema.server.ts"
+import { StoredStorageDestinationSchema } from "../../src/lib/storage/schemas.ts"
 
 import type { SeedDatabase, SeedTransaction } from "./database.ts"
 import { SEED_CONFIG_VALUES } from "./fixtures.ts"
@@ -35,7 +37,7 @@ export async function seedConfig(
     .select()
     .from(configTable)
     .where(inArray(configTable.key, ["s3_destination", "s3_endpoint"]))
-  const storagePin = storage.some(({ key }) => key === "s3_destination")
+  const storagePin = storage.find(({ key }) => key === "s3_destination")
   const values = {
     ...SEED_CONFIG_VALUES,
     s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
@@ -47,9 +49,12 @@ export async function seedConfig(
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
   }
   const localStorage = localStorageEndpoint(
-    process.env.S3_ENDPOINT ||
-      storage.find(({ key, value }) => key === "s3_endpoint" && value.key === key)?.value.value ||
-      values.s3_endpoint,
+    storagePin
+      ? Schema.decodeUnknownSync(StoredStorageDestinationSchema)(storagePin.value.value).endpoint
+      : process.env.S3_ENDPOINT ||
+          storage.find(({ key, value }) => key === "s3_endpoint" && value.key === key)?.value
+            .value ||
+          values.s3_endpoint,
   )
   const rotateCredentials =
     localStorage && (process.env.RUSTFS_ACCESS_KEY || process.env.RUSTFS_SECRET_KEY)
