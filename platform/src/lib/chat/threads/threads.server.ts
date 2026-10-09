@@ -1617,11 +1617,19 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors())
       })
 
+      const assertActive = Effect.fn("ChatThreads.assertActive")(
+        ({ claim }: { claim: ChatWriterClaim }) =>
+          db
+            .transaction((tx) => checkClaim(tx, claim).pipe(Effect.asVoid))
+            .pipe(mapDatabaseErrors()),
+      )
+
       const checkpoint = Effect.fn("ChatThreads.checkpoint")(function* (input: {
         claim: ChatWriterClaim
         payload: ChatMessagePayload
         state: "draft" | "complete"
       }) {
+        yield* assertActive({ claim: input.claim })
         const payload = yield* files.externalize(
           { ...input.claim.scope, threadId: input.claim.threadId },
           input.payload,
@@ -1635,13 +1643,6 @@ export class ChatThreads extends Context.Service<
           )
           .pipe(mapDatabaseErrors())
       })
-
-      const assertActive = Effect.fn("ChatThreads.assertActive")(
-        ({ claim }: { claim: ChatWriterClaim }) =>
-          db
-            .transaction((tx) => checkClaim(tx, claim).pipe(Effect.asVoid))
-            .pipe(mapDatabaseErrors()),
-      )
 
       const nextDraft = Effect.fn("ChatThreads.nextDraft")(
         ({ claim }: { claim: ChatWriterClaim }) =>
@@ -1757,6 +1758,7 @@ export class ChatThreads extends Context.Service<
           payload?: ChatMessagePayload | undefined
         }) =>
           Effect.gen(function* () {
+            if (payload) yield* assertActive({ claim })
             const prepared = payload
               ? yield* files.externalize({ ...claim.scope, threadId: claim.threadId }, payload)
               : undefined
