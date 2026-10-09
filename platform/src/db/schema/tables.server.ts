@@ -23,3 +23,11 @@ export {
   chatParticipant,
 } from "./chat.server.ts"
 export { rateLimit } from "./rate-limit.server.ts"
+export {
+  fileObject,
+  userAvatar,
+  organizationLogo,
+  userImageImport,
+  organizationImageImport,
+  fileDeletion,
+} from "./files.server.ts"

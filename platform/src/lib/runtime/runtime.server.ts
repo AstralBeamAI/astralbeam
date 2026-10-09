@@ -19,6 +19,8 @@ import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { ProfileFiles } from "@/lib/storage/profile-files.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 
 const LoggerLayer = Logger.layer([
@@ -40,6 +42,8 @@ function makeAppLayer() {
     Dogfood.layer,
     Mailer.layer,
     ObjectStorage.layer,
+    StoredFiles.layer,
+    ProfileFiles.layer,
     Organizations.layer,
     ModelProviders.layer,
     SandboxProviders.layer,

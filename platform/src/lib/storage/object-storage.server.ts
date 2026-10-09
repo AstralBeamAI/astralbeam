@@ -94,14 +94,18 @@ export class ObjectStorage extends Context.Service<
         lookup: acquireStorageClient,
         idleTimeToLive: "1 minute",
       })
-      const settings = Effect.map(config.snapshot, ({ values }): StorageConnection => ({
-        endpoint: values.s3_endpoint!,
-        region: values.s3_region!,
-        bucket: values.s3_bucket!,
-        accessKeyId: values.s3_access_key_id!,
-        secretAccessKey: values.s3_secret_access_key!,
-        pathStyle: values.s3_path_style === "true",
-      }))
+      const settings = Effect.flatMap(config.snapshot, ({ values, issues }) =>
+        issues.some((issue) => issue.key.startsWith("s3_"))
+          ? Effect.fail(new StorageUnavailable())
+          : Effect.succeed<StorageConnection>({
+              endpoint: values.s3_endpoint!,
+              region: values.s3_region!,
+              bucket: values.s3_bucket!,
+              accessKeyId: values.s3_access_key_id!,
+              secretAccessKey: values.s3_secret_access_key!,
+              pathStyle: values.s3_path_style === "true",
+            }),
+      )
 
       const withClient = <A>(
         run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,

@@ -116,6 +116,22 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
+Avatars and Organization logos are stored in this bucket and served through authenticated application URLs. External profile images and logos are imported by the server. While an import retries, the previous stored image or initials remain visible. A failed profile import does not prevent sign-in, and manually selected avatars are preserved.
+
+For an existing deployment, let's stop all application writers and scheduled runners before applying the file schema migration. Keep a database backup, configure storage, and migrate each source before starting the new server code. Run the following commands from the repository root to inspect the actual inventory, migrate one source, and verify its stored content:
+
+```sh
+deno task --cwd platform files inventory
+deno task --cwd platform files migrate --table user.image --writers-stopped
+deno task --cwd platform files verify --table user.image
+deno task --cwd platform files migrate --table organization.logo --writers-stopped
+deno task --cwd platform files verify --table organization.logo
+```
+
+Omit `--table` to process both supported sources. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded images stop the run and retain uncommitted source data. Historical external images that return `404` or `410` are cleared and recorded in private import metadata.
+
+After verification, start the new server code and its runners. Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.
