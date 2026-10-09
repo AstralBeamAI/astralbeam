@@ -314,8 +314,71 @@ export interface CreateChatThreadInputEncoded {
   agent_id?: string
 }
 
+export type ChatUploadEncodedStatus =
+  (typeof ChatUploadEncodedStatus)[keyof typeof ChatUploadEncodedStatus]
+
+export const ChatUploadEncodedStatus = {
+  preparing: "preparing",
+  pending: "pending",
+  completing: "completing",
+  completed: "completed",
+  cancelled: "cancelled",
+  expired: "expired",
+} as const
+
+export type ChatUploadEncodedPartsItem = {
+  number: number
+  size: number
+}
+
+export interface ChatUploadEncoded {
+  id: string
+  status: ChatUploadEncodedStatus
+  filename: string
+  content_type: string
+  byte_size: number
+  sha256: string
+  expires_at: string
+  part_size: number
+  parts: ChatUploadEncodedPartsItem[]
+  file_id: string | null
+}
+
+export interface ChatUploadInputEncoded {
+  /** Reuse this key for retries of the same file while its upload session exists. */
+  prepare_key?: string
+  /**
+   * @minLength 1
+   * @maxLength 120
+   * @pattern ^[^\u0000]*$
+   */
+  filename: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  content_type: string
+  /**
+   * @maximum 20971520
+   * @exclusiveMinimum 0
+   */
+  byte_size: number
+  sha256: string
+  agent_id?: string
+}
+
+export type ChatConfigurationCapabilitiesUploads = {
+  available: boolean
+  max_files: number
+  max_total_bytes: number
+  part_size: number
+  session_hours: number
+}
+
 export type ChatConfigurationCapabilities = {
   attachments: boolean
+  resolved_agent_id: string
+  uploads: ChatConfigurationCapabilitiesUploads
 }
 
 export interface ChatConfiguration {
@@ -625,6 +688,27 @@ export type GetChatConfigParams = {
 
 export type GetChatFileParams = {
   ticket: string
+}
+
+export type CancelPreparedChatUploadParams = {
+  prepare_key: string
+}
+
+export type SignChatUploadPartsBody = {
+  /**
+   * @minItems 1
+   * @maxItems 4
+   */
+  parts: number[]
+}
+
+export type SignChatUploadParts200PartsItem = {
+  number: number
+  url: string
+}
+
+export type SignChatUploadParts200 = {
+  parts: SignChatUploadParts200PartsItem[]
 }
 
 export type ListChatThreadsParams = {
@@ -1134,7 +1218,7 @@ export const getGetChatConfigUrl = (params: GetChatConfigParams) => {
 }
 
 /**
- * Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.
+ * Read the selected agent's attachment grant and resolved public agent ID using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it. Bind queued drafts to the resolved ID to preserve their agent if the default changes.
  * @summary Get chat capabilities
  */
 export const getChatConfig = (
@@ -1172,6 +1256,177 @@ export const getChatFile = (
   options?: Parameters<typeof astralBeamFileFetch>[1],
 ) => {
   return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getPrepareChatUploadUrl = () => {
+  return `/api/v1/chat/uploads`
+}
+
+/**
+ * Provide prepare_key to recover the same uploader-private session after a lost response. Retries must keep the filename, content type, size, and SHA-256 unchanged. A preparing session may be polled or cancelled. Use a new key for a new upload after cancellation or expiry.
+ * @summary Prepare a private file upload
+ */
+export const prepareChatUpload = (
+  chatUploadInputEncoded: ChatUploadInputEncoded,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<ChatUploadEncoded>(getPrepareChatUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(chatUploadInputEncoded),
+  })
+}
+
+export const getCancelPreparedChatUploadUrl = (params: CancelPreparedChatUploadParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/uploads?${stringifiedParams}`
+    : `/api/v1/chat/uploads`
+}
+
+/**
+ * Cancel the current uploader's session for prepare_key after a lost preparation response. A missing key is an idempotent success. Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.
+ * @summary Cancel an upload by its preparation key
+ */
+export const cancelPreparedChatUpload = (
+  params: CancelPreparedChatUploadParams,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<void>(getCancelPreparedChatUploadUrl(params), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getGetChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Read upload progress
+ */
+export const getChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<ChatUploadEncoded>(getGetChatUploadUrl(id), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getCancelChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.
+ * @summary Cancel an unclaimed upload
+ */
+export const cancelChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<void>(getCancelChatUploadUrl(id), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getSignChatUploadPartsUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}/parts`
+}
+
+/**
+ * @summary Sign staging part uploads
+ */
+export const signChatUploadParts = (
+  id: string,
+  signChatUploadPartsBody: SignChatUploadPartsBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<SignChatUploadParts200>(getSignChatUploadPartsUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(signChatUploadPartsBody),
+  })
+}
+
+export const getCompleteChatUploadUrl = (id: string) => {
+  return `/api/v1/chat/uploads/${encodeURIComponent(String(id))}/complete`
+}
+
+/**
+ * @summary Verify and complete an upload
+ */
+export const completeChatUpload = (
+  id: string,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<ChatUploadEncoded>(getCompleteChatUploadUrl(id), {
+    ...options,
+    method: "POST",
+  })
+}
+
+export const getDownloadStoredChatFileUrl = (id: string) => {
+  return `/api/v1/chat/files/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Download a private conversation file
+ */
+export const downloadStoredChatFile = (
+  id: string,
+  options: Parameters<typeof astralBeamChatFetch>[1],
+) => {
+  return astralBeamChatFetch<Blob>(getDownloadStoredChatFileUrl(id), {
     ...options,
     method: "GET",
   })

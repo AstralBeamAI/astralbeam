@@ -24,6 +24,18 @@ import {
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
+import {
+  attachmentUploadState,
+  attachmentUploadPreview,
+  recoverAttachmentUpload,
+  startAttachmentUpload,
+  pauseAttachmentUpload,
+  resumeAttachmentUpload,
+  removeAttachmentUpload,
+  releaseAttachmentUpload,
+  disposeAttachmentUploads,
+  discardAttachmentUploads,
+} from "./lib/uploads.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -154,9 +166,11 @@ export function ChatWidget({
     identity: "",
     threads: new Map<string, typeof EMPTY_DRAFT>(),
   })
+  const [submittedAttachmentIds, setSubmittedAttachmentIds] = useState(new Set<string>())
   const draftIdentity =
     auth.status === "ready" ? authenticationIdentity(auth.currentUser) : drafts.identity
   if (drafts.apiUrl !== apiUrl || drafts.identity !== draftIdentity) {
+    setSubmittedAttachmentIds(new Set())
     setDrafts({
       apiUrl,
       identity: draftIdentity,
@@ -169,13 +183,32 @@ export function ChatWidget({
     text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
   }
   const draft = composer.text
+  const uploads = useMemo(() => attachmentUploadState(chat), [chat])
+  const isCurrentAuthentication = chat.captureAuthentication()
+  useEffect(() => () => disposeAttachmentUploads(uploads), [uploads, apiUrl, draftIdentity])
   const pendingAttachmentWrites = useRef(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
     let cancelled = false
     void storedThreadAttachments({ apiUrl, identity: draftIdentity, threadId: draftKey })
       .then(
-        (attachments) => ({ attachments, storageError: false }),
+        async (attachments) => ({
+          attachments: await Promise.all(
+            attachments.map(async (file) => {
+              const recovered = await recoverAttachmentUpload({ chat, draft: file })
+              if (recovered.status !== "ready" || !recovered.fileId || recovered.kind !== "image")
+                return recovered
+              const preview = await chat
+                .getUploadedFile(recovered.fileId)
+                .then((blob) =>
+                  cancelled ? undefined : attachmentUploadPreview({ uploads, id: file.id, blob }),
+                )
+                .catch(() => undefined)
+              return { ...recovered, preview }
+            }),
+          ),
+          storageError: false,
+        }),
         () => ({ attachments: EMPTY_ATTACHMENTS, storageError: true }),
       )
       .then(({ attachments, storageError }) => {
@@ -210,6 +243,8 @@ export function ChatWidget({
     auth.status,
     chatState.threadLoading,
     composer.attachmentsLoaded,
+    chat,
+    uploads,
   ])
   useEffect(() => {
     for (const [key, value] of drafts.threads) {
@@ -245,13 +280,20 @@ export function ChatWidget({
             if (!value.attachments.some((current) => current.id === file.id)) stored.delete(file.id)
           }
           for (const file of value.attachments) {
+            const saved = value.savedAttachments.find((previous) => previous.id === file.id)
             if (
-              file.status === "ready" &&
-              !value.savedAttachments.some(
-                (saved) => saved.id === file.id && saved.status === "ready",
-              )
+              !saved ||
+              saved.sessionId !== file.sessionId ||
+              saved.prepareAttempted !== file.prepareAttempted ||
+              saved.sha256 !== file.sha256 ||
+              saved.fileId !== file.fileId
             )
-              stored.set(file.id, file)
+              stored.set(file.id, {
+                ...file,
+                prepareAttempted:
+                  (file.prepareAttempted || stored.get(file.id)?.prepareAttempted) ??
+                  file.prepareAttempted,
+              })
           }
           return [...stored.values()]
         },
@@ -285,9 +327,16 @@ export function ChatWidget({
   const attachmentLimits = useMemo(
     () =>
       resolveAttachmentOptions(
-        capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
+        capabilities.attachments && !chatState.capabilitiesLoading && composer.attachmentsLoaded
+          ? options.attachments
+          : false,
       ),
-    [options.attachments, capabilities.attachments, composer.attachmentsLoaded],
+    [
+      options.attachments,
+      capabilities.attachments,
+      chatState.capabilitiesLoading,
+      composer.attachmentsLoaded,
+    ],
   )
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
@@ -313,6 +362,7 @@ export function ChatWidget({
     authError !== undefined ||
     streamBusy ||
     !composer.attachmentsLoaded ||
+    (chatState.capabilitiesLoading && composer.attachments.length > 0) ||
     composer.attachments !== composer.settledAttachments ||
     chatState.threadLoading ||
     chatState.threadLoadFailed ||
@@ -330,31 +380,45 @@ export function ChatWidget({
 
   // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
   // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
+  const settleAttachment = (id: string, update: Partial<DraftAttachment>) =>
+    setDrafts((current) => {
+      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+      for (const [key, value] of current.threads) {
+        if (!value.attachments.some((file) => file.id === id)) continue
+        return {
+          ...current,
+          threads: new Map(current.threads).set(key, {
+            ...value,
+            attachments: value.attachments.map((file) =>
+              file.id === id ? { ...file, ...update } : file,
+            ),
+          }),
+        }
+      }
+      return current
+    })
+  const persistPreparation = (file: DraftAttachment) =>
+    storedThreadAttachments({
+      apiUrl,
+      identity: draftIdentity,
+      threadId: draftKey,
+      update: (files) => [...files.filter((current) => current.id !== file.id), file],
+    }).then(() => undefined)
   const addAttachmentFiles = (files: File[]) => {
     const picked = acceptAttachmentFiles({
       files,
       existing: attachments,
       limits: attachmentLimits,
       createId: newUuid,
-    })
+    }).map(({ draft, file }) => ({
+      file,
+      draft: {
+        ...draft,
+        prepareAttempted: false,
+        agentId: capabilities.resolvedAgentId ?? chatState.thread?.agentId ?? options.agentId,
+      },
+    }))
     setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
-    const settle = (id: string, update: Partial<DraftAttachment>) =>
-      setDrafts((current) => {
-        if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-        for (const [key, value] of current.threads) {
-          if (!value.attachments.some((file) => file.id === id)) continue
-          return {
-            ...current,
-            threads: new Map(current.threads).set(key, {
-              ...value,
-              attachments: value.attachments.map((file) =>
-                file.id === id ? { ...file, ...update } : file,
-              ),
-            }),
-          }
-        }
-        return current
-      })
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
         debug?.("attachment", `rejected "${pick.name}"`, {
@@ -369,19 +433,76 @@ export function ChatWidget({
         mimeType: pick.mimeType,
         size: pick.size,
       })
+      if (capabilities.uploads?.available) {
+        startAttachmentUpload({
+          uploads,
+          draft: pick,
+          file,
+          settle: (update) => settleAttachment(pick.id, update),
+          persist: persistPreparation,
+          isCurrentAuthentication,
+        })
+        continue
+      }
       void readAttachmentData(file).then(
-        (data) => settle(pick.id, { status: "ready", data }),
+        (data) => settleAttachment(pick.id, { status: "ready", data }),
         (error: unknown) => {
           debug?.("error", `attachment "${pick.name}" could not be read`, error)
-          settle(pick.id, { status: "error", error: "The file could not be read" })
+          settleAttachment(pick.id, { status: "error", error: "The file could not be read" })
         },
       )
     }
   }
 
   const removeAttachment = (id: string) => {
+    if (submittedAttachmentIds.has(id)) return
     debug?.("attachment", "attachment removed", { id })
-    setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    const file = composer.attachments.find((attachment) => attachment.id === id)
+    if (!file) return
+    settleAttachment(id, { status: "reading", error: undefined })
+    void removeAttachmentUpload({ uploads, draft: file, isCurrentAuthentication }).then(
+      () => setAttachments((current) => current.filter((attachment) => attachment.id !== id)),
+      () => settleAttachment(id, { status: "error", error: "Removal failed. Try Remove again." }),
+    )
+  }
+  const resumeAttachment = (id: string) => {
+    const file = attachments.find((attachment) => attachment.id === id)
+    return (
+      !!file &&
+      resumeAttachmentUpload({
+        uploads,
+        draft: file,
+        settle: (update) => settleAttachment(id, update),
+        persist: persistPreparation,
+        isCurrentAuthentication,
+      })
+    )
+  }
+  const reselectAttachment = (id: string, file: File) => {
+    const draftFile = attachments.find((attachment) => attachment.id === id)
+    if (!draftFile) return
+    if (draftFile.name !== file.name || draftFile.size !== file.size) {
+      settleAttachment(id, {
+        status: "error",
+        error: "Choose the original file to resume this upload.",
+      })
+      return
+    }
+    if (draftFile.sessionId || draftFile.sha256 || capabilities.uploads?.available) {
+      startAttachmentUpload({
+        uploads,
+        draft: draftFile,
+        file,
+        settle: (update) => settleAttachment(id, update),
+        persist: persistPreparation,
+        isCurrentAuthentication,
+      })
+    } else {
+      void readAttachmentData(file).then(
+        (data) => settleAttachment(id, { status: "ready", data, error: undefined }),
+        () => settleAttachment(id, { status: "error", error: "The file could not be read" }),
+      )
+    }
   }
 
   const sendDraft = () => {
@@ -389,7 +510,9 @@ export function ChatWidget({
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
-    const pendingRead = attachments.some((attachment) => attachment.status === "reading")
+    const pendingRead = attachments.some(
+      (attachment) => !["ready", "error"].includes(attachment.status),
+    )
     if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
     debug?.(
       "send",
@@ -410,6 +533,7 @@ export function ChatWidget({
     const sentAttachmentIds = new Set(
       attachments.filter((file) => file.status === "ready").map((file) => file.id),
     )
+    setSubmittedAttachmentIds((current) => new Set([...current, ...sentAttachmentIds]))
     let submissionDraftKey = draftKey
     void chat.sendMessage(
       parts.length === 0
@@ -461,6 +585,10 @@ export function ChatWidget({
           })
         },
         onAccepted: () => {
+          setSubmittedAttachmentIds(
+            (current) => new Set([...current].filter((id) => !sentAttachmentIds.has(id))),
+          )
+          for (const id of sentAttachmentIds) releaseAttachmentUpload({ uploads, id })
           if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
             storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
           void storedThreadAttachments({
@@ -499,36 +627,67 @@ export function ChatWidget({
   }
 
   const resetThread = () => {
+    if (!isCurrentAuthentication()) return
     // The session's reset is the client's own: it aborts an active stream, drops queued sends,
     // resets resume state, and disposes the live widget renders.
     chat.reset()
-    storedThreadDraft(apiUrl, draftIdentity, "", "")
-    void storedThreadAttachments({
+    setSubmittedAttachmentIds(new Set())
+    const fresh = drafts.threads.get("")
+    if (!fresh?.attachmentsLoaded || fresh.storageError) return
+    const resetText = fresh.text
+    const files = fresh.attachments
+    const attachmentIds = new Set(files.map((file) => file.id))
+    void discardAttachmentUploads({
+      uploads,
       apiUrl,
       identity: draftIdentity,
       threadId: "",
-      update: () => [],
-    }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
-    setDrafts((current) => {
-      const threads = new Map(current.threads)
-      threads.set("", { ...EMPTY_DRAFT, attachmentsLoaded: true })
-      return { ...current, threads }
+      attachments: files,
+      attachmentIds,
+      isCurrentAuthentication,
     })
+      .then(() => {
+        if (!isCurrentAuthentication()) return
+        if (storedThreadDraft(apiUrl, draftIdentity, "") === resetText)
+          storedThreadDraft(apiUrl, draftIdentity, "", "")
+        setDrafts((current) => {
+          if (
+            !isCurrentAuthentication() ||
+            current.apiUrl !== apiUrl ||
+            current.identity !== draftIdentity
+          )
+            return current
+          const value = current.threads.get("") ?? EMPTY_DRAFT
+          return {
+            ...current,
+            threads: new Map(current.threads).set("", {
+              ...value,
+              text: value.text === resetText ? "" : value.text,
+              attachments: value.attachments.filter((file) => !attachmentIds.has(file.id)),
+            }),
+          }
+        })
+      })
+      .catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
   }
 
   const focusComposer = () =>
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
 
-  const forgetDraft = (id: string) => {
-    storedThreadDraft(apiUrl, draftIdentity, id, "")
-    void storedThreadAttachments({
+  const discardDraft = (id: string) =>
+    discardAttachmentUploads({
+      uploads,
       apiUrl,
       identity: draftIdentity,
       threadId: id,
-      update: () => [],
-    }).catch((error: unknown) =>
-      debug?.("error", "Deleted conversation's draft files could not be cleared", error),
-    )
+      attachments: drafts.threads.get(id)?.attachments ?? [],
+      isCurrentAuthentication,
+    })
+  const forgetDraft = (id: string) => {
+    const files = drafts.threads.get(id)?.attachments ?? []
+    const removed = new Set(files.map((file) => file.id))
+    setSubmittedAttachmentIds((current) => new Set([...current].filter((id) => !removed.has(id))))
+    storedThreadDraft(apiUrl, draftIdentity, id, "")
     setDrafts((current) => {
       if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
       const threads = new Map(current.threads)
@@ -563,6 +722,7 @@ export function ChatWidget({
             chat={chat}
             state={chatState}
             onDelete={forgetDraft}
+            beforeDelete={discardDraft}
             onSelect={focusComposer}
           />
           <Button
@@ -570,7 +730,9 @@ export function ChatWidget({
             size="icon-sm"
             aria-label="New chat"
             title="New chat"
-            disabled={!chatState.thread && messages.length === 0}
+            disabled={
+              !chatState.thread && messages.length === 0 && !draft && attachments.length === 0
+            }
             onClick={() => {
               resetThread()
               focusComposer()
@@ -588,6 +750,7 @@ export function ChatWidget({
           state={chatState}
           thread={chatState.thread}
           onDelete={forgetDraft}
+          beforeDelete={discardDraft}
         />
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
@@ -595,6 +758,7 @@ export function ChatWidget({
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
           getAttachment={chat.getAttachment}
+          getUploadedFile={chat.getUploadedFile}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
           loadingHistory={chatState.threadLoading}
@@ -688,9 +852,16 @@ export function ChatWidget({
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}
+          lockedAttachmentIds={submittedAttachmentIds}
           attachmentLimits={attachmentLimits}
           onAddFiles={addAttachmentFiles}
           onRemoveAttachment={removeAttachment}
+          onPauseAttachment={(id) => {
+            pauseAttachmentUpload({ uploads, id })
+            settleAttachment(id, { status: "paused" })
+          }}
+          onResumeAttachment={resumeAttachment}
+          onReselectAttachment={reselectAttachment}
         />
       </CardFooter>
     </Card>

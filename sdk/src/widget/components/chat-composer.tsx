@@ -39,9 +39,13 @@ interface ChatComposerProps {
   onAuthRetry: (() => void) | undefined
   /** Files picked for the next message, rejected ones included, in pick order. */
   attachments: readonly DraftAttachment[]
+  lockedAttachmentIds: ReadonlySet<string>
   attachmentLimits: ResolvedAttachmentOptions
   onAddFiles: (files: File[]) => void
   onRemoveAttachment: (id: string) => void
+  onPauseAttachment: (id: string) => void
+  onResumeAttachment: (id: string) => boolean
+  onReselectAttachment: (id: string, file: File) => void
 }
 
 export function ChatComposer({
@@ -61,15 +65,20 @@ export function ChatComposer({
   authError,
   onAuthRetry,
   attachments,
+  lockedAttachmentIds,
   attachmentLimits,
   onAddFiles,
   onRemoveAttachment,
+  onPauseAttachment,
+  onResumeAttachment,
+  onReselectAttachment,
 }: ChatComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const reselect = useRef<string | undefined>(undefined)
   const [dropTarget, setDropTarget] = useState(false)
   const blocked = authPending || authError !== undefined
   // A file still being read would be left out of the message, so the send waits for it.
-  const reading = attachments.some((attachment) => attachment.status === "reading")
+  const reading = attachments.some((attachment) => !["ready", "error"].includes(attachment.status))
   const sendable = attachments.some((attachment) => attachment.status === "ready")
   const attachmentsFull =
     attachments.filter((attachment) => attachment.status !== "error").length >=
@@ -153,7 +162,10 @@ export function ChatComposer({
           className="sr-only"
           accept={attachmentAcceptAttribute(attachmentLimits)}
           onChange={(event) => {
-            addFiles(event.currentTarget.files)
+            const file = event.currentTarget.files?.[0]
+            if (reselect.current && file) onReselectAttachment(reselect.current, file)
+            else if (!reselect.current) addFiles(event.currentTarget.files)
+            reselect.current = undefined
             // Clearing the value lets the same file be picked again after a removal, which
             // otherwise fires no change event.
             event.currentTarget.value = ""
@@ -163,7 +175,18 @@ export function ChatComposer({
       <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
           <InputGroupAddon align="block-start">
-            <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
+            <ComposerAttachments
+              attachments={attachments}
+              lockedIds={lockedAttachmentIds}
+              onRemove={onRemoveAttachment}
+              onPause={onPauseAttachment}
+              onResume={(id) => {
+                if (!onResumeAttachment(id)) {
+                  reselect.current = id
+                  fileInput.current?.click()
+                }
+              }}
+            />
           </InputGroupAddon>
         )}
         <InputGroupTextarea
@@ -204,7 +227,10 @@ export function ChatComposer({
                   : "Attach images, PDFs, documents, spreadsheets, data, or text files"
               }
               disabled={blocked || attachmentsFull}
-              onClick={() => fileInput.current?.click()}
+              onClick={() => {
+                reselect.current = undefined
+                fileInput.current?.click()
+              }}
             >
               <PaperclipIcon />
             </InputGroupButton>

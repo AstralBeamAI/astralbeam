@@ -17,6 +17,15 @@ import {
   getRunChatUrl,
   listChatThreads,
   updateChatThread,
+  prepareChatUpload,
+  getChatUpload,
+  signChatUploadParts,
+  completeChatUpload,
+  cancelChatUpload,
+  cancelPreparedChatUpload,
+  downloadStoredChatFile,
+  type ChatUploadEncoded as ChatUpload,
+  type ChatUploadInputEncoded as ChatUploadInput,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -144,7 +153,18 @@ export interface AstralBeamChatState {
   error: Error | undefined
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
-  capabilities: { attachments: boolean }
+  capabilities: {
+    attachments: boolean
+    resolvedAgentId?: string
+    uploads?: {
+      available: boolean
+      maxFiles: number
+      maxTotalBytes: number
+      partSize: number
+      sessionHours: number
+    }
+  }
+  capabilitiesLoading: boolean
   /** The tool set currently declared to the agent, in declaration order. */
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
@@ -164,6 +184,8 @@ export interface AstralBeamChatCore {
   /** Start browser side effects after a React commit. Vanilla sessions start automatically. */
   start: () => void
   getState: () => AstralBeamChatState
+  /** Captures the authenticated scope without invalidating it on a same-identity token refresh. */
+  captureAuthentication: () => () => boolean
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
   /**
@@ -196,11 +218,22 @@ export interface AstralBeamChatCore {
   openThread: (id: string) => Promise<void>
   renameThread: (title: string) => Promise<boolean>
   /** Deletes a listed conversation, the selected one by default; resolves whether it succeeded. */
-  deleteThread: (thread?: ChatThread) => Promise<boolean>
+  deleteThread: (thread?: ChatThread, beforeDelete?: () => Promise<void>) => Promise<boolean>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
+  prepareUpload: (input: ChatUploadInput, signal?: AbortSignal) => Promise<ChatUpload>
+  getUpload: (id: string, signal?: AbortSignal) => Promise<ChatUpload>
+  signUploadParts: (
+    id: string,
+    parts: number[],
+    signal?: AbortSignal,
+  ) => Promise<{ parts: { number: number; url: string }[] }>
+  completeUpload: (id: string, signal?: AbortSignal) => Promise<ChatUpload>
+  cancelUpload: (id: string) => Promise<void>
+  cancelPreparedUpload: (prepareKey: string) => Promise<void>
+  getUploadedFile: (id: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
 }
@@ -223,6 +256,7 @@ export function createAstralBeamChat(
     error: undefined,
     auth: { status: "loading" },
     capabilities: { attachments: true },
+    capabilitiesLoading: true,
     agentTools: [],
     sandboxStatus: undefined,
     sandbox: { files: [], commands: [] },
@@ -248,6 +282,7 @@ export function createAstralBeamChat(
   let stopAuthentication: (() => void) | undefined
   let unsubscribeAuthentication: (() => void) | undefined
   let identity: string | undefined
+  let authEpoch = 0
   let started = false
   let selectionGeneration = 0
   let navigationGeneration = 0
@@ -310,21 +345,27 @@ export function createAstralBeamChat(
     update({ error: failure, status: "error" })
     live.streamCallbacks?.onError?.(failure)
   }
-  const requestOptions = async (): Promise<JwtOptions> => {
+  const requestOptions = async (selectionBound = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
-    const token = await getValidChatAuthToken(authentication)
-    if (generation !== selectionGeneration)
+    const epoch = authEpoch
+    const auth = { ...authentication }
+    const token = await getValidChatAuthToken(auth)
+    if (epoch !== authEpoch || (selectionBound && generation !== selectionGeneration))
       throw new DOMException("Conversation changed", "AbortError")
     return {
-      apiUrl: authentication.apiUrl,
+      apiUrl: auth.apiUrl,
       astralBeamToken: token,
       cache: "no-store",
       signal: AbortSignal.any([
-        requestController.signal,
-        authentication.session.abortController.signal,
+        ...(selectionBound ? [requestController.signal] : []),
+        auth.session.abortController.signal,
       ]),
-      fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
+      fetchClient: (input, init) => fetchAuthenticatedChat({ ...auth, input, init }),
     }
+  }
+  const uploadOptions = async (signal?: AbortSignal): Promise<JwtOptions> => {
+    const auth = await requestOptions()
+    return { ...auth, signal: AbortSignal.any([auth.signal!, ...(signal ? [signal] : [])]) }
   }
 
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
@@ -333,10 +374,14 @@ export function createAstralBeamChat(
   let capabilitiesGeneration = 0
   let capabilityIdentity: string | undefined
   const resolveCapabilities = async () => {
+    update({
+      capabilities: { attachments: state.capabilities.attachments },
+      capabilitiesLoading: true,
+    })
     const generation = ++capabilitiesGeneration
     const selection = selectionGeneration
     if (state.thread?.agentId === null) {
-      update({ capabilities: { attachments: false } })
+      update({ capabilities: { attachments: false }, capabilitiesLoading: false })
       return
     }
     const agentId = state.thread ? state.thread.agentId : live.agentId
@@ -346,9 +391,24 @@ export function createAstralBeamChat(
       const body = await getChatConfig(agentId ? { agentId } : {}, auth)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
-      update({ capabilities: { attachments } })
+      update({
+        capabilities: {
+          attachments,
+          resolvedAgentId: body.capabilities.resolved_agent_id,
+          uploads: body.capabilities.uploads && {
+            available: body.capabilities.uploads.available,
+            maxFiles: body.capabilities.uploads.max_files,
+            maxTotalBytes: body.capabilities.uploads.max_total_bytes,
+            partSize: body.capabilities.uploads.part_size,
+            sessionHours: body.capabilities.uploads.session_hours,
+          },
+        },
+        capabilitiesLoading: false,
+      })
       debug?.("mount", "agent capabilities resolved", { attachments })
     } catch (error) {
+      if (generation === capabilitiesGeneration && selection === selectionGeneration)
+        update({ capabilitiesLoading: false })
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
   }
@@ -1060,19 +1120,20 @@ export function createAstralBeamChat(
     }
   }
 
-  const deleteThread = async (thread = state.thread) => {
+  const deleteThread = async (thread = state.thread, beforeDelete?: () => Promise<void>) => {
     if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
+    const epoch = authEpoch
     try {
-      await deleteChatThread(
-        thread.id,
-        { expected_version: String(thread.version) },
-        await requestOptions(),
-      )
-      if (generation === selectionGeneration && state.thread?.id === thread.id) newThread()
+      const options = await requestOptions(false)
+      if (generation !== selectionGeneration) return false
+      await beforeDelete?.()
+      if (epoch !== authEpoch) return false
+      await deleteChatThread(thread.id, { expected_version: String(thread.version) }, options)
+      if (epoch === authEpoch && state.thread?.id === thread.id) newThread()
       return true
     } catch (error) {
-      if (generation === selectionGeneration) reportError(error)
+      if (epoch === authEpoch) reportError(error)
       return false
     }
   }
@@ -1151,7 +1212,24 @@ export function createAstralBeamChat(
       await getValidChatAuthToken(authentication)
     } catch (error) {
       if (navigation !== navigationGeneration) return
-      update({ unsentMessage: content })
+      if (sending || state.status === "streaming") {
+        reportError(error)
+        return
+      }
+      if (!pendingSend || pendingSend.accepted || pendingSend.tools === undefined) {
+        pendingSend = {
+          content,
+          accepted: false,
+          key: newUuid(),
+          callbacks:
+            callbacks ??
+            (!pendingSend?.accepted &&
+            JSON.stringify(pendingSend?.content) === JSON.stringify(content)
+              ? pendingSend?.callbacks
+              : undefined),
+        }
+      }
+      update({ unsentMessage: pendingSend.content })
       reportError(error)
       return
     }
@@ -1194,12 +1272,19 @@ export function createAstralBeamChat(
     historyGeneration++
     update({ olderMessagesLoading: false })
     sending = true
-    if (!pendingSend || pendingSend.accepted || !samePendingContent) {
+    if (
+      !pendingSend ||
+      pendingSend.accepted ||
+      !samePendingContent ||
+      pendingSend.tools === undefined
+    ) {
       pendingSend = {
         content,
         accepted: false,
         key: newUuid(),
-        callbacks,
+        callbacks:
+          callbacks ??
+          (samePendingContent && !pendingSend?.accepted ? pendingSend?.callbacks : undefined),
       }
       client.stop()
       liveToolCalls.clear()
@@ -1235,6 +1320,7 @@ export function createAstralBeamChat(
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
+        authEpoch++
         navigationGeneration++
         pendingSends.clear()
         threadToolResults.clear()
@@ -1274,6 +1360,11 @@ export function createAstralBeamChat(
   return {
     start,
     getState: () => state,
+    captureAuthentication: () => {
+      const epoch = authEpoch
+      const signal = authentication.session.abortController.signal
+      return () => epoch === authEpoch && !signal.aborted
+    },
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -1284,6 +1375,7 @@ export function createAstralBeamChat(
       const selectedId = live.threadId
       const { widgets, onRenderWidget } = live
       live = { ...live, ...next }
+      if (live.apiUrl !== apiUrl) authEpoch++
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
         apiUrl: live.apiUrl,
@@ -1293,6 +1385,7 @@ export function createAstralBeamChat(
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
       if (live.apiUrl !== apiUrl) {
         navigationGeneration++
+        capabilityIdentity = undefined
         pendingSends.clear()
         threadToolResults.clear()
         toolResults.clear()
@@ -1352,6 +1445,22 @@ export function createAstralBeamChat(
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
     },
+    prepareUpload: async (input, signal) => {
+      const agentId = input.agent_id ?? state.thread?.agentId ?? live.agentId
+      return prepareChatUpload(
+        { ...input, ...(agentId ? { agent_id: agentId } : {}) },
+        await uploadOptions(signal),
+      )
+    },
+    getUpload: async (id, signal) => getChatUpload(id, await uploadOptions(signal)),
+    signUploadParts: async (id, parts, signal) =>
+      signChatUploadParts(id, { parts }, await uploadOptions(signal)),
+    completeUpload: async (id, signal) => completeChatUpload(id, await uploadOptions(signal)),
+    cancelUpload: async (id) => cancelChatUpload(id, await uploadOptions()),
+    cancelPreparedUpload: async (prepareKey) =>
+      cancelPreparedChatUpload({ prepare_key: prepareKey }, await uploadOptions()),
+    getUploadedFile: async (id) =>
+      (await downloadStoredChatFile(id, await requestOptions())).blob(),
     abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")

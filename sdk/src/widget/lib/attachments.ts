@@ -179,6 +179,8 @@ export function acceptAttachmentFiles<TFile extends AttachmentFileInfo>({
       draft: { ...base, status: "error" as const, error },
       file,
     })
+    if (Array.from(file.name).length > 120)
+      return rejected("Filename must be at most 120 characters")
     const classified = classifyAttachmentFile(file, limits)
     if ("error" in classified) return rejected(classified.error)
     if (file.size === 0) return rejected("The file is empty")
@@ -226,12 +228,18 @@ export function attachmentDataUri(mimeType: string, data: string): string {
  * the provider requires alongside PDF data.
  */
 function attachmentContentPart(attachment: DraftAttachment): ContentPart | undefined {
-  if (attachment.status !== "ready" || attachment.data === undefined) return undefined
-  const source = {
-    type: "data" as const,
-    value: attachment.data,
-    mimeType: attachment.mimeType,
-  }
+  if (attachment.status !== "ready") return undefined
+  const source = attachment.fileId
+    ? {
+        type: "file" as const,
+        provider: "astralbeam",
+        value: attachment.fileId,
+        mimeType: attachment.mimeType,
+      }
+    : attachment.data !== undefined
+      ? { type: "data" as const, value: attachment.data, mimeType: attachment.mimeType }
+      : undefined
+  if (!source) return undefined
   const metadata = { filename: attachment.name, size: attachment.size }
   return attachment.kind === "image"
     ? { type: "image", source, metadata }
@@ -256,7 +264,7 @@ function safeAttachmentHref(href: string): string | undefined {
  */
 export function describeSentAttachment(part: {
   type: "image" | "document" | "audio" | "video"
-  source: { value: string; mimeType?: string; type?: string }
+  source: { value: string; mimeType?: string; type?: string; provider?: string }
   metadata?: unknown
 }): {
   kind: AttachmentKind

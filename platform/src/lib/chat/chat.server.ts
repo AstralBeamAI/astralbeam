@@ -24,6 +24,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
+import { formatAgentId } from "@/lib/agents/schemas"
 import { createChatAdapter } from "./adapter.server"
 import { createChatAttachmentTools } from "./attachments/tools.server"
 import {
@@ -132,7 +133,16 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
-  return { projected, ...normalized }
+  const snapshots = projected.map((message) => {
+    const original =
+      message.role === "user"
+        ? history.find((record) => message.id?.startsWith(`${record.id}:`))
+        : undefined
+    return original
+      ? { ...message, content: original.payload.parts as unknown as ContentPart[] }
+      : message
+  })
+  return { projected, snapshots, ...normalized }
 })
 
 export class Chat extends Context.Service<
@@ -156,7 +166,10 @@ export class Chat extends Context.Service<
     readonly capabilities: (input: {
       readonly principal: ChatPrincipal
       readonly agentId?: string | undefined
-    }) => Effect.Effect<{ readonly attachments: boolean }, ChatAgentNotFound>
+    }) => Effect.Effect<
+      { readonly attachments: boolean; readonly resolvedAgentId: string },
+      ChatAgentNotFound
+    >
   }
 >()("astralbeam/chat/Chat") {
   static readonly layerNoDeps = Layer.effect(
@@ -205,6 +218,7 @@ export class Chat extends Context.Service<
         })
         const {
           projected: inputMessages,
+          snapshots,
           messages,
           attachments,
           files,
@@ -303,6 +317,7 @@ export class Chat extends Context.Service<
                 })
                 files.splice(0, files.length, ...normalized.files)
                 inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                snapshots.splice(0, snapshots.length, ...normalized.snapshots)
                 if (session) yield* session.prepareUploads(files)
                 if (!unknownOutcome)
                   tools.splice(
@@ -343,7 +358,7 @@ export class Chat extends Context.Service<
                 toolExecution: "sequential",
                 // Interrupt snapshots preserve original uploads after provider normalization.
                 middleware: [
-                  createChatAttachmentSnapshotMiddleware(inputMessages),
+                  createChatAttachmentSnapshotMiddleware(snapshots),
                   ...managed.middleware,
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
@@ -407,7 +422,13 @@ export class Chat extends Context.Service<
             agentId: input.agentId,
           })
           .pipe(Effect.mapError(() => new ChatAgentNotFound()))
-        return { attachments: agent.attachmentsEnabled }
+        return {
+          attachments: agent.attachmentsEnabled,
+          resolvedAgentId: formatAgentId({
+            organizationId: input.principal.organization.id,
+            id: agent.id,
+          }),
+        }
       })
 
       return Chat.of({ run, capabilities })

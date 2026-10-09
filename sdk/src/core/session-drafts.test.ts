@@ -123,46 +123,102 @@ test.each(["selection", "api", "identity"] as const)(
   },
 )
 
-test("a send awaiting authentication cannot follow the user into a new conversation", async () => {
-  const mutations: string[] = []
-  const onThreadReady = vi.fn()
-  const onAccepted = vi.fn()
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-    const url = new URL(input)
-    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (init?.method === "POST") mutations.push(url.pathname)
-    if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
-    if (url.pathname.endsWith("/threads"))
-      return Promise.resolve(
-        Response.json({
-          items: [thread(threadA)],
-          page_after: null,
-          page_before: null,
-        }),
-      )
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-  })
-  const chat = createAstralBeamChat({
-    threadId: threadA,
-    fetchAstralBeamToken: token,
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    const send = chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
-    chat.reset()
-    await send
-    expect(mutations).toEqual([])
-    expect(chat.getState().thread).toBeUndefined()
-    expect(chat.getState().unsentMessage).toBeUndefined()
-    expect(chat.getState().error).toBeUndefined()
-    expect(onThreadReady).not.toHaveBeenCalled()
-    expect(onAccepted).not.toHaveBeenCalled()
-  } finally {
-    chat.dispose()
-  }
-})
+test.each(["send", "delete"] as const)(
+  "a %s awaiting authentication cannot follow the user into a new conversation",
+  async (operation) => {
+    const mutations: string[] = []
+    const onThreadReady = vi.fn()
+    const onAccepted = vi.fn()
+    const beforeDelete = vi.fn()
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (init?.method === "POST" || init?.method === "DELETE") mutations.push(url.pathname)
+      if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
+      if (url.pathname.endsWith("/threads"))
+        return Promise.resolve(
+          Response.json({
+            items: [thread(threadA)],
+            page_after: null,
+            page_before: null,
+          }),
+        )
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({
+      threadId: threadA,
+      fetchAstralBeamToken: token,
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+      const send =
+        operation === "send"
+          ? chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
+          : chat.deleteThread(undefined, beforeDelete)
+      chat.reset()
+      await send
+      expect(mutations).toEqual([])
+      expect(chat.getState().thread).toBeUndefined()
+      expect(chat.getState().unsentMessage).toBeUndefined()
+      expect(chat.getState().error).toBeUndefined()
+      expect(onThreadReady).not.toHaveBeenCalled()
+      expect(onAccepted).not.toHaveBeenCalled()
+      expect(beforeDelete).not.toHaveBeenCalled()
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
-test("new-conversation callbacks identify the destination and acknowledge input before streaming ends", async () => {
+test.each(["selection", "api", "identity"] as const)(
+  "deletion after draft cleanup stays bound to authentication through a %s change",
+  async (change) => {
+    let user = currentUser
+    const deletes: { path: string; aborted: boolean | undefined }[] = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const url = new URL(input)
+      if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(user))
+      if (init?.method === "DELETE") {
+        deletes.push({ path: url.pathname, aborted: init.signal?.aborted })
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({ threadId: threadA, fetchAstralBeamToken: token })
+    let finish = () => {}
+    const beforeDelete = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+      const deletion = chat.deleteThread(undefined, beforeDelete)
+      await vi.waitFor(() => expect(beforeDelete).toHaveBeenCalledOnce())
+      if (change === "selection") chat.reset()
+      else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+      else {
+        user = { ...currentUser, user: { id: "different-user" } }
+        chat.retryAuthentication()
+      }
+      await vi.waitFor(() =>
+        expect(chat.getState().auth).toMatchObject({ status: "ready", currentUser: user }),
+      )
+      finish()
+      expect(await deletion).toBe(change === "selection")
+      expect(deletes).toEqual(
+        change === "selection" ? [{ path: `/api/v1/chat/threads/${threadA}`, aborted: false }] : [],
+      )
+    } finally {
+      finish()
+      chat.dispose()
+    }
+  },
+)
+
+test("new-conversation callbacks survive a token refresh failure and acknowledge acceptance", async () => {
   const onThreadReady = vi.fn<(id: string) => void>()
   const onAccepted = vi.fn()
   const settled = vi.fn()
@@ -209,11 +265,25 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     }
     return Promise.reject(new Error(`Unexpected request ${url}`))
   })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: token })
+  let failAuthentication = false
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: () => {
+      if (failAuthentication) throw new Error("Token service unavailable")
+      return token()
+    },
+  })
   try {
-    const sending = chat
-      .sendMessage("Start a saved conversation", { onThreadReady, onAccepted })
-      .then(settled)
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    failAuthentication = true
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("error"))
+    await chat.sendMessage("Start a saved conversation", { onThreadReady, onAccepted })
+    expect(chat.getState().unsentMessage).toBe("Start a saved conversation")
+    expect(onAccepted).not.toHaveBeenCalled()
+    failAuthentication = false
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    const sending = chat.sendMessage("Start a saved conversation").then(settled)
     await vi.waitFor(() => {
       expect(chat.getState().error).toBeUndefined()
       expect(sent).toEqual([{ threadId: threadA, destination: threadA }])
@@ -233,6 +303,19 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1))
     expect(chat.getState().unsentMessage).toBeUndefined()
     expect(settled).not.toHaveBeenCalled()
+    failAuthentication = true
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("error"))
+    const onBusyAccepted = vi.fn()
+    await chat.sendMessage("Wait for the active response", { onAccepted: onBusyAccepted })
+    stream!.enqueue(
+      new TextEncoder().encode(
+        `data: ${JSON.stringify({ ...accepted, value: { ...accepted.value, version: 3 } })}\n\n`,
+      ),
+    )
+    await vi.waitFor(() => expect(chat.getState().thread?.version).toBe(3))
+    expect(onBusyAccepted).not.toHaveBeenCalled()
+    expect(chat.getState().unsentMessage).toBeUndefined()
     chat.reset()
     stream?.close()
     stream = undefined

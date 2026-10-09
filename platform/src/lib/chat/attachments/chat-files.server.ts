@@ -6,6 +6,7 @@ import { Database, type EffectDatabase } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
+import { fileUpload } from "@/db/schema/chat.server"
 import { APP_HANDLE } from "@/lib/constants"
 import { StoredFiles, type StoredFile } from "@/lib/storage/stored-files.server"
 import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "../threads/errors"
@@ -23,7 +24,10 @@ import {
 } from "./constants.server"
 import { chatMediaPart, storedChatMediaSource } from "./stored-media"
 
-type ChatFileScope = Pick<ChatThreadScope, "organizationId" | "tenantId"> & { threadId: string }
+type ChatFileScope = Pick<ChatThreadScope, "organizationId" | "tenantId"> & {
+  threadId: string
+  tenantUserId?: string
+}
 type ChatFileExecutor = Pick<EffectDatabase, "select" | "insert" | "update" | "delete">
 type ChatFileFailure = ChatThreadInvalid | ChatThreadStorageUnavailable
 const chatFileOwnerWhere = (scope: ChatFileScope) =>
@@ -106,6 +110,10 @@ export class ChatFiles extends Context.Service<
       scope: ChatFileScope,
       id: string,
     ) => Effect.Effect<{ file: StoredFile; bytes: Uint8Array }, ChatFileFailure>
+    readonly metadata: (
+      scope: ChatFileScope,
+      id: string,
+    ) => Effect.Effect<StoredFile, ChatThreadInvalid>
   }
 >()("astralbeam/chat/ChatFiles") {
   static readonly layerNoDeps = Layer.effect(
@@ -122,8 +130,42 @@ export class ChatFiles extends Context.Service<
             and(chatFileOwnerWhere(scope), eq(chatFile.id, id), isNotNull(fileObject.verifiedAt)),
           )
           .pipe(mapDatabaseErrors())
-        if (!owned) return yield* new ChatThreadInvalid()
-        return owned.file
+        if (owned) return owned.file
+        if (scope.tenantUserId) {
+          const [upload] = yield* db
+            .select({ file: fileObject })
+            .from(fileUpload)
+            .innerJoin(fileObject, eq(fileUpload.fileId, fileObject.id))
+            .where(
+              and(
+                eq(fileUpload.organizationId, scope.organizationId),
+                eq(fileUpload.tenantId, scope.tenantId),
+                eq(fileUpload.tenantUserId, scope.tenantUserId),
+                eq(fileUpload.fileId, id),
+                eq(fileUpload.status, "completed"),
+                gt(fileUpload.expiresAt, sql`now()`),
+                isNotNull(fileObject.verifiedAt),
+                sql`not exists (select 1 from chat_file where id = ${id}::uuid)`,
+              ),
+            )
+            .pipe(mapDatabaseErrors())
+          if (upload) return upload.file
+        }
+        return yield* new ChatThreadInvalid()
+      })
+      const findPrepared = Effect.fnUntraced(function* (scope: ChatFileScope, id: string) {
+        const [file] = yield* db
+          .select()
+          .from(fileObject)
+          .where(
+            and(
+              eq(fileObject.id, id),
+              isNotNull(fileObject.verifiedAt),
+              sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
+            ),
+          )
+          .pipe(mapDatabaseErrors())
+        return file ?? (yield* findOwned(scope, id))
       })
       const read = Effect.fn("ChatFiles.read")(function* (scope: ChatFileScope, id: string) {
         const file = yield* findOwned(scope, id)
@@ -154,23 +196,8 @@ export class ChatFiles extends Context.Service<
             const stored = storedChatMediaSource(part)
             let key: string, size: number, contentType: string
             if (Option.isSome(stored)) {
-              const [file] = yield* db
-                .select({
-                  size: fileObject.byteSize,
-                  sha256: fileObject.sha256,
-                  contentType: fileObject.contentType,
-                })
-                .from(fileObject)
-                .where(
-                  and(
-                    eq(fileObject.id, stored.value.value),
-                    isNotNull(fileObject.verifiedAt),
-                    sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
-                  ),
-                )
-                .pipe(mapDatabaseErrors())
-              if (!file) return yield* new ChatThreadInvalid()
-              size = file.size
+              const file = yield* findPrepared(scope, stored.value.value)
+              size = file.byteSize
               contentType = file.contentType
               key = `${file.sha256}:${file.contentType}`
             } else if (Schema.is(Schema.JsonObject)(source) && source.type === "data") {
@@ -355,11 +382,41 @@ export class ChatFiles extends Context.Service<
             )
             .for("update")
             .pipe(mapDatabaseErrors())
-          if (!file || !file.sourceIdentity?.startsWith(chatFileIdentityPrefix(scope)))
-            return yield* new ChatThreadInvalid()
+          if (!file) return yield* new ChatThreadInvalid()
+          if (!file.sourceIdentity?.startsWith(chatFileIdentityPrefix(scope))) {
+            const [owned] = yield* executor
+              .select({ id: chatFile.id })
+              .from(chatFile)
+              .where(and(chatFileOwnerWhere(scope), eq(chatFile.id, id)))
+              .pipe(mapDatabaseErrors())
+            if (!owned) {
+              if (!scope.tenantUserId) return yield* new ChatThreadInvalid()
+              const [upload] = yield* executor
+                .select({ id: fileUpload.id })
+                .from(fileUpload)
+                .where(
+                  and(
+                    eq(fileUpload.organizationId, scope.organizationId),
+                    eq(fileUpload.tenantId, scope.tenantId),
+                    eq(fileUpload.tenantUserId, scope.tenantUserId),
+                    eq(fileUpload.fileId, id),
+                    eq(fileUpload.status, "completed"),
+                    gt(fileUpload.expiresAt, sql`now()`),
+                  ),
+                )
+                .for("update")
+                .pipe(mapDatabaseErrors())
+              if (!upload) return yield* new ChatThreadInvalid()
+            }
+          }
           yield* executor
             .insert(chatFile)
-            .values({ ...scope, id })
+            .values({
+              organizationId: scope.organizationId,
+              tenantId: scope.tenantId,
+              threadId: scope.threadId,
+              id,
+            })
             .onConflictDoNothing()
             .pipe(mapDatabaseErrors())
           const [owner] = yield* executor
@@ -407,23 +464,21 @@ export class ChatFiles extends Context.Service<
           if (!chatMediaPart(part)) continue
           const source = storedChatMediaSource(part)
           if (Option.isNone(source)) return yield* new ChatThreadInvalid()
-          const [file] = yield* db
-            .select({ size: fileObject.byteSize })
-            .from(fileObject)
-            .where(
-              and(
-                eq(fileObject.id, source.value.value),
-                isNotNull(fileObject.verifiedAt),
-                sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
-              ),
-            )
-            .pipe(mapDatabaseErrors())
-          if (!file) return yield* new ChatThreadInvalid()
-          total += file.size
+          const file = yield* findPrepared(scope, source.value.value)
+          total += file.byteSize
         }
         return total
       })
-      return ChatFiles.of({ externalize, hydrate, identity, claim, release, size, read })
+      return ChatFiles.of({
+        externalize,
+        hydrate,
+        identity,
+        claim,
+        release,
+        size,
+        read,
+        metadata: findOwned,
+      })
     }),
   )
   static readonly layer = ChatFiles.layerNoDeps.pipe(

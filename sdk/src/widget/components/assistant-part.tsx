@@ -28,6 +28,7 @@ interface AssistantPartProps {
   part: MessagePart
   messageId?: string | undefined
   getAttachment?: ((messageId: string, partId: string) => Promise<Blob>) | undefined
+  getUploadedFile?: ((id: string) => Promise<Blob>) | undefined
   apiUrl: string
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
@@ -205,6 +206,7 @@ export function AssistantPart({
   part,
   messageId,
   getAttachment,
+  getUploadedFile,
   apiUrl,
   widgets,
   toolTitles,
@@ -228,7 +230,12 @@ export function AssistantPart({
     case "audio":
     case "video":
       return messageId && getAttachment ? (
-        <SentAttachment part={part} messageId={messageId} getAttachment={getAttachment} />
+        <SentAttachment
+          part={part}
+          messageId={messageId}
+          getAttachment={getAttachment}
+          getUploadedFile={getUploadedFile}
+        />
       ) : null
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>

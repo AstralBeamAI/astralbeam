@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi, assert } from "vitest"
 import { createAstralBeamChat } from "./session.ts"
 
 const thread = {
@@ -1580,6 +1580,92 @@ test("refresh after membership removal leaves a fresh conversation without an er
     await chat.refreshThread()
     expect(chat.getState().thread).toBeUndefined()
     expect(chat.getState().error).toBeUndefined()
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("API changes clear multipart capability immediately and a failed handshake keeps inline fallback", async () => {
+  vi.stubGlobal("fetch", (input: string | URL) => {
+    const url = new URL(input)
+    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (url.pathname.endsWith("/config"))
+      return Promise.resolve(
+        url.hostname === "replacement.example"
+          ? Response.json({ error: "Unavailable" }, { status: 503 })
+          : Response.json({ capabilities: { attachments: true, uploads: { available: true } } }),
+      )
+    return Promise.resolve(Response.json({ items: [], page_after: null }))
+  })
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: token, threadId: "new" })
+  try {
+    await vi.waitFor(() => expect(chat.getState().capabilities.uploads?.available).toBe(true))
+    chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+    expect(chat.getState().capabilities.uploads).toBeUndefined()
+    expect(chat.getState().capabilitiesLoading).toBe(true)
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    await vi.waitFor(() => expect(chat.getState().capabilitiesLoading).toBe(false))
+    expect(chat.getState().capabilities.uploads).toBeUndefined()
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("multipart preparation honors the resolved default agent after conversation selection changes", async () => {
+  let prepared: unknown
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const url = new URL(input)
+    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (url.pathname.endsWith("/config"))
+      return Promise.resolve(
+        Response.json({
+          capabilities: {
+            attachments: true,
+            resolved_agent_id: "default-agent",
+            uploads: {
+              available: true,
+              max_files: 5,
+              max_total_bytes: 20 * 1024 * 1024,
+              part_size: 8 * 1024 * 1024,
+              session_hours: 24,
+            },
+          },
+        }),
+      )
+    if (url.pathname.endsWith("/uploads")) {
+      prepared = JSON.parse(init!.body as string)
+      return Promise.resolve(Response.json({ id: "prepared" }))
+    }
+    return Promise.resolve(Response.json({ items: [], page_after: null }))
+  })
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: token,
+    threadId: "new",
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
+    await vi.waitFor(() =>
+      expect(chat.getState().capabilities.resolvedAgentId).toBe("default-agent"),
+    )
+    const draftAgent = chat.getState().capabilities.resolvedAgentId
+    assert(draftAgent)
+    expect(chat.getState().capabilities.uploads).toEqual({
+      available: true,
+      maxFiles: 5,
+      maxTotalBytes: 20 * 1024 * 1024,
+      partSize: 8 * 1024 * 1024,
+      sessionHours: 24,
+    })
+    chat.updateOptions({ agentId: "different-agent" })
+    await chat.prepareUpload({
+      agent_id: draftAgent,
+      filename: "note.txt",
+      content_type: "text/plain",
+      byte_size: 5,
+      sha256: "0".repeat(64),
+    })
+    expect(prepared).toMatchObject({ agent_id: "default-agent" })
   } finally {
     chat.dispose()
   }

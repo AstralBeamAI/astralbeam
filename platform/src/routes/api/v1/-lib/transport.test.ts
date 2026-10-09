@@ -1,4 +1,7 @@
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
+import { Uploads } from "@/lib/chat/attachments/uploads.server"
+import { UploadClaimed, UploadConflict } from "@/lib/chat/attachments/errors"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -32,6 +35,7 @@ import { Tenants } from "@/lib/tenants/tenants.server"
 import { organization } from "@/db/schema/organizations.server"
 import {
   createTenant as sdkCreateTenant,
+  cancelChatUpload as sdkCancelChatUpload,
   getChatFile as sdkGetChatFile,
   getCurrentUser as sdkGetCurrentUser,
   listTenants as sdkListTenants,
@@ -173,7 +177,9 @@ function queryFailure(cause: object) {
 }
 
 const restTestServices = Layer.mergeAll(
+  Layer.succeed(StoredFiles, {} as typeof StoredFiles.Service),
   ChatFiles.layer.pipe(Layer.orDie),
+  Uploads.layer.pipe(Layer.orDie),
   Layer.succeed(SqlClient.SqlClient, {} as typeof SqlClient.SqlClient.Service),
   TenantUsers.layerNoDeps.pipe(Layer.provideMerge(Tenants.layerNoDeps)),
   Layer.succeed(
@@ -382,6 +388,44 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
+  test("upload cancellation exposes claimed ownership separately from retryable conflicts", async () => {
+    let failure: UploadClaimed | UploadConflict = new UploadClaimed()
+    const handler = HttpRouter.toWebHandler(
+      ApiV1Routes.pipe(
+        Layer.provideMerge(
+          Layer.merge(
+            restTestServices,
+            Layer.succeed(Uploads, {
+              cancel: () => Effect.fail(failure),
+            } as unknown as typeof Uploads.Service),
+          ),
+        ),
+        Layer.provide(HttpServer.layerServices),
+      ),
+      { disableLogger: true },
+    )
+    try {
+      for (const error of [new UploadClaimed(), new UploadConflict()]) {
+        failure = error
+        await expect(
+          sdkCancelChatUpload(restOtherId, {
+            astralBeamToken: restTenantJwt,
+            apiUrl: "http://localhost/api",
+            fetchClient: (input, init) => handler.handler(new Request(input, init)),
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          body: {
+            type: error instanceof UploadClaimed ? "urn:file-upload:claimed" : "about:blank",
+            detail: error.message,
+          },
+        })
+      }
+    } finally {
+      await handler.dispose()
+    }
+  })
+
   test("preserves safe 503 with CORS/no-store before setup", async () => {
     restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
     const response = await restRequest("/chat")
@@ -1126,6 +1170,23 @@ describe("REST API through the Effect Fetch handler", () => {
         expect(await response.json()).toMatchObject({ status })
       }
     }
+    restTestState.agent.mockReturnValue(
+      Effect.succeed({ attachments: true, resolvedAgentId: "resolved-agent" }),
+    )
+    const configuration = await restRequest("/chat/config", { headers })
+    expect(await configuration.json()).toEqual({
+      capabilities: {
+        attachments: true,
+        resolved_agent_id: "resolved-agent",
+        uploads: {
+          available: true,
+          max_files: 5,
+          max_total_bytes: 20 * 1024 * 1024,
+          part_size: 8 * 1024 * 1024,
+          session_hours: 24,
+        },
+      },
+    })
     restTestState.agent.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
     const missing = await restRequest("/chat/config", { headers })
     expect(missing.status).toBe(404)

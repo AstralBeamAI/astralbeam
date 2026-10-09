@@ -619,7 +619,9 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   const { decodeAttachmentBytes } = yield* Effect.promise(
     () => import("@/lib/chat/attachments/attachments.server"),
   )
-  const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+  const { chatArtifactResponse, chatStoredFileResponse } = yield* Effect.promise(
+    () => import("./files.server"),
+  )
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
   const part = message.payload.parts.find((entry) => entry.id === partId)
   const source = part?.source
@@ -638,23 +640,23 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
     typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
       ? source.mimeType
       : "application/octet-stream"
-  const bytes =
-    source.type === "file"
-      ? yield* Effect.gen(function* () {
-          const { ChatFiles } = yield* Effect.promise(
-            () => import("@/lib/chat/attachments/chat-files.server"),
-          )
-          const files = yield* ChatFiles
-          return (yield* files.read(
-            {
-              organizationId: message.organizationId,
-              tenantId: message.tenantId,
-              threadId: message.threadId,
-            },
-            source.value as string,
-          )).bytes
-        })
-      : decodeAttachmentBytes(source.value)
+  if (source.type === "file")
+    return yield* Effect.gen(function* () {
+      const { ChatFiles } = yield* Effect.promise(
+        () => import("@/lib/chat/attachments/chat-files.server"),
+      )
+      const files = yield* ChatFiles
+      const file = yield* files.metadata(
+        {
+          organizationId: message.organizationId,
+          tenantId: message.tenantId,
+          threadId: message.threadId,
+        },
+        source.value as string,
+      )
+      return yield* chatStoredFileResponse(file, path)
+    })
+  const bytes = decodeAttachmentBytes(source.value)
   if (!bytes) return yield* new ChatThreadNotFound()
   return chatArtifactResponse({ bytes, mimeType, path })
 })

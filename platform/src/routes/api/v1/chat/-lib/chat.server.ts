@@ -66,13 +66,30 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
     HttpApiEndpoint.get("getChatConfig", "/chat/config", {
       query: Schema.Struct({ agentId: Schema.optionalKey(Schema.String) }),
       success: Schema.Struct({
-        capabilities: Schema.Struct({ attachments: Schema.Boolean }),
+        capabilities: Schema.Struct({
+          attachments: Schema.Boolean,
+          resolvedAgentId: Schema.String,
+          uploads: Schema.Struct({
+            available: Schema.Boolean,
+            maxFiles: Schema.Int,
+            maxTotalBytes: Schema.Int,
+            partSize: Schema.Int,
+            sessionHours: Schema.Int,
+          }).pipe(
+            Schema.encodeKeys({
+              maxFiles: "max_files",
+              maxTotalBytes: "max_total_bytes",
+              partSize: "part_size",
+              sessionHours: "session_hours",
+            }),
+          ),
+        }).pipe(Schema.encodeKeys({ resolvedAgentId: "resolved_agent_id" })),
       }).annotate({ identifier: "ChatConfiguration" }),
     })
       .annotate(OpenApi.Summary, "Get chat capabilities")
       .annotate(
         OpenApi.Description,
-        "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
+        "Read the selected agent's attachment grant and resolved public agent ID using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it. Bind queued drafts to the resolved ID to preserve their agent if the default changes.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -155,7 +172,19 @@ export function chatHandlers(api: typeof ApiV1) {
           "getChatConfig",
           Effect.fn("getChatConfig")(function* ({ query, request }) {
             const principal = yield* authenticate(request)
-            return { capabilities: yield* chat.capabilities({ principal, agentId: query.agentId }) }
+            const capabilities = yield* chat.capabilities({ principal, agentId: query.agentId })
+            return {
+              capabilities: {
+                ...capabilities,
+                uploads: {
+                  available: capabilities.attachments,
+                  maxFiles: 5,
+                  maxTotalBytes: 20 * 1024 * 1024,
+                  partSize: 8 * 1024 * 1024,
+                  sessionHours: 24,
+                },
+              },
+            }
           }),
         )
         .handle(

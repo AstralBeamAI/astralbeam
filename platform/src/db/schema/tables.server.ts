@@ -32,4 +32,5 @@ export {
   fileDeletion,
 } from "./files.server.ts"
 
-export { chatFile } from "./chat.server.ts"
+export { chatFile, fileUpload } from "./chat.server.ts"
+export { multipartDeletion } from "./files.server.ts"

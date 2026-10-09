@@ -21,9 +21,13 @@ test("normalized transport failures do not repeat the raw error in the alert or 
       authError={undefined}
       onAuthRetry={undefined}
       attachments={[]}
+      lockedAttachmentIds={new Set()}
       attachmentLimits={resolveAttachmentOptions(false)}
       onAddFiles={() => {}}
       onRemoveAttachment={() => {}}
+      onPauseAttachment={() => {}}
+      onResumeAttachment={() => false}
+      onReselectAttachment={() => {}}
     />,
   )
   expect(html).toContain("The assistant service returned an error (HTTP 500).")

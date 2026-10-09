@@ -1,4 +1,4 @@
-import { XIcon } from "@phosphor-icons/react"
+import { XIcon, PauseIcon, PlayIcon } from "@phosphor-icons/react"
 import { useEffect, useRef } from "react"
 import {
   Attachment,
@@ -16,10 +16,11 @@ import type { DraftAttachment } from "../lib/types.ts"
 import { formatByteSize } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
-// The chip's own state drives the frame and the title shimmer; "uploading" is the read, which
-// is local, so there is no separate upload step to show.
 const CHIP_STATE = {
   reading: "uploading",
+  uploading: "uploading",
+  paused: "idle",
+  reselect: "idle",
   ready: "done",
   error: "error",
 } as const
@@ -30,10 +31,16 @@ const CHIP_STATE = {
  */
 export function ComposerAttachments({
   attachments,
+  lockedIds,
   onRemove,
+  onPause,
+  onResume,
 }: {
   attachments: readonly DraftAttachment[]
+  lockedIds: ReadonlySet<string>
   onRemove: (id: string) => void
+  onPause: (id: string) => void
+  onResume: (id: string) => void
 }) {
   const group = useRef<HTMLDivElement>(null)
   const newest = attachments.at(-1)?.id
@@ -48,9 +55,10 @@ export function ComposerAttachments({
     <AttachmentGroup ref={group} className="w-full">
       {attachments.map((attachment) => {
         const thumbnail =
-          attachment.kind === "image" && attachment.data !== undefined
+          attachment.preview ??
+          (attachment.kind === "image" && attachment.data !== undefined
             ? attachmentDataUri(attachment.mimeType, attachment.data)
-            : undefined
+            : undefined)
         return (
           <Attachment
             key={attachment.id}
@@ -62,7 +70,7 @@ export function ComposerAttachments({
             <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
               {thumbnail ? (
                 <img src={thumbnail} alt="" />
-              ) : attachment.status === "reading" ? (
+              ) : attachment.status === "reading" || attachment.status === "uploading" ? (
                 <Spinner />
               ) : (
                 <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />
@@ -71,13 +79,39 @@ export function ComposerAttachments({
             <AttachmentContent>
               <AttachmentTitle>{attachment.name}</AttachmentTitle>
               <AttachmentDescription>
-                {attachment.error ?? formatByteSize(attachment.size)}
+                {attachment.error ??
+                  (attachment.status === "uploading"
+                    ? `${Math.round((attachment.progress ?? 0) * 100)}% uploaded`
+                    : attachment.status === "paused"
+                      ? "Paused"
+                      : attachment.status === "reselect"
+                        ? "Choose the original file to resume"
+                        : formatByteSize(attachment.size))}
               </AttachmentDescription>
             </AttachmentContent>
             <AttachmentActions>
+              {attachment.status === "uploading" && (
+                <AttachmentAction
+                  type="button"
+                  aria-label={`Pause ${attachment.name}`}
+                  onClick={() => onPause(attachment.id)}
+                >
+                  <PauseIcon />
+                </AttachmentAction>
+              )}
+              {["paused", "reselect", "error"].includes(attachment.status) && attachment.kind && (
+                <AttachmentAction
+                  type="button"
+                  aria-label={`Resume ${attachment.name}`}
+                  onClick={() => onResume(attachment.id)}
+                >
+                  <PlayIcon />
+                </AttachmentAction>
+              )}
               <AttachmentAction
                 type="button"
                 aria-label={`Remove ${attachment.name}`}
+                disabled={lockedIds.has(attachment.id)}
                 title="Remove"
                 onClick={() => onRemove(attachment.id)}
               >

@@ -51,10 +51,17 @@ export interface DraftAttachment {
   /** Size in bytes as reported by the file, used for the label and the caps. */
   size: number
   mimeType: string
-  kind?: AttachmentKind
-  status: "reading" | "ready" | "error"
+  kind?: AttachmentKind | undefined
+  status: "reading" | "uploading" | "paused" | "reselect" | "ready" | "error"
+  agentId?: string | undefined
+  prepareAttempted?: boolean | undefined
+  sessionId?: string | undefined
+  sha256?: string | undefined
+  fileId?: string | undefined
+  progress?: number | undefined
+  preview?: string | undefined
   /** Base64 payload without the data-URI prefix; present once the status is `"ready"`. */
-  data?: string
+  data?: string | undefined
   /** Why the file was rejected or could not be read; present when the status is `"error"`. */
-  error?: string
+  error?: string | undefined
 }

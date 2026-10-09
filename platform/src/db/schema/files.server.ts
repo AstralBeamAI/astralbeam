@@ -4,6 +4,7 @@ import {
   pgEnum,
   check,
   index,
+  integer,
   primaryKey,
   snakeCase,
   text,
@@ -168,5 +169,22 @@ export const fileDeletion = snakeCase.table(
   ],
 )
 
-/** @knipignore Drizzle Kit discovers these enums through schema.server.ts. */
 export { userAvatarSourceKind, profileImageImportStatus }
+
+export const multipartDeletion = snakeCase.table(
+  "multipart_deletion",
+  {
+    id: uuidV7PrimaryKey(),
+    objectKey: text().notNull(),
+    uploadId: text(),
+    attempts: integer().notNull().default(0),
+    retryAt: timestampWithTimeZone()
+      .notNull()
+      .default(sql`now() + interval '1 minute'`),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("multipart_deletion_key_uidx").on(table.objectKey),
+    index("multipart_deletion_retry_idx").on(table.retryAt),
+  ],
+)

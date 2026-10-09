@@ -59,11 +59,13 @@ export function ThreadHistory({
   state,
   onSelect,
   onDelete,
+  beforeDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
   onSelect: () => void
   onDelete: (threadId: string) => void
+  beforeDelete: (threadId: string) => Promise<void>
 }) {
   const container = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -107,11 +109,13 @@ export function ThreadHistory({
   const currentId = state.thread?.id
   const writing = state.status === "submitted" || state.status === "streaming"
   const deleteThread = (thread: ChatThread) => {
-    void chat.deleteThread(thread).then((deleted) => {
-      if (!deleted) return
-      onDelete(thread.id)
-      void query.refetch()
-    })
+    void chat
+      .deleteThread(thread, () => beforeDelete(thread.id))
+      .then((deleted) => {
+        if (!deleted) return
+        onDelete(thread.id)
+        void query.refetch()
+      })
   }
   return (
     <div ref={container} data-slot="thread-history">

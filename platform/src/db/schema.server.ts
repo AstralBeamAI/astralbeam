@@ -8,6 +8,7 @@ export {
   chatMessageStateEnum,
   chatMessageTurnStateEnum,
   chatMessagePartExecutionLocationEnum,
+  fileUploadStatusEnum,
 } from "./schema/chat.server.ts"
 
 export { userAvatarSourceKind, profileImageImportStatus } from "./schema/files.server.ts"
