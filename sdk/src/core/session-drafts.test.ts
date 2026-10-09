@@ -162,7 +162,7 @@ test("a send awaiting authentication cannot follow the user into a new conversat
   }
 })
 
-test("new-conversation callbacks identify the destination and acknowledge input before streaming ends", async () => {
+test("new-conversation callbacks survive a token refresh failure and acknowledge acceptance", async () => {
   const onThreadReady = vi.fn<(id: string) => void>()
   const onAccepted = vi.fn()
   const settled = vi.fn()
@@ -209,11 +209,25 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     }
     return Promise.reject(new Error(`Unexpected request ${url}`))
   })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: token })
+  let failAuthentication = false
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: () => {
+      if (failAuthentication) throw new Error("Token service unavailable")
+      return token()
+    },
+  })
   try {
-    const sending = chat
-      .sendMessage("Start a saved conversation", { onThreadReady, onAccepted })
-      .then(settled)
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    failAuthentication = true
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("error"))
+    await chat.sendMessage("Start a saved conversation", { onThreadReady, onAccepted })
+    expect(chat.getState().unsentMessage).toBe("Start a saved conversation")
+    expect(onAccepted).not.toHaveBeenCalled()
+    failAuthentication = false
+    chat.retryAuthentication()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    const sending = chat.sendMessage("Start a saved conversation").then(settled)
     await vi.waitFor(() => {
       expect(chat.getState().error).toBeUndefined()
       expect(sent).toEqual([{ threadId: threadA, destination: threadA }])

@@ -17,13 +17,13 @@ const session = {
   id: "upload",
   status: "pending" as const,
   filename: "note.txt",
-  contentType: "text/plain",
-  byteSize: 5,
+  content_type: "text/plain",
+  byte_size: 5,
   sha256: "",
-  expiresAt: "",
-  partSize: 8 * 1024 * 1024,
+  expires_at: "",
+  part_size: 8 * 1024 * 1024,
   parts: [],
-  fileId: null,
+  file_id: null,
 }
 const draft: DraftAttachment = {
   id: "draft",
@@ -90,7 +90,7 @@ test("an expired part URL is replaced and progress completes only after server v
     Promise.resolve({
       ...session,
       status: "completed" as const,
-      fileId: "accepted-file",
+      file_id: "accepted-file",
     }),
   )
   const chat = {
@@ -139,11 +139,11 @@ test("upload work caps two files and four part requests, and pause releases queu
     },
   )
   const prepareUpload = vi.fn((_input: unknown) =>
-    Promise.resolve({ ...session, byteSize: 9 * 1024 * 1024 }),
+    Promise.resolve({ ...session, byte_size: 9 * 1024 * 1024 }),
   )
   const chat = {
     prepareUpload,
-    getUpload: vi.fn(() => Promise.resolve({ ...session, byteSize: 9 * 1024 * 1024 })),
+    getUpload: vi.fn(() => Promise.resolve({ ...session, byte_size: 9 * 1024 * 1024 })),
     signUploadParts: vi.fn((_id, parts: number[]) =>
       Promise.resolve({
         parts: parts.map((number) => ({ number, url: "https://storage.test/part" })),
@@ -164,7 +164,7 @@ test("upload work caps two files and four part requests, and pause releases queu
   pauseAttachmentUpload({ uploads, id: "first" })
   await vi.waitFor(() => expect(prepareUpload).toHaveBeenCalledTimes(3))
   expect(peak).toBe(4)
-  expect(prepareUpload.mock.calls.at(-1)?.[0]).toMatchObject({ agentId: "origin-agent" })
+  expect(prepareUpload.mock.calls.at(-1)?.[0]).toMatchObject({ agent_id: "origin-agent" })
   disposeAttachmentUploads(uploads)
 })
 
@@ -193,7 +193,7 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
         ...session,
         id: "replacement",
         status: "completed" as const,
-        fileId: "new-file",
+        file_id: "new-file",
       }),
     )
     const chat = {
@@ -208,12 +208,12 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
         return Promise.resolve(
           id === "old"
             ? { ...session, status }
-            : { ...session, status: "completed", fileId: "new-file" },
+            : { ...session, status: "completed", file_id: "new-file" },
         )
       }),
       prepareUpload,
       completeUpload: vi.fn(() =>
-        Promise.resolve({ ...session, status: "completed", fileId: "new-file" }),
+        Promise.resolve({ ...session, status: "completed", file_id: "new-file" }),
       ),
     } as unknown as AstralBeamChatCore
     const uploads = attachmentUploadState(chat)
@@ -233,15 +233,21 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
   },
 )
 
-test("discarding a paused draft cancels its server session and releases its browser resources", () => {
-  const cancelUpload = vi.fn(() => Promise.resolve())
+test("removal retains a failed cancellation for retry and releases browser resources", async () => {
+  const cancelUpload = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockResolvedValue(undefined)
   const uploads = attachmentUploadState({ cancelUpload } as unknown as AstralBeamChatCore)
   uploads.files.set(draft.id, new File(["hello"], "note.txt"))
   const controller = new AbortController()
   uploads.tasks.set(draft.id, controller)
-  removeAttachmentUpload({ uploads, draft: { ...draft, sessionId: "pending", status: "paused" } })
+  const pending = { ...draft, sessionId: "pending", status: "paused" as const }
+  await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toThrow("Unavailable")
   expect(controller.signal.aborted).toBe(true)
   expect(uploads.files.size).toBe(0)
   expect(cancelUpload).toHaveBeenCalledExactlyOnceWith("pending")
+  await removeAttachmentUpload({ uploads, draft: pending })
+  expect(cancelUpload).toHaveBeenCalledTimes(2)
   disposeAttachmentUploads(uploads)
 })

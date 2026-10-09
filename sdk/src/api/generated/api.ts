@@ -314,9 +314,10 @@ export interface CreateChatThreadInputEncoded {
   agent_id?: string
 }
 
-export type ChatUploadStatus = (typeof ChatUploadStatus)[keyof typeof ChatUploadStatus]
+export type ChatUploadEncodedStatus =
+  (typeof ChatUploadEncodedStatus)[keyof typeof ChatUploadEncodedStatus]
 
-export const ChatUploadStatus = {
+export const ChatUploadEncodedStatus = {
   preparing: "preparing",
   pending: "pending",
   completing: "completing",
@@ -325,25 +326,25 @@ export const ChatUploadStatus = {
   expired: "expired",
 } as const
 
-export type ChatUploadPartsItem = {
+export type ChatUploadEncodedPartsItem = {
   number: number
   size: number
 }
 
-export interface ChatUpload {
+export interface ChatUploadEncoded {
   id: string
-  status: ChatUploadStatus
+  status: ChatUploadEncodedStatus
   filename: string
-  contentType: string
-  byteSize: number
+  content_type: string
+  byte_size: number
   sha256: string
-  expiresAt: string
-  partSize: number
-  parts: ChatUploadPartsItem[]
-  fileId: string | null
+  expires_at: string
+  part_size: number
+  parts: ChatUploadEncodedPartsItem[]
+  file_id: string | null
 }
 
-export interface ChatUploadInput {
+export interface ChatUploadInputEncoded {
   /**
    * @minLength 1
    * @maxLength 120
@@ -354,14 +355,14 @@ export interface ChatUploadInput {
    * @minLength 1
    * @maxLength 255
    */
-  contentType: string
+  content_type: string
   /**
    * @maximum 20971520
    * @exclusiveMinimum 0
    */
-  byteSize: number
+  byte_size: number
   sha256: string
-  agentId?: string
+  agent_id?: string
 }
 
 export type ChatConfigurationCapabilitiesUploads = {
@@ -1261,7 +1262,7 @@ export const getPrepareChatUploadUrl = () => {
  * @summary Prepare a private file upload
  */
 export const prepareChatUpload = (
-  chatUploadInput: ChatUploadInput,
+  chatUploadInputEncoded: ChatUploadInputEncoded,
   options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   const getHeaders = (
@@ -1283,11 +1284,11 @@ export const prepareChatUpload = (
     }
     return headers
   }
-  return astralBeamJwtFetch<ChatUpload>(getPrepareChatUploadUrl(), {
+  return astralBeamJwtFetch<ChatUploadEncoded>(getPrepareChatUploadUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(chatUploadInput),
+    body: JSON.stringify(chatUploadInputEncoded),
   })
 }
 
@@ -1299,7 +1300,7 @@ export const getGetChatUploadUrl = (id: string) => {
  * @summary Read upload progress
  */
 export const getChatUpload = (id: string, options: Parameters<typeof astralBeamJwtFetch>[1]) => {
-  return astralBeamJwtFetch<ChatUpload>(getGetChatUploadUrl(id), {
+  return astralBeamJwtFetch<ChatUploadEncoded>(getGetChatUploadUrl(id), {
     ...options,
     method: "GET",
   })
@@ -1369,7 +1370,7 @@ export const completeChatUpload = (
   id: string,
   options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
-  return astralBeamJwtFetch<ChatUpload>(getCompleteChatUploadUrl(id), {
+  return astralBeamJwtFetch<ChatUploadEncoded>(getCompleteChatUploadUrl(id), {
     ...options,
     method: "POST",
   })

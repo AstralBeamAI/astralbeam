@@ -1631,13 +1631,13 @@ test("multipart preparation honors the draft agent after conversation selection 
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
     await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
     await chat.prepareUpload({
-      agentId: "draft-agent",
+      agent_id: "draft-agent",
       filename: "note.txt",
-      contentType: "text/plain",
-      byteSize: 5,
+      content_type: "text/plain",
+      byte_size: 5,
       sha256: "0".repeat(64),
     })
-    expect(prepared).toMatchObject({ agentId: "draft-agent" })
+    expect(prepared).toMatchObject({ agent_id: "draft-agent" })
   } finally {
     chat.dispose()
   }
