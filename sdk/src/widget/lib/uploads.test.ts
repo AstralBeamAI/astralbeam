@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest"
 import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
+import { storedThreadAttachments } from "./drafts.ts"
 import {
   attachmentUploadState,
   startAttachmentUpload,
@@ -9,9 +10,15 @@ import {
   disposeAttachmentUploads,
   releaseAttachmentUpload,
   removeAttachmentUpload,
+  discardAttachmentUploads,
 } from "./uploads.ts"
 
-afterEach(() => vi.unstubAllGlobals())
+vi.mock("./drafts.ts", () => ({ storedThreadAttachments: vi.fn(() => Promise.resolve([])) }))
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.mocked(storedThreadAttachments).mockReset().mockResolvedValue([])
+})
 
 const session = {
   id: "upload",
@@ -32,6 +39,7 @@ const draft: DraftAttachment = {
   mimeType: "text/plain",
   kind: "text",
   status: "reading",
+  agentId: "origin-agent",
 }
 
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
@@ -186,35 +194,21 @@ test("acceptance releases only submitted browser resources without cancelling cl
 })
 
 test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
-  "retry handles a %s session without losing its identity",
+  "retry retains a %s session and requires removal before preparing again",
   async (status) => {
-    const prepareUpload = vi.fn(() =>
-      Promise.resolve({
-        ...session,
-        id: "replacement",
-        status: "completed" as const,
-        file_id: "new-file",
-      }),
-    )
+    const prepareUpload = vi.fn()
     const chat = {
-      getUpload: vi.fn((id) => {
-        if (id === "old" && (status === "missing" || status === "unavailable"))
+      getUpload: vi.fn(() => {
+        if (status === "missing" || status === "unavailable")
           return Promise.reject(
             Object.assign(new Error("Upload unavailable"), {
               name: "AstralBeamApiError",
               status: status === "missing" ? 404 : 503,
             }),
           )
-        return Promise.resolve(
-          id === "old"
-            ? { ...session, status }
-            : { ...session, status: "completed", file_id: "new-file" },
-        )
+        return Promise.resolve({ ...session, status })
       }),
       prepareUpload,
-      completeUpload: vi.fn(() =>
-        Promise.resolve({ ...session, status: "completed", file_id: "new-file" }),
-      ),
     } as unknown as AstralBeamChatCore
     const uploads = attachmentUploadState(chat)
     let state: DraftAttachment = { ...draft, sessionId: "old" }
@@ -226,28 +220,104 @@ test.each(["expired", "cancelled", "missing", "unavailable"] as const)(
         state = { ...state, ...update }
       },
     })
-    await vi.waitFor(() => expect(state.status).toBe(status === "unavailable" ? "error" : "ready"))
-    expect(prepareUpload).toHaveBeenCalledTimes(status === "unavailable" ? 0 : 1)
-    expect(state.sessionId).toBe(status === "unavailable" ? "old" : "replacement")
+    await vi.waitFor(() => expect(state.status).toBe("error"))
+    expect(prepareUpload).not.toHaveBeenCalled()
+    expect(state.sessionId).toBe("old")
     disposeAttachmentUploads(uploads)
   },
 )
 
-test("removal retains a failed cancellation for retry and releases browser resources", async () => {
+test.each([true, false])(
+  "removal retains a failed cancellation for retry with a known session: %s",
+  async (known) => {
+    const cancelUpload = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Unavailable"))
+      .mockResolvedValue(undefined)
+    const uploads = attachmentUploadState({
+      cancelUpload,
+      cancelPreparedUpload: cancelUpload,
+    } as unknown as AstralBeamChatCore)
+    uploads.files.set(draft.id, new File(["hello"], "note.txt"))
+    const controller = new AbortController()
+    uploads.tasks.set(draft.id, controller)
+    const pending = {
+      ...draft,
+      ...(known ? { sessionId: "pending" } : {}),
+      status: "paused" as const,
+    }
+    await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toThrow("Unavailable")
+    expect(controller.signal.aborted).toBe(true)
+    expect(uploads.files.size).toBe(0)
+    expect(cancelUpload).toHaveBeenCalledExactlyOnceWith(known ? "pending" : draft.id)
+    await removeAttachmentUpload({ uploads, draft: pending })
+    expect(cancelUpload).toHaveBeenCalledTimes(2)
+    disposeAttachmentUploads(uploads)
+  },
+)
+
+test("an uncertain preparation retries the same attachment key and retains a preparing session", async () => {
+  const prepareUpload = vi
+    .fn<(input: unknown) => Promise<unknown>>()
+    .mockRejectedValueOnce(new Error("Response lost"))
+    .mockResolvedValue({ ...session, status: "preparing" })
+  const chat = {
+    prepareUpload,
+    getUpload: vi.fn(() => Promise.resolve({ ...session, status: "preparing" })),
+  } as unknown as AstralBeamChatCore
+  const uploads = attachmentUploadState(chat)
+  let state = { ...draft }
+  const settle = (update: Partial<DraftAttachment>) => {
+    state = { ...state, ...update }
+  }
+  startAttachmentUpload({ uploads, draft: state, file: new File(["hello"], "note.txt"), settle })
+  await vi.waitFor(() => expect(state.status).toBe("error"))
+  resumeAttachmentUpload({ uploads, draft: state, settle })
+  await vi.waitFor(() => expect(state.status).toBe("error"), { timeout: 3_000 })
+  expect(prepareUpload).toHaveBeenCalledTimes(2)
+  for (const [input] of prepareUpload.mock.calls)
+    expect(input).toMatchObject({ prepare_key: draft.id, agent_id: "origin-agent" })
+  expect(state.sessionId).toBe("upload")
+  expect(state.error).toContain("still preparing")
+  disposeAttachmentUploads(uploads)
+})
+
+test("discard retains unreadable or transitioning targets and leaves claimed files to their conversation", async () => {
+  const conflict = Object.assign(new Error("Retry completion"), {
+    name: "AstralBeamApiError",
+    status: 409,
+    body: { type: "about:blank" },
+  })
+  const claimed = Object.assign(new Error("Claimed"), {
+    name: "AstralBeamApiError",
+    status: 409,
+    body: { type: "urn:file-upload:claimed" },
+  })
   const cancelUpload = vi
     .fn()
-    .mockRejectedValueOnce(new Error("Unavailable"))
-    .mockResolvedValue(undefined)
+    .mockRejectedValueOnce(claimed)
+    .mockRejectedValueOnce(conflict)
+    .mockRejectedValue(claimed)
   const uploads = attachmentUploadState({ cancelUpload } as unknown as AstralBeamChatCore)
-  uploads.files.set(draft.id, new File(["hello"], "note.txt"))
-  const controller = new AbortController()
-  uploads.tasks.set(draft.id, controller)
-  const pending = { ...draft, sessionId: "pending", status: "paused" as const }
-  await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toThrow("Unavailable")
-  expect(controller.signal.aborted).toBe(true)
-  expect(uploads.files.size).toBe(0)
-  expect(cancelUpload).toHaveBeenCalledExactlyOnceWith("pending")
-  await removeAttachmentUpload({ uploads, draft: pending })
-  expect(cancelUpload).toHaveBeenCalledTimes(2)
+  const pending = { ...draft, sessionId: "pending" }
+  const discard = () =>
+    discardAttachmentUploads({
+      uploads,
+      apiUrl: "https://api.test",
+      identity: "owner",
+      threadId: "conversation",
+      attachments: [],
+    })
+  vi.mocked(storedThreadAttachments).mockRejectedValueOnce(new Error("Storage unavailable"))
+  await expect(discard()).rejects.toThrow("Storage unavailable")
+  expect(cancelUpload).not.toHaveBeenCalled()
+  await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toBe(claimed)
+  vi.mocked(storedThreadAttachments).mockResolvedValueOnce([pending])
+  await expect(discard()).rejects.toBe(conflict)
+  expect(vi.mocked(storedThreadAttachments).mock.calls.at(-1)?.[0]).not.toHaveProperty("update")
+  vi.mocked(storedThreadAttachments).mockResolvedValueOnce([pending])
+  await discard()
+  expect(cancelUpload).toHaveBeenCalledTimes(3)
+  expect(vi.mocked(storedThreadAttachments).mock.calls.at(-1)?.[0]).toHaveProperty("update")
   disposeAttachmentUploads(uploads)
 })

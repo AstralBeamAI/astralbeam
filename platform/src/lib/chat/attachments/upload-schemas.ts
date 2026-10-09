@@ -4,6 +4,9 @@ import { NonEmptyStringSchema } from "../../schemas.ts"
 
 export const UPLOAD_PART_BYTES = 8 * 1024 * 1024
 export const UploadInputSchema = Schema.Struct({
+  prepareKey: Schema.optionalKey(ApiUuidSchema).annotate({
+    description: "Reuse this key for retries of the same file while its upload session exists.",
+  }),
   filename: NonEmptyStringSchema.check(
     Schema.isMaxCodePoints(120),
     Schema.makeFilter((value) => !value.includes("\0"), {
@@ -17,7 +20,12 @@ export const UploadInputSchema = Schema.Struct({
   agentId: Schema.optionalKey(Schema.String),
 })
   .pipe(
-    Schema.encodeKeys({ contentType: "content_type", byteSize: "byte_size", agentId: "agent_id" }),
+    Schema.encodeKeys({
+      prepareKey: "prepare_key",
+      contentType: "content_type",
+      byteSize: "byte_size",
+      agentId: "agent_id",
+    }),
   )
   .annotate({ identifier: "ChatUploadInput" })
 export const UploadStatusSchema = Schema.Struct({

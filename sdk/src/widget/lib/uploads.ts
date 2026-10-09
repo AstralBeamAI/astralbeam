@@ -121,7 +121,13 @@ async function uploadParts({
   progress: (fraction: number) => void
 }) {
   const { chat } = uploads
-  const session = await chat.getUpload(sessionId, signal)
+  let session = await chat.getUpload(sessionId, signal)
+  for (let attempt = 0; session.status === "preparing" && attempt < 5; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    signal.throwIfAborted()
+    session = await chat.getUpload(sessionId, signal)
+  }
+  if (session.status === "preparing") throw new Error("Upload is still preparing. Retry to resume.")
   if (session.status === "completed" || session.status === "completing") return
   if (session.status !== "pending")
     throw new Error("Upload expired. Remove it and attach the file again.")
@@ -207,19 +213,23 @@ export function startAttachmentUpload({
       const saved = draft.sessionId
         ? await getAttachmentUpload({ chat, id: draft.sessionId, signal })
         : undefined
+      if (draft.sessionId && (!saved || saved.status === "expired" || saved.status === "cancelled"))
+        throw new Error("Upload expired or unavailable. Remove it and attach the file again.")
+      if (!saved && !draft.agentId)
+        throw new Error("The original agent is unavailable. Remove it and attach the file again.")
       const session =
-        saved && saved.status !== "expired" && saved.status !== "cancelled"
-          ? saved
-          : await chat.prepareUpload(
-              {
-                filename: draft.name,
-                content_type: draft.mimeType,
-                byte_size: file.size,
-                sha256,
-                ...(draft.agentId ? { agent_id: draft.agentId } : {}),
-              },
-              signal,
-            )
+        saved ??
+        (await chat.prepareUpload(
+          {
+            prepare_key: draft.id,
+            filename: draft.name,
+            content_type: draft.mimeType,
+            byte_size: file.size,
+            sha256,
+            ...(draft.agentId ? { agent_id: draft.agentId } : {}),
+          },
+          signal,
+        ))
       settle({ sessionId: session.id, sha256 })
       await uploadParts({
         uploads,
@@ -292,11 +302,14 @@ export async function removeAttachmentUpload({
   draft: DraftAttachment
 }) {
   releaseAttachmentUpload({ uploads, id: draft.id })
-  if (draft.sessionId)
-    await uploads.chat.cancelUpload(draft.sessionId).catch((error: unknown) => {
-      if (isAstralBeamApiError(error) && error.status === 404) return
-      throw error
-    })
+  await (
+    draft.sessionId
+      ? uploads.chat.cancelUpload(draft.sessionId)
+      : uploads.chat.cancelPreparedUpload(draft.id)
+  ).catch((error: unknown) => {
+    if (isAstralBeamApiError(error) && error.status === 404) return
+    throw error
+  })
 }
 
 export async function discardAttachmentUploads({
@@ -313,16 +326,24 @@ export async function discardAttachmentUploads({
   attachments: readonly DraftAttachment[]
 }) {
   for (const file of attachments) releaseAttachmentUpload({ uploads, id: file.id })
-  const persisted = await storedThreadAttachments({ apiUrl, identity, threadId }).catch(() => [])
+  const persisted = await storedThreadAttachments({ apiUrl, identity, threadId })
   const files = new Map([...persisted, ...attachments].map((file) => [file.id, file]))
   await Promise.all(
     [...files.values()].map(async (file) => {
       releaseAttachmentUpload({ uploads, id: file.id })
-      if (file.sessionId)
-        await uploads.chat.cancelUpload(file.sessionId).catch((error: unknown) => {
-          if (isAstralBeamApiError(error) && error.status === 404) return
-          throw error
-        })
+      await (
+        file.sessionId
+          ? uploads.chat.cancelUpload(file.sessionId)
+          : uploads.chat.cancelPreparedUpload(file.id)
+      ).catch((error: unknown) => {
+        if (
+          isAstralBeamApiError(error) &&
+          (error.status === 404 ||
+            (error.status === 409 && error.body?.type === "urn:file-upload:claimed"))
+        )
+          return
+        throw error
+      })
     }),
   )
   await storedThreadAttachments({

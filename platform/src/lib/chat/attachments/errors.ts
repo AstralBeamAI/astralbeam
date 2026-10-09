@@ -20,6 +20,14 @@ export class UploadConflict extends Schema.TaggedError<UploadConflict>()(
 ) {
   override readonly message = "The upload cannot perform this operation"
 }
+export class UploadClaimed extends Schema.TaggedError<UploadClaimed>()(
+  "UploadClaimed",
+  {},
+  { httpApiStatus: 409 },
+) {
+  readonly type = "urn:file-upload:claimed"
+  override readonly message = "The uploaded file belongs to a conversation"
+}
 export class UploadInvalid extends Schema.TaggedError<UploadInvalid>()(
   "UploadInvalid",
   {},
