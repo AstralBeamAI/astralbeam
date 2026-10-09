@@ -154,6 +154,7 @@ export interface AstralBeamChatState {
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
   capabilities: { attachments: boolean; uploads?: ChatConfiguration["capabilities"]["uploads"] }
+  capabilitiesLoading: boolean
   /** The tool set currently declared to the agent, in declaration order. */
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
@@ -242,6 +243,7 @@ export function createAstralBeamChat(
     error: undefined,
     auth: { status: "loading" },
     capabilities: { attachments: true },
+    capabilitiesLoading: true,
     agentTools: [],
     sandboxStatus: undefined,
     sandbox: { files: [], commands: [] },
@@ -356,11 +358,14 @@ export function createAstralBeamChat(
   let capabilitiesGeneration = 0
   let capabilityIdentity: string | undefined
   const resolveCapabilities = async () => {
-    update({ capabilities: { attachments: state.capabilities.attachments } })
+    update({
+      capabilities: { attachments: state.capabilities.attachments },
+      capabilitiesLoading: true,
+    })
     const generation = ++capabilitiesGeneration
     const selection = selectionGeneration
     if (state.thread?.agentId === null) {
-      update({ capabilities: { attachments: false } })
+      update({ capabilities: { attachments: false }, capabilitiesLoading: false })
       return
     }
     const agentId = state.thread ? state.thread.agentId : live.agentId
@@ -370,9 +375,14 @@ export function createAstralBeamChat(
       const body = await getChatConfig(agentId ? { agentId } : {}, auth)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
-      update({ capabilities: { attachments, uploads: body.capabilities.uploads } })
+      update({
+        capabilities: { attachments, uploads: body.capabilities.uploads },
+        capabilitiesLoading: false,
+      })
       debug?.("mount", "agent capabilities resolved", { attachments })
     } catch (error) {
+      if (generation === capabilitiesGeneration && selection === selectionGeneration)
+        update({ capabilitiesLoading: false })
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
   }
@@ -1337,6 +1347,7 @@ export function createAstralBeamChat(
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
       if (live.apiUrl !== apiUrl) {
         navigationGeneration++
+        capabilityIdentity = undefined
         pendingSends.clear()
         threadToolResults.clear()
         toolResults.clear()

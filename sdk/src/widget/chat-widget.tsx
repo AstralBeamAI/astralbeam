@@ -345,9 +345,16 @@ export function ChatWidget({
   const attachmentLimits = useMemo(
     () =>
       resolveAttachmentOptions(
-        capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
+        capabilities.attachments && !chatState.capabilitiesLoading && composer.attachmentsLoaded
+          ? options.attachments
+          : false,
       ),
-    [options.attachments, capabilities.attachments, composer.attachmentsLoaded],
+    [
+      options.attachments,
+      capabilities.attachments,
+      chatState.capabilitiesLoading,
+      composer.attachmentsLoaded,
+    ],
   )
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
@@ -373,6 +380,7 @@ export function ChatWidget({
     authError !== undefined ||
     streamBusy ||
     !composer.attachmentsLoaded ||
+    (chatState.capabilitiesLoading && composer.attachments.length > 0) ||
     composer.attachments !== composer.settledAttachments ||
     chatState.threadLoading ||
     chatState.threadLoadFailed ||

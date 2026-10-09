@@ -1602,7 +1602,9 @@ test("API changes clear multipart capability immediately and a failed handshake 
     await vi.waitFor(() => expect(chat.getState().capabilities.uploads?.available).toBe(true))
     chat.updateOptions({ apiUrl: "https://replacement.example/api" })
     expect(chat.getState().capabilities.uploads).toBeUndefined()
+    expect(chat.getState().capabilitiesLoading).toBe(true)
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    await vi.waitFor(() => expect(chat.getState().capabilitiesLoading).toBe(false))
     expect(chat.getState().capabilities.uploads).toBeUndefined()
   } finally {
     chat.dispose()
