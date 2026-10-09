@@ -3,6 +3,7 @@ import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { ChatAuthenticationState } from "../../core/auth.ts"
 import type { DraftAttachment } from "./types.ts"
 import { storedThreadAttachments } from "./drafts.ts"
+import { readAttachmentData } from "./attachments.ts"
 
 interface UploadSlots {
   active: number
@@ -246,7 +247,16 @@ export function startAttachmentUpload({
           if (signal.aborted && !task.prepareAttempted)
             await persist({ ...draft, prepareAttempted: false, sha256 })
         })()
-        await task.preparation
+        try {
+          await task.preparation
+        } catch (error) {
+          if (task.prepareAttempted) throw error
+          signal.throwIfAborted()
+          const data = await readAttachmentData(file)
+          signal.throwIfAborted()
+          settle({ status: "ready", data, prepareAttempted: false })
+          return
+        }
         signal.throwIfAborted()
         task.prepareAttempted = true
         settle({ prepareAttempted: true, sha256 })
