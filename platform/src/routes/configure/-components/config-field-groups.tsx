@@ -11,6 +11,29 @@ import type { EmailProvider } from "@/lib/email/schemas"
 import type { ConfigKey } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
+import { StorageConnectionTest } from "./storage-connection-test"
+import type { StorageConnection } from "@/lib/storage/schemas"
+
+const storageConnectionPresets = [
+  {
+    label: "Local RustFS / MinIO",
+    endpoint: "http://127.0.0.1:9000",
+    region: "us-east-1",
+    pathStyle: "true",
+  },
+  {
+    label: "AWS S3 (us-east-1)",
+    endpoint: "https://s3.us-east-1.amazonaws.com",
+    region: "us-east-1",
+    pathStyle: "false",
+  },
+  {
+    label: "Cloudflare R2",
+    endpoint: "https://<account-id>.r2.cloudflarestorage.com",
+    region: "auto",
+    pathStyle: "true",
+  },
+]
 
 export function ConfigFieldGroups({
   fields,
@@ -26,6 +49,7 @@ export function ConfigFieldGroups({
   canTestEmailProvider,
   emailProviderTesting,
   emailProviderTestResult,
+  storageSettings,
 }: {
   fields: ConfigureField[]
   drafts: Record<string, FieldDraft>
@@ -40,9 +64,15 @@ export function ConfigFieldGroups({
   canTestEmailProvider: boolean
   emailProviderTesting: boolean
   emailProviderTestResult: { ok: boolean; message: string } | undefined
+  storageSettings: StorageConnection | undefined
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
+  const storagePresetsLocked = fields.some(
+    (field) =>
+      field.source === "environment" &&
+      ["s3_endpoint", "s3_region", "s3_path_style"].includes(field.key),
+  )
 
   return [...fieldsByGroup].map(([group, groupFields]) => {
     const visibleFields =
@@ -59,6 +89,36 @@ export function ConfigFieldGroups({
           <CardTitle>{group}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {group === "File storage" && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {storageConnectionPresets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled || storagePresetsLocked}
+                    onClick={() => {
+                      for (const [key, value] of Object.entries({
+                        s3_endpoint: preset.endpoint,
+                        s3_region: preset.region,
+                        s3_path_style: preset.pathStyle,
+                      }))
+                        onDraftChange(key, { kind: "set", value })
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {storagePresetsLocked
+                  ? "Connection presets are unavailable while these settings come from the environment."
+                  : "Prefill connection settings, then adjust the endpoint and region for your provider. Bucket and credentials stay unchanged. For R2, replace <account-id> with your account ID."}
+              </p>
+            </div>
+          )}
           {visibleFields.map((field) => (
             <ConfigFieldInput
               key={field.key}
@@ -124,6 +184,9 @@ export function ConfigFieldGroups({
                 </Alert>
               )}
             </div>
+          )}
+          {group === "File storage" && (
+            <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
         </CardContent>
       </Card>

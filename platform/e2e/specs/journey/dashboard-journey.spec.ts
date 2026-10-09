@@ -47,6 +47,11 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await configure.setValue("s3_endpoint", "http://127.0.0.1:9000")
+    await configure.setValue("s3_region", "us-east-1")
+    await configure.setValue("s3_bucket", "e2e-files")
+    await configure.setValue("s3_access_key_id", "e2e-access-key")
+    await configure.setValue("s3_secret_access_key", "e2e-secret-key")
     await configure.testEmailConnection()
     await configure.save()
     await page.getByLabel("Owner email").fill(ownerEmail)

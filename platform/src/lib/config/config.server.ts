@@ -10,8 +10,13 @@ import {
   Option,
   Ref,
   Result,
+  Schema,
 } from "effect"
+import { sql } from "drizzle-orm"
 import { SqlClient } from "effect/sql"
+
+import { StorageDestinationLocked } from "@/lib/storage/errors"
+import { StoredStorageDestinationSchema, type StorageConnection } from "@/lib/storage/schemas"
 
 import { Database } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
@@ -32,9 +37,9 @@ import {
   DEFAULT_CONFIG_VALUES,
   ENVIRONMENT_CONFIG_DEFINITIONS,
   findConfigDefinition,
-  parseEnvironmentConfigValue,
   validateConfigCompleteness,
 } from "./registry.server.ts"
+import { parseEnvironmentConfigValue } from "./schemas.ts"
 import {
   type DatabaseConfigChange,
   type DatabaseConfigState,
@@ -139,6 +144,10 @@ export class Config extends Context.Service<
      * after it commits.
      */
     readonly write: (changes: readonly DatabaseConfigChange[]) => Effect.Effect<void>
+    /** Pins a destination before the first application upload, outside any S3 request. */
+    readonly reserveStorageDestination: (
+      connection: StorageConnection,
+    ) => Effect.Effect<void, StorageDestinationLocked>
     /** Applies an operator's `/configure` updates and generates missing required secrets. */
     readonly update: (updates: readonly ConfigUpdate[]) => Effect.Effect<void, ConfigUpdateInvalid>
     readonly generate: (key: string) => Effect.Effect<void, ConfigValueNotGeneratable>
@@ -169,11 +178,14 @@ export class Config extends Context.Service<
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
+        const issues = validateConfigCompleteness(values, environmentKeys)
+        if (storageDestinationMismatch(stored, values))
+          issues.push({ key: "s3_endpoint", message: new StorageDestinationLocked().message })
         return {
           generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,
           values,
-          issues: validateConfigCompleteness(values, environmentKeys),
+          issues,
           environmentKeys,
         } satisfies ConfigSnapshot
       }).pipe(Effect.withSpan("Config.load"), outsideTransactions)
@@ -199,6 +211,53 @@ export class Config extends Context.Service<
         yield* writeDatabaseConfig(db, changes)
       })
 
+      const storageTransaction = <A, E>(
+        run: (stored: DatabaseConfigState, values: ConfigValues) => Effect.Effect<A, E>,
+      ) =>
+        db
+          .transaction((transaction) =>
+            Effect.gen(function* () {
+              yield* transaction
+                .execute(
+                  sql`select pg_advisory_xact_lock(hashtextextended('file-storage-destination', 0))`,
+                )
+                .pipe(Effect.orDie)
+              const stored = yield* readDatabaseConfig(db)
+              const environment = yield* readEnvironmentConfig()
+              return yield* run(stored, {
+                ...DEFAULT_CONFIG_VALUES,
+                ...stored.values,
+                ...environment,
+              })
+            }),
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+
+      const reserveStorageDestination = Effect.fn("Config.reserveStorageDestination")(
+        (connection: StorageConnection) =>
+          storageTransaction((stored, values) =>
+            Effect.gen(function* () {
+              const expected = storageDestinationIdentity({
+                s3_endpoint: connection.endpoint,
+                s3_region: connection.region,
+                s3_bucket: connection.bucket,
+                s3_path_style: String(connection.pathStyle),
+              })
+              if (
+                expected !== storageDestinationIdentity(values) ||
+                storageDestinationMismatch(stored, values)
+              )
+                return yield* new StorageDestinationLocked()
+              if (stored.values.s3_destination) return false
+              yield* writeDatabaseConfig(db, [{ key: "s3_destination", value: expected }])
+              return true
+            }),
+          ).pipe(
+            Effect.tap((created) => (created ? invalidate : Effect.void)),
+            Effect.asVoid,
+          ),
+      )
+
       const update = Effect.fn("Config.update")(function* (updates: readonly ConfigUpdate[]) {
         const current = yield* snapshot
         const decoded = validateConfigUpdates(updates, current.environmentKeys)
@@ -222,7 +281,17 @@ export class Config extends Context.Service<
             }
           }
         }
-        yield* writeDatabaseConfig(db, decoded.changes, generated.values)
+        yield* storageTransaction((stored, values) =>
+          Effect.gen(function* () {
+            const next = { ...values }
+            for (const change of decoded.changes) next[change.key] = change.value ?? undefined
+            if (storageDestinationMismatch(stored, next))
+              return yield* new ConfigUpdateInvalid({
+                issues: [{ key: "s3_endpoint", message: new StorageDestinationLocked().message }],
+              })
+            yield* writeDatabaseConfig(db, decoded.changes, generated.values)
+          }),
+        )
         yield* invalidate
       })
 
@@ -262,6 +331,7 @@ export class Config extends Context.Service<
         ),
         readStored: readDatabaseConfig(db),
         write,
+        reserveStorageDestination,
         update,
         generate,
         reveal,
@@ -272,5 +342,31 @@ export class Config extends Context.Service<
 
   static readonly layer = Config.layerNoDeps.pipe(
     Layer.provide([Database.layer, DatabaseMigrations.layer]),
+  )
+}
+
+function storageDestinationIdentity(values: ConfigValues): string {
+  return JSON.stringify({
+    endpoint: values.s3_endpoint,
+    region: values.s3_region,
+    bucket: values.s3_bucket,
+    pathStyle: values.s3_path_style === "true",
+  })
+}
+
+function storageDestinationMismatch(stored: DatabaseConfigState, values: ConfigValues): boolean {
+  const pin = stored.values.s3_destination
+  if (
+    stored.rows?.some((row) => row.key === "s3_destination" && row.storageStatus === "unreadable")
+  )
+    return true
+  if (!pin) return false
+  const destination = Schema.decodeUnknownOption(StoredStorageDestinationSchema)(pin)
+  return (
+    Option.isNone(destination) ||
+    destination.value.endpoint !== values.s3_endpoint ||
+    destination.value.region !== values.s3_region ||
+    destination.value.bucket !== values.s3_bucket ||
+    destination.value.pathStyle !== (values.s3_path_style === "true")
   )
 }

@@ -83,6 +83,12 @@ export const SEED_CONFIG_VALUES = {
   turnstile_site_key: "1x00000000000000000000AA",
   turnstile_secret_key: "1x0000000000000000000000000000000AA",
   support_email_address: "support@example.com",
+  s3_endpoint: "http://127.0.0.1:9000",
+  s3_region: "us-east-1",
+  s3_bucket: "development-files",
+  s3_access_key_id: "development",
+  s3_secret_access_key: "development-only-storage-key",
+  s3_path_style: "true",
 } as const
 
 /** Dashboard accounts, created already email-verified so no SMTP sink is needed to sign in. */
