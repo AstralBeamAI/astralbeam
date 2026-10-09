@@ -14,6 +14,10 @@ test("the operator tests unsaved storage settings and sees safe verification fai
   const server = createServer((request, response) => {
     const respond = async () => {
       const key = new URL(request.url!, "http://localhost").pathname
+      if (!key.startsWith("/storage/v1/s3/")) {
+        response.writeHead(404).end()
+        return
+      }
       if (request.method === "PUT") {
         const chunks: Uint8Array[] = []
         for await (const chunk of request) chunks.push(chunk as Uint8Array)
@@ -49,7 +53,7 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await configure.setValue("s3_secret_access_key", "fixture-secret")
     await configure.setValue("s3_endpoint", "ftp://example.test")
     await expect(button).toBeDisabled()
-    await configure.setValue("s3_endpoint", `http://127.0.0.1:${address.port}`)
+    await configure.setValue("s3_endpoint", `http://127.0.0.1:${address.port}/storage/v1/s3`)
     await configure.field("s3_path_style").click()
     await page.getByRole("option", { name: "Path style", exact: true }).click()
     await button.click()

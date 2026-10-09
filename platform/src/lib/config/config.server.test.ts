@@ -95,6 +95,10 @@ describe("configuration registry", () => {
       ["email_provider", secret],
       ["smtp_port", { password: secret }],
       ["app_base_url", `https://${secret}@example.com`],
+      ["s3_endpoint", `https://${secret}@example.com/storage/v1/s3`],
+      ["s3_endpoint", `https://example.com/storage/v1/s3?key=${secret}`],
+      ["s3_endpoint", `https://example.com/storage/v1/s3#${secret}`],
+      ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
       ["email_from_address", "secret@@value"],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
@@ -104,6 +108,15 @@ describe("configuration registry", () => {
     const fromAddress = findConfigDefinition("email_from_address")!
     for (const accepted of ["onboarding@resend.dev", "App <onboarding@resend.dev>"]) {
       assert.deepStrictEqual(decodeConfigValue(fromAddress, accepted), Result.succeed(accepted))
+    }
+  })
+
+  it("preserves S3 endpoint paths and normalizes optional trailing slashes", () => {
+    const endpoint = findConfigDefinition("s3_endpoint")!
+    for (const value of ["https://example.com", "https://example.com/storage/v1/s3"]) {
+      for (const suffix of ["", "/", "//"]) {
+        assert.deepStrictEqual(decodeConfigValue(endpoint, value + suffix), Result.succeed(value))
+      }
     }
   })
 

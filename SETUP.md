@@ -53,7 +53,7 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 ### Option 2: Run directly on macOS
 
-From the repository root, start PostgreSQL, PgBouncer, Valkey, and Mailpit with one of these commands:
+From the repository root, start PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS with one of these commands:
 
 ```sh
 docker compose up --detach --wait
@@ -65,6 +65,8 @@ podman compose ps
 ```
 
 With Podman, wait for the services to become healthy before setup. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
+
+[RustFS](https://docs.rustfs.com/en/installation/container/docker) serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Compose persists objects in `rustfs-data`. The setup script creates the private `development-files` bucket if missing. Seeds use region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. These credentials are for local development only. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and setup, then update **File storage** in `/configure` to match. The devcontainer uses `http://rustfs:9000` internally. Setup skips bucket creation for external storage and when `SKIP_DOCKER_COMPOSE=true`.
 
 ```sh
 ./scripts/setup.sh

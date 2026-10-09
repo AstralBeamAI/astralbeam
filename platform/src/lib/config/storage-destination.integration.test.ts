@@ -18,7 +18,7 @@ import { configTable } from "@/db/schema.server"
 import { Config } from "./config.server"
 
 const destinationSettings = {
-  endpoint: "http://127.0.0.1:9000",
+  endpoint: "http://127.0.0.1:9000/storage/v1/s3",
   region: "us-east-1",
   bucket: "test-files",
   accessKeyId: "first-key",
@@ -70,7 +70,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     try {
       const result = await restarted.runPromise(
         Effect.flatMap(Config, (config) =>
-          config.update([{ key: "s3_bucket", value: "other-bucket" }]),
+          config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),
         ).pipe(Effect.result),
       )
       expect(result._tag).toBe("Failure")
@@ -79,7 +79,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
           Effect.map((snapshot) => snapshot.values),
         ),
       )
-      expect(values.s3_bucket).toBe(destinationSettings.bucket)
+      expect(values.s3_endpoint).toBe(destinationSettings.endpoint)
       expect(values.s3_secret_access_key).toBe("rotated-secret")
       vi.stubEnv("S3_BUCKET", "environment-bucket")
       await restarted.runPromise(Effect.flatMap(Config, (config) => config.invalidate))

@@ -105,7 +105,8 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     key: "s3_endpoint",
     group: "File storage",
     label: "S3 endpoint",
-    description: "Storage API origin. Use HTTPS in production and a private bucket.",
+    description:
+      "Storage API URL, including any path prefix. Use HTTPS in production and a private bucket.",
     kind: "url",
     required: true,
     schema: StorageEndpointSchema,

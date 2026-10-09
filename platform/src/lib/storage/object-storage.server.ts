@@ -177,10 +177,17 @@ export class ObjectStorage extends Context.Service<
                 abortSignal,
               }),
             ).pipe(
-              Effect.map((object) => ({
-                size: object.ContentLength!,
-                contentType: object.ContentType ?? "application/octet-stream",
-              })),
+              Effect.flatMap((object) =>
+                Schema.decodeUnknownEffect(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))(
+                  object.ContentLength,
+                ).pipe(
+                  Effect.map((size) => ({
+                    size,
+                    contentType: object.ContentType ?? "application/octet-stream",
+                  })),
+                  Effect.mapError(() => new StorageUnavailable()),
+                ),
+              ),
             ),
           ),
         ),

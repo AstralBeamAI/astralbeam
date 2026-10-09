@@ -98,7 +98,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `s3_endpoint` | Yes | none | S3 API origin. Use HTTPS in production |
+| `s3_endpoint` | Yes | none | S3 API URL, including any path prefix such as `/storage/v1/s3`. Use HTTPS in production |
 | `s3_region` | Yes | none | Bucket region, or `auto` for Cloudflare R2 |
 | `s3_bucket` | Yes | none | Private bucket dedicated to this deployment |
 | `s3_access_key_id` | Yes | none | Storage access-key ID, independent of SES credentials |

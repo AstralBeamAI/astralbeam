@@ -9,13 +9,12 @@ export const StorageEndpointSchema = Schema.URLFromString.check(
       !url.username &&
       !url.password &&
       !url.search &&
-      !url.hash &&
-      url.pathname === "/",
-    { message: "Use an HTTP(S) origin without credentials, path, query, or fragment" },
+      !url.hash,
+    { message: "Use an HTTP(S) URL without credentials, query, or fragment" },
   ),
 ).pipe(
   Schema.decodeTo(Schema.String, {
-    decode: SchemaGetter.transform((url) => url.origin),
+    decode: SchemaGetter.transform((url) => url.origin + url.pathname.replace(/\/+$/, "")),
     encode: SchemaGetter.transform((value) => new URL(value)),
   }),
 )

@@ -131,7 +131,7 @@ start_databases() {
   # macOS development runs the native checkout against a database the developer already runs, so
   # this script never starts Compose there. See AGENTS.md's macOS rule.
   if [ "$platform_name" = Darwin ]; then
-    echo "Skipped Docker Compose: macOS development uses a native database. Start it yourself with 'docker compose up --detach --wait' if you want the Compose services." >&2
+    echo "Skipped Docker Compose: start the macOS infrastructure as described in SETUP.md." >&2
     return 0
   fi
   if databases_are_external; then return; fi
@@ -139,6 +139,28 @@ start_databases() {
   if docker_compose_available; then
     (cd "$WORKSPACE_PATH" && docker compose up --detach --wait)
   fi
+}
+
+initialize_storage() {
+  [ "${SKIP_DOCKER_COMPOSE:-false}" != true ] || return 0
+  set +x
+  local endpoint="${S3_ENDPOINT:-http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}}"
+  case "$endpoint" in
+    "http://127.0.0.1:${RUSTFS_HOST_PORT:-9000}" | "http://localhost:${RUSTFS_HOST_PORT:-9000}" | http://rustfs:9000) ;;
+    *) echo "Skipped local bucket creation: storage uses an external endpoint."; set -x; return 0 ;;
+  esac
+  # curl already supports S3 request signing: https://curl.se/docs/manpage.html#--aws-sigv4
+  local request=(--silent --show-error --connect-timeout 5 --max-time 15
+    --aws-sigv4 "aws:amz:${S3_REGION:-us-east-1}:s3"
+    --user "${S3_ACCESS_KEY_ID:-${RUSTFS_ACCESS_KEY:-development}}:${S3_SECRET_ACCESS_KEY:-${RUSTFS_SECRET_KEY:-development-only-storage-key}}")
+  local bucket_url="$endpoint/${S3_BUCKET:-development-files}" status
+  status=$(curl "${request[@]}" --head --output /dev/null --write-out '%{http_code}' "$bucket_url")
+  case "$status" in
+    200) ;;
+    404) curl "${request[@]}" --fail --request PUT "$bucket_url" ;;
+    *) echo "Local storage setup failed (HTTP $status). Check the RustFS credentials." >&2; return 1 ;;
+  esac
+  set -x
 }
 
 # Vite loads `platform/.env.development[.local]`, and a shell value always wins, so this reads the
@@ -190,6 +212,7 @@ bootstrap_workspace() {
   fi
   set -x
   (cd "$WORKSPACE_PATH/platform" && deno task db migrate)
+  initialize_storage
   (cd "$WORKSPACE_PATH/platform" && deno task db-seed)
   (cd "$WORKSPACE_PATH/sdk" && deno task build)
 }

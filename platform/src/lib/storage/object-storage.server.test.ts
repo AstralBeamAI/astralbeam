@@ -10,6 +10,7 @@ import { ObjectStorage } from "./object-storage.server"
 test("connection testing verifies bytes and removes its object even when verification fails", async () => {
   const objects = new Map<string, Uint8Array>()
   let corrupt = false
+  let omitHeadSize = false
   let stall = false
   let notifyHead: () => void = () => undefined
   const headStarted = new Promise<void>((resolve) => {
@@ -36,7 +37,10 @@ test("connection testing verifies bytes and removes its object even when verific
           notifyHead()
           return
         }
-        response.writeHead(200, { "Content-Length": bytes.length })
+        response.writeHead(
+          200,
+          request.method === "HEAD" && omitHeadSize ? {} : { "Content-Length": bytes.length },
+        )
         response.end(
           request.method === "HEAD" ? undefined : corrupt ? new Uint8Array(bytes.length) : bytes,
         )
@@ -59,7 +63,17 @@ test("connection testing verifies bytes and removes its object even when verific
   const layer = ObjectStorage.layerNoDeps.pipe(
     Layer.provide(
       Layer.succeed(Config, {
-        snapshot: Effect.succeed({ values: {} }),
+        snapshot: Effect.succeed({
+          issues: [],
+          values: {
+            s3_endpoint: settings.endpoint,
+            s3_region: settings.region,
+            s3_bucket: settings.bucket,
+            s3_access_key_id: settings.accessKeyId,
+            s3_secret_access_key: settings.secretAccessKey,
+            s3_path_style: "true",
+          },
+        }),
       } as unknown as Config["Service"]),
     ),
   )
@@ -79,6 +93,17 @@ test("connection testing verifies bytes and removes its object even when verific
     )
     expect(result._tag).toBe("Failure")
     expect(objects.size).toBe(0)
+    omitHeadSize = true
+    objects.set("/test/metadata", new Uint8Array([1]))
+    const metadata = await Effect.runPromise(
+      Effect.flatMap(ObjectStorage, (storage) => storage.head({ key: "metadata" })).pipe(
+        Effect.result,
+        Effect.provide(layer),
+      ),
+    )
+    expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+    objects.delete("/test/metadata")
+    omitHeadSize = false
     corrupt = false
     stall = true
     const controller = new AbortController()
