@@ -1,3 +1,4 @@
+import { verifiedImage } from "./image-validation.server"
 import { and, eq, inArray, sql } from "drizzle-orm"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { betterAuth } from "better-auth/minimal"
@@ -32,14 +33,14 @@ import {
   StorageObjectMissing,
   StorageUnavailable,
 } from "./errors"
-import { avatarFileId, verifiedImage } from "./images"
+import { avatarFileId } from "./images"
 import { ObjectStorage } from "./object-storage.server"
 import { ProfileFiles } from "./profile-files.server"
 import { StoredFiles } from "./stored-files.server"
 
 const image = Uint8Array.from(
   Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j9YQAAAAASUVORK5CYII=",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP438AAAAQBAYCQNzXrAAAAAElFTkSuQmCC",
     "base64",
   ),
 )

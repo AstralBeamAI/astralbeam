@@ -62,6 +62,15 @@ export class ModelProviderKeyMissing extends Schema.TaggedError<ModelProviderKey
   override readonly message = "Enter an API key for this provider"
 }
 
+export class ModelConfigurationMissing extends Schema.TaggedError<ModelConfigurationMissing>()(
+  "ModelConfigurationMissing",
+  {},
+  { httpApiStatus: 422 },
+) {
+  override readonly message =
+    "Configure USD prices and input/output token limits for every enabled model"
+}
+
 export class ModelProviderTestFailed extends Schema.TaggedError<ModelProviderTestFailed>()(
   "ModelProviderTestFailed",
   {

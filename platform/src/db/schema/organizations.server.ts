@@ -23,6 +23,7 @@ import {
 } from "../../lib/sandboxes/schemas.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
+  ModelConfigurationSchema,
   type ModelProviderType,
   type ModelProviderApi,
 } from "../../lib/model-providers/schemas.ts"
@@ -178,6 +179,7 @@ export const providerModel = snakeCase.table(
     modelProviderId: uuid().notNull(),
     modelId: text().notNull(),
     name: text().notNull(),
+    configuration: schemaJsonb(ModelConfigurationSchema),
     ...timestamps(),
   },
   (table) => [

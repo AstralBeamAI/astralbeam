@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9944629a-3825-455f-931c-b174ee9cb489",
+  "id": "1ae0cd01-ebf0-44b6-b681-286355861ec8",
   "prevIds": [
-    "d13f03b1-5a03-46cf-9c1f-6035e7f61322"
+    "900268cd-1adf-4e58-b4b6-d82fa1cb2ee5"
   ],
   "ddl": [
     {
@@ -54,6 +54,18 @@
         "manager"
       ],
       "name": "chat_participant_role",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "preparing",
+        "pending",
+        "completing",
+        "completed",
+        "cancelled"
+      ],
+      "name": "file_upload_status",
       "entityType": "enums",
       "schema": "public"
     },
@@ -165,6 +177,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "file_upload",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "invitation",
       "entityType": "tables",
       "schema": "public"
@@ -178,6 +196,12 @@
     {
       "isRlsEnabled": false,
       "name": "model_provider",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "multipart_deletion",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2025,6 +2049,214 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "prepare_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "object_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "upload_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "filename",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "byte_size",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sha256",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "file_upload_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'preparing'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "file_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now() + interval '24 hours'",
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": "uuidv7()",
       "generated": null,
       "identity": null,
@@ -2344,6 +2576,97 @@
       "entityType": "columns",
       "schema": "public",
       "table": "model_provider"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "object_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "upload_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now() + interval '1 minute'",
+      "generated": null,
+      "identity": null,
+      "name": "retry_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multipart_deletion"
     },
     {
       "type": "uuid",
@@ -2809,6 +3132,19 @@
       "generated": null,
       "identity": null,
       "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_model"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "configuration",
       "entityType": "columns",
       "schema": "public",
       "table": "provider_model"
@@ -4625,6 +4961,111 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        },
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "tenant_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "prepare_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_upload_prepare_key_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "object_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_upload_object_key_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "file_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_upload_file_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_upload_expiry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         }
       ],
       "isUnique": false,
@@ -4727,6 +5168,48 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "model_provider"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "object_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "multipart_deletion_key_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "multipart_deletion"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "retry_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "multipart_deletion_retry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "multipart_deletion"
     },
     {
       "nameExplicit": true,
@@ -5649,6 +6132,44 @@
     {
       "nameExplicit": false,
       "columns": [
+        "organization_id",
+        "tenant_id",
+        "tenant_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenant_user",
+      "columnsTo": [
+        "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "file_upload_WIsVRnQhOj30_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "file_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "file_object",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "file_upload_file_id_file_object_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "organization_id"
       ],
       "schemaTo": "public",
@@ -6113,6 +6634,18 @@
     {
       "columns": [
         "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "file_upload_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "columns": [
+        "organization_id",
         "id"
       ],
       "nameExplicit": true,
@@ -6295,6 +6828,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "multipart_deletion_pkey",
+      "schema": "public",
+      "table": "multipart_deletion",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "organization_pkey",
       "schema": "public",
       "table": "organization",
@@ -6419,6 +6962,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "file_object"
+    },
+    {
+      "value": "\"byte_size\" > 0 and \"byte_size\" <= 20971520",
+      "name": "file_upload_size_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "file_upload"
+    },
+    {
+      "value": "\"sha256\" ~ '^[0-9a-f]{64}$'",
+      "name": "file_upload_sha256_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "file_upload"
     },
     {
       "value": "\"slug\" ~ '^[0-9a-z-]{1,63}$'",

@@ -1,4 +1,4 @@
-import { eq, notInArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 import { Effect, Option, Result } from "effect"
 
 import type { EffectDatabase } from "@/db/database.server"
@@ -11,7 +11,7 @@ import { CONFIG_DEFINITIONS, decodeConfigValue, findConfigDefinition } from "./r
 import type { ConfigKey, ConfigStorageEntry, ConfigValues } from "./types.ts"
 
 export interface DatabaseConfigChange {
-  readonly key: ConfigKey
+  readonly key: string
   /** `null` deletes the stored value. */
   readonly value: string | null
 }
@@ -75,19 +75,23 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
   db: EffectDatabase,
   excludedKeys: readonly ConfigKey[] = [],
 ) {
-  const query = db
+  const stored = yield* db
     .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
     .from(configTable)
-  const stored = yield* (
-    excludedKeys.length === 0 ? query : query.where(notInArray(configTable.key, [...excludedKeys]))
-  ).pipe(
-    Effect.map(Option.some),
-    Effect.catchIf(
-      (error) => sqlState(error) === "42P01",
-      () => Effect.succeed(Option.none()),
-    ),
-    Effect.orDie,
-  )
+    .where(
+      inArray(
+        configTable.key,
+        CONFIG_DEFINITIONS.map(({ key }) => key).filter((key) => !excludedKeys.includes(key)),
+      ),
+    )
+    .pipe(
+      Effect.map(Option.some),
+      Effect.catchIf(
+        (error) => sqlState(error) === "42P01",
+        () => Effect.succeed(Option.none()),
+      ),
+      Effect.orDie,
+    )
   const rows = Option.getOrElse(stored, () => []).map(decryptStoredConfigRow)
   const values = yield* decodeStoredConfigRows(rows)
   return {
@@ -96,8 +100,34 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
   } satisfies DatabaseConfigState
 })
 
-const storedConfigValue = Effect.fnUntraced(function* (key: ConfigKey, value: string) {
-  const decoded = yield* Effect.fromResult(decodeConfigValue(findConfigDefinition(key)!, value))
+export const readDatabaseConfigValue = Effect.fn("readDatabaseConfigValue")(function* (
+  db: EffectDatabase,
+  key: string,
+) {
+  const rows = yield* db
+    .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
+    .from(configTable)
+    .where(eq(configTable.key, key))
+    .pipe(Effect.orDie)
+  if (!rows[0]) return null
+  const payload = Option.filter(
+    decryptStoredConfigRow(rows[0]).payload,
+    (payload) => payload.key === key,
+  )
+  if (Option.isNone(payload)) {
+    yield* Effect.logWarning("Ignoring invalid stored config value").pipe(
+      Effect.annotateLogs({ key }),
+    )
+    return null
+  }
+  return payload.value.value
+})
+
+const storedConfigValue = Effect.fnUntraced(function* (key: string, value: string) {
+  const definition = findConfigDefinition(key)
+  const decoded = definition
+    ? yield* Effect.fromResult(decodeConfigValue(definition, value))
+    : value
   return { key, value: { key, value: decoded } }
 })
 
@@ -105,7 +135,7 @@ const storedConfigValue = Effect.fnUntraced(function* (key: ConfigKey, value: st
  * Upserts or deletes each change and inserts generated values only where none is stored. Callers
  * validate values first, so a rejected one is a defect. Invalidate the `Config` cache after commit.
  */
-export const writeDatabaseConfig = Effect.fnUntraced(function* (
+export const writeDatabaseConfig = Effect.fn("Config.write")(function* (
   db: EffectDatabase,
   changes: readonly DatabaseConfigChange[],
   generatedValues: readonly { readonly key: ConfigKey; readonly value: string }[] = [],

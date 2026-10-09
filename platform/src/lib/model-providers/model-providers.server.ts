@@ -29,19 +29,23 @@ import {
   ModelProviderUnreadable,
   ModelProviderTestFailed,
   ModelProviderTestRateLimited,
+  ModelConfigurationMissing,
 } from "./errors.ts"
+import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
   type ModelProviderFields,
   type ModelProviderApi,
   type ModelProviderType,
+  type ModelConfiguration,
 } from "./schemas.ts"
 
 interface ModelProviderModel {
   readonly id: string
   readonly modelId: string
   readonly name: string
+  readonly configuration: ModelConfiguration | null
 }
 
 export interface OrganizationModelProvider {
@@ -61,7 +65,7 @@ export interface OrganizationModelProvider {
 
 export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
 
-export interface ModelChoice extends ModelProviderModel {
+export interface ModelChoice extends Omit<ModelProviderModel, "configuration"> {
   readonly providerId: string
   readonly providerName: string
 }
@@ -98,6 +102,7 @@ type ModelProviderWriteError =
   | ModelProviderNameTaken
   | ModelProviderKeyMissing
   | ModelProviderUnreadable
+  | ModelConfigurationMissing
 
 const modelProviderReadColumns = {
   id: modelProvider.id,
@@ -185,6 +190,7 @@ export class ModelProviders extends Context.Service<
       const db = yield* Database
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
+      const readPricing = readModelPriceCatalog.pipe(Effect.provideService(Config, config))
       const allowsPrivateEndpoints = Effect.map(
         config.get("allow_private_model_endpoints"),
         (value) => value === "true",
@@ -241,6 +247,7 @@ export class ModelProviders extends Context.Service<
       })
 
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
+        const catalog = yield* readPricing
         const rows = yield* db
           .select(modelProviderReadColumns)
           .from(modelProvider)
@@ -258,7 +265,17 @@ export class ModelProviders extends Context.Service<
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name }) => ({ id, modelId, name })),
+              .map(({ id, modelId, name, configuration }) => ({
+                id,
+                modelId,
+                name,
+                configuration: effectiveModelConfiguration({
+                  catalog,
+                  providerType: row.providerType,
+                  modelId,
+                  configured: configuration,
+                }),
+              })),
           }
         })
       }, Effect.orDie)
@@ -270,12 +287,14 @@ export class ModelProviders extends Context.Service<
         const stored = yield* readModelProviderRow(input.organizationId, input.id)
         if (!stored) return null
         const { storedCredentials: _storedCredentials, ...row } = stored
+        const catalog = yield* readPricing
         const apiKey = readModelProviderKey(stored)
         const models = yield* db
           .select({
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
+            configuration: providerModel.configuration,
           })
           .from(providerModel)
           .where(
@@ -289,7 +308,15 @@ export class ModelProviders extends Context.Service<
           ...row,
           apiKeyHint: apiKey?.slice(-4) ?? null,
           credentialsReadable: apiKey !== null,
-          models,
+          models: models.map((model) => ({
+            ...model,
+            configuration: effectiveModelConfiguration({
+              catalog,
+              providerType: row.providerType,
+              modelId: model.modelId,
+              configured: model.configuration,
+            }),
+          })),
         }
       }, Effect.orDie)
 
@@ -333,6 +360,41 @@ export class ModelProviders extends Context.Service<
         const apiKey = input.apiKey ?? (keyKept ? readModelProviderKey(existing) : null)
         if (!apiKey)
           return yield* keyKept ? new ModelProviderUnreadable() : new ModelProviderKeyMissing()
+        const savedModels =
+          existing?.providerType === input.providerType
+            ? yield* db
+                .select({
+                  modelId: providerModel.modelId,
+                  configuration: providerModel.configuration,
+                })
+                .from(providerModel)
+                .where(
+                  and(
+                    eq(providerModel.organizationId, input.organizationId),
+                    eq(providerModel.modelProviderId, existing.id),
+                  ),
+                )
+                .pipe(Effect.orDie)
+            : []
+        const catalog = yield* readPricing
+        const configuredModels = input.models.map((model) => ({
+          ...model,
+          configuration: effectiveModelConfiguration({
+            catalog,
+            providerType: input.providerType,
+            modelId: model.modelId,
+            configured:
+              model.configuration?.pricingSource.kind === "manual"
+                ? model.configuration
+                : savedModels.find(
+                    (saved) =>
+                      saved.modelId === model.modelId &&
+                      saved.configuration?.pricingSource.kind === "catalog",
+                  )?.configuration,
+          }),
+        }))
+        if (configuredModels.some((model) => model.configuration === null))
+          return yield* new ModelConfigurationMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -397,7 +459,7 @@ export class ModelProviders extends Context.Service<
                 yield* transaction
                   .insert(providerModel)
                   .values(
-                    input.models.map((model) => ({
+                    configuredModels.map((model) => ({
                       organizationId: input.organizationId,
                       modelProviderId: id!,
                       ...model,
@@ -411,6 +473,7 @@ export class ModelProviders extends Context.Service<
                     ],
                     set: {
                       name: sql`excluded.name`,
+                      configuration: sql`excluded.configuration`,
                       updatedAt: sql`now()`,
                     },
                   })

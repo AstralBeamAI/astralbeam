@@ -38,6 +38,7 @@ import { SaveModelProviderInputSchema } from "../-lib/schemas"
 import { ModelProviderField } from "./model-provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
+import { ProviderModelConfigurationFields } from "./provider-model-configuration-fields"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
@@ -69,7 +70,11 @@ export function ModelProviderForm({
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? "https://api.openai.com/v1")
   const [apiKey, setApiKey] = useState("")
   const [models, setModels] = useState<ProviderModelFields[]>(
-    existing?.models.map(({ modelId, name: modelName }) => ({ modelId, name: modelName })) ?? [],
+    existing?.models.map(({ modelId, name: modelName, configuration }) => ({
+      modelId,
+      name: modelName,
+      configuration,
+    })) ?? [],
   )
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -98,9 +103,14 @@ export function ModelProviderForm({
   const baseUrlChanged = existing !== null && baseUrl.trim() !== existing.baseUrl
   const missingKey =
     !apiKey.trim() && (!existing || !existing.credentialsReadable || baseUrlChanged)
-  const missingModels = !existing && models.length === 0
   const fieldErrors = (field: string) => [
-    ...(submitted ? issues.filter((issue) => issue.path?.[0] === field) : []),
+    ...(submitted
+      ? issues.filter(
+          (issue) =>
+            issue.path?.[0] === field &&
+            !(field === "models" && issue.path?.[2] === "configuration"),
+        )
+      : []),
     ...(submitted && field === "apiKey" && missingKey
       ? [
           {
@@ -109,9 +119,6 @@ export function ModelProviderForm({
               : "Enter an API key",
           },
         ]
-      : []),
-    ...(submitted && field === "models" && missingModels
-      ? [{ message: "Enable at least one model" }]
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
@@ -124,7 +131,7 @@ export function ModelProviderForm({
   const saveProvider = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
-    if (Result.isFailure(input) || missingKey || missingModels || disabled) return
+    if (Result.isFailure(input) || missingKey || disabled) return
     setSaving(true)
     setServerFieldError(null)
     try {
@@ -150,6 +157,8 @@ export function ModelProviderForm({
         failure.tag === "ModelProviderUnreadable"
       )
         setServerFieldError({ field: "apiKey", message: failure.message })
+      else if (failure.tag === "ModelConfigurationMissing")
+        setServerFieldError({ field: "models", message: failure.message })
       else toast.add({ title: failure.message, type: "error" })
       if (failure.tag === "ModelProviderChanged") await router.invalidate()
     } finally {
@@ -277,12 +286,6 @@ export function ModelProviderForm({
                   : "Encrypted when saved. The stored key is never returned to your browser."
               }
             />
-            {providerType === "openrouter" && (
-              <FieldDescription>
-                Use full OpenRouter model IDs, such as anthropic/claude-sonnet-4.6. OpenRouter
-                handles provider routing through its Chat Completions API.
-              </FieldDescription>
-            )}
             <ProviderModelPicker
               key={providerType}
               catalog={catalog[providerType]}
@@ -291,6 +294,39 @@ export function ModelProviderForm({
               disabled={disabled}
               errors={fieldErrors("models")}
             />
+            <FieldDescription>
+              Catalog prices are provider list prices in USD per million tokens. Override them for
+              negotiated or gateway rates. Token limits are saved, but not enforced yet.
+            </FieldDescription>
+            {models.map((model, index) => (
+              <ProviderModelConfigurationFields
+                key={model.modelId}
+                model={model}
+                catalogConfiguration={
+                  catalog[providerType].find((item) => item.modelId === model.modelId)
+                    ?.configuration ?? null
+                }
+                disabled={disabled}
+                errors={(field) =>
+                  submitted
+                    ? issues.filter(
+                        (issue) =>
+                          issue.path?.[0] === "models" &&
+                          issue.path?.[1] === index &&
+                          issue.path?.[2] === "configuration" &&
+                          issue.path?.at(-1) === field,
+                      )
+                    : []
+                }
+                onChange={(configuration) =>
+                  setModels((current) =>
+                    current.map((item) =>
+                      item.modelId === model.modelId ? { ...item, configuration } : item,
+                    ),
+                  )
+                }
+              />
+            ))}
           </FieldGroup>
         </CardContent>
         {!readOnly && (

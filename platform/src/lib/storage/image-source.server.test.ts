@@ -1,8 +1,9 @@
+import { verifiedImage, embeddedImage } from "./image-validation.server"
 import { Effect } from "effect"
 import { describe, expect, it } from "@effect/vitest"
 
 import { ImageSources } from "./image-source.server"
-import { embeddedImage, IMAGE_MAX_BYTES, verifiedImage } from "./images"
+import { IMAGE_MAX_BYTES } from "./images"
 
 describe("image import boundaries", () => {
   it.effect.each([
@@ -45,3 +46,26 @@ describe("image import boundaries", () => {
       }),
   )
 })
+
+const validImageSamples = {
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWP438AAAAQBAYCQNzXrAAAAAElFTkSuQmCC",
+  jpeg: "/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAB//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AL4AeKr/2Q==",
+  gif: "R0lGODlhAQABAIAAAExpcf+AACH5BAUAAAAALAAAAAABAAEAAAICTAEAOw==",
+  webp: "UklGRjwAAABXRUJQVlA4IDAAAAAQAgCdASoBAAEAAUAmJaACdLoB+AH4AAPIAP7qKv/98CWlQN/yBf/bQzqhL/fMAAA=",
+} as const
+
+it.each(Object.entries(validImageSamples))(
+  "decodes %s pixels and rejects a broken image body with matching magic bytes",
+  async (format, sample) => {
+    const bytes = Uint8Array.from(Buffer.from(sample, "base64"))
+    const verified = await Effect.runPromise(verifiedImage(bytes))
+    expect(verified).toEqual({ bytes, contentType: `image/${format}` })
+    const corrupt = Uint8Array.from(
+      Buffer.concat([bytes.subarray(0, 12), Buffer.alloc(33), bytes.subarray(-8)]),
+    )
+    if (format === "webp") new DataView(corrupt.buffer).setUint32(4, corrupt.length - 8, true)
+    expect((await Effect.runPromise(verifiedImage(corrupt).pipe(Effect.flip)))._tag).toBe(
+      "InvalidImage",
+    )
+  },
+)

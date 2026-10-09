@@ -1,3 +1,5 @@
+import type { ComponentProps, ReactNode } from "react"
+
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
@@ -11,9 +13,10 @@ export function ModelProviderField({
   secret = false,
   placeholder,
   description,
+  inputProps,
 }: {
   id: string
-  label: string
+  label: ReactNode
   value: string
   onChange: (value: string) => void
   errors: readonly { message: string }[]
@@ -21,6 +24,7 @@ export function ModelProviderField({
   secret?: boolean
   placeholder?: string | undefined
   description?: string
+  inputProps?: Pick<ComponentProps<typeof Input>, "type" | "inputMode" | "min" | "step">
 }) {
   return (
     <Field data-invalid={errors.length > 0 || undefined}>
@@ -32,6 +36,7 @@ export function ModelProviderField({
         disabled={disabled}
         placeholder={placeholder}
         type={secret ? "password" : "text"}
+        {...inputProps}
         autoComplete={secret ? "new-password" : "off"}
         aria-invalid={errors.length > 0 || undefined}
         aria-describedby={`${id}-description ${id}-error`}

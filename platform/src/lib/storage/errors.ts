@@ -31,7 +31,8 @@ export class InvalidImage extends Schema.TaggedError<InvalidImage>()(
   {},
   { httpApiStatus: 422 },
 ) {
-  override readonly message = "Use a valid PNG, JPEG, GIF, or WebP image no larger than 2 MiB."
+  override readonly message =
+    "Use a valid PNG, JPEG, GIF, or WebP image no larger than 2 MiB and 16 megapixels."
 }
 
 export class ImageSourceMissing extends Schema.TaggedError<ImageSourceMissing>()(
