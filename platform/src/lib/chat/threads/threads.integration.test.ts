@@ -124,12 +124,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       runtime.runPromise(steerTestTurn(thread.id, first.inputMessage.id).pipe(Effect.result)),
       runtime.runPromise(service.finish({ claim: first.claim!, payload, continueSteering: true })),
     ])
-    if (admitted._tag === "Success")
-      expect(continuation?.inputMessageId).toBe(first.inputMessage.id)
-    else {
-      expect(admitted.failure._tag).toBe("ChatSteeringFinished")
-      expect(continuation).toBeUndefined()
-    }
+    expect(continuation?.inputMessageId).toBe(
+      admitted._tag === "Success" ? first.inputMessage.id : undefined,
+    )
+    expect(admitted._tag === "Failure" ? admitted.failure._tag : undefined).toBe(
+      admitted._tag === "Failure" ? "ChatSteeringFinished" : undefined,
+    )
   })
 
   test("steering requires the initiating participant and client", async () => {
