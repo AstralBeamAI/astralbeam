@@ -7,10 +7,10 @@ Tools let an agent act in your app, and widgets show your UI in its replies. Let
 Let's register tools by name in an object. Each invocation receives its own identity and cancellation signal.
 
 ```ts
-import { defineTool } from "@astralbeam/sdk/core"
+import type { ToolRegistry } from "@astralbeam/sdk/core"
 
 const tools = {
-  restart_service: defineTool({
+  restart_service: {
     title: "Restart a service",
     description: "Restart one of the host app's services by name",
     parameters: {
@@ -22,8 +22,8 @@ const tools = {
       const restarted = await restartService(String(service), { signal })
       return { restarted }
     },
-  }),
-}
+  },
+} satisfies ToolRegistry
 ```
 
 - The object key is the unique, stable tool name. `title` labels the transcript. `annotations` carry advisory behavior hints, such as `readOnlyHint` and `destructiveHint`.
@@ -50,10 +50,10 @@ return toolResult({
 Widgets have stable IDs. Let's associate a tool with a result presentation, or register a standalone widget the model can request directly.
 
 ```tsx
-import { defineWidget } from "@astralbeam/sdk/react"
+import type { WidgetRegistry } from "@astralbeam/sdk/react"
 
 const widgets = {
-  systemStatus: defineWidget({
+  systemStatus: {
     description: "Show the current status of the host app's systems",
     parameters: { type: "object", properties: { degraded: { type: "boolean" } } },
     render: ({ degraded }, { result, status }) => (
@@ -63,8 +63,8 @@ const widgets = {
         loading={status === "pending"}
       />
     ),
-  }),
-}
+  },
+} satisfies WidgetRegistry
 ```
 
 - A standalone widget declares `show_<id>` with its actual input schema. Keep IDs compatible with tool names, using letters, digits, dots, underscores, or hyphens. Generated tool names must fit within 128 characters.
@@ -89,9 +89,9 @@ render: (_props, container, context) => {
 - Reopening history restores input and results without executing business tools. Persist records referenced by IDs, and show a fallback for deleted records.
 - Existing saved plain results and `render_widget` calls remain readable. New declarations use an explicit result format version internally.
 
-## Schemas and typed definitions
+## Schemas and optional type inference
 
-`parameters` and `outputSchema` accept object JSON Schema or a [Standard Schema](https://standardschema.dev) validator with [Standard JSON Schema](https://standardschema.dev/json-schema) export, such as Zod 4. Let's derive input types from the validator.
+`parameters` and `outputSchema` accept object JSON Schema or a [Standard Schema](https://standardschema.dev) validator with [Standard JSON Schema](https://standardschema.dev/json-schema) export, such as Zod 4. Let's use optional helpers to infer callback types from the validator.
 
 ```tsx
 import { defineTool, defineWidget } from "@astralbeam/sdk/react"
@@ -121,8 +121,9 @@ const widgets = {
 ```
 
 - Both schema formats validate input in the browser. Missing JSON Schema export fails declaration instead of widening the model's input contract.
-- `defineTool` and `defineWidget` infer validated input from Standard Schema. Plain JSON Schema inputs remain `Record<string, unknown>`.
-- Plain objects need no helpers. Keep inferred keys with `satisfies ToolRegistry` when defining a separate registry. Add `tools` to a `defineWidget` definition for typed `callTool` names, schema inputs, and inferred results. Omit `parameters` for tools without arguments.
+- `defineTool` and `defineWidget` only provide type inference. They return the supplied object unchanged. Plain JSON Schema inputs remain `Record<string, unknown>`.
+- Inline definitions receive callback types from the SDK props or options. Separate registries can use `satisfies ToolRegistry` or `satisfies WidgetRegistry`.
+- Add `tools` to a `defineWidget` definition for typed `callTool` names, schema inputs, and inferred results. Omit `parameters` for tools without arguments.
 - The SDK validates structured output locally, and the server validates it against the saved declaration before accepting a result.
 - JSON Schema validation supports Effect's [Draft 2020-12 subset](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/SchemaRepresentation.ts). Unsupported input or output contracts fail registration before tools run. Server admission also rejects regex patterns whose evaluation cannot pass bounded analysis.
 - Import helpers from `/react` for JSX or `/client` for containers. `/core` exports `defineTool` and `toolResult` for headless consumers.
