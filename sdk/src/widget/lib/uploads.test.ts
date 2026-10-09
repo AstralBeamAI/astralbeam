@@ -38,8 +38,10 @@ const draft: DraftAttachment = {
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
   const signUploadParts = vi.fn()
   const chat = { signUploadParts } as unknown as AstralBeamChatCore
+  const revokeObjectURL = vi.fn()
+  vi.stubGlobal("URL", { createObjectURL: () => "blob:wrong-file", revokeObjectURL })
   const uploads = attachmentUploadState(chat)
-  let state: DraftAttachment = { ...draft, sha256: "0".repeat(64) }
+  let state: DraftAttachment = { ...draft, kind: "image", sha256: "0".repeat(64) }
   startAttachmentUpload({
     uploads,
     draft: state,
@@ -50,6 +52,9 @@ test("wrong-file reselection never signs parts and lets the picker try again", a
   })
   await vi.waitFor(() => expect(state.status).toBe("error"))
   expect(state.error).toContain("original file")
+  expect(state.preview).toBeUndefined()
+  expect(uploads.previews.size).toBe(0)
+  expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:wrong-file")
   expect(signUploadParts).not.toHaveBeenCalled()
   expect(resumeAttachmentUpload({ uploads, draft: state, settle: () => {} })).toBe(false)
   disposeAttachmentUploads(uploads)
