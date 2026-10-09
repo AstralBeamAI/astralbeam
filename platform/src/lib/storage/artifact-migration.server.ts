@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { Effect, Option, Schema } from "effect"
 
@@ -6,9 +5,12 @@ import { Database } from "@/db/database.server"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
 import { chatMessage, chatMessagePart } from "@/db/schema/chat.server"
 import { tenant } from "@/db/schema/organizations.server"
-import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
+import { ChatFiles, chatFileIdentityPrefix } from "@/lib/chat/attachments/chat-files.server"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
-import { ChatThreadInvalid } from "@/lib/chat/threads/errors"
+import { ChatThreadInvalid, ChatThreadStorageUnavailable } from "@/lib/chat/threads/errors"
+import { APP_HANDLE } from "@/lib/constants"
+import { fileSha256 } from "./images"
+import { StoredFiles } from "./stored-files.server"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 
 // Rewrite only the documented sandbox tool result, leaving opaque provider context intact.
@@ -42,6 +44,7 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
 ) {
   const db = yield* Database
   const files = yield* ChatFiles
+  const storedFiles = yield* StoredFiles
   const sandboxes = yield* ChatSandboxes
   const counts = {
     rows: 0,
@@ -150,25 +153,18 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
         )
       const { ticket: _ticket, ...original } = output
       const prepared = artifact.available
-        ? yield* files.externalize(scope, {
-            version: 1,
-            parts: [
-              {
-                id: crypto.randomUUID(),
-                type: "document",
-                source: {
-                  type: "data",
-                  value: Buffer.from(artifact.value.bytes).toString("base64"),
-                  mimeType: artifact.value.mimeType,
-                },
-              },
-            ],
-          })
+        ? yield* storedFiles
+            .prepare({
+              bytes: artifact.value.bytes,
+              contentType: artifact.value.mimeType,
+              sourceIdentity: `${chatFileIdentityPrefix(scope)}${yield* fileSha256(artifact.value.bytes)}:${artifact.value.mimeType}`,
+            })
+            .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
         : undefined
       const updatedOutput: Schema.JsonObject = prepared
         ? {
             ...original,
-            fileId: (prepared.parts[0]!.source as Schema.JsonObject).value!,
+            fileId: prepared.id,
             availability: "available",
           }
         : {
@@ -224,7 +220,17 @@ export const migrateSandboxArtifacts = Effect.fn("migrateSandboxArtifacts")(func
                   ),
                 )
             }
-            if (prepared) yield* files.claim(tx, scope, prepared)
+            if (prepared)
+              yield* files.claim(tx, scope, {
+                version: 1,
+                parts: [
+                  {
+                    id: prepared.id,
+                    type: "document",
+                    source: { type: "file", provider: APP_HANDLE, value: prepared.id },
+                  },
+                ],
+              })
             return true
           }),
         )

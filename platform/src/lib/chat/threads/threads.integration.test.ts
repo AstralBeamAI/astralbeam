@@ -190,10 +190,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
   }
 
-  test("published artifacts stay in S3 after producer completion and retain cascade cleanup", async () => {
+  test("published artifacts above the chat text limit retain S3 reads and cascade cleanup", async () => {
     const thread = await create()
     const accepted = await admit(thread.id)
-    const bytes = new TextEncoder().encode("Durable generated report")
+    const bytes = new Uint8Array(2 * 1024 * 1024).fill(0x61)
     const fileId = await runtime.runPromise(
       service.publishArtifact({ claim: accepted.claim!, bytes }),
     )
@@ -244,6 +244,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   })
 
   test("historical artifact migration resumes after provider failure and marks unavailable sources", async () => {
+    const bytes = new Uint8Array(2 * 1024 * 1024).fill(0x62)
     const thread = await create()
     const first = await admit(thread.id)
     await saveArtifactResult(
@@ -252,7 +253,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ticket: "historical-available",
         path: "/workspace/report.txt",
         mimeType: "text/plain",
-        size: 6,
+        size: bytes.length,
       },
       "019a0800-0000-7000-8000-000000000001",
     )
@@ -297,7 +298,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           return Effect.fail(new ChatArtifactUnavailable({ reason: "SandboxGone" }))
         if (fail) return Effect.die(new Error("Temporary provider outage"))
         return Effect.succeed({
-          bytes: new TextEncoder().encode("Report"),
+          bytes,
           mimeType: "text/plain",
           path: "/workspace/report.txt",
         })

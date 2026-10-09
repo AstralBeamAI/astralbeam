@@ -46,7 +46,10 @@ import {
 import type { ChatPrincipal } from "../types"
 import { detectSandboxArtifactMimeType } from "../sandbox/artifacts.server"
 import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants.server"
-import { ChatFiles } from "../attachments/chat-files.server"
+import { ChatFiles, chatFileIdentityPrefix } from "../attachments/chat-files.server"
+import { APP_HANDLE } from "@/lib/constants"
+import { fileSha256 } from "@/lib/storage/images"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
@@ -59,6 +62,7 @@ import {
   ChatThreadForbidden,
   ChatThreadInvalid,
   ChatThreadNotFound,
+  ChatThreadStorageUnavailable,
   ChatIdentityNotSynchronized,
   type ChatThreadError,
 } from "./errors.ts"
@@ -1060,6 +1064,7 @@ export class ChatThreads extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const files = yield* ChatFiles
+      const storedFiles = yield* StoredFiles
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
         db
           .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
@@ -1696,22 +1701,16 @@ export class ChatThreads extends Context.Service<
         if (bytes.length > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) return yield* new ChatThreadInvalid()
         yield* assertActive({ claim })
         const scope = { ...claim.scope, threadId: claim.threadId }
-        const prepared = yield* files.externalize(scope, {
-          version: 1,
-          parts: [
-            {
-              id: crypto.randomUUID(),
-              type: "document",
-              source: {
-                type: "data",
-                value: Buffer.from(bytes).toString("base64"),
-                mimeType: detectSandboxArtifactMimeType(bytes),
-              },
-            },
-          ],
-        })
-        const source = prepared.parts[0]!.source as Schema.JsonObject
-        const fileId = source.value as string
+        const contentType = detectSandboxArtifactMimeType(bytes)
+        const digest = yield* fileSha256(bytes)
+        const prepared = yield* storedFiles
+          .prepare({
+            bytes,
+            contentType,
+            sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
+          })
+          .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+        const fileId = prepared.id
         yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
@@ -1721,7 +1720,16 @@ export class ChatThreads extends Context.Service<
                 .from(fileObject)
                 .where(eq(fileObject.id, fileId))
                 .for("update")
-              yield* files.claim(tx, scope, prepared)
+              yield* files.claim(tx, scope, {
+                version: 1,
+                parts: [
+                  {
+                    id: fileId,
+                    type: "document",
+                    source: { type: "file", provider: APP_HANDLE, value: fileId },
+                  },
+                ],
+              })
               // Unconfirmed publications expire. Saving the sandbox tool result pins the verified file.
               if (file!.expiresAt)
                 yield* tx
@@ -1933,6 +1941,6 @@ export class ChatThreads extends Context.Service<
     }),
   )
   static readonly layer = ChatThreads.layerNoDeps.pipe(
-    Layer.provide([Database.layer, ChatFiles.layer]),
+    Layer.provide([Database.layer, ChatFiles.layer, StoredFiles.layer]),
   )
 }

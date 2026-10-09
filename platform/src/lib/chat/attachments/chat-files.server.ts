@@ -36,7 +36,7 @@ const chatFileOwnerWhere = (scope: ChatFileScope) =>
     eq(chatFile.tenantId, scope.tenantId),
     eq(chatFile.threadId, scope.threadId),
   )
-const chatFileIdentityPrefix = (scope: ChatFileScope) =>
+export const chatFileIdentityPrefix = (scope: ChatFileScope) =>
   `chat:${scope.organizationId}:${scope.tenantId}:${scope.threadId}:`
 
 // Only documented media fields are transformed. Provider signatures and opaque context stay intact.
