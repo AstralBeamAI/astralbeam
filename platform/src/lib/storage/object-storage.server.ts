@@ -6,7 +6,7 @@ import {
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3"
-import { Context, Data, Effect, Layer, Option, RcMap, Schema, SynchronizedRef } from "effect"
+import { Context, Effect, Layer, Option, RcMap, Schema, SynchronizedRef } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -115,9 +115,7 @@ export class ObjectStorage extends Context.Service<
       ) =>
         Effect.scoped(
           Effect.flatMap(settings, (connection) =>
-            Effect.flatMap(RcMap.get(clients, new Data.Class(connection)), (client) =>
-              run(client, connection),
-            ),
+            Effect.flatMap(RcMap.get(clients, connection), (client) => run(client, connection)),
           ),
         )
 
