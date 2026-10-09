@@ -100,7 +100,7 @@ export function pauseAttachmentUpload({ uploads, id }: { uploads: AttachmentUplo
   uploads.tasks.get(id)?.controller.abort()
 }
 
-export async function getAttachmentUpload({
+async function getAttachmentUpload({
   chat,
   id,
   signal,
@@ -115,6 +115,39 @@ export async function getAttachmentUpload({
     if (isAstralBeamApiError(error) && error.status === 404) return undefined
     throw error
   }
+}
+
+export async function recoverAttachmentUpload({
+  chat,
+  draft,
+}: {
+  chat: AstralBeamChatCore
+  draft: DraftAttachment
+}): Promise<DraftAttachment> {
+  if (!draft.sessionId) return draft
+  const reselect = { ...draft, status: "reselect" as const, fileId: undefined }
+  try {
+    const session = await getAttachmentUpload({ chat, id: draft.sessionId })
+    return session?.status === "completed" && session.file_id
+      ? { ...draft, status: "ready", fileId: session.file_id }
+      : reselect
+  } catch (error) {
+    const denied =
+      isAstralBeamApiError(error) &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      error.status !== 408 &&
+      error.status !== 429
+    return draft.status === "ready" && draft.fileId && !denied ? draft : reselect
+  }
+}
+
+function isRemovedUpload(error: unknown) {
+  return (
+    isAstralBeamApiError(error) &&
+    (error.status === 404 ||
+      (error.status === 409 && error.body?.type === "urn:file-upload:claimed"))
+  )
 }
 
 async function uploadParts({
@@ -387,7 +420,7 @@ export async function removeAttachmentUpload({
       ? uploads.chat.cancelUpload(draft.sessionId)
       : uploads.chat.cancelPreparedUpload(draft.id)
   ).catch((error: unknown) => {
-    if (isAstralBeamApiError(error) && error.status === 404) return
+    if (isRemovedUpload(error)) return
     if (task?.prepareAttempted && !uploads.tasks.has(draft.id)) uploads.tasks.set(draft.id, task)
     throw error
   })
@@ -432,12 +465,7 @@ export async function discardAttachmentUploads({
           ? uploads.chat.cancelUpload(file.sessionId)
           : uploads.chat.cancelPreparedUpload(file.id)
       ).catch((error: unknown) => {
-        if (
-          isAstralBeamApiError(error) &&
-          (error.status === 404 ||
-            (error.status === 409 && error.body?.type === "urn:file-upload:claimed"))
-        )
-          return
+        if (isRemovedUpload(error)) return
         throw error
       })
     }),

@@ -7,6 +7,7 @@ import { Database, getAuthDatabase } from "@/db/database.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import {
   agent,
+  cacheEntry,
   organization,
   organizationConfiguration,
   tenant,
@@ -336,6 +337,30 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
       }
     },
   )
+
+  test("cancellation before preparation survives restart, repeated removal and other uploader scopes until expiry", async () => {
+    const prepareKey = crypto.randomUUID()
+    const request = { ...input, prepareKey }
+    for (let retry = 0; retry < 2; retry++)
+      await runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
+    await runtime.dispose()
+    runtime = makeRuntime()
+    uploads = await runtime.runPromise(Uploads)
+    await expect(runtime.runPromise(uploads.prepare(scope, request))).rejects.toMatchObject({
+      _tag: "UploadConflict",
+    })
+    expect(await db.select().from(fileUpload)).toHaveLength(0)
+    const key = `${scope.organizationId}:${scope.tenantId}:${scope.tenantUserId}:${prepareKey}`
+    const cancelled = await db.select().from(cacheEntry).where(eq(cacheEntry.key, key))
+    expect(cancelled).toHaveLength(1)
+    for (const stranger of [other, foreign])
+      expect((await runtime.runPromise(uploads.prepare(stranger, request))).status).toBe("pending")
+    await db
+      .update(cacheEntry)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(cacheEntry.id, cancelled[0]!.id))
+    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("pending")
+  })
 
   test("key cancellation waits for an in-progress preparation transaction", async () => {
     const prepareKey = crypto.randomUUID()
