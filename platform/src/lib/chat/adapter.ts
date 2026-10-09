@@ -11,6 +11,7 @@ import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createOpenRouterText } from "@tanstack/ai-openrouter"
 import { HTTPClient } from "@openrouter/sdk/lib/http"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
+import { Schema } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { CHAT_MAX_MODEL_TURNS } from "./constants.server"
@@ -24,12 +25,11 @@ function createProviderChatAdapter(
   configuration: ChatModelConfiguration,
   webAccessEnabled: boolean,
 ) {
+  const { modelId, apiKey } = configuration
+  const model = createModel(modelId, ["text", "image", "document"])
   if (configuration.providerType === "openai" && configuration.api === "responses") {
-    const createOpenaiModel = extendAdapter(createOpenaiChat, [
-      createModel(configuration.modelId, ["text", "image", "document"]),
-    ])
     // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
-    return createOpenaiModel(configuration.modelId, configuration.apiKey, {
+    return extendAdapter(createOpenaiChat, [model])(modelId, apiKey, {
       baseURL: configuration.baseUrl,
       fetch: configuration.fetch,
       organization: null,
@@ -38,11 +38,8 @@ function createProviderChatAdapter(
     })
   }
   if (configuration.api === "anthropic-messages") {
-    const createAnthropicModel = extendAdapter(createAnthropicChat, [
-      createModel(configuration.modelId, ["text", "image", "document"]),
-    ])
     // Null stops the SDK sending a deployment ANTHROPIC_AUTH_TOKEN as a bearer header.
-    return createAnthropicModel(configuration.modelId, configuration.apiKey, {
+    return extendAdapter(createAnthropicChat, [model])(modelId, apiKey, {
       baseURL: configuration.baseUrl,
       fetch: configuration.fetch,
       authToken: null,
@@ -50,17 +47,14 @@ function createProviderChatAdapter(
     })
   }
   if (configuration.providerType === "openrouter" && webAccessEnabled) {
-    const createOpenRouterModel = extendAdapter(createOpenRouterText, [
-      createModel(configuration.modelId, ["text", "image", "document"]),
-    ])
-    return createOpenRouterModel(configuration.modelId, configuration.apiKey, {
+    return extendAdapter(createOpenRouterText, [model])(modelId, apiKey, {
       serverURL: configuration.baseUrl,
       httpClient: new HTTPClient({ fetcher: configuration.fetch }),
       retryCodes: [],
     })
   }
-  return openaiCompatibleText(configuration.modelId, {
-    apiKey: configuration.apiKey,
+  return openaiCompatibleText(modelId, {
+    apiKey,
     baseURL: configuration.baseUrl,
     fetch: configuration.fetch,
     organization: null,
@@ -73,6 +67,7 @@ function createProviderChatAdapter(
 export function createChatAdapter(configuration: ChatModelConfiguration, webAccessEnabled = false) {
   const observation: ChatWebObservation = {
     messages: [],
+    replay: new Map(),
     blocks: [],
     inputJson: new Map(),
     evidence: { sources: [], citations: [] },
@@ -100,6 +95,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
   // https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools
   adapter.chatStream = async function* (options: TextOptions): AsyncGenerator<AdapterYieldChunk> {
     observation.messages = options.messages
+    observation.replay.clear()
     observation.evidence = { sources: [], citations: [] }
     observation.textOffset = 0
     const raw: typeof observation.blocks = []
@@ -109,6 +105,33 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
     let textMessageId: string | undefined
     let textContent = ""
     let textEnd: Extract<AdapterYieldChunk, { type: "TEXT_MESSAGE_END" }> | undefined
+    // Text placeholders survive Anthropic's role merging. Restore raw blocks at the wire boundary.
+    // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
+    const messages = options.messages.map((message): ModelMessage => {
+      const raw: unknown = message.metadata?.astralbeamWeb
+      if (
+        configuration.api === "anthropic-messages" &&
+        message.role === "assistant" &&
+        Schema.is(Schema.Array(Schema.JsonObject))(raw)
+      ) {
+        const id = crypto.randomUUID()
+        observation.replay.set(id, raw)
+        const { toolCalls: _calls, thinking: _thinking, ...rest } = message
+        return { ...rest, content: id }
+      }
+      // The maintained adapter rejects inline documents before serializing their supported wire format.
+      // https://github.com/TanStack/ai/blob/main/packages/ai-openrouter/src/adapters/text.ts
+      return configuration.providerType === "openrouter" && Array.isArray(message.content)
+        ? {
+            ...message,
+            content: message.content.map((part) =>
+              part.type === "document" && part.source.type === "data"
+                ? { type: "text", content: "[Attached document]" }
+                : part,
+            ),
+          }
+        : message
+    })
     try {
       for (;;) {
         if (options.request?.signal?.aborted) throw options.request.signal.reason
@@ -134,21 +157,6 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
         observation.stopReason = undefined
         let finish: Extract<AdapterYieldChunk, { type: "RUN_FINISHED" }> | undefined
         let failure: Extract<AdapterYieldChunk, { type: "RUN_ERROR" }> | undefined
-        // The maintained adapter rejects inline documents before serializing their supported wire format.
-        // https://github.com/TanStack/ai/blob/main/packages/ai-openrouter/src/adapters/text.ts
-        const messages =
-          configuration.providerType === "openrouter"
-            ? options.messages.map((message): ModelMessage => ({
-                ...message,
-                content: Array.isArray(message.content)
-                  ? message.content.map((part) =>
-                      part.type === "document" && part.source.type === "data"
-                        ? { type: "text", content: "[Attached document]" }
-                        : part,
-                    )
-                  : message.content,
-              }))
-            : options.messages
         for await (const chunk of original({ ...options, messages })) {
           if (options.request?.signal?.aborted) return
           if (chunk.type === EventType.RUN_STARTED && observation.continuation) continue

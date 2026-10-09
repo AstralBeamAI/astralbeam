@@ -20,7 +20,7 @@ import {
   ModelProviders,
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
-import { Agents } from "@/lib/agents/agents.server"
+import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
 import { chatWebTools } from "./web.server"
 import { createChatAttachmentTools } from "./attachments/tools"
@@ -90,11 +90,11 @@ function chatEventStream(start: (abortController: AbortController) => AsyncItera
 const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
-  sandbox,
+  agent,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
-  readonly sandbox: boolean
+  readonly agent: ChatAgent
 }) {
   const projected = yield* Effect.try({
     try: () =>
@@ -102,10 +102,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
+        webAccessEnabled: agent.webAccessEnabled,
       }),
     catch: () => new ChatThreadInvalid(),
   })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(projected, {
+    sandbox: agent.sandboxProviderId !== null,
+  })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -192,7 +195,7 @@ export class Chat extends Context.Service<
         } = yield* prepareChatHistory({
           history,
           model,
-          sandbox: agent.sandboxProviderId !== null,
+          agent,
         })
         const unknownOutcome = history.some(
           (message) =>
@@ -279,7 +282,7 @@ export class Chat extends Context.Service<
                 const normalized = yield* prepareChatHistory({
                   history: saved,
                   model,
-                  sandbox: agent.sandboxProviderId !== null,
+                  agent,
                 })
                 files.splice(0, files.length, ...normalized.files)
                 inputMessages.splice(0, inputMessages.length, ...normalized.projected)

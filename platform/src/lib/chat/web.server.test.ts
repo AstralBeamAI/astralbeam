@@ -270,6 +270,7 @@ async function nativeWebRun(
     browser?: boolean
     response?: (request: number) => Promise<Response>
     allowError?: boolean
+    webAccessEnabled?: boolean
   } = {},
 ) {
   const requests: Record<string, unknown>[] = []
@@ -328,7 +329,7 @@ async function nativeWebRun(
     return { found: true }
   })
   const tools = [
-    ...chatWebTools(model, true, []),
+    ...chatWebTools(model, options.webAccessEnabled ?? true, []),
     ...(options.application ? [options.browser ? { ...lookup, execute: undefined } : lookup] : []),
   ]
   const threads = {
@@ -356,7 +357,7 @@ async function nativeWebRun(
     agentId: "agent",
     execute: Effect.runPromise,
   })
-  const adapter = createChatAdapter(model, true)
+  const adapter = createChatAdapter(model, options.webAccessEnabled ?? true)
   const abortController = new AbortController()
   if (options.cancel) {
     const original = adapter.chatStream.bind(adapter) as (
@@ -510,6 +511,43 @@ describe("native web access", () => {
     ).toBe(true)
   })
 
+  test("Anthropic raw evidence survives merged tool results and adjacent assistant messages", async () => {
+    const first = await nativeWebRun("anthropic")
+    const answer = first.saved.at(-1)!.modelMessages as unknown as ModelMessage[]
+    const result = await nativeWebRun("anthropic", {
+      history: [
+        { role: "user", content: "Use two tools" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: ["a", "b"].map((id) => ({
+            id,
+            type: "function",
+            function: { name: "lookup", arguments: "{}" },
+          })),
+        },
+        { role: "tool", toolCallId: "a", content: "Result A" },
+        { role: "tool", toolCallId: "b", content: "Result B" },
+        { role: "assistant", content: "Before evidence" },
+        ...answer,
+        { role: "assistant", content: "After evidence" },
+        { role: "user", content: "Explain the evidence" },
+      ],
+    })
+    const messages = result.requests[0]!.messages as { role: string; content: unknown }[]
+    expect(messages[2]!.content).toEqual([
+      { type: "tool_result", tool_use_id: "a", content: "Result A" },
+      { type: "tool_result", tool_use_id: "b", content: "Result B" },
+    ])
+    expect(messages[3]!.content).toEqual([
+      { type: "text", text: "Before evidence" },
+      ...(first.saved.at(-1)!.modelMessages![0]!.metadata as { astralbeamWeb: unknown[] })
+        .astralbeamWeb,
+      { type: "text", text: "After evidence" },
+    ])
+    expect(messages[4]).toEqual({ role: "user", content: "Explain the evidence" })
+  })
+
   test("deferred Anthropic activity settles across a saved browser-tool continuation", async () => {
     const first = await nativeWebRun("anthropic", {
       application: true,
@@ -542,13 +580,14 @@ describe("native web access", () => {
         },
       },
     ]
+    const modelTarget = {
+      providerId: first.model.providerId,
+      protocol: first.model.api,
+      modelId: first.model.modelId,
+    }
     const second = await nativeWebRun("anthropic", {
       turnId: first.claim.inputMessageId,
-      history: projectChatModelHistory(records, {
-        providerId: first.model.providerId,
-        protocol: first.model.api,
-        modelId: first.model.modelId,
-      }),
+      history: projectChatModelHistory(records, modelTarget),
       publicHistory: projectChatPublicHistory(records),
       response: () => deferredAnthropicFixture(false, true),
     })
@@ -562,6 +601,25 @@ describe("native web access", () => {
         .parts.find((part) => part.type === "tool-call"),
     ).toMatchObject({ state: "complete" })
     expect(JSON.stringify(second.requests)).toContain("server_tool_use")
+    const disabledHistory = projectChatModelHistory(
+      [
+        ...records,
+        { id: "answer", role: "assistant", state: "complete", payload: second.saved.at(-1)! },
+      ],
+      { ...modelTarget, webAccessEnabled: false },
+    )
+    const disabled = await nativeWebRun("anthropic", {
+      webAccessEnabled: false,
+      history: [...disabledHistory, { role: "user", content: "Explain without searching" }],
+    })
+    expect(JSON.stringify(disabled.requests[0])).not.toMatch(/opaque-|server_tool_use/)
+    expect(JSON.stringify(disabled.requests[0])).toContain(webTestSource.url)
+    const calls = (
+      disabled.requests[0]!.messages as { content: { type?: string; name?: string }[] }[]
+    )
+      .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+      .filter((block) => block.type === "tool_use")
+    expect(calls.map((call) => call.name)).toEqual(["lookup"])
     const unrelated = projectChatPublicHistory([
       ...records,
       {

@@ -17,6 +17,7 @@ interface ChatProjectionTarget {
   readonly providerId: string
   readonly protocol: string
   readonly modelId: string
+  readonly webAccessEnabled?: boolean
 }
 
 export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
@@ -249,7 +250,9 @@ export function projectChatModelHistory(
       target !== undefined &&
       provenance?.providerId === target.providerId &&
       provenance.protocol === target.protocol &&
-      provenance.modelId === target.modelId
+      provenance.modelId === target.modelId &&
+      (target.webAccessEnabled !== false ||
+        !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]
     if (compatible && record.payload.modelMessages) {
       messages = structuredClone(record.payload.modelMessages).map((message) => ({

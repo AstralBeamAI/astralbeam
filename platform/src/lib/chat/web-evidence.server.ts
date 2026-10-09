@@ -25,6 +25,7 @@ type ChatWebJson = Record<string, typeof Schema.Json.Type>
 
 export interface ChatWebObservation {
   messages: readonly ModelMessage[]
+  replay: Map<string, readonly Schema.JsonObject[]>
   blocks: ChatWebJson[]
   inputJson: Map<number, string>
   evidence: { sources: ChatWebJson[]; citations: ChatWebJson[] }
@@ -266,17 +267,15 @@ export async function fetchChatWebProvider(
   const body = chatWebRecord(JSON.parse(await request.clone().text()))
   if (model.api === "responses" || model.providerType === "openrouter") body.max_tool_calls = 5
   if (model.api === "anthropic-messages") {
-    const messages = chatWebArray(body.messages).map(chatWebRecord)
-    state.messages.forEach((message, index) => {
-      const raw: unknown = message.metadata?.astralbeamWeb
-      if (
-        message.role === "assistant" &&
-        Schema.is(Schema.Array(Schema.Json))(raw) &&
-        messages[index]
-      )
-        messages[index].content = raw
+    body.messages = chatWebArray(body.messages).map((value) => {
+      const message = chatWebRecord(value)
+      if (message.role === "assistant")
+        message.content = chatWebArray(message.content).flatMap<typeof Schema.Json.Type>((part) => {
+          const block = chatWebRecord(part)
+          return typeof block.text === "string" ? (state.replay.get(block.text) ?? [part]) : [part]
+        })
+      return message
     })
-    body.messages = messages
   }
   if (model.providerType === "openrouter") {
     const messages = chatWebArray(body.messages).map(chatWebRecord)
