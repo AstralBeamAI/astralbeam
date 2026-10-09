@@ -63,7 +63,6 @@ export const profileImageResponse = Effect.fn("profileImageResponse")(
       headers: {
         "content-type": file.file.contentType,
         "content-length": String(bytes.length),
-        "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
       },
     })
@@ -79,4 +78,8 @@ export const profileImageResponse = Effect.fn("profileImageResponse")(
       () => new Response(null, { status: 500 }),
     ),
   ),
+  Effect.map((response) => {
+    response.headers.set("cache-control", "private, no-store")
+    return response
+  }),
 )

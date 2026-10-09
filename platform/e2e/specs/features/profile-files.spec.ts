@@ -89,10 +89,11 @@ test("avatars and existing logo APIs store files privately and enforce their own
     expect(authTransactions.every((count) => count === 0)).toBe(true)
     const signedOut = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     try {
-      expect((await signedOut.request.get(new URL(avatarUrl!, platformUrl).href)).status()).toBe(
-        401,
-      )
-      expect((await signedOut.request.get(new URL(logo.logo, platformUrl).href)).status()).toBe(401)
+      for (const url of [avatarUrl!, logo.logo]) {
+        const denied = await signedOut.request.get(new URL(url, platformUrl).href)
+        expect(denied.status()).toBe(401)
+        expect(denied.headers()["cache-control"]).toBe("private, no-store")
+      }
     } finally {
       await signedOut.close()
     }
@@ -113,9 +114,9 @@ test("avatars and existing logo APIs store files privately and enforce their own
       await auth.open("sign-in")
       await auth.signIn(colleagueEmail, SEED_PASSWORD)
       await expect(colleaguePage).not.toHaveURL(/\/auth\//)
-      expect((await colleague.request.get(new URL(avatarUrl!, platformUrl).href)).status()).toBe(
-        404,
-      )
+      const denied = await colleague.request.get(new URL(avatarUrl!, platformUrl).href)
+      expect(denied.status()).toBe(404)
+      expect(denied.headers()["cache-control"]).toBe("private, no-store")
       const member = await pool.query<{ id: string }>(
         "insert into member (organization_id, user_id, role) select $1, id, 'member' from \"user\" where email = $2 returning id",
         [organizationId, colleagueEmail],
