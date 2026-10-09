@@ -37,9 +37,9 @@ import {
   DEFAULT_CONFIG_VALUES,
   ENVIRONMENT_CONFIG_DEFINITIONS,
   findConfigDefinition,
-  parseEnvironmentConfigValue,
   validateConfigCompleteness,
 } from "./registry.server.ts"
+import { parseEnvironmentConfigValue } from "./schemas.ts"
 import {
   type DatabaseConfigChange,
   type DatabaseConfigState,

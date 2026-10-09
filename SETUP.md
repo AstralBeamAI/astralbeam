@@ -53,7 +53,7 @@ To help agent CLIs find the codebase outside the devcontainer, expose the direct
 
 ### Option 2: Run directly on macOS
 
-From the repository root, start PostgreSQL, PgBouncer, Valkey, and Mailpit with one of these commands:
+From the repository root, start PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS with one of these commands:
 
 ```sh
 docker compose up --detach --wait
@@ -65,6 +65,12 @@ podman compose ps
 ```
 
 With Podman, wait for the services to become healthy before setup. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
+
+[RustFS](https://docs.rustfs.com/en/installation/container/docker) serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Compose persists objects in `rustfs-data`. The devcontainer uses `http://rustfs:9000` internally.
+
+Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files. The first application upload pins the destination, and subsequent seeds preserve it. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
+
+Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Reruns preserve all pinned storage settings. Manage credential changes in **File storage** at `/configure` or through `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` deployment overrides.
 
 ```sh
 ./scripts/setup.sh

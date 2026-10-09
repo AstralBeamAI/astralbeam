@@ -185,21 +185,7 @@ export class ChatFiles extends Context.Service<
           Effect.fnUntraced(function* (part) {
             if (!chatMediaPart(part)) return part
             const stored = storedChatMediaSource(part)
-            if (Option.isSome(stored)) {
-              const [file] = yield* db
-                .select({ id: fileObject.id })
-                .from(fileObject)
-                .where(
-                  and(
-                    eq(fileObject.id, stored.value.value),
-                    isNotNull(fileObject.verifiedAt),
-                    sql`${fileObject.sourceIdentity} like ${`${chatFileIdentityPrefix(scope)}%`}`,
-                  ),
-                )
-                .pipe(mapDatabaseErrors())
-              if (!file) return yield* new ChatThreadInvalid()
-              return part
-            }
+            if (Option.isSome(stored)) return part
             const source = part.source
             if (!Schema.is(Schema.JsonObject)(source) || source.type !== "data") return part
             if (typeof source.value !== "string") return yield* new ChatThreadInvalid()
