@@ -6,11 +6,11 @@ import {
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3"
-import { Context, Effect, Layer, Option, RcMap, Schema, SynchronizedRef } from "effect"
+import { Context, Effect, Layer, RcMap, Schema, SynchronizedRef } from "effect"
 
 import { Config } from "@/lib/config/config.server"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
-import { StorageConnectionSchema, type StorageConnection } from "./schemas"
+import type { StorageConnection } from "./schemas"
 
 type StorageFailure = StorageObjectMissing | StorageUnavailable
 
@@ -91,24 +91,14 @@ export class ObjectStorage extends Context.Service<
         lookup: acquireStorageClient,
         idleTimeToLive: "1 minute",
       })
-      const settings = Effect.map(config.snapshot, ({ values, issues }) => {
-        if (issues.some((issue) => issue.key.startsWith("s3_")))
-          return Option.none<StorageConnection>()
-        return Schema.decodeUnknownOption(StorageConnectionSchema)({
-          endpoint: values.s3_endpoint,
-          region: values.s3_region,
-          bucket: values.s3_bucket,
-          accessKeyId: values.s3_access_key_id,
-          secretAccessKey: values.s3_secret_access_key,
-          pathStyle: values.s3_path_style === "true",
-        })
-      }).pipe(
-        Effect.flatMap((value) =>
-          Option.isSome(value)
-            ? Effect.succeed(value.value)
-            : Effect.fail(new StorageUnavailable()),
-        ),
-      )
+      const settings = Effect.map(config.snapshot, ({ values }): StorageConnection => ({
+        endpoint: values.s3_endpoint!,
+        region: values.s3_region!,
+        bucket: values.s3_bucket!,
+        accessKeyId: values.s3_access_key_id!,
+        secretAccessKey: values.s3_secret_access_key!,
+        pathStyle: values.s3_path_style === "true",
+      }))
 
       const withClient = <A>(
         run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,
@@ -119,7 +109,7 @@ export class ObjectStorage extends Context.Service<
           ),
         )
 
-      const read = (client: S3Client, bucket: string, key: string, maxBytes: number) =>
+      const readObjectBytes = (client: S3Client, bucket: string, key: string, maxBytes: number) =>
         storageRequest(async (abortSignal) => {
           const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
             abortSignal,
@@ -192,7 +182,7 @@ export class ObjectStorage extends Context.Service<
         ),
         get: Effect.fn("ObjectStorage.get")((input) =>
           withClient((client, connection) =>
-            read(client, connection.bucket, input.key, input.maxBytes),
+            readObjectBytes(client, connection.bucket, input.key, input.maxBytes),
           ),
         ),
         head: Effect.fn("ObjectStorage.head")((input) =>
@@ -239,7 +229,7 @@ export class ObjectStorage extends Context.Service<
                     abortSignal,
                   }),
                 )
-                const actual = yield* read(client, connection.bucket, key, bytes.length)
+                const actual = yield* readObjectBytes(client, connection.bucket, key, bytes.length)
                 if (
                   object.ContentLength !== bytes.length ||
                   !bytes.every((value, index) => actual[index] === value)

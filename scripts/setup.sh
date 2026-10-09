@@ -128,17 +128,13 @@ databases_are_external() {
 
 start_databases() {
   [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
-  if databases_are_external; then
-    # Explicit storage endpoints, including the devcontainer's RustFS service, are provisioned separately.
-    if [ -z "${S3_ENDPOINT:-}" ]; then export SKIP_DOCKER_COMPOSE=true; fi
-    return
-  fi
   # macOS development runs the native checkout against a database the developer already runs, so
   # this script never starts Compose there. See AGENTS.md's macOS rule.
   if [ "$platform_name" = Darwin ]; then
     echo "Skipped Docker Compose: start the macOS infrastructure as described in SETUP.md." >&2
     return 0
   fi
+  if databases_are_external; then return; fi
   if [ "${SKIP_DOCKER_COMPOSE:-false}" = true ]; then return; fi
   if docker_compose_available; then
     (cd "$WORKSPACE_PATH" && docker compose up --detach --wait)
