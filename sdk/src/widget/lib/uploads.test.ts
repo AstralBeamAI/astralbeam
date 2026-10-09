@@ -579,10 +579,11 @@ test.each(["identity", "api", "remove identity", "refresh", "prepare identity", 
   },
 )
 
-test("partial discard retains files and previews until all cancellation and metadata cleanup succeed", async () => {
+test("partial discard retains resources and clears only captured files after successful cleanup", async () => {
   const first = { ...draft, id: "first", sessionId: "first-session" }
   const second = { ...draft, id: "second", sessionId: "second-session" }
-  let stored: DraftAttachment[] = [first, second]
+  const newer = { ...draft, id: "newer", sessionId: "newer-session" }
+  let stored: DraftAttachment[] = [first, second, newer]
   vi.mocked(storedThreadAttachments).mockImplementation(({ update }) => {
     if (update) stored = update(stored)
     return Promise.resolve(stored)
@@ -609,19 +610,23 @@ test("partial discard retains files and previews until all cancellation and meta
       apiUrl: "https://api.test",
       identity: "owner",
       threadId: "conversation",
-      attachments: [],
+      attachments: [first, second],
+      attachmentIds: new Set([first.id, second.id]),
     })
   await expect(discard()).rejects.toThrow("Offline")
-  expect(stored).toEqual([first, second])
-  expect(uploads.files.size).toBe(2)
-  expect(uploads.previews.size).toBe(2)
-  expect([...uploads.tasks.values()].every((task) => task.controller.signal.aborted)).toBe(true)
+  expect(stored).toEqual([first, second, newer])
+  expect(uploads.files.size).toBe(3)
+  expect(uploads.previews.size).toBe(3)
+  expect(
+    [first, second].every((file) => uploads.tasks.get(file.id)?.controller.signal.aborted),
+  ).toBe(true)
+  expect(uploads.tasks.get(newer.id)?.controller.signal.aborted).toBe(false)
   expect(revokeObjectURL).not.toHaveBeenCalled()
   await discard()
-  expect(stored).toEqual([])
-  expect(uploads.files.size).toBe(0)
-  expect(uploads.tasks.size).toBe(0)
-  expect(uploads.previews.size).toBe(0)
+  expect(stored).toEqual([newer])
+  expect([...uploads.files.keys()]).toEqual([newer.id])
+  expect([...uploads.tasks.keys()]).toEqual([newer.id])
+  expect([...uploads.previews.keys()]).toEqual([newer.id])
   expect(revokeObjectURL).toHaveBeenCalledTimes(2)
 })
 
