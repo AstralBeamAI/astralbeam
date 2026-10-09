@@ -27,7 +27,7 @@ import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import {
   attachmentUploadState,
   attachmentUploadPreview,
-  getAttachmentUpload,
+  recoverAttachmentUpload,
   startAttachmentUpload,
   pauseAttachmentUpload,
   resumeAttachmentUpload,
@@ -195,36 +195,16 @@ export function ChatWidget({
         async (attachments) => ({
           attachments: await Promise.all(
             attachments.map(async (file) => {
-              if (!file.sessionId) return file
-              try {
-                const session = await getAttachmentUpload({ chat, id: file.sessionId })
-                if (!session)
-                  return {
-                    ...file,
-                    status: "reselect" as const,
-                    fileId: undefined,
-                  }
-                const preview =
-                  session.status === "completed" && session.file_id && file.kind === "image"
-                    ? await chat
-                        .getUploadedFile(session.file_id)
-                        .then((blob) =>
-                          cancelled
-                            ? undefined
-                            : attachmentUploadPreview({ uploads, id: file.id, blob }),
-                        )
-                        .catch(() => undefined)
-                    : undefined
-                return session.status === "completed" && session.file_id
-                  ? { ...file, status: "ready" as const, fileId: session.file_id, preview }
-                  : {
-                      ...file,
-                      status: "reselect" as const,
-                      fileId: undefined,
-                    }
-              } catch {
-                return { ...file, status: "reselect" as const, fileId: undefined }
-              }
+              const recovered = await recoverAttachmentUpload({ chat, draft: file })
+              if (recovered.status !== "ready" || !recovered.fileId || recovered.kind !== "image")
+                return recovered
+              const preview = await chat
+                .getUploadedFile(recovered.fileId)
+                .then((blob) =>
+                  cancelled ? undefined : attachmentUploadPreview({ uploads, id: file.id, blob }),
+                )
+                .catch(() => undefined)
+              return { ...recovered, preview }
             }),
           ),
           storageError: false,

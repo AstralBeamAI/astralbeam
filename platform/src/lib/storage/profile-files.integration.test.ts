@@ -678,7 +678,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       )
       const limited = await runtime.runPromise(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.uploadAvatar({ userId: owner.id, bytes: image }),
+          files.uploadAvatar({ userId: owner.id, bytes: Uint8Array.of(0) }),
         ).pipe(Effect.result),
       )
       expect(limited).toMatchObject({
@@ -687,7 +687,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       })
       const limitedLogo = await runtime.runPromise(
         Effect.flatMap(ProfileFiles, (files) =>
-          files.prepareLogo({ source: embedded, userId: owner.id }),
+          files.prepareLogo({ source: "data:image/png;base64,AA==", userId: owner.id }),
         ).pipe(Effect.result),
       )
       expect(limitedLogo).toMatchObject({
@@ -837,8 +837,24 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
     }
   })
 
-  test("bounds concurrent source failures and retries with backoff before marking them unavailable", async () => {
+  test("skips superseded logos and bounds concurrent source failures with retry backoff", async () => {
     const owners = await Promise.all(Array.from({ length: 8 }, () => createProfileFileUser()))
+    const generation = crypto.randomUUID()
+    const [customer] = await db
+      .insert(organization)
+      .values({
+        name: "Superseded logo",
+        slug: `logo-${crypto.randomUUID()}`,
+        logoImportGeneration: generation,
+      })
+      .returning()
+    organizationIds.push(customer!.id)
+    await db.insert(organizationImageImport).values({
+      organizationId: customer!.id,
+      sourceUrl: "https://example.com/older-logo.png",
+      generation,
+      status: "pending",
+    })
     const selected = inArray(
       userImageImport.userId,
       owners.map((owner) => owner.id),
@@ -873,11 +889,25 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       )
       try {
         await vi.waitFor(() => expect(active).toBe(4))
+        await db
+          .update(organization)
+          .set({ logoImportGeneration: crypto.randomUUID() })
+          .where(eq(organization.id, customer!.id))
       } finally {
         release()
       }
       await processing
       expect(peak).toBe(4)
+      expect(calls).toBe(8)
+      expect(objects.size).toBe(0)
+      expect(
+        (
+          await db
+            .select()
+            .from(organizationImageImport)
+            .where(eq(organizationImageImport.organizationId, customer!.id))
+        )[0],
+      ).toMatchObject({ status: "superseded", reason: "NewerImage", attempts: 0 })
       const first = await pending
       expect(
         first.every(

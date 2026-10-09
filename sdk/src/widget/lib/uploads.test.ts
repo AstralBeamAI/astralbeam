@@ -12,6 +12,7 @@ import {
   releaseAttachmentUpload,
   removeAttachmentUpload,
   discardAttachmentUploads,
+  recoverAttachmentUpload,
 } from "./uploads.ts"
 
 vi.mock("./drafts.ts", () => ({ storedThreadAttachments: vi.fn(() => Promise.resolve([])) }))
@@ -49,6 +50,34 @@ const draft: DraftAttachment = {
 }
 const persist = async () => {}
 const captureAuthentication = () => () => true
+
+test.each([undefined, 503, 403, 404, "expired", "cancelled"] as const)(
+  "completed attachment recovery preserves only transient failures: %s",
+  async (status) => {
+    const chat = {
+      getUpload: () =>
+        typeof status === "string"
+          ? Promise.resolve({ ...session, status })
+          : Promise.reject(
+              Object.assign(
+                new Error("Unavailable"),
+                status ? { name: "AstralBeamApiError", status } : {},
+              ),
+            ),
+    } as unknown as AstralBeamChatCore
+    const ready = { ...draft, status: "ready" as const, sessionId: "upload", fileId: "verified" }
+    const recovered = await recoverAttachmentUpload({ chat, draft: ready })
+    const transient = status === undefined || status === 503
+    expect(recovered.status).toBe(transient ? "ready" : "reselect")
+    expect(recovered.fileId).toBe(transient ? "verified" : undefined)
+    const unfinished = await recoverAttachmentUpload({
+      chat,
+      draft: { ...draft, sessionId: "upload" },
+    })
+    expect(unfinished.status).toBe("reselect")
+    expect(unfinished.fileId).toBeUndefined()
+  },
+)
 
 test("wrong-file reselection never signs parts and lets the picker try again", async () => {
   const signUploadParts = vi.fn()
@@ -617,7 +646,7 @@ test("discard retains targets when authentication changes before the IndexedDB u
   expect(stored).toEqual([{ ...draft, prepareAttempted: true }])
 })
 
-test("discard retains unreadable or transitioning targets and leaves claimed files to their conversation", async () => {
+test("removal and discard retain transitioning targets and leave claimed files to their conversation", async () => {
   const conflict = Object.assign(new Error("Retry completion"), {
     name: "AstralBeamApiError",
     status: 409,
@@ -631,6 +660,7 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
   const cancelUpload = vi
     .fn()
     .mockRejectedValueOnce(claimed)
+    .mockRejectedValueOnce(conflict)
     .mockRejectedValueOnce(conflict)
     .mockRejectedValue(claimed)
   const uploads = attachmentUploadState({
@@ -649,13 +679,14 @@ test("discard retains unreadable or transitioning targets and leaves claimed fil
   vi.mocked(storedThreadAttachments).mockRejectedValueOnce(new Error("Storage unavailable"))
   await expect(discard()).rejects.toThrow("Storage unavailable")
   expect(cancelUpload).not.toHaveBeenCalled()
-  await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toBe(claimed)
+  await removeAttachmentUpload({ uploads, draft: pending })
+  await expect(removeAttachmentUpload({ uploads, draft: pending })).rejects.toBe(conflict)
   vi.mocked(storedThreadAttachments).mockResolvedValueOnce([pending])
   await expect(discard()).rejects.toBe(conflict)
   expect(vi.mocked(storedThreadAttachments).mock.calls.at(-1)?.[0]).not.toHaveProperty("update")
   vi.mocked(storedThreadAttachments).mockResolvedValueOnce([pending])
   await discard()
-  expect(cancelUpload).toHaveBeenCalledTimes(3)
+  expect(cancelUpload).toHaveBeenCalledTimes(4)
   expect(vi.mocked(storedThreadAttachments).mock.calls.at(-1)?.[0]).toHaveProperty("update")
   disposeAttachmentUploads(uploads)
 })
