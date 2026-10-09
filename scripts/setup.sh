@@ -131,7 +131,7 @@ start_databases() {
   # macOS development runs the native checkout against a database the developer already runs, so
   # this script never starts Compose there. See AGENTS.md's macOS rule.
   if [ "$platform_name" = Darwin ]; then
-    echo "Skipped Docker Compose: macOS development uses a native database. Start it yourself with 'docker compose up --detach --wait' if you want the Compose services." >&2
+    echo "Skipped Docker Compose: start the macOS infrastructure as described in SETUP.md." >&2
     return 0
   fi
   if databases_are_external; then return; fi

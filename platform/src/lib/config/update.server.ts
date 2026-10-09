@@ -25,7 +25,7 @@ export function validateConfigUpdates(
   updates: readonly ConfigUpdate[],
   environmentKeys: ReadonlySet<ConfigKey>,
 ) {
-  const changes: DatabaseConfigChange[] = []
+  const changes: (DatabaseConfigChange & { readonly key: ConfigKey })[] = []
   const issues: ConfigUpdateIssue[] = []
   const seenKeys = new Set<string>()
   for (const update of updates) {
@@ -64,7 +64,7 @@ export function validateConfigUpdates(
 /** Generates each required value that is neither stored, effective, nor being changed. */
 export function generateMissingConfigValues(
   current: { readonly rows: readonly ConfigStorageEntry[] | null; readonly values: ConfigValues },
-  changedKeys: ReadonlySet<string>,
+  changedKeys: ReadonlySet<ConfigKey>,
 ) {
   const values: { key: ConfigKey; value: string }[] = []
   const issues: ConfigUpdateIssue[] = []

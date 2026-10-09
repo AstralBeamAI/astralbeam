@@ -26,6 +26,11 @@ const COMPLETE_VALUES = {
   turnstile_site_key: "turnstile-site-key",
   turnstile_secret_key: "turnstile-secret-key",
   support_email_address: "support@example.com",
+  s3_endpoint: "http://127.0.0.1:9000",
+  s3_region: "us-east-1",
+  s3_bucket: "test-files",
+  s3_access_key_id: "test-access-key",
+  s3_secret_access_key: "test-secret-key",
 } satisfies ConfigValues
 
 type StoredRow = { readonly key: string; readonly storedValue: string }
@@ -90,6 +95,11 @@ describe("configuration registry", () => {
       ["email_provider", secret],
       ["smtp_port", { password: secret }],
       ["app_base_url", `https://${secret}@example.com`],
+      ["s3_endpoint", `https://${secret}@example.com/storage/v1/s3`],
+      ["s3_endpoint", `https://example.com/storage/v1/s3?key=${secret}`],
+      ["s3_endpoint", `https://example.com/storage/v1/s3#${secret}`],
+      ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
+      ["s3_endpoint", "http://s3.example.com"],
       ["email_from_address", "secret@@value"],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
@@ -99,6 +109,15 @@ describe("configuration registry", () => {
     const fromAddress = findConfigDefinition("email_from_address")!
     for (const accepted of ["onboarding@resend.dev", "App <onboarding@resend.dev>"]) {
       assert.deepStrictEqual(decodeConfigValue(fromAddress, accepted), Result.succeed(accepted))
+    }
+  })
+
+  it("preserves S3 endpoint paths and normalizes optional trailing slashes", () => {
+    const endpoint = findConfigDefinition("s3_endpoint")!
+    for (const value of ["https://example.com", "https://example.com/storage/v1/s3"]) {
+      for (const suffix of ["", "/", "//"]) {
+        assert.deepStrictEqual(decodeConfigValue(endpoint, value + suffix), Result.succeed(value))
+      }
     }
   })
 
@@ -134,7 +153,14 @@ describe("configuration registry", () => {
       }),
     )
     assert.include(serialized, "turnstile-site-key")
-    for (const secret of ["google-secret", "resend-secret", SECRET, "turnstile-secret-key"]) {
+    for (const secret of [
+      "google-secret",
+      "resend-secret",
+      SECRET,
+      "turnstile-secret-key",
+      COMPLETE_VALUES.s3_access_key_id,
+      COMPLETE_VALUES.s3_secret_access_key,
+    ]) {
       assert.notInclude(serialized, secret)
     }
   })
