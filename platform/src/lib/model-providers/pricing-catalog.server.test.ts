@@ -7,7 +7,7 @@ import {
   effectiveModelUsageConfiguration,
 } from "./pricing-catalog.server.ts"
 import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
-import { ModelUsageConfigurationSchema } from "./usage-schemas.ts"
+import { ModelUsageConfigurationSchema, modelInputAllowance } from "./usage-schemas.ts"
 
 const testPriceCatalog: ModelPriceCatalog = {
   revision: "test",
@@ -47,6 +47,8 @@ describe("model pricing catalog", () => {
       modelId: "test-model",
     }
     const card = catalogModelUsageConfiguration(lookup)!
+    expect(modelInputAllowance(card)).toBe(128_000)
+    expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(128_000)
     expect(card.prices).toEqual({
       inputPerMillion: "2",
       outputPerMillion: "8",
@@ -89,8 +91,8 @@ describe("model pricing catalog", () => {
     }
     expect(effectiveModelUsageConfiguration({ ...lookup, configured })).toMatchObject({
       outputCap: 4096,
-      maxInputTokens: null,
-      contextWindowTokens: 128_000,
+      maxInputTokens: 128_000,
+      contextWindowTokens: null,
       prices: { inputPerMillion: "2" },
       contextTiers: [{ aboveInputTokens: 20_000 }, { aboveInputTokens: 60_000 }],
     })

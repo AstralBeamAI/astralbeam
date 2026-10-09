@@ -80,10 +80,10 @@ export function catalogModelUsageConfiguration(input: {
       aboveInputTokens,
       prices: ratesAt(aboveInputTokens + 1),
     })),
-    maxInputTokens: null,
-    contextWindowTokens: result.model.context_window,
+    maxInputTokens: result.model.context_window,
+    contextWindowTokens: null,
     maxOutputTokens: 4096,
-    outputCap: Math.min(4096, result.model.context_window - 1),
+    outputCap: 4096,
   })
   return Option.getOrNull(decoded)
 }
