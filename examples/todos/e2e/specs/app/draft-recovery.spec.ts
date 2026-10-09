@@ -414,9 +414,19 @@ for (const failure of ["disabled", "quota"] as const) {
         }
       }
     }, failure)
-    await page.route("**/api/v1/chat", (route) =>
-      route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
-    )
+    const preparations: string[] = []
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().endsWith("/chat/uploads"))
+        preparations.push(request.url())
+    })
+    let submittedFile: unknown
+    await page.route("**/api/v1/chat", async (route) => {
+      const body = route.request().postDataJSON() as {
+        messages: Array<{ role: string; content: Array<{ source?: unknown }> }>
+      }
+      submittedFile = body.messages.find((message) => message.role === "user")?.content[0]?.source
+      await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
+    })
     await todosPage(page).open()
     const chat = chatWidget(page)
     await chat.waitForReady()
@@ -431,6 +441,12 @@ for (const failure of ["disabled", "quota"] as const) {
     await chat.sendButton().click()
     await expect(chat.composer()).toHaveValue("")
     await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+    expect(submittedFile).toEqual({
+      type: "data",
+      value: note.buffer.toString("base64"),
+      mimeType: note.mimeType,
+    })
+    expect(preparations).toEqual([])
   })
 }
 

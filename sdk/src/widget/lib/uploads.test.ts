@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from "vitest"
 import { createAstralBeamChat, type AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
 import { storedThreadAttachments } from "./drafts.ts"
+import { readAttachmentData } from "./attachments.ts"
 import {
   attachmentUploadState,
   startAttachmentUpload,
@@ -14,10 +15,14 @@ import {
 } from "./uploads.ts"
 
 vi.mock("./drafts.ts", () => ({ storedThreadAttachments: vi.fn(() => Promise.resolve([])) }))
+vi.mock("./attachments.ts", () => ({
+  readAttachmentData: vi.fn(() => Promise.resolve("aGVsbG8=")),
+}))
 
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.mocked(storedThreadAttachments).mockReset().mockResolvedValue([])
+  vi.mocked(readAttachmentData).mockClear()
 })
 
 const session = {
@@ -282,7 +287,9 @@ test("failed preparation metadata keeps local and inline files removable offline
     },
     persist: () => Promise.reject(new Error("Draft storage unavailable")),
   })
-  await vi.waitFor(() => expect(state.status).toBe("error"))
+  await vi.waitFor(() => expect(state.status).toBe("ready"))
+  expect(state.data).toBe("aGVsbG8=")
+  expect(state.prepareAttempted).toBe(false)
   expect(prepareUpload).not.toHaveBeenCalled()
   for (const file of [
     state,
@@ -291,6 +298,26 @@ test("failed preparation metadata keeps local and inline files removable offline
   ])
     await removeAttachmentUpload({ uploads, draft: file })
   expect(cancelPreparedUpload).not.toHaveBeenCalled()
+  disposeAttachmentUploads(uploads)
+})
+
+test("failed metadata persistence never converts an uncertain preparation to inline", async () => {
+  const prepareUpload = vi.fn()
+  const uploads = attachmentUploadState({ prepareUpload } as unknown as AstralBeamChatCore)
+  let state: DraftAttachment = { ...draft, prepareAttempted: true }
+  startAttachmentUpload({
+    uploads,
+    draft: state,
+    file: new File(["hello"], "note.txt"),
+    settle: (update) => {
+      state = { ...state, ...update }
+    },
+    persist: () => Promise.reject(new Error("Draft storage unavailable")),
+  })
+  await vi.waitFor(() => expect(state.status).toBe("error"))
+  expect(state.prepareAttempted).toBe(true)
+  expect(readAttachmentData).not.toHaveBeenCalled()
+  expect(prepareUpload).not.toHaveBeenCalled()
   disposeAttachmentUploads(uploads)
 })
 
