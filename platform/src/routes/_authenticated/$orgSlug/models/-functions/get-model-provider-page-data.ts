@@ -1,3 +1,5 @@
+import type { ANTHROPIC_MODELS } from "@tanstack/ai-anthropic"
+import type { OPENAI_CHAT_MODELS } from "@tanstack/ai-openai"
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
@@ -23,8 +25,13 @@ const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.6-luna",
-  ],
-  anthropic: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
+  ] satisfies readonly (typeof OPENAI_CHAT_MODELS)[number][],
+  anthropic: [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-4-5",
+    "claude-fable-5-1",
+  ] satisfies readonly (typeof ANTHROPIC_MODELS)[number][],
   openrouter: [
     "openai/gpt-5.6-sol",
     "openai/gpt-5.6-terra",
