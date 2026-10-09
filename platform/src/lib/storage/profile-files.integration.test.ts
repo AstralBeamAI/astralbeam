@@ -24,7 +24,7 @@ import {
   userImageImport,
 } from "@/db/schema/files.server"
 import { member, organization } from "@/db/schema/organizations.server"
-import { logoImportGenerationField, organizationImageHooks } from "./auth-images.server"
+import { privateLogoImportField, organizationImageHooks } from "./auth-images.server"
 import { ImageSources } from "./image-source.server"
 import {
   ImageImportUnavailable,
@@ -170,6 +170,91 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
       await restarted.dispose()
     }
   })
+
+  test.each(["avatar", "logo"] as const)(
+    "only skips migration for a current verified and readable %s reference",
+    async (kind) => {
+      async function createOwner(source: string) {
+        if (kind === "avatar") return (await createProfileFileUser(source)).id
+        const [customer] = await db
+          .insert(organization)
+          .values({ name: "Storage fixture", slug: `storage-${crypto.randomUUID()}`, logo: source })
+          .returning()
+        organizationIds.push(customer!.id)
+        return customer!.id
+      }
+      const table = kind === "avatar" ? user : organization
+      const column = kind === "avatar" ? user.image : organization.logo
+      const fileId = kind === "avatar" ? user.avatarFileId : organization.logoFileId
+      const migrate = (id: string, source: string) =>
+        Effect.flatMap(ProfileFiles, (files) => files.migrate({ owner: { kind, id }, source }))
+      const runtime = ManagedRuntime.make(profileLayer)
+      try {
+        const ownerId = await createOwner(embedded)
+        expect(await runtime.runPromise(migrate(ownerId, embedded))).toBe("migrated")
+        const [current] = await db
+          .select({ source: column, fileId })
+          .from(table)
+          .where(eq(table.id, ownerId))
+        const source = current!.source!
+        const [file] = await db.select().from(fileObject).where(eq(fileObject.id, current!.fileId!))
+        for (const invalid of [
+          "/api/files/legacy.png",
+          source.replace(file!.id, "------------------------------------"),
+          source.replace(file!.id, "00000000-0000-7000-8000-000000000000"),
+          source,
+        ]) {
+          const invalidOwner = await createOwner(invalid)
+          expect(
+            await runtime.runPromise(migrate(invalidOwner, invalid).pipe(Effect.result)),
+          ).toMatchObject({ _tag: "Failure", failure: { _tag: "InvalidImage" } })
+          expect(
+            (await db.select({ source: column }).from(table).where(eq(table.id, invalidOwner)))[0]!
+              .source,
+          ).toBe(invalid)
+        }
+        for (const metadata of [{ verifiedAt: null }, { expiresAt: new Date() }]) {
+          await db.update(fileObject).set(metadata).where(eq(fileObject.id, file!.id))
+          expect(
+            await runtime.runPromise(migrate(ownerId, source).pipe(Effect.result)),
+          ).toMatchObject({ _tag: "Failure", failure: { _tag: "InvalidImage" } })
+          await db
+            .update(fileObject)
+            .set({ verifiedAt: file!.verifiedAt, expiresAt: null })
+            .where(eq(fileObject.id, file!.id))
+        }
+        objects.delete(file!.objectKey)
+        expect(
+          await runtime.runPromise(migrate(ownerId, source).pipe(Effect.result)),
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "StorageObjectMissing" },
+        })
+        objects.set(file!.objectKey, new Uint8Array(image.length))
+        expect(
+          await runtime.runPromise(migrate(ownerId, source).pipe(Effect.result)),
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "StorageUnavailable" },
+        })
+        objects.set(file!.objectKey, image)
+        failRead = true
+        expect(
+          await runtime.runPromise(migrate(ownerId, source).pipe(Effect.result)),
+        ).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "StorageUnavailable" },
+        })
+        failRead = false
+        expect(await runtime.runPromise(migrate(ownerId, source))).toBe("unchanged")
+        expect(
+          (await db.select({ source: column }).from(table).where(eq(table.id, ownerId)))[0]!.source,
+        ).toBe(source)
+      } finally {
+        await runtime.dispose()
+      }
+    },
+  )
 
   test("preserves a newer manual avatar when an older import finishes and retains retryable deletion", async () => {
     const owner = await createProfileFileUser()
@@ -466,7 +551,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
     }
   })
 
-  test("keeps the pending logo import when an auth update fails after its before-hook", async () => {
+  test("commits private logo intent with auth updates and recovers it after restart", async () => {
     const owner = await createProfileFileUser()
     const [customer] = await db
       .insert(organization)
@@ -503,11 +588,13 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
           schema: {
             organization: {
               additionalFields: {
-                logoImportGeneration: logoImportGenerationField,
+                logoImportGeneration: privateLogoImportField,
+                logoImportSourceUrl: privateLogoImportField,
               },
             },
           },
           organizationHooks: {
+            ...organizationImageHooks,
             beforeUpdateOrganization: async (input) => {
               const result = await organizationImageHooks.beforeUpdateOrganization(input)
               if (rejectUpdate) throw new Error("Rejected organization update")
@@ -520,16 +607,30 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
     const update = () =>
       auth.api.updateOrganization({
         headers: new Headers({ authorization: `Bearer ${token}` }),
-        body: { organizationId: id, data: { logo: "https://example.com/new.png" } },
+        body: {
+          organizationId: id,
+          data: { name: "Updated logo import", logo: "https://example.com/new.png" },
+        },
       })
     await expect(update()).rejects.toThrow("Rejected organization update")
     expect((await pending)[0]).toEqual(prior)
-    expect((await customerRow)[0]!.logoImportGeneration).toBeNull()
+    expect((await customerRow)[0]).toMatchObject({
+      name: "Logo import",
+      logoImportGeneration: null,
+      logoImportSourceUrl: null,
+    })
     rejectUpdate = false
     const updated = await update()
     expect(updated).not.toHaveProperty("logoImportGeneration")
+    expect(updated).not.toHaveProperty("logoImportSourceUrl")
     const [committed] = await customerRow
+    expect(committed).toMatchObject({
+      name: "Updated logo import",
+      logoImportSourceUrl: "https://example.com/new.png",
+    })
     expect(committed!.logoImportGeneration).toEqual(expect.any(String))
+    expect((await pending)[0]).toEqual(prior)
+    fixture.source = () => Promise.reject(new ImageImportUnavailable())
     const runtime = ManagedRuntime.make(profileLayer)
     try {
       const queue = Effect.flatMap(ProfileFiles, (files) =>
@@ -540,7 +641,7 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
           generation: committed!.logoImportGeneration!,
         }),
       )
-      await runtime.runPromise(queue)
+      await runtime.runPromise(Effect.flatMap(ProfileFiles, (files) => files.processImports))
       const [queued] = await pending
       expect(queued).toMatchObject({
         status: "pending",
@@ -548,10 +649,29 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
         generation: committed!.logoImportGeneration,
       })
       await db.update(organization).set({ logo: null }).where(eq(organization.id, id))
+      await db.update(organization).set({ logo: null }).where(eq(organization.id, id))
       await runtime.runPromise(queue)
       expect((await pending)[0]!.status).toBe("disabled")
+      expect((await customerRow)[0]!.logoImportSourceUrl).toBeNull()
     } finally {
       await runtime.dispose()
+    }
+    await update()
+    fixture.source = () => Promise.resolve(image)
+    const [recommitted] = await customerRow
+    const restarted = ManagedRuntime.make(profileLayer)
+    try {
+      await restarted.runPromise(Effect.flatMap(ProfileFiles, (files) => files.processImports))
+      expect((await pending)[0]).toMatchObject({
+        status: "imported",
+        sourceUrl: "https://example.com/new.png",
+        generation: recommitted!.logoImportGeneration,
+      })
+      const [imported] = await customerRow
+      expect(imported!.logo).toMatch(/^\/api\/files\/organizations\//)
+      expect(imported!.logoImportSourceUrl).toBeNull()
+    } finally {
+      await restarted.dispose()
     }
   })
 

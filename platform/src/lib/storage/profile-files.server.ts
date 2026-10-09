@@ -98,6 +98,10 @@ export class ProfileFiles extends Context.Service<
       generation: string
     }) => Effect.Effect<void>
     readonly processImports: Effect.Effect<void>
+    readonly verify: (options: {
+      owner: ImageOwner
+      source: string
+    }) => Effect.Effect<void, InvalidImage | StorageUnavailable | StorageObjectMissing>
     readonly migrate: (options: {
       owner: ImageOwner
       source: string | null
@@ -341,6 +345,11 @@ export class ProfileFiles extends Context.Service<
                   setWhere: sql`${organizationImageImport.generation} <> ${generation} or ${organizationImageImport.sourceUrl} <> ${source} or ${organizationImageImport.status} <> 'pending' or ${organizationImageImport.expectedLogo} is distinct from ${expectedLogo}`,
                 })
                 .pipe(mapDatabaseErrors())
+              yield* tx
+                .update(organization)
+                .set({ logoImportSourceUrl: null })
+                .where(eq(organization.id, organizationId))
+                .pipe(mapDatabaseErrors())
             }),
           )
           .pipe(mapDatabaseErrors())
@@ -486,6 +495,23 @@ export class ProfileFiles extends Context.Service<
           .pipe(mapDatabaseErrors())
       })
       const processImports = Effect.gen(function* () {
+        const requestedLogos = yield* db
+          .select()
+          .from(organization)
+          .where(isNotNull(organization.logoImportSourceUrl))
+          .limit(20)
+          .pipe(mapDatabaseErrors())
+        yield* Effect.forEach(
+          requestedLogos,
+          (owner) =>
+            queueLogo({
+              organizationId: owner.id,
+              source: owner.logoImportSourceUrl!,
+              expectedLogo: owner.logo,
+              generation: owner.logoImportGeneration!,
+            }),
+          { concurrency: 4, discard: true },
+        )
         const avatars = yield* db
           .select()
           .from(userImageImport)
@@ -550,6 +576,39 @@ export class ProfileFiles extends Context.Service<
             logos: logos.length,
           })
       })
+      const verify = Effect.fn("ProfileFiles.verify")(function* ({
+        owner,
+        source,
+      }: {
+        owner: ImageOwner
+        source: string
+      }) {
+        const isAvatar = owner.kind === "avatar"
+        const association = isAvatar ? userAvatar : organizationLogo
+        const ownerId = isAvatar ? userAvatar.userId : organizationLogo.organizationId
+        const table = isAvatar ? user : organization
+        const column = isAvatar ? user.image : organization.logo
+        const currentFileId = isAvatar ? user.avatarFileId : organization.logoFileId
+        const [stored] = yield* db
+          .select({ file: fileObject })
+          .from(association)
+          .innerJoin(table, eq(table.id, ownerId))
+          .innerJoin(fileObject, eq(fileObject.id, association.id))
+          .where(
+            and(
+              eq(ownerId, owner.id),
+              eq(column, source),
+              eq(currentFileId, association.id),
+              sql`${source} = ${isAvatar ? sql`'/api/files/avatars/' || ${association.id}` : sql`'/api/files/organizations/' || ${owner.id} || '/logos/' || ${association.id}`}`,
+              isNotNull(fileObject.verifiedAt),
+              isNull(fileObject.expiresAt),
+            ),
+          )
+          .limit(1)
+          .pipe(mapDatabaseErrors())
+        if (!stored) return yield* new InvalidImage()
+        yield* files.read(stored.file)
+      })
       const migrate = Effect.fn("ProfileFiles.migrate")(function* ({
         owner,
         source,
@@ -559,7 +618,10 @@ export class ProfileFiles extends Context.Service<
         source: string | null
         email?: string
       }) {
-        if (source?.startsWith("/api/files/")) return "unchanged" as const
+        if (source?.startsWith("/api/files/")) {
+          yield* verify({ owner, source })
+          return "unchanged" as const
+        }
         if (!source && owner.kind === "logo") return "unchanged" as const
         if (!source) {
           const [prior] = yield* db
@@ -686,6 +748,7 @@ export class ProfileFiles extends Context.Service<
         queueAvatar,
         queueLogo,
         processImports,
+        verify,
         migrate,
       })
     }),
