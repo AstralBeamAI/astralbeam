@@ -46,6 +46,7 @@
     "@fontsource-variable/manrope": "^5.2.8",
     "@marsidev/react-turnstile": "^1.6.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@pydantic/genai-prices": "^0.1.9",
     "@react-email/render": "2.1.0",
     "@scalar/api-reference": "^1.67.0",
     "@tanstack/ai": "^0.64.0",

@@ -20,6 +20,7 @@
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.3.0_react-dom@19.3.0",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@playwright/test@^1.63.0": "1.63.0",
+    "npm:@pydantic/genai-prices@~0.1.9": "0.1.9",
     "npm:@react-email/render@2.1.0": "2.1.0_react@19.3.0_react-dom@19.3.0",
     "npm:@scalar/api-reference@^1.67.0": "1.67.0_zod@4.6.5",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.3.2",
@@ -3105,6 +3106,10 @@
     },
     "@protobufjs/utf8@1.1.2": {
       "integrity": "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="
+    },
+    "@pydantic/genai-prices@0.1.9": {
+      "integrity": "sha512-M93O77DCs533HASyjenihMo9b2OTW6c8v49w6yS/W50osugJ1rkUX8baaDNCnw+ZPiMD6jIxUsa1Bz1MrpX3Uw==",
+      "bin": true
     },
     "@react-email/render@2.1.0_react@19.3.0_react-dom@19.3.0": {
       "integrity": "sha512-F+zE3O6d6sW6Aj2UjvZAA17R7tJKM7kcq2mgV6k4HCT8jeLLFaVP2txMtH1lgqYFRMZ0Gxsd37q2PRyiXLXXxA==",
@@ -9479,6 +9484,7 @@
         "npm:@marsidev/react-turnstile@^1.6.0",
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@playwright/test@^1.63.0",
+        "npm:@pydantic/genai-prices@~0.1.9",
         "npm:@react-email/render@2.1.0",
         "npm:@scalar/api-reference@^1.67.0",
         "npm:@tailwindcss/vite@4",
