@@ -295,7 +295,8 @@ export function ModelProviderForm({
               errors={fieldErrors("models")}
             />
             <FieldDescription>
-              Prices are USD per million tokens. Token limits are saved, but not enforced yet.
+              Catalog prices are provider list prices in USD per million tokens. Override them for
+              negotiated or gateway rates. Token limits are saved, but not enforced yet.
             </FieldDescription>
             {models.map((model, index) => (
               <ProviderModelUsageFields

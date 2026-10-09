@@ -109,16 +109,20 @@ export const readDatabaseModelPriceCatalog = Effect.fn("readDatabaseModelPriceCa
   db: EffectDatabase,
 ) {
   const rows = yield* db
-    .select({ payload: configTable.value })
+    .select({ key: configTable.key, storedValue: sql<string>`${configTable.value}::text` })
     .from(configTable)
     .where(eq(configTable.key, MODEL_PRICE_CATALOG_CONFIG_KEY))
     .limit(1)
     .pipe(Effect.orDie)
   if (!rows[0]) return null
-  const payload = yield* Schema.decodeUnknownEffect(modelPriceCatalogPayloadSchema)(
-    rows[0].payload,
-  ).pipe(Effect.orDie)
-  return payload.value
+  const catalog = Option.flatMap(decryptStoredConfigRow(rows[0]).payload, (payload) =>
+    Schema.decodeUnknownOption(modelPriceCatalogPayloadSchema)(payload),
+  )
+  if (Option.isNone(catalog)) {
+    yield* Effect.logWarning("Ignoring invalid stored model pricing catalog")
+    return null
+  }
+  return catalog.value.value
 })
 
 export const writeDatabaseModelPriceCatalog = Effect.fn("writeDatabaseModelPriceCatalog")(

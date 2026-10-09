@@ -260,6 +260,10 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
       expect(cancelDownload).toHaveBeenCalledOnce()
       expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
+      await db.execute(
+        sql`update config set value = 'unreadable' where key = 'model_price_catalog'`,
+      )
+      expect((await runAppEffect(readModelPriceCatalog)).fetchedAt).toBeNull()
     } finally {
       await runAppEffect(
         Effect.flatMap(Config, (config) => config.writeModelPriceCatalog(previous)),
