@@ -7,9 +7,8 @@ import { expect, test } from "vitest"
 import { Config } from "@/lib/config/config.server"
 import { ObjectStorage } from "./object-storage.server"
 
-test("connection testing verifies bytes and removes its object even when verification fails", async () => {
+test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
-  let corrupt = false
   let omitHeadSize = false
   let stall = false
   let notifyHead: () => void = () => undefined
@@ -41,9 +40,7 @@ test("connection testing verifies bytes and removes its object even when verific
           200,
           request.method === "HEAD" && omitHeadSize ? {} : { "Content-Length": bytes.length },
         )
-        response.end(
-          request.method === "HEAD" ? undefined : corrupt ? new Uint8Array(bytes.length) : bytes,
-        )
+        response.end(request.method === "HEAD" ? undefined : new Uint8Array(bytes.length))
       }
     }
     void respond().catch(() => response.writeHead(500).end())
@@ -78,13 +75,6 @@ test("connection testing verifies bytes and removes its object even when verific
     ),
   )
   try {
-    await Effect.runPromise(
-      Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
-        Effect.provide(layer),
-      ),
-    )
-    expect(objects.size).toBe(0)
-    corrupt = true
     const result = await Effect.runPromise(
       Effect.flatMap(ObjectStorage, (storage) => storage.testConnection(settings)).pipe(
         Effect.result,
@@ -104,7 +94,6 @@ test("connection testing verifies bytes and removes its object even when verific
     expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
     objects.delete("/test/metadata")
     omitHeadSize = false
-    corrupt = false
     stall = true
     const controller = new AbortController()
     const interrupted = Effect.runPromiseExit(

@@ -25,19 +25,14 @@ const destinationSettings = {
   secretAccessKey: "first-secret",
   pathStyle: true,
 }
-const destinationUpdates = Object.entries(destinationSettings).map(([key, value]) => ({
-  key: (
-    {
-      endpoint: "s3_endpoint",
-      region: "s3_region",
-      bucket: "s3_bucket",
-      accessKeyId: "s3_access_key_id",
-      secretAccessKey: "s3_secret_access_key",
-      pathStyle: "s3_path_style",
-    } as Record<string, string>
-  )[key]!,
-  value: String(value),
-}))
+const destinationUpdates = [
+  { key: "s3_endpoint", value: destinationSettings.endpoint },
+  { key: "s3_region", value: destinationSettings.region },
+  { key: "s3_bucket", value: destinationSettings.bucket },
+  { key: "s3_access_key_id", value: destinationSettings.accessKeyId },
+  { key: "s3_secret_access_key", value: destinationSettings.secretAccessKey },
+  { key: "s3_path_style", value: "true" },
+]
 
 describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   beforeEach(async () => {

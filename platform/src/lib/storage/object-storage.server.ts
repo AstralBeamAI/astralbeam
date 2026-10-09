@@ -172,23 +172,18 @@ export class ObjectStorage extends Context.Service<
         ),
         head: Effect.fn("ObjectStorage.head")((input) =>
           withClient((client, connection) =>
-            storageRequest((abortSignal) =>
-              client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: input.key }), {
-                abortSignal,
-              }),
-            ).pipe(
-              Effect.flatMap((object) =>
-                Schema.decodeUnknownEffect(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))(
+            storageRequest(async (abortSignal) => {
+              const object = await client.send(
+                new HeadObjectCommand({ Bucket: connection.bucket, Key: input.key }),
+                { abortSignal },
+              )
+              return {
+                size: Schema.decodeUnknownSync(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))(
                   object.ContentLength,
-                ).pipe(
-                  Effect.map((size) => ({
-                    size,
-                    contentType: object.ContentType ?? "application/octet-stream",
-                  })),
-                  Effect.mapError(() => new StorageUnavailable()),
                 ),
-              ),
-            ),
+                contentType: object.ContentType ?? "application/octet-stream",
+              }
+            }),
           ),
         ),
         remove: Effect.fn("ObjectStorage.remove")((input) =>
@@ -220,8 +215,7 @@ export class ObjectStorage extends Context.Service<
                 const actual = yield* read(client, connection.bucket, key, bytes.length)
                 if (
                   object.ContentLength !== bytes.length ||
-                  !bytes.every((value, index) => actual[index] === value) ||
-                  actual.length !== bytes.length
+                  !bytes.every((value, index) => actual[index] === value)
                 )
                   return yield* new StorageUnavailable()
               }).pipe(
