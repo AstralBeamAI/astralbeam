@@ -478,7 +478,7 @@ export function ChatWidget({
     const file = composer.attachments.find((attachment) => attachment.id === id)
     if (!file) return
     settleAttachment(id, { status: "reading", error: undefined })
-    void removeAttachmentUpload({ uploads, draft: file }).then(
+    void removeAttachmentUpload({ uploads, draft: file, auth }).then(
       () => setAttachments((current) => current.filter((attachment) => attachment.id !== id)),
       () => settleAttachment(id, { status: "error", error: "Removal failed. Try Remove again." }),
     )
@@ -654,6 +654,7 @@ export function ChatWidget({
       identity: draftIdentity,
       threadId: "",
       attachments: drafts.threads.get("")?.attachments ?? [],
+      auth,
     }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
     setDrafts((current) => {
       const threads = new Map(current.threads)
@@ -672,6 +673,7 @@ export function ChatWidget({
       identity: draftIdentity,
       threadId: id,
       attachments: drafts.threads.get(id)?.attachments ?? [],
+      auth,
     })
   const forgetDraft = (id: string) => {
     const files = drafts.threads.get(id)?.attachments ?? []
