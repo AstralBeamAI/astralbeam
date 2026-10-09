@@ -1372,11 +1372,10 @@ export function createAstralBeamChat(
     updateOptions: (next) => {
       const agent = live.agentId
       const apiUrl = live.apiUrl
-      const tokenSource = live.fetchAstralBeamToken
       const selectedId = live.threadId
       const { widgets, onRenderWidget } = live
       live = { ...live, ...next }
-      if (live.apiUrl !== apiUrl || live.fetchAstralBeamToken !== tokenSource) authEpoch++
+      if (live.apiUrl !== apiUrl) authEpoch++
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
         apiUrl: live.apiUrl,
