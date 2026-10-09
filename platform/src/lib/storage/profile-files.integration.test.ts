@@ -47,7 +47,7 @@ const embedded = `data:image/png;base64,${Buffer.from(image).toString("base64")}
 const objects = new Map<string, Uint8Array>()
 let failRead = false
 let failDelete = false
-const storage = Layer.succeed(ObjectStorage, {
+const objectStorage = ObjectStorage.of({
   put: ({ key, bytes }) =>
     Effect.sync(() => {
       objects.set(key, bytes)
@@ -72,6 +72,7 @@ const storage = Layer.succeed(ObjectStorage, {
     Effect.succeed({ size: objects.get(key)?.length ?? 0, contentType: "image/png" }),
   testConnection: () => Effect.void,
 })
+const storage = Layer.succeed(ObjectStorage, objectStorage)
 const storedLayer = StoredFiles.layerNoDeps.pipe(Layer.provideMerge([Database.layer, storage]))
 const profileLayer = ProfileFiles.layerNoDeps.pipe(
   Layer.provideMerge([
@@ -119,6 +120,166 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
     userIds.push(owner!.id)
     return owner!
   }
+
+  test("refreshes failed preparation metadata but preserves verified content", async () => {
+    const runtime = ManagedRuntime.make(storedLayer)
+    const sourceIdentity = `recovery:${crypto.randomUUID()}`
+    const original = { sourceIdentity, bytes: Uint8Array.of(1), contentType: "image/png" }
+    const changed = { sourceIdentity, bytes: Uint8Array.of(2, 3), contentType: "image/jpeg" }
+    try {
+      failRead = true
+      expect(
+        await runtime.runPromise(
+          Effect.flatMap(StoredFiles, (files) => files.prepare(original)).pipe(Effect.result),
+        ),
+      ).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+      const [pending] = await db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.sourceIdentity, sourceIdentity))
+      expect(pending!.verifiedAt).toBeNull()
+      failRead = false
+      const prepared = await runtime.runPromise(
+        Effect.flatMap(StoredFiles, (files) => files.prepare(changed)),
+      )
+      expect(prepared).toMatchObject({
+        id: pending!.id,
+        byteSize: 2,
+        contentType: "image/jpeg",
+      })
+      expect(prepared.verifiedAt).toBeInstanceOf(Date)
+      expect(prepared.objectKey).not.toBe(pending!.objectKey)
+      expect(prepared.sha256).not.toBe(pending!.sha256)
+      expect(
+        await db.select().from(fileDeletion).where(eq(fileDeletion.objectKey, pending!.objectKey)),
+      ).toHaveLength(1)
+      expect(
+        await runtime.runPromise(
+          Effect.flatMap(StoredFiles, (files) => files.prepare(original)).pipe(Effect.result),
+        ),
+      ).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+      expect(
+        (await db.select().from(fileObject).where(eq(fileObject.id, prepared.id)))[0],
+      ).toMatchObject({
+        objectKey: prepared.objectKey,
+        contentType: prepared.contentType,
+        byteSize: prepared.byteSize,
+        sha256: prepared.sha256,
+        verifiedAt: prepared.verifiedAt,
+      })
+      await db
+        .update(fileDeletion)
+        .set({ retryAt: new Date(0) })
+        .where(eq(fileDeletion.objectKey, pending!.objectKey))
+      await runtime.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
+      expect(objects.has(pending!.objectKey)).toBe(false)
+      expect(objects.get(prepared.objectKey)).toEqual(changed.bytes)
+    } finally {
+      await runtime.dispose()
+    }
+  })
+
+  test.each(["completed", "read failure", "in flight"] as const)(
+    "requeues a late superseded upload with cleanup %s",
+    async (cleanupState) => {
+      const sourceIdentity = `recovery:${crypto.randomUUID()}`
+      const original = { sourceIdentity, bytes: Uint8Array.of(1), contentType: "image/png" }
+      const changed = { sourceIdentity, bytes: Uint8Array.of(2, 3), contentType: "image/jpeg" }
+      const uploadStarted = Promise.withResolvers<void>()
+      const releaseUpload = Promise.withResolvers<void>()
+      const removeStarted = Promise.withResolvers<void>()
+      const releaseRemove = Promise.withResolvers<void>()
+      let priorKey: string | undefined
+      const delayedStorage = Layer.succeed(ObjectStorage, {
+        ...objectStorage,
+        put: (input) =>
+          Effect.gen(function* () {
+            if (input.bytes === original.bytes) {
+              uploadStarted.resolve()
+              yield* Effect.promise(() => releaseUpload.promise)
+            }
+            yield* objectStorage.put(input)
+          }),
+        remove: (input) =>
+          Effect.gen(function* () {
+            yield* objectStorage.remove(input)
+            if (cleanupState === "in flight" && input.key === priorKey) {
+              removeStarted.resolve()
+              yield* Effect.promise(() => releaseRemove.promise)
+            }
+          }),
+      })
+      const runtime = ManagedRuntime.make(
+        StoredFiles.layerNoDeps.pipe(Layer.provide([Database.layer, delayedStorage])),
+      )
+      const stale = runtime.runPromise(
+        Effect.flatMap(StoredFiles, (files) => files.prepare(original)).pipe(Effect.result),
+      )
+      let cleanup: Promise<void> | undefined
+      try {
+        await uploadStarted.promise
+        const [pending] = await db
+          .select()
+          .from(fileObject)
+          .where(eq(fileObject.sourceIdentity, sourceIdentity))
+        priorKey = pending!.objectKey
+        const prepared = await runtime.runPromise(
+          Effect.flatMap(StoredFiles, (files) => files.prepare(changed)),
+        )
+        expect(prepared.objectKey).not.toBe(pending!.objectKey)
+        expect(
+          await db
+            .select()
+            .from(fileDeletion)
+            .where(eq(fileDeletion.objectKey, pending!.objectKey)),
+        ).toHaveLength(1)
+        await db
+          .update(fileDeletion)
+          .set({ retryAt: new Date(0) })
+          .where(eq(fileDeletion.objectKey, pending!.objectKey))
+        const [deletion] = await db
+          .select()
+          .from(fileDeletion)
+          .where(eq(fileDeletion.objectKey, priorKey))
+        cleanup = runtime.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
+        if (cleanupState === "in flight") await removeStarted.promise
+        else await cleanup
+        expect(
+          await db.select().from(fileDeletion).where(eq(fileDeletion.objectKey, priorKey)),
+        ).toHaveLength(cleanupState === "in flight" ? 1 : 0)
+        failRead = cleanupState === "read failure"
+        releaseUpload.resolve()
+        expect(await stale).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "StorageUnavailable" },
+        })
+        releaseRemove.resolve()
+        await cleanup
+        expect(
+          (await db.select().from(fileObject).where(eq(fileObject.id, prepared.id)))[0],
+        ).toEqual(prepared)
+        const queued = await db
+          .select()
+          .from(fileDeletion)
+          .where(eq(fileDeletion.objectKey, priorKey))
+        expect(queued).toHaveLength(1)
+        expect(queued[0]!.id).not.toBe(deletion!.id)
+        await db
+          .update(fileDeletion)
+          .set({ retryAt: new Date(0) })
+          .where(eq(fileDeletion.objectKey, pending!.objectKey))
+        await runtime.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
+        expect(objects.has(pending!.objectKey)).toBe(false)
+        expect(objects.get(prepared.objectKey)).toEqual(changed.bytes)
+      } finally {
+        releaseUpload.resolve()
+        releaseRemove.resolve()
+        await stale
+        await cleanup
+        await runtime.dispose()
+      }
+    },
+  )
 
   test("keeps source bytes on a failed verification, reuses progress, and reads after restart", async () => {
     const owner = await createProfileFileUser(embedded)

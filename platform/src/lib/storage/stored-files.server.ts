@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm"
+import { and, eq, getTableColumns, gt, isNull, lte, or, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database.server"
@@ -38,6 +38,18 @@ export class StoredFiles extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const storage = yield* ObjectStorage
+      // A fresh deletion ID prevents an in-flight cleanup from acknowledging a newer upload.
+      const enqueueUnownedKey = (key: string) =>
+        db
+          .execute(sql`
+            insert into ${fileDeletion} (object_key) select ${key}
+            where not exists (
+              select 1 from ${fileObject} where ${fileObject.objectKey} = ${key}
+            ) on conflict (object_key) do update set
+              id = uuidv7(), updated_at = now(),
+              retry_at = least(${fileDeletion.retryAt}, now() + interval '1 minute')
+          `)
+          .pipe(mapDatabaseErrors(), Effect.asVoid)
       const verifiedBytes = Effect.fn("StoredFiles.verifiedBytes")(function* (file: StoredFile) {
         const bytes = yield* storage.get({ key: file.objectKey, maxBytes: file.byteSize })
         if (bytes.length !== file.byteSize || (yield* fileSha256(bytes)) !== file.sha256)
@@ -57,17 +69,17 @@ export class StoredFiles extends Context.Service<
           .where(
             and(
               eq(fileObject.id, file.id),
+              eq(fileObject.objectKey, file.objectKey),
+              eq(fileObject.sha256, file.sha256),
+              eq(fileObject.byteSize, file.byteSize),
+              eq(fileObject.contentType, file.contentType),
               or(isNull(fileObject.expiresAt), gt(fileObject.expiresAt, sql`now()`)),
             ),
           )
           .returning()
           .pipe(mapDatabaseErrors())
         if (!verified) {
-          yield* db
-            .insert(fileDeletion)
-            .values({ objectKey: file.objectKey })
-            .onConflictDoNothing()
-            .pipe(mapDatabaseErrors())
+          yield* enqueueUnownedKey(file.objectKey)
           return yield* new StorageUnavailable()
         }
         return verified
@@ -79,36 +91,63 @@ export class StoredFiles extends Context.Service<
         reuseVerified?: boolean
       }) {
         const sha256 = yield* fileSha256(input.bytes)
-        const [file] = yield* db
-          .insert(fileObject)
-          .values({
-            objectKey: `files/${crypto.randomUUID()}`,
-            contentType: input.contentType,
-            byteSize: input.bytes.length,
-            sha256,
-            sourceIdentity: input.sourceIdentity,
-          })
-          .onConflictDoUpdate({
-            target: fileObject.sourceIdentity,
-            set: {
-              expiresAt: sql`case when ${fileObject.expiresAt} is null then null else now() + interval '24 hours' end`,
-            },
-          })
-          .returning()
+        const objectKey = `files/${crypto.randomUUID()}`
+        const file = yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const [prepared] = yield* tx
+                .insert(fileObject)
+                .values({
+                  objectKey,
+                  contentType: input.contentType,
+                  byteSize: input.bytes.length,
+                  sha256,
+                  sourceIdentity: input.sourceIdentity,
+                })
+                .onConflictDoUpdate({
+                  target: fileObject.sourceIdentity,
+                  set: {
+                    objectKey: sql`case when ${fileObject.verifiedAt} is null and (
+                      ${fileObject.sha256} <> ${sha256} or ${fileObject.byteSize} <> ${input.bytes.length}
+                      or ${fileObject.contentType} <> ${input.contentType}
+                    ) then ${objectKey} else ${fileObject.objectKey} end`,
+                    contentType: sql`case when ${fileObject.verifiedAt} is null then ${input.contentType} else ${fileObject.contentType} end`,
+                    byteSize: sql`case when ${fileObject.verifiedAt} is null then ${input.bytes.length} else ${fileObject.byteSize} end`,
+                    sha256: sql`case when ${fileObject.verifiedAt} is null then ${sha256} else ${fileObject.sha256} end`,
+                    expiresAt: sql`case when ${fileObject.expiresAt} is null then null else now() + interval '24 hours' end`,
+                  },
+                })
+                // PostgreSQL 18 returns the prior key so rotation and its cleanup commit together.
+                // https://www.postgresql.org/docs/18/dml-returning.html
+                .returning({
+                  ...getTableColumns(fileObject),
+                  priorObjectKey: sql<string | null>`old.object_key`,
+                })
+              if (!prepared) return yield* new StorageUnavailable()
+              const { priorObjectKey, ...current } = prepared
+              if (priorObjectKey && priorObjectKey !== current.objectKey)
+                yield* tx
+                  .insert(fileDeletion)
+                  .values({ objectKey: priorObjectKey })
+                  .onConflictDoNothing()
+              return current
+            }),
+          )
           .pipe(mapDatabaseErrors())
         if (
-          !file ||
           file.sha256 !== sha256 ||
           file.byteSize !== input.bytes.length ||
           file.contentType !== input.contentType
         )
           return yield* new StorageUnavailable()
         if (input.reuseVerified && file.verifiedAt) return file
-        const upload = storage.put({
-          key: file.objectKey,
-          bytes: input.bytes,
-          contentType: input.contentType,
-        })
+        const upload = storage
+          .put({
+            key: file.objectKey,
+            bytes: input.bytes,
+            contentType: input.contentType,
+          })
+          .pipe(Effect.onExit(() => enqueueUnownedKey(file.objectKey)))
         if (!file.verifiedAt) yield* upload
         return yield* verifyPrepared(file).pipe(
           Effect.catchTag("StorageObjectMissing", () =>

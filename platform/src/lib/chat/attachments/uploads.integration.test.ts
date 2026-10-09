@@ -242,7 +242,7 @@ describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3",
     }
     await cancellation
     const result = await preparation
-    if (result._tag === "Failure") expect(result.failure).toMatchObject({ _tag: "UploadConflict" })
+    expect(result._tag === "Success" || result.failure._tag === "UploadConflict").toBe(true)
     const [row] = await db.select().from(fileUpload).where(eq(fileUpload.prepareKey, prepareKey))
     expect(row!.status).toBe("cancelled")
   })
