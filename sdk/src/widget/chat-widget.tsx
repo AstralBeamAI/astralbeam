@@ -206,11 +206,10 @@ export function ChatWidget({
                   }
                 const preview =
                   session.status === "completed" && session.fileId && file.kind === "image"
-                    ? attachmentUploadPreview({
-                        uploads,
-                        id: file.id,
-                        blob: await chat.getUploadedFile(session.fileId),
-                      })
+                    ? await chat
+                        .getUploadedFile(session.fileId)
+                        .then((blob) => attachmentUploadPreview({ uploads, id: file.id, blob }))
+                        .catch(() => undefined)
                     : undefined
                 return session.status === "completed" && session.fileId
                   ? { ...file, status: "ready" as const, fileId: session.fileId, preview }

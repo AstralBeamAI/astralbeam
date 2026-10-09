@@ -49,9 +49,9 @@ const acceptedStream = [
   .join("")
 
 test.beforeEach(async ({ context }) => {
-  // Fixtures have separate budgets and names. Preflight checks the real host token route.
+  // Fixtures have separate budgets and directory identities. Preflight checks the host token route.
   const id = `upload-draft-${crypto.randomUUID()}`
-  const user = { ...seedTarget.user, id, name: id }
+  const user = { ...seedTarget.user, id, name: id, admin: false, metadata: {} }
   await context.route("**/api/astralbeam/token", async (route) =>
     route.fulfill({
       json: {
@@ -164,6 +164,31 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   for (const file of [image, large, later])
     await expect(chat.attachmentChip(file.name)).toHaveCount(0)
   expect(submissions).toBe(1)
+})
+
+test("completed images remain sendable when their restored preview is unavailable", async ({
+  page,
+}) => {
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(image)
+  await expect(chat.sendButton()).toBeEnabled()
+  await page.route(/\/api\/v1\/chat\/files\//, (route) => route.fulfill({ status: 503 }))
+  await page.reload()
+  await expect(chat.attachmentChip(image.name)).toBeVisible()
+  await expect(chat.sendButton()).toBeEnabled()
+  let submittedFile: unknown
+  await page.route("**/api/v1/chat", async (route) => {
+    const body = route.request().postDataJSON() as {
+      messages: Array<{ role: string; content: Array<{ source?: unknown }> }>
+    }
+    submittedFile = body.messages.find((message) => message.role === "user")?.content[0]?.source
+    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
+  })
+  await chat.sendButton().click()
+  await expect.poll(() => submittedFile).toMatchObject({ type: "file", provider: "astralbeam" })
+  await expect(chat.attachmentChip(image.name)).toHaveCount(0)
 })
 
 test("acceptance removes submitted files and preserves files and text added during the request", async ({
