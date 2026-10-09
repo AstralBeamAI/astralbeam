@@ -28,7 +28,10 @@ export interface ChatWebObservation {
   replay: Map<string, readonly Schema.JsonObject[]>
   blocks: ChatWebJson[]
   inputJson: Map<number, string>
-  evidence: { sources: ChatWebJson[]; citations: ChatWebJson[] }
+  evidence: {
+    sources: (typeof ChatWebSourceSchema.Type)[]
+    citations: (typeof ChatWebCitationSchema.Type)[]
+  }
   usage: ChatWebJson
   stopReason: string | undefined
   requestBody: ChatWebJson | undefined
@@ -38,14 +41,16 @@ export interface ChatWebObservation {
 }
 
 function chatWebRecord(value: unknown): ChatWebJson {
-  return Schema.is(Schema.JsonObject)(value) ? { ...value } : {}
+  return Schema.is(Schema.JsonObject)(value) ? value : {}
 }
 
-function chatWebArray(value: unknown): (typeof Schema.Json.Type)[] {
-  return Schema.is(Schema.Array(Schema.Json))(value) ? value.slice() : []
+function chatWebArray(
+  value: typeof Schema.Json.Type | undefined,
+): readonly (typeof Schema.Json.Type)[] {
+  return Array.isArray(value) ? (value as readonly (typeof Schema.Json.Type)[]) : []
 }
 
-function chatWebSource(value: ChatWebJson): ChatWebJson | undefined {
+function chatWebSource(value: ChatWebJson): typeof ChatWebSourceSchema.Type | undefined {
   if (typeof value.url !== "string") return undefined
   try {
     const url = new URL(value.url)
@@ -61,7 +66,7 @@ function chatWebSource(value: ChatWebJson): ChatWebJson | undefined {
   }
 }
 
-function collectChatWebSources(value: unknown, sources: ChatWebJson[]) {
+function collectChatWebSources(value: unknown, sources: ChatWebObservation["evidence"]["sources"]) {
   if (Array.isArray(value)) {
     for (const item of value) collectChatWebSources(item, sources)
   } else if (Schema.is(Schema.JsonObject)(value)) {
@@ -159,18 +164,11 @@ function observeChatWebEvent(
       const delta = chatWebRecord(event.delta)
       const block = state.blocks[index]
       if (!block) return
-      if (delta.type === "text_delta")
-        block.text =
-          (typeof block.text === "string" ? block.text : "") +
-          (typeof delta.text === "string" ? delta.text : "")
-      if (delta.type === "thinking_delta")
-        block.thinking =
-          (typeof block.thinking === "string" ? block.thinking : "") +
-          (typeof delta.thinking === "string" ? delta.thinking : "")
-      if (delta.type === "signature_delta")
-        block.signature =
-          (typeof block.signature === "string" ? block.signature : "") +
-          (typeof delta.signature === "string" ? delta.signature : "")
+      for (const key of ["text", "thinking", "signature"] as const)
+        if (delta.type === `${key}_delta`)
+          block[key] =
+            (typeof block[key] === "string" ? block[key] : "") +
+            (typeof delta[key] === "string" ? delta[key] : "")
       if (delta.type === "input_json_delta")
         state.inputJson.set(
           index,
@@ -278,20 +276,16 @@ export async function fetchChatWebProvider(
     })
   }
   if (model.providerType === "openrouter") {
-    const messages = chatWebArray(body.messages).map(chatWebRecord)
-    const offset = messages[0]?.role === "system" ? 1 : 0
-    state.messages.forEach((message, index) => {
+    const messages = chatWebArray(body.messages)
+    const offset = chatWebRecord(messages[0]).role === "system" ? 1 : 0
+    body.messages = messages.map((value, index) => {
+      const wire = chatWebRecord(value)
+      const message = state.messages[index - offset]
+      if (!message) return wire
       const raw: unknown = message.metadata?.astralbeamWeb
-      if (
-        message.role === "assistant" &&
-        Schema.is(Schema.Array(Schema.JsonObject))(raw) &&
-        messages[index + offset]
-      )
-        messages[index + offset]!.annotations = raw.flatMap((block) =>
-          chatWebArray(block.annotations),
-        )
-      if (!Array.isArray(message.content) || !messages[index + offset]) return
-      const documents = message.content.flatMap((part) => {
+      if (message.role === "assistant" && Schema.is(Schema.Array(Schema.JsonObject))(raw))
+        wire.annotations = raw.flatMap((block) => chatWebArray(block.annotations))
+      const documents = (Array.isArray(message.content) ? message.content : []).flatMap((part) => {
         if (part.type !== "document" || part.source.type !== "data") return []
         const filename = chatWebRecord(part.metadata).filename
         return [
@@ -304,12 +298,15 @@ export async function fetchChatWebProvider(
           },
         ]
       })
-      if (!documents.length) return
-      const parts = chatWebArray(messages[index + offset]!.content)
-      const content = parts.filter((part) => chatWebRecord(part).text !== "[Attached document]")
-      messages[index + offset]!.content = [...content, ...documents]
+      if (documents.length)
+        wire.content = [
+          ...chatWebArray(wire.content).filter(
+            (part) => chatWebRecord(part).text !== "[Attached document]",
+          ),
+          ...documents,
+        ]
+      return wire
     })
-    body.messages = messages
   }
   if (state.continuation) body.messages = state.continuation
   state.requestBody = body
@@ -349,24 +346,20 @@ export function chatWebEvidenceChunk(state: ChatWebObservation): StreamChunk {
 /** Public metadata is deliberately portable. Raw provider context is confined to modelMessages. */
 export function publicChatWebPart<T extends typeof Schema.JsonObject.Type>(part: T): T {
   const metadata = chatWebRecord(part.metadata)
-  if (metadata.providerExecuted === true || metadata.web || metadata.astralbeamWeb) {
-    const web = Schema.is(ChatWebEvidenceSchema)(metadata.web)
-      ? metadata.web
-      : { sources: [], citations: [] }
-    return {
-      ...part,
-      metadata: { ...(metadata.providerExecuted === true ? { providerExecuted: true } : {}), web },
-      ...(metadata.providerExecuted === true &&
-      (part.state === "complete" || metadata.failed === true)
-        ? {
-            output:
-              metadata.failed === true
-                ? { error: "Web retrieval failed" }
-                : { sources: web.sources },
-            state: metadata.failed === true ? "error" : "complete",
-          }
-        : {}),
-    }
+  const provider = metadata.providerExecuted === true
+  const failed = metadata.failed === true
+  if (!provider && !metadata.web && !metadata.astralbeamWeb) return part
+  const web = Schema.is(ChatWebEvidenceSchema)(metadata.web)
+    ? metadata.web
+    : { sources: [], citations: [] }
+  return {
+    ...part,
+    metadata: { ...(provider ? { providerExecuted: true } : {}), web },
+    ...(provider && (part.state === "complete" || failed)
+      ? {
+          output: failed ? { error: "Web retrieval failed" } : { sources: web.sources },
+          state: failed ? "error" : "complete",
+        }
+      : {}),
   }
-  return part
 }

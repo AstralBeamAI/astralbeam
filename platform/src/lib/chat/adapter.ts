@@ -5,6 +5,7 @@ import {
   type ModelMessage,
   type TextOptions,
   type AdapterYieldChunk,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createOpenaiChat } from "@tanstack/ai-openai"
@@ -100,8 +101,11 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
     observation.textOffset = 0
     const raw: typeof observation.blocks = []
     const calls: unknown[] = []
-    const usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
-    let reportedCost: number | undefined
+    const usage: TokenUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    }
     let textMessageId: string | undefined
     let textContent = ""
     let textEnd: Extract<AdapterYieldChunk, { type: "TEXT_MESSAGE_END" }> | undefined
@@ -145,7 +149,6 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
             message: "The web operation exceeded the model-turn budget. Try a narrower request.",
             usage: {
               ...usage,
-              ...(reportedCost !== undefined ? { cost: reportedCost } : {}),
               providerUsageDetails: { calls },
             },
           }
@@ -155,8 +158,7 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
         observation.inputJson.clear()
         observation.usage = {}
         observation.stopReason = undefined
-        let finish: Extract<AdapterYieldChunk, { type: "RUN_FINISHED" }> | undefined
-        let failure: Extract<AdapterYieldChunk, { type: "RUN_ERROR" }> | undefined
+        let terminal: Extract<AdapterYieldChunk, { type: "RUN_FINISHED" | "RUN_ERROR" }> | undefined
         for await (const chunk of original({ ...options, messages })) {
           if (options.request?.signal?.aborted) return
           if (chunk.type === EventType.RUN_STARTED && observation.continuation) continue
@@ -174,41 +176,40 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
             continue
           }
           if (chunk.type === EventType.RUN_FINISHED) {
-            finish = chunk
+            if (terminal?.type !== EventType.RUN_ERROR) terminal = chunk
             continue
           }
           if (chunk.type === EventType.RUN_ERROR) {
-            failure = chunk
-            if (/web[_ -]?(?:search|fetch)|max_tool_calls/i.test(chunk.message))
-              failure = {
-                ...chunk,
-                code: "web_access_unavailable",
-                message:
-                  "Web access is unavailable for this model. Ask the site owner to select a supported model or check provider web-tool permissions.",
-                error: {
+            terminal = /web[_ -]?(?:search|fetch)|max_tool_calls/i.test(chunk.message)
+              ? {
+                  ...chunk,
                   code: "web_access_unavailable",
-                  message: "The provider rejected this web access configuration.",
-                },
-                rawEvent: undefined,
-              }
+                  message:
+                    "Web access is unavailable for this model. Ask the site owner to select a supported model or check provider web-tool permissions.",
+                  error: {
+                    code: "web_access_unavailable",
+                    message: "The provider rejected this web access configuration.",
+                  },
+                  rawEvent: undefined,
+                }
+              : chunk
             continue
           }
           yield chunk
         }
         raw.push(...observation.blocks)
-        const terminal = failure ?? finish
+        const requestUsage = !Array.isArray(terminal?.usage) ? terminal?.usage : undefined
         calls.push({
-          ...(!Array.isArray(terminal?.usage) ? terminal?.usage : {}),
+          ...requestUsage,
           providerUsage: observation.usage,
         })
-        if (terminal?.usage && !Array.isArray(terminal.usage)) {
-          usage.promptTokens += terminal.usage.promptTokens
-          usage.completionTokens += terminal.usage.completionTokens
-          usage.totalTokens += terminal.usage.totalTokens
-          if (typeof terminal.usage.cost === "number")
-            reportedCost = (reportedCost ?? 0) + terminal.usage.cost
+        if (requestUsage) {
+          for (const key of ["promptTokens", "completionTokens", "totalTokens"] as const)
+            usage[key] += requestUsage[key]
+          if (typeof requestUsage.cost === "number")
+            usage.cost = (usage.cost ?? 0) + requestUsage.cost
         }
-        if (!failure && observation.stopReason === "pause_turn") {
+        if (terminal?.type !== EventType.RUN_ERROR && observation.stopReason === "pause_turn") {
           observation.textOffset += observation.blocks.reduce(
             (length, block) => length + (typeof block.text === "string" ? block.text.length : 0),
             0,
@@ -226,9 +227,8 @@ export function createChatAdapter(configuration: ChatModelConfiguration, webAcce
           yield {
             ...terminal,
             usage: {
-              ...(!Array.isArray(terminal.usage) ? terminal.usage : {}),
+              ...requestUsage,
               ...usage,
-              ...(reportedCost !== undefined ? { cost: reportedCost } : {}),
               providerUsageDetails: { calls },
             },
           }

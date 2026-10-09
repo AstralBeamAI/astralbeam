@@ -207,9 +207,9 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
 
 /** A later provider result settles a deferred use without rewriting its saved node. */
 export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]) {
+  const parts = messages.flatMap((message) => message.parts)
   const completed = new Map(
-    messages
-      .flatMap((message) => message.parts)
+    parts
       .filter(
         (part) =>
           part.executionLocation === "provider" &&
@@ -217,23 +217,21 @@ export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]
       )
       .map((part) => [JSON.stringify([part.providerTurnId, part.toolCallId]), part]),
   )
-  for (const message of messages)
-    for (const part of message.parts) {
-      if (
-        part.executionLocation !== "provider" ||
-        typeof part.providerTurnId !== "string" ||
-        part.state === "complete" ||
-        part.state === "error"
-      )
-        continue
-      const result = completed.get(JSON.stringify([part.providerTurnId, part.toolCallId]))
-      if (result) {
-        Object.assign(part, {
-          state: result.state,
-          output: result.state === "error" ? result.output : { sources: [] },
-        })
-      }
-    }
+  for (const part of parts) {
+    if (
+      part.executionLocation !== "provider" ||
+      typeof part.providerTurnId !== "string" ||
+      part.state === "complete" ||
+      part.state === "error"
+    )
+      continue
+    const result = completed.get(JSON.stringify([part.providerTurnId, part.toolCallId]))
+    if (result)
+      Object.assign(part, {
+        state: result.state,
+        output: result.state === "error" ? result.output : { sources: [] },
+      })
+  }
 }
 
 /** Opaque provider context is reusable only with the provider instance, protocol and model that produced it. */
