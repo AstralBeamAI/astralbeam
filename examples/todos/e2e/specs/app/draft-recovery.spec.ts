@@ -5,7 +5,7 @@ import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { expect, test } from "../../fixtures.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { todosPage } from "../../pages/todos-page.ts"
-import { seedTarget, platformUrl } from "../../worktree.ts"
+import { seedTarget, platformUrl, todosUrl } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
 const thread = {
@@ -506,6 +506,9 @@ test("a missing session keeps fingerprint validation when upload discovery is un
 test("failed removal after a narrower file limit survives reload and retries cancellation", async ({
   page,
 }) => {
+  await page
+    .context()
+    .grantPermissions(["local-network-access"], { origin: new URL(todosUrl).origin })
   await page.route("**/__draft-sdk/*.js", (route) =>
     route.fulfill({
       path: fileURLToPath(
