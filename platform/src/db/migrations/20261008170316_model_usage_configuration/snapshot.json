@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "56788480-6513-44d0-bcf6-3e8e688fe47e",
+  "id": "b20a7c9e-5904-4bf4-9a1a-bc6ee2199a0d",
   "prevIds": [
     "7e6f6fa2-429e-489f-8406-0a51eb7b56e5"
   ],
@@ -1634,25 +1634,12 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "value",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "config"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "json_value",
       "entityType": "columns",
       "schema": "public",
       "table": "config"
@@ -5154,13 +5141,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "chat_message_part"
-    },
-    {
-      "value": "num_nonnulls(\"value\", \"json_value\") = 1",
-      "name": "config_value_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "config"
     },
     {
       "value": "\"slug\" ~ '^[0-9a-z-]{1,63}$'",

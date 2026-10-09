@@ -91,7 +91,7 @@ export function ProviderModelUsageFields({
             {overridden
               ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
               : hasCatalogDefaults
-                ? "Prices and token limits update automatically from the catalog."
+                ? "Base prices shown below. Cache and long-context rates also apply where available. Catalog defaults update automatically."
                 : "No catalog defaults are available. Turn on to configure this model manually."}
           </FieldDescription>
         </FieldContent>
