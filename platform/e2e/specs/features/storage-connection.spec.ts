@@ -68,8 +68,10 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await expect(configure.field("s3_bucket")).toHaveValue("e2e-files")
     await expect(configure.field("s3_access_key_id")).toHaveValue("fixture-key")
     await expect(configure.field("s3_secret_access_key")).toHaveValue("fixture-secret")
-    await configure.setValue("s3_endpoint", "ftp://example.test")
-    await expect(button).toBeDisabled()
+    for (const invalid of ["ftp://example.test", "http://s3.example.test"]) {
+      await configure.setValue("s3_endpoint", invalid)
+      await expect(button).toBeDisabled()
+    }
     await configure.setValue("s3_endpoint", `http://127.0.0.1:${address.port}/storage/v1/s3`)
     await configure.field("s3_path_style").click()
     await page.getByRole("option", { name: "Path style", exact: true }).click()

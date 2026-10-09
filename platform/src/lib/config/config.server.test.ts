@@ -99,6 +99,7 @@ describe("configuration registry", () => {
       ["s3_endpoint", `https://example.com/storage/v1/s3?key=${secret}`],
       ["s3_endpoint", `https://example.com/storage/v1/s3#${secret}`],
       ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
+      ["s3_endpoint", "http://s3.example.com"],
       ["email_from_address", "secret@@value"],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)

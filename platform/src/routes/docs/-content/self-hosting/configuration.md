@@ -98,14 +98,14 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `s3_endpoint` | Yes | none | S3 API URL, including any path prefix such as `/storage/v1/s3`. Use HTTPS in production |
+| `s3_endpoint` | Yes | none | S3 API URL, including any path prefix such as `/storage/v1/s3`. HTTPS is required except for loopback and local `rustfs`/`minio` hosts |
 | `s3_region` | Yes | none | Bucket region, or `auto` for Cloudflare R2 |
 | `s3_bucket` | Yes | none | Private bucket dedicated to this deployment |
 | `s3_access_key_id` | Yes | none | Storage access-key ID, independent of SES credentials |
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
-1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads.
+1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.

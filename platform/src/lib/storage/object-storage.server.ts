@@ -126,17 +126,15 @@ export class ObjectStorage extends Context.Service<
           const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
             abortSignal,
           })
-          if (
-            !object.Body ||
-            (object.ContentLength !== undefined && object.ContentLength > maxBytes)
-          )
-            throw new StorageUnavailable()
+          if (!object.Body) throw new StorageUnavailable()
           const reader = (
             object.Body.transformToWebStream() as ReadableStream<Uint8Array>
           ).getReader()
           const cancelRead = () => void reader.cancel().catch(() => undefined)
           abortSignal.addEventListener("abort", cancelRead, { once: true })
           try {
+            if (object.ContentLength !== undefined && object.ContentLength > maxBytes)
+              throw new StorageUnavailable()
             const chunks: Uint8Array[] = []
             let size = 0
             while (true) {
@@ -159,9 +157,11 @@ export class ObjectStorage extends Context.Service<
             reader.releaseLock()
           }
         })
-      const removeObject = (client: S3Client, bucket: string, key: string) =>
+      const removeObject = (client: S3Client, bucket: string, key: string, versionId?: string) =>
         storageRequest((abortSignal) =>
-          client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal }),
+          client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key, VersionId: versionId }), {
+            abortSignal,
+          }),
         ).pipe(Effect.asVoid)
 
       return ObjectStorage.of({
@@ -222,17 +222,22 @@ export class ObjectStorage extends Context.Service<
               const client = yield* acquireStorageClient(connection)
               const key = `connection-tests/${crypto.randomUUID()}`
               const bytes = crypto.getRandomValues(new Uint8Array(32))
+              let versionId: string | undefined
               yield* Effect.gen(function* () {
                 yield* storageRequest((abortSignal) =>
-                  client.send(
-                    new PutObjectCommand({
-                      Bucket: connection.bucket,
-                      Key: key,
-                      Body: bytes,
-                      ContentType: "application/octet-stream",
+                  client
+                    .send(
+                      new PutObjectCommand({
+                        Bucket: connection.bucket,
+                        Key: key,
+                        Body: bytes,
+                        ContentType: "application/octet-stream",
+                      }),
+                      { abortSignal },
+                    )
+                    .then((object) => {
+                      versionId = object.VersionId
                     }),
-                    { abortSignal },
-                  ),
                 )
                 const object = yield* storageRequest((abortSignal) =>
                   client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
@@ -247,12 +252,12 @@ export class ObjectStorage extends Context.Service<
                   return yield* new StorageUnavailable()
               }).pipe(
                 Effect.onError(() =>
-                  removeObject(client, connection.bucket, key).pipe(
+                  removeObject(client, connection.bucket, key, versionId).pipe(
                     Effect.catch(() => Effect.logWarning("Storage connection test cleanup failed")),
                   ),
                 ),
               )
-              yield* removeObject(client, connection.bucket, key)
+              yield* removeObject(client, connection.bucket, key, versionId)
               yield* storageRequest((abortSignal) =>
                 client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
                   abortSignal,

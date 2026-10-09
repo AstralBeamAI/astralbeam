@@ -10,6 +10,11 @@ import { ObjectStorage } from "./object-storage.server"
 
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
+  const versions = new Set<string>()
+  let finishOversized: () => void = () => undefined
+  const oversizedClosed = new Promise<void>((resolve) => {
+    finishOversized = resolve
+  })
   const metadataCredentials: string[] = []
   let omitHeadSize = false
   let corruptDownloads = true
@@ -21,7 +26,14 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
   })
   const server = createServer((request, response) => {
     const respond = async () => {
-      const key = new URL(request.url!, "http://localhost").pathname
+      const url = new URL(request.url!, "http://localhost")
+      const key = url.pathname
+      if (key === "/test/oversized") {
+        response.on("close", finishOversized)
+        response.writeHead(200, { "Content-Length": 1024 * 1024 })
+        response.write(new Uint8Array([1]))
+        return
+      }
       if (key === "/test/metadata") {
         metadataCredentials.push(request.headers.authorization ?? "")
       }
@@ -39,9 +51,11 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
         const chunks = []
         for await (const chunk of request) chunks.push(chunk as Uint8Array)
         objects.set(key, Buffer.concat(chunks))
-        response.writeHead(200, { ETag: '"test"' }).end()
+        versions.add(key)
+        response.writeHead(200, { ETag: '"test"', "x-amz-version-id": "fixture-version" }).end()
       } else if (request.method === "DELETE") {
         objects.delete(key)
+        if (url.searchParams.get("versionId") === "fixture-version") versions.delete(key)
         response.writeHead(204).end()
       } else {
         const bytes = objects.get(key)
@@ -106,6 +120,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     )
     expect(result._tag).toBe("Failure")
     expect(objects.size).toBe(0)
+    expect(versions.size).toBe(0)
     omitHeadSize = true
     objects.set("/test/metadata", new Uint8Array([1]))
     const runtime = ManagedRuntime.make(layer)
@@ -122,6 +137,13 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
       await runtime.runPromise(inspect)
       expect(requests.mock.contexts[2]).not.toBe(requests.mock.contexts[0])
       expect(metadataCredentials[2]).toContain("Credential=rotated-fixture-key/")
+      const oversized = await runtime.runPromise(
+        Effect.flatMap(ObjectStorage, (storage) =>
+          storage.get({ key: "oversized", maxBytes: 1 }),
+        ).pipe(Effect.result),
+      )
+      expect(oversized._tag).toBe("Failure")
+      await oversizedClosed
     } finally {
       await runtime.dispose()
       requests.mockRestore()
@@ -139,6 +161,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
       )
       expect(checked._tag).toBe(denied ? "Failure" : "Success")
       expect(objects.size).toBe(0)
+      expect(versions.size).toBe(0)
     }
     const logs: string[] = []
     const denied = await Effect.runPromise(
@@ -173,6 +196,7 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     controller.abort()
     expect((await interrupted)._tag).toBe("Failure")
     expect(objects.size).toBe(0)
+    expect(versions.size).toBe(0)
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
