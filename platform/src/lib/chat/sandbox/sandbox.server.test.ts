@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, vi } from "vitest"
 
 const sandboxTest = vi.hoisted(() => ({
   unreadable: false,
+  missing: false,
   created: 0,
   createFails: false,
   destroyed: [] as string[],
@@ -17,7 +18,7 @@ vi.mock("@/lib/sandboxes/factory.server", () => ({
   createSandboxProvider: () => Effect.succeed(fakeSandboxProvider),
 }))
 
-import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
+import { SandboxProviderUnreadable, SandboxProviderNotFound } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { artifactContentDigest } from "./artifacts.server.ts"
 import { CHAT_SANDBOX_MAX_LIVE } from "./constants.server.ts"
@@ -55,9 +56,11 @@ const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
   Layer.provide(
     Layer.succeed(SandboxProviders, {
       resolveConfiguration: () =>
-        sandboxTest.unreadable
-          ? Effect.fail(new SandboxProviderUnreadable())
-          : Effect.succeed({ name: "Local", provider: "docker", options: {}, credentials: {} }),
+        sandboxTest.missing
+          ? Effect.fail(new SandboxProviderNotFound())
+          : sandboxTest.unreadable
+            ? Effect.fail(new SandboxProviderUnreadable())
+            : Effect.succeed({ name: "Local", provider: "docker", options: {}, credentials: {} }),
     } as unknown as SandboxProviders["Service"]),
   ),
 )
@@ -85,6 +88,7 @@ beforeAll(() => {
 beforeEach(() => {
   Object.assign(sandboxTest, {
     unreadable: false,
+    missing: false,
     created: 0,
     createFails: false,
     destroyed: [],
@@ -94,6 +98,29 @@ beforeEach(() => {
 })
 
 describe("ChatSandboxes", () => {
+  it.effect("historical recovery marks a removed provider unavailable", () =>
+    Effect.gen(function* () {
+      const sandboxes = yield* ChatSandboxes
+      const session = yield* sessionFor(sandboxes)
+      const bytes = new TextEncoder().encode("Report")
+      const ticket = yield* session.mintArtifactTicket({
+        providerSandboxId: "old-sandbox",
+        path: "/workspace/report.txt",
+        mimeType: "text/plain",
+        size: bytes.length,
+        sha256: yield* artifactContentDigest(bytes),
+      })
+      sandboxTest.missing = true
+      const result = yield* sandboxes
+        .readHistoricalArtifact({
+          ticket,
+          organizationId: "01990a5d-ac96-774b-b942-6b13c85384ca",
+          tenantId: "tenant",
+        })
+        .pipe(Effect.flip)
+      assert.strictEqual(result.reason, "SandboxGone")
+    }).pipe(Effect.provide(sandboxesLayer)),
+  )
   it.effect("starts a run's sandbox once and keeps a failed start for later tool calls", () =>
     Effect.gen(function* () {
       sandboxTest.createFails = true

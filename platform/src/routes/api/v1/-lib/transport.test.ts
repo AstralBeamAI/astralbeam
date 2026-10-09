@@ -205,6 +205,7 @@ const restTestServices = Layer.mergeAll(
   }),
   Layer.succeed(ChatSandboxes, {
     session: () => Effect.die("unused"),
+    readHistoricalArtifact: () => Effect.die("unused"),
     readArtifact: (ticket) => restTestState.readFile(ticket) as never,
   }),
   Layer.succeed(Agents, {

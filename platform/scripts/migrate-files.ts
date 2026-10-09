@@ -10,8 +10,12 @@ import { mapDatabaseErrors } from "../src/db/lib/sqlstate.server.ts"
 import { user } from "../src/db/schema/authentication.server.ts"
 import { organization } from "../src/db/schema/organizations.server.ts"
 import { ProfileFiles } from "../src/lib/storage/profile-files.server.ts"
+import { StoredFiles } from "../src/lib/storage/stored-files.server.ts"
 import { ChatFiles } from "../src/lib/chat/attachments/chat-files.server.ts"
 import { isChatMigrationTable, migrateChatFiles } from "../src/lib/storage/chat-migration.server.ts"
+
+import { ChatSandboxes } from "../src/lib/chat/sandbox/sandbox.server.ts"
+import { migrateSandboxArtifacts } from "../src/lib/storage/artifact-migration.server.ts"
 
 const environment = loadEnv("development", fileURLToPath(new URL("../", import.meta.url)), "")
 for (const [name, value] of Object.entries(environment))
@@ -27,6 +31,7 @@ const command = new Command()
       "chat_message_part.payload",
       "chat_message.metadata.modelMessages",
       "cache_entry.value",
+      "sandbox_artifacts",
     ]),
   )
   .option(
@@ -44,7 +49,13 @@ if (mode === "migrate" && !options.writersStopped)
   )
 
 const runtime = ManagedRuntime.make(
-  Layer.mergeAll(Database.layer, ProfileFiles.layer, ChatFiles.layer),
+  Layer.mergeAll(
+    Database.layer,
+    ProfileFiles.layer,
+    ChatFiles.layer,
+    ChatSandboxes.layer,
+    StoredFiles.layer,
+  ),
 )
 try {
   await runtime.runPromise(
@@ -59,7 +70,12 @@ try {
             "chat_message_part.payload",
             "chat_message.metadata.modelMessages",
             "cache_entry.value",
+            "sandbox_artifacts",
           ]) {
+        if (tableName === "sandbox_artifacts") {
+          yield* migrateSandboxArtifacts(mode as "inventory" | "migrate" | "verify")
+          continue
+        }
         if (isChatMigrationTable(tableName)) {
           yield* migrateChatFiles(tableName, mode as "inventory" | "migrate" | "verify")
           continue

@@ -26,6 +26,110 @@ const savedThread = {
   updated_at: "2026-10-06T00:00:00Z",
 }
 
+test("saved sandbox artifacts download through current conversation authorization after reload", async ({
+  page,
+}) => {
+  const directory = threadDirectoryPage(page)
+  let revoked = false
+  await page.route("**/api/v1/threads?*", (route) =>
+    route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
+  )
+  await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
+    route.fulfill({
+      json: {
+        thread: savedThread,
+        messages: [
+          {
+            id: "publication",
+            role: "assistant",
+            state: "complete",
+            parts: [
+              {
+                id: "publish",
+                type: "tool-call",
+                toolCallId: "published",
+                name: "sandbox_publish_artifact",
+                arguments: "{}",
+                executionLocation: "sandbox",
+              },
+              {
+                id: "gone",
+                type: "tool-call",
+                toolCallId: "unavailable",
+                name: "sandbox_publish_artifact",
+                arguments: "{}",
+                executionLocation: "sandbox",
+              },
+            ],
+          },
+          {
+            id: "result",
+            role: "tool",
+            state: "complete",
+            source_assistant_message_id: "publication",
+            source_tool_part_id: "publish",
+            parts: [
+              {
+                id: "artifact",
+                type: "tool-result",
+                outcome: "succeeded",
+                output: {
+                  fileId: "019a0800-0000-7000-8000-000000000099",
+                  path: "/workspace/report.txt",
+                  relativePath: "report.txt",
+                  mimeType: "text/plain",
+                  size: 14,
+                  availability: "available",
+                },
+              },
+            ],
+          },
+          {
+            id: "unavailable",
+            role: "tool",
+            state: "complete",
+            source_assistant_message_id: "publication",
+            source_tool_part_id: "gone",
+            parts: [
+              {
+                id: "missing",
+                type: "tool-result",
+                outcome: "succeeded",
+                output: {
+                  path: "/workspace/gone.txt",
+                  relativePath: "gone.txt",
+                  availability: "unavailable",
+                  reason: "SandboxGone",
+                },
+              },
+            ],
+          },
+        ],
+        page_after: null,
+        page_before: null,
+      },
+    }),
+  )
+  await page.route("**/api/v1/tenants/*/threads/*/messages/result/attachments/artifact", (route) =>
+    revoked
+      ? route.fulfill({ status: 403, json: { error: "Forbidden" } })
+      : route.fulfill({ body: "Durable report", contentType: "text/plain" }),
+  )
+  await directory.openReact()
+  await directory.conversation(savedThread.title).click()
+  await expect(page.getByRole("button", { name: "Download report.txt" })).toBeVisible()
+  await expect(page.getByText(/gone.txt.*no longer available/)).toBeVisible()
+  await page.reload()
+  await directory.conversation(savedThread.title).click()
+  const download = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Download report.txt" }).click()
+  expect((await download).suggestedFilename()).toBe("report.txt")
+  await captureMoment(page, "durable-artifact-after-reload")
+  revoked = true
+  await page.getByRole("button", { name: "Download report.txt" }).click()
+  await expect(page.getByRole("button", { name: "Download report.txt" })).toHaveCount(0)
+})
+
 test("React conversation directory reads saved pages, uploads and decisions without executing actions", async ({
   page,
 }) => {

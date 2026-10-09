@@ -243,7 +243,14 @@ export function AssistantPart({
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
-          return <SandboxPart part={part} apiUrl={apiUrl} />
+          return (
+            <SandboxPart
+              part={part}
+              apiUrl={apiUrl}
+              getAttachment={getAttachment}
+              getUploadedFile={getUploadedFile}
+            />
+          )
         return (
           <ToolCallDisclosure part={part} title={title} failed={part.state === "error"} readOnly />
         )
@@ -267,7 +274,14 @@ export function AssistantPart({
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
       if (isSandboxTool(part.name)) {
-        return <SandboxPart part={part} apiUrl={apiUrl} />
+        return (
+          <SandboxPart
+            part={part}
+            apiUrl={apiUrl}
+            getAttachment={getAttachment}
+            getUploadedFile={getUploadedFile}
+          />
+        )
       }
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />

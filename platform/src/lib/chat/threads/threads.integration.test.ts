@@ -1,4 +1,7 @@
 import { ChatFiles } from "../attachments/chat-files.server"
+import { migrateSandboxArtifacts } from "@/lib/storage/artifact-migration.server"
+import { ChatSandboxes } from "../sandbox/sandbox.server"
+import { ChatArtifactUnavailable } from "../sandbox/errors"
 import { createHash } from "node:crypto"
 import { migrateChatFiles } from "@/lib/storage/chat-migration.server"
 import { ChatThreadStorageUnavailable } from "./errors"
@@ -154,6 +157,202 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
+
+  const saveArtifactResult = async (
+    claim: NonNullable<Awaited<ReturnType<typeof admit>>["claim"]>,
+    output: Record<string, string | number>,
+    resultPartId = crypto.randomUUID(),
+  ) => {
+    const partId = crypto.randomUUID()
+    const responseTargetId = crypto.randomUUID()
+    await runtime.runPromise(
+      service.checkpoint({
+        claim,
+        state: "complete",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: partId,
+              type: "tool-call",
+              toolCallId: partId,
+              name: "sandbox_publish_artifact",
+              arguments: "{}",
+              executionLocation: "sandbox",
+              targets: [{ id: responseTargetId }],
+            },
+          ],
+        },
+      }),
+    )
+    await runtime.runPromise(
+      service.appendToolResults({
+        claim,
+        results: [
+          {
+            assistantMessageId: claim.assistantMessageId,
+            toolPartId: partId,
+            responseTargetId,
+            payload: {
+              version: 1,
+              parts: [{ id: resultPartId, type: "tool-result", outcome: "succeeded", output }],
+            },
+          },
+        ],
+      }),
+    )
+  }
+
+  test("published artifacts above the chat text limit retain S3 reads and cascade cleanup", async () => {
+    const thread = await create()
+    const accepted = await admit(thread.id)
+    const bytes = new Uint8Array(2 * 1024 * 1024).fill(0x61)
+    const fileId = await runtime.runPromise(
+      service.publishArtifact({ claim: accepted.claim!, bytes }),
+    )
+    const [prepared] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
+    expect(prepared!.expiresAt).not.toBeNull()
+    await saveArtifactResult(accepted.claim!, {
+      fileId,
+      path: "/workspace/report.txt",
+      mimeType: "text/plain",
+      size: bytes.length,
+      availability: "available",
+    })
+    await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+    const [published] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
+    expect(published!.expiresAt).toBeNull()
+    const restarted = ManagedRuntime.make(filesLayer)
+    try {
+      const read = await restarted.runPromise(
+        Effect.flatMap(ChatFiles, (files) => files.read({ ...scope, threadId: thread.id }, fileId)),
+      )
+      expect(read.bytes).toEqual(bytes)
+    } finally {
+      await restarted.dispose()
+    }
+    expect(
+      (
+        await runtime.runPromise(
+          service.publishArtifact({ claim: accepted.claim!, bytes }).pipe(Effect.flip),
+        )
+      )._tag,
+    ).toBe("ChatThreadConflict")
+    expect(
+      (
+        await runtime.runPromise(
+          Effect.flatMap(ChatFiles, (files) =>
+            files.read({ ...foreign, threadId: thread.id }, fileId),
+          ).pipe(Effect.flip),
+        )
+      )._tag,
+    ).toBe("ChatThreadInvalid")
+    await db
+      .delete(tenant)
+      .where(and(eq(tenant.organizationId, scope.organizationId), eq(tenant.id, scope.tenantId)))
+    expect(await db.select().from(fileObject).where(eq(fileObject.id, fileId))).toHaveLength(0)
+    expect(
+      await db.select().from(fileDeletion).where(eq(fileDeletion.objectKey, published!.objectKey)),
+    ).toHaveLength(1)
+  })
+
+  test("historical artifact migration resumes after provider failure and marks unavailable sources", async () => {
+    const bytes = new Uint8Array(2 * 1024 * 1024).fill(0x62)
+    const thread = await create()
+    const first = await admit(thread.id)
+    await saveArtifactResult(
+      first.claim!,
+      {
+        ticket: "historical-available",
+        path: "/workspace/report.txt",
+        mimeType: "text/plain",
+        size: bytes.length,
+      },
+      "019a0800-0000-7000-8000-000000000001",
+    )
+    await runtime.runPromise(service.finish({ claim: first.claim! }))
+    const second = await admit(thread.id)
+    await saveArtifactResult(
+      second.claim!,
+      {
+        ticket: "historical-gone",
+        path: "/workspace/gone.txt",
+        mimeType: "text/plain",
+        size: 6,
+      },
+      "019a0800-0000-7000-8000-000000000002",
+    )
+    await runtime.runPromise(service.finish({ claim: second.claim! }))
+    await db
+      .update(chatMessage)
+      .set({
+        metadata: {
+          version: 1,
+          modelMessages: [
+            {
+              role: "tool",
+              content: JSON.stringify({
+                ticket: "historical-available",
+                path: "/workspace/report.txt",
+              }),
+            },
+            { role: "assistant", content: { opaque: true } },
+          ],
+        },
+      })
+      .where(eq(chatMessage.turnMessageId, second.claim!.inputMessageId))
+    let fail = true
+    const historical = ChatSandboxes.of({
+      session: () => Effect.die("unused"),
+      readArtifact: () => Effect.die("unused"),
+      readHistoricalArtifact: ({ ticket, tenantId }) => {
+        expect(tenantId).toBe("same")
+        if (ticket === "historical-gone")
+          return Effect.fail(new ChatArtifactUnavailable({ reason: "SandboxGone" }))
+        if (fail) return Effect.die(new Error("Temporary provider outage"))
+        return Effect.succeed({
+          bytes,
+          mimeType: "text/plain",
+          path: "/workspace/report.txt",
+        })
+      },
+    })
+    const migrate = (mode: "inventory" | "migrate" | "verify") =>
+      runtime.runPromise(
+        migrateSandboxArtifacts(mode).pipe(Effect.provideService(ChatSandboxes, historical)),
+      )
+    expect(await migrate("inventory")).toMatchObject({ historical: 2 })
+    await expect(migrate("migrate")).rejects.toThrow("Temporary provider outage")
+    expect((await migrate("inventory")).historical).toBeGreaterThan(0)
+    fail = false
+    expect(await migrate("migrate")).toMatchObject({ migrated: 2 })
+    expect(await migrate("migrate")).toMatchObject({
+      migrated: 0,
+      historical: 0,
+      stored: 1,
+      unavailable: 1,
+    })
+    expect(await migrate("verify")).toMatchObject({ verified: 1, unavailable: 1 })
+    const rows = await db
+      .select()
+      .from(chatMessagePart)
+      .where(
+        and(
+          eq(chatMessagePart.threadId, thread.id),
+          sql`${chatMessagePart.payload}->>'type' = 'tool-result'`,
+        ),
+      )
+    expect(JSON.stringify(rows)).not.toContain("historical-")
+    const [continuation] = await db
+      .select()
+      .from(chatMessage)
+      .where(eq(chatMessage.id, second.claim!.assistantMessageId))
+    expect(JSON.stringify(continuation!.metadata)).not.toContain("historical-available")
+    expect(continuation!.metadata.modelMessages?.[1]).toEqual({
+      role: "assistant",
+      content: { opaque: true },
+    })
+  })
 
   test.each([
     { byteSize: CHAT_ATTACHMENT_MAX_TOTAL_BYTES + 1, count: 1, decodes: 0 },

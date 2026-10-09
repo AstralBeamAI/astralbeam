@@ -27,10 +27,12 @@ import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
   artifactContentDigest,
   deriveArtifactTicketKey,
+  deriveArtifactTicketKeys,
   detectSandboxArtifactMimeType,
   mintSandboxArtifactTicket,
   type SandboxArtifactTicket,
   verifySandboxArtifactTicket,
+  verifyHistoricalSandboxArtifactTicket,
 } from "./artifacts.server"
 import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants.server"
 import {
@@ -153,6 +155,11 @@ export class ChatSandboxes extends Context.Service<
     }) => Effect.Effect<ChatSandboxSession, ChatSandboxConfigurationUnreadable>
     /** Rereads exactly the bytes a ticket was minted for, resuming but never creating a sandbox. */
     readonly readArtifact: (ticket: string) => Effect.Effect<ChatArtifact, ChatArtifactUnavailable>
+    readonly readHistoricalArtifact: (input: {
+      ticket: string
+      organizationId: string
+      tenantId: string
+    }) => Effect.Effect<ChatArtifact, ChatArtifactUnavailable>
   }
 >()("astralbeam/chat/ChatSandboxes") {
   static readonly layerNoDeps = Layer.effect(
@@ -160,6 +167,7 @@ export class ChatSandboxes extends Context.Service<
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
       const artifactTicketKey = yield* Effect.cached(deriveArtifactTicketKey)
+      const artifactTicketKeys = yield* Effect.cached(deriveArtifactTicketKeys)
       // Process-local, so resume works only within one replica: a conversation that lands on
       // another instance starts a new sandbox instead, which costs time but is never incorrect.
       const leases = MutableHashMap.empty<string, ChatSandboxLease>()
@@ -355,13 +363,20 @@ export class ChatSandboxes extends Context.Service<
         Effect.mapError(() => new ChatSandboxConfigurationUnreadable()),
       )
 
-      const readArtifact = Effect.fn("ChatSandboxes.readArtifact")(function* (token: string) {
-        const ticket = yield* verifySandboxArtifactTicket(yield* artifactTicketKey, token)
+      const readTicket = Effect.fnUntraced(function* (ticket: SandboxArtifactTicket) {
         // Provider and file-read failures are unexpected here and surface as a 500.
         const provider = yield* resolveProvider(
           ticket.organizationId,
           ticket.sandboxProviderId,
-        ).pipe(Effect.orDie)
+        ).pipe(
+          Effect.catchTag("SandboxProviderNotFound", () =>
+            Effect.fail(new ChatArtifactUnavailable({ reason: "SandboxGone" })),
+          ),
+          Effect.catchTags({
+            SandboxProviderUnreadable: Effect.die,
+            SandboxProviderUnavailable: Effect.die,
+          }),
+        )
         const handle = yield* chatSandboxCall(
           (signal) => provider.resume({ id: ticket.providerSandboxId, signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -376,7 +391,14 @@ export class ChatSandboxes extends Context.Service<
         const bytes = yield* chatSandboxCall(
           () => handle.fs.readBytes(resolved.path),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
-        ).pipe(Effect.orDie)
+        ).pipe(
+          Effect.catchTag("ChatSandboxOperationFailed", (error) => {
+            const cause = error.cause as { code?: unknown; status?: unknown } | undefined
+            if (cause?.code === "ENOENT" || cause?.status === 404 || cause?.status === 410)
+              return Effect.fail(new ChatArtifactUnavailable({ reason: "Moved" }))
+            return Effect.die(error)
+          }),
+        )
         if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
           return yield* new ChatArtifactUnavailable({ reason: "TooLarge" })
         }
@@ -384,6 +406,7 @@ export class ChatSandboxes extends Context.Service<
         // republished, so the digest decides and the sniff is rerun for the response header.
         const mimeType = detectSandboxArtifactMimeType(bytes)
         if (
+          bytes.length !== ticket.size ||
           (yield* artifactContentDigest(bytes)) !== ticket.sha256 ||
           mimeType !== ticket.mimeType
         ) {
@@ -392,7 +415,29 @@ export class ChatSandboxes extends Context.Service<
         return { bytes, mimeType, path: resolved.path }
       })
 
-      return ChatSandboxes.of({ session, readArtifact })
+      const readArtifact = Effect.fn("ChatSandboxes.readArtifact")(function* (token: string) {
+        return yield* readTicket(
+          yield* verifySandboxArtifactTicket(yield* artifactTicketKey, token),
+        )
+      })
+      const readHistoricalArtifact = Effect.fn("ChatSandboxes.readHistoricalArtifact")(function* ({
+        ticket: token,
+        organizationId,
+        tenantId,
+      }: {
+        ticket: string
+        organizationId: string
+        tenantId: string
+      }) {
+        const ticket = yield* verifyHistoricalSandboxArtifactTicket(
+          yield* artifactTicketKeys,
+          token,
+        )
+        if (ticket.organizationId !== organizationId || ticket.tenantId !== tenantId)
+          return yield* new ChatArtifactUnavailable({ reason: "Moved" })
+        return yield* readTicket(ticket)
+      })
+      return ChatSandboxes.of({ session, readArtifact, readHistoricalArtifact })
     }),
   )
 

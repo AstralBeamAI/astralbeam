@@ -83,7 +83,7 @@ export function sandboxPathLabel(part: ToolCallPart): string | undefined {
   return text(part.output, "path") ?? text(part.input, "path")
 }
 
-/** A `sandbox_publish_artifact` call whose output carries the download ticket. */
+/** A `sandbox_publish_artifact` call whose output carries a durable file reference. */
 export function readSandboxArtifact(part: ToolCallPart): SandboxArtifact | undefined {
   if (part.name !== SANDBOX_PUBLISH_ARTIFACT_TOOL) return undefined
   const path = text(part.output, "path") ?? text(part.input, "path")
@@ -95,7 +95,11 @@ export function readSandboxArtifact(part: ToolCallPart): SandboxArtifact | undef
     mimeType: text(part.output, "mimeType"),
     size: count(part.output, "size"),
     ticket,
-    published: ticket !== undefined && sandboxRefusal(part) === undefined,
+    fileId: text(part.output, "fileId"),
+    unavailable: text(part.output, "availability") === "unavailable",
+    published:
+      (ticket !== undefined || text(part.output, "fileId") !== undefined) &&
+      sandboxRefusal(part) === undefined,
   }
 }
 

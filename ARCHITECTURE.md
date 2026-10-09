@@ -38,7 +38,7 @@ Tenant user's browser
 │                 ├─ Host tools/widgets → execute in the host page
 │                 ├─ read_attachment → read request-local bytes
 │                 └─ Sandbox tools → provider sandbox
-│                    └─ Publish artifact → signed download ticket
+│                    └─ Publish artifact → verified private S3 file
 └─ Receive AG-UI events over Server-Sent Events
 ```
 
@@ -129,7 +129,7 @@ The vanilla entry lazily loads a widget with its own React and styles. The React
 
 Chat and directory components use the same framework-free authentication lifecycle for token acquisition, current-user synchronization, proactive renewal, and bounded retry. Each component owns and disposes its session.
 
-Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](platform/src/routes/docs/-content/sdk/security.md).
+Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox publication copies and verifies bytes in private S3 storage, then saves a conversation-owned reference. Downloads enforce current conversation permissions. These boundaries are detailed in [SDK security](platform/src/routes/docs/-content/sdk/security.md).
 
 ## Build and deployment
 
@@ -145,7 +145,7 @@ Commands and build constraints belong to each project's instructions and manifes
 - **TenantUser**: a Tenant's user, identified by a tenant-local external ID.
 - **Chat auth token**: the short-lived JWT the host issues for a tenant user.
 - **Attachment**: a user-supplied file included in a chat request.
-- **Artifact**: a sandbox file published for download through a signed ticket.
+- **Artifact**: a sandbox file verified in private storage and published as a conversation-owned reference.
 
 ## Saved conversations
 

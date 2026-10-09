@@ -44,7 +44,12 @@ import {
   organizationConfiguration,
 } from "@/db/schema/organizations.server"
 import type { ChatPrincipal } from "../types"
-import { ChatFiles } from "../attachments/chat-files.server"
+import { detectSandboxArtifactMimeType } from "../sandbox/artifacts.server"
+import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants.server"
+import { ChatFiles, chatFileIdentityPrefix } from "../attachments/chat-files.server"
+import { APP_HANDLE } from "@/lib/constants"
+import { fileSha256 } from "@/lib/storage/images"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { chatFile } from "@/db/schema/chat.server"
 import { fileObject } from "@/db/schema/files.server"
 import type { StoredFile } from "@/lib/storage/stored-files.server"
@@ -58,6 +63,7 @@ import {
   ChatThreadForbidden,
   ChatThreadInvalid,
   ChatThreadNotFound,
+  ChatThreadStorageUnavailable,
   ChatIdentityNotSynchronized,
   type ChatThreadError,
 } from "./errors.ts"
@@ -781,6 +787,41 @@ const unresolvedCalls = Effect.fnUntraced(function* (
 
 export type PendingChatInteraction = Effect.Success<ReturnType<typeof unresolvedCalls>>[number]
 
+const claimPublishedArtifact = Effect.fnUntraced(function* (
+  db: Executor,
+  input: ThreadInput,
+  part: Schema.JsonObject,
+  result: Schema.JsonObject,
+  server: boolean,
+) {
+  const output = result.output
+  if (
+    !server ||
+    part.executionLocation !== "sandbox" ||
+    part.name !== "sandbox_publish_artifact" ||
+    result.outcome !== "succeeded" ||
+    !Schema.is(Schema.JsonObject)(output) ||
+    output.fileId === undefined
+  )
+    return
+  const id = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
+    output.fileId,
+  ).pipe(Effect.mapError(() => new ChatThreadInvalid()))
+  const [owned] = yield* db
+    .update(fileObject)
+    .set({ expiresAt: null })
+    .where(
+      and(
+        eq(fileObject.id, id),
+        isNotNull(fileObject.verifiedAt),
+        or(isNull(fileObject.expiresAt), gt(fileObject.expiresAt, sql`now()`)),
+        sql`exists (select 1 from chat_file f where f.id = ${id}::uuid and f.organization_id = ${input.scope.organizationId}::uuid and f.tenant_id = ${input.scope.tenantId}::uuid and f.thread_id = ${input.id}::uuid)`,
+      ),
+    )
+    .returning({ id: fileObject.id })
+  if (!owned) return yield* new ChatThreadInvalid()
+})
+
 const appendResults = Effect.fnUntraced(function* (
   db: Executor,
   input: ThreadInput,
@@ -892,6 +933,7 @@ const appendResults = Effect.fnUntraced(function* (
         },
       ],
     }).pipe(Effect.mapError(() => new ChatThreadInvalid()))
+    yield* claimPublishedArtifact(db, input, part, submitted, server)
     const [message] = yield* db
       .insert(chatMessage)
       .values({
@@ -997,6 +1039,10 @@ export class ChatThreads extends Context.Service<
     readonly assertActive: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<void, ChatThreadError>
+    readonly publishArtifact: (input: {
+      claim: ChatWriterClaim
+      bytes: Uint8Array
+    }) => Effect.Effect<string, ChatThreadError>
     readonly nextDraft: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<ChatWriterClaim, ChatThreadError>
@@ -1019,6 +1065,7 @@ export class ChatThreads extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const files = yield* ChatFiles
+      const storedFiles = yield* StoredFiles
       // Reconstructed claims start fresh. Only this producer's verified metadata is reused.
       const preparedFiles = new WeakMap<ChatWriterClaim, Map<string, StoredFile>>()
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
@@ -1650,6 +1697,57 @@ export class ChatThreads extends Context.Service<
         preparedFiles.set(input.claim, prepared)
       })
 
+      const publishArtifact = Effect.fn("ChatThreads.publishArtifact")(function* ({
+        claim,
+        bytes,
+      }: {
+        claim: ChatWriterClaim
+        bytes: Uint8Array
+      }) {
+        if (bytes.length > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) return yield* new ChatThreadInvalid()
+        yield* assertActive({ claim })
+        const scope = { ...claim.scope, threadId: claim.threadId }
+        const contentType = detectSandboxArtifactMimeType(bytes)
+        const digest = yield* fileSha256(bytes)
+        const prepared = yield* storedFiles
+          .prepare({
+            bytes,
+            contentType,
+            sourceIdentity: `${chatFileIdentityPrefix(scope)}${digest}:${contentType}`,
+          })
+          .pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+        const fileId = prepared.id
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* checkClaim(tx, claim)
+              const [file] = yield* tx
+                .select()
+                .from(fileObject)
+                .where(eq(fileObject.id, fileId))
+                .for("update")
+              yield* files.claim(tx, scope, {
+                version: 1,
+                parts: [
+                  {
+                    id: fileId,
+                    type: "document",
+                    source: { type: "file", provider: APP_HANDLE, value: fileId },
+                  },
+                ],
+              })
+              // Unconfirmed publications expire. Saving the sandbox tool result pins the verified file.
+              if (file!.expiresAt)
+                yield* tx
+                  .update(fileObject)
+                  .set({ expiresAt: file!.expiresAt })
+                  .where(eq(fileObject.id, fileId))
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+        return fileId
+      })
+
       const nextDraft = Effect.fn("ChatThreads.nextDraft")(
         ({ claim }: { claim: ChatWriterClaim }) =>
           db
@@ -1845,6 +1943,7 @@ export class ChatThreads extends Context.Service<
         admit,
         checkpoint,
         assertActive,
+        publishArtifact,
         nextDraft,
         appendToolResults,
         resolveTools,
@@ -1854,6 +1953,6 @@ export class ChatThreads extends Context.Service<
     }),
   )
   static readonly layer = ChatThreads.layerNoDeps.pipe(
-    Layer.provide([Database.layer, ChatFiles.layer]),
+    Layer.provide([Database.layer, ChatFiles.layer, StoredFiles.layer]),
   )
 }

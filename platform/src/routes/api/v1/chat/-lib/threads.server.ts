@@ -624,38 +624,51 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   )
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
   const part = message.payload.parts.find((entry) => entry.id === partId)
+  const artifact =
+    part?.type === "tool-result" &&
+    Schema.is(Schema.JsonObject)(part.output) &&
+    part.output.availability === "available"
+      ? part.output
+      : undefined
+  const stored = part ? Option.getOrUndefined(storedChatMediaSource(part)) : undefined
+  const metadata = part?.metadata
+  const path = artifact
+    ? typeof artifact.path === "string"
+      ? artifact.path
+      : "artifact"
+    : Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
+      ? metadata.filename
+      : "attachment"
+  if (artifact || stored) {
+    const fileId = artifact
+      ? yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
+          artifact.fileId,
+        ).pipe(Effect.mapError(() => new ChatThreadNotFound()))
+      : stored!.value
+    const { ChatFiles } = yield* Effect.promise(
+      () => import("@/lib/chat/attachments/chat-files.server"),
+    )
+    const file = yield* (yield* ChatFiles).metadata(
+      {
+        organizationId: message.organizationId,
+        tenantId: message.tenantId,
+        threadId: message.threadId,
+      },
+      fileId,
+    )
+    return yield* chatStoredFileResponse(file, path)
+  }
   const source = part?.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||
-    (source.type !== "data" && (!part || Option.isNone(storedChatMediaSource(part)))) ||
+    source.type !== "data" ||
     typeof source.value !== "string"
   )
     return yield* new ChatThreadNotFound()
-  const metadata = part?.metadata
-  const path =
-    Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
-      ? metadata.filename
-      : "attachment"
   const mimeType =
     typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
       ? source.mimeType
       : "application/octet-stream"
-  if (source.type === "file")
-    return yield* Effect.gen(function* () {
-      const { ChatFiles } = yield* Effect.promise(
-        () => import("@/lib/chat/attachments/chat-files.server"),
-      )
-      const files = yield* ChatFiles
-      const file = yield* files.metadata(
-        {
-          organizationId: message.organizationId,
-          tenantId: message.tenantId,
-          threadId: message.threadId,
-        },
-        source.value as string,
-      )
-      return yield* chatStoredFileResponse(file, path)
-    })
   const bytes = decodeAttachmentBytes(source.value)
   if (!bytes) return yield* new ChatThreadNotFound()
   return chatArtifactResponse({ bytes, mimeType, path })

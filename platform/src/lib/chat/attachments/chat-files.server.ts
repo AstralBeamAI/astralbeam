@@ -36,7 +36,7 @@ const chatFileOwnerWhere = (scope: ChatFileScope) =>
     eq(chatFile.tenantId, scope.tenantId),
     eq(chatFile.threadId, scope.threadId),
   )
-const chatFileIdentityPrefix = (scope: ChatFileScope) =>
+export const chatFileIdentityPrefix = (scope: ChatFileScope) =>
   `chat:${scope.organizationId}:${scope.tenantId}:${scope.threadId}:`
 
 // Only documented media fields are transformed. Provider signatures and opaque context stay intact.
@@ -448,7 +448,7 @@ export class ChatFiles extends Context.Service<
               and(
                 chatFileOwnerWhere(scope),
                 eq(chatFile.id, id),
-                sql`not exists (select 1 from chat_message_part p where p.organization_id = ${scope.organizationId}::uuid and p.tenant_id = ${scope.tenantId}::uuid and p.thread_id = ${scope.threadId}::uuid and p.payload @> ${JSON.stringify({ source: { type: "file", provider: APP_HANDLE, value: id } })}::jsonb)`,
+                sql`not exists (select 1 from chat_message_part p where p.organization_id = ${scope.organizationId}::uuid and p.tenant_id = ${scope.tenantId}::uuid and p.thread_id = ${scope.threadId}::uuid and (p.payload->'output'->>'fileId' = ${id}::text or p.payload @> ${JSON.stringify({ source: { type: "file", provider: APP_HANDLE, value: id } })}::jsonb))`,
                 sql`not exists (select 1 from chat_message m where m.organization_id = ${scope.organizationId}::uuid and m.tenant_id = ${scope.tenantId}::uuid and m.thread_id = ${scope.threadId}::uuid and jsonb_path_exists(m.metadata, '$.modelMessages[*].content[*].source ? (@.type == "file" && @.provider == $provider && @.value == $fileId)', jsonb_build_object('provider', ${APP_HANDLE}::text, 'fileId', ${id}::text)))`,
               ),
             )

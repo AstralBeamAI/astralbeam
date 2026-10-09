@@ -17,10 +17,10 @@ One principle everywhere: the dashboard grants, the chat endpoint enforces, and 
 
 ## Sandbox artifacts
 
-- Signed tickets authorize artifact downloads and bind them to the published bytes. No separate Bearer header is required.
-- The serving route re-reads, re-sniffs (magic bytes, never extensions), re-caps, and re-hashes the bytes at download time. Any change since publishing is refused.
+- Published artifacts are copied and verified in private storage before the tool returns. Stored file references use your tenant JWT and current conversation permissions. Administrative transcripts use their existing authorized attachment route.
+- The serving route streams the stored bytes and verifies their size and hash. MIME types are sniffed at publication, never inferred from extensions.
 - Only sniffed raster images render inline. SVG can only ever be served as `text/plain`, and every response carries `nosniff` plus a frame-and-script-free CSP.
-- Tickets expire in minutes alongside the sandbox's idle expiry. An expired download says to ask the agent again.
+- Stored artifacts survive sandbox shutdown. Conversation deletion schedules their object cleanup. Older unmigrated artifacts still use short-lived signed tickets, and unavailable historical sources ask the agent to regenerate the file.
 
 ## What the SDK does not protect against
 
