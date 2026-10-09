@@ -51,8 +51,8 @@ describe("model pricing catalog", () => {
       modelId: "test-model",
     }
     const card = catalogModelConfiguration(lookup)!
-    expect(modelInputAllowance(card)).toBe(128_000)
-    expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(128_000)
+    expect(modelInputAllowance(card)).toBe(128_000 - 4096)
+    expect(modelInputAllowance({ ...card, outputCap: 1024 })).toBe(128_000 - 1024)
     expect(card.prices).toEqual({
       inputPerMillion: "2",
       outputPerMillion: "8",
@@ -89,8 +89,8 @@ describe("model pricing catalog", () => {
     }
     expect(effectiveModelConfiguration({ ...lookup, configured })).toMatchObject({
       outputCap: 4096,
-      maxInputTokens: 128_000,
-      contextWindowTokens: null,
+      maxInputTokens: null,
+      contextWindowTokens: 128_000,
       prices: { inputPerMillion: "2" },
       contextTiers: [{ aboveInputTokens: 20_000 }, { aboveInputTokens: 60_000 }],
     })

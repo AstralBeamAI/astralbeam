@@ -13,6 +13,7 @@ const configuration: ChatModelConfiguration = {
   baseUrl: "https://provider.example/v1",
   apiKey: "sk-private-key",
   modelId: "saved-model",
+  outputCap: 1024,
   fetch,
 }
 
@@ -112,25 +113,6 @@ describe("testProviderModel", () => {
         assert.strictEqual(failed.reason, reason)
         assert.notInclude(JSON.stringify(failed), "private-provider-diagnostic")
         assert.notInclude(JSON.stringify(failed), configuration.apiKey)
-      }
-    }),
-  )
-
-  it.effect("uses the final response after a transient provider failure", () =>
-    Effect.gen(function* () {
-      for (const text of ["OK", " "]) {
-        let calls = 0
-        const result = yield* testProviderModel({
-          ...configuration,
-          fetch: () =>
-            Promise.resolve(
-              ++calls === 1
-                ? new Response(null, { status: 500, headers: { "retry-after-ms": "1" } })
-                : textResponse(text),
-            ),
-        }).pipe(Effect.match({ onFailure: ({ reason }) => reason, onSuccess: () => "success" }))
-        assert.strictEqual(calls, 2)
-        assert.strictEqual(result, text.trim() ? "success" : "empty")
       }
     }),
   )

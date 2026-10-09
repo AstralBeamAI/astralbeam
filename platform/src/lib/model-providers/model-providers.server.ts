@@ -75,6 +75,7 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  readonly outputCap: number
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: typeof fetch
 }
@@ -169,7 +170,10 @@ export class ModelProviders extends Context.Service<
     readonly resolveForAgent: (input: {
       readonly organizationId: string
       readonly agentId: string
-    }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
+    }) => Effect.Effect<
+      ChatModelConfiguration | null,
+      ModelProviderUnreadable | ModelConfigurationMissing
+    >
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
@@ -561,6 +565,7 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
+            configuration: providerModel.configuration,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -588,7 +593,14 @@ export class ModelProviders extends Context.Service<
           .limit(1)
           .pipe(Effect.orDie)
         if (!selected) return null
-        const { storedCredentials, ...configuration } = selected
+        const { storedCredentials, configuration: storedConfiguration, ...connection } = selected
+        const configuration = effectiveModelConfiguration({
+          catalog: yield* readPricing,
+          providerType: selected.providerType,
+          modelId: selected.modelId,
+          configured: storedConfiguration,
+        })
+        if (!configuration) return yield* new ModelConfigurationMissing()
         const apiKey = readModelProviderKey({
           id: selected.providerId,
           organizationId: input.organizationId,
@@ -605,7 +617,8 @@ export class ModelProviders extends Context.Service<
           return yield* new ModelProviderUnreadable()
         }
         return {
-          ...configuration,
+          ...connection,
+          outputCap: configuration.outputCap,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         }
@@ -652,6 +665,7 @@ export class ModelProviders extends Context.Service<
           api: provider.api,
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
+          outputCap: 1024,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         })

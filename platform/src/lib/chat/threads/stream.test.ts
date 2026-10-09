@@ -10,7 +10,7 @@ import {
 import { Effect, Schema } from "effect"
 import { describe, expect, test } from "vitest"
 
-import { createChatAdapter } from "../adapter"
+import { createChatAdapter, modelOutputOptions } from "../adapter"
 import { chatToolInputSchema } from "../tool-schema"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatToolResolution, ChatWriterClaim } from "./schemas"
@@ -85,6 +85,7 @@ async function exerciseManagedStream(options: {
     providerType: "openai" as const,
     api: "chat-completions" as const,
     modelId: "test-model",
+    outputCap: 4096,
     apiKey: "synthetic-test-key",
     baseUrl: "https://model.example/v1",
     fetch: (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -185,6 +186,7 @@ async function exerciseManagedStream(options: {
   })
   const source = chat({
     adapter: createChatAdapter(model),
+    modelOptions: modelOutputOptions(model),
     messages: history,
     tools: options.refresh ? [] : [tool],
     threadId: managed.claim.threadId,
