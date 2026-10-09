@@ -1,8 +1,10 @@
 import { calcPrice, REMOTE_DATA_JSON_URL, type Provider } from "@pydantic/genai-prices"
-import { DateTime, Effect, Schema } from "effect"
+import { Cause, DateTime, Effect, Schedule, Schema } from "effect"
+import { Activity, Workflow } from "effect/workflow"
 
 import { Config } from "@/lib/config/config.server"
 import { ModelPriceCatalogProvidersSchema } from "../model-providers/pricing-catalog-schemas.ts"
+import { ModelPriceCatalogUnavailable } from "../model-providers/errors.ts"
 
 const modelPriceCatalogRefresh = Effect.gen(function* () {
   const body = yield* Effect.tryPromise(async (signal) => {
@@ -44,5 +46,26 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
     providers,
   })
 })
+
+export const modelPriceCatalogInitialization = Workflow.make("ModelPriceCatalogInitialization/v1", {
+  payload: {},
+  idempotencyKey: () => "initial",
+})
+
+export const modelPriceCatalogInitializationLayer = modelPriceCatalogInitialization.toLayer(() =>
+  Activity.make({
+    name: "RefreshCatalog",
+    execute: modelPriceCatalogRefresh.pipe(
+      Effect.catchCause((cause) =>
+        Cause.hasInterrupts(cause)
+          ? Effect.failCause(cause)
+          : Effect.fail(new ModelPriceCatalogUnavailable()),
+      ),
+      Effect.tapError(() => Effect.logWarning("Initial pricing catalog refresh failed. Retrying")),
+      Effect.retry(Schedule.min([Schedule.exponential("1 second"), Schedule.spaced("30 seconds")])),
+      Effect.orDie,
+    ),
+  }),
+)
 
 export default modelPriceCatalogRefresh

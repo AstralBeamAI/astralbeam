@@ -1,5 +1,13 @@
 import { Schema } from "effect"
 
+export class ModelPriceCatalogUnavailable extends Schema.TaggedError<ModelPriceCatalogUnavailable>()(
+  "ModelPriceCatalogUnavailable",
+  {},
+  { httpApiStatus: 503 },
+) {
+  override readonly message = "Model prices are updating. Try again shortly."
+}
+
 export class ModelProviderChanged extends Schema.TaggedError<ModelProviderChanged>()(
   "ModelProviderChanged",
   {},

@@ -60,7 +60,7 @@ export function ModelProviderForm({
   organizationSlug: string
   provider: OrganizationModelProvider | null
   catalog: Record<ModelProviderType, readonly ProviderModelFields[]>
-  pricingFetchedAt: string | null
+  pricingFetchedAt: string
   pricingIsStale: boolean
   readOnly: boolean
 }) {
@@ -300,13 +300,7 @@ export function ModelProviderForm({
               errors={fieldErrors("models")}
             />
             <FieldDescription>
-              {pricingFetchedAt === null ? (
-                "Using bundled prices, which may be outdated until the first catalog update."
-              ) : (
-                <>
-                  Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
-                </>
-              )}
+              Catalog updated <LocalDateTime value={pricingFetchedAt} dateStyle="medium" />.
               {pricingIsStale &&
                 " Automatic updates are delayed. Last known defaults remain available."}
             </FieldDescription>
