@@ -11,12 +11,12 @@ import { generateSecret } from "@/lib/utils.server"
 import { StorageEndpointSchema, StoredStorageDestinationSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
-  enumSchema,
   NonEmptyStringSchema,
   strictParseOptions,
   UuidV7Schema,
 } from "@/lib/schemas"
 import type { ConfigDefinition, ConfigIssue, ConfigKey, ConfigValues } from "./types.ts"
+import { BooleanSettingSchema } from "./schemas.ts"
 
 function isLoopbackHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
@@ -66,18 +66,6 @@ const PublicHttpUrlSchema = Schema.URLFromString.check(
   }),
 )
 
-// Environment values parse as JSON, so ALLOW_PRIVATE_MODEL_ENDPOINTS=true arrives as a boolean.
-const BooleanSettingLiteralSchema = enumSchema(["false", "true"])
-const BooleanSettingSchema = Schema.Union([
-  BooleanSettingLiteralSchema,
-  Schema.Boolean.pipe(
-    Schema.decodeTo(BooleanSettingLiteralSchema, {
-      decode: SchemaGetter.transform((value) => (value ? "true" : "false")),
-      encode: SchemaGetter.transform((value) => value === "true"),
-    }),
-  ),
-])
-
 /** Fails with a generated message that never repeats the rejected value. */
 export function decodeConfigValue(
   definition: ConfigDefinition,
@@ -105,7 +93,8 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     key: "s3_endpoint",
     group: "File storage",
     label: "S3 endpoint",
-    description: "Storage API origin. Use HTTPS in production and a private bucket.",
+    description:
+      "Storage API URL, including any path prefix. Use HTTPS in production and a private bucket.",
     kind: "url",
     required: true,
     schema: StorageEndpointSchema,
@@ -132,7 +121,8 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     key: "s3_access_key_id",
     group: "File storage",
     label: "S3 access-key ID",
-    description: "Storage credential with object read, write, and delete permissions.",
+    description:
+      "Object read, write, and delete permissions. AWS also needs s3:ListBucket, and versioned buckets need s3:DeleteObjectVersion.",
     kind: "secret",
     required: true,
     schema: NonEmptyStringSchema,
@@ -473,15 +463,6 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
 export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
   (definition) => !definition.systemManaged,
 )
-
-// Environment values may use JSON syntax so they behave like equivalent JSONB values; ordinary
-// unquoted strings remain valid for shell ergonomics.
-export function parseEnvironmentConfigValue(value: string): unknown {
-  return Result.getOrElse(
-    Result.try(() => JSON.parse(value) as unknown),
-    () => value,
-  )
-}
 
 /** `environmentKeys` names the keys an environment variable supplies. */
 export function validateConfigCompleteness(

@@ -5,6 +5,7 @@ import { expect, test } from "vitest"
 
 import { Config } from "@/lib/config/config.server"
 import { ObjectStorage } from "./object-storage.server"
+import { StorageDestinationLocked } from "./errors"
 
 test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round trip", async () => {
   const settings = {
@@ -21,10 +22,12 @@ test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round tr
     forcePathStyle: true,
     requestChecksumCalculation: "WHEN_REQUIRED",
   })
+  let reservations = 0
   const layer = ObjectStorage.layerNoDeps.pipe(
     Layer.provide(
       Layer.succeed(Config, {
-        reserveStorageDestination: () => Effect.void,
+        reserveStorageDestination: () =>
+          ++reservations === 1 ? Effect.fail(new StorageDestinationLocked()) : Effect.void,
         snapshot: Effect.succeed({
           issues: [],
           values: {
@@ -47,8 +50,13 @@ test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round tr
         yield* storage.testConnection(settings)
         const bytes = new TextEncoder().encode("stored file")
         const key = crypto.randomUUID()
+        expect(
+          (yield* storage.put({ key, bytes, contentType: "text/plain" }).pipe(Effect.result))._tag,
+        ).toBe("Failure")
         yield* storage.put({ key, bytes, contentType: "text/plain" })
         try {
+          yield* storage.put({ key, bytes, contentType: "text/plain" })
+          expect(reservations).toBe(2)
           expect(yield* storage.head({ key })).toEqual({
             size: bytes.length,
             contentType: "text/plain",
