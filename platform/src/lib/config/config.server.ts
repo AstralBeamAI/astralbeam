@@ -11,10 +11,10 @@ import {
   Ref,
   Result,
 } from "effect"
-import { SqlClient } from "effect/sql"
 
 import { Database } from "@/db/database.server"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
+import { isInDatabaseTransaction } from "@/db/lib/transaction-guard.server"
 import {
   DatabaseMigrations,
   type DatabaseMigrationState,
@@ -125,7 +125,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
 export class Config extends Context.Service<
   Config,
   {
-    /** Cached per process until a same-process write invalidates it. Other processes restart. */
+    /** Cached per process outside Effect transactions, until a same-process write invalidates it. */
     readonly snapshot: Effect.Effect<ConfigSnapshot>
     readonly get: <Key extends ConfigKey>(key: Key) => Effect.Effect<ConfigValues[Key]>
     readonly invalidate: Effect.Effect<void>
@@ -155,15 +155,6 @@ export class Config extends Context.Service<
       const db = yield* Database
       const migrations = yield* DatabaseMigrations
       const generations = yield* Ref.make(0)
-      // A load joining a caller's transaction would cache values that transaction may roll back.
-      const sqlClient = yield* Effect.serviceOption(SqlClient.SqlClient)
-      const outsideTransactions = (effect: Effect.Effect<ConfigSnapshot>) =>
-        Option.isSome(sqlClient)
-          ? Effect.updateContext(effect, (context: Context.Context<never>) =>
-              Context.omit(sqlClient.value.transactionService)(context),
-            )
-          : effect
-
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
@@ -176,13 +167,22 @@ export class Config extends Context.Service<
           issues: validateConfigCompleteness(values, environmentKeys),
           environmentKeys,
         } satisfies ConfigSnapshot
-      }).pipe(Effect.withSpan("Config.load"), outsideTransactions)
+      }).pipe(Effect.withSpan("Config.load"))
 
       const cache = yield* Cache.makeWith(() => load, {
         capacity: 1,
         timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
       })
-      const snapshot = Cache.get(cache, "snapshot")
+      // Transaction-local values must neither escape the connection nor populate the process cache.
+      const snapshot = Effect.gen(function* () {
+        if (!isInDatabaseTransaction()) return yield* Cache.get(cache, "snapshot")
+        if (isInDatabaseTransaction("effect")) return yield* load
+        const committed = yield* Cache.getOption(cache, "snapshot")
+        if (Option.isSome(committed)) return committed.value
+        return yield* Effect.die(
+          new Error("Load configuration before entering a Promise database transaction"),
+        )
+      })
       const invalidate = Cache.invalidate(cache, "snapshot")
 
       const setupState = Effect.all([snapshot, migrations.state], {
