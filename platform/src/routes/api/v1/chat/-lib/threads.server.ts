@@ -399,12 +399,8 @@ export function chatThreadHandlers(api: typeof ApiV1) {
     api,
     "chatThreads",
     Effect.fn("chatThreadHandlers")(function* (handlers) {
-      const { authenticateChatRequest } = yield* Effect.promise(
-        () => import("@/lib/chat/auth"),
-      )
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads"),
-      )
+      const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { resolveManagedChatTools, prepareManagedSteering } = yield* Effect.promise(
         () => import("@/lib/chat/threads/commands"),
       )
