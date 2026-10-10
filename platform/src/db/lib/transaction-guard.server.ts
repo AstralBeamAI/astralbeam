@@ -62,7 +62,7 @@ function assertTransactionNetworkAllowed(operation: string): void {
   if (isInDatabaseTransaction()) throw new TransactionNetworkError({ operation })
 }
 
-export function assertTransactionConnection(connection: unknown): void {
+function assertTransactionConnection(connection: unknown): void {
   const owner = currentTransactionOwner()
   if (owner && (!owner.active || owner.connection !== connection)) {
     throw new TransactionNetworkError({ operation: "SQL on another connection" })
