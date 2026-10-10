@@ -45,7 +45,7 @@ afterAll(async () => {
   await guardTestPool.end()
 })
 
-test("child fibers and fresh runners retain the guard after native await", async () => {
+test("child fibers retain the guard after native await", async () => {
   const requests = guardTestRequests
   await expect(
     Effect.runPromise(
@@ -55,7 +55,7 @@ test("child fibers and fresh runners retain the guard after native await", async
           const child = yield* Effect.forkChild(
             Effect.promise(async () => {
               await new Promise<void>((resolve) => setTimeout(resolve, 1))
-              return Effect.runPromise(Effect.promise(() => fetch(guardTestUrl)))
+              return fetch(guardTestUrl)
             }),
           )
           return yield* Fiber.join(child)

@@ -21,6 +21,7 @@ const transactionIntegrationEnabled =
   transactionIntegrationUrl !== "postgres://test:test@127.0.0.1:5432/test"
 
 describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network guard", () => {
+  const namespace = `transaction-guard:${crypto.randomUUID()}`
   const pool = new Pool({
     connectionString: transactionIntegrationUrl,
     max: 1,
@@ -36,8 +37,13 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
 
   beforeAll(async () => {
     const parsed = new URL(transactionIntegrationUrl!)
-    if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
-      throw new Error("Transaction guard integration tests require loopback PostgreSQL")
+    if (
+      (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") ||
+      !parsed.pathname.endsWith("_test")
+    ) {
+      throw new Error(
+        "Transaction guard tests require a disposable loopback database ending in _test",
+      )
     }
     guardPromisePool(pool)
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -49,6 +55,7 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
   afterAll(async () => {
     server.closeAllConnections()
     await new Promise<void>((resolve) => server.close(() => resolve()))
+    await pool.query("delete from cache_entry where namespace = $1", [namespace])
     await pool.end()
     await closeDatabase()
   })
@@ -104,8 +111,8 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
         const exit = yield* Effect.exit(
           client.withTransaction(
             Effect.gen(function* () {
-              yield* client`create temporary table transaction_guard_rollback (value integer)`
-              yield* client`insert into transaction_guard_rollback values (1)`
+              yield* client`insert into cache_entry (namespace, key, value)
+                values (${namespace}, 'native', '1')`
               yield* Effect.promise(async () => {
                 await Promise.resolve()
                 await fetch(endpoint)
@@ -115,23 +122,27 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
         )
         expect(Exit.isFailure(exit)).toBe(true)
         expect(String(exit)).toContain("fetch is forbidden")
-        const [row] =
-          yield* client`select to_regclass('pg_temp.transaction_guard_rollback')::text as name`
-        expect(row?.name).toBeNull()
+        expect(
+          yield* client`select key from cache_entry where namespace = ${namespace} and key = 'native'`,
+        ).toEqual([])
         expect(requests).toBe(before)
+        let inserted = false
         yield* Effect.exit(
           client
             .withTransaction(
               Effect.gen(function* () {
-                yield* client`create temporary table transaction_guard_cancel (value integer)`
+                yield* client`insert into cache_entry (namespace, key, value)
+                  values (${namespace}, 'cancel', '1')`
+                inserted = true
                 yield* Effect.never
               }),
             )
-            .pipe(Effect.timeout("5 millis")),
+            .pipe(Effect.timeout("50 millis")),
         )
-        const [cancelled] =
-          yield* client`select to_regclass('pg_temp.transaction_guard_cancel')::text as name`
-        expect(cancelled?.name).toBeNull()
+        expect(inserted).toBe(true)
+        expect(
+          yield* client`select key from cache_entry where namespace = ${namespace} and key = 'cancel'`,
+        ).toEqual([])
         expect(yield* Effect.promise(async () => (await fetch(endpoint)).text())).toBe("ok")
       }).pipe(Effect.provide(Reactivity.layer), Effect.scoped),
     )
@@ -181,19 +192,19 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
     const before = requests
     await expect(
       database.transaction(async (tx) => {
-        await tx.execute(sql`create temporary table transaction_guard_promise (value integer)`)
-        await tx.execute(sql`insert into transaction_guard_promise values (1)`)
+        await tx.execute(sql`insert into cache_entry (namespace, key, value)
+          values (${namespace}, 'promise', '1')`)
         await Promise.resolve()
         await fetch(endpoint)
       }),
     ).rejects.toThrow("fetch is forbidden")
     expect(
       (
-        await pool.query<{ name: string | null }>(
-          "select to_regclass('pg_temp.transaction_guard_promise')::text as name",
-        )
-      ).rows[0]?.name,
-    ).toBeNull()
+        await pool.query("select key from cache_entry where namespace = $1 and key = 'promise'", [
+          namespace,
+        ])
+      ).rows,
+    ).toEqual([])
     expect(requests).toBe(before)
     expect(await (await fetch(endpoint)).text()).toBe("ok")
   })

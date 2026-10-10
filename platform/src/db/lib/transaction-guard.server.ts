@@ -47,11 +47,10 @@ const transactionAsyncContext = (transactionProcess[transactionContextKey] ??=
 
 function currentTransactionOwner() {
   const inherited = transactionAsyncContext.getStore()
-  return (
-    Fiber.getCurrent()?.getRef(transactionOwner) ??
-    inherited?.fiber?.getRef(transactionOwner) ??
-    inherited?.owner
-  )
+  const current = Fiber.getCurrent()
+  // A resumed sibling can inherit another fiber's native async context. Its own reference wins.
+  if (current) return current.getRef(transactionOwner) ?? inherited?.owner
+  return inherited?.fiber?.getRef(transactionOwner) ?? inherited?.owner
 }
 
 export function isInDatabaseTransaction(kind?: TransactionOwner["kind"]): boolean {
