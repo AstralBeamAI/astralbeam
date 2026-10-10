@@ -255,8 +255,8 @@ function safeAttachmentHref(href: string): string | undefined {
  * composer is the only thing that puts a filename on them.
  */
 export function describeSentAttachment(part: {
-  type: "image" | "document"
-  source: { value: string; mimeType?: string }
+  type: "image" | "document" | "audio" | "video"
+  source: { value: string; mimeType?: string; type?: string }
   metadata?: unknown
 }): {
   kind: AttachmentKind
@@ -285,13 +285,12 @@ export function describeSentAttachment(part: {
     part.type === "image"
       ? "image"
       : (mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text")
-  // The part carries the bytes itself — the chat endpoint refuses a `url` source — so one data URI
-  // serves both the thumbnail and the download.
+  // Provider URL media stays a URL. Inline media shares one data URI for preview and download.
   const href =
-    part.source.value.length === 0
+    part.source.value.length === 0 || !["data", "url"].includes(part.source.type ?? "")
       ? undefined
       : safeAttachmentHref(
-          part.source.value.startsWith("data:")
+          part.source.type === "url" || part.source.value.startsWith("data:")
             ? part.source.value
             : attachmentDataUri(
                 part.source.mimeType ??

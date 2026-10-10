@@ -83,7 +83,7 @@ function textEntry(shape: ContentShape, text: string) {
 }
 
 /** RFC 2045 parameters off, lower case, so `TEXT/PLAIN; charset=utf-8` compares equal. */
-function normalizeMimeType(value: unknown): string {
+export function normalizeMimeType(value: unknown): string {
   return Predicate.isString(value) ? (value.split(";")[0] ?? "").trim().toLowerCase() : ""
 }
 
@@ -128,7 +128,7 @@ function resolveMimeType(declared: string, filename: string): string {
   return trusted ? declared : byExtension
 }
 
-function attachmentKind(mimeType: string): ChatAttachmentKind | undefined {
+export function attachmentKind(mimeType: string): ChatAttachmentKind | undefined {
   if (CHAT_ATTACHMENT_IMAGE_MIME_TYPES.includes(mimeType)) return "image"
   if (mimeType === CHAT_ATTACHMENT_PDF_MIME_TYPE) return "pdf"
   if (isOfficeMimeType(mimeType)) return "office"

@@ -5,9 +5,12 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type ContentPart,
 } from "@tanstack/ai"
-import { Context, Effect, identity, Layer, Stream } from "effect"
+import { Context, Effect, identity, Layer, Schema, Stream } from "effect"
 
+import { ChatFiles } from "./attachments/chat-files.server"
+import { chatMediaPart } from "./attachments/stored-media"
 import { ChatThreads, type MessageRecord } from "./threads/threads.server"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory } from "./threads/projection.server"
@@ -85,10 +88,12 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
   sandbox,
+  storage,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly sandbox: boolean
+  readonly storage: typeof ChatFiles.Service
 }) {
   const projected = yield* Effect.try({
     try: () =>
@@ -99,6 +104,30 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
       }),
     catch: () => new ChatThreadInvalid(),
   })
+  for (const message of projected) {
+    if (!Array.isArray(message.content)) continue
+    if (message.role !== "user") {
+      const retained = message.content.filter(
+        (part) => !chatMediaPart(part as unknown as Schema.JsonObject),
+      )
+      message.content = retained.length ? retained : ""
+      continue
+    }
+    const record = history.find((original) => message.id?.startsWith(`${original.id}:`))!
+    const hydrated = yield* storage.hydrate(
+      {
+        organizationId: record.organizationId,
+        tenantId: record.tenantId,
+        threadId: record.threadId,
+      },
+      {
+        version: 1,
+        parts: [],
+        modelMessages: [{ content: message.content as unknown as Schema.Json[] }],
+      },
+    )
+    message.content = hydrated.modelMessages![0]!.content as unknown as ContentPart[]
+  }
   const normalized = normalizeChatAttachments(projected, { sandbox })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
@@ -137,6 +166,7 @@ export class Chat extends Context.Service<
       const sandboxes = yield* ChatSandboxes
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
+      const storage = yield* ChatFiles
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -180,6 +210,7 @@ export class Chat extends Context.Service<
           files,
         } = yield* prepareChatHistory({
           history,
+          storage,
           model,
           sandbox: agent.sandboxProviderId !== null,
         })
@@ -266,6 +297,7 @@ export class Chat extends Context.Service<
                 })
                 const normalized = yield* prepareChatHistory({
                   history: saved,
+                  storage,
                   model,
                   sandbox: agent.sandboxProviderId !== null,
                 })
@@ -383,6 +415,12 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer, ChatThreads.layer]),
+    Layer.provide([
+      Agents.layer,
+      ChatSandboxes.layer,
+      ModelProviders.layer,
+      ChatThreads.layer,
+      ChatFiles.layer,
+    ]),
   )
 }

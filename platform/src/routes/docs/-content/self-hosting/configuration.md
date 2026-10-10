@@ -128,9 +128,17 @@ deno task --cwd platform files migrate --table user.image --writers-stopped
 deno task --cwd platform files verify --table user.image
 deno task --cwd platform files migrate --table organization.logo --writers-stopped
 deno task --cwd platform files verify --table organization.logo
+deno task --cwd platform files migrate --table chat_message_part.payload --writers-stopped
+deno task --cwd platform files verify --table chat_message_part.payload
+deno task --cwd platform files migrate --table chat_message.metadata.modelMessages --writers-stopped
+deno task --cwd platform files verify --table chat_message.metadata.modelMessages
+deno task --cwd platform files migrate --table cache_entry.value --writers-stopped
+deno task --cwd platform files verify --table cache_entry.value
 ```
 
-Omit `--table` to process both supported sources. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded images stop the run and retain uncommitted source data. Historical external images that return a permanent HTTP client error, including `403`, `404`, or `410`, are cleared and recorded in private import metadata. Timeouts, rate limits, and server errors stop migration so it can be retried.
+Omit `--table` to process all five sources in the order shown. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded files stop the run and retain uncommitted source data. Historical external images that return a permanent HTTP client error, including `403`, `404`, or `410`, are cleared and recorded in private import metadata. Timeouts, rate limits, and server errors stop migration so it can be retried. Unsupported provider continuation structures are reported and preserved for inspection.
+
+Saved conversation attachments keep their existing download URLs and permissions. Older clients may still submit inline files, which the server stores in S3 before accepting the message. Admission records retain content identities and the accepted result, so an authorized retry can recover its receipt during a storage outage.
 
 Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
 

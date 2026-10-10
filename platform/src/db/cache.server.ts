@@ -157,12 +157,9 @@ export const makeDatabaseCache = Effect.fn("makeDatabaseCache")(function* <
 
 export const deleteExpiredDatabaseCacheBatch = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const deleted = yield* sql<{ id: string }>`delete from cache_entry where id in (
-    select id from cache_entry
-    where expires_at <= statement_timestamp()
-    order by expires_at, id
-    limit 1000
-    for update skip locked
-  ) returning id`
+  const deleted = yield* sql<{ id: string }>`with expired as materialized (
+    select id from cache_entry where expires_at <= statement_timestamp()
+    order by expires_at, id limit 1000 for update skip locked
+  ) delete from cache_entry using expired where cache_entry.id = expired.id returning cache_entry.id`
   return deleted.length
 })

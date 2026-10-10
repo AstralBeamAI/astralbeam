@@ -109,3 +109,47 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
   // https://www.postgresql.org/docs/18/tutorial-transactions.html
   return yield* Effect.fromResult(locked.value)
 })
+
+/** Recovers a validated receipt before work on external services. The write helper rechecks under its lock. */
+export const readDatabaseIdempotency = Effect.fn("readDatabaseIdempotency")(function* <
+  Parameters extends Schema.Constraint,
+  Success extends Schema.Constraint,
+  Failure extends Schema.Constraint,
+>(options: {
+  readonly namespace?: string
+  readonly scope: string
+  readonly key: string
+  readonly operation: {
+    readonly name: string
+    readonly parameters: Parameters
+    readonly success: Success
+    readonly error: Failure
+  }
+  readonly parameters: unknown
+}) {
+  yield* Schema.decodeUnknownEffect(databaseIdempotencyKeySchema, strictParseOptions)(options.key)
+  const parameters = yield* Schema.decodeUnknownEffect(
+    options.operation.parameters,
+    strictParseOptions,
+  )(options.parameters)
+  const cache = yield* makeDatabaseCache({
+    namespace: options.namespace ?? "idempotency",
+    schema: databaseIdempotencyRecordSchema,
+    timeToLive: "24 hours",
+  })
+  const existing = yield* cache.get(
+    `${options.scope}:${createHash("sha256").update(options.key).digest("hex")}`,
+  )
+  if (Option.isNone(existing)) return Option.none<Success["Type"]>()
+  if (existing.value.operation !== options.operation.name)
+    return yield* new IdempotencyParametersMismatch()
+  const previous = yield* Schema.decodeUnknownEffect(
+    Schema.toCodecJson(options.operation.parameters),
+  )(existing.value.parameters)
+  if (!Schema.toEquivalence(Schema.toType(options.operation.parameters))(previous, parameters))
+    return yield* new IdempotencyParametersMismatch()
+  const outcome = yield* Schema.decodeUnknownEffect(
+    Schema.toCodecJson(Schema.Result(options.operation.success, options.operation.error)),
+  )(existing.value.outcome)
+  return Option.some(yield* Effect.fromResult(outcome))
+})

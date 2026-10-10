@@ -1,3 +1,12 @@
+import { ChatFiles } from "../attachments/chat-files.server"
+import { createHash } from "node:crypto"
+import { migrateChatFiles } from "@/lib/storage/chat-migration.server"
+import { ChatThreadStorageUnavailable } from "./errors"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { StorageObjectMissing } from "@/lib/storage/errors"
+import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants.server"
+import { chatFile, fileObject, fileDeletion } from "@/db/schema.server"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
@@ -40,7 +49,54 @@ const payload: ChatMessagePayload = {
 const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
-const runtime = ManagedRuntime.make(Layer.mergeAll(Database.layer, ChatThreads.layer))
+const testObjects = new Map<string, Uint8Array>()
+const baseStorage = process.env.S3_ENDPOINT
+  ? ObjectStorage.layer
+  : Layer.succeed(ObjectStorage, {
+      put: ({ key, bytes }) =>
+        Effect.sync(() => {
+          testObjects.set(key, bytes)
+        }),
+      get: ({ key }) =>
+        Effect.suspend(() =>
+          testObjects.has(key)
+            ? Effect.succeed(testObjects.get(key)!)
+            : Effect.fail(new StorageObjectMissing()),
+        ),
+      head: ({ key }) =>
+        Effect.suspend(() =>
+          testObjects.has(key)
+            ? Effect.succeed({
+                size: testObjects.get(key)!.length,
+                contentType: "application/octet-stream",
+              })
+            : Effect.fail(new StorageObjectMissing()),
+        ),
+      remove: ({ key }) =>
+        Effect.sync(() => {
+          testObjects.delete(key)
+        }),
+      testConnection: () => Effect.void,
+    })
+const storageReads = vi.fn()
+const testStorage = Layer.effect(
+  ObjectStorage,
+  Effect.map(ObjectStorage, (storage) => ({
+    ...storage,
+    get: (input) =>
+      Effect.suspend(() => {
+        storageReads()
+        return storage.get(input)
+      }),
+  })),
+).pipe(Layer.provide(baseStorage))
+const filesLayer = ChatFiles.layerNoDeps.pipe(
+  Layer.provideMerge([
+    Database.layer,
+    StoredFiles.layerNoDeps.pipe(Layer.provide([Database.layer, testStorage])),
+  ]),
+)
+const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -57,6 +113,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.dispose()
   })
   beforeEach(async () => {
+    storageReads.mockClear()
     await db.execute(sql`truncate organization cascade`)
     const [org] = await db.insert(organization).values({ name: "Chat", slug: "chat" }).returning()
     const organizationId = org!.id
@@ -98,6 +155,252 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test.each([
+    { byteSize: CHAT_ATTACHMENT_MAX_TOTAL_BYTES + 1, count: 1, decodes: 0 },
+    { byteSize: 11 * 1024 * 1024, count: 2, decodes: 1 },
+  ])(
+    "bounds inline decoding for $count files in checkpoints and admission",
+    async ({ byteSize, count, decodes }) => {
+      const thread = await create()
+      const files = await runtime.runPromise(ChatFiles)
+      const owner = { ...scope, threadId: thread.id }
+      const media = {
+        id: crypto.randomUUID(),
+        type: "document",
+        source: {
+          type: "data",
+          value: "A".repeat(Math.ceil((byteSize * 4) / 3)),
+          mimeType: "text/plain",
+        },
+      }
+      const parts = Array.from({ length: count }, () => ({ ...media, id: crypto.randomUUID() }))
+      const decode = vi.spyOn(globalThis, "atob")
+      try {
+        for (const operation of [
+          files.externalize(owner, { version: 1, parts }).pipe(Effect.asVoid),
+          files
+            .externalize(owner, {
+              version: 1,
+              parts: [],
+              modelMessages: [{ role: "assistant", content: parts }],
+            })
+            .pipe(Effect.asVoid),
+          files.identity(owner, parts).pipe(Effect.asVoid),
+        ]) {
+          decode.mockClear()
+          expect(await runtime.runPromise(operation.pipe(Effect.result))).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "ChatThreadInvalid" },
+          })
+          expect(decode).toHaveBeenCalledTimes(decodes)
+        }
+      } finally {
+        decode.mockRestore()
+      }
+    },
+  )
+
+  test("producer checkpoints reuse verified media but a fresh claim heals missing objects", async () => {
+    const objects = ManagedRuntime.make(testStorage)
+    try {
+      const thread = await create()
+      const accepted = await admit(thread.id)
+      const part = {
+        id: crypto.randomUUID(),
+        type: "video",
+        source: { type: "data", value: "R2VuZXJhdGVkIGNsaXA=", mimeType: "video/mp4" },
+      }
+      const output = {
+        version: 1 as const,
+        parts: [part],
+        modelMessages: [{ role: "assistant", content: [part] }],
+      }
+      for (let count = 0; count < 2; count += 1)
+        await runtime.runPromise(
+          service.checkpoint({ claim: accepted.claim!, payload: output, state: "draft" }),
+        )
+      expect(storageReads).toHaveBeenCalledOnce()
+      const [removed] = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+      await db.delete(fileObject).where(eq(fileObject.id, removed!.id))
+      await runtime.runPromise(
+        service.checkpoint({ claim: accepted.claim!, payload: output, state: "draft" }),
+      )
+      expect(storageReads).toHaveBeenCalledTimes(2)
+      await runtime.runPromise(service.finish({ claim: accepted.claim!, payload: output }))
+      expect(storageReads).toHaveBeenCalledTimes(2)
+      const [file] = await db
+        .select({ file: fileObject })
+        .from(chatFile)
+        .innerJoin(fileObject, eq(fileObject.id, chatFile.id))
+        .where(eq(chatFile.threadId, thread.id))
+      expect(file!.file.id).not.toBe(removed!.id)
+      const storage = await objects.runPromise(ObjectStorage)
+      await objects.runPromise(storage.remove({ key: file!.file.objectKey }))
+      const next = await admit(thread.id)
+      const resumed = { ...output, parts: [{ ...part, id: crypto.randomUUID() }] }
+      await runtime.runPromise(
+        service.checkpoint({ claim: next.claim!, payload: resumed, state: "draft" }),
+      )
+      expect(storageReads).toHaveBeenCalledTimes(4)
+      expect(
+        await objects.runPromise(
+          storage.get({ key: file!.file.objectKey, maxBytes: file!.file.byteSize }),
+        ),
+      ).toEqual(new TextEncoder().encode("Generated clip"))
+      await db
+        .update(fileObject)
+        .set({ sha256: "0".repeat(64) })
+        .where(eq(fileObject.id, file!.file.id))
+      expect(
+        (
+          await runtime.runPromise(
+            service
+              .checkpoint({ claim: next.claim!, payload: resumed, state: "draft" })
+              .pipe(Effect.flip),
+          )
+        )._tag,
+      ).toBe("ChatThreadStorageUnavailable")
+    } finally {
+      await objects.dispose()
+    }
+  })
+
+  test("rejects generated images above their kind limit before storing either representation", async () => {
+    const thread = await create()
+    const files = await runtime.runPromise(ChatFiles)
+    const part = {
+      id: crypto.randomUUID(),
+      type: "image",
+      source: {
+        type: "data",
+        value: Buffer.alloc(6 * 1024 * 1024).toString("base64"),
+        mimeType: "image/png",
+      },
+    }
+    for (const output of [
+      { version: 1 as const, parts: [part] },
+      { version: 1 as const, parts: [], modelMessages: [{ role: "assistant", content: [part] }] },
+    ])
+      expect(
+        (
+          await runtime.runPromise(
+            files.externalize({ ...scope, threadId: thread.id }, output).pipe(Effect.flip),
+          )
+        )._tag,
+      ).toBe("ChatThreadInvalid")
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(
+          like(
+            fileObject.sourceIdentity,
+            `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+          ),
+        ),
+    ).toHaveLength(0)
+  })
+
+  test("replacing checkpoint media releases only files absent from saved history", async () => {
+    const thread = await create()
+    const accepted = await admit(thread.id)
+    const id = crypto.randomUUID()
+    const first = {
+      version: 1 as const,
+      parts: [
+        {
+          id,
+          type: "video",
+          source: {
+            type: "data",
+            value: Buffer.from("first generated clip").toString("base64"),
+            mimeType: "video/mp4",
+          },
+        },
+      ],
+    }
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: first, state: "draft" }),
+    )
+    const before = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+    const second = {
+      ...first,
+      parts: [
+        {
+          ...first.parts[0]!,
+          source: {
+            ...first.parts[0]!.source,
+            value: Buffer.from("second generated clip").toString("base64"),
+          },
+        },
+      ],
+    }
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: second, state: "draft" }),
+    )
+    const after = await db.select().from(chatFile).where(eq(chatFile.threadId, thread.id))
+    expect(after).toHaveLength(1)
+    expect(after[0]!.id).not.toBe(before[0]!.id)
+    expect(await db.select().from(fileObject).where(eq(fileObject.id, before[0]!.id))).toHaveLength(
+      0,
+    )
+    const saved = await runtime.runPromise(
+      service.getMessage({ scope, id: thread.id, messageId: accepted.claim!.assistantMessageId }),
+    )
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: accepted.claim!,
+        payload: {
+          version: 1,
+          parts: [{ id, type: "text", content: "The clip remains in provider continuation." }],
+          modelMessages: [{ role: "assistant", content: saved.payload.parts }],
+        },
+        state: "draft",
+      }),
+    )
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, after[0]!.id))).toHaveLength(1)
+    await runtime.runPromise(
+      service.admit({
+        scope,
+        id: thread.id,
+        payload: {
+          version: 1,
+          parts: saved.payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+        },
+      }),
+    )
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: accepted.claim!,
+        payload: {
+          ...second,
+          parts: [
+            {
+              ...second.parts[0]!,
+              source: {
+                ...second.parts[0]!.source,
+                value: Buffer.from("third generated clip").toString("base64"),
+              },
+            },
+          ],
+        },
+        state: "draft",
+      }),
+    )
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, after[0]!.id))).toHaveLength(1)
+    await runtime.runPromise(
+      service.checkpoint({ claim: accepted.claim!, payload: first, state: "draft" }),
+    )
+    const returned = await runtime.runPromise(
+      service.getMessage({ scope, id: thread.id, messageId: accepted.claim!.assistantMessageId }),
+    )
+    const source = returned.payload.parts[0]!.source as { value: string }
+    expect(source.value).not.toBe(before[0]!.id)
+    expect(await db.select().from(fileObject).where(eq(fileObject.id, source.value))).toHaveLength(
+      1,
+    )
+  })
+
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()
     await runtime.runPromise(
@@ -128,7 +431,14 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const message = await runtime.runPromise(
       service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
     )
-    expect(message.payload.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
+    expect(message.payload.parts[1]).toMatchObject({
+      source: { type: "file", provider: "astralbeam" },
+    })
+    const files = await runtime.runPromise(ChatFiles)
+    const hydrated = await runtime.runPromise(
+      files.hydrate({ ...scope, threadId: thread.id }, message.payload),
+    )
+    expect(hydrated.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
     expect(snapshot.thread).not.toHaveProperty("role")
     for (const operation of [
       service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
@@ -413,6 +723,364 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toEqual([])
   })
 
+  test("resumes historical chat media and receipts without retaining bytes or depending on S3 replay", async () => {
+    const thread = await create()
+    const admitted = await admit(thread.id)
+    const [part] = await db
+      .select()
+      .from(chatMessagePart)
+      .where(eq(chatMessagePart.messageId, admitted.inputMessage.id))
+    const media = {
+      type: "document" as const,
+      source: { type: "data" as const, value: "SGVsbG8=", mimeType: "text/plain" },
+      metadata: { filename: "note.txt" },
+    }
+    await db
+      .update(chatMessagePart)
+      .set({ payload: { version: 1, ...media } })
+      .where(eq(chatMessagePart.id, part!.id))
+    const continuation = [
+      { role: "user", content: [media], providerContext: { signature: "opaque-signature" } },
+    ]
+    await db
+      .update(chatMessage)
+      .set({ metadata: { version: 1, modelMessages: continuation } })
+      .where(eq(chatMessage.id, admitted.inputMessage.id))
+    const parts = [{ type: "text" as const, content: "Hello" }, media]
+    const receipt = {
+      threadId: thread.id,
+      acceptedMessageId: admitted.inputMessage.id,
+      threadVersion: admitted.thread.lockVersion,
+    }
+    const key = `${scope.organizationId}:${scope.tenantId}:${thread.id}:${scope.tenantUserId}:${createHash("sha256").update("historical-intent").digest("hex")}`
+    const expiry = new Date(Date.now() + 60_000)
+    await db.insert(cacheEntry).values({
+      namespace: "chat",
+      key,
+      value: JSON.stringify({
+        operation: "ChatAdmission/v1",
+        parameters: { id: thread.id, parts, tools: [], clientId: targetA },
+        outcome: { _tag: "Success", success: receipt },
+      }),
+      expiresAt: expiry,
+    })
+    const files = await runtime.runPromise(ChatFiles)
+    const interrupted = {
+      ...files,
+      externalize: (...args: Parameters<typeof files.externalize>) =>
+        files
+          .externalize(...args)
+          .pipe(Effect.andThen(Effect.fail(new ChatThreadStorageUnavailable()))),
+    }
+    expect(
+      await runtime.runPromise(
+        migrateChatFiles("chat_message_part.payload", "migrate").pipe(
+          Effect.provideService(ChatFiles, interrupted),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure" })
+    expect(
+      (await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id)))[0]!.payload,
+    ).toEqual({ version: 1, ...media })
+    const progress = await db
+      .select()
+      .from(fileObject)
+      .where(
+        like(
+          fileObject.sourceIdentity,
+          `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+        ),
+      )
+    expect(progress).toHaveLength(1)
+    const canonical = await runtime.runPromise(
+      files.externalize(
+        { ...scope, threadId: thread.id },
+        {
+          version: 1,
+          parts: [
+            {
+              ...media,
+              id: crypto.randomUUID(),
+              source: { ...media.source, mimeType: `text/plain;${"x".repeat(6000)}` },
+            },
+          ],
+        },
+      ),
+    )
+    expect(canonical.parts[0]!.source).toMatchObject({
+      type: "file",
+      mimeType: "text/plain",
+      value: progress[0]!.id,
+    })
+    for (const table of [
+      "chat_message_part.payload",
+      "chat_message.metadata.modelMessages",
+      "cache_entry.value",
+    ] as const) {
+      await runtime.runPromise(migrateChatFiles(table, "migrate"))
+      expect((await runtime.runPromise(migrateChatFiles(table, "migrate"))).migrated).toBe(0)
+      await runtime.runPromise(migrateChatFiles(table, "verify"))
+    }
+    const savedPart = (
+      await db.select().from(chatMessagePart).where(eq(chatMessagePart.id, part!.id))
+    )[0]!
+    expect(savedPart.payload).toMatchObject({ source: { type: "file", value: progress[0]!.id } })
+    const savedMessage = (
+      await db.select().from(chatMessage).where(eq(chatMessage.id, admitted.inputMessage.id))
+    )[0]!
+    expect(savedMessage.metadata).toMatchObject({
+      modelMessages: [{ providerContext: { signature: "opaque-signature" } }],
+    })
+    const cache = (await db.select().from(cacheEntry).where(eq(cacheEntry.key, key)))[0]!
+    expect(cache.expiresAt).toEqual(expiry)
+    expect(cache.value).not.toContain("SGVsbG8=")
+    expect(JSON.stringify(savedPart.payload) + JSON.stringify(savedMessage.metadata)).not.toContain(
+      "SGVsbG8=",
+    )
+    const offline = {
+      ...files,
+      hydrate: () => Effect.fail(new ChatThreadStorageUnavailable()),
+      externalize: () => Effect.fail(new ChatThreadStorageUnavailable()),
+    }
+    await db.update(chatThread).set({ agentId: null }).where(eq(chatThread.id, thread.id))
+    const replay = await runtime.runPromise(
+      prepareManagedChat({
+        scope,
+        idempotencyKey: "historical-intent",
+        params: {
+          threadId: thread.id,
+          runId: "retry",
+          messages: [{ role: "user", content: parts }],
+          tools: [],
+          context: [],
+          aguiContext: [],
+          state: undefined,
+          forwardedProps: { clientId: targetA },
+        },
+      }).pipe(
+        Effect.provideService(ChatFiles, offline),
+        Effect.provideService(Agents, {
+          resolveForChat: () => Effect.die("Must not resolve on replay"),
+        } as unknown as typeof Agents.Service),
+      ),
+    )
+    expect(replay).toMatchObject({ admission: undefined, receipt })
+    await db
+      .update(chatThread)
+      .set({ agentId: admitted.thread.agentId })
+      .where(eq(chatThread.id, thread.id))
+    const competingKey = `${scope.organizationId}:${scope.tenantId}:${thread.id}:${scope.tenantUserId}:${createHash("sha256").update("competing-intent").digest("hex")}`
+    const racingFiles = {
+      ...offline,
+      hydrate: () =>
+        Effect.promise(() =>
+          db.insert(cacheEntry).values({
+            namespace: "chat",
+            key: competingKey,
+            value: cache.value,
+            expiresAt: expiry,
+          }),
+        ).pipe(Effect.andThen(Effect.fail(new ChatThreadStorageUnavailable()))),
+    }
+    const raced = await runtime.runPromise(
+      prepareManagedChat({
+        scope,
+        idempotencyKey: "competing-intent",
+        params: {
+          threadId: thread.id,
+          runId: "racing-retry",
+          messages: [{ role: "user", content: parts }],
+          tools: [],
+          context: [],
+          aguiContext: [],
+          state: undefined,
+          forwardedProps: { clientId: targetA },
+        },
+      }).pipe(
+        Effect.provideService(ChatFiles, racingFiles),
+        Effect.provideService(Agents, {
+          resolveForChat: () =>
+            Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+        } as unknown as typeof Agents.Service),
+      ),
+    )
+    expect(raced).toMatchObject({ admission: undefined, receipt })
+    const storage = await runtime.runPromise(StoredFiles)
+    const prepare = vi.fn(() => Effect.die("Oversized generated media must not reach S3"))
+    for (const oversized of [
+      ...["image", "document"].flatMap((type) =>
+        [undefined, "application/octet-stream"].flatMap((mimeType) => {
+          const part = {
+            type,
+            source: {
+              type: "data",
+              value: "SGVsbG8=",
+              ...(mimeType ? { mimeType } : {}),
+            },
+          }
+          return [
+            { version: 1 as const, parts: [{ ...part, id: crypto.randomUUID() }] },
+            {
+              version: 1 as const,
+              parts: [],
+              modelMessages: [{ role: "assistant", content: [part] }],
+            },
+          ]
+        }),
+      ),
+      {
+        version: 1 as const,
+        parts: Array.from({ length: 5 }, (_, index) => ({
+          ...media,
+          id: crypto.randomUUID(),
+          source: { ...media.source, value: Buffer.from(`Canonical ${index}`).toString("base64") },
+        })),
+        modelMessages: [
+          {
+            role: "assistant",
+            content: [
+              {
+                ...media,
+                source: {
+                  ...media.source,
+                  value: Buffer.from("Distinct continuation").toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+      },
+      {
+        version: 1 as const,
+        parts: [
+          {
+            ...media,
+            id: crypto.randomUUID(),
+            source: {
+              ...media.source,
+              value: Buffer.alloc(11 * 1024 * 1024, 1).toString("base64"),
+            },
+          },
+        ],
+        modelMessages: [
+          {
+            role: "assistant",
+            content: [
+              {
+                ...media,
+                source: {
+                  ...media.source,
+                  value: Buffer.alloc(11 * 1024 * 1024, 2).toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+      },
+      {
+        version: 1 as const,
+        parts: Array.from({ length: 6 }, () => ({ ...media, id: crypto.randomUUID() })),
+      },
+      {
+        version: 1 as const,
+        parts: [],
+        modelMessages: [
+          {
+            role: "assistant",
+            content: Array.from({ length: 2 }, () => ({
+              ...media,
+              source: { ...media.source, value: Buffer.alloc(11 * 1024 * 1024).toString("base64") },
+            })),
+          },
+        ],
+      },
+    ]) {
+      expect(
+        await runtime.runPromise(
+          Effect.flatMap(ChatFiles, (guarded) =>
+            guarded.externalize({ ...scope, threadId: thread.id }, oversized),
+          ).pipe(
+            Effect.provide(Layer.fresh(ChatFiles.layerNoDeps)),
+            Effect.provideService(StoredFiles, { ...storage, prepare }),
+            Effect.result,
+          ),
+        ),
+      ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    }
+    expect(prepare).not.toHaveBeenCalled()
+    const storedMedia = {
+      ...media,
+      source: {
+        type: "file" as const,
+        provider: "astralbeam",
+        value: progress[0]!.id,
+        mimeType: "text/plain",
+      },
+    }
+    const request = {
+      scope,
+      idempotencyKey: "too-many-files",
+      params: {
+        threadId: thread.id,
+        runId: "rejected",
+        messages: [
+          { role: "user" as const, content: Array.from({ length: 6 }, () => storedMedia) },
+        ],
+        tools: [],
+        context: [],
+        aguiContext: [],
+        state: undefined,
+        forwardedProps: { clientId: targetA },
+      },
+    }
+    const hydrate = vi.fn(() => Effect.die("Attachment caps must reject before storage reads"))
+    expect(
+      await runtime.runPromise(
+        prepareManagedChat(request).pipe(
+          Effect.provideService(ChatFiles, { ...files, hydrate }),
+          Effect.provideService(Agents, {} as typeof Agents.Service),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    expect(hydrate).not.toHaveBeenCalled()
+    const identity = () =>
+      Effect.succeed(
+        [storedMedia, storedMedia].map((part) => ({
+          ...part,
+          source: { type: "content", byteSize: 11 * 1024 * 1024, sha256: progress[0]!.sha256 },
+        })),
+      )
+    expect(
+      await runtime.runPromise(
+        prepareManagedChat({
+          ...request,
+          params: {
+            ...request.params,
+            messages: [{ role: "user", content: [storedMedia, storedMedia] }],
+          },
+        }).pipe(
+          Effect.provideService(ChatFiles, { ...files, hydrate, identity }),
+          Effect.provideService(Agents, {} as typeof Agents.Service),
+          Effect.result,
+        ),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "ChatThreadInvalid" } })
+    expect(hydrate).not.toHaveBeenCalled()
+    await db.delete(organization).where(eq(organization.id, scope.organizationId))
+    expect(await db.select().from(chatFile).where(eq(chatFile.id, progress[0]!.id))).toHaveLength(0)
+    expect(
+      await db.select().from(fileObject).where(eq(fileObject.id, progress[0]!.id)),
+    ).toHaveLength(0)
+    expect(
+      await db
+        .select()
+        .from(fileDeletion)
+        .where(eq(fileDeletion.objectKey, progress[0]!.objectKey)),
+    ).toHaveLength(1)
+  })
+
   test("resolves synchronized identities and grants access only through explicit same-Tenant participants", async () => {
     expect(
       await runtime.runPromise(
@@ -513,6 +1181,34 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         )
       )._tag,
     ).toBe("ChatThreadConflict")
+    const late = {
+      version: 1 as const,
+      parts: [
+        {
+          id: crypto.randomUUID(),
+          type: "video",
+          source: { type: "data", value: "TGF0ZQ==", mimeType: "video/mp4" },
+        },
+      ],
+    }
+    for (const operation of [
+      service.checkpoint({ claim: claimed, payload: late, state: "draft" }),
+      service.finish({ claim: claimed, payload: late }),
+    ])
+      expect((await runtime.runPromise(operation.pipe(Effect.flip)))._tag).toBe(
+        "ChatThreadConflict",
+      )
+    expect(
+      await db
+        .select()
+        .from(fileObject)
+        .where(
+          like(
+            fileObject.sourceIdentity,
+            `chat:${scope.organizationId}:${scope.tenantId}:${thread.id}:%`,
+          ),
+        ),
+    ).toHaveLength(0)
   })
 
   test("orders admission activity by append time rather than transaction start", async () => {

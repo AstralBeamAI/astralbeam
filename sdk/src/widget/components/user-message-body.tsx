@@ -13,10 +13,10 @@ import { describeSentAttachment } from "../lib/attachments.ts"
 import { getMessageText, saveBlob } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
-type MediaPart = Extract<MessagePart, { type: "image" | "document" }>
+type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "video" }>
 type GetAttachment = (messageId: string, partId: string) => Promise<Blob>
 
-function SentAttachment({
+export function SentAttachment({
   part,
   messageId,
   getAttachment,
@@ -127,8 +127,8 @@ export function UserMessageBody({
 }) {
   const text = getMessageText(message)
   // Attachments read above the text, as they do in the composer that sent them.
-  const media = message.parts.filter(
-    (part): part is MediaPart => part.type === "image" || part.type === "document",
+  const media = message.parts.filter((part): part is MediaPart =>
+    ["image", "document", "audio", "video"].includes(part.type),
   )
   return (
     <>

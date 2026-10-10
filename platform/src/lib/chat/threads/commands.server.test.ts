@@ -1,3 +1,4 @@
+import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
@@ -32,6 +33,7 @@ describe("managed conversation commands", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
+      ChatFiles.layer,
       Layer.succeed(SqlClient.SqlClient, {} as SqlClient.SqlClient),
       Layer.succeed(Agents, {
         resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId: null }),

@@ -10,6 +10,8 @@ import { mapDatabaseErrors } from "../src/db/lib/sqlstate.server.ts"
 import { user } from "../src/db/schema/authentication.server.ts"
 import { organization } from "../src/db/schema/organizations.server.ts"
 import { ProfileFiles } from "../src/lib/storage/profile-files.server.ts"
+import { ChatFiles } from "../src/lib/chat/attachments/chat-files.server.ts"
+import { isChatMigrationTable, migrateChatFiles } from "../src/lib/storage/chat-migration.server.ts"
 
 const environment = loadEnv("development", fileURLToPath(new URL("../", import.meta.url)), "")
 for (const [name, value] of Object.entries(environment))
@@ -22,6 +24,9 @@ const command = new Command()
     new Option("--table <table>", "Select a source table, default all supported tables").choices([
       "user.image",
       "organization.logo",
+      "chat_message_part.payload",
+      "chat_message.metadata.modelMessages",
+      "cache_entry.value",
     ]),
   )
   .option(
@@ -38,7 +43,9 @@ if (mode === "migrate" && !options.writersStopped)
     "Stop application writers and file maintenance runners, then pass --writers-stopped.",
   )
 
-const runtime = ManagedRuntime.make(Layer.mergeAll(Database.layer, ProfileFiles.layer))
+const runtime = ManagedRuntime.make(
+  Layer.mergeAll(Database.layer, ProfileFiles.layer, ChatFiles.layer),
+)
 try {
   await runtime.runPromise(
     Effect.gen(function* () {
@@ -46,7 +53,17 @@ try {
       const profiles = yield* ProfileFiles
       for (const tableName of options.table
         ? [options.table]
-        : ["user.image", "organization.logo"]) {
+        : [
+            "user.image",
+            "organization.logo",
+            "chat_message_part.payload",
+            "chat_message.metadata.modelMessages",
+            "cache_entry.value",
+          ]) {
+        if (isChatMigrationTable(tableName)) {
+          yield* migrateChatFiles(tableName, mode as "inventory" | "migrate" | "verify")
+          continue
+        }
         const isAvatar = tableName === "user.image"
         const table = isAvatar ? user : organization
         const column = isAvatar ? user.image : organization.logo

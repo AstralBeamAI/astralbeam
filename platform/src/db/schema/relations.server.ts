@@ -134,7 +134,37 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
 }))
 
 const chatRelations = defineRelationsPart(schema, (relations) => ({
+  chatFile: {
+    thread: relations.one.chatThread({
+      from: [
+        relations.chatFile.organizationId,
+        relations.chatFile.tenantId,
+        relations.chatFile.threadId,
+      ],
+      to: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+    }),
+    file: relations.one.fileObject({ from: relations.chatFile.id, to: relations.fileObject.id }),
+  },
+  fileObject: {
+    chatFile: relations.one.chatFile({ from: relations.fileObject.id, to: relations.chatFile.id }),
+  },
   chatThread: {
+    files: relations.many.chatFile({
+      from: [
+        relations.chatThread.organizationId,
+        relations.chatThread.tenantId,
+        relations.chatThread.id,
+      ],
+      to: [
+        relations.chatFile.organizationId,
+        relations.chatFile.tenantId,
+        relations.chatFile.threadId,
+      ],
+    }),
     tenant: relations.one.tenant({
       from: [relations.chatThread.organizationId, relations.chatThread.tenantId],
       to: [relations.tenant.organizationId, relations.tenant.id],

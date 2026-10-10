@@ -1,3 +1,4 @@
+import { ChatFiles } from "@/lib/chat/attachments/chat-files.server"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -172,6 +173,7 @@ function queryFailure(cause: object) {
 }
 
 const restTestServices = Layer.mergeAll(
+  ChatFiles.layer.pipe(Layer.orDie),
   Layer.succeed(SqlClient.SqlClient, {} as typeof SqlClient.SqlClient.Service),
   TenantUsers.layerNoDeps.pipe(Layer.provideMerge(Tenants.layerNoDeps)),
   Layer.succeed(
