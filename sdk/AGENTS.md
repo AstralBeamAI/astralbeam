@@ -30,7 +30,7 @@ The chat widget must stay inside the client entry's lazy chunk so `dist/client.j
 - Follow chat's live-option lifecycle for directory wrappers: mount once and update callbacks and token sources without clearing state on reference changes. Unmount during sign-out or account transitions. Reset reloads immediately and requires a ready host session. API-base changes clear directory authentication and rows. Keep public refresh able to recover failed authentication, and report shared authentication failures once through the latest `onError` callback.
 - Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
 - `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
-- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
+- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`. Keep framework imports confined to their entry points. Effect Schema is bundled for validation under the code conventions below.
 
 ## CDN delivery
 
@@ -62,6 +62,9 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 ## Code conventions
 
+- Minimize consumer code. Tool and widget registries are keyed objects whose keys supply names and IDs. Infer schema and result types without required generics or registration helpers. Plain JSON tool data, including arrays and primitives, gets an SDK-built envelope, and only `toolResult(...)` marks a custom envelope. Inputs remain object-shaped, while output schemas may describe any JSON value. Never infer envelopes from business field names. Keep protocol normalization internal.
+- Minimize consumer and repository diff when adapting standards. Preserve existing names and callback argument positions where their meaning still fits, and translate protocol fields internally rather than adding aliases. Tool and widget input schemas remain `parameters`.
+- Keep `execute(input, context)` and its readonly cancellation signal required. Tool invocation IDs are optional, while SDK-managed widget IDs are required. Implementations may omit unused callback parameters without optional context or compatibility wrappers.
 - Define hand-written types alongside the implementation that owns them, not in separate `*-types.ts` files. Use type-only imports across runtime boundaries.
 - Use plain data and helper functions with explicit options objects. No classes or closure-based state factories, except framework-required classes such as React error boundaries.
 - Avoid catch-and-rethrow wrappers used only for observation. Share repeated request setup at the request boundary and retain catches that perform recovery or isolate host callback failures.
@@ -78,7 +81,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 - Read-only transcript presentation shows saved tool information without projecting host widgets or accepting questionnaire answers. Saved partial output does not imply a live producer.
 - Keep conversation-sharing UI and headless participant-management actions deferred. Do not expose a sharing option in the SDK.
 - Use `ChatClient` server hydration and pagination through a scoped `ConnectionAdapter.hydrate`. Disable transport hydration until a saved thread exists, so a fresh local chat does not request history or report a spurious error. Keep authorization, rich-content projection, and multiplayer waiting state in the application adapter. Do not advertise a resumable active run until stream replay exists.
-- Consume the canonical saved-history format directly. Do not add legacy transcript or tool-result fallbacks before persistence has shipped.
+- Consume the canonical saved-history format directly. Preserve existing plain results and `render_widget` calls while reading new versioned tool results. Never infer an envelope from property names.
 - Preserve the server's ancestry order when hydrating messages. Normal sends and tool results do not carry conversation-version preconditions or wait for other clients' active responses. Metadata and participant edits still use optimistic concurrency.
 - Hydrated tool IDs identify their source message, part, and response target. Keep provider IDs separately and preserve native IDs only for the originating live stream, so concurrent pending calls cannot resolve each other's results.
 - Preserve conversation drafts and their admission keys within the verified identity and API scope. Retry the same draft with its original key and tool declarations, and accept replay receipts without generating again. Reload saved history without resubmitting uncertain user input. A browser-tool exception cannot prove an external action failed, so retain its outcome as unknown and retry only result delivery.

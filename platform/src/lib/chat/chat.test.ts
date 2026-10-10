@@ -7,7 +7,7 @@ const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
     messages: unknown[]
     systemPrompts: string[]
-    tools: Array<{ name: string }>
+    tools: Array<{ name: string; metadata?: Record<string, unknown> }>
     adapter: { model: string }
     modelOptions?: unknown
     toolExecution?: string
@@ -23,7 +23,7 @@ vi.mock("@tanstack/ai", async (original) => ({
   chat: (options: {
     messages: unknown[]
     systemPrompts: string[]
-    tools: Array<{ name: string }>
+    tools: Array<{ name: string; metadata?: Record<string, unknown> }>
     adapter: { model: string }
     abortController: AbortController
     middleware: ChatMiddleware[]
@@ -158,6 +158,33 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect("retains admitted widget and output descriptors on browser tools", () =>
+    Effect.gen(function* () {
+      const metadata = {
+        astralbeam: {
+          resultVersion: 1,
+          widget: "card",
+          outputSchema: { type: "object", properties: {} },
+        },
+      }
+      const params = yield* chatTestParams({
+        tools: [{ name: "lookup", description: "Lookup", parameters: { type: "object" } }],
+      })
+      Object.assign(params.tools[0]!, { metadata })
+      const service = yield* Chat
+      const events = yield* service.run({ params, principal, managed: chatTestExecution })
+      yield* Stream.runCollect(Stream.take(events, 1))
+      assert.deepInclude(chatRunTest.options[0]!.tools[0]!, { name: "lookup", metadata })
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: { ...sandboxedAgent, sandboxProviderId: null },
+          model: CHAT_TEST_MODEL,
+        }),
+      ),
+    ),
+  )
+
   it.effect.each([true, false])(
     "suppresses tools only for this turn's unknown outcome: %s",
     (ownTurn) =>

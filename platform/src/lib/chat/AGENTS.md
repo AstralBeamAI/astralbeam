@@ -43,7 +43,7 @@
 
 ## Tools
 
-- Host tools and widgets arrive declared in the request body and execute in the host page. The endpoint forwards them verbatim through `mergeAgentTools`, which drops a client tool whose name collides with a server tool. `render_widget` and `ask_questionnaire` are the two every mount declares.
+- Host tools and widgets arrive declared in the request body and execute in the host page. Admission preserves SDK descriptors from AG-UI `forwardedProps.toolMetadata`. `mergeChatTools` retains them on browser stubs, and server tools win name collisions. Every mount declares `ask_questionnaire`. Standalone widgets declare schema-specific `show_<id>` tools. Read `render_widget` only for older saved calls.
 - Sandbox tools are the exception that executes here: `sandbox_write_file`, `sandbox_read_file`, `sandbox_list_files`, `sandbox_run_command`, and `sandbox_publish_artifact`, declared only when the agent has a `sandboxProviderId`.
 - `sdk/src/core/protocol.ts` names the shared literals: `RENDER_WIDGET_TOOL`, `ASK_QUESTIONNAIRE_TOOL`, `SANDBOX_WRITE_FILE_TOOL`, `SANDBOX_READ_FILE_TOOL`, `SANDBOX_LIST_FILES_TOOL`, `SANDBOX_RUN_COMMAND_TOOL`, `SANDBOX_PUBLISH_ARTIFACT_TOOL`, and `SANDBOX_STATUS_EVENT`. The SDK writes them as string literals. This side writes the tool names in `sandbox/tools.ts` and derives `CHAT_SANDBOX_STATUS_EVENT` from `APP_HANDLE` in `sandbox/constants.ts`.
 - No sandbox is provisioned when a run starts. `ChatSandboxes.session` in `sandbox/sandbox.ts` is one organization-scoped configuration read. The first sandbox tool the agent reaches for calls the session's `acquire`, which memoizes one `ensure` in a Deferred, including its failure, so a failed provision is not retried per tool call, and writes the run's uploads in.
@@ -82,3 +82,5 @@
 - Commit decisions before tool execution and final content before saved acknowledgments. Hydration renders history and never authorizes another business effect. Interrupted or unconfirmed execution is never silently retried.
 - Preserve part IDs across streaming and final snapshots, but allow draft positions to change when final reasoning precedes streamed text. Reorder transactionally without violating unique positions, and never drop an already saved part.
 - Preserve opaque provider context in storage, but replay it only with the same provider instance, API protocol, and model. Configuration changes use portable canonical parts with original uploads and tool-call/result identities.
+- Validate versioned SDK results against their saved declaration, keep UI data in saved results, and strip it from every model projection path. Never infer result versions from property names.
+- Limit regex safety analysis to 32 patterns across each admission or tool-resolution request, with the existing 25 ms per-pattern timeout. A per-pattern timeout alone does not bound aggregate work from untrusted declarations.

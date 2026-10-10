@@ -5,8 +5,9 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type Tool,
 } from "@tanstack/ai"
-import { Context, Effect, identity, Layer, Stream } from "effect"
+import { Context, Effect, identity, Layer, Stream, Schema } from "effect"
 
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
@@ -48,6 +49,16 @@ import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
+
+// AG-UI drops tool metadata. Admission retains SDK descriptors in stored declarations.
+function mergeChatTools(server: readonly Tool[], client: ChatParams["tools"]): Tool[] {
+  return mergeAgentTools(server, client).map((tool) => {
+    if ("execute" in tool && tool.execute) return tool
+    const declaration: unknown = client.find((entry) => entry.name === tool.name)
+    const metadata = Schema.is(Schema.JsonObject)(declaration) ? declaration.metadata : undefined
+    return Schema.is(Schema.JsonObject)(metadata) ? { ...tool, metadata } : tool
+  })
+}
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
@@ -230,7 +241,7 @@ export class Chat extends Context.Service<
         const tools = unknownOutcome
           ? []
           : [
-              ...mergeAgentTools(
+              ...mergeChatTools(
                 [...sandboxTools, ...createChatAttachmentTools(files)],
                 params.tools,
               ),
@@ -276,7 +287,7 @@ export class Chat extends Context.Service<
                   tools.splice(
                     0,
                     tools.length,
-                    ...mergeAgentTools(
+                    ...mergeChatTools(
                       [...sandboxTools, ...createChatAttachmentTools(files)],
                       params.tools,
                     ),

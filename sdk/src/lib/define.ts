@@ -1,37 +1,85 @@
-// Identity helpers that exist for their generics: with a Standard Schema in `parameters`, the
-// `execute`/`render` input is the schema's own output type instead of Record<string, unknown>.
 import type {
   InferParameters,
   JsonSchemaObject,
   ParametersSchema,
+  OutputSchema,
   ToolDefinition,
+  ToolResult,
+  ToolContent,
+  StandardSchemaV1,
+  ToolRegistry,
+  WidgetContext,
   WidgetDefinition,
+  WidgetRenderHandle,
 } from "./types.ts"
 
-export interface TypedToolDefinition<S extends ParametersSchema = JsonSchemaObject> {
-  description: string
-  metadata?: Record<string, unknown> | undefined
+export type ExplicitToolResult<Output = unknown> = ToolResult<Output> & {
+  readonly [Symbol.toStringTag]: "AstralBeam.ToolResult"
+}
+
+type OutputData<S extends OutputSchema> =
+  S extends StandardSchemaV1<unknown, infer Output> ? Output : unknown
+
+export interface TypedToolDefinition<
+  Input extends ParametersSchema = JsonSchemaObject,
+  Output extends OutputSchema = Record<string, unknown>,
+  Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
+    | OutputData<Output>
+    | ExplicitToolResult<OutputData<Output>>,
+> extends Omit<ToolDefinition, "parameters" | "outputSchema" | "execute"> {
+  parameters?: Input
+  outputSchema?: Output
+  execute: (
+    input: InferParameters<Input>,
+    context: Parameters<ToolDefinition["execute"]>[1],
+  ) => Result | Promise<Result>
+}
+
+export interface TypedWidgetDefinition<
+  S extends ParametersSchema = JsonSchemaObject,
+  Tools extends ToolRegistry = ToolRegistry,
+> extends Omit<WidgetDefinition, "parameters" | "render"> {
   parameters?: S
-  execute: (input: InferParameters<S>) => unknown
+  /** Optional registry for inferred callTool names, inputs and results. */
+  tools?: Tools
+  render: (
+    props: InferParameters<S>,
+    container: HTMLElement,
+    context: WidgetContext<InferParameters<S>, Tools>,
+  ) => WidgetRenderHandle<InferParameters<S>, Tools> | (() => void) | void
 }
 
-export interface TypedWidgetDefinition<S extends ParametersSchema = JsonSchemaObject> {
-  description: string
-  parameters?: S
-  render: (props: InferParameters<S>, container: HTMLElement) => (() => void) | void
+export function defineTool<
+  const Input extends ParametersSchema = JsonSchemaObject,
+  const Output extends OutputSchema = Record<string, unknown>,
+  Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
+    | OutputData<Output>
+    | ExplicitToolResult<OutputData<Output>>,
+>(tool: TypedToolDefinition<Input, Output, Result>): TypedToolDefinition<Input, Output, Result> {
+  return tool
 }
 
-/** Declares a host tool; a Standard Schema `parameters` types (and validates) `execute`'s input. */
-export function defineTool<const S extends ParametersSchema = JsonSchemaObject>(
-  tool: TypedToolDefinition<S>,
-): ToolDefinition {
-  // The widget validates a Standard Schema before execute runs, so the narrowed type holds.
-  return tool as unknown as ToolDefinition
+export function defineWidget<
+  const S extends ParametersSchema = JsonSchemaObject,
+  const Tools extends ToolRegistry = ToolRegistry,
+>(widget: TypedWidgetDefinition<S, Tools>): TypedWidgetDefinition<S, Tools> {
+  return widget
 }
 
-/** Declares a host widget; a Standard Schema `parameters` types (and validates) `render`'s props. */
-export function defineWidget<const S extends ParametersSchema = JsonSchemaObject>(
-  widget: TypedWidgetDefinition<S>,
-): WidgetDefinition {
-  return widget as unknown as WidgetDefinition
+type ToolResultOptions = Omit<ToolResult, "content"> & {
+  content?: string | readonly ToolContent[]
+}
+
+/** Marks a custom envelope, expanding text and supplying a structured-data fallback. */
+export function toolResult<const Result extends ToolResultOptions>(
+  result: Result,
+): Omit<Result, "content"> & Pick<ExplicitToolResult, "content" | typeof Symbol.toStringTag> {
+  const content =
+    typeof result.content === "string"
+      ? [{ type: "text", text: result.content }]
+      : (result.content ??
+        (result.structuredContent === undefined
+          ? []
+          : [{ type: "text", text: JSON.stringify(result.structuredContent) }]))
+  return { ...result, content, [Symbol.toStringTag]: "AstralBeam.ToolResult" }
 }

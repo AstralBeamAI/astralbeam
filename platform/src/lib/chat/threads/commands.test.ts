@@ -50,6 +50,64 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
+      const metadata = {
+        title: "Lookup",
+        astralbeam: {
+          resultVersion: 1,
+          widget: "card",
+          outputSchema: {
+            type: "object",
+            properties: { id: { type: "string", pattern: "^[a-z]+$" } },
+          },
+        },
+      }
+      const params = {
+        ...commandParams,
+        tools: [{ name: "lookup", description: "Lookup", parameters: { type: "object" } }],
+        forwardedProps: { ...commandParams.forwardedProps, toolMetadata: { lookup: metadata } },
+      }
+      yield* prepareManagedChat({ ...input, params })
+      assert.deepStrictEqual(admitted[1]!.payload.tools?.[0]?.metadata, metadata)
+      const invalid = yield* prepareManagedChat({
+        ...input,
+        params: {
+          ...params,
+          forwardedProps: {
+            ...params.forwardedProps,
+            toolMetadata: {
+              lookup: {
+                astralbeam: {
+                  resultVersion: 1,
+                  outputSchema: {
+                    type: "object",
+                    properties: { id: { type: "string", pattern: "^(a+)+$" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }).pipe(Effect.result)
+      assert.equal(invalid._tag, "Failure")
+      assert.lengthOf(admitted, 2)
+      const excessivePatterns = yield* prepareManagedChat({
+        ...input,
+        params: {
+          ...commandParams,
+          tools: ["first", "second"].map((name) => ({
+            ...params.tools[0]!,
+            name,
+            outputSchema: {
+              type: "object",
+              patternProperties: Object.fromEntries(
+                Array.from({ length: 17 }, (_, index) => [`^key${index}$`, { type: "string" }]),
+              ),
+            },
+          })),
+        },
+      }).pipe(Effect.result)
+      assert.equal(excessivePatterns._tag, "Failure")
+      assert.lengthOf(admitted, 2)
       for (const source of [
         { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
         {
@@ -100,7 +158,7 @@ describe("managed conversation commands", () => {
         },
       }).pipe(Effect.flip)
       assert.equal(disabled._tag, "ChatAttachmentsDisabled")
-      assert.lengthOf(admitted, 1)
+      assert.lengthOf(admitted, 2)
     }).pipe(Effect.provide(layer))
   })
 
@@ -158,6 +216,116 @@ describe("managed conversation commands", () => {
           results: [{ ...input.results[0]!, outcome: "unknown", output: null }],
         })
         assert.lengthOf(resolved, 2)
+      }).pipe(Effect.provide(layer))
+    },
+  )
+
+  it.effect(
+    "validates versioned structured results and preserves their result version on failure",
+    () => {
+      const resolved: ResolveToolsInput[] = []
+      const layer = Layer.succeed(ChatThreads, {
+        getMessage: () =>
+          Effect.succeed({
+            payload: {
+              version: 1,
+              parts: [
+                {
+                  id: "part",
+                  type: "tool-call",
+                  toolCallId: "provider",
+                  declaration: {
+                    resultVersion: 1,
+                    outputSchema: {
+                      type: ["array", "null"],
+                      items: {
+                        type: "object",
+                        properties: { id: { type: "string", pattern: "^[a-z]+$" } },
+                        required: ["id"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        resolveTools: (input: ResolveToolsInput) => {
+          resolved.push(input)
+          return Effect.succeed({})
+        },
+      } as unknown as typeof ChatThreads.Service)
+      return Effect.gen(function* () {
+        const output = {
+          content: [{ type: "text", text: "Found" }],
+          structuredContent: [{ id: "record" }],
+          uiData: { display: "UI only" },
+        }
+        const input = {
+          scope: commandScope,
+          id: commandThreadId,
+          clientId: commandUserId,
+          results: [
+            {
+              sourceMessageId: commandThreadId,
+              sourcePartId: "part",
+              responseTargetId: commandTenantId,
+              outcome: "succeeded" as const,
+              output,
+            },
+          ],
+        }
+        for (const invalidOutput of [
+          { ...output, structuredContent: [{ id: 1 }] },
+          { id: "record" },
+        ]) {
+          const result = yield* resolveManagedChatTools({
+            ...input,
+            results: [{ ...input.results[0]!, output: invalidOutput }],
+          }).pipe(Effect.result)
+          assert.equal(result._tag, "Failure")
+        }
+        assert.lengthOf(resolved, 0)
+        yield* resolveManagedChatTools(input)
+        assert.deepInclude(resolved[0]!.results[0]!.payload.parts[0], { resultVersion: 1, output })
+        const emptyOutput = { ...output, structuredContent: null }
+        yield* resolveManagedChatTools({
+          ...input,
+          results: [{ ...input.results[0]!, output: emptyOutput }],
+        })
+        assert.deepInclude(resolved[1]!.results[0]!.payload.parts[0], {
+          resultVersion: 1,
+          output: emptyOutput,
+        })
+        yield* resolveManagedChatTools({
+          ...input,
+          results: [
+            {
+              ...input.results[0]!,
+              output: { content: [{ type: "text", text: "Not found" }], isError: true },
+            },
+          ],
+        })
+        assert.lengthOf(resolved, 3)
+        for (const failure of [
+          { outcome: "failed" as const, output: { ...output, isError: true } },
+          {
+            outcome: "unknown" as const,
+            output: { error: "Operation interrupted", uiData: { secret: "UI only" } },
+          },
+        ]) {
+          yield* resolveManagedChatTools({
+            ...input,
+            results: [{ ...input.results[0]!, ...failure }],
+          })
+          assert.deepInclude(resolved.at(-1)!.results[0]!.payload.parts[0], {
+            resultVersion: 1,
+            output:
+              failure.outcome === "failed"
+                ? failure.output
+                : { content: [{ type: "text", text: "Operation interrupted" }], isError: true },
+          })
+        }
       }).pipe(Effect.provide(layer))
     },
   )

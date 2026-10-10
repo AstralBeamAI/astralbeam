@@ -238,7 +238,7 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
       downgraded ? denied : "acceptance is unconfirmed",
     )
     chat.updateOptions({
-      tools: { changed: { description: "Changed declaration", execute: () => null } },
+      tools: { changed: { description: "Changed declaration", execute: () => ({}) } },
     })
     await chat.sendMessage("Hello")
     expect(sent).toHaveLength(2)
@@ -272,6 +272,10 @@ test.each([
   "a rejection $status permits editing only without earlier uncertainty=$uncertain",
   async ({ status, uncertain }) => {
     const keys: Array<string | null> = []
+    const bodies: {
+      tools: { name: string }[]
+      forwardedProps: { toolMetadata: Record<string, unknown> }
+    }[] = []
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
       if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
@@ -281,6 +285,7 @@ test.each([
       if (path.endsWith("/threads"))
         return Promise.resolve(Response.json({ items: [thread], page_after: null }))
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      bodies.push(JSON.parse(init!.body as string) as (typeof bodies)[number])
       if (uncertain && keys.length === 1)
         return Promise.reject(new TypeError("Acknowledgment lost"))
       return Promise.resolve(
@@ -295,14 +300,27 @@ test.each([
         ),
       )
     })
-    const chat = createAstralBeamChat({ threadId: thread.id, fetchAstralBeamToken: token })
+    const chat = createAstralBeamChat({
+      threadId: thread.id,
+      fetchAstralBeamToken: token,
+      tools: { old_tool: { description: "Old", execute: () => ({}) } },
+    })
     try {
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
       await chat.sendMessage("Original input")
       if (uncertain) await chat.sendMessage("Original input")
+      chat.updateOptions({
+        tools: { new_tool: { description: "New", execute: () => ({}) } },
+      })
       await chat.sendMessage("Corrected input")
       expect(keys).toHaveLength(2)
       expect(keys[1] === keys[0]).toBe(uncertain)
+      const name = uncertain ? "old_tool" : "new_tool"
+      expect(bodies[1]!.tools.map((tool) => tool.name)).toContain(name)
+      expect(bodies[1]!.forwardedProps.toolMetadata).toHaveProperty(name)
+      expect(bodies[1]!.forwardedProps.toolMetadata).not.toHaveProperty(
+        uncertain ? "new_tool" : "old_tool",
+      )
       expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
       expect(chat.getState().error?.message).toContain(
         uncertain ? "acceptance is unconfirmed" : "Input was not admitted",
@@ -388,7 +406,8 @@ test("opening saved tool calls restores their results without executing host too
   const chat = createAstralBeamChat({
     threadId: thread.id,
     fetchAstralBeamToken: token,
-    tools: { change_data: { description: "Change data", execute } },
+    tools: { change_data: { description: "Change data", widget: "card", execute } },
+    widgets: { card: { description: "Card" } },
   })
   try {
     await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
@@ -398,6 +417,7 @@ test("opening saved tool calls restores their results without executing host too
       applicationPartId: "application-part",
       state: "complete",
       output: { done: true },
+      widget: undefined,
     })
     expect(execute).not.toHaveBeenCalled()
   } finally {
@@ -804,7 +824,9 @@ test.each([
     const chat = createAstralBeamChat({
       threadId: thread.id,
       fetchAstralBeamToken: token,
-      tools: { change_data: { description: "Change data", execute } },
+      tools: {
+        change_data: { description: "Change data", execute },
+      },
     })
     try {
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
@@ -846,7 +868,10 @@ test.each([
             outcome: throwsAfterCommit ? "unknown" : "succeeded",
             output: throwsAfterCommit
               ? { error: "Response lost after mutation" }
-              : { changed: true },
+              : {
+                  content: [{ type: "text", text: '{"changed":true}' }],
+                  structuredContent: { changed: true },
+                },
           },
         ],
       })
@@ -1016,12 +1041,12 @@ test("a browser tool and widget can continue through consecutive committed turns
   const executed = vi.fn(() => ({ done: true }))
   const rendered = vi.fn()
   const outputs: unknown[] = []
-  const input = { widget: "card", props: {} }
+  const input = {}
   const call = (index: number) => ({
     id: `part-${index}`,
     type: "tool-call",
     toolCallId: "reused-call",
-    name: index === 1 ? "change_data" : "render_widget",
+    name: index === 1 ? "change_data" : "show_card",
     arguments: JSON.stringify(index === 1 ? {} : input),
     input: index === 1 ? {} : input,
     state: "input-complete",
@@ -1177,14 +1202,20 @@ test("a browser tool and widget can continue through consecutive committed turns
     expect(outputs).toEqual([
       expect.objectContaining({
         results: [
-          expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
+          expect.objectContaining({
+            source_message_id: "assistant-1",
+            output: {
+              content: [{ type: "text", text: '{"done":true}' }],
+              structuredContent: { done: true },
+            },
+          }),
         ],
       }),
       expect.objectContaining({
         results: [
           expect.objectContaining({
             source_message_id: "assistant-2",
-            output: { widget: "card", rendered: true },
+            output: { content: [{ type: "text", text: "Displayed card" }] },
           }),
         ],
       }),
@@ -1581,6 +1612,74 @@ test("refresh after membership removal leaves a fresh conversation without an er
     expect(chat.getState().thread).toBeUndefined()
     expect(chat.getState().error).toBeUndefined()
   } finally {
+    chat.dispose()
+  }
+})
+
+test("a host update during send keeps metadata paired with the captured tools", async () => {
+  let body:
+    | {
+        tools: { name: string }[]
+        forwardedProps: { toolMetadata: Record<string, unknown> }
+      }
+    | undefined
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
+    if (path.endsWith("/threads"))
+      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+    body = JSON.parse(init!.body as string) as typeof body
+    const run = { threadId: thread.id, runId: "run" }
+    const events = [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "TOOL_CALL_START",
+        parentMessageId: "assistant",
+        toolCallId: "call",
+        toolCallName: "old_tool",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+      { type: "TOOL_CALL_END", toolCallId: "call" },
+      { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
+    ]
+    return Promise.resolve(
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    )
+  })
+  const chat = createAstralBeamChat({
+    threadId: thread.id,
+    fetchAstralBeamToken: token,
+    tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
+    widgets: { card: { description: "Card" } },
+    streamCallbacks: {
+      onResponse: () =>
+        chat.updateOptions({
+          tools: { new_tool: { description: "New", execute: () => ({}) } },
+        }),
+    },
+  })
+  let streamedPart: unknown
+  const unsubscribe = chat.subscribe(() => {
+    const part = chat
+      .getState()
+      .messages.flatMap((message) => message.parts)
+      .find((part) => part.type === "tool-call")
+    if (part) streamedPart = { ...part }
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.sendMessage("Check snapshot")
+    expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+    expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+    expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+    expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
+  } finally {
+    unsubscribe()
     chat.dispose()
   }
 })

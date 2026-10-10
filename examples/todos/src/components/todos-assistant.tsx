@@ -1,7 +1,7 @@
 import {
   AstralBeamChat,
   type AstralBeamChatColorScheme,
-  type ToolDefinition,
+  type ToolRegistry,
 } from "@astralbeam/sdk/react"
 
 import { TodoCard } from "@/components/todo-card.tsx"
@@ -18,11 +18,7 @@ interface TodosAssistantProps {
 
 export function TodosAssistant({ colorScheme, customTheme, debug }: TodosAssistantProps) {
   const { todos, getTodos, setTodos, createTodo } = useTodos()
-  const onToggleTodo = (id: number) =>
-    setTodos((current) =>
-      current.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
-    )
-  const tools: Record<string, ToolDefinition> = {
+  const tools: ToolRegistry = {
     get_todos: {
       ...TODO_TOOL_METADATA.get_todos,
       execute: () => ({ todos: getTodos() }),
@@ -76,7 +72,7 @@ export function TodosAssistant({ colorScheme, customTheme, debug }: TodosAssista
               },
               required: ["id"],
             },
-            render: ({ id, highlight }) => {
+            render: ({ id, highlight }, { callTool }) => {
               // Host state changes re-render this definition, keeping projected cards live.
               const todo = todos.find((candidate) => candidate.id === Number(id))
               return (
@@ -85,7 +81,9 @@ export function TodosAssistant({ colorScheme, customTheme, debug }: TodosAssista
                     title={todo.text}
                     completed={todo.completed}
                     highlight={Boolean(highlight)}
-                    onToggle={() => onToggleTodo(todo.id)}
+                    onToggle={() =>
+                      void callTool("update_todo", { id: todo.id, completed: !todo.completed })
+                    }
                   />
                 )
               )

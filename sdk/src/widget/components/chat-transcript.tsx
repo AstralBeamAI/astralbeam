@@ -14,7 +14,7 @@ import {
 } from "@/widget/components/ui/message-scroller"
 import { Spinner } from "@/widget/components/ui/spinner"
 import { DEFAULT_EMPTY_DESCRIPTION, DEFAULT_EMPTY_HEADLINE } from "../../lib/constants.ts"
-import type { WidgetDefinition } from "../../lib/types.ts"
+import type { WidgetRegistry } from "../../lib/types.ts"
 import type { SavedMessageMetadata } from "../../core/threads.ts"
 import type { QuestionnaireAnswer } from "../lib/types.ts"
 import { AssistantPart } from "./assistant-part.tsx"
@@ -31,7 +31,7 @@ interface ChatTranscriptProps {
   emptyHeadline?: string | undefined
   /** Subtitle of the empty transcript; defaults to `DEFAULT_EMPTY_DESCRIPTION`. */
   emptyDescription?: string | undefined
-  widgets: Record<string, WidgetDefinition>
+  widgets: WidgetRegistry
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
   activeSlots: ReadonlyMap<string, string>

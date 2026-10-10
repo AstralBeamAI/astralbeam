@@ -133,6 +133,10 @@ The vanilla entry lazily loads a widget with its own React and styles. The React
 
 Chat and directory components use the same framework-free authentication lifecycle for token acquisition, current-user synchronization, proactive renewal, and bounded retry. Each component owns and disposes its session.
 
+Host definitions use keyed tool and widget registries, object input schemas, JSON output schemas, advisory annotations, and model/app visibility. SDK execution validates input and structured results while keeping functions local. Internal declarations serialize the schema and presentation association independently of those functions. Native DOM and React renderers consume invocation context and controls. Standalone widgets become schema-specific presentation tools.
+
+The SDK constructs result envelopes from plain tool data. Local widget calls validate the same input and output contracts, then return the tool's data or custom result directly. Only `toolResult(...)` marks custom envelopes, so business field names never select a result format. Tool results separate model-safe content and structured data from `uiData`. Versioned results retain the full presentation data in saved JSON, and model projection strips `uiData` from ordinary, partial, and aggregated exchanges. Unversioned results remain unchanged. Existing `render_widget` history is restored without business execution. This prepares protocol adapters without implementing [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) resources, sandboxed frames, or [WebMCP](https://webmachinelearning.github.io/webmcp/) discovery.
+
 Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox artifacts are downloaded through short-lived tickets bound to the published bytes. These boundaries are detailed in [SDK security](platform/src/routes/docs/-content/sdk/security.md).
 
 ## Build and deployment

@@ -66,6 +66,10 @@ export function todosPage(page: Page) {
       return page.locator(".todo-card").filter({ hasText: text })
     },
 
+    projectedCheckbox(text: string | RegExp): Locator {
+      return this.projectedCard(text).getByRole("checkbox")
+    },
+
     controls,
     search: page.getByRole("searchbox", { name: "Search todos", exact: true }),
     navigate: (name: "Todos" | "Users" | "Conversations") =>

@@ -3,66 +3,75 @@ import type {
   JsonSchemaObject,
   ToolDefinition as HostToolDefinition,
   WidgetDefinition,
+  ToolResult,
+  ToolExecutionContext,
+  WidgetContext,
+  ToolRegistry,
 } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
+import { toolResult } from "../lib/define.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "./protocol.ts"
 import type { RenderWidgetInput } from "./types.ts"
-import { toJsonSchema, validateParameters } from "./schema.ts"
+import {
+  toJsonSchema,
+  compileJsonSchema,
+  validateParameters,
+  validateToolResult,
+} from "./schema.ts"
 
 type RenderWidget = (
   input: RenderWidgetInput,
   toolCallId: string,
+  result?: ToolResult,
+  status?: WidgetContext["status"],
 ) => Promise<{ widget: string; rendered: boolean }>
 
-/** What declaring a widget to the agent needs; `render` stays with whoever draws it. */
 export type WidgetDeclaration = Pick<WidgetDefinition, "description" | "parameters">
+type NamedTool = HostToolDefinition & { name: string }
 
-/** The full tool set declared to the agent; `render_widget` only when widgets are registered. */
 export function buildAgentTools(
-  widgets: Record<string, WidgetDeclaration>,
-  hostTools: Record<string, HostToolDefinition>,
+  widgets: Readonly<Record<string, WidgetDeclaration>>,
+  hostTools: ToolRegistry,
   renderWidget: RenderWidget,
   debug?: DebugLogger,
 ) {
-  return [
-    ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
-    buildAskQuestionnaireTool(),
-    ...buildHostTools(hostTools, debug),
-  ]
-}
-
-// Declares the registered widgets to the agent as one `render_widget` tool whose
-// description carries the per-widget catalog; `render` is the chat widget's DOM side.
-function buildRenderWidgetTool(widgets: Record<string, WidgetDeclaration>, render: RenderWidget) {
-  const catalog = Object.entries(widgets)
-    .map(
-      ([name, { description, parameters }]) =>
-        `- ${name}: ${description} Props schema: ${JSON.stringify(toJsonSchema(parameters))}`,
+  const registry = new Map<string, { tool: NamedTool; presentation: boolean }>()
+  const register = (tool: NamedTool, presentation = false) => {
+    // Match WebMCP names. https://webmachinelearning.github.io/webmcp/#dom-modelcontext-registertool
+    if (
+      !/^[\w.-]{1,128}$/.test(tool.name) ||
+      registry.has(tool.name) ||
+      [ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL].includes(tool.name)
     )
-    .join("\n")
-  return toolDefinition({
-    name: RENDER_WIDGET_TOOL,
-    description:
-      "Render one of the host application's own UI widgets inline in the " +
-      "conversation. The widget appears in the transcript at the point of the call, so prefer " +
-      "it over describing the same information in text. Available widgets:\n" +
-      catalog,
-    inputSchema: {
-      type: "object",
-      properties: {
-        widget: {
-          type: "string",
-          enum: Object.keys(widgets),
-          description: "Name of the widget to render.",
-        },
-        props: {
-          type: "object",
-          description: "Props for the widget, matching its props schema.",
-        },
+      throw new Error(`Duplicate, reserved or invalid tool name "${tool.name}"`)
+    if (tool.widget !== undefined && !Object.hasOwn(widgets, tool.widget))
+      throw new Error(`Unknown widget "${tool.widget}"`)
+    const inputSchema = toJsonSchema(tool.parameters)
+    if (!tool.parameters || !("~standard" in tool.parameters)) compileJsonSchema(inputSchema)
+    if (tool.outputSchema) compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
+    registry.set(tool.name, { tool, presentation })
+  }
+  for (const [name, tool] of Object.entries(hostTools)) register({ ...tool, name })
+  for (const [id, widget] of Object.entries(widgets)) {
+    if (!id) throw new Error("A widget ID cannot be empty")
+    register(
+      {
+        name: `show_${id}`,
+        description: widget.description,
+        ...(widget.parameters ? { parameters: widget.parameters } : {}),
+        widget: id,
+        annotations: { readOnlyHint: true },
+        execute: () => toolResult({ content: `Displayed ${id}` }),
       },
-      required: ["widget"],
-    } satisfies JsonSchemaObject,
-  }).client((input, context) => render(input as RenderWidgetInput, context?.toolCallId ?? ""))
+      true,
+    )
+  }
+  return [
+    buildAskQuestionnaireTool(),
+    ...[...registry.values()]
+      .filter(({ tool }) => !tool.visibility || tool.visibility.includes("model"))
+      .map(({ tool, presentation }) => buildHostTool(tool, presentation, renderWidget, debug)),
+  ]
 }
 
 // Declared without an execute function on purpose: the call stays pending while the
@@ -127,39 +136,105 @@ function buildAskQuestionnaireTool() {
   }).client()
 }
 
-/** Wraps the host's mount-time tools as client tools the agent can call. */
-function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: DebugLogger) {
-  return Object.entries(tools).map(([name, tool]) =>
-    toolDefinition({
-      name,
-      description: tool.description,
-      inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
-      ...(tool.metadata ? { metadata: tool.metadata } : {}),
-    }).client(async (input: unknown) => {
-      debug?.("tool", `executing host tool "${name}"`, { input })
-      const validated = await validateParameters(
-        tool.parameters,
-        (input ?? {}) as Record<string, unknown>,
-      )
-      if (validated == null) {
-        debug?.("error", `input for host tool "${name}" failed schema validation`, { input })
-        throw new Error(`Input for tool "${name}" failed schema validation`)
-      }
+/** Shared validation for assistant calls and widget-initiated application calls. */
+export async function executeHostTool(
+  tool: NamedTool,
+  input: unknown,
+  context: ToolExecutionContext,
+  onValidated?: () => Promise<void>,
+) {
+  context.signal.throwIfAborted()
+  const outputSchema = tool.outputSchema
+    ? compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
+    : undefined
+  const validated = await validateParameters(tool.parameters, input ?? {})
+  if (validated === null) throw new Error(`Input for tool "${tool.name}" failed schema validation`)
+  context.signal.throwIfAborted()
+  await onValidated?.()
+  context.signal.throwIfAborted()
+  const output = await tool.execute(validated, context)
+  try {
+    canonicalInterruptJson(output)
+    return { result: validateToolResult(output, outputSchema), value: output }
+  } catch {
+    throw new Error(
+      `Tool "${tool.name}" ran, but its result failed JSON or output validation. Its changes may already be applied. Read current state before retrying.`,
+    )
+  }
+}
+
+function buildHostTool(
+  tool: NamedTool,
+  presentation: boolean,
+  render: RenderWidget,
+  debug?: DebugLogger,
+) {
+  const structuredSchema = tool.outputSchema ? toJsonSchema(tool.outputSchema, "output") : undefined
+  return toolDefinition({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
+    metadata: {
+      ...(tool.title ? { title: tool.title } : {}),
+      astralbeam: {
+        resultVersion: 1,
+        ...(tool.widget ? { widget: tool.widget } : {}),
+        ...(structuredSchema ? { outputSchema: structuredSchema } : {}),
+        ...(tool.annotations ? { annotations: tool.annotations } : {}),
+        visibility: tool.visibility ?? ["model", "app"],
+        presentation,
+      },
+    },
+  }).client(async (input: unknown, context) => {
+    const toolCallId = context?.toolCallId ?? ""
+    const signal = context?.abortSignal ?? new AbortController().signal
+    // Presentation failures must not turn a completed business operation into a retry.
+    const present = async (result: ToolResult | undefined, status: WidgetContext["status"]) => {
+      if (!tool.widget) return false
       try {
-        const output = await tool.execute(validated)
-        try {
-          canonicalInterruptJson(output)
-        } catch {
-          throw new Error(
-            `Tool "${name}" ran, but its result is not JSON-compatible. Its changes may already be applied. Read current state before retrying. Return plain JSON values and omit undefined fields.`,
-          )
-        }
-        debug?.("tool", `host tool "${name}" returned`, { output })
-        return output
+        const { rendered } = await render(
+          { widget: tool.widget, props: (input ?? {}) as Record<string, unknown> },
+          toolCallId,
+          result,
+          status,
+        )
+        return rendered
       } catch (error) {
-        debug?.("error", `host tool "${name}" threw`, { error })
-        throw error
+        debug?.("error", "Widget presentation failed", error)
+        return false
       }
-    }),
-  )
+    }
+    const cancelled = () => {
+      void present(undefined, "cancelled")
+    }
+    signal.addEventListener("abort", cancelled, { once: true })
+    try {
+      debug?.("tool", `executing host tool "${tool.name}"`, { input })
+      const { result: output } = await executeHostTool(
+        tool,
+        input,
+        { signal, invocationId: toolCallId },
+        async () => {
+          if (!presentation) await present(undefined, "pending")
+        },
+      )
+      debug?.("tool", `host tool "${tool.name}" returned`, { output })
+      const rendered = await present(
+        output,
+        signal.aborted ? "cancelled" : output.isError ? "error" : "complete",
+      )
+      if (presentation && !rendered)
+        return {
+          content: [{ type: "text", text: `Could not display ${tool.widget}` }],
+          isError: true,
+        }
+      return output
+    } catch (error) {
+      debug?.("error", `host tool "${tool.name}" threw`, { error })
+      await present(undefined, signal.aborted ? "cancelled" : "error")
+      throw error
+    } finally {
+      signal.removeEventListener("abort", cancelled)
+    }
+  })
 }

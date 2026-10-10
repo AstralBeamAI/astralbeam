@@ -97,6 +97,17 @@ async function exerciseManagedStream(options: {
   const definition = toolDefinition({
     name: options.unknownTool ? "different" : "change",
     description: "Test action",
+    ...(options.browser
+      ? {
+          metadata: {
+            astralbeam: {
+              resultVersion: 1,
+              widget: "card",
+              outputSchema: { type: "object", properties: {} },
+            },
+          },
+        }
+      : {}),
     inputSchema: options.invalidInput
       ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
       : { type: "object", properties: {} },
@@ -346,6 +357,11 @@ describe("managed TanStack persistence boundaries", () => {
     const decision = result.saved.find((payload) =>
       payload.parts.some((part) => part.type === "tool-call"),
     )
+    expect(decision?.parts.find((part) => part.type === "tool-call")?.declaration).toMatchObject({
+      resultVersion: 1,
+      widget: "card",
+      outputSchema: { type: "object" },
+    })
     const targets = Schema.decodeUnknownSync(
       Schema.Array(
         Schema.Struct({ id: Schema.String, tenantUserId: Schema.String, clientId: Schema.String }),

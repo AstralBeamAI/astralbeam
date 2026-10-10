@@ -67,12 +67,12 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
   sandboxPanel: true,
   tools: {
     get_todos: {
-      metadata: { title: "List the todos" },
+      title: "List the todos",
       description: "List every todo with its id, text, and completed flag.",
       execute: async () => ({ todos: await request("GET", "/todos") })
     },
     create_todo: {
-      metadata: { title: "Create a todo" },
+      title: "Create a todo",
       description: "Create a new todo and append it to the list.",
       parameters: {
         type: "object",
@@ -85,7 +85,7 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
       execute: async ({ text, completed }) => ({ created: await change("POST", "/todos", { text, completed }) })
     },
     update_todo: {
-      metadata: { title: "Update a todo" },
+      title: "Update a todo",
       description: "Update a todo's text, its completed flag, or both, by its id.",
       parameters: {
         type: "object",
@@ -101,7 +101,7 @@ const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
       })
     },
     delete_todo: {
-      metadata: { title: "Delete a todo" },
+      title: "Delete a todo",
       description: "Delete a todo from the list by its id.",
       parameters: {
         type: "object",

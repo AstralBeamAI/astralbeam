@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, test, vi } from "vitest"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 import { slotNameForToolCall } from "../lib/utils.ts"
+import { AssistantPart } from "./assistant-part.tsx"
 import { ChatTranscript } from "./chat-transcript.tsx"
 
 test.each(["render_widget", "ask_questionnaire"])(
@@ -35,7 +37,9 @@ test.each(["render_widget", "ask_questionnaire"])(
           },
         ]}
         apiUrl="http://localhost/api"
-        widgets={{ card: { description: "Card", render: vi.fn() } }}
+        widgets={{
+          card: { description: "Card", render: vi.fn() },
+        }}
         toolTitles={{}}
         activeSlots={new Map([[slotNameForToolCall("saved:decision"), "card"]])}
         interactiveToolIds={new Set(["saved:decision"])}
@@ -56,3 +60,36 @@ test.each(["render_widget", "ask_questionnaire"])(
     expect(html).not.toContain("<slot")
   },
 )
+
+test("an unavailable widget shows failure text without disclosing UI data", () => {
+  const part: ChatToolCallPart = {
+    type: "tool-call",
+    id: "saved:card",
+    name: "get_todo",
+    widget: "missing",
+    resultVersion: 1,
+    arguments: "{}",
+    input: {},
+    state: "complete",
+    output: {
+      content: [{ type: "text", text: "Todo unavailable" }],
+      uiData: { privateLabel: "UI only" },
+      isError: true,
+    },
+  }
+  const html = renderToStaticMarkup(
+    <AssistantPart
+      part={part}
+      apiUrl="http://localhost/api"
+      widgets={{}}
+      toolTitles={{}}
+      activeSlots={new Map()}
+      interactiveToolIds={new Set()}
+      onQuestionnaireAnswers={vi.fn()}
+    />,
+  )
+  expect(html).toContain("Todo unavailable")
+  expect(html).not.toContain("UI only")
+  expect(html).not.toContain("This widget is unavailable")
+  expect(html).not.toContain("Preparing a widget")
+})
