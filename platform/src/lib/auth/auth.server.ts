@@ -13,8 +13,8 @@ import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
 
-import { getAuthDatabase } from "@/db/database.server"
-import { tables } from "@/db/schema.server"
+import { getAuthDatabase } from "@/db/database"
+import { tables } from "@/db/schema"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import {
   ORGANIZATION_API_KEY_PREFIX,
@@ -22,7 +22,7 @@ import {
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
 } from "@/lib/api-keys/schemas"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
 import { APP_NAME } from "@/lib/constants"
 import { Mailer } from "@/lib/email/email.server"

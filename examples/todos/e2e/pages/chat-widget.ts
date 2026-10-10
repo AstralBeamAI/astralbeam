@@ -23,7 +23,7 @@ const CHAT_IDLE_TIMEOUT_MS = 150_000
  * retryable error. Waiting the window out and pressing Retry keeps a throttled request from
  * failing an otherwise good spec. The example's token route mints one fixed tenant user, so every
  * spec shares the buckets; the limits live beside `CHAT_RATE_LIMIT_MAX_REQUESTS` in
- * `platform/src/lib/chat/constants.server.ts`.
+ * `platform/src/lib/chat/constants.ts`.
  */
 const CHAT_RATE_LIMIT_COOLDOWN_MS = 65_000
 const CHAT_RATE_LIMIT_MAX_RECOVERIES = 2

@@ -1,6 +1,6 @@
 import { Context, DateTime, Effect, Layer, Schema } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
 import { APP_LOGO_LIGHT_PNG_URL } from "@/lib/constants"
 import { EmailDeliveryError } from "./errors.ts"
@@ -25,7 +25,7 @@ import {
   type WelcomeEmailData,
   welcomeEmailMessage,
 } from "./messages.server.ts"
-import { EmailProviders } from "./providers/providers.server.ts"
+import { EmailProviders } from "./providers/providers.ts"
 import { renderEmailElement } from "./render.server.ts"
 import {
   EMAIL_PROVIDER_SETTING_KEYS,

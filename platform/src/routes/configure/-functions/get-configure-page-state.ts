@@ -4,9 +4,9 @@ import { Effect, Option } from "effect"
 import {
   getDatabaseBootstrapIssues,
   getDatabaseEncryptionKeyring,
-} from "@/db/lib/database-credentials.server"
-import { Config } from "@/lib/config/config.server"
-import { CONFIG_DEFINITIONS, configEnvironmentVariable } from "@/lib/config/registry.server"
+} from "@/db/lib/database-credentials"
+import { Config } from "@/lib/config/config"
+import { CONFIG_DEFINITIONS, configEnvironmentVariable } from "@/lib/config/registry"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { exposeError, runEffect, runRequestEffect } from "@/lib/runtime/server-fn.server"
 import { checkConfigureRequest } from "../-lib/configure-request.server"

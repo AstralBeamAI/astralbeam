@@ -70,7 +70,7 @@ const SEED_API_KEY_SECRETS = {
 
 /**
  * Global configuration the seed writes when no uppercase environment variable already supplies it.
- * These are the keys `validateConfigCompleteness` in `src/lib/config/registry.server.ts` marks
+ * These are the keys `validateConfigCompleteness` in `src/lib/config/registry.ts` marks
  * required; add a key here when that function starts requiring another one, or the application
  * will redirect to `/configure` after a seed.
  *

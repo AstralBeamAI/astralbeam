@@ -5,7 +5,7 @@ import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk
 import { eq, like, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
-import { configTable } from "../../src/db/schema.server.ts"
+import { configTable } from "../../src/db/schema.ts"
 import { StorageEndpointSchema } from "../../src/lib/storage/schemas.ts"
 import { BooleanSettingSchema, parseEnvironmentConfigValue } from "../../src/lib/config/schemas.ts"
 import { NonEmptyStringSchema } from "../../src/lib/schemas.ts"
@@ -22,9 +22,9 @@ export type SeedConfigResult = {
  * Writes the configuration the application needs before it will serve anything but `/configure`.
  *
  * A key whose uppercase environment variable is already set is left alone, because
- * `src/lib/config/registry.server.ts` gives the environment precedence and `/configure` renders
+ * `src/lib/config/registry.ts` gives the environment precedence and `/configure` renders
  * those fields read-only; writing a row for one would be invisible and misleading. Values are
- * upserted through the same encrypted-column codec `src/lib/config/store.server.ts` uses.
+ * upserted through the same encrypted-column codec `src/lib/config/store.ts` uses.
  */
 export async function seedConfig(
   transaction: SeedTransaction,

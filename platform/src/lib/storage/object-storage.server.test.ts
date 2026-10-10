@@ -5,7 +5,7 @@ import { S3Client } from "@aws-sdk/client-s3"
 import { Effect, Layer, Logger, ManagedRuntime } from "effect"
 import { expect, test, vi } from "vitest"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { ObjectStorage } from "./object-storage.server"
 
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {

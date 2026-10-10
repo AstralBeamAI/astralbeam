@@ -1,23 +1,20 @@
 import { and, asc, eq, notInArray, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Result } from "effect"
 
-import { Database } from "@/db/database.server"
-import { Config } from "@/lib/config/config.server"
-import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { decryptDatabaseValue } from "@/db/lib/encryption.server"
-import {
-  deleteWithOptimisticLock,
-  updateWithOptimisticLock,
-} from "@/db/lib/optimistic-locking.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
+import { Database } from "@/db/database"
+import { Config } from "@/lib/config/config"
+import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
+import { decryptDatabaseValue } from "@/db/lib/encryption"
+import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate"
+import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter"
 import {
   agent,
   agentModel,
   modelProvider,
   organizationConfiguration,
   providerModel,
-} from "@/db/schema/organizations.server"
+} from "@/db/schema/organizations"
 import { fetchPublicModelEndpoint, isPublicModelEndpointUrl } from "./endpoints.server.ts"
 import { formatAgentId } from "../agents/schemas.ts"
 import {

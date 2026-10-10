@@ -3,10 +3,10 @@ import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { Database } from "../../db/database.server.ts"
-import { user } from "../../db/schema/authentication.server.ts"
-import { apiKey, invitation, member, organization } from "../../db/schema/organizations.server.ts"
-import { deleteTenant } from "../tenants/deletion.server.ts"
+import { Database } from "../../db/database.ts"
+import { user } from "../../db/schema/authentication.ts"
+import { apiKey, invitation, member, organization } from "../../db/schema/organizations.ts"
+import { deleteTenant } from "../tenants/deletion.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
 export const revokeOrganizationAccess = Effect.fn("revokeOrganizationAccess")(function* (

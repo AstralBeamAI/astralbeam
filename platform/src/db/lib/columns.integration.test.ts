@@ -11,8 +11,8 @@ const jsonbIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { Database, getAuthDatabase } from "../database.server.ts"
-import { organization, sandboxProvider, tenant } from "../schema.server.ts"
+import { Database, getAuthDatabase } from "../database.ts"
+import { organization, sandboxProvider, tenant } from "../schema.ts"
 
 describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
   const runtime = ManagedRuntime.make(Database.layer)

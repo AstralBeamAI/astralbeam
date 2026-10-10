@@ -4,7 +4,7 @@ import { beforeEach, vi } from "vitest"
 
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { EmbeddedAssistantUnavailable } from "@/lib/auth/errors"
-import { Config, type SetupState } from "@/lib/config/config.server"
+import { Config, type SetupState } from "@/lib/config/config"
 import { handleDashboardTokenRequest } from "./token.server.ts"
 
 // Issuance has its own services, and this boundary only decides what reaches it.

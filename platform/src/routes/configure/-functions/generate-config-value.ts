@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"

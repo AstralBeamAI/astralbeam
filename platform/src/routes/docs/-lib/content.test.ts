@@ -12,7 +12,7 @@ import {
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
   CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-} from "@/lib/chat/attachments/constants.server"
+} from "@/lib/chat/attachments/constants"
 import {
   CHAT_AUTH_TOKEN_MAX_LIFETIME_SECONDS,
   CHAT_AUTH_TOKEN_MIN_LIFETIME_SECONDS,
@@ -20,7 +20,7 @@ import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
-} from "@/lib/chat/constants.server"
+} from "@/lib/chat/constants"
 
 /** The docs page's own form for a byte cap, so a changed constant reads as a changed page. */
 function megabytes(bytes: number): string {

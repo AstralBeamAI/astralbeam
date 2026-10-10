@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Effect } from "effect"
 
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"

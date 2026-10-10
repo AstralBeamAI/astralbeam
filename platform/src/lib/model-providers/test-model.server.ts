@@ -2,7 +2,7 @@ import { chat, EventType, maxIterations } from "@tanstack/ai"
 import { Effect, Option, Schema } from "effect"
 import { Sse } from "effect/encoding"
 
-import { createChatAdapter } from "@/lib/chat/adapter.server"
+import { createChatAdapter } from "@/lib/chat/adapter"
 import { ModelProviderTestFailed } from "./errors.ts"
 import type { ChatModelConfiguration } from "./model-providers.server.ts"
 

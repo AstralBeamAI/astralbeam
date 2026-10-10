@@ -1,16 +1,10 @@
 import { and, asc, count, eq } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
-import { Database } from "@/db/database.server"
-import {
-  agent,
-  apiKey,
-  member,
-  organization,
-  sandboxProvider,
-} from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { agent, apiKey, member, organization, sandboxProvider } from "@/db/schema/organizations"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { UuidV7Schema } from "@/lib/schemas"
 import { SlugSchema } from "./slug.ts"
 import {

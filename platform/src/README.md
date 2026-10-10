@@ -37,7 +37,7 @@ The same shape repeats at every level. A route folder keeps what only it uses in
 
 ## One module, up close
 
-Every folder in `src/lib` looks like `src/lib/agents`:
+Folders in `src/lib` that mix server and shared code follow the `src/lib/agents` example:
 
 | File                    | Holds                                                                  |
 | ----------------------- | ---------------------------------------------------------------------- |
@@ -46,7 +46,7 @@ Every folder in `src/lib` looks like `src/lib/agents`:
 | `schemas.ts`            | Shapes shared with the browser, such as a valid agent name             |
 | `agents.server.test.ts` | Tests, next to the file they test                                      |
 
-A name ending in `.server.ts` never reaches the browser. Anything else may be imported by page code.
+TanStack import protection in `vite.config.ts` keeps `.server.ts` modules and protected directories out of the browser runtime graph. Files in those directories omit the `.server` filename suffix. Page code may import shared runtime modules from unprotected directories and use explicit type-only imports from protected modules.
 
 ## How a request runs
 

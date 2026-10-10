@@ -22,7 +22,7 @@ import {
   messageResource,
   savedChatAttachmentResponse,
 } from "../chat/-lib/threads.server"
-import type { DirectoryThreadRecord } from "../../../../lib/chat/threads/threads.server"
+import type { DirectoryThreadRecord } from "../../../../lib/chat/threads/threads"
 
 const directoryThreadDate = Schema.DateFromString.pipe(
   Schema.annotateEncoded({ format: "date-time" }),
@@ -133,9 +133,7 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
     api,
     "threadDirectory",
     Effect.fn("threadDirectoryHandlers")(function* (handlers) {
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads.server"),
-      )
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
       )

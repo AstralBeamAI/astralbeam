@@ -1,7 +1,7 @@
 import { Effect, Result, Schema, SchemaIssue } from "effect"
 
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
 import { SlugSchema } from "@/lib/organizations/slug"

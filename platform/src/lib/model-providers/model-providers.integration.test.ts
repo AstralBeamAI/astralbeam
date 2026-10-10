@@ -14,7 +14,7 @@ const modelProviderIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase } from "@/db/database.server"
+import { getAuthDatabase } from "@/db/database"
 import {
   agent,
   agentModel,
@@ -22,9 +22,9 @@ import {
   modelProvider,
   organization,
   organizationConfiguration,
-} from "@/db/schema.server"
+} from "@/db/schema"
 import { Agents } from "@/lib/agents/agents.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import {
@@ -33,7 +33,7 @@ import {
   writeModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
 import type { ModelConfiguration } from "./schemas.ts"
-import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.server.ts"
+import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
 
 const modelTestConfiguration: ModelConfiguration = {

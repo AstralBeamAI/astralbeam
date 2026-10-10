@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 
-import { tenant, tenantUser } from "../../src/db/schema.server.ts"
+import { tenant, tenantUser } from "../../src/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"

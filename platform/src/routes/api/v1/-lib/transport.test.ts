@@ -7,14 +7,14 @@ import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-import { Database, type EffectDatabase } from "@/db/database.server"
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { Database, type EffectDatabase } from "@/db/database"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { type AppAuth, Auth } from "@/lib/auth/auth.server"
 import { OrganizationMembershipError } from "@/lib/auth/errors"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { Organizations } from "@/lib/organizations/organizations.server"
-import { Chat } from "@/lib/chat/chat.server"
+import { Chat } from "@/lib/chat/chat"
 import { Agents } from "@/lib/agents/agents.server"
 import {
   ChatThreads,
@@ -22,13 +22,13 @@ import {
   type ThreadRecord,
   type MessageRecord,
   type ParticipantRecord,
-} from "@/lib/chat/threads/threads.server"
+} from "@/lib/chat/threads/threads"
 import { ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
-import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
-import { Tenants } from "@/lib/tenants/tenants.server"
-import { organization } from "@/db/schema/organizations.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
+import { Tenants } from "@/lib/tenants/tenants"
+import { organization } from "@/db/schema/organizations"
 import {
   createTenant as sdkCreateTenant,
   getChatFile as sdkGetChatFile,
@@ -73,14 +73,14 @@ const restTestState = vi.hoisted(() => ({
   appRuntime: undefined as ManagedRuntime.ManagedRuntime<never, never> | undefined,
 }))
 
-vi.mock("@/db/lib/database-credentials.server", async (original) => ({
-  ...(await original<typeof import("@/db/lib/database-credentials.server")>()),
+vi.mock("@/db/lib/database-credentials", async (original) => ({
+  ...(await original<typeof import("@/db/lib/database-credentials")>()),
   getDatabaseBootstrapIssues: vi.fn(),
 }))
-vi.mock("@/lib/chat/auth.server", async (original) => {
+vi.mock("@/lib/chat/auth", async (original) => {
   const { ChatAuthenticationError } = await import("@/lib/chat/errors")
   return {
-    ...(await original<typeof import("@/lib/chat/auth.server")>()),
+    ...(await original<typeof import("@/lib/chat/auth")>()),
     authenticateChatRequest: (request: Request) =>
       Effect.tryPromise({
         try: () => restTestState.chat(request) as Promise<unknown>,
@@ -111,7 +111,7 @@ import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
-} from "@/lib/chat/constants.server"
+} from "@/lib/chat/constants"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
 import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 

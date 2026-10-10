@@ -8,14 +8,14 @@ This guide describes the implemented foreground execution model. Saved history s
 
 | File | Responsibility |
 | --- | --- |
-| [Database schema](../../db/schema/chat.server.ts) | Tables, enums, indexes, and scoped foreign keys. |
-| [Stored JSON contracts](../../db/schema/chat.server.ts) | Validated message metadata and content payloads. |
+| [Database schema](../../db/schema/chat.ts) | Tables, enums, indexes, and scoped foreign keys. |
+| [Stored JSON contracts](../../db/schema/chat.ts) | Validated message metadata and content payloads. |
 | [Service contracts](threads/schemas.ts) | Conversation principals, execution identities, and history projections. |
-| [Conversation service](threads/threads.server.ts) | Authorization, transactions, ancestry, participants, admission, and state transitions. |
-| [Commands](threads/commands.server.ts) | Validated user input, shared platform idempotency, and tool-result validation. |
-| [Projection](threads/projection.server.ts) | Stored history converted into valid provider context. |
-| [Streaming integration](threads/stream.server.ts) | TanStack persistence, checkpoints, tool gates, and saved acknowledgments. |
-| [Chat execution](chat.server.ts) | Agent configuration, model orchestration, attachments, and sandbox preparation. |
+| [Conversation service](threads/threads.ts) | Authorization, transactions, ancestry, participants, admission, and state transitions. |
+| [Commands](threads/commands.ts) | Validated user input, shared platform idempotency, and tool-result validation. |
+| [Projection](threads/projection.ts) | Stored history converted into valid provider context. |
+| [Streaming integration](threads/stream.ts) | TanStack persistence, checkpoints, tool gates, and saved acknowledgments. |
+| [Chat execution](chat.ts) | Agent configuration, model orchestration, attachments, and sandbox preparation. |
 | [Conversation HTTP contract](../../routes/api/v1/chat/-lib/threads.server.ts) | Resource endpoints and REST encoding. |
 | [SDK session](../../../../sdk/src/core/session.ts) | Authentication, selection, hydration, drafts, transport, and interaction restoration. |
 
@@ -268,7 +268,7 @@ Several response slots become one aggregate provider tool result in response-ID 
 
 ### TanStack integration
 
-`stream.server.ts` supplies a messages-only `defineMessageStore` through `defineAIPersistence` and `withPersistence`. `loadThread` returns trusted server history. `saveThread` reconciles the trusted projection into the current writer's message without deleting concurrent or immutable nodes. It never accepts browser replacement history as canonical state.
+`stream.ts` supplies a messages-only `defineMessageStore` through `defineAIPersistence` and `withPersistence`. `loadThread` returns trusted server history. `saveThread` reconciles the trusted projection into the current writer's message without deleting concurrent or immutable nodes. It never accepts browser replacement history as canonical state.
 
 Streaming snapshots use `snapshotStreaming: true` and `snapshotIntervalMs: 1000`. They preserve saved partial output, but are not an ordered delivery log. Application gates separately commit admission, tool decisions, results, waiting boundaries, and completion. Native persistence completion is awaited at terminal completion. At a browser wait, the application commits that boundary without waiting for the native terminal promise, which remains pending.
 
@@ -463,7 +463,7 @@ API handlers resolve the already verified principal into internal scope and use 
 
 ```ts
 import { Effect } from "effect"
-import { ChatThreads } from "@/lib/chat/threads/threads.server"
+import { ChatThreads } from "@/lib/chat/threads/threads"
 import type { ChatPrincipal } from "@/lib/chat/types"
 
 const readSavedThread = Effect.fn("readSavedThread")(function* (
@@ -513,4 +513,4 @@ Parent links support future named branch heads. Forks can copy a selected prefix
 
 Background execution should reuse the existing [Effect workflow engine](../workflows/README.md). It needs checkpoints for exact model decisions and individual tool outcomes, with downstream idempotency or reconciliation for mutations. Wrapping the entire foreground model loop in one activity does not safely recover completed sibling tools.
 
-The [database integration tests](threads/threads.integration.test.ts) protect isolation, concurrent appends, immutable results, and lifecycle transitions. [Streaming tests](threads/stream.server.test.ts) protect commit-before-execution and saved acknowledgments. [Projection tests](threads/projection.server.test.ts) protect provider context, and [SDK persistence tests](../../../../sdk/src/core/session-persistence.test.ts) protect hydration and client state. Follow the owning project validation tasks and the [database migration workflow](../../db/README.md#drizzle-migration-workflow) when changing these contracts.
+The [database integration tests](threads/threads.integration.test.ts) protect isolation, concurrent appends, immutable results, and lifecycle transitions. [Streaming tests](threads/stream.test.ts) protect commit-before-execution and saved acknowledgments. [Projection tests](threads/projection.test.ts) protect provider context, and [SDK persistence tests](../../../../sdk/src/core/session-persistence.test.ts) protect hydration and client state. Follow the owning project validation tasks and the [database migration workflow](../../db/README.md#drizzle-migration-workflow) when changing these contracts.

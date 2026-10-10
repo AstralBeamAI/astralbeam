@@ -97,19 +97,13 @@ export function chatHandlers(api: typeof ApiV1) {
     api,
     "chat",
     Effect.fn("chatHandlers")(function* (handlers) {
-      const { authenticateChatRequest } = yield* Effect.promise(
-        () => import("@/lib/chat/auth.server"),
-      )
-      const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat.server"))
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads.server"),
-      )
+      const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
+      const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat"))
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { prepareManagedChat } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/commands.server"),
+        () => import("@/lib/chat/threads/commands"),
       )
-      const { ChatSandboxes } = yield* Effect.promise(
-        () => import("@/lib/chat/sandbox/sandbox.server"),
-      )
+      const { ChatSandboxes } = yield* Effect.promise(() => import("@/lib/chat/sandbox/sandbox"))
       const { consumeChatRateLimit, readChatRunParams, chatAdmissionResponse } =
         yield* Effect.promise(() => import("./run.server"))
       const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))

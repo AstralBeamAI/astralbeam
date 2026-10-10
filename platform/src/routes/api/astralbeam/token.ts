@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 import { dashboardTokenErrorResponse, handleDashboardTokenRequest } from "./-lib/token.server"
 

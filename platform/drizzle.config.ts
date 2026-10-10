@@ -11,7 +11,7 @@ if (!databaseUrl) throw new Error("DATABASE_URL is required")
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/db/schema.server.ts",
+  schema: "./src/db/schema.ts",
   out: "./src/db/migrations",
   schemaFilter: ["public"],
   // Effect initializes and migrates its own tables. Exclude them from Drizzle pull introspection.

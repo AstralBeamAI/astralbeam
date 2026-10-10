@@ -13,10 +13,10 @@ const integration = vi.hoisted(() => {
   return { url }
 })
 
-import { Database, getAuthDatabase } from "@/db/database.server"
-import { cacheEntry } from "@/db/schema/cache.server"
+import { Database, getAuthDatabase } from "@/db/database"
+import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
-import { prepareManagedChat } from "./commands.server"
+import { prepareManagedChat } from "./commands"
 import type { ChatParams } from "../types"
 import {
   agent,
@@ -28,9 +28,9 @@ import {
   organizationConfiguration,
   tenant,
   tenantUser,
-} from "@/db/schema.server"
-import { ChatThreads } from "./threads.server"
-import { projectChatModelHistory } from "./projection.server"
+} from "@/db/schema"
+import { ChatThreads } from "./threads"
+import { projectChatModelHistory } from "./projection"
 import type { ChatThreadScope, ChatMessagePayload, ChatToolResolution } from "./schemas"
 
 const payload: ChatMessagePayload = {

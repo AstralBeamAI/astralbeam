@@ -1,4 +1,4 @@
-import type { AttachmentTable } from "./profile.server.ts"
+import type { AttachmentTable } from "./profile.ts"
 
 /** How an attachment reaches the model: the provider reads an `image` or a `pdf` itself, and the
  * agent reads anything else with `read_attachment` or in the sandbox. */

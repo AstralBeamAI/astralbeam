@@ -15,16 +15,16 @@ const cacheIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase } from "@/db/database.server"
+import { getAuthDatabase } from "@/db/database"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
-import { cacheEntry } from "@/db/schema.server"
-import expiredCacheCleanup from "../lib/workflows/expired-cache-cleanup.server.ts"
+import { cacheEntry } from "@/db/schema"
+import expiredCacheCleanup from "../lib/workflows/expired-cache-cleanup.ts"
 import {
   deleteExpiredDatabaseCacheBatch,
   makeDatabaseCache,
   tryWithDatabaseCacheLock,
   withDatabaseCacheLock,
-} from "./cache.server"
+} from "./cache"
 
 type CacheTestIdentity<S extends Schema.Constraint> = {
   readonly namespace: string
