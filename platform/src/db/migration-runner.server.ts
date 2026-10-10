@@ -117,7 +117,10 @@ export class DatabaseMigrations extends Context.Service<
             try: () =>
               runDatabaseMigrations(getAuthDatabase().$client, bundledMigrations(), { approved }),
             catch: (cause) => new MigrationsNotApplied({ message: migrationErrorDetail(cause) }),
-          }).pipe(Effect.uninterruptible)
+          }).pipe(
+            Effect.tapError(() => Effect.logError("Migration failed")),
+            Effect.uninterruptible,
+          )
         },
         (effect) => Effect.ensuring(effect, Cache.invalidate(cache, "state")),
       )

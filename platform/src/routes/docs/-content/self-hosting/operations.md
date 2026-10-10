@@ -115,7 +115,7 @@ The process writes plain text to stdout and stderr. There is no log file, no log
 
 Cluster readiness logs include the advertised private runner address. Failures on `/configure` and in the config layer omit submitted values and are recorded as a classification plus a PostgreSQL error code, precisely so a submitted secret cannot end up in the log. That is also why a `/configure` error in the log is terse, and why it is worth pairing with the message the page showed the operator.
 
-Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration '<name>' failed` means a migration run stopped, and the page has the detail. `Ignoring invalid stored config value for '<key>'` means a stored setting no longer decodes, so the deployment is running as if that setting were unset. `API request failed` marks a `500` from the public API, with the stage and error code.
+Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value for '<key>'` means a stored setting no longer decodes, so the deployment is running as if that setting were unset. `API request failed` marks a `500` from the public API, with the stage and error code.
 
 ## Connection pooling
 
