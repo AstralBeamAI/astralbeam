@@ -25,10 +25,19 @@ test("plain objects become structured results without reserving business field n
 
 test("invalid results warn against retrying a completed mutation", async () => {
   const execute = vi.fn(() => ({ optional: undefined }))
-  await expect(
-    executeHostTool({ name: "create_issue", description: "Create", execute }, {}, context()),
-  ).rejects.toThrow("Its changes may already be applied")
+  const debug = vi.fn()
+  const tool = buildAgentTools(
+    {},
+    { create_issue: { description: "Create", execute } },
+    vi.fn(),
+    debug,
+  ).find((entry) => entry.name === "create_issue")!
+  await expect(tool.execute!({}, { toolCallId: "call", emitCustomEvent: vi.fn() })).rejects.toThrow(
+    "Its changes may already be applied",
+  )
   expect(execute).toHaveBeenCalledTimes(1)
+  expect(debug).toHaveBeenCalledWith("tool", expect.stringContaining("executing"), { input: {} })
+  expect(debug).toHaveBeenCalledWith("error", expect.any(String), expect.anything())
 })
 
 test.each([["first"], "done", 0, false, null].map((data) => ({ data })))(
@@ -171,6 +180,7 @@ test("widget tools expose their actual schema and duplicate registries fail clos
 })
 
 test("presentation failure does not turn a completed business action into a retry", async () => {
+  const debug = vi.fn()
   const render = vi.fn(() => {
     throw new Error("Render failed")
   })
@@ -178,6 +188,7 @@ test("presentation failure does not turn a completed business action into a retr
     { card: { description: "Card" } },
     { change: { description: "Change", widget: "card", execute: () => ({ changed: true }) } },
     render,
+    debug,
   )
   const invocation = { toolCallId: "call", emitCustomEvent: vi.fn() }
   await expect(
@@ -186,4 +197,5 @@ test("presentation failure does not turn a completed business action into a retr
   await expect(
     tools.find((tool) => tool.name === "change")!.execute!({}, invocation),
   ).resolves.toMatchObject({ structuredContent: { changed: true } })
+  expect(debug).toHaveBeenCalledWith("tool", expect.stringContaining("returned"), expect.anything())
 })

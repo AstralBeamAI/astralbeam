@@ -406,7 +406,8 @@ test("opening saved tool calls restores their results without executing host too
   const chat = createAstralBeamChat({
     threadId: thread.id,
     fetchAstralBeamToken: token,
-    tools: { change_data: { description: "Change data", execute } },
+    tools: { change_data: { description: "Change data", widget: "card", execute } },
+    widgets: { card: { description: "Card" } },
   })
   try {
     await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
@@ -416,6 +417,7 @@ test("opening saved tool calls restores their results without executing host too
       applicationPartId: "application-part",
       state: "complete",
       output: { done: true },
+      widget: undefined,
     })
     expect(execute).not.toHaveBeenCalled()
   } finally {

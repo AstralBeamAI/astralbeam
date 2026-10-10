@@ -507,11 +507,13 @@ export function createAstralBeamChat(
       for (const part of message.parts) {
         if (part.type !== "tool-call") continue
         const stored = part as ChatToolCallPart
-        const metadata = (runToolMetadata ?? declaredToolMetadata)[part.name] as
-          | { astralbeam?: { widget?: string } }
-          | undefined
-        const widget = metadata?.astralbeam?.widget
-        if (widget) stored.widget ??= widget
+        if (liveToolMessageIds.get(part.id) === message.id) {
+          const metadata = runToolMetadata?.[part.name] as
+            | { astralbeam?: { widget?: string } }
+            | undefined
+          const widget = metadata?.astralbeam?.widget
+          if (widget) stored.widget ??= widget
+        }
         if (
           liveToolCalls.has(part.id) &&
           part.name !== ASK_QUESTIONNAIRE_TOOL &&
