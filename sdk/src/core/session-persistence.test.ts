@@ -407,7 +407,8 @@ test("opening saved tool calls restores their results without executing host too
   })
   const chat = createTestSession({
     threadId: thread.id,
-    tools: { change_data: { description: "Change data", execute } },
+    tools: { change_data: { description: "Change data", widget: "card", execute } },
+    widgets: { card: { description: "Card" } },
   })
   await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
   expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
@@ -416,6 +417,7 @@ test("opening saved tool calls restores their results without executing host too
     applicationPartId: "application-part",
     state: "complete",
     output: { done: true },
+    widget: undefined,
   })
   expect(execute).not.toHaveBeenCalled()
 })
