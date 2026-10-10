@@ -29,6 +29,7 @@ export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string } 
 export interface PendingMigration {
   name: string
   sql: string
+  typescript?: string
   hash: string
 }
 
@@ -50,7 +51,7 @@ export type ConfigurePageState =
       sessionExpiresAt: string
       fallbackEncryptionKeyCount: number
       setupComplete: boolean
-      migrations: { pending: PendingMigration[]; appliedCount: number }
+      migrations: { pending: PendingMigration[]; appliedCount: number; error?: string }
       fields: ConfigureField[]
       issues: ConfigIssue[]
     }

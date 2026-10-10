@@ -6,23 +6,27 @@ Every command below needs `DATABASE_URL` in the environment. `astralbeam-platfor
 
 ## Applying migrations
 
-Application migrations ship inside the artifact. When a release adds one, the setup gate closes on every replica, pages redirect to `/configure`, and the page shows a **Database migrations** card with the pending count, how many are already applied, and each migration's full SQL behind a disclosure. Read the SQL, back up the database if it holds data you cannot lose, then apply.
+Application migrations ship inside the artifact. When a release adds one, the setup gate closes on every replica, pages redirect to `/configure`, and the page shows a **Database migrations** card with the pending count, how many are already applied, and each migration's full SQL and optional TypeScript behind a disclosure. Read both sources, back up the database if it holds data you cannot lose, then apply.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
-Three things happen when you apply application migrations.
+Three things happen when we apply migrations through `/configure`.
 
 - The run takes a PostgreSQL advisory lock, so only one migration run happens at a time across all replicas. A second attempt returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by name and a digest of its SQL. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
-- Each migration runs in its own transaction and is recorded before the next one starts.
+- The page approves the exact set it showed you, by name and a digest of its SQL and any TypeScript. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
+- Each migration runs its SQL, then any TypeScript step, then records completion in one transaction before the next migration starts.
 
-A failure stops the run and reports `Migration '<name>' failed: <code>: <message>`. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run.
+A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. The CLI has a different transaction boundary, described below.
 
-**NOTE**: There is no rollback. Reverse an applied change with a new forward migration.
+A recorded migration whose digest differs from the bundled source blocks setup and further migrations. Restore the original source if an applied file was edited, including formatting changes. If SQL was applied directly through Drizzle Kit, the TypeScript step may be missing. Restore a backup or reconcile the skipped transformation before repairing history. Do not replace the recorded digest just to dismiss the error.
+
+Migration state is cached per process. After a CLI migration or history repair, restart the application replicas so they read the current history. Applying through `/configure` refreshes the process serving that request, so restart other replicas afterward.
+
+**NOTE**: Failed transactions roll back automatically. There is no command to undo a committed migration. Reverse an applied change with a new forward migration.
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and `deno task db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and `deno task --cwd platform db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Repository setup uses the same runner. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
 Run this command with the new binary to list the migrations it would apply, without changing the database:
 
@@ -36,7 +40,7 @@ Run this command to apply them:
 astralbeam-platform migrate
 ```
 
-It takes the same advisory lock as `/configure` and applies every pending migration in one transaction, so a failure reports `Migration '<name>' failed: <code>: <message>` and leaves none of them applied.
+It takes the same advisory lock as `/configure` and applies every pending migration in one transaction. Each migration runs its SQL, then any TypeScript step, then records completion. A failure rolls back the whole pending batch, including migrations earlier in that run. Fix the cause and retry the command.
 
 Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
@@ -50,7 +54,9 @@ Run this command to validate the consistency of the migration history on disk, w
 deno task --cwd platform db check
 ```
 
-**NOTE**: Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. It compares the schema with a live database instead of applying reviewed migration files.
+The repository's `db` wrapper forwards only `generate`, `check`, `up`, and `export` to Drizzle Kit. It handles `migrate` itself and rejects every other command, including `push`, `pull`, and legacy aliases. `up` upgrades migration metadata on disk, not the database schema.
+
+**NOTE**: Use AstralBeam's migration commands. The wrapper cannot prevent someone with database access from invoking Drizzle Kit directly. Direct `drizzle-kit migrate` skips TypeScript steps while recording the SQL as applied. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. It compares the schema with a live database instead of applying reviewed migration files.
 
 ## Backups and restore
 

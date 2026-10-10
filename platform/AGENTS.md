@@ -41,6 +41,7 @@
 - Keep database imports free of resource initialization. Use cached `getDatabaseResources()` and `getAuthDatabase()` accessors only during execution, and never initialize unused resources during shutdown.
 - Keep generally reusable database primitives in `src/db/lib`. Keep table-specific domain interfaces and the migration runner directly under `src/db`.
 - Consolidate unmerged feature schema iterations into their original migration when no shared deployment uses it. Local-only test data does not require a backfill. Validate the revised migration on a fresh disposable database.
+- Optional `src/db/migrations/*/migration.ts` exports `up(client: MigrationClient)` and runs after its SQL on the same transaction client, before the history insert. Keep setup, CLI, and `/configure` on the shared executor. Keep `scripts/database.ts` limited to the application `migrate` command and explicitly allowed Drizzle Kit commands that do not apply database changes. Keep steps self-contained with type-only imports and runtime built-ins, no top-level effects, application services, or external I/O. Never add a step to an applied migration. See the [migration workflow](src/db/README.md#typescript-data-migrations).
 - Define shared PostgreSQL columns with `caseInsensitiveText()`, `encryptedJson()`, `schemaJsonb()`, `timestampWithTimeZone()`, `timestamps()`, `lockVersion()`, `uuidV7()`, and `uuidV7PrimaryKey()` from `src/db/lib/columns.server.ts`. Do not inline equivalent Drizzle builders.
 - Every JSONB column requires `schemaJsonb(schema)` with a synchronous Effect Schema codec, validating writes and reads including relational queries. Keep flexible metadata as `Schema.JsonObject`. Plain `jsonb().$type<T>()` supplies no runtime validation. Raw SQL bypasses the column codec.
 - Prefer PostgreSQL enums for closed sets of values in first-party columns. Keep check constraints for predicates such as formats, ranges, and relationships between columns.
@@ -159,7 +160,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
   - Use `APP_NAME` for display text and `APP_HANDLE` for brand-derived domains, protocol identifiers, asset paths, and test fixtures.
 
 - Recheck session, organization, role, and data scope at every server function and query. Route guards provide navigation protection only. Return safe errors and keep sensitive diagnostics server-side.
-- Name every server-only file `*.server.ts`, including inside folders Vite's TanStack import protection already marks server-only, so the name alone says where code runs. Add `import "@tanstack/react-start/server-only"` only to unsuffixed server entrypoints such as `index.ts`. Never expose server environment variables to clients.
+- Name every server-only file `*.server.ts`, including inside folders Vite's TanStack import protection already marks server-only, so the name alone says where code runs. The optional `src/db/migrations/*/migration.ts` filename is the migration contract's exception, and its executable module must remain behind server-only bundling protection. Add `import "@tanstack/react-start/server-only"` only to other unsuffixed server entrypoints such as `index.ts`. Never expose server environment variables to clients.
 
 ## Seed data
 

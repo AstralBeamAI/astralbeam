@@ -203,7 +203,8 @@ export class Config extends Context.Service<
         Effect.map(([current, migrations]) => ({
           snapshot: current,
           migrations,
-          setupComplete: current.issues.length === 0 && migrations.pending.length === 0,
+          setupComplete:
+            current.issues.length === 0 && migrations.pending.length === 0 && !migrations.error,
         })),
       )
 

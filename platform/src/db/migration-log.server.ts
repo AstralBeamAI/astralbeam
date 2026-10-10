@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import type { PoolClient } from "pg"
 
 export const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
 
@@ -19,10 +20,17 @@ export interface BundledMigration {
   sql: string
   hash: string
   folderMillis: number
+  typescript?: string
+  load?: () => Promise<MigrationModule>
 }
 
-// Timestamp parsing mirrors drizzle-orm's migrator so /configure, `migrate`, and
-// `deno task db migrate` stay interchangeable on the same bookkeeping table.
+export type MigrationClient = Pick<PoolClient, "query">
+
+export interface MigrationModule {
+  up: (client: MigrationClient) => Promise<void>
+}
+
+// Preserve Drizzle's timestamps while all application entrypoints share the same history.
 function folderMillisFromName(name: string): number {
   const stamp = name.slice(0, 14)
   return Date.UTC(
@@ -35,11 +43,51 @@ function folderMillisFromName(name: string): number {
   )
 }
 
-export function bundledMigration(name: string, migrationSql: string): BundledMigration {
+export function bundledMigration(
+  name: string,
+  migrationSql: string,
+  script?: { source: string; load: () => Promise<MigrationModule> },
+): BundledMigration {
   return {
     name,
     sql: migrationSql,
-    hash: createHash("sha256").update(migrationSql).digest("hex"),
+    hash: createHash("sha256")
+      .update(script ? JSON.stringify([migrationSql, script.source]) : migrationSql)
+      .digest("hex"),
     folderMillis: folderMillisFromName(name),
+    ...(script ? { typescript: script.source, load: script.load } : {}),
   }
+}
+
+export function pendingDatabaseMigrations(
+  migrations: readonly BundledMigration[],
+  applied: readonly { name: string; hash: string }[],
+): BundledMigration[] {
+  const appliedHashes = new Map(applied.map(({ name, hash }) => [name, hash]))
+  return migrations.filter((migration) => {
+    const hash = appliedHashes.get(migration.name)
+    if (hash === undefined) return true
+    if (hash !== migration.hash) {
+      throw new Error(
+        `Migration '${migration.name}' differs from its applied history. Restore the original files and use a new migration for changes.`,
+      )
+    }
+    return false
+  })
+}
+
+/** The caller owns the transaction. SQL, TypeScript, and history use its exact client. */
+export async function executeMigration(client: MigrationClient, migration: BundledMigration) {
+  for (const statement of migration.sql.split("--> statement-breakpoint")) {
+    await client.query(statement)
+  }
+  if (migration.load) {
+    const { up } = await migration.load()
+    if (typeof up !== "function") throw new Error("migration.ts must export an up function")
+    await up(client)
+  }
+  await client.query(
+    'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
+    [migration.hash, migration.folderMillis, migration.name],
+  )
 }

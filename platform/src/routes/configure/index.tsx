@@ -46,12 +46,15 @@ function ConfigurePage() {
 
       {state.status === "signed-out" ? (
         <OperatorLoginForm onLoggedIn={refresh} />
-      ) : state.migrations.pending.length > 0 ? (
+      ) : state.migrations.pending.length > 0 || state.migrations.error ? (
         <>
           <ConfigureActions setupComplete={state.setupComplete} />
           <PendingMigrationsCard
             pending={state.migrations.pending}
             appliedCount={state.migrations.appliedCount}
+            {...(state.migrations.error === undefined
+              ? {}
+              : { historyError: state.migrations.error })}
             onChanged={refresh}
           />
           <ConfigureActions setupComplete={state.setupComplete} />

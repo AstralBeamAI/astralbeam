@@ -27,10 +27,12 @@ import type { PendingMigration } from "../-lib/types"
 export function PendingMigrationsCard({
   pending,
   appliedCount,
+  historyError,
   onChanged,
 }: {
   pending: PendingMigration[]
   appliedCount: number
+  historyError?: string
   onChanged: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -62,13 +64,21 @@ export function PendingMigrationsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
-          configuration ({appliedCount} already applied). Review the SQL, then apply.
+          {appliedCount} migration{appliedCount === 1 ? "" : "s"} already applied.
+          {pending.length > 0 && (
+            <>
+              {" "}
+              {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
+              configuration. Review the SQL and any TypeScript, then apply.
+            </>
+          )}
         </p>
-        {error && (
+        {(historyError ?? error) && (
           <Alert variant="destructive">
-            <AlertTitle>Migration failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>
+              {historyError ? "Migration history mismatch" : "Migration failed"}
+            </AlertTitle>
+            <AlertDescription>{historyError ?? error}</AlertDescription>
           </Alert>
         )}
         <ul className="flex flex-col gap-2">
@@ -80,9 +90,18 @@ export function PendingMigrationsCard({
                   <CaretDownIcon aria-hidden="true" className="shrink-0" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <pre className="max-h-80 overflow-auto border-t bg-muted/50 p-3 text-xs">
+                  <p className="border-t px-3 py-2 text-xs font-medium">migration.sql</p>
+                  <pre className="max-h-80 overflow-auto bg-muted/50 p-3 text-xs">
                     {migration.sql}
                   </pre>
+                  {migration.typescript !== undefined && (
+                    <>
+                      <p className="border-t px-3 py-2 text-xs font-medium">migration.ts</p>
+                      <pre className="max-h-80 overflow-auto bg-muted/50 p-3 text-xs">
+                        {migration.typescript}
+                      </pre>
+                    </>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
             </li>
@@ -91,7 +110,7 @@ export function PendingMigrationsCard({
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger
             type="button"
-            disabled={pendingApply}
+            disabled={pendingApply || historyError !== undefined || pending.length === 0}
             className={cn(buttonVariants(), "self-start")}
           >
             {pendingApply && <Spinner />}

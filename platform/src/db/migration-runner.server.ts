@@ -6,9 +6,12 @@ import { sqlState } from "@/db/lib/sqlstate.server"
 import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 import {
   type BundledMigration,
+  type MigrationModule,
   bundledMigration,
   CONFIG_MIGRATION_LOCK_KEY,
   MIGRATION_LOG_DDL,
+  executeMigration,
+  pendingDatabaseMigrations,
 } from "@/db/migration-log.server"
 
 /** Carries the migration runner's reason, which names the migration and SQLSTATE for operators. */
@@ -21,6 +24,7 @@ export class MigrationsNotApplied extends Schema.TaggedError<MigrationsNotApplie
 export interface DatabaseMigrationState {
   readonly pending: readonly BundledMigration[]
   readonly appliedCount: number
+  readonly error?: string
 }
 
 type MigrationApproval = { readonly name: string; readonly hash: string }
@@ -33,20 +37,27 @@ function bundledMigrations(): BundledMigration[] {
     import: "default",
     eager: true,
   })
+  const migrationScripts = import.meta.glob<MigrationModule>("/src/db/migrations/*/migration.ts")
+  const migrationSources = import.meta.glob<string>("/src/db/migrations/*/migration.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  })
   return Object.entries(migrationSqlByPath)
-    .map(([path, migrationSql]) => bundledMigration(path.split("/").at(-2) ?? path, migrationSql))
+    .map(([path, migrationSql]) => {
+      const scriptPath = path.replace(/migration\.sql$/, "migration.ts")
+      const load = migrationScripts[scriptPath]
+      return bundledMigration(
+        path.split("/").at(-2) ?? path,
+        migrationSql,
+        load ? { source: migrationSources[scriptPath]!, load } : undefined,
+      )
+    })
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// `appliedNames === null` means the bookkeeping table (or its schema) does not exist yet, so every
-// bundled migration is pending. drizzle-orm matches applied migrations by name.
-function pendingMigrations(appliedNames: ReadonlySet<string> | null): BundledMigration[] {
-  const bundled = bundledMigrations()
-  return appliedNames ? bundled.filter((migration) => !appliedNames.has(migration.name)) : bundled
-}
-
 const decodeAppliedMigrations = Schema.decodeUnknownEffect(
-  Schema.Array(Schema.Struct({ name: Schema.String })),
+  Schema.Array(Schema.Struct({ name: Schema.String, hash: Schema.String })),
 )
 
 function queryPoolClient(client: Pick<PoolClient, "query">, text: string, values?: unknown[]) {
@@ -95,11 +106,11 @@ export const withMigrationLock = Effect.fn("withMigrationLock")(function* <A, E>
   )
 })
 
-/** The names the bookkeeping table records, or `null` before the table or its schema exists. */
-const readAppliedMigrationNames = Effect.fn("readAppliedMigrationNames")(function* () {
+/** Applied history, or `null` before the table or its schema exists. */
+const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(function* () {
   const result = yield* queryPoolClient(
     getAuthDatabase().$client,
-    "select name from drizzle.__drizzle_migrations where name is not null",
+    "select name, hash from drizzle.__drizzle_migrations where name is not null",
   ).pipe(
     // 42P01 = undefined table, 3F000 = the drizzle schema itself is missing.
     Effect.catchIf(
@@ -108,7 +119,7 @@ const readAppliedMigrationNames = Effect.fn("readAppliedMigrationNames")(functio
     ),
   )
   if (result === null) return null
-  return new Set((yield* decodeAppliedMigrations(result.rows)).map((row) => row.name))
+  return yield* decodeAppliedMigrations(result.rows)
 }, Effect.orDie)
 
 // The operator who approved a migration reads its SQLSTATE and message, so both are kept.
@@ -120,16 +131,7 @@ function migrationErrorDetail(cause: unknown): string {
 
 const applyMigration = Effect.fn("applyMigration")(function* (migration: BundledMigration) {
   yield* inPoolTransaction(getAuthDatabase().$client, (client) =>
-    Effect.gen(function* () {
-      for (const statement of migration.sql.split("--> statement-breakpoint")) {
-        yield* queryPoolClient(client, statement)
-      }
-      yield* queryPoolClient(
-        client,
-        'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
-        [migration.hash, migration.folderMillis, migration.name],
-      )
-    }),
+    Effect.tryPromise({ try: () => executeMigration(client, migration), catch: (cause) => cause }),
   ).pipe(
     Effect.tapError(() =>
       Effect.logError("Migration failed").pipe(Effect.annotateLogs({ migration: migration.name })),
@@ -159,10 +161,17 @@ export class DatabaseMigrations extends Context.Service<
     Effect.gen(function* () {
       const cache = yield* Cache.makeWith(
         () =>
-          Effect.map(readAppliedMigrationNames(), (appliedNames) => ({
-            pending: pendingMigrations(appliedNames),
-            appliedCount: appliedNames?.size ?? 0,
-          })),
+          Effect.map(readAppliedMigrationHistory(), (applied): DatabaseMigrationState => {
+            const appliedCount = applied?.length ?? 0
+            try {
+              return {
+                pending: pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
+                appliedCount,
+              }
+            } catch (cause) {
+              return { pending: [], appliedCount, error: migrationErrorDetail(cause) }
+            }
+          }),
         {
           capacity: 1,
           timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
@@ -175,15 +184,19 @@ export class DatabaseMigrations extends Context.Service<
           yield* withMigrationLock(
             pool,
             Effect.gen(function* () {
-              const appliedNames = yield* readAppliedMigrationNames()
-              const pending = pendingMigrations(appliedNames)
-              // The operator approves exactly the SQL digests they reviewed.
+              const applied = yield* readAppliedMigrationHistory()
+              const pending = yield* Effect.try({
+                try: () => pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
+                catch: (cause) =>
+                  new MigrationsNotApplied({ message: migrationErrorDetail(cause) }),
+              })
+              // Approval binds both SQL and TypeScript source to the reviewed migration.
               if (!approvedMigrationsMatch(pending, approved)) {
                 return yield* new MigrationsNotApplied({
                   message: "The pending migrations changed; review them again",
                 })
               }
-              if (appliedNames === null) {
+              if (applied === null) {
                 yield* Effect.forEach(MIGRATION_LOG_DDL, (statement) =>
                   queryPoolClient(pool, statement).pipe(Effect.orDie),
                 )

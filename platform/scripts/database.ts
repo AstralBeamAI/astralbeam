@@ -8,7 +8,15 @@ import packageJson from "../package.json" with { type: "json" }
 import { migrateDatabase } from "../src/db/migrate-command.server.ts"
 
 const databaseArguments = process.argv.slice(2)
-if (databaseArguments[0] === "migrate") {
+const kitCommands = ["generate", "check", "up", "export"]
+if (
+  databaseArguments.length === 0 ||
+  (databaseArguments.length === 1 && ["--help", "-h"].includes(databaseArguments[0]!))
+) {
+  console.log(
+    `Usage: deno task db <command>\n\nCommands: migrate [--dry-run], ${kitCommands.join(", ")}\nUse migrate to apply SQL and TypeScript together. Other commands are not supported.`,
+  )
+} else if (databaseArguments[0] === "migrate") {
   if (databaseArguments.slice(1).some((argument) => argument !== "--dry-run")) {
     throw new Error("Use 'deno task db migrate [--dry-run]' with DATABASE_URL from the environment")
   }
@@ -25,6 +33,11 @@ if (databaseArguments[0] === "migrate") {
   )
   for (const name of migrations) console.log(`  ${name}`)
 } else {
+  if (!kitCommands.includes(databaseArguments[0]!)) {
+    throw new Error(
+      `Unsupported database command '${databaseArguments[0]}'. Use 'deno task db migrate' to apply migrations. Allowed Drizzle Kit commands: ${kitCommands.join(", ")}.`,
+    )
+  }
   const kit = spawn(
     process.execPath,
     [
