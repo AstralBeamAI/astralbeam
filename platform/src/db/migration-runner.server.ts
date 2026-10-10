@@ -21,10 +21,7 @@ export class MigrationsNotApplied extends Schema.TaggedError<MigrationsNotApplie
 export interface DatabaseMigrationState {
   readonly pending: readonly BundledMigration[]
   readonly appliedCount: number
-  readonly error?: string
 }
-
-type MigrationApproval = { readonly name: string; readonly hash: string }
 
 function bundledMigrations(): BundledMigration[] {
   // Vite inlines the SQL because the built server has no migrations folder. Nitro's own bundle
@@ -50,14 +47,14 @@ function bundledMigrations(): BundledMigration[] {
 }
 
 const decodeAppliedMigrations = Schema.decodeUnknownEffect(
-  Schema.Array(Schema.Struct({ name: Schema.String, hash: Schema.String })),
+  Schema.Array(Schema.Struct({ name: Schema.String })),
 )
 
 /** Applied history, or `null` before the table or its schema exists. */
 const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(function* () {
   const result = yield* Effect.tryPromise(() =>
     getAuthDatabase().$client.query(
-      "select name, hash from drizzle.__drizzle_migrations where name is not null",
+      "select name from drizzle.__drizzle_migrations where name is not null",
     ),
   ).pipe(
     // 42P01 = undefined table, 3F000 = the drizzle schema itself is missing.
@@ -76,9 +73,7 @@ export class DatabaseMigrations extends Context.Service<
     /** Cached until this process applies migrations, which only an operator does. */
     readonly state: Effect.Effect<DatabaseMigrationState>
     /** Applies exactly the pending migrations the operator reviewed, each in its own transaction. */
-    readonly apply: (
-      approved: readonly MigrationApproval[],
-    ) => Effect.Effect<void, MigrationsNotApplied>
+    readonly apply: (approved: readonly string[]) => Effect.Effect<void, MigrationsNotApplied>
   }
 >()("astralbeam/db/DatabaseMigrations") {
   static readonly layer = Layer.effect(
@@ -86,17 +81,10 @@ export class DatabaseMigrations extends Context.Service<
     Effect.gen(function* () {
       const cache = yield* Cache.makeWith(
         () =>
-          Effect.map(readAppliedMigrationHistory(), (applied): DatabaseMigrationState => {
-            const appliedCount = applied?.length ?? 0
-            try {
-              return {
-                pending: pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
-                appliedCount,
-              }
-            } catch (cause) {
-              return { pending: [], appliedCount, error: migrationErrorDetail(cause) }
-            }
-          }),
+          Effect.map(readAppliedMigrationHistory(), (applied): DatabaseMigrationState => ({
+            pending: pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
+            appliedCount: applied?.length ?? 0,
+          })),
         {
           capacity: 1,
           timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
@@ -104,7 +92,7 @@ export class DatabaseMigrations extends Context.Service<
       )
 
       const apply = Effect.fn("DatabaseMigrations.apply")(
-        function* (approved: readonly MigrationApproval[]) {
+        function* (approved: readonly string[]) {
           yield* Effect.tryPromise({
             try: () =>
               runDatabaseMigrations(getAuthDatabase().$client, bundledMigrations(), { approved }),

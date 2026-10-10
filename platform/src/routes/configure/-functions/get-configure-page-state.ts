@@ -49,7 +49,7 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
     }
   })
   const onboarding =
-    migrations.pending.length === 0 && !migrations.error
+    migrations.pending.length === 0
       ? yield* Effect.flatMap(Dogfood, (dogfood) => dogfood.onboarding(snapshot.values))
       : null
   return {
@@ -59,14 +59,12 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
     fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
     setupComplete,
     migrations: {
-      pending: migrations.pending.map(({ name, sql, typescript, hash }) => ({
+      pending: migrations.pending.map(({ name, sql, typescript }) => ({
         name,
         sql,
         ...(typescript === undefined ? {} : { typescript }),
-        hash,
       })),
       appliedCount: migrations.appliedCount,
-      ...(migrations.error === undefined ? {} : { error: migrations.error }),
     },
     fields,
     issues: [...snapshot.issues],

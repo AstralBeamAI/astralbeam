@@ -30,7 +30,6 @@ export interface PendingMigration {
   name: string
   sql: string
   typescript?: string
-  hash: string
 }
 
 export interface ConfigureFieldError {
@@ -51,7 +50,7 @@ export type ConfigurePageState =
       sessionExpiresAt: string
       fallbackEncryptionKeyCount: number
       setupComplete: boolean
-      migrations: { pending: PendingMigration[]; appliedCount: number; error?: string }
+      migrations: { pending: PendingMigration[]; appliedCount: number }
       fields: ConfigureField[]
       issues: ConfigIssue[]
     }

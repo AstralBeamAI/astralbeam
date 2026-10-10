@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto"
 import type { Pool, PoolClient } from "pg"
 
-import { approvedMigrationsMatch } from "./migration-approval.server.ts"
-
 const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
 
 // Keep the bookkeeping format compatible with existing Drizzle migration history.
@@ -20,14 +18,11 @@ const MIGRATION_LOG_DDL = [
 export interface BundledMigration {
   name: string
   sql: string
-  hash: string
   folderMillis: number
   typescript?: string
   load?: () => Promise<MigrationModule>
 }
 
-// Historical steps must not depend on today's Drizzle schema.
-// https://github.com/drizzle-team/drizzle-orm/issues/2695#issuecomment-2831644997
 export type MigrationClient = Pick<PoolClient, "query">
 
 export interface MigrationModule {
@@ -56,9 +51,6 @@ export function bundledMigration(
   return {
     name,
     sql: migrationSql,
-    hash: createHash("sha256")
-      .update(script ? JSON.stringify([migrationSql, script.source]) : migrationSql)
-      .digest("hex"),
     folderMillis: folderMillisFromName(name),
     ...(script ? { typescript: script.source, load: script.load } : {}),
   }
@@ -66,25 +58,10 @@ export function bundledMigration(
 
 export function pendingDatabaseMigrations(
   migrations: readonly BundledMigration[],
-  applied: readonly { name: string; hash: string }[],
+  applied: readonly { name: string }[],
 ): BundledMigration[] {
-  const appliedHashes = new Map(applied.map(({ name, hash }) => [name, hash]))
-  return migrations.filter((migration) => {
-    const hash = appliedHashes.get(migration.name)
-    if (hash === undefined) return true
-    // v0.15 removed the already-applied conversion script while retaining its SQL.
-    // https://github.com/AstralBeamAI/astralbeam/pull/235
-    const historicalConversion =
-      migration.name === "20261001165317_migrate_organization_model_keys" &&
-      hash === "0725692a5954f98fdc993833a1e53897a5a619eecda95b7b5fca6fac79f1922a" &&
-      migration.hash === "b51cf54bda3f65ab4dd08c41cd61d230f431398732ac2a1c505902ea34f46147"
-    if (hash !== migration.hash && !historicalConversion) {
-      throw new Error(
-        `Migration '${migration.name}' differs from its applied history. Restore the original files and use a new migration for changes.`,
-      )
-    }
-    return false
-  })
+  const appliedNames = new Set(applied.map(({ name }) => name))
+  return migrations.filter(({ name }) => !appliedNames.has(name))
 }
 
 export function migrationErrorDetail(cause: unknown): string {
@@ -100,7 +77,7 @@ export async function runDatabaseMigrations(
   migrations: readonly BundledMigration[],
   options: {
     dryRun?: boolean
-    approved?: readonly { readonly name: string; readonly hash: string }[]
+    approved?: readonly string[]
   } = {},
 ): Promise<string[]> {
   const client = await pool.connect()
@@ -129,13 +106,17 @@ export async function runDatabaseMigrations(
         const exists = Boolean(journal.rows[0]?.name)
         const history = exists
           ? (
-              await client.query<{ name: string; hash: string }>(
-                "select name, hash from drizzle.__drizzle_migrations where name is not null",
+              await client.query<{ name: string }>(
+                "select name from drizzle.__drizzle_migrations where name is not null",
               )
             ).rows
           : []
         const pending = pendingDatabaseMigrations(migrations, history)
-        if (approved && !approvedMigrationsMatch(pending, approved)) {
+        if (
+          approved &&
+          (pending.length !== approved.length ||
+            pending.some(({ name }, index) => name !== approved![index]))
+        ) {
           throw new Error("The pending migrations changed; review them again")
         }
         if (options.dryRun || pending.length === 0) {
@@ -151,12 +132,15 @@ export async function runDatabaseMigrations(
         }
         if (migration.load) {
           const { up } = await migration.load()
-          if (typeof up !== "function") throw new Error("migration.ts must export an up function")
           await up(client)
         }
         await client.query(
           'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
-          [migration.hash, migration.folderMillis, migration.name],
+          [
+            createHash("sha256").update(migration.sql).digest("hex"),
+            migration.folderMillis,
+            migration.name,
+          ],
         )
         if (connectionError) throw connectionError
         await client.query("commit")

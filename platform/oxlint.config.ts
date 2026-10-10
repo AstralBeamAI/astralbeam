@@ -237,24 +237,6 @@ export default defineConfig({
       },
     },
     {
-      files: ["src/db/migrations/*/migration.ts"],
-      rules: {
-        "no-restricted-imports": [
-          "error",
-          {
-            patterns: [
-              {
-                group: ["**", "!node:*"],
-                allowTypeImports: true,
-                message:
-                  "Keep migration code self-contained. Only type imports and node: built-ins are allowed.",
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
       files: ["**/*.test.{ts,tsx}"],
       rules: recommendedRules.vitest,
     },

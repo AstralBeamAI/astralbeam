@@ -27,12 +27,10 @@ import type { PendingMigration } from "../-lib/types"
 export function PendingMigrationsCard({
   pending,
   appliedCount,
-  historyError,
   onChanged,
 }: {
   pending: PendingMigration[]
   appliedCount: number
-  historyError?: string
   onChanged: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +43,7 @@ export function PendingMigrationsCard({
     try {
       await applyMigrations({
         data: {
-          approvedMigrations: pending.map(({ name, hash }) => ({ name, hash })),
+          approvedMigrations: pending.map(({ name }) => name),
         },
       })
     } catch (applyError) {
@@ -67,12 +65,10 @@ export function PendingMigrationsCard({
           {pending.length} pending migration{pending.length === 1 ? "" : "s"} ({appliedCount}{" "}
           already applied). Review the SQL and any TypeScript before applying.
         </p>
-        {(historyError ?? error) && (
+        {error && (
           <Alert variant="destructive">
-            <AlertTitle>
-              {historyError ? "Migration history mismatch" : "Migration failed"}
-            </AlertTitle>
-            <AlertDescription>{historyError ?? error}</AlertDescription>
+            <AlertTitle>Migration failed</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         <ul className="flex flex-col gap-2">
@@ -104,7 +100,7 @@ export function PendingMigrationsCard({
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger
             type="button"
-            disabled={pendingApply || historyError !== undefined || pending.length === 0}
+            disabled={pendingApply}
             className={cn(buttonVariants(), "self-start")}
           >
             {pendingApply && <Spinner />}

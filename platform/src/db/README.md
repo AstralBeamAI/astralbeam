@@ -141,13 +141,13 @@ export async function up(client: MigrationClient) {
 
 SQL runs before `up`. Add backfill-dependent constraints through the supplied client after the transformation, or in a later migration.
 
-Await all database work through the supplied client's `query` method. Keep all work inside `up`, without transaction control or other connections. Only type imports and `node:` built-ins are allowed. Lint checks static and literal dynamic imports. Reject computed imports, `require`, and evaluated code in review. Migration code is trusted, not sandboxed. External I/O and large backfills belong in resumable [durable workflows](../lib/workflows/README.md), because PostgreSQL cannot roll back external effects.
+Migration code is trusted and may import helpers, packages, and application code under the deployment's normal runtime permissions. Await database work through the supplied client's `query` method to share the SQL transaction, without committing or rolling it back yourself. Other connections and external effects do not share its rollback. Put work in `up` so it runs only when the migration is applied.
 
 Setup, the CLI, and `/configure` commit each SQL/TypeScript pair and its history record together, holding the advisory lock and rechecking history on the same connection. Retry after failure to resume pending migrations. Listing migrations and `--dry-run` do not execute `up`.
 
 PostgreSQL requires an added enum value to be committed before use. Put `ALTER TYPE ... ADD VALUE` and code that uses the value in separate migration folders. Putting the use in the same folder's TypeScript step still fails. See [ALTER TYPE transaction restrictions](https://www.postgresql.org/docs/18/sql-altertype.html#SQL-ALTERTYPE-NOTES).
 
-Both sources ship in the binary and appear in `/configure` for approval using their combined digest. SQL-only digests remain unchanged. Never edit, reformat, or add TypeScript to an applied migration. Make a new migration instead. Direct `drizzle-kit migrate` skips TypeScript and records a mismatched SQL-only digest, blocking setup and further migrations. Follow the [recovery guidance](../routes/docs/-content/self-hosting/operations.md#applying-migrations) before repairing history.
+Both sources ship in the binary and appear in `/configure`. Migrations are tracked by name, without checking for changes to applied files or imported dependencies. To run more work after a migration is applied, add a new migration. Direct `drizzle-kit migrate` skips TypeScript and records the migration as applied, so use the application commands above.
 
 ## Relations v2 composition
 

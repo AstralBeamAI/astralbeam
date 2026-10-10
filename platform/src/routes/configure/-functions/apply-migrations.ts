@@ -7,12 +7,7 @@ import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 const ApplyMigrationsInput = Schema.Struct({
-  approvedMigrations: Schema.Array(
-    Schema.Struct({
-      name: NonEmptyStringSchema,
-      hash: NonEmptyStringSchema,
-    }),
-  ),
+  approvedMigrations: Schema.Array(NonEmptyStringSchema),
 })
 
 export const applyMigrations = createServerFn({ method: "POST" })

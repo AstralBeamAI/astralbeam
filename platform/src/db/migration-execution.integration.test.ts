@@ -66,21 +66,25 @@ describe.skipIf(!migrationExecutionIntegration.url)("TypeScript migration transa
     const names = migrations.map(({ name }) => name)
     expect(await runDatabaseMigrations(pool, migrations, { dryRun: true })).toEqual(names)
     expect(up).not.toHaveBeenCalled()
-    await expect(runDatabaseMigrations(pool, migrations, { approved: migrations })).rejects.toThrow(
+    await expect(runDatabaseMigrations(pool, migrations, { approved: names })).rejects.toThrow(
       `Migration '${names[1]}' failed: null`,
     )
     expect((await pool.query("select to_regclass($1) as name", [table])).rows).toEqual([
       { name: null },
     ])
     expect(await runDatabaseMigrations(pool, migrations, { dryRun: true })).toEqual([names[1]])
-    await expect(runDatabaseMigrations(pool, migrations, { approved: migrations })).rejects.toThrow(
+    await expect(runDatabaseMigrations(pool, migrations, { approved: names })).rejects.toThrow(
       "review them again",
     )
     fail.mockResolvedValue(undefined)
-    expect(
-      await runDatabaseMigrations(pool, migrations, { approved: migrations.slice(1) }),
-    ).toEqual([names[1]])
+    expect(await runDatabaseMigrations(pool, migrations, { approved: names.slice(1) })).toEqual([
+      names[1],
+    ])
     expect((await pool.query(`select value from ${table}`)).rows).toEqual([{ value: "typescript" }])
+    await pool.query(
+      "update drizzle.__drizzle_migrations set hash = 'old-digest' where name = any($1)",
+      [names],
+    )
     expect(await runDatabaseMigrations(pool, migrations)).toEqual([])
     expect(up).toHaveBeenCalledTimes(2)
   })

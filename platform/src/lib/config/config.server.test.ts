@@ -15,7 +15,7 @@ import {
 } from "./registry.server.ts"
 import type { ConfigValues } from "./types.ts"
 
-const migrations = { pending: false, error: "" }
+const migrations = { pending: false }
 
 const SECRET = "a".repeat(64)
 const COMPLETE_VALUES = {
@@ -41,7 +41,6 @@ beforeAll(() => {
 
 beforeEach(() => {
   migrations.pending = false
-  migrations.error = ""
   // A developer's own shell must not leak into what the tests expect.
   for (const definition of CONFIG_DEFINITIONS) {
     vi.stubEnv(configEnvironmentVariable(definition.key), "")
@@ -78,9 +77,8 @@ function configDatabase(state: { rows: StoredRow[]; reads: number; gate?: Effect
 
 const configMigrations = Layer.succeed(DatabaseMigrations, {
   state: Effect.sync(() => ({
-    pending: migrations.pending ? [{ name: "pending", sql: "", hash: "", folderMillis: 0 }] : [],
+    pending: migrations.pending ? [{ name: "pending", sql: "", folderMillis: 0 }] : [],
     appliedCount: 0,
-    ...(migrations.error ? { error: migrations.error } : {}),
   })),
   apply: () => Effect.void,
 })
@@ -221,7 +219,7 @@ describe("Config", () => {
     }).pipe(Effect.provide(configLayer(state)))
   })
 
-  it.effect("completes setup only with complete configuration and valid migration history", () => {
+  it.effect("completes setup only with complete configuration and no pending migration", () => {
     const state = { rows: [] as StoredRow[], reads: 0 }
     return Effect.gen(function* () {
       const config = yield* Config
@@ -233,10 +231,6 @@ describe("Config", () => {
       assert.isTrue((yield* config.setupState).setupComplete)
 
       migrations.pending = true
-      assert.isFalse((yield* config.setupState).setupComplete)
-
-      migrations.pending = false
-      migrations.error = "Migration history mismatch"
       assert.isFalse((yield* config.setupState).setupComplete)
     }).pipe(Effect.provide(configLayer(state)))
   })

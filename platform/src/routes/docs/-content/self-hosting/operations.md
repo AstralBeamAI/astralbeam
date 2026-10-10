@@ -13,12 +13,12 @@ Effect manages the separate `effect_cluster_*` tables automatically at runner st
 Three things happen when we apply migrations through `/configure`.
 
 - Each migration takes a PostgreSQL transaction advisory lock on its execution connection and rechecks history. A competing attempt while the lock is held returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by name and a digest of its SQL and any TypeScript. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
+- The page approves the exact set it showed you, by their ordered names. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
 - Each migration runs its SQL, then any TypeScript step, then records completion in one transaction before the next migration starts.
 
 A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. Setup and the CLI use the same transaction boundary.
 
-A recorded migration whose digest differs from the bundled source blocks setup and further migrations. Restore the original source if an applied file was edited, including formatting changes. If SQL was applied directly through Drizzle Kit, the TypeScript step may be missing. Restore a backup or reconcile the skipped transformation before repairing history. Do not replace the recorded digest just to dismiss the error.
+Applied migrations are tracked by name. Changes to their SQL, TypeScript, or imported dependencies do not cause them to run again. Add a new migration for additional work. Only queries through the supplied client share the transaction. External effects cannot be rolled back.
 
 Migration state is cached per process. After a CLI migration or history repair, restart the application replicas so they read the current history. Applying through `/configure` refreshes the process serving that request, so restart other replicas afterward.
 
