@@ -397,6 +397,17 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         }
         if (context.path === "/sign-up/email") {
           if (config.legalAcceptanceRequired) assertLegalAcceptance(body?.termsAccepted)
+          // Better Auth hashes inside its signup transaction. Check the password before entering it.
+          // https://github.com/better-auth/better-auth/blob/v1.7.7/packages/better-auth/src/api/routes/sign-up.ts
+          if (
+            Predicate.isString(body?.password) &&
+            body.password.length >= 12 &&
+            body.password.length <= 128
+          ) {
+            const password = context.context.password
+            const hash = await password.hash(body.password)
+            context.context.password = { ...password, hash: () => Promise.resolve(hash) }
+          }
           return
         }
         if (context.path !== "/sign-in/social" || body?.requestSignUp !== true) return
