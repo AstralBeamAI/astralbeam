@@ -93,7 +93,8 @@ export function migrationErrorDetail(cause: unknown): string {
   return (typeof code === "string" ? `${code}: ${message}` : message).slice(0, 300)
 }
 
-/** Each migration owns a transaction, including its lock and freshly checked history. */
+// Each migration owns a transaction, including its lock and freshly checked history.
+// Upstream TypeScript migration support: https://github.com/drizzle-team/drizzle-orm/issues/2695
 export async function runDatabaseMigrations(
   pool: Pick<Pool, "connect">,
   migrations: readonly BundledMigration[],
@@ -114,6 +115,7 @@ export async function runDatabaseMigrations(
   client.on("error", onError)
   try {
     for (;;) {
+      let migration: BundledMigration | undefined
       await client.query("begin")
       try {
         const lock = await client.query<{ locked: boolean }>(
@@ -136,49 +138,40 @@ export async function runDatabaseMigrations(
         if (approved && !approvedMigrationsMatch(pending, approved)) {
           throw new Error("The pending migrations changed; review them again")
         }
-        const migration = pending[0]
-        if (options.dryRun || !migration) {
+        if (options.dryRun || pending.length === 0) {
           await client.query("rollback")
           return options.dryRun ? pending.map(({ name }) => name) : appliedNames
         }
         if (!exists) {
           for (const statement of MIGRATION_LOG_DDL) await client.query(statement)
         }
-        try {
-          await executeMigration(client, migration)
-          if (connectionError) throw connectionError
-          await client.query("commit")
-        } catch (cause) {
-          throw new Error(`Migration '${migration.name}' failed: ${migrationErrorDetail(cause)}`, {
-            cause,
-          })
+        migration = pending[0]!
+        for (const statement of migration.sql.split("--> statement-breakpoint")) {
+          await client.query(statement)
         }
+        if (migration.load) {
+          const { up } = await migration.load()
+          if (typeof up !== "function") throw new Error("migration.ts must export an up function")
+          await up(client)
+        }
+        await client.query(
+          'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
+          [migration.hash, migration.folderMillis, migration.name],
+        )
+        if (connectionError) throw connectionError
+        await client.query("commit")
         appliedNames.push(migration.name)
         approved = approved?.slice(1)
       } catch (cause) {
         await client.query("rollback").catch(() => undefined)
-        throw cause
+        if (!migration) throw cause
+        throw new Error(`Migration '${migration.name}' failed: ${migrationErrorDetail(cause)}`, {
+          cause,
+        })
       }
     }
   } finally {
     client.off("error", onError)
     client.release(connectionError)
   }
-}
-
-// The caller owns the transaction. Keep SQL, TypeScript, and history on its exact client.
-// Upstream TypeScript migration support: https://github.com/drizzle-team/drizzle-orm/issues/2695
-async function executeMigration(client: MigrationClient, migration: BundledMigration) {
-  for (const statement of migration.sql.split("--> statement-breakpoint")) {
-    await client.query(statement)
-  }
-  if (migration.load) {
-    const { up } = await migration.load()
-    if (typeof up !== "function") throw new Error("migration.ts must export an up function")
-    await up(client)
-  }
-  await client.query(
-    'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
-    [migration.hash, migration.folderMillis, migration.name],
-  )
 }

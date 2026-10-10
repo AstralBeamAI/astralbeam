@@ -1,5 +1,4 @@
 import { Cache, Context, Duration, Effect, Exit, Layer, Schema } from "effect"
-import type { PoolClient } from "pg"
 
 import { getAuthDatabase } from "./database.server.ts"
 import { sqlState } from "@/db/lib/sqlstate.server"
@@ -30,18 +29,14 @@ type MigrationApproval = { readonly name: string; readonly hash: string }
 function bundledMigrations(): BundledMigration[] {
   // Vite inlines the SQL because the built server has no migrations folder. Nitro's own bundle
   // cannot, so the glob runs only when called. https://vite.dev/guide/features#glob-import
-  const migrationSqlByPath = import.meta.glob<string>("/src/db/migrations/*/migration.sql", {
+  const migrationSources = import.meta.glob<string>("/src/db/migrations/*/migration.{sql,ts}", {
     query: "?raw",
     import: "default",
     eager: true,
   })
   const migrationScripts = import.meta.glob<MigrationModule>("/src/db/migrations/*/migration.ts")
-  const migrationSources = import.meta.glob<string>("/src/db/migrations/*/migration.ts", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  })
-  return Object.entries(migrationSqlByPath)
+  return Object.entries(migrationSources)
+    .filter(([path]) => path.endsWith("/migration.sql"))
     .map(([path, migrationSql]) => {
       const scriptPath = path.replace(/migration\.sql$/, "migration.ts")
       const load = migrationScripts[scriptPath]
@@ -58,15 +53,12 @@ const decodeAppliedMigrations = Schema.decodeUnknownEffect(
   Schema.Array(Schema.Struct({ name: Schema.String, hash: Schema.String })),
 )
 
-function queryPoolClient(client: Pick<PoolClient, "query">, text: string, values?: unknown[]) {
-  return Effect.tryPromise({ try: () => client.query(text, values), catch: (cause) => cause })
-}
-
 /** Applied history, or `null` before the table or its schema exists. */
 const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(function* () {
-  const result = yield* queryPoolClient(
-    getAuthDatabase().$client,
-    "select name, hash from drizzle.__drizzle_migrations where name is not null",
+  const result = yield* Effect.tryPromise(() =>
+    getAuthDatabase().$client.query(
+      "select name, hash from drizzle.__drizzle_migrations where name is not null",
+    ),
   ).pipe(
     // 42P01 = undefined table, 3F000 = the drizzle schema itself is missing.
     Effect.catchIf(

@@ -119,37 +119,35 @@ Review the SQL and any TypeScript step, then commit the migration folder with it
 
 ### TypeScript data migrations
 
-Add `migration.ts` beside `migration.sql` and `snapshot.json` in a new, unapplied migration folder. For a data-only change, generate a custom migration with `deno task --cwd platform db generate --custom --name=backfill-projects`, keep its SQL file, and add the TypeScript step. A comment-only SQL file is sufficient when no SQL preparation is needed.
+Add `migration.ts` to a new, unapplied migration folder. For a data-only change, run `deno task --cwd platform db generate --custom --name=normalize-names` and keep the comment-only SQL file.
 
-For example, if `migration.sql` adds a nullable `normalized_name` column to a `project` table, the corresponding TypeScript step can fill it using JavaScript's Unicode normalization:
+For example, normalize Organization names with JavaScript:
 
 ```ts
 import type { MigrationClient } from "../../migration-log.server.ts"
 
 export async function up(client: MigrationClient) {
-  const { rows } = await client.query<{ organization_id: string; id: string; name: string }>(
-    "SELECT organization_id, id, name FROM project",
+  const { rows } = await client.query<{ id: string; name: string }>(
+    "SELECT id, name FROM organization",
   )
-  for (const row of rows) {
-    await client.query(
-      "UPDATE project SET normalized_name = $1 WHERE organization_id = $2 AND id = $3",
-      [row.name.normalize("NFKC"), row.organization_id, row.id],
-    )
+  for (const { id, name } of rows) {
+    await client.query("UPDATE organization SET name = $1 WHERE id = $2", [
+      name.normalize("NFKC"),
+      id,
+    ])
   }
 }
 ```
 
-The entire SQL file runs before `up`. If a constraint depends on the backfill, add it in a later migration or execute its SQL through the supplied client after the transformation.
+SQL runs before `up`. Add backfill-dependent constraints through the supplied client after the transformation, or in a later migration.
 
-Use only the supplied client's `query` method for database work, and await all work before returning. Do not start or commit transactions inside `up`, create another connection, or import the current application `Database`, `Config`, schema, or business services. Keep migration modules self-contained, with type-only imports and `node:` built-ins, and put all work inside `up`. Lint checks static and literal dynamic imports. Computed imports, `require`, and evaluated code are unsupported and must be rejected in review. These authoring rules keep historical migrations independent of later application changes and make the source shown for approval complete. The runner does not sandbox migration code.
+Await all database work through the supplied client's `query` method. Keep all work inside `up`, without transaction control or other connections. Only type imports and `node:` built-ins are allowed. Lint checks static and literal dynamic imports. Reject computed imports, `require`, and evaluated code in review. Migration code is trusted, not sandboxed. External I/O and large backfills belong in resumable [durable workflows](../lib/workflows/README.md), because PostgreSQL cannot roll back external effects.
 
-The SQL, TypeScript database writes, and history record commit or roll back together. Setup, the CLI, and `/configure` each commit one migration before starting the next, holding the advisory lock on that same connection and rechecking history under the lock. After a failure, retry through any entry point. Already committed migrations are skipped. Listing migrations and `--dry-run` do not execute `up`.
+Setup, the CLI, and `/configure` commit each SQL/TypeScript pair and its history record together, holding the advisory lock and rechecking history on the same connection. Retry after failure to resume pending migrations. Listing migrations and `--dry-run` do not execute `up`.
 
 PostgreSQL requires an added enum value to be committed before use. Put `ALTER TYPE ... ADD VALUE` and code that uses the value in separate migration folders. Putting the use in the same folder's TypeScript step still fails. See [ALTER TYPE transaction restrictions](https://www.postgresql.org/docs/18/sql-altertype.html#SQL-ALTERTYPE-NOTES).
 
-Both sources ship in the compiled binary, and `/configure` displays them for approval using their combined digest. SQL-only migrations retain their existing digest. Never edit or reformat an applied migration, or add TypeScript to one, because even whitespace changes its digest. Make a new forward migration instead. Applying a combined migration through `drizzle-kit migrate` records only its SQL digest, so AstralBeam reports a history mismatch and blocks setup and further migrations. Follow the [operator recovery guidance](../routes/docs/-content/self-hosting/operations.md#applying-migrations) before repairing history.
-
-Keep these steps short and limited to database transformations. S3 operations, external API calls, and large backfills belong in resumable [durable workflows](../lib/workflows/README.md), because PostgreSQL cannot roll back external effects.
+Both sources ship in the binary and appear in `/configure` for approval using their combined digest. SQL-only digests remain unchanged. Never edit, reformat, or add TypeScript to an applied migration. Make a new migration instead. Direct `drizzle-kit migrate` skips TypeScript and records a mismatched SQL-only digest, blocking setup and further migrations. Follow the [recovery guidance](../routes/docs/-content/self-hosting/operations.md#applying-migrations) before repairing history.
 
 ## Relations v2 composition
 

@@ -64,14 +64,8 @@ export function PendingMigrationsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          {appliedCount} migration{appliedCount === 1 ? "" : "s"} already applied.
-          {pending.length > 0 && (
-            <>
-              {" "}
-              {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
-              configuration. Review the SQL and any TypeScript, then apply.
-            </>
-          )}
+          {pending.length} pending migration{pending.length === 1 ? "" : "s"} ({appliedCount}{" "}
+          already applied). Review the SQL and any TypeScript before applying.
         </p>
         {(historyError ?? error) && (
           <Alert variant="destructive">
