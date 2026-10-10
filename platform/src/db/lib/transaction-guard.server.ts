@@ -115,19 +115,6 @@ export function runGuardedPromiseTransaction<A>(connection: unknown, execute: ()
   )
 }
 
-function acquirePromiseTransactionConnection<A>(
-  pool: unknown,
-  acquire: () => Promise<A>,
-): Promise<A> {
-  const owner = currentTransactionOwner()
-  if (!owner) return acquire()
-  assertTransactionConnection(pool)
-  return transactionAsyncContext.run(undefined, acquire).then((connection) => {
-    owner.connection = connection
-    return connection
-  })
-}
-
 const transactionGuardsKey = Symbol.for("platform.transactionGuards")
 const guardedProcess = globalThis as typeof globalThis & {
   [transactionGuardsKey]?: { installed: boolean; clients: WeakSet<object> }
@@ -277,10 +264,14 @@ export function guardPromisePool(pool: Pool): void {
         assertTransactionNetworkAllowed("SQL pool connection")
         return Reflect.apply(target, receiver, args) as unknown
       }
-      return acquirePromiseTransactionConnection(
-        pool,
-        () => Reflect.apply(target, receiver, args) as Promise<PoolClient>,
-      )
+      const acquire = () => Reflect.apply(target, receiver, args) as Promise<PoolClient>
+      const owner = currentTransactionOwner()
+      if (!owner) return acquire()
+      assertTransactionConnection(pool)
+      return transactionAsyncContext.run(undefined, acquire).then((connection) => {
+        owner.connection = connection
+        return connection
+      })
     },
   })
 }

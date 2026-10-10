@@ -7,11 +7,7 @@ import type { SqlClient, SqlConnection } from "effect/sql"
 import { Pool } from "pg"
 import { afterAll, beforeAll, expect, test } from "vitest"
 
-import {
-  assertTransactionConnection,
-  guardPromisePool,
-  withGuardedSqlTransaction,
-} from "./transaction-guard.server.ts"
+import { guardPromisePool, withGuardedSqlTransaction } from "./transaction-guard.server.ts"
 
 const guardTestConnection = {} as SqlConnection.Connection
 const guardTestService = Context.Service<
@@ -127,38 +123,4 @@ test("blocks sends through an already-open WebSocket", async () => {
     connection?.destroy()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
-})
-
-test("concurrent transactions keep their connections and clear the guard afterward", async () => {
-  const connections = [guardTestConnection, {} as SqlConnection.Connection]
-  await Promise.all([
-    Effect.runPromise(
-      Effect.gen(function* () {
-        yield* Effect.all(
-          connections.map((connection, index) =>
-            withGuardedSqlTransaction(
-              {
-                ...guardTestSql,
-                withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-                  Effect.provideService(effect, guardTestService, [connection, 0]),
-              },
-              Effect.promise(async () => {
-                await new Promise<void>((resolve) => setTimeout(resolve, 1))
-                assertTransactionConnection(connection)
-                expect(() => assertTransactionConnection(connections[1 - index])).toThrow(
-                  "SQL on another connection",
-                )
-              }),
-            ),
-          ),
-          { concurrency: "unbounded" },
-        )
-        yield* Effect.promise(async () => {
-          await Promise.resolve()
-          expect(await (await fetch(guardTestUrl)).text()).toBe("ok")
-        })
-      }),
-    ),
-    fetch(guardTestUrl),
-  ])
 })

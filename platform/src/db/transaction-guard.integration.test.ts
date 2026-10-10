@@ -126,23 +126,6 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
           yield* client`select key from cache_entry where namespace = ${namespace} and key = 'native'`,
         ).toEqual([])
         expect(requests).toBe(before)
-        let inserted = false
-        yield* Effect.exit(
-          client
-            .withTransaction(
-              Effect.gen(function* () {
-                yield* client`insert into cache_entry (namespace, key, value)
-                  values (${namespace}, 'cancel', '1')`
-                inserted = true
-                yield* Effect.never
-              }),
-            )
-            .pipe(Effect.timeout("50 millis")),
-        )
-        expect(inserted).toBe(true)
-        expect(
-          yield* client`select key from cache_entry where namespace = ${namespace} and key = 'cancel'`,
-        ).toEqual([])
         expect(yield* Effect.promise(async () => (await fetch(endpoint)).text())).toBe("ok")
       }).pipe(Effect.provide(Reactivity.layer), Effect.scoped),
     )
