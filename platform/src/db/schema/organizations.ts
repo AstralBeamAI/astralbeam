@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
+import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 
 import {
@@ -43,6 +44,7 @@ import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
 } from "../../lib/api-keys/schemas.ts"
+import { fileObject } from "./files.ts"
 import { user } from "./authentication.ts"
 
 export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
@@ -65,11 +67,23 @@ export const organization = snakeCase.table(
     name: text().notNull(),
     slug: text().notNull(),
     logo: text(),
+    logoFileId: uuid(),
+    logoImportGeneration: uuid(),
+    logoImportSourceUrl: text(),
     metadata: text(),
     ...timestamps(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     uniqueIndex("organization_slug_uidx").on(table.slug),
+    check(
+      "organization_logo_url_check",
+      sql`${table.logo} is not distinct from '/api/files/organizations/' || ${table.id} || '/logos/' || ${table.logoFileId}`,
+    ),
+    deferrableForeignKey({
+      name: "organization_logo_current_fk",
+      columns: [table.id, table.logoFileId],
+      foreignColumns: [fileObject.organizationId, fileObject.id],
+    }),
     check("organization_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
   ],
 )

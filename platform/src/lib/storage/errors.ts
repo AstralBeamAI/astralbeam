@@ -25,3 +25,35 @@ export class StorageDestinationLocked extends Schema.TaggedError<StorageDestinat
   override readonly message =
     "The file storage destination is locked. Moving stored files requires a storage migration."
 }
+
+export class InvalidImage extends Schema.TaggedError<InvalidImage>()(
+  "InvalidImage",
+  {},
+  { httpApiStatus: 422 },
+) {
+  override readonly message =
+    "Use a valid, non-animated PNG, JPEG, GIF, or WebP image no larger than 2 MiB and 16 megapixels."
+}
+
+export class ImageSourceMissing extends Schema.TaggedError<ImageSourceMissing>()(
+  "ImageSourceMissing",
+  { status: Schema.Int },
+) {
+  override readonly message = "The external image is no longer available."
+}
+
+export class ImageImportUnavailable extends Schema.TaggedError<ImageImportUnavailable>()(
+  "ImageImportUnavailable",
+  {},
+  { httpApiStatus: 503 },
+) {
+  override readonly message = "The image could not be imported. Please try again."
+}
+
+export class ImageUploadRateLimited extends Schema.TaggedError<ImageUploadRateLimited>()(
+  "ImageUploadRateLimited",
+  {},
+  { httpApiStatus: 429 },
+) {
+  override readonly message = "Too many image uploads. Please try again in a few minutes."
+}

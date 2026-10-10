@@ -64,14 +64,16 @@ export class StoredFiles extends Context.Service<
       })
       const cleanup = Effect.gen(function* () {
         // Reserve a bounded batch before enqueueing. Rotating updated_at recovers missed submissions fairly.
-        // Attachment consumers must exclude their referenced files from this sweep.
+        // Current avatar and logo references retain their files regardless of age.
         const purging = yield* db
           .update(fileObject)
-          .set({ status: "purging", updatedAt: sql`now()` })
+          .set({ status: "purging", userId: null, organizationId: null, updatedAt: sql`now()` })
           .where(sql`${fileObject.id} in (
-            select id from file_object
-            where status = 'purging' or created_at <= now() - interval '24 hours'
-            order by updated_at, id limit 1000 for update skip locked
+            select f.id from file_object f
+            where (f.status = 'purging' or f.created_at <= now() - interval '24 hours')
+              and not exists (select 1 from "user" where id = f.user_id and avatar_file_id = f.id)
+              and not exists (select 1 from organization where id = f.organization_id and logo_file_id = f.id)
+            order by f.updated_at, f.id limit 1000 for update skip locked
           )`)
           .returning({ fileId: fileObject.id, objectKey: fileObject.objectKey })
           .pipe(mapDatabaseErrors())

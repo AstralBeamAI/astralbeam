@@ -38,6 +38,7 @@ import {
   chatParticipant,
   chatThread,
   chatToolResponse,
+  fileObject,
   modelProvider,
   providerModel,
   member,
@@ -237,7 +238,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       )
   }
 
-  test("keeps all foreign keys deferrable and bound to complete primary keys", async () => {
+  test("keeps foreign keys deferrable and bound to complete primary or file ownership keys", async () => {
     const expectedReferences = new Map(
       Object.values(tables).flatMap((table) => {
         const config = getTableConfig(table)
@@ -269,6 +270,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       updateAction: string
       referencesPrimaryKey: boolean
       usesPrimaryKeyIndex: boolean
+      usesUniqueIndex: boolean
     }>(sql`select table_row.relname as "tableName",
       array(select column_row.attname::text
         from unnest(constraint_row.conkey) with ordinality as key_column(attnum, position)
@@ -288,13 +290,15 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       constraint_row.confdeltype as "deleteAction",
       constraint_row.confupdtype as "updateAction",
       constraint_row.confkey = referenced_key.conkey as "referencesPrimaryKey",
-      constraint_row.conindid = referenced_key.conindid as "usesPrimaryKeyIndex"
+      constraint_row.conindid = referenced_key.conindid as "usesPrimaryKeyIndex",
+      referenced_index.indisunique and referenced_index.indisvalid as "usesUniqueIndex"
     from pg_constraint constraint_row
     join pg_class table_row on table_row.oid = constraint_row.conrelid
     join pg_class referenced_table on referenced_table.oid = constraint_row.confrelid
     join pg_namespace namespace_row on namespace_row.oid = table_row.relnamespace
     left join pg_constraint referenced_key on referenced_key.conrelid = constraint_row.confrelid
       and referenced_key.contype = 'p'
+    join pg_index referenced_index on referenced_index.indexrelid = constraint_row.conindid
     where constraint_row.contype = 'f' and namespace_row.nspname = 'public'
       and table_row.relname !~ '^effect_'`)
     expect(rows).toHaveLength(expectedReferences.size)
@@ -306,8 +310,14 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
           !row.enforced ||
           row.deleteAction === "r" ||
           row.updateAction === "r" ||
-          !row.referencesPrimaryKey ||
-          !row.usesPrimaryKeyIndex,
+          (!(row.referencesPrimaryKey && row.usesPrimaryKeyIndex) &&
+            !(
+              row.foreignTable === "file_object" &&
+              row.usesUniqueIndex &&
+              ((row.tableName === "user" && row.foreignColumns.join() === "user_id,id") ||
+                (row.tableName === "organization" &&
+                  row.foreignColumns.join() === "organization_id,id"))
+            )),
       ),
     ).toEqual([])
     const actions: Record<string, string> = {
@@ -656,6 +666,28 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const kept = await createOrganization("kept", deleted.tenantId)
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
+    for (const { organizationId } of [deleted, kept]) {
+      const [logo] = await db
+        .insert(fileObject)
+        .values({
+          organizationId,
+          objectKey: `workflow-logo:${organizationId}`,
+          contentType: "image/png",
+          byteSize: 1,
+          sha256: "0".repeat(64),
+          status: "stored",
+        })
+        .returning()
+      await db
+        .update(organization)
+        .set({
+          logo: `/api/files/organizations/${organizationId}/logos/${logo!.id}`,
+          logoFileId: logo!.id,
+          logoImportSourceUrl: "https://images.example.com/logo.png",
+          logoImportGeneration: crypto.randomUUID(),
+        })
+        .where(eq(organization.id, organizationId))
+    }
     const deletedChat = await createDeletionChat(deleted)
     const [anotherTenant] = await db
       .insert(tenant)
@@ -719,6 +751,22 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         { organizationId: keptId },
       ])
     }
+    expect(
+      (
+        await db
+          .select()
+          .from(fileObject)
+          .where(eq(fileObject.objectKey, `workflow-logo:${deletedId}`))
+      )[0]!.organizationId,
+    ).toBeNull()
+    expect(
+      (
+        await db
+          .select()
+          .from(fileObject)
+          .where(eq(fileObject.objectKey, `workflow-logo:${keptId}`))
+      )[0]!.organizationId,
+    ).toBe(keptId)
   })
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {

@@ -1,15 +1,14 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: remove username-plugin fields, use Phosphor icons, and prefer SSO photos with a Gravatar fallback keyed to the email it was resolved for.
+// Local changes: remove username-plugin fields, use Phosphor icons, and serve stored images with initials while imports are pending.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
 import { UserIcon as User2 } from "@phosphor-icons/react"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "cn"
-import { getGravatarAvatarUrl } from "@/lib/utils"
 
 export type UserAvatarProps = {
   className?: string
@@ -36,28 +35,6 @@ export function UserAvatar({ className, user, isPending, fallback }: UserAvatarP
     enabled: !user && !isPending,
   })
   const resolvedUser = user ?? session?.user
-  const [gravatar, setGravatar] = useState<{ email: string; url: string | undefined }>()
-  const gravatarImage = gravatar?.email === resolvedUser?.email ? gravatar?.url : undefined
-
-  useEffect(() => {
-    let active = true
-
-    const email = resolvedUser?.email
-    if (resolvedUser?.image || !email) return
-
-    void getGravatarAvatarUrl(email)
-      .then((url) => {
-        if (active) setGravatar({ email, url })
-      })
-      .catch(() => {
-        // Initials remain available when the browser cannot create the fallback URL.
-      })
-
-    return () => {
-      active = false
-    }
-  }, [resolvedUser?.email, resolvedUser?.image])
-
   if ((isPending || sessionPending) && !user) {
     return <Skeleton className={cn("size-8 rounded-full", className)} />
   }
@@ -67,7 +44,7 @@ export function UserAvatar({ className, user, isPending, fallback }: UserAvatarP
   return (
     <Avatar className={cn("size-8 bg-muted text-foreground text-sm rounded-full", className)}>
       <AvatarImage
-        src={resolvedUser?.image ?? gravatarImage}
+        src={resolvedUser?.image ?? undefined}
         alt={resolvedUser?.name || resolvedUser?.email}
         referrerPolicy="no-referrer"
       />

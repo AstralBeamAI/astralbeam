@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev",
     "generate:openapi": "deno run -P=tooling scripts/export-openapi.ts",
-    "build": "deno task generate:openapi && NODE_ENV=production vite build && deno compile --no-check --node-modules-dir=none --exclude-unused-npm --unstable-detect-cjs --include npm:busboy@^1.6.0 --include .output --include src/db/migrations --config deno.jsonc -P=runtime --output .output/astralbeam-platform src/main.ts",
+    "build": "deno task generate:openapi && NODE_ENV=production vite build && deno compile --no-check --node-modules-dir=none --exclude-unused-npm --unstable-detect-cjs --include npm:busboy@^1.6.0 --include npm:@imagemagick/magick-wasm@0.0.44 --include .output --include src/db/migrations --config deno.jsonc -P=runtime --output .output/astralbeam-platform src/main.ts",
     "start": "deno run --config deno.jsonc -P=runtime src/main.ts",
     "binary:check": "deno run --env-file=.env.test -P=tooling scripts/check-binary.ts",
     "check": "deno task format:check && deno task generate:openapi --check && deno task lint && deno task knip",
@@ -45,6 +45,7 @@
     "@effect/sql-pg": "^4.0.0",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/manrope": "^5.2.8",
+    "@imagemagick/magick-wasm": "0.0.44",
     "@marsidev/react-turnstile": "^1.6.0",
     "@phosphor-icons/react": "^2.1.10",
     "@pydantic/genai-prices": "^0.1.9",

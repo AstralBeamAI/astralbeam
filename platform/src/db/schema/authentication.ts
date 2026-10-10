@@ -1,4 +1,8 @@
-import { boolean, index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { fileObject } from "./files.ts"
+import { sql } from "drizzle-orm"
+
+import { boolean, check, index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
@@ -16,10 +20,22 @@ export const user = snakeCase.table(
     email: caseInsensitiveText().notNull(),
     emailVerified: boolean().default(false).notNull(),
     image: text(),
+    avatarFileId: uuid(),
     termsAcceptedAt: timestampWithTimeZone(),
     ...timestamps(),
   },
-  (table) => [uniqueIndex("user_email_uidx").on(table.email)],
+  (table): PgTableExtraConfigValue[] => [
+    uniqueIndex("user_email_uidx").on(table.email),
+    check(
+      "user_avatar_url_check",
+      sql`${table.image} is not distinct from '/api/files/avatars/' || ${table.avatarFileId}`,
+    ),
+    deferrableForeignKey({
+      name: "user_avatar_current_fk",
+      columns: [table.id, table.avatarFileId],
+      foreignColumns: [fileObject.userId, fileObject.id],
+    }),
+  ],
 )
 
 export const session = snakeCase.table(
