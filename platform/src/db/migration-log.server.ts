@@ -23,7 +23,7 @@ export interface BundledMigration {
   load?: () => Promise<MigrationModule>
 }
 
-export type MigrationClient = Pick<PoolClient, "query">
+export type MigrationClient = PoolClient
 
 export interface MigrationModule {
   up: (client: MigrationClient) => Promise<void>

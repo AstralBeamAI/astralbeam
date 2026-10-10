@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { setTimeout } from "node:timers/promises"
+import { sql } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -46,7 +48,7 @@ describe.skipIf(!migrationExecutionIntegration.url)("TypeScript migration transa
     const up = vi.fn(async (client: MigrationClient) => {
       expect((await client.query(`select value from ${table}`)).rows).toEqual([{ value: "sql" }])
       await expect(runDatabaseMigrations(pool, migrations)).rejects.toThrow("already in progress")
-      await client.query(`update ${table} set value = 'typescript'`)
+      await drizzle({ client }).execute(sql.raw(`update ${table} set value = 'typescript'`))
       await fail()
     })
     migrations = [

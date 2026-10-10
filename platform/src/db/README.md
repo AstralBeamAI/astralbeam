@@ -141,7 +141,7 @@ export async function up(client: MigrationClient) {
 
 SQL runs before `up`. Add backfill-dependent constraints through the supplied client after the transformation, or in a later migration.
 
-Migration code is trusted and may import helpers, packages, and application code under the deployment's normal runtime permissions. Await database work through the supplied client's `query` method to share the SQL transaction, without committing or rolling it back yourself. Other connections and external effects do not share its rollback. Put work in `up` so it runs only when the migration is applied.
+Migration code is trusted and may import helpers, packages, and application code under the deployment's normal runtime permissions. The supplied client is a PostgreSQL `PoolClient`. Use its `query` method or wrap it with `drizzle({ client })` from `drizzle-orm/node-postgres` to share the SQL transaction, awaiting the work without committing or rolling it back yourself. Other connections and external effects do not share its rollback. Put work in `up` so it runs only when the migration is applied.
 
 Setup, the CLI, and `/configure` commit each SQL/TypeScript pair and its history record together, holding the advisory lock and rechecking history on the same connection. Retry after failure to resume pending migrations. Listing migrations and `--dry-run` do not execute `up`.
 
