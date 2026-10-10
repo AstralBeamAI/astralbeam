@@ -1,16 +1,14 @@
 import { Cache, Context, Duration, Effect, Exit, Layer, Schema } from "effect"
-import type { Pool, PoolClient } from "pg"
+import type { PoolClient } from "pg"
 
 import { getAuthDatabase } from "./database.server.ts"
 import { sqlState } from "@/db/lib/sqlstate.server"
-import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 import {
   type BundledMigration,
   type MigrationModule,
   bundledMigration,
-  CONFIG_MIGRATION_LOCK_KEY,
-  MIGRATION_LOG_DDL,
-  executeMigration,
+  migrationErrorDetail,
+  runDatabaseMigrations,
   pendingDatabaseMigrations,
 } from "@/db/migration-log.server"
 
@@ -64,48 +62,6 @@ function queryPoolClient(client: Pick<PoolClient, "query">, text: string, values
   return Effect.tryPromise({ try: () => client.query(text, values), catch: (cause) => cause })
 }
 
-/** Runs `use` in a transaction on a pool client of its own, committing only when `use` succeeds. */
-function inPoolTransaction<A, E>(
-  pool: Pick<Pool, "connect">,
-  use: (client: PoolClient) => Effect.Effect<A, E>,
-) {
-  return Effect.acquireUseRelease(
-    Effect.tryPromise({ try: () => pool.connect(), catch: (cause) => cause }),
-    (client) =>
-      queryPoolClient(client, "begin").pipe(
-        Effect.andThen(use(client)),
-        Effect.tap(() => queryPoolClient(client, "commit")),
-        Effect.onError(() => Effect.ignore(queryPoolClient(client, "rollback"))),
-      ),
-    (client) => Effect.sync(() => client.release()),
-  ).pipe(Effect.uninterruptible)
-}
-
-/**
- * Holds the migration advisory lock in a transaction of its own while `apply` runs. Transaction
- * pooling can move a session between transactions, so each migration commits on another client.
- */
-export const withMigrationLock = Effect.fn("withMigrationLock")(function* <A, E>(
-  pool: Pick<Pool, "connect">,
-  apply: Effect.Effect<A, E>,
-) {
-  return yield* inPoolTransaction(pool, (client) =>
-    Effect.gen(function* () {
-      const { rows } = yield* queryPoolClient(
-        client,
-        "select pg_try_advisory_xact_lock(hashtext($1)) as locked",
-        [CONFIG_MIGRATION_LOCK_KEY],
-      )
-      if ((rows[0] as { locked?: unknown } | undefined)?.locked !== true) {
-        return yield* new MigrationsNotApplied({
-          message: "A migration run is already in progress",
-        })
-      }
-      return yield* apply
-    }),
-  )
-})
-
 /** Applied history, or `null` before the table or its schema exists. */
 const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(function* () {
   const result = yield* queryPoolClient(
@@ -121,29 +77,6 @@ const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(fun
   if (result === null) return null
   return yield* decodeAppliedMigrations(result.rows)
 }, Effect.orDie)
-
-// The operator who approved a migration reads its SQLSTATE and message, so both are kept.
-function migrationErrorDetail(cause: unknown): string {
-  if (!(cause instanceof Error)) return "unexpected error"
-  const code = sqlState(cause)
-  return (code ? `${code}: ${cause.message}` : cause.message).slice(0, 300)
-}
-
-const applyMigration = Effect.fn("applyMigration")(function* (migration: BundledMigration) {
-  yield* inPoolTransaction(getAuthDatabase().$client, (client) =>
-    Effect.tryPromise({ try: () => executeMigration(client, migration), catch: (cause) => cause }),
-  ).pipe(
-    Effect.tapError(() =>
-      Effect.logError("Migration failed").pipe(Effect.annotateLogs({ migration: migration.name })),
-    ),
-    Effect.mapError(
-      (cause) =>
-        new MigrationsNotApplied({
-          message: `Migration '${migration.name}' failed: ${migrationErrorDetail(cause)}`,
-        }),
-    ),
-  )
-})
 
 export class DatabaseMigrations extends Context.Service<
   DatabaseMigrations,
@@ -180,34 +113,11 @@ export class DatabaseMigrations extends Context.Service<
 
       const apply = Effect.fn("DatabaseMigrations.apply")(
         function* (approved: readonly MigrationApproval[]) {
-          const pool = getAuthDatabase().$client
-          yield* withMigrationLock(
-            pool,
-            Effect.gen(function* () {
-              const applied = yield* readAppliedMigrationHistory()
-              const pending = yield* Effect.try({
-                try: () => pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
-                catch: (cause) =>
-                  new MigrationsNotApplied({ message: migrationErrorDetail(cause) }),
-              })
-              // Approval binds both SQL and TypeScript source to the reviewed migration.
-              if (!approvedMigrationsMatch(pending, approved)) {
-                return yield* new MigrationsNotApplied({
-                  message: "The pending migrations changed; review them again",
-                })
-              }
-              if (applied === null) {
-                yield* Effect.forEach(MIGRATION_LOG_DDL, (statement) =>
-                  queryPoolClient(pool, statement).pipe(Effect.orDie),
-                )
-              }
-              yield* Effect.forEach(pending, applyMigration, { discard: true })
-            }),
-          ).pipe(
-            Effect.catch((cause) =>
-              cause instanceof MigrationsNotApplied ? Effect.fail(cause) : Effect.die(cause),
-            ),
-          )
+          yield* Effect.tryPromise({
+            try: () =>
+              runDatabaseMigrations(getAuthDatabase().$client, bundledMigrations(), { approved }),
+            catch: (cause) => new MigrationsNotApplied({ message: migrationErrorDetail(cause) }),
+          }).pipe(Effect.uninterruptible)
         },
         (effect) => Effect.ensuring(effect, Cache.invalidate(cache, "state")),
       )

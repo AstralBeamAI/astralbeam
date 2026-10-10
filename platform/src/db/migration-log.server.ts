@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto"
-import type { PoolClient } from "pg"
+import type { Pool, PoolClient } from "pg"
 
-export const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
+import { approvedMigrationsMatch } from "./migration-approval.server.ts"
+
+const CONFIG_MIGRATION_LOCK_KEY = "config_migrations"
 
 // Keep the bookkeeping format compatible with existing Drizzle migration history.
-export const MIGRATION_LOG_DDL = [
+const MIGRATION_LOG_DDL = [
   "CREATE SCHEMA IF NOT EXISTS drizzle",
   `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
     id SERIAL PRIMARY KEY,
@@ -70,7 +72,13 @@ export function pendingDatabaseMigrations(
   return migrations.filter((migration) => {
     const hash = appliedHashes.get(migration.name)
     if (hash === undefined) return true
-    if (hash !== migration.hash) {
+    // v0.15 removed the already-applied conversion script while retaining its SQL.
+    // https://github.com/AstralBeamAI/astralbeam/pull/235
+    const historicalConversion =
+      migration.name === "20261001165317_migrate_organization_model_keys" &&
+      hash === "0725692a5954f98fdc993833a1e53897a5a619eecda95b7b5fca6fac79f1922a" &&
+      migration.hash === "b51cf54bda3f65ab4dd08c41cd61d230f431398732ac2a1c505902ea34f46147"
+    if (hash !== migration.hash && !historicalConversion) {
       throw new Error(
         `Migration '${migration.name}' differs from its applied history. Restore the original files and use a new migration for changes.`,
       )
@@ -79,9 +87,88 @@ export function pendingDatabaseMigrations(
   })
 }
 
+export function migrationErrorDetail(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  const code = cause instanceof Error && "code" in cause ? cause.code : undefined
+  return (typeof code === "string" ? `${code}: ${message}` : message).slice(0, 300)
+}
+
+/** Each migration owns a transaction, including its lock and freshly checked history. */
+export async function runDatabaseMigrations(
+  pool: Pick<Pool, "connect">,
+  migrations: readonly BundledMigration[],
+  options: {
+    dryRun?: boolean
+    approved?: readonly { readonly name: string; readonly hash: string }[]
+  } = {},
+): Promise<string[]> {
+  const client = await pool.connect()
+  const appliedNames: string[] = []
+  let approved = options.approved
+  let connectionError: Error | undefined
+  const onError = (error: Error) => {
+    connectionError = error
+  }
+  // Checked-out clients emit their own errors. Never commit after losing this connection.
+  // https://node-postgres.com/apis/client#events
+  client.on("error", onError)
+  try {
+    for (;;) {
+      await client.query("begin")
+      try {
+        const lock = await client.query<{ locked: boolean }>(
+          "select pg_try_advisory_xact_lock(hashtext($1)) as locked",
+          [CONFIG_MIGRATION_LOCK_KEY],
+        )
+        if (!lock.rows[0]?.locked) throw new Error("A migration run is already in progress")
+        const journal = await client.query<{ name: string | null }>(
+          "select to_regclass('drizzle.__drizzle_migrations')::text as name",
+        )
+        const exists = Boolean(journal.rows[0]?.name)
+        const history = exists
+          ? (
+              await client.query<{ name: string; hash: string }>(
+                "select name, hash from drizzle.__drizzle_migrations where name is not null",
+              )
+            ).rows
+          : []
+        const pending = pendingDatabaseMigrations(migrations, history)
+        if (approved && !approvedMigrationsMatch(pending, approved)) {
+          throw new Error("The pending migrations changed; review them again")
+        }
+        const migration = pending[0]
+        if (options.dryRun || !migration) {
+          await client.query("rollback")
+          return options.dryRun ? pending.map(({ name }) => name) : appliedNames
+        }
+        if (!exists) {
+          for (const statement of MIGRATION_LOG_DDL) await client.query(statement)
+        }
+        try {
+          await executeMigration(client, migration)
+          if (connectionError) throw connectionError
+          await client.query("commit")
+        } catch (cause) {
+          throw new Error(`Migration '${migration.name}' failed: ${migrationErrorDetail(cause)}`, {
+            cause,
+          })
+        }
+        appliedNames.push(migration.name)
+        approved = approved?.slice(1)
+      } catch (cause) {
+        await client.query("rollback").catch(() => undefined)
+        throw cause
+      }
+    }
+  } finally {
+    client.off("error", onError)
+    client.release(connectionError)
+  }
+}
+
 // The caller owns the transaction. Keep SQL, TypeScript, and history on its exact client.
 // Upstream TypeScript migration support: https://github.com/drizzle-team/drizzle-orm/issues/2695
-export async function executeMigration(client: MigrationClient, migration: BundledMigration) {
+async function executeMigration(client: MigrationClient, migration: BundledMigration) {
   for (const statement of migration.sql.split("--> statement-breakpoint")) {
     await client.query(statement)
   }

@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto"
+import { setTimeout } from "node:timers/promises"
 import { Pool } from "pg"
-import { describe, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import {
+  type BundledMigration,
+  type MigrationClient,
   bundledMigration,
-  executeMigration,
-  pendingDatabaseMigrations,
+  runDatabaseMigrations,
 } from "./migration-log.server.ts"
 
 const migrationExecutionIntegration = vi.hoisted(() => {
@@ -21,78 +23,96 @@ const migrationExecutionIntegration = vi.hoisted(() => {
 })
 
 describe.skipIf(!migrationExecutionIntegration.url)("TypeScript migration transactions", () => {
-  test("rolls back SQL and script writes on failure, then retries, commits and skips both steps", async () => {
-    const pool = new Pool({ connectionString: migrationExecutionIntegration.url })
-    const client = await pool.connect()
-    const table = `migration_test_${randomUUID().replaceAll("-", "")}`
-    let fail = true
-    let calls = 0
-    const transformation = bundledMigration(
-      `20261009120300_${table}`,
-      `create table ${table} (value text not null);
---> statement-breakpoint
-insert into ${table} values ('sql');`,
-      {
-        source: "transactional transformation fixture",
-        load: () =>
-          Promise.resolve({
-            up: async (transaction) => {
-              calls++
-              expect((await transaction.query(`select value from ${table}`)).rows).toEqual([
-                { value: "sql" },
-              ])
-              await transaction.query(`update ${table} set value = 'typescript'`)
-              if (fail) throw new Error("Transformation failed")
-            },
-          }),
-      },
-    )
-    const constraint = bundledMigration(
-      `20261009120400_${table}`,
-      `alter table ${table} add check (value = 'typescript')`,
-    )
-    const migrations = [transformation, constraint]
-    const names = migrations.map((migration) => migration.name)
+  let pool: Pool
+  let table: string
+  let migrations: BundledMigration[]
+  beforeEach(() => {
+    pool = new Pool({ connectionString: migrationExecutionIntegration.url })
+    table = `migration_test_${randomUUID().replaceAll("-", "")}`
+    migrations = []
+  })
+  afterEach(async () => {
+    await pool.query(`drop table if exists ${table}`)
+    await pool.query(`drop type if exists ${table}_enum`)
+    await pool.query("delete from drizzle.__drizzle_migrations where name = any($1)", [
+      migrations.map(({ name }) => name),
+    ])
+    await pool.end()
+  })
 
-    try {
-      await client.query("begin")
-      await expect(executeMigration(client, transformation)).rejects.toThrow(
-        "Transformation failed",
-      )
-      await client.query("rollback")
-      expect((await client.query("select to_regclass($1) as name", [table])).rows).toEqual([
-        { name: null },
-      ])
-      expect(
-        (
-          await client.query("select name from drizzle.__drizzle_migrations where name = any($1)", [
-            names,
-          ])
-        ).rows,
-      ).toEqual([])
+  test("commits enum additions separately, rolls back failed SQL and TypeScript, and retries only pending work", async () => {
+    await pool.query(`create type ${table}_enum as enum ('sql')`)
+    const fail = vi.fn().mockRejectedValue(null)
+    const up = vi.fn(async (client: MigrationClient) => {
+      expect((await client.query(`select value from ${table}`)).rows).toEqual([{ value: "sql" }])
+      await expect(runDatabaseMigrations(pool, migrations)).rejects.toThrow("already in progress")
+      await client.query(`update ${table} set value = 'typescript'`)
+      await fail()
+    })
+    migrations = [
+      bundledMigration(
+        `20261009120300_${table}`,
+        `alter type ${table}_enum add value 'typescript'`,
+      ),
+      bundledMigration(
+        `20261009120400_${table}`,
+        `create table ${table} (value ${table}_enum); insert into ${table} values ('sql')`,
+        {
+          source: "transactional transformation fixture",
+          load: () => Promise.resolve({ up }),
+        },
+      ),
+    ]
+    const names = migrations.map(({ name }) => name)
+    expect(await runDatabaseMigrations(pool, migrations, { dryRun: true })).toEqual(names)
+    expect(up).not.toHaveBeenCalled()
+    await expect(runDatabaseMigrations(pool, migrations, { approved: [] })).rejects.toThrow(
+      "review them again",
+    )
+    await expect(runDatabaseMigrations(pool, migrations, { approved: migrations })).rejects.toThrow(
+      `Migration '${names[1]}' failed: null`,
+    )
+    expect((await pool.query("select to_regclass($1) as name", [table])).rows).toEqual([
+      { name: null },
+    ])
+    expect(await runDatabaseMigrations(pool, migrations, { dryRun: true })).toEqual([names[1]])
+    await expect(runDatabaseMigrations(pool, migrations, { approved: migrations })).rejects.toThrow(
+      "review them again",
+    )
+    fail.mockRejectedValueOnce("string failure")
+    await expect(runDatabaseMigrations(pool, migrations)).rejects.toThrow("failed: string failure")
+    fail.mockResolvedValue(undefined)
+    expect(
+      await runDatabaseMigrations(pool, migrations, { approved: migrations.slice(1) }),
+    ).toEqual([names[1]])
+    expect((await pool.query(`select value from ${table}`)).rows).toEqual([{ value: "typescript" }])
+    expect(await runDatabaseMigrations(pool, migrations)).toEqual([])
+    expect(up).toHaveBeenCalledTimes(3)
+  })
 
-      fail = false
-      await client.query("begin")
-      for (const migration of migrations) await executeMigration(client, migration)
-      await client.query("commit")
-      expect((await pool.query(`select value from ${table}`)).rows).toEqual([
-        { value: "typescript" },
-      ])
-      const applied = await pool.query<{ name: string; hash: string }>(
-        "select name, hash from drizzle.__drizzle_migrations where name = any($1) order by name",
-        [names],
-      )
-      expect(applied.rows).toEqual(migrations.map(({ name, hash }) => ({ name, hash })))
-      for (const migration of pendingDatabaseMigrations(migrations, applied.rows)) {
-        await executeMigration(client, migration)
-      }
-      expect(calls).toBe(2)
-    } finally {
-      await client.query("rollback")
-      await client.query(`drop table if exists ${table}`)
-      await client.query("delete from drizzle.__drizzle_migrations where name = any($1)", [names])
-      client.release()
-      await pool.end()
-    }
+  test("survives a checked-out connection dying during an asynchronous step without recording success", async () => {
+    const up = vi.fn(async (client: MigrationClient) => {
+      await client.query("set local idle_in_transaction_session_timeout = '100ms'")
+      await setTimeout(500)
+    })
+    migrations = [
+      bundledMigration(`20261009120500_${table}`, `create table ${table} (value text)`, {
+        source: "connection loss fixture",
+        load: () => Promise.resolve({ up }),
+      }),
+    ]
+    await expect(runDatabaseMigrations(pool, migrations)).rejects.toThrow(
+      `Migration '${migrations[0]!.name}' failed:`,
+    )
+    expect((await pool.query("select to_regclass($1) as name", [table])).rows).toEqual([
+      { name: null },
+    ])
+    expect(await runDatabaseMigrations(pool, migrations, { dryRun: true })).toEqual([
+      migrations[0]!.name,
+    ])
+    up.mockImplementation(async (client: MigrationClient) => {
+      await client.query("select 1")
+    })
+    expect(await runDatabaseMigrations(pool, migrations)).toEqual([migrations[0]!.name])
   })
 })

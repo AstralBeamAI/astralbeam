@@ -12,11 +12,11 @@ Effect manages the separate `effect_cluster_*` tables automatically at runner st
 
 Three things happen when we apply migrations through `/configure`.
 
-- The run takes a PostgreSQL advisory lock, so only one migration run happens at a time across all replicas. A second attempt returns `A migration run is already in progress`.
+- Each migration takes a PostgreSQL transaction advisory lock on its execution connection and rechecks history. A competing attempt while the lock is held returns `A migration run is already in progress`.
 - The page approves the exact set it showed you, by name and a digest of its SQL and any TypeScript. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
 - Each migration runs its SQL, then any TypeScript step, then records completion in one transaction before the next migration starts.
 
-A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. The CLI has a different transaction boundary, described below.
+A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. Setup and the CLI use the same transaction boundary.
 
 A recorded migration whose digest differs from the bundled source blocks setup and further migrations. Restore the original source if an applied file was edited, including formatting changes. If SQL was applied directly through Drizzle Kit, the TypeScript step may be missing. Restore a backup or reconcile the skipped transformation before repairing history. Do not replace the recorded digest just to dismiss the error.
 
@@ -40,7 +40,7 @@ Run this command to apply them:
 astralbeam-platform migrate
 ```
 
-It takes the same advisory lock as `/configure` and applies every pending migration in one transaction. Each migration runs its SQL, then any TypeScript step, then records completion. A failure rolls back the whole pending batch, including migrations earlier in that run. Fix the cause and retry the command.
+Like `/configure`, the command commits each migration separately, with its lock, SQL, TypeScript step, and history record on one connection. A failure rolls back that migration. Fix the cause and retry the command, which skips earlier committed migrations.
 
 Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
