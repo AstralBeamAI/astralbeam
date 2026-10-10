@@ -19,6 +19,7 @@ import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users.server"
 import { Tenants } from "@/lib/tenants/tenants.server"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
 
 const LoggerLayer = Logger.layer([
   IS_DEVELOPMENT_SERVER ? Logger.consolePretty() : Logger.consoleLogFmt,
@@ -38,6 +39,7 @@ function makeAppLayer() {
     DatabaseRateLimiter.layer,
     Dogfood.layer,
     Mailer.layer,
+    ObjectStorage.layer,
     Organizations.layer,
     ModelProviders.layer,
     SandboxProviders.layer,

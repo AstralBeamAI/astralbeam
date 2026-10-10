@@ -33,7 +33,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
   const modelProviderName = `Journey OpenAI ${identity.runId}`
-  const journeyModelId = "gpt-5.6-terra"
+  const journeyModelId = "gpt-6.1-sol"
   const journeyModelLabel = `${journeyModelId} (${modelProviderName})`
 
   await test.step("an operator configures an unconfigured deployment", async () => {
@@ -47,6 +47,11 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await configure.setValue("s3_endpoint", "http://127.0.0.1:9000")
+    await configure.setValue("s3_region", "us-east-1")
+    await configure.setValue("s3_bucket", "e2e-files")
+    await configure.setValue("s3_access_key_id", "e2e-access-key")
+    await configure.setValue("s3_secret_access_key", "e2e-secret-key")
     await configure.testEmailConnection()
     await configure.save()
     await page.getByLabel("Owner email").fill(ownerEmail)

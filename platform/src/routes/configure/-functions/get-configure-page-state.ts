@@ -59,7 +59,11 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
     fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
     setupComplete,
     migrations: {
-      pending: migrations.pending.map(({ name, sql, hash }) => ({ name, sql, hash })),
+      pending: migrations.pending.map(({ name, sql, typescript }) => ({
+        name,
+        sql,
+        ...(typescript === undefined ? {} : { typescript }),
+      })),
       appliedCount: migrations.appliedCount,
     },
     fields,

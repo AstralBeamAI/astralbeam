@@ -5,12 +5,12 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 ## Structure
 
 - `database.server.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
-- `schema/config.server.ts` defines the global `config` table, whose Drizzle column codec owns encryption. The `Config` service in `src/lib/config` validates stored values, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching.
+- `schema/config.server.ts` defines the global `config` table. Each row holds an encrypted `value`. The `Config` service in `src/lib/config` validates stored settings, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching. The shared model pricing catalog stores schema-validated JSON text in that same column and uses dedicated uncached reads so replicas see refreshed prices without restarting.
 - `migration-runner.server.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.server.ts` serves the compiled CLI and `deno task db migrate`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
-- `migrations/` contains generated migration SQL and Drizzle snapshots.
+- `migrations/` contains generated migration SQL, Drizzle snapshots, and optional TypeScript data migrations.
 
 `schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape and chat relation parts, and exports the single composition root passed to `drizzle()`.
 
@@ -18,15 +18,20 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 Tenant and TenantUser name/external-ID substring searches use `pg_trgm` GIN indexes, installed by migration. The migration role needs permission to create the extension. Short or punctuation-only terms without extractable trigrams may still scan their scope. See [PostgreSQL index support](https://www.postgresql.org/docs/18/pgtrgm.html#PGTRGM-INDEX).
 
-Use the Drizzle client from server-only code, after authorizing the organization ID at the request boundary:
+Use the Effect-backed `Database` service from server-only code, after authorizing the organization ID at the request boundary:
 
 ```ts
-import { getAuthDatabase } from "@/db/database.server"
+import { Effect } from "effect"
+import { Database } from "@/db/database.server"
 import { eq } from "drizzle-orm"
 import { agent } from "@/db/schema.server"
 
-export const listOrganizationAgents = (organizationId: string) =>
-  getAuthDatabase().select().from(agent).where(eq(agent.organizationId, organizationId))
+export const listOrganizationAgents = Effect.fn("listOrganizationAgents")(function* (
+  organizationId: string,
+) {
+  const db = yield* Database
+  return yield* db.select().from(agent).where(eq(agent.organizationId, organizationId))
+}, Effect.orDie)
 ```
 
 Database imports belong in server-only code and do not initialize resources. Database operations require `DATABASE_URL`, and encrypted values require `DATABASE_ENCRYPTION_KEY`. When a table has database functions such as those in `config.server.ts`, use them instead of querying the table directly so encryption, validation, and optimistic locking cannot be bypassed. Application reads of global configuration go through the cached, environment-aware `Config` service. Include dynamic row identity inside encrypted payloads and compare it with sibling columns at the table boundary.
@@ -73,7 +78,7 @@ deno task --cwd platform db-reset
 deno task --cwd platform db migrate
 ```
 
-`db migrate` uses the application runner. Other `db` commands invoke the installed Drizzle Kit version.
+`db migrate` uses the application runner, as do `scripts/setup.sh`, the compiled binary's `migrate` command, and `/configure`. The wrapper forwards only `generate`, `check`, `up`, and `export` to the installed Drizzle Kit version, and rejects all other commands, including `push` and `pull --init`. Run `deno task --cwd platform db --help` for the supported commands. Do not run `drizzle-kit migrate` directly, because it skips TypeScript steps while recording the SQL as applied.
 
 `db-reset` only recreates the selected disposable database. Apply migrations separately and never reset shared Compose volumes. Drizzle `check` validates migration-history consistency, not the live database's applied migrations.
 
@@ -99,10 +104,11 @@ Drizzle is schema-first: `src/db/schema.server.ts` is the hand-authored schema e
 
 Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migration unit:
 
-- `migration.sql` is the forward SQL that `migrate` executes and records in the database migration log.
+- `migration.sql` is the forward SQL that `migrate` executes first.
+- Optional `migration.ts` exports `async function up(client: MigrationClient)`. The runner executes it after the SQL, on the exact same PostgreSQL transaction client, before recording the migration in `drizzle.__drizzle_migrations`.
 - `snapshot.json` is Drizzle Kit-owned metadata describing the complete Drizzle-managed schema after that migration and its place in migration history. PostgreSQL never executes it, and it is not a database or data backup.
 
-Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.
+Review the SQL and any TypeScript step, then commit the migration folder with its matching schema changes. Do not edit snapshots by hand.
 
 - Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
@@ -110,6 +116,38 @@ Review the SQL and commit it with its matching snapshot and TypeScript schema ch
 - Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../lib/cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
+
+### TypeScript data migrations
+
+Add `migration.ts` to a new, unapplied migration folder. For a data-only change, run `deno task --cwd platform db generate --custom --name=normalize-names` and keep the comment-only SQL file.
+
+For example, normalize Organization names with JavaScript:
+
+```ts
+import type { MigrationClient } from "../../migration-log.server.ts"
+
+export async function up(client: MigrationClient) {
+  const { rows } = await client.query<{ id: string; name: string }>(
+    "SELECT id, name FROM organization",
+  )
+  for (const { id, name } of rows) {
+    await client.query("UPDATE organization SET name = $1 WHERE id = $2", [
+      name.normalize("NFKC"),
+      id,
+    ])
+  }
+}
+```
+
+SQL runs before `up`. Add backfill-dependent constraints through the supplied client after the transformation, or in a later migration.
+
+Migration code is trusted and may import helpers, packages, and application code under the deployment's normal runtime permissions. The supplied client is a PostgreSQL `PoolClient`. Use its `query` method or wrap it with `drizzle({ client })` from `drizzle-orm/node-postgres` to share the SQL transaction, awaiting the work without committing or rolling it back yourself. Other connections and external effects do not share its rollback. Put work in `up` so it runs only when the migration is applied.
+
+Setup, the CLI, and `/configure` commit each SQL/TypeScript pair and its history record together, holding the advisory lock and rechecking history on the same connection. Retry after failure to resume pending migrations. Listing migrations and `--dry-run` do not execute `up`.
+
+PostgreSQL requires an added enum value to be committed before use. Put `ALTER TYPE ... ADD VALUE` and code that uses the value in separate migration folders. Putting the use in the same folder's TypeScript step still fails. See [ALTER TYPE transaction restrictions](https://www.postgresql.org/docs/18/sql-altertype.html#SQL-ALTERTYPE-NOTES).
+
+Both sources ship in the binary and appear in `/configure`. Migrations are tracked by name, without checking for changes to applied files or imported dependencies. To run more work after a migration is applied, add a new migration. Direct `drizzle-kit migrate` skips TypeScript and records the migration as applied, so use the application commands above.
 
 ## Relations v2 composition
 
@@ -210,7 +248,7 @@ The helper owns its top-level transaction. Calling it inside an existing transac
 
 **NOTE**: Direct email delivery, sandbox provisioning, and other provider calls do not belong inside this transaction. For external work, submit a [durable workflow](../lib/workflows/README.md) through storage participating in the same transaction and return an accepted handle. Because workflow journals can outlive the 24-hour cache, generate a new domain operation ID for each fresh submission and replay its accepted handle. The worker still needs a stable provider idempotency key or reconciliation for uncertain outcomes. Effect's [Workflow identity](https://effect.website/docs/v4/api/effect/workflow/Workflow) and [Activity idempotency keys](https://effect.website/docs/v4/api/effect/workflow/Activity) provide the corresponding durable execution primitives.
 
-These are candidate integrations. Existing callers are not wired to the helper:
+Chat admission already uses the helper for acceptance receipts. The following integrations remain candidates:
 
 | Use case | Protected operation | Inputs to compare |
 | --- | --- | --- |

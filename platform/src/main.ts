@@ -139,7 +139,7 @@ program
 
 program
   .command("migrate")
-  .description("apply pending database migrations in one transaction")
+  .description("apply pending database migrations, committing each separately")
   .option("--dry-run", "list pending migrations without applying them")
   .action(async (options: { dryRun?: boolean }) => {
     loadBootstrapEnvironment(["DATABASE_URL"])

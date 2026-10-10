@@ -89,7 +89,7 @@ import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import type { OwnerOnboarding } from "./schemas.ts"
 import { seedModelProviders } from "../../../scripts/seed/models.ts"
-import { SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
+import { SEED_CONFIG_VALUES, SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
@@ -163,6 +163,9 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.SUPPORT_EMAIL_ADDRESS = "support@example.com"
+      for (const [key, value] of Object.entries(SEED_CONFIG_VALUES)) {
+        if (key.startsWith("s3_")) process.env[key.toUpperCase()] = value
+      }
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
       dogfoodIntegration.failEmail = false
       dogfoodIntegration.resetUrl = ""

@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
-import { Effect } from "effect"
-import { beforeEach, describe, expect, test, vi } from "vitest"
+import { Deferred, Effect, Fiber } from "effect"
+import { TestClock } from "effect/testing"
+import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
 const modelProviderIntegration = vi.hoisted(() => {
   const configured = globalThis.process.env.DATABASE_URL
@@ -17,6 +18,7 @@ import { getAuthDatabase } from "@/db/database.server"
 import {
   agent,
   agentModel,
+  configTable,
   modelProvider,
   organization,
   organizationConfiguration,
@@ -25,7 +27,25 @@ import { Agents } from "@/lib/agents/agents.server"
 import { Config } from "@/lib/config/config.server"
 import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
+import {
+  catalogModelConfiguration,
+  readModelPriceCatalog,
+  writeModelPriceCatalog,
+} from "./pricing-catalog.server.ts"
+import type { ModelConfiguration } from "./schemas.ts"
+import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.server.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
+
+const modelTestConfiguration: ModelConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "2", outputPerMillion: "8" },
+  contextTiers: [],
+  maxInputTokens: 128_000,
+  contextWindowTokens: null,
+  maxOutputTokens: 8192,
+  outputCap: 4096,
+}
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
 
@@ -43,7 +63,13 @@ function saveIntegrationProvider(
       api: "responses",
       baseUrl: "https://api.openai.com/v1",
       apiKey: modelIntegrationKey,
-      models: [{ modelId: "same-model", name: "Shared model name" }],
+      models: [
+        {
+          modelId: "same-model",
+          configuration: modelTestConfiguration,
+          name: "Shared model name",
+        },
+      ],
       ...fields,
     }),
   )
@@ -53,6 +79,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
   let db: ReturnType<typeof getAuthDatabase>
   let organizationId: string
   let agentId: string
+  beforeAll(() => runAppEffect(Effect.void))
   beforeEach(async () => {
     db = getAuthDatabase()
     await db.execute(sql`truncate "organization" cascade`)
@@ -118,6 +145,178 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+  })
+
+  test("persists normalized catalog data and retains it after an invalid refresh", async () => {
+    const untrusted = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        models: [
+          {
+            modelId: "unknown",
+            name: "Unknown",
+            configuration: {
+              ...modelTestConfiguration,
+              pricingSource: { kind: "catalog", modelId: "unknown" },
+            },
+          },
+        ],
+      }).pipe(Effect.flip),
+    )
+    expect(untrusted._tag).toBe("ModelConfigurationMissing")
+    const previous = await runAppEffect(readModelPriceCatalog)
+    const providers = ["openai", "anthropic", "openrouter"].map((id) => ({
+      id,
+      api_pattern: `${id}.com`,
+      models: [
+        {
+          id: "test-model",
+          match: { equals: "test-model" },
+          context_window: 128_000,
+          prices: [
+            { prices: { input_mtok: 1, output_mtok: 2 } },
+            {
+              constraint: { start_date: "2020-01-01" },
+              prices: { input_mtok: 3, output_mtok: 4 },
+            },
+          ],
+        },
+      ],
+    }))
+    vi.stubGlobal("fetch", () => Promise.resolve(Response.json(providers)))
+    try {
+      await runAppEffect(modelPriceCatalogRefresh)
+      const refreshed = await runAppEffect(readModelPriceCatalog)
+      const [stored] = await db
+        .select({
+          catalog: configTable.value,
+          encryptedValue: sql<string | null>`${configTable.value}::text`,
+        })
+        .from(configTable)
+        .where(eq(configTable.key, "model_price_catalog"))
+      expect(stored!.catalog).toEqual({
+        key: "model_price_catalog",
+        value: JSON.stringify(refreshed),
+      })
+      expect(stored!.encryptedValue).not.toContain("test-model")
+      const settings = await runAppEffect(Effect.flatMap(Config, (config) => config.readStored))
+      expect(settings.rows?.some((row) => row.key === "model_price_catalog")).toBe(false)
+      expect(
+        catalogModelConfiguration({
+          catalog: refreshed,
+          providerType: "openai",
+          modelId: "test-model",
+        })?.prices,
+      ).toEqual({ inputPerMillion: "3", outputPerMillion: "4" })
+      const providerId = await runAppEffect(
+        saveIntegrationProvider(organizationId, {
+          models: [{ modelId: "test-model", name: "Catalog model" }],
+        }),
+      )
+      const withoutModel = {
+        ...refreshed,
+        providers: refreshed.providers.map((provider) => ({
+          ...provider,
+          models: provider.models.map((model) => ({
+            ...model,
+            id: "replacement",
+            match: { equals: "replacement" },
+          })),
+        })),
+      }
+      await runAppEffect(writeModelPriceCatalog(withoutModel))
+      await runAppEffect(
+        saveIntegrationProvider(organizationId, {
+          id: providerId,
+          lockVersion: 0,
+          name: "Renamed after removal",
+          models: [
+            {
+              modelId: "test-model",
+              name: "Catalog model",
+              configuration: {
+                ...modelTestConfiguration,
+                pricingSource: { kind: "catalog", modelId: "test-model" },
+              },
+            },
+          ],
+        }),
+      )
+      const retained = await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.get({ organizationId, id: providerId }),
+        ),
+      )
+      expect(retained!.models[0]!.configuration).toMatchObject({
+        pricingSource: { kind: "catalog" },
+        prices: { inputPerMillion: "3", outputPerMillion: "4" },
+      })
+
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
+      )
+      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
+      const cancelDownload = vi.fn()
+      vi.stubGlobal("fetch", () =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              pull(controller) {
+                controller.enqueue(new Uint8Array(9 * 1024 * 1024))
+              },
+              cancel: cancelDownload,
+            }),
+          ),
+        ),
+      )
+      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
+      expect(cancelDownload).toHaveBeenCalledOnce()
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
+      await db.execute(
+        sql`update config set value = 'unreadable' where key = 'model_price_catalog'`,
+      )
+      expect(await runAppEffect(readModelPriceCatalog)).not.toEqual(withoutModel)
+    } finally {
+      await runAppEffect(writeModelPriceCatalog(previous))
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test("aborts stalled catalog bodies on timeout without replacing the snapshot", async () => {
+    const previous = await runAppEffect(readModelPriceCatalog)
+    try {
+      await runAppEffect(
+        Effect.gen(function* () {
+          const started = yield* Deferred.make<AbortSignal>()
+          vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) =>
+            Promise.resolve(
+              new Response(
+                new ReadableStream({
+                  start(controller) {
+                    init.signal!.addEventListener(
+                      "abort",
+                      () => controller.error(new Error("Aborted")),
+                      { once: true },
+                    )
+                  },
+                  pull() {
+                    Deferred.doneUnsafe(started, Effect.succeed(init.signal!))
+                  },
+                }),
+              ),
+            ),
+          )
+          const fiber = yield* modelPriceCatalogRefresh.pipe(Effect.forkChild)
+          const signal = yield* Deferred.await(started)
+          yield* TestClock.adjust("30 seconds")
+          expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+          expect(signal.aborted).toBe(true)
+        }).pipe(Effect.provide(TestClock.layer())),
+      )
+      expect(await runAppEffect(readModelPriceCatalog)).toEqual(previous)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   test("rejects foreign model assignments and protects models in use, including stale provider writes", async () => {
@@ -303,8 +502,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const providerId = await runAppEffect(
       saveIntegrationProvider(organizationId, {
         models: [
-          { modelId: "first", name: "First" },
-          { modelId: "second", name: "Second" },
+          { modelId: "first", configuration: modelTestConfiguration, name: "First" },
+          { modelId: "second", configuration: modelTestConfiguration, name: "Second" },
         ],
       }),
     )

@@ -29,7 +29,7 @@ export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string } 
 export interface PendingMigration {
   name: string
   sql: string
-  hash: string
+  typescript?: string
 }
 
 export interface ConfigureFieldError {

@@ -1,7 +1,6 @@
 import { NotePencilIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
-  type SetStateAction,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -24,13 +23,14 @@ import {
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
-import { storedThreadDraft } from "./lib/drafts.ts"
+import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
 import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
 import { authenticationIdentity } from "../core/auth.ts"
+import { newUuid } from "../core/threads.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
@@ -40,7 +40,16 @@ import { useWidgetRenders } from "./use-widget-renders.ts"
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
 // a fresh `{}` would rebuild the memoized session options (and push them through the session).
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
-const EMPTY_DRAFT = { text: "", attachments: [] as DraftAttachment[] }
+const EMPTY_ATTACHMENTS: DraftAttachment[] = []
+const EMPTY_DRAFT = {
+  text: "",
+  attachments: EMPTY_ATTACHMENTS,
+  // A failed write settles the UI but keeps the successful baseline for the next edit.
+  settledAttachments: EMPTY_ATTACHMENTS,
+  savedAttachments: EMPTY_ATTACHMENTS,
+  attachmentsLoaded: false,
+  storageError: false,
+}
 
 export function ChatWidget({
   options,
@@ -160,6 +169,98 @@ export function ChatWidget({
     text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
   }
   const draft = composer.text
+  const pendingAttachmentWrites = useRef(new Set<string>())
+  useEffect(() => {
+    if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
+    let cancelled = false
+    void storedThreadAttachments({ apiUrl, identity: draftIdentity, threadId: draftKey })
+      .then(
+        (attachments) => ({ attachments, storageError: false }),
+        () => ({ attachments: EMPTY_ATTACHMENTS, storageError: true }),
+      )
+      .then(({ attachments, storageError }) => {
+        if (cancelled) return
+        setDrafts((current) => {
+          if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+          const value = current.threads.get(draftKey) ?? {
+            ...EMPTY_DRAFT,
+            text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
+          }
+          if (value.attachmentsLoaded) return current
+          return {
+            ...current,
+            threads: new Map(current.threads).set(draftKey, {
+              ...value,
+              attachments,
+              settledAttachments: attachments,
+              savedAttachments: attachments,
+              attachmentsLoaded: true,
+              storageError,
+            }),
+          }
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    apiUrl,
+    draftIdentity,
+    draftKey,
+    auth.status,
+    chatState.threadLoading,
+    composer.attachmentsLoaded,
+  ])
+  useEffect(() => {
+    for (const [key, value] of drafts.threads) {
+      if (!value.attachmentsLoaded || value.attachments === value.settledAttachments) continue
+      const scope = JSON.stringify([drafts.apiUrl, drafts.identity, key])
+      if (pendingAttachmentWrites.current.has(scope)) continue
+      pendingAttachmentWrites.current.add(scope)
+      const finish = (storageError: boolean) => {
+        pendingAttachmentWrites.current.delete(scope)
+        setDrafts((current) => {
+          if (current.apiUrl !== drafts.apiUrl || current.identity !== drafts.identity)
+            return current
+          const latest = current.threads.get(key)
+          if (!latest) return current
+          return {
+            ...current,
+            threads: new Map(current.threads).set(key, {
+              ...latest,
+              settledAttachments: value.attachments,
+              savedAttachments: storageError ? latest.savedAttachments : value.attachments,
+              storageError,
+            }),
+          }
+        })
+      }
+      void storedThreadAttachments({
+        apiUrl: drafts.apiUrl,
+        identity: drafts.identity,
+        threadId: key,
+        update: (files) => {
+          const stored = new Map(files.map((file) => [file.id, file]))
+          for (const file of value.savedAttachments) {
+            if (!value.attachments.some((current) => current.id === file.id)) stored.delete(file.id)
+          }
+          for (const file of value.attachments) {
+            if (
+              file.status === "ready" &&
+              !value.savedAttachments.some(
+                (saved) => saved.id === file.id && saved.status === "ready",
+              )
+            )
+              stored.set(file.id, file)
+          }
+          return [...stored.values()]
+        },
+      }).then(
+        () => finish(false),
+        () => finish(true),
+      )
+    }
+  }, [drafts])
   const updateDraft = (transform: (current: typeof EMPTY_DRAFT) => typeof EMPTY_DRAFT) =>
     setDrafts((current) => {
       if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
@@ -175,21 +276,34 @@ export function ChatWidget({
     storedThreadDraft(apiUrl, draftIdentity, draftKey, text)
     updateDraft((current) => ({ ...current, text }))
   }
-  const setAttachments = (value: SetStateAction<DraftAttachment[]>) =>
+  const setAttachments = (update: (attachments: DraftAttachment[]) => DraftAttachment[]) =>
     updateDraft((current) => ({
       ...current,
-      attachments: typeof value === "function" ? value(current.attachments) : value,
+      attachments: update(current.attachments),
     }))
   // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
-    () => resolveAttachmentOptions(capabilities.attachments ? options.attachments : false),
-    [options.attachments, capabilities.attachments],
+    () =>
+      resolveAttachmentOptions(
+        capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
+      ),
+    [options.attachments, capabilities.attachments, composer.attachmentsLoaded],
   )
   // A conversation's capability must not discard files selected in another draft.
-  const attachments = attachmentLimits.enabled ? composer.attachments : EMPTY_DRAFT.attachments
-  // Ids only have to be unique within this composer, and `crypto.randomUUID` is undefined on a
-  // host page served over plain HTTP. https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
-  const nextAttachmentId = useRef(0)
+  const attachments: DraftAttachment[] = []
+  for (const file of attachmentLimits.enabled ? composer.attachments : EMPTY_ATTACHMENTS) {
+    if (file.status === "error") {
+      attachments.push(file)
+      continue
+    }
+    const [picked] = acceptAttachmentFiles({
+      files: [{ name: file.name, size: file.size, type: file.mimeType }],
+      existing: attachments,
+      limits: attachmentLimits,
+      createId: () => file.id,
+    })
+    attachments.push(picked!.draft.status === "error" ? picked!.draft : file)
+  }
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
@@ -198,6 +312,8 @@ export function ChatWidget({
     authPending ||
     authError !== undefined ||
     streamBusy ||
+    !composer.attachmentsLoaded ||
+    composer.attachments !== composer.settledAttachments ||
     chatState.threadLoading ||
     chatState.threadLoadFailed ||
     chatState.thread?.role === "viewer" ||
@@ -219,15 +335,26 @@ export function ChatWidget({
       files,
       existing: attachments,
       limits: attachmentLimits,
-      createId: () => `attachment-${nextAttachmentId.current++}`,
+      createId: newUuid,
     })
     setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
     const settle = (id: string, update: Partial<DraftAttachment>) =>
-      setAttachments((current) =>
-        current.map((attachment) =>
-          attachment.id === id ? { ...attachment, ...update } : attachment,
-        ),
-      )
+      setDrafts((current) => {
+        if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
+        for (const [key, value] of current.threads) {
+          if (!value.attachments.some((file) => file.id === id)) continue
+          return {
+            ...current,
+            threads: new Map(current.threads).set(key, {
+              ...value,
+              attachments: value.attachments.map((file) =>
+                file.id === id ? { ...file, ...update } : file,
+              ),
+            }),
+          }
+        }
+        return current
+      })
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
         debug?.("attachment", `rejected "${pick.name}"`, {
@@ -280,7 +407,9 @@ export function ChatWidget({
           },
     )
     const sentDraft = draft
-    const sentAttachments = attachments
+    const sentAttachmentIds = new Set(
+      attachments.filter((file) => file.status === "ready").map((file) => file.id),
+    )
     let submissionDraftKey = draftKey
     void chat.sendMessage(
       parts.length === 0
@@ -298,12 +427,35 @@ export function ChatWidget({
           const text = storedThreadDraft(apiUrl, draftIdentity, "")
           if (text) storedThreadDraft(apiUrl, draftIdentity, id, text)
           storedThreadDraft(apiUrl, draftIdentity, "", "")
+          void storedThreadAttachments({
+            apiUrl,
+            identity: draftIdentity,
+            threadId: "",
+            moveTo: id,
+          }).catch((error: unknown) => debug?.("error", "Draft files could not be moved", error))
           setDrafts((cached) => {
             if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
             const value = cached.threads.get("")
-            if (!value || cached.threads.has(id)) return cached
+            if (!value) return cached
+            const destination = cached.threads.get(id)
             const threads = new Map(cached.threads)
-            threads.set(id, value)
+            threads.set(id, {
+              ...value,
+              text: value.text || destination?.text || "",
+              attachments: [
+                ...new Map(
+                  [...(destination?.attachments ?? []), ...value.attachments].map((file) => [
+                    file.id,
+                    file,
+                  ]),
+                ).values(),
+              ],
+              settledAttachments: EMPTY_ATTACHMENTS,
+              savedAttachments: [
+                ...(destination?.savedAttachments ?? []),
+                ...value.savedAttachments,
+              ],
+            })
             threads.delete("")
             return { ...cached, threads }
           })
@@ -311,6 +463,14 @@ export function ChatWidget({
         onAccepted: () => {
           if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
             storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
+          void storedThreadAttachments({
+            apiUrl,
+            identity: draftIdentity,
+            threadId: submissionDraftKey,
+            update: (files) => files.filter((file) => !sentAttachmentIds.has(file.id)),
+          }).catch((error: unknown) =>
+            debug?.("error", "Accepted draft files could not be cleared", error),
+          )
           setDrafts((cached) => {
             if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
             const value = cached.threads.get(submissionDraftKey)
@@ -318,8 +478,9 @@ export function ChatWidget({
             return {
               ...cached,
               threads: new Map(cached.threads).set(submissionDraftKey, {
+                ...value,
                 text: value.text === sentDraft ? "" : value.text,
-                attachments: value.attachments === sentAttachments ? [] : value.attachments,
+                attachments: value.attachments.filter((file) => !sentAttachmentIds.has(file.id)),
               }),
             }
           })
@@ -342,9 +503,15 @@ export function ChatWidget({
     // resets resume state, and disposes the live widget renders.
     chat.reset()
     storedThreadDraft(apiUrl, draftIdentity, "", "")
+    void storedThreadAttachments({
+      apiUrl,
+      identity: draftIdentity,
+      threadId: "",
+      update: () => [],
+    }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
     setDrafts((current) => {
       const threads = new Map(current.threads)
-      threads.delete("")
+      threads.set("", { ...EMPTY_DRAFT, attachmentsLoaded: true })
       return { ...current, threads }
     })
   }
@@ -354,6 +521,14 @@ export function ChatWidget({
 
   const forgetDraft = (id: string) => {
     storedThreadDraft(apiUrl, draftIdentity, id, "")
+    void storedThreadAttachments({
+      apiUrl,
+      identity: draftIdentity,
+      threadId: id,
+      update: () => [],
+    }).catch((error: unknown) =>
+      debug?.("error", "Deleted conversation's draft files could not be cleared", error),
+    )
     setDrafts((current) => {
       if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
       const threads = new Map(current.threads)
@@ -480,6 +655,11 @@ export function ChatWidget({
             ))}
         {sandboxStatus !== undefined && <SandboxStatusPill status={sandboxStatus} />}
         {options.sandboxPanel === true && sandboxHasWork && <SandboxPanel activity={sandbox} />}
+        {attachmentLimits.enabled && composer.storageError && (
+          <p role="status" className="w-full text-muted-foreground text-xs">
+            Files cannot be recovered after reload because browser storage is unavailable.
+          </p>
+        )}
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={
