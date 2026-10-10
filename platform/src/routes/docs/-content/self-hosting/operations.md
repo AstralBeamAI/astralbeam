@@ -6,23 +6,27 @@ Every command below needs `DATABASE_URL` in the environment. `astralbeam-platfor
 
 ## Applying migrations
 
-Application migrations ship inside the artifact. When a release adds one, the setup gate closes on every replica, pages redirect to `/configure`, and the page shows a **Database migrations** card with the pending count, how many are already applied, and each migration's full SQL behind a disclosure. Read the SQL, back up the database if it holds data you cannot lose, then apply.
+Application migrations ship inside the artifact. When a release adds one, the setup gate closes on every replica, pages redirect to `/configure`, and the page shows a **Database migrations** card with the pending count, how many are already applied, and each migration's full SQL and optional TypeScript behind a disclosure. Read both sources, back up the database if it holds data you cannot lose, then apply.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
-Three things happen when you apply application migrations.
+Three things happen when we apply migrations through `/configure`.
 
-- The run takes a PostgreSQL advisory lock, so only one migration run happens at a time across all replicas. A second attempt returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by name and a digest of its SQL. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
-- Each migration runs in its own transaction and is recorded before the next one starts.
+- Each migration takes a PostgreSQL transaction advisory lock on its execution connection and rechecks history. A competing attempt while the lock is held returns `A migration run is already in progress`.
+- The page approves the exact set it showed you, by their ordered names. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
+- Each migration runs its SQL, then any TypeScript step, then records completion in one transaction before the next migration starts.
 
-A failure stops the run and reports `Migration '<name>' failed: <code>: <message>`. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run.
+A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. Setup and the CLI use the same transaction boundary.
 
-**NOTE**: There is no rollback. Reverse an applied change with a new forward migration.
+Applied migrations are tracked by name. Changes to their SQL, TypeScript, or imported dependencies do not cause them to run again. Add a new migration for additional work. Only queries through the supplied client share the transaction. External effects cannot be rolled back.
+
+Migration state is cached per process. After a CLI migration or history repair, restart the application replicas so they read the current history. Applying through `/configure` refreshes the process serving that request, so restart other replicas afterward.
+
+**NOTE**: Failed transactions roll back automatically. There is no command to undo a committed migration. Reverse an applied change with a new forward migration.
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and `deno task db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and `deno task --cwd platform db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Repository setup uses the same runner. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
 Run this command with the new binary to list the migrations it would apply, without changing the database:
 
@@ -36,7 +40,7 @@ Run this command to apply them:
 astralbeam-platform migrate
 ```
 
-It takes the same advisory lock as `/configure` and applies every pending migration in one transaction, so a failure reports `Migration '<name>' failed: <code>: <message>` and leaves none of them applied.
+Like `/configure`, the command commits each migration separately, with its lock, SQL, TypeScript step, and history record on one connection. A failure rolls back that migration. Fix the cause and retry the command, which skips earlier committed migrations.
 
 Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
@@ -50,7 +54,9 @@ Run this command to validate the consistency of the migration history on disk, w
 deno task --cwd platform db check
 ```
 
-**NOTE**: Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. It compares the schema with a live database instead of applying reviewed migration files.
+The repository's `db` wrapper forwards only `generate`, `check`, `up`, and `export` to Drizzle Kit. It handles `migrate` itself and rejects every other command, including `push`, `pull`, and legacy aliases. `up` upgrades migration metadata on disk, not the database schema.
+
+**NOTE**: Use AstralBeam's migration commands. The wrapper cannot prevent someone with database access from invoking Drizzle Kit directly. Direct `drizzle-kit migrate` skips TypeScript steps while recording the SQL as applied. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. It compares the schema with a live database instead of applying reviewed migration files.
 
 ## Backups and restore
 
@@ -109,7 +115,7 @@ The process writes plain text to stdout and stderr. There is no log file, no log
 
 Cluster readiness logs include the advertised private runner address. Failures on `/configure` and in the config layer omit submitted values and are recorded as a classification plus a PostgreSQL error code, precisely so a submitted secret cannot end up in the log. That is also why a `/configure` error in the log is terse, and why it is worth pairing with the message the page showed the operator.
 
-Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration '<name>' failed` means a migration run stopped, and the page has the detail. `Ignoring invalid stored config value for '<key>'` means a stored setting no longer decodes, so the deployment is running as if that setting were unset. `API request failed` marks a `500` from the public API, with the stage and error code.
+Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value for '<key>'` means a stored setting no longer decodes, so the deployment is running as if that setting were unset. `API request failed` marks a `500` from the public API, with the stage and error code.
 
 ## Connection pooling
 

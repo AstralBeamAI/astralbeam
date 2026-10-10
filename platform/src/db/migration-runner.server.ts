@@ -1,14 +1,14 @@
 import { Cache, Context, Duration, Effect, Exit, Layer, Schema } from "effect"
-import type { Pool, PoolClient } from "pg"
 
 import { getAuthDatabase } from "./database.server.ts"
 import { sqlState } from "@/db/lib/sqlstate.server"
-import { approvedMigrationsMatch } from "@/db/migration-approval.server"
 import {
   type BundledMigration,
+  type MigrationModule,
   bundledMigration,
-  CONFIG_MIGRATION_LOCK_KEY,
-  MIGRATION_LOG_DDL,
+  migrationErrorDetail,
+  runDatabaseMigrations,
+  pendingDatabaseMigrations,
 } from "@/db/migration-log.server"
 
 /** Carries the migration runner's reason, which names the migration and SQLSTATE for operators. */
@@ -23,83 +23,39 @@ export interface DatabaseMigrationState {
   readonly appliedCount: number
 }
 
-type MigrationApproval = { readonly name: string; readonly hash: string }
-
 function bundledMigrations(): BundledMigration[] {
   // Vite inlines the SQL because the built server has no migrations folder. Nitro's own bundle
   // cannot, so the glob runs only when called. https://vite.dev/guide/features#glob-import
-  const migrationSqlByPath = import.meta.glob<string>("/src/db/migrations/*/migration.sql", {
+  const migrationSources = import.meta.glob<string>("/src/db/migrations/*/migration.{sql,ts}", {
     query: "?raw",
     import: "default",
     eager: true,
   })
-  return Object.entries(migrationSqlByPath)
-    .map(([path, migrationSql]) => bundledMigration(path.split("/").at(-2) ?? path, migrationSql))
+  const migrationScripts = import.meta.glob<MigrationModule>("/src/db/migrations/*/migration.ts")
+  return Object.entries(migrationSources)
+    .filter(([path]) => path.endsWith("/migration.sql"))
+    .map(([path, migrationSql]) => {
+      const scriptPath = path.replace(/migration\.sql$/, "migration.ts")
+      const load = migrationScripts[scriptPath]
+      return bundledMigration(
+        path.split("/").at(-2) ?? path,
+        migrationSql,
+        load ? { source: migrationSources[scriptPath]!, load } : undefined,
+      )
+    })
     .sort((a, b) => a.name.localeCompare(b.name))
-}
-
-// `appliedNames === null` means the bookkeeping table (or its schema) does not exist yet, so every
-// bundled migration is pending. drizzle-orm matches applied migrations by name.
-function pendingMigrations(appliedNames: ReadonlySet<string> | null): BundledMigration[] {
-  const bundled = bundledMigrations()
-  return appliedNames ? bundled.filter((migration) => !appliedNames.has(migration.name)) : bundled
 }
 
 const decodeAppliedMigrations = Schema.decodeUnknownEffect(
   Schema.Array(Schema.Struct({ name: Schema.String })),
 )
 
-function queryPoolClient(client: Pick<PoolClient, "query">, text: string, values?: unknown[]) {
-  return Effect.tryPromise({ try: () => client.query(text, values), catch: (cause) => cause })
-}
-
-/** Runs `use` in a transaction on a pool client of its own, committing only when `use` succeeds. */
-function inPoolTransaction<A, E>(
-  pool: Pick<Pool, "connect">,
-  use: (client: PoolClient) => Effect.Effect<A, E>,
-) {
-  return Effect.acquireUseRelease(
-    Effect.tryPromise({ try: () => pool.connect(), catch: (cause) => cause }),
-    (client) =>
-      queryPoolClient(client, "begin").pipe(
-        Effect.andThen(use(client)),
-        Effect.tap(() => queryPoolClient(client, "commit")),
-        Effect.onError(() => Effect.ignore(queryPoolClient(client, "rollback"))),
-      ),
-    (client) => Effect.sync(() => client.release()),
-  ).pipe(Effect.uninterruptible)
-}
-
-/**
- * Holds the migration advisory lock in a transaction of its own while `apply` runs. Transaction
- * pooling can move a session between transactions, so each migration commits on another client.
- */
-export const withMigrationLock = Effect.fn("withMigrationLock")(function* <A, E>(
-  pool: Pick<Pool, "connect">,
-  apply: Effect.Effect<A, E>,
-) {
-  return yield* inPoolTransaction(pool, (client) =>
-    Effect.gen(function* () {
-      const { rows } = yield* queryPoolClient(
-        client,
-        "select pg_try_advisory_xact_lock(hashtext($1)) as locked",
-        [CONFIG_MIGRATION_LOCK_KEY],
-      )
-      if ((rows[0] as { locked?: unknown } | undefined)?.locked !== true) {
-        return yield* new MigrationsNotApplied({
-          message: "A migration run is already in progress",
-        })
-      }
-      return yield* apply
-    }),
-  )
-})
-
-/** The names the bookkeeping table records, or `null` before the table or its schema exists. */
-const readAppliedMigrationNames = Effect.fn("readAppliedMigrationNames")(function* () {
-  const result = yield* queryPoolClient(
-    getAuthDatabase().$client,
-    "select name from drizzle.__drizzle_migrations where name is not null",
+/** Applied history, or `null` before the table or its schema exists. */
+const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(function* () {
+  const result = yield* Effect.tryPromise(() =>
+    getAuthDatabase().$client.query(
+      "select name from drizzle.__drizzle_migrations where name is not null",
+    ),
   ).pipe(
     // 42P01 = undefined table, 3F000 = the drizzle schema itself is missing.
     Effect.catchIf(
@@ -108,40 +64,8 @@ const readAppliedMigrationNames = Effect.fn("readAppliedMigrationNames")(functio
     ),
   )
   if (result === null) return null
-  return new Set((yield* decodeAppliedMigrations(result.rows)).map((row) => row.name))
+  return yield* decodeAppliedMigrations(result.rows)
 }, Effect.orDie)
-
-// The operator who approved a migration reads its SQLSTATE and message, so both are kept.
-function migrationErrorDetail(cause: unknown): string {
-  if (!(cause instanceof Error)) return "unexpected error"
-  const code = sqlState(cause)
-  return (code ? `${code}: ${cause.message}` : cause.message).slice(0, 300)
-}
-
-const applyMigration = Effect.fn("applyMigration")(function* (migration: BundledMigration) {
-  yield* inPoolTransaction(getAuthDatabase().$client, (client) =>
-    Effect.gen(function* () {
-      for (const statement of migration.sql.split("--> statement-breakpoint")) {
-        yield* queryPoolClient(client, statement)
-      }
-      yield* queryPoolClient(
-        client,
-        'insert into drizzle.__drizzle_migrations ("hash", "created_at", "name") values ($1, $2, $3)',
-        [migration.hash, migration.folderMillis, migration.name],
-      )
-    }),
-  ).pipe(
-    Effect.tapError(() =>
-      Effect.logError("Migration failed").pipe(Effect.annotateLogs({ migration: migration.name })),
-    ),
-    Effect.mapError(
-      (cause) =>
-        new MigrationsNotApplied({
-          message: `Migration '${migration.name}' failed: ${migrationErrorDetail(cause)}`,
-        }),
-    ),
-  )
-})
 
 export class DatabaseMigrations extends Context.Service<
   DatabaseMigrations,
@@ -149,9 +73,7 @@ export class DatabaseMigrations extends Context.Service<
     /** Cached until this process applies migrations, which only an operator does. */
     readonly state: Effect.Effect<DatabaseMigrationState>
     /** Applies exactly the pending migrations the operator reviewed, each in its own transaction. */
-    readonly apply: (
-      approved: readonly MigrationApproval[],
-    ) => Effect.Effect<void, MigrationsNotApplied>
+    readonly apply: (approved: readonly string[]) => Effect.Effect<void, MigrationsNotApplied>
   }
 >()("astralbeam/db/DatabaseMigrations") {
   static readonly layer = Layer.effect(
@@ -159,9 +81,9 @@ export class DatabaseMigrations extends Context.Service<
     Effect.gen(function* () {
       const cache = yield* Cache.makeWith(
         () =>
-          Effect.map(readAppliedMigrationNames(), (appliedNames) => ({
-            pending: pendingMigrations(appliedNames),
-            appliedCount: appliedNames?.size ?? 0,
+          Effect.map(readAppliedMigrationHistory(), (applied): DatabaseMigrationState => ({
+            pending: pendingDatabaseMigrations(bundledMigrations(), applied ?? []),
+            appliedCount: applied?.length ?? 0,
           })),
         {
           capacity: 1,
@@ -170,30 +92,14 @@ export class DatabaseMigrations extends Context.Service<
       )
 
       const apply = Effect.fn("DatabaseMigrations.apply")(
-        function* (approved: readonly MigrationApproval[]) {
-          const pool = getAuthDatabase().$client
-          yield* withMigrationLock(
-            pool,
-            Effect.gen(function* () {
-              const appliedNames = yield* readAppliedMigrationNames()
-              const pending = pendingMigrations(appliedNames)
-              // The operator approves exactly the SQL digests they reviewed.
-              if (!approvedMigrationsMatch(pending, approved)) {
-                return yield* new MigrationsNotApplied({
-                  message: "The pending migrations changed; review them again",
-                })
-              }
-              if (appliedNames === null) {
-                yield* Effect.forEach(MIGRATION_LOG_DDL, (statement) =>
-                  queryPoolClient(pool, statement).pipe(Effect.orDie),
-                )
-              }
-              yield* Effect.forEach(pending, applyMigration, { discard: true })
-            }),
-          ).pipe(
-            Effect.catch((cause) =>
-              cause instanceof MigrationsNotApplied ? Effect.fail(cause) : Effect.die(cause),
-            ),
+        function* (approved: readonly string[]) {
+          yield* Effect.tryPromise({
+            try: () =>
+              runDatabaseMigrations(getAuthDatabase().$client, bundledMigrations(), { approved }),
+            catch: (cause) => new MigrationsNotApplied({ message: migrationErrorDetail(cause) }),
+          }).pipe(
+            Effect.tapError(() => Effect.logError("Migration failed")),
+            Effect.uninterruptible,
           )
         },
         (effect) => Effect.ensuring(effect, Cache.invalidate(cache, "state")),
