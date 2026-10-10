@@ -209,6 +209,7 @@ function buildHostTool(
     }
     signal.addEventListener("abort", cancelled, { once: true })
     try {
+      debug?.("tool", `executing host tool "${tool.name}"`, { input })
       const { result: output } = await executeHostTool(
         tool,
         input,
@@ -217,6 +218,7 @@ function buildHostTool(
           if (!presentation) await present(undefined, "pending")
         },
       )
+      debug?.("tool", `host tool "${tool.name}" returned`, { output })
       const rendered = await present(
         output,
         signal.aborted ? "cancelled" : output.isError ? "error" : "complete",
@@ -228,6 +230,7 @@ function buildHostTool(
         }
       return output
     } catch (error) {
+      debug?.("error", `host tool "${tool.name}" threw`, { error })
       await present(undefined, signal.aborted ? "cancelled" : "error")
       throw error
     } finally {
