@@ -8,6 +8,21 @@ export const ChatSubmissionReceiptSchema = Schema.Struct({
   threadVersion: LockVersionSchema,
 })
 
+export const ChatUserPartsSchema = Schema.Array(
+  Schema.Union([
+    Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
+    Schema.Struct({
+      type: Schema.Literals(["image", "document", "audio", "video"]),
+      source: Schema.Struct({
+        type: Schema.Literal("data"),
+        value: Schema.String,
+        mimeType: Schema.optionalKey(Schema.String),
+      }),
+      metadata: Schema.optionalKey(Schema.JsonObject),
+    }),
+  ]),
+).check(Schema.isMinLength(1))
+
 const ChatParticipantRoleSchema = Schema.Literals(["viewer", "member", "manager"])
 export type ChatParticipantRole = typeof ChatParticipantRoleSchema.Type
 
@@ -49,6 +64,7 @@ export const ChatMessagePayloadSchema = Schema.Struct({
   modelMessages: Schema.optional(Schema.Array(Schema.JsonObject)),
   provenance: Schema.optional(Schema.JsonObject),
   invocationId: Schema.optional(Schema.String),
+  steering: Schema.optional(Schema.Struct({ appliedToMessageId: Schema.optional(ApiUuidSchema) })),
   turnId: Schema.optional(Schema.String),
 })
 export type ChatMessagePayload = typeof ChatMessagePayloadSchema.Type

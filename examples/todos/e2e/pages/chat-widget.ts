@@ -31,7 +31,7 @@ const CHAT_REPLY_POLL_MS = 250
 
 export function chatWidget(page: Page) {
   const root = page.locator("aside.chat-sidebar")
-  const composer = root.getByRole("textbox", { name: "Message" })
+  const composer = root.getByRole("textbox", { name: "Message", exact: true })
   const sendButton = root.getByRole("button", { name: "Send", exact: true })
   const stopButton = root.getByRole("button", { name: "Stop", exact: true })
   const busy = root

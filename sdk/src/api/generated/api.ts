@@ -88,6 +88,28 @@ export interface ChatSubmissionReceiptEncoded {
   thread_version: number
 }
 
+export type SteerChatInputEncodedPartsItem =
+  | {
+      type: "text"
+      content: string
+    }
+  | {
+      type: "image" | "document" | "audio" | "video"
+      source: {
+        type: "data"
+        value: string
+        mimeType?: string
+      }
+      metadata?: { [key: string]: unknown }
+    }
+
+export interface SteerChatInputEncoded {
+  turn_message_id: string
+  client_id: string
+  /** @minItems 1 */
+  parts: SteerChatInputEncodedPartsItem[]
+}
+
 export type ResolveChatToolResultInputEncodedResultsItemOutcome =
   (typeof ResolveChatToolResultInputEncodedResultsItemOutcome)[keyof typeof ResolveChatToolResultInputEncodedResultsItemOutcome]
 
@@ -199,6 +221,17 @@ export const ChatHistoryPageEncodedMessagesItemState = {
   interrupted: "interrupted",
 } as const
 
+export type ChatHistoryPageEncodedMessagesItemTurnState =
+  | (typeof ChatHistoryPageEncodedMessagesItemTurnState)[keyof typeof ChatHistoryPageEncodedMessagesItemTurnState]
+  | null
+
+export const ChatHistoryPageEncodedMessagesItemTurnState = {
+  running: "running",
+  waiting: "waiting",
+  completed: "completed",
+  interrupted: "interrupted",
+} as const
+
 export type ChatHistoryPageEncodedMessagesItemPartsItem = { [key: string]: unknown }
 
 export type ChatHistoryPageEncodedMessagesItem = {
@@ -206,6 +239,9 @@ export type ChatHistoryPageEncodedMessagesItem = {
   role: ChatHistoryPageEncodedMessagesItemRole
   state: ChatHistoryPageEncodedMessagesItemState
   parent_message_id: string | null
+  turn_message_id: string | null
+  turn_state: ChatHistoryPageEncodedMessagesItemTurnState
+  steering_applied_to_message_id: string | null
   parts: ChatHistoryPageEncodedMessagesItemPartsItem[]
   author_tenant_user_id: string | null
   source_assistant_message_id: string | null
@@ -365,6 +401,17 @@ export const ChatMessageEncodedState = {
   interrupted: "interrupted",
 } as const
 
+export type ChatMessageEncodedTurnState =
+  | (typeof ChatMessageEncodedTurnState)[keyof typeof ChatMessageEncodedTurnState]
+  | null
+
+export const ChatMessageEncodedTurnState = {
+  running: "running",
+  waiting: "waiting",
+  completed: "completed",
+  interrupted: "interrupted",
+} as const
+
 export type ChatMessageEncodedPartsItem = { [key: string]: unknown }
 
 export interface ChatMessageEncoded {
@@ -372,6 +419,9 @@ export interface ChatMessageEncoded {
   role: ChatMessageEncodedRole
   state: ChatMessageEncodedState
   parent_message_id: string | null
+  turn_message_id: string | null
+  turn_state: ChatMessageEncodedTurnState
+  steering_applied_to_message_id: string | null
   parts: ChatMessageEncodedPartsItem[]
   author_tenant_user_id: string | null
   source_assistant_message_id: string | null
@@ -1533,6 +1583,45 @@ export const resolveChatToolResult = (
       body: JSON.stringify(resolveChatToolResultInputEncoded),
     },
   )
+}
+
+export const getSteerChatTurnUrl = (id: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}/steer`
+}
+
+/**
+ * @summary Add guidance to your active turn
+ */
+export const steerChatTurn = (
+  id: string,
+  steerChatInputEncoded: SteerChatInputEncoded,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<ChatSubmissionReceiptEncoded>(getSteerChatTurnUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(steerChatInputEncoded),
+  })
 }
 
 export const getGetChatAttachmentUrl = (id: string, messageId: string, partId: string) => {

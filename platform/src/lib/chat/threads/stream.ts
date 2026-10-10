@@ -21,6 +21,7 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson } from "./projection"
+import { CHAT_TURN_LIMIT_MESSAGE } from "../errors"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -43,10 +44,17 @@ interface ManagedChatStreamOptions {
   }>
   readonly model: ChatModelConfiguration
   readonly agentId: string
+  readonly canContinueSteering?: (() => boolean) | undefined
   readonly refreshContext?:
     | ((
         claim: ChatWriterClaim,
-      ) => Promise<{ providerMessages: ModelMessage[]; tools: Tool[]; systemPrompts: string[] }>)
+        beforeModel: boolean,
+      ) => Promise<{
+        providerMessages: ModelMessage[]
+        tools: Tool[]
+        systemPrompts: string[]
+        steeringMessageIds?: string[]
+      }>)
     | undefined
   readonly execute: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>
 }
@@ -59,6 +67,8 @@ interface ManagedChatStreamState {
   committed: boolean
   finished: boolean
   failed: boolean
+  nextClaim: ChatWriterClaim | undefined
+  turnState: "running" | "waiting" | "completed" | "interrupted"
   version: number
   payload: ChatMessagePayload
   usage: typeof Schema.JsonObject.Type | undefined
@@ -255,6 +265,8 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     committed: false,
     finished: false,
     failed: false,
+    nextClaim: undefined,
+    turnState: "running",
     version: options.managed.threadVersion,
     payload: { version: 1, parts: [] },
     usage: undefined,
@@ -320,10 +332,33 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     setup(ctx) {
       completion = getPersistenceCompletion(ctx).waitForRunCompletion()
     },
-    async onConfig() {
+    async onConfig(ctx) {
       await options.execute(options.threads.assertActive({ claim: state.claim }))
-      const config = await options.refreshContext?.(state.claim)
+      const config = await options.refreshContext?.(state.claim, ctx.phase === "beforeModel")
       if (config) state.tools = config.tools
+      if (config?.steeringMessageIds?.length) {
+        for (const message of config.providerMessages) {
+          const meta = message.metadata?.astralbeam as { messageId?: string } | undefined
+          if (message.id && meta?.messageId) state.messageIds.set(message.id, meta.messageId)
+        }
+        // TanStack accepts UIMessage snapshots, preserving reasoning and rich parts.
+        // https://github.com/TanStack/ai/blob/main/packages/ai/src/activities/chat/messages.ts
+        state.ready.push(
+          managedPublicChunk(state, {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: modelMessagesToUIMessages(config.providerMessages) as unknown as Extract<
+              StreamChunk,
+              { type: EventType.MESSAGES_SNAPSHOT }
+            >["messages"],
+          }),
+        )
+        ctx.emitCustomEvent(CHAT_THREAD_EVENT, {
+          threadId: state.claim.threadId,
+          turnMessageId: state.claim.inputMessageId,
+          turnState: "running",
+          appliedSteeringMessageIds: config.steeringMessageIds,
+        })
+      }
       return config
     },
     async onIteration(ctx, info) {
@@ -405,12 +440,15 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         if (state.failed) throw new Error("Generation did not complete")
         await completion
         await saveManagedProjection(options, state, ctx.messages, true)
-        await options.execute(options.threads.finish({ claim: state.claim }))
-        state.version = (
+        Object.assign(
+          state,
           await options.execute(
-            options.threads.get({ scope: state.claim.scope, id: state.claim.threadId }),
-          )
-        ).lockVersion
+            options.threads.finish({
+              claim: state.claim,
+              continueSteering: options.canContinueSteering?.(),
+            }),
+          ),
+        )
         state.finished = true
       } catch (error) {
         state.failed = true
@@ -434,6 +472,8 @@ export async function* managedChatDelivery(input: {
     value: {
       threadId: input.managed.claim.threadId,
       version: input.managed.threadVersion,
+      turnMessageId: input.managed.claim.inputMessageId,
+      turnState: "running",
       ...(input.managed.acceptedMessageId
         ? { acceptedMessageId: input.managed.acceptedMessageId }
         : {}),
@@ -453,10 +493,26 @@ export async function* managedChatDelivery(input: {
       threadId: input.managed.claim.threadId,
       version: input.state.version,
       saved: true,
+      turnMessageId: input.managed.claim.inputMessageId,
+      turnState: input.state.turnState,
       executableToolCallIds: input.state.payload.parts
         .filter((part) => part.type === "tool-call" && part.executionLocation === "browser")
         .map((part) => part.toolCallId),
     },
   }
-  for (const chunk of input.state.buffered) yield chunk
+  for (const chunk of input.state.buffered) {
+    if (
+      chunk.type === EventType.RUN_FINISHED &&
+      chunk.outcome?.type !== "interrupt" &&
+      (input.state.nextClaim || input.state.turnState === "interrupted")
+    )
+      continue
+    yield chunk
+  }
+  if (input.state.turnState === "interrupted")
+    yield {
+      type: EventType.RUN_ERROR,
+      code: "turn_limit",
+      message: CHAT_TURN_LIMIT_MESSAGE,
+    }
 }

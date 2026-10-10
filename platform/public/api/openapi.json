@@ -8513,6 +8513,327 @@
         }
       }
     },
+    "/api/v1/chat/threads/{id}/steer": {
+      "post": {
+        "tags": [
+          "chatThreads"
+        ],
+        "operationId": "steerChatTurn",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "astralBeamToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ChatSubmissionReceipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatSubmissionReceiptEncoded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "summary": "Add guidance to your active turn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerChatInputEncoded"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
     "/api/v1/chat/threads/{id}/messages/{messageId}/attachments/{partId}": {
       "get": {
         "tags": [
@@ -9441,6 +9762,96 @@
         ],
         "additionalProperties": false
       },
+      "SteerChatInputEncoded": {
+        "type": "object",
+        "properties": {
+          "turn_message_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "text"
+                      ]
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "content"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "document",
+                        "audio",
+                        "video"
+                      ]
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "data"
+                          ]
+                        },
+                        "value": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "metadata": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "turn_message_id",
+          "client_id",
+          "parts"
+        ],
+        "additionalProperties": false
+      },
       "ResolveChatToolResultInputEncoded": {
         "type": "object",
         "properties": {
@@ -9731,6 +10142,44 @@
                     }
                   ]
                 },
+                "turn_message_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "turn_state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "running",
+                        "waiting",
+                        "completed",
+                        "interrupted"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "steering_applied_to_message_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "parts": {
                   "type": "array",
                   "items": {
@@ -9789,6 +10238,9 @@
                 "role",
                 "state",
                 "parent_message_id",
+                "turn_message_id",
+                "turn_state",
+                "steering_applied_to_message_id",
                 "parts",
                 "author_tenant_user_id",
                 "source_assistant_message_id",
@@ -10379,6 +10831,44 @@
               }
             ]
           },
+          "turn_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "waiting",
+                  "completed",
+                  "interrupted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "steering_applied_to_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "parts": {
             "type": "array",
             "items": {
@@ -10437,6 +10927,9 @@
           "role",
           "state",
           "parent_message_id",
+          "turn_message_id",
+          "turn_state",
+          "steering_applied_to_message_id",
           "parts",
           "author_tenant_user_id",
           "source_assistant_message_id",

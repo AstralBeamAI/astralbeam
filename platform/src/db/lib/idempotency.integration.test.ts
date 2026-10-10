@@ -135,28 +135,32 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
     expect(await runAppEffect(effects.size)).toBe(2)
   })
 
-  test("commits a typed failure for replay while rolling back its business writes", async () => {
-    const write = vi.fn((input: typeof idempotencyTestOperation.parameters.Type) =>
-      idempotencyTestExecute(input).pipe(
-        Effect.andThen(Effect.fail(new IdempotencyTestDeclined({ reason: "declined" }))),
-      ),
-    )
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const error = await runAppEffect(
-        withDatabaseIdempotency(
-          {
-            ...idempotencyTestRequest("failure"),
-            operation: { ...idempotencyTestOperation, error: IdempotencyTestDeclined },
-          },
-          write,
-        ).pipe(Effect.flip),
+  test.each([undefined, false])(
+    "rolls back typed failures with cacheFailures=%s",
+    async (cacheFailures) => {
+      const write = vi.fn((input: typeof idempotencyTestOperation.parameters.Type) =>
+        idempotencyTestExecute(input).pipe(
+          Effect.andThen(Effect.fail(new IdempotencyTestDeclined({ reason: "declined" }))),
+        ),
       )
-      expect(error).toBeInstanceOf(IdempotencyTestDeclined)
-      expect(error).toMatchObject({ reason: "declined" })
-    }
-    expect(write).toHaveBeenCalledTimes(1)
-    expect(await runAppEffect(effects.size)).toBe(0)
-  })
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const error = await runAppEffect(
+          withDatabaseIdempotency(
+            {
+              ...idempotencyTestRequest("failure"),
+              cacheFailures,
+              operation: { ...idempotencyTestOperation, error: IdempotencyTestDeclined },
+            },
+            write,
+          ).pipe(Effect.flip),
+        )
+        expect(error).toBeInstanceOf(IdempotencyTestDeclined)
+        expect(error).toMatchObject({ reason: "declined" })
+      }
+      expect(write).toHaveBeenCalledTimes(cacheFailures === false ? 2 : 1)
+      expect(await runAppEffect(effects.size)).toBe(0)
+    },
+  )
 
   test("ignores nested property order but rejects changed parameters or operations", async () => {
     await runAppEffect(

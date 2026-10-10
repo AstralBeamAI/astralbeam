@@ -94,6 +94,7 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
       return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
     if (path.endsWith("/threads") && init?.method === "POST") {
       created++
+      if (created === 1) return Promise.reject(new TypeError("Creation unavailable"))
       return Promise.resolve(Response.json(empty))
     }
     if (path.includes("/threads?"))
@@ -141,6 +142,9 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
     expect(created).toBe(0)
     await chat.sendMessage("First message")
     expect(created).toBe(1)
+    expect(chat.getState().pendingMessages).toHaveLength(1)
+    await chat.sendMessage("First message")
+    expect(created).toBe(2)
     expect(chat.getState().thread?.hasMessages).toBe(false)
     expect((await chat.searchThreads()).items).toEqual([])
     expect(chat.getState().messages).toEqual([])
@@ -148,8 +152,9 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
     expect(chat.getState().status).toBe("error")
     await chat.sendMessage("First message")
     expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
-    expect(created).toBe(1)
+    expect(created).toBe(2)
     expect(chat.getState().thread?.hasMessages).toBe(true)
+    expect(chat.getState().pendingMessages).toEqual([])
   } finally {
     chat.dispose()
   }
@@ -262,15 +267,13 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
 })
 
 test.each([
-  { status: 400, uncertain: false },
-  { status: 413, uncertain: false },
-  { status: 429, uncertain: false },
-  { status: 400, uncertain: true },
-  { status: 413, uncertain: true },
-  { status: 429, uncertain: true },
-])(
-  "a rejection $status permits editing only without earlier uncertainty=$uncertain",
-  async ({ status, uncertain }) => {
+  [403, false],
+  [404, false],
+  [429, false],
+  [429, true],
+] as const)(
+  "a rejected input %s remains editable only without earlier uncertainty=%s",
+  async (status, uncertain) => {
     const keys: Array<string | null> = []
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
@@ -300,9 +303,13 @@ test.each([
       await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
       await chat.sendMessage("Original input")
       if (uncertain) await chat.sendMessage("Original input")
-      await chat.sendMessage("Corrected input")
+      expect(
+        chat.editPendingMessage(chat.getState().pendingMessages[0]!.id, "Corrected input"),
+      ).toBe(!uncertain)
+      if (uncertain) await chat.sendMessage("Corrected input")
+      else await chat.resumeQueue()
       expect(keys).toHaveLength(2)
-      expect(keys[1] === keys[0]).toBe(uncertain)
+      expect(keys[1]).toBe(keys[0])
       expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
       expect(chat.getState().error?.message).toContain(
         uncertain ? "acceptance is unconfirmed" : "Input was not admitted",
@@ -445,86 +452,97 @@ test("changing API scope drops saved history before the replacement account reso
   }
 })
 
-test("an explicit unknown outcome continues while another response is active without executing the action", async () => {
-  const execute = vi.fn()
-  let posted:
-    | { results: Array<{ outcome: string; source_part_id: string; response_target_id: string }> }
-    | undefined
-  const pending = {
-    source_message_id: "assistant",
-    source_part_id: "application-part",
-    response_target_id: "target",
-    tool_call_id: "provider-call",
-    target_tenant_user_id: "user",
-    target_client_id: "previous-client",
-    execution_location: "browser",
-  }
-  const assistant = {
-    id: "assistant",
-    role: "assistant",
-    created_at: thread.created_at,
-    parts: [
-      {
-        id: "application-part",
-        type: "tool-call",
-        toolCallId: "provider-call",
-        name: "change_data",
-        arguments: "{}",
-        input: {},
-        state: "input-complete",
-      },
-    ],
-  }
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-    const path = String(input)
-    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page([assistant]),
-          thread: { ...thread, writer_active: true },
-          pending_interactions: posted ? [] : [pending],
-        }),
-      )
-    if (path.endsWith("/tool-results")) {
-      if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
-      posted = JSON.parse(init.body) as NonNullable<typeof posted>
-      return Promise.resolve(
-        Response.json({
-          thread_id: thread.id,
-          accepted_message_id: "resolution",
-          thread_version: 2,
-        }),
-      )
+test.each([false, true])(
+  "an unknown tool outcome continues without executing the action, failure=%s",
+  async (fail) => {
+    const execute = vi.fn()
+    let posted:
+      | { results: Array<{ outcome: string; source_part_id: string; response_target_id: string }> }
+      | undefined
+    const pending = {
+      source_message_id: "assistant",
+      source_part_id: "application-part",
+      response_target_id: "target",
+      tool_call_id: "provider-call",
+      target_tenant_user_id: "user",
+      target_client_id: "previous-client",
+      execution_location: "browser",
     }
-    if (path.endsWith("/chat")) throw new Error("A tool result must not resubmit a user message")
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-  })
-  const chat = createAstralBeamChat({
-    threadId: thread.id,
-    fetchAstralBeamToken: token,
-    tools: { change_data: { description: "Change data", execute } },
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().pendingInteractions).toHaveLength(1))
-    await chat.abandonToolCall("saved:assistant:application-part:target")
-    await vi.waitFor(() =>
-      expect(posted?.results).toEqual([
+    const assistant = {
+      id: "assistant",
+      role: "assistant",
+      created_at: thread.created_at,
+      parts: [
         {
-          source_message_id: "assistant",
-          source_part_id: "application-part",
-          response_target_id: "target",
-          outcome: "unknown",
-          output: null,
+          id: "application-part",
+          type: "tool-call",
+          toolCallId: "provider-call",
+          name: "change_data",
+          arguments: "{}",
+          input: {},
+          state: "input-complete",
         },
-      ]),
-    )
-    expect(execute).not.toHaveBeenCalled()
-    expect(posted).not.toHaveProperty("expected_version")
-  } finally {
-    chat.dispose()
-  }
-})
+      ],
+    }
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (path.includes("/messages?"))
+        return Promise.resolve(
+          Response.json({
+            ...page([assistant]),
+            thread: { ...thread, writer_active: true },
+            pending_interactions: posted && !fail ? [] : [pending],
+          }),
+        )
+      if (path.endsWith("/tool-results")) {
+        if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
+        posted = JSON.parse(init.body) as NonNullable<typeof posted>
+        if (fail) return Promise.reject(new TypeError("Continuation unavailable"))
+        return Promise.resolve(
+          Response.json({
+            thread_id: thread.id,
+            accepted_message_id: "resolution",
+            thread_version: 2,
+          }),
+        )
+      }
+      if (path.endsWith("/chat")) throw new Error("A tool result must not resubmit a user message")
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    })
+    const chat = createAstralBeamChat({
+      threadId: thread.id,
+      fetchAstralBeamToken: token,
+      tools: { change_data: { description: "Change data", execute } },
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().pendingInteractions).toHaveLength(1))
+      await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
+      chat.holdQueue()
+      await chat.sendMessage("After the tool")
+      await chat.resumeQueue()
+      expect(chat.getState().queuePaused).toBe(false)
+      await chat.abandonToolCall("saved:assistant:application-part:target")
+      await vi.waitFor(() =>
+        expect(posted?.results).toEqual([
+          {
+            source_message_id: "assistant",
+            source_part_id: "application-part",
+            response_target_id: "target",
+            outcome: "unknown",
+            output: null,
+          },
+        ]),
+      )
+      expect(chat.getState().queuePaused).toBe(fail)
+      expect(chat.getState().pendingMessages).toHaveLength(1)
+      expect(execute).not.toHaveBeenCalled()
+      expect(posted).not.toHaveProperty("expected_version")
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test.each([
   {
@@ -1224,6 +1242,9 @@ test("older history is requested explicitly and rejoins tool results across page
   const user = {
     id: "user",
     role: "user",
+    author_tenant_user_id: currentUser.user.id,
+    turn_message_id: null,
+    turn_state: "completed",
     created_at: thread.created_at,
     parts: [{ type: "text", content: "Latest" }],
   }
@@ -1235,7 +1256,7 @@ test("older history is requested explicitly and rejoins tool results across page
       return Promise.resolve(
         Response.json(
           url.searchParams.has("page_after")
-            ? page([assistant])
+            ? page([{ ...user, id: "older-user" }, assistant])
             : { ...page([result, user]), page_after: "older" },
         ),
       )
@@ -1252,10 +1273,16 @@ test("older history is requested explicitly and rejoins tool results across page
     await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
     expect(pages).toHaveLength(1)
     expect(chat.getState().messages.map((message) => message.id)).toEqual(["user"])
+    expect(chat.getState().activeTurnId).toBe("user")
     await chat.loadOlderMessages()
     expect(pages).toHaveLength(2)
-    expect(chat.getState().messages.map((message) => message.id)).toEqual(["assistant", "user"])
-    expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
+    expect(chat.getState().messages.map((message) => message.id)).toEqual([
+      "older-user",
+      "assistant",
+      "user",
+    ])
+    expect(chat.getState().activeTurnId).toBe("user")
+    expect(chat.getState().messages[1]?.parts[0]).toMatchObject({
       state: "complete",
       output: { complete: true },
     })
@@ -1477,13 +1504,16 @@ test.each(["auto", thread.id])(
   "inaccessible %s selections recover only automatic restoration",
   async (threadId) => {
     let stored: string | null = thread.id
+    const storage = new Map<string, string>()
     vi.stubGlobal("sessionStorage", {
-      getItem: () => stored,
-      setItem: (_key: string, value: string) => {
-        stored = value
+      getItem: (key: string) => (key.endsWith("]") ? stored : (storage.get(key) ?? null)),
+      setItem: (key: string, value: string) => {
+        if (key.endsWith("]")) stored = value
+        else storage.set(key, value)
       },
-      removeItem: () => {
-        stored = null
+      removeItem: (key: string) => {
+        if (key.endsWith("]")) stored = null
+        else storage.delete(key)
       },
     })
     vi.stubGlobal("fetch", (input: string | URL) => {
