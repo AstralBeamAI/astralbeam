@@ -21,7 +21,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
-import { createChatAdapter } from "./adapter"
+import { createChatAdapter, modelOutputOptions } from "./adapter"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
@@ -64,7 +64,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
 
 /**
  * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
- * request and then closes TanStack's iterator, so billing stops with the connection.
+ * request and then closes TanStack's iterator. Provider-side billing may continue.
  */
 function chatEventStream(start: (abortController: AbortController) => AsyncIterable<StreamChunk>) {
   return Stream.unwrap(
@@ -166,6 +166,7 @@ export class Chat extends Context.Service<
             Effect.catchTag("ModelProviderUnreadable", () =>
               Effect.fail(new ChatModelKeyUnreadable()),
             ),
+            Effect.catchTag("ModelConfigurationMissing", () => Effect.fail(new ChatModelMissing())),
           )
         if (!model) return yield* new ChatModelMissing()
         const history = yield* threads.history({
@@ -320,12 +321,15 @@ export class Chat extends Context.Service<
                 parentRunId: params.parentRunId,
                 resume: params.resume,
                 // Native OpenAI reasoning models keep main's effort. Other models reject the option.
-                ...(model.providerType === "openai" &&
-                  model.api === "responses" &&
-                  /^(?:gpt-5|o\d)/.test(model.modelId) &&
-                  !model.modelId.endsWith("-chat-latest") && {
-                    modelOptions: { reasoning: { effort: "high" } },
-                  }),
+                modelOptions: {
+                  ...modelOutputOptions(model),
+                  ...(model.providerType === "openai" &&
+                    model.api === "responses" &&
+                    /^(?:gpt-5|o\d)/.test(model.modelId) &&
+                    !model.modelId.endsWith("-chat-latest") && {
+                      reasoning: { effort: "high" },
+                    }),
+                },
                 abortController,
               })
               return managedChatDelivery({ source, managed: input.managed, state: managed.state })

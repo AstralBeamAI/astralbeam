@@ -20,6 +20,7 @@ import {
   agentModel,
   configTable,
   modelProvider,
+  providerModel,
   organization,
   organizationConfiguration,
 } from "@/db/schema"
@@ -44,7 +45,7 @@ const modelTestConfiguration: ModelConfiguration = {
   maxInputTokens: 128_000,
   contextWindowTokens: null,
   maxOutputTokens: 8192,
-  outputCap: 4096,
+  outputCap: 3072,
 }
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
@@ -129,7 +130,32 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       modelId: "same-model",
       providerId: gatewayId,
       api: "chat-completions",
+      outputCap: modelTestConfiguration.outputCap,
     })
+    await db
+      .update(providerModel)
+      .set({ configuration: null })
+      .where(
+        and(
+          eq(providerModel.organizationId, organizationId),
+          eq(providerModel.id, gateway.models[0]!.id),
+        ),
+      )
+    const unconfigured = await runAppEffect(
+      Effect.flatMap(ModelProviders, (service) =>
+        service.resolveForAgent({ organizationId, agentId }),
+      ).pipe(Effect.flip),
+    )
+    expect(unconfigured._tag).toBe("ModelConfigurationMissing")
+    await db
+      .update(providerModel)
+      .set({ configuration: modelTestConfiguration })
+      .where(
+        and(
+          eq(providerModel.organizationId, organizationId),
+          eq(providerModel.id, gateway.models[0]!.id),
+        ),
+      )
     const [source] = await db
       .select({ ciphertext: sql<string>`${modelProvider.credentials}::text` })
       .from(modelProvider)

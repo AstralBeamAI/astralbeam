@@ -2,7 +2,7 @@ import { chat, EventType, maxIterations } from "@tanstack/ai"
 import { Effect, Option, Schema } from "effect"
 import { Sse } from "effect/encoding"
 
-import { createChatAdapter } from "@/lib/chat/adapter"
+import { createChatAdapter, modelOutputOptions } from "@/lib/chat/adapter"
 import { ModelProviderTestFailed } from "./errors.ts"
 import type { ChatModelConfiguration } from "./model-providers.server.ts"
 
@@ -80,12 +80,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
           adapter: createChatAdapter({ ...configuration, fetch: guardedFetch }),
           messages: [{ role: "user", content: "Reply with OK." }],
           agentLoopStrategy: maxIterations(1),
-          modelOptions:
-            configuration.api === "responses"
-              ? { max_output_tokens: 1024 }
-              : configuration.api === "chat-completions" && configuration.providerType === "openai"
-                ? { max_completion_tokens: 1024 }
-                : { max_tokens: 1024 },
+          modelOptions: modelOutputOptions(configuration),
           abortController: controller,
         })) {
           if (chunk.type === EventType.RUN_ERROR)

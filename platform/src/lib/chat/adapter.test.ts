@@ -3,18 +3,27 @@ import { Schema } from "effect"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import { createChatAdapter } from "./adapter.ts"
+import { createChatAdapter, modelOutputOptions } from "./adapter.ts"
 
 const chatAdapterCases: readonly (Pick<
   ChatModelConfiguration,
   "providerType" | "api" | "baseUrl" | "modelId"
-> & { readonly path: string })[] = [
+> & { readonly path: string; readonly capField: string })[] = [
   {
     providerType: "openai",
     api: "responses",
     baseUrl: "https://openai.example/v1",
     modelId: "custom-openai-model",
     path: "/v1/responses",
+    capField: "max_output_tokens",
+  },
+  {
+    providerType: "openai",
+    api: "chat-completions",
+    baseUrl: "https://api.openai.com/v1",
+    modelId: "gpt-5.6-terra",
+    path: "/v1/chat/completions",
+    capField: "max_completion_tokens",
   },
   {
     providerType: "openai",
@@ -22,6 +31,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://gateway.example/v1",
     modelId: "custom-compatible-model",
     path: "/v1/chat/completions",
+    capField: "max_tokens",
   },
   {
     providerType: "anthropic",
@@ -29,6 +39,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://anthropic.example",
     modelId: "custom-claude-model",
     path: "/v1/messages",
+    capField: "max_tokens",
   },
   {
     providerType: "openrouter",
@@ -36,6 +47,7 @@ const chatAdapterCases: readonly (Pick<
     baseUrl: "https://openrouter.ai/api/v1",
     modelId: "anthropic/claude-sonnet-4.6",
     path: "/api/v1/chat/completions",
+    capField: "max_tokens",
   },
 ]
 
@@ -47,7 +59,7 @@ describe("chat provider request routing", () => {
   test.each(chatAdapterCases)(
     "routes $providerType $api with its own key and upstream model",
     async (configuration) => {
-      const requests: { url: URL; headers: Headers; body: { model: string } }[] = []
+      const requests: { url: URL; headers: Headers; body: Record<string, unknown> }[] = []
       vi.stubEnv("OPENAI_API_KEY", "unused-environment-openai-key")
       vi.stubEnv("ANTHROPIC_API_KEY", "unused-environment-anthropic-key")
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
@@ -58,26 +70,32 @@ describe("chat provider request routing", () => {
         requests.push({
           url: new URL(input instanceof Request ? input.url : input),
           headers: new Headers(init.headers),
-          body: Schema.decodeUnknownSync(Schema.Struct({ model: Schema.String }))(
+          body: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
             JSON.parse(init.body),
           ),
         })
         return Promise.resolve(
           Response.json(
             { error: { type: "authentication_error", message: "Synthetic test response" } },
-            { status: 401 },
+            { status: 500, headers: { "retry-after-ms": "1" } },
           ),
         )
       }
-      const adapter = createChatAdapter({
+      const model = {
         ...configuration,
         providerId: "provider-instance",
         providerName: "Configured provider",
         apiKey: "configured-instance-key",
+        outputCap: 128,
         fetch: configuredFetch,
-      })
+      }
+      const adapter = createChatAdapter(model)
       const events: StreamChunk[] = []
-      for await (const event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] }))
+      for await (const event of chat({
+        adapter,
+        modelOptions: modelOutputOptions(model),
+        messages: [{ role: "user", content: "Hello" }],
+      }))
         events.push(event)
       expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(true)
       expect(requests).toHaveLength(1)
@@ -85,6 +103,11 @@ describe("chat provider request routing", () => {
       expect(request.url.origin).toBe(new URL(configuration.baseUrl).origin)
       expect(request.url.pathname).toBe(configuration.path)
       expect(request.body.model).toBe(configuration.modelId)
+      expect(request.body[configuration.capField]).toBe(128)
+      for (const field of ["max_tokens", "max_completion_tokens", "max_output_tokens"].filter(
+        (field) => field !== configuration.capField,
+      ))
+        expect(request.body).not.toHaveProperty(field)
       expect(
         request.headers.get(
           configuration.api === "anthropic-messages" ? "x-api-key" : "authorization",
@@ -101,3 +124,27 @@ describe("chat provider request routing", () => {
     },
   )
 })
+
+test.each([{}, { max_output_tokens: 129 }])(
+  "blocks dispatch without a valid output cap: %j",
+  async (modelOptions) => {
+    const fetch = vi.fn(() => Promise.resolve(new Response(null, { status: 500 })))
+    const adapter = createChatAdapter({
+      ...chatAdapterCases[0]!,
+      providerId: "provider-instance",
+      providerName: "OpenAI",
+      apiKey: "configured-instance-key",
+      outputCap: 128,
+      fetch,
+    })
+    const events = []
+    for await (const event of chat({
+      adapter,
+      modelOptions,
+      messages: [{ role: "user", content: "Hello" }],
+    }))
+      events.push(event)
+    expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+  },
+)

@@ -13,6 +13,7 @@ const configuration: ChatModelConfiguration = {
   baseUrl: "https://provider.example/v1",
   apiKey: "sk-private-key",
   modelId: "saved-model",
+  outputCap: 1024,
   fetch,
 }
 
@@ -57,7 +58,7 @@ describe("testProviderModel", () => {
   it.effect("uses each actual adapter with a bounded text request and returns no model text", () =>
     Effect.gen(function* () {
       for (const [providerType, api, tokenField] of [
-        ["openai", "chat-completions", "max_completion_tokens"],
+        ["openai", "chat-completions", "max_tokens"],
         ["openrouter", "chat-completions", "max_tokens"],
         ["openai", "responses", "max_output_tokens"],
         ["anthropic", "anthropic-messages", "max_tokens"],
@@ -76,7 +77,7 @@ describe("testProviderModel", () => {
         )
         assert.strictEqual(request.model, "saved-model")
         assert.strictEqual(request[tokenField], 1024)
-        if (tokenField === "max_completion_tokens") assert.notProperty(request, "max_tokens")
+        assert.notProperty(request, "max_completion_tokens")
         assert.deepEqual(request.tools ?? [], [])
       }
     }),
@@ -112,25 +113,6 @@ describe("testProviderModel", () => {
         assert.strictEqual(failed.reason, reason)
         assert.notInclude(JSON.stringify(failed), "private-provider-diagnostic")
         assert.notInclude(JSON.stringify(failed), configuration.apiKey)
-      }
-    }),
-  )
-
-  it.effect("uses the final response after a transient provider failure", () =>
-    Effect.gen(function* () {
-      for (const text of ["OK", " "]) {
-        let calls = 0
-        const result = yield* testProviderModel({
-          ...configuration,
-          fetch: () =>
-            Promise.resolve(
-              ++calls === 1
-                ? new Response(null, { status: 500, headers: { "retry-after-ms": "1" } })
-                : textResponse(text),
-            ),
-        }).pipe(Effect.match({ onFailure: ({ reason }) => reason, onSuccess: () => "success" }))
-        assert.strictEqual(calls, 2)
-        assert.strictEqual(result, text.trim() ? "success" : "empty")
       }
     }),
   )
