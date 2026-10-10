@@ -17,6 +17,7 @@ interface ChatProjectionTarget {
   readonly providerId: string
   readonly protocol: string
   readonly modelId: string
+  readonly webAccessEnabled?: boolean
 }
 
 export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
@@ -46,7 +47,7 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     }
     case "tool-call": {
       const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
-      if (metadata?.providerExecuted === true) return []
+      if (metadata?.providerExecuted === true || part.executionLocation === "provider") return []
       return [
         {
           type: "tool-call",
@@ -85,6 +86,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     const missing: Schema.JsonObject[] = []
     for (const part of record.payload.parts) {
       if (part.type !== "tool-call" || !Array.isArray(part.targets)) continue
+      if (part.executionLocation === "provider") continue
       const targets = (part.targets as readonly Schema.Json[])
         .map((item) => Schema.decodeUnknownSync(Schema.JsonObject)(item))
         .sort((a, b) =>
@@ -134,7 +136,9 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     }
     if (missing.length > 0) {
       // An incomplete exchange is context, never an executable or unmatched provider tool call.
-      const visible = record.payload.parts.filter((part) => part.type !== "tool-call")
+      const visible = record.payload.parts.filter(
+        (part) => part.type !== "tool-call" || part.executionLocation === "provider",
+      )
       const settled = outputs.map((result) => result.payload.parts[0]!)
       return [
         {
@@ -157,6 +161,70 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
   })
 }
 
+/** Keep public saved parts separate from the provider replay projection. */
+export function projectChatPublicHistory(records: readonly ChatProjectionRecord[]) {
+  const messages = records
+    .filter((record) => record.role === "assistant")
+    .map((record) => ({
+      id: record.id,
+      role: "assistant" as const,
+      content: "",
+      parts: record.payload.parts.map((part): typeof Schema.JsonObject.Type => {
+        const visible = structuredClone(part)
+        if (visible.type !== "tool-call" || visible.executionLocation === "provider") return visible
+        const results = records.filter(
+          (result) =>
+            result.role === "tool" &&
+            result.state === "complete" &&
+            result.sourceAssistantMessageId === record.id &&
+            result.sourceToolPartId === part.id,
+        )
+        const targets = Array.isArray(part.targets) ? part.targets : []
+        return {
+          ...visible,
+          id: part.toolCallId!,
+          applicationPartId: part.id,
+          ...(results.length === targets.length && results.length > 0
+            ? {
+                state: results.every((result) => result.payload.parts[0]?.outcome === "succeeded")
+                  ? "complete"
+                  : "error",
+                output:
+                  results.length === 1
+                    ? (results[0]!.payload.parts[0]?.output ?? null)
+                    : results.map((result) => ({
+                        responseTargetId: result.responseTargetId ?? null,
+                        output: result.payload.parts[0]?.output ?? null,
+                      })),
+              }
+            : {}),
+        }
+      }),
+    }))
+  settleChatWebActivity(messages)
+  return messages
+}
+
+/** A later provider result settles a deferred use without rewriting its saved node. */
+export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]) {
+  const calls = new Map<string, Schema.JsonObject>()
+  for (const message of messages) {
+    message.parts = message.parts.filter((part) => {
+      if (part.executionLocation !== "provider" || typeof part.providerTurnId !== "string")
+        return true
+      const key = JSON.stringify([part.providerTurnId, part.toolCallId])
+      const first = calls.get(key)
+      if (!first) {
+        calls.set(key, part)
+        return true
+      }
+      if (part.state === "complete" || part.state === "error")
+        Object.assign(first, { state: part.state, output: part.output, metadata: part.metadata })
+      return false
+    })
+  }
+}
+
 /** Opaque provider context is reusable only with the provider instance, protocol and model that produced it. */
 export function projectChatModelHistory(
   records: readonly ChatProjectionRecord[],
@@ -171,7 +239,9 @@ export function projectChatModelHistory(
       target !== undefined &&
       provenance?.providerId === target.providerId &&
       provenance.protocol === target.protocol &&
-      provenance.modelId === target.modelId
+      provenance.modelId === target.modelId &&
+      (target.webAccessEnabled !== false ||
+        !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]
     if (compatible && record.payload.modelMessages) {
       messages = structuredClone(record.payload.modelMessages).map((message) => ({
@@ -195,6 +265,36 @@ export function projectChatModelHistory(
       const parts = record.payload.parts.flatMap((part) =>
         portableChatPart(part).map((portable) => ({ id: part.id, portable })),
       )
+      const providerEvidence = record.payload.parts.find((part) => {
+        const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+        return (
+          (part.executionLocation === "provider" || metadata?.providerExecuted === true) &&
+          Schema.is(Schema.JsonObject)(metadata?.web)
+        )
+      })
+      const evidence = {
+        sources: new Map<string, Schema.JsonObject>(),
+        citations: new Map<string, Schema.JsonObject>(),
+      }
+      // Native activity parts share the record's aggregate evidence. Replay it once.
+      for (const part of providerEvidence ? [providerEvidence] : record.payload.parts) {
+        const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+        const web = Schema.is(Schema.JsonObject)(metadata?.web) ? metadata.web : undefined
+        for (const key of ["sources", "citations"] as const) {
+          const items = web?.[key]
+          if (Schema.is(Schema.Array(Schema.JsonObject))(items)) {
+            for (const item of items) evidence[key].set(JSON.stringify(item), item)
+          }
+        }
+      }
+      if (evidence.sources.size || evidence.citations.size)
+        parts.push({
+          id: providerEvidence?.id ?? record.payload.parts[0]!.id,
+          portable: {
+            type: "text",
+            content: `Saved web evidence: ${JSON.stringify({ sources: [...evidence.sources.values()], citations: [...evidence.citations.values()] })}`,
+          },
+        })
       if (parts.length === 0) return []
       messages = convertMessagesToModelMessages([
         {

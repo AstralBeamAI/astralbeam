@@ -285,9 +285,9 @@ const saveChatParts = Effect.fnUntraced(function* (
     if (typeof id !== "string") return yield* new ChatThreadInvalid()
     const location =
       part.type === "tool-call"
-        ? Schema.decodeUnknownSync(Schema.Literals(["server_api", "sandbox", "browser"]))(
-            executionLocation,
-          )
+        ? Schema.decodeUnknownSync(
+            Schema.Literals(["server_api", "sandbox", "browser", "provider"]),
+          )(executionLocation)
         : null
     const values = {
       ...rowScope(scope),

@@ -30,6 +30,7 @@ import {
 } from "./errors.ts"
 import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
+import { modelWebCapabilities } from "./web-capabilities.server"
 import {
   ModelProviderCredentialsPayloadSchema,
   type ModelProviderFields,
@@ -65,6 +66,7 @@ export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint"
 export interface ModelChoice extends Omit<ModelProviderModel, "configuration"> {
   readonly providerId: string
   readonly providerName: string
+  readonly webAccess: ReturnType<typeof modelWebCapabilities>
 }
 
 export interface ChatModelConfiguration {
@@ -320,13 +322,16 @@ export class ModelProviders extends Context.Service<
       const choices = Effect.fn("ModelProviders.choices")(function* (input: {
         organizationId: string
       }) {
-        return yield* db
+        const models = yield* db
           .select({
             id: providerModel.id,
             modelId: providerModel.modelId,
             name: providerModel.name,
             providerId: modelProvider.id,
             providerName: modelProvider.name,
+            providerType: modelProvider.providerType,
+            api: modelProvider.api,
+            baseUrl: modelProvider.baseUrl,
           })
           .from(providerModel)
           .innerJoin(
@@ -338,6 +343,10 @@ export class ModelProviders extends Context.Service<
           )
           .where(eq(providerModel.organizationId, input.organizationId))
           .orderBy(asc(modelProvider.name), asc(providerModel.name), asc(providerModel.id))
+        return models.map(({ providerType, api, baseUrl, ...model }) => ({
+          ...model,
+          webAccess: modelWebCapabilities({ providerType, api, baseUrl, modelId: model.modelId }),
+        }))
       }, Effect.orDie)
 
       const save = Effect.fn("ModelProviders.save")(function* (input: SaveModelProviderInput) {

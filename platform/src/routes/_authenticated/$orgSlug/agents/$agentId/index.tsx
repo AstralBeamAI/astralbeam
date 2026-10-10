@@ -49,17 +49,28 @@ function AgentPage() {
           <ArrowLeftIcon aria-hidden="true" />
           Agents
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{data.agent.name}</h1>
-          {data.isDefault && (
-            <Badge variant="secondary" className="gap-1">
-              <StarIcon aria-hidden="true" />
-              Default
-            </Badge>
-          )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{data.agent.name}</h1>
+            {data.isDefault && (
+              <Badge variant="secondary" className="gap-1">
+                <StarIcon aria-hidden="true" />
+                Default
+              </Badge>
+            )}
+          </div>
+          <AgentActions
+            organizationSlug={orgSlug}
+            agent={data.agent}
+            isDefault={data.isDefault}
+            canSetDefault={permissions.updateConfiguration}
+            canDelete={permissions.deleteConfiguration}
+          />
         </div>
         <div className="flex items-center gap-2">
-          <code className="text-xs text-muted-foreground">{data.agent.id}</code>
+          <code id="agent-public-id" className="break-all text-xs text-muted-foreground">
+            {data.agent.id}
+          </code>
           <Button
             type="button"
             size="icon-sm"
@@ -72,14 +83,6 @@ function AgentPage() {
           </Button>
         </div>
       </div>
-
-      <AgentActions
-        organizationSlug={orgSlug}
-        agent={data.agent}
-        isDefault={data.isDefault}
-        canSetDefault={permissions.updateConfiguration}
-        canDelete={permissions.deleteConfiguration}
-      />
 
       {/* Remounting on the lock version keeps the editor's local state tied to the snapshot it
         was initialized from, so a save after a conflict cannot carry the stale one forward. */}

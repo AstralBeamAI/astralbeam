@@ -10,7 +10,7 @@ import { Context, Effect, identity, Layer, Stream } from "effect"
 
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
-import { projectChatModelHistory } from "./threads/projection"
+import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
 import {
   managedChatDelivery,
   managedChatMiddleware,
@@ -20,8 +20,9 @@ import {
   ModelProviders,
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
-import { Agents } from "@/lib/agents/agents.server"
+import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
+import { chatWebTools } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
@@ -43,6 +44,7 @@ import {
   ChatModelMissing,
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
+  ChatWebAccessUnavailable,
 } from "./errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
@@ -51,6 +53,10 @@ import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
+  web_continuation_limit:
+    "The web operation exceeded the model-turn budget. Try a narrower request.",
+  web_access_unavailable:
+    "Web access is unavailable for this model. Ask the site owner to select a supported model or check provider web-tool permissions.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
   authentication_error:
     "The model provider rejected its credentials. Ask the site owner to check them.",
@@ -84,11 +90,11 @@ function chatEventStream(start: (abortController: AbortController) => AsyncItera
 const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
-  sandbox,
+  agent,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
-  readonly sandbox: boolean
+  readonly agent: ChatAgent
 }) {
   const projected = yield* Effect.try({
     try: () =>
@@ -96,10 +102,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
+        webAccessEnabled: agent.webAccessEnabled,
       }),
     catch: () => new ChatThreadInvalid(),
   })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(projected, {
+    sandbox: agent.sandboxProviderId !== null,
+  })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -121,6 +130,7 @@ export class Chat extends Context.Service<
       | ChatModelMissing
       | ChatModelKeyUnreadable
       | ChatSystemPromptRefused
+      | ChatWebAccessUnavailable
       | ChatThreadError
     >
     /** The selected agent's attachment grant, which a client may narrow but never widen. */
@@ -168,6 +178,10 @@ export class Chat extends Context.Service<
             ),
           )
         if (!model) return yield* new ChatModelMissing()
+        const webTools = yield* Effect.try({
+          try: () => chatWebTools(model, agent.webAccessEnabled, params.tools),
+          catch: (error) => error as ChatWebAccessUnavailable,
+        })
         const history = yield* threads.history({
           scope: input.managed.claim.scope,
           id: input.managed.claim.threadId,
@@ -181,7 +195,7 @@ export class Chat extends Context.Service<
         } = yield* prepareChatHistory({
           history,
           model,
-          sandbox: agent.sandboxProviderId !== null,
+          agent,
         })
         const unknownOutcome = history.some(
           (message) =>
@@ -228,10 +242,10 @@ export class Chat extends Context.Service<
           yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
         }
         const tools = unknownOutcome
-          ? []
+          ? webTools
           : [
               ...mergeAgentTools(
-                [...sandboxTools, ...createChatAttachmentTools(files)],
+                [...webTools, ...sandboxTools, ...createChatAttachmentTools(files)],
                 params.tools,
               ),
             ]
@@ -253,6 +267,7 @@ export class Chat extends Context.Service<
           managed: input.managed,
           threads,
           history: convertMessagesToModelMessages(messages),
+          publicHistory: projectChatPublicHistory(history),
           tools,
           model,
           agentId: `agent_${input.principal.organization.id}_${agent.id}`,
@@ -267,7 +282,7 @@ export class Chat extends Context.Service<
                 const normalized = yield* prepareChatHistory({
                   history: saved,
                   model,
-                  sandbox: agent.sandboxProviderId !== null,
+                  agent,
                 })
                 files.splice(0, files.length, ...normalized.files)
                 inputMessages.splice(0, inputMessages.length, ...normalized.projected)
@@ -277,7 +292,11 @@ export class Chat extends Context.Service<
                     0,
                     tools.length,
                     ...mergeAgentTools(
-                      [...sandboxTools, ...createChatAttachmentTools(files)],
+                      [
+                        ...chatWebTools(model, agent.webAccessEnabled, params.tools),
+                        ...sandboxTools,
+                        ...createChatAttachmentTools(files),
+                      ],
                       params.tools,
                     ),
                   )
@@ -285,6 +304,7 @@ export class Chat extends Context.Service<
                   systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                 return {
                   providerMessages: convertMessagesToModelMessages(normalized.messages),
+                  publicHistory: projectChatPublicHistory(saved),
                   tools,
                   systemPrompts,
                 }
@@ -300,7 +320,11 @@ export class Chat extends Context.Service<
             )
             return chatEventStream((abortController) => {
               const source = chat({
-                adapter: createChatAdapter(model),
+                adapter: createChatAdapter(
+                  model,
+                  agent.webAccessEnabled,
+                  managed.observeWebEvidence,
+                ),
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`

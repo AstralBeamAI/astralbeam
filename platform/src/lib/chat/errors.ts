@@ -3,6 +3,16 @@ import { Schema } from "effect"
 // Errors with an `httpApiStatus` reach the tenant user's widget verbatim, so their messages are
 // written for that reader.
 
+export class ChatWebAccessUnavailable extends Schema.TaggedError<ChatWebAccessUnavailable>()(
+  "ChatWebAccessUnavailable",
+  { reason: Schema.String },
+  { httpApiStatus: 503 },
+) {
+  override get message() {
+    return this.reason
+  }
+}
+
 export class ChatAuthenticationError extends Schema.TaggedError<ChatAuthenticationError>()(
   "ChatAuthenticationError",
   {},

@@ -661,13 +661,27 @@ export function createAstralBeamChat(
           messages: chunk.messages.map((message) => {
             if (message.role === "assistant") {
               aliases = historicalToolIds.get(message.id)
-              return aliases && message.toolCalls
+              const parts = (message as typeof message & { parts?: UIMessage["parts"] }).parts
+              return aliases
                 ? {
                     ...message,
-                    toolCalls: message.toolCalls.map((call) => ({
-                      ...call,
-                      id: aliases?.get(call.id) ?? call.id,
-                    })),
+                    ...(parts
+                      ? {
+                          parts: parts.map((part) =>
+                            part.type === "tool-call"
+                              ? { ...part, id: aliases?.get(part.id) ?? part.id }
+                              : part,
+                          ),
+                        }
+                      : {}),
+                    ...(message.toolCalls
+                      ? {
+                          toolCalls: message.toolCalls.map((call) => ({
+                            ...call,
+                            id: aliases?.get(call.id) ?? call.id,
+                          })),
+                        }
+                      : {}),
                   }
                 : message
             }

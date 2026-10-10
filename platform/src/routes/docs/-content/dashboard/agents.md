@@ -1,6 +1,6 @@
 # Agents
 
-An agent is one named configuration the embedded chat runs with: its instructions, models, whether it accepts file attachments, and whether it can run code in a sandbox. Let's configure an agent, then use its public ID to select it in your application.
+An agent is one named configuration the embedded chat runs with: its instructions, models, file attachments, web access, and sandbox. Let's configure an agent, then use its public ID to select it in your application.
 
 Each agent selects models from the organization's configured providers and uses one as its default. Request, attachment, and sandbox caps still come from the deployment's [Limits](/docs/sdk/limits).
 
@@ -16,7 +16,9 @@ Models come from providers configured in [Models](./models.md). Select at least 
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
-A sandbox provider is optional, and selecting one of the organization's [sandbox providers](./sandboxes.md) is what lets the agent write and run code.
+Web access lets the selected model search the web and read public URLs. When creating an agent, the form selects a known search-capable model when available and enables Web access when all selected models support it. You can turn it off in **Tools**. Custom model IDs and API URLs require opting in because their capabilities are verified by the connection when used.
+
+Sandbox lets the agent write and run code. It starts enabled when the organization has a configured [sandbox connection](./sandboxes.md). Choose its connection or turn it off in **Tools**. Existing agents keep their saved tool settings.
 
 You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
 
@@ -52,9 +54,19 @@ The attachment setting is enforced at the chat endpoint rather than in the widge
 
 While attachments are on, the accepted types, per-file sizes, and per-message count come from the deployment. An SDK option can narrow them for your users but never widen them. See [Attachments](/docs/sdk/attachments) and [Limits](/docs/sdk/limits).
 
+## Web access
+
+Let's review **Web access** under **Tools** when your users need current information or answers from public URLs. The grant belongs to the agent, so an embedded browser client cannot enable it or replace its web tools.
+
+Web access uses the selected model's existing connection. Choose OpenAI Responses, Anthropic Messages, or OpenRouter Chat Completions and a model that supports web tools. OpenRouter manages retrieval and may use an external search engine. An unsupported configuration fails with guidance to change the model or protocol. OpenAI Chat Completions requires switching the connection to Responses.
+
+Citations link evidence to answer text, and web activity lists consulted sources separately. Both remain available in saved conversations and read-only transcripts. If you switch providers or models, follow-ups retain source links and available excerpts, while private provider evidence stays with its original connection and model.
+
+**NOTE**: web tools may add charges to the selected provider's bill. Each provider request permits up to five native calls, or five calls per tool when the provider exposes only a per-tool limit. Long Anthropic web operations share the existing model-turn budget. Requests are not retried through a different provider.
+
 ## Sandboxes
 
-Selecting a sandbox provider gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
+Enabling **Sandbox** and selecting its connection gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
 
 When the provider's configuration cannot be read as a run starts, the sandbox tools and their instructions drop together and the agent answers without them rather than failing.
 
