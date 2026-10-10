@@ -123,7 +123,7 @@ export const organizationImageImport = snakeCase.table(
   {
     organizationId: uuid().notNull(),
     id: uuidV7(),
-    sourceUrl: text().notNull(),
+    sourceUrl: text(),
     expectedLogo: text(),
     generation: uuid()
       .notNull()

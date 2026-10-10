@@ -4,6 +4,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { betterAuth } from "better-auth/minimal"
 import { bearer, organization as organizationPlugin } from "better-auth/plugins"
 import { Effect, Layer, ManagedRuntime } from "effect"
+import { Pool } from "pg"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const fixture = vi.hoisted(() => {
@@ -11,8 +12,12 @@ const fixture = vi.hoisted(() => {
   const url = configured === "postgres://test:test@127.0.0.1:5432/test" ? undefined : configured
   if (url && (new URL(url).hostname !== "127.0.0.1" || !new URL(url).pathname.endsWith("_test")))
     throw new Error("Use a disposable loopback database ending in _test")
-  return { url, source: (): Promise<Uint8Array> => Promise.resolve(new Uint8Array()) }
+  return {
+    url,
+    source: (_source: string): Promise<Uint8Array> => Promise.resolve(new Uint8Array()),
+  }
 })
+import { up as queueProfileFileMigration } from "@/db/migrations/20261010070634_queue-profile-file-migration/migration"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
 import { Database, getAuthDatabase } from "@/db/database.server"
 import { session, user } from "@/db/schema/authentication.server"
@@ -25,6 +30,7 @@ import {
   userImageImport,
 } from "@/db/schema/files.server"
 import { member, organization } from "@/db/schema/organizations.server"
+import fileMaintenance from "@/lib/workflows/file-maintenance.server"
 import { privateLogoImportField, organizationImageHooks } from "./auth-images.server"
 import { ImageSources } from "./image-source.server"
 import {
@@ -80,9 +86,9 @@ const profileLayer = ProfileFiles.layerNoDeps.pipe(
     storedLayer,
     DatabaseRateLimiter.layer,
     Layer.succeed(ImageSources, {
-      fetch: () =>
+      fetch: ({ source }) =>
         Effect.tryPromise({
-          try: () => fixture.source(),
+          try: () => fixture.source(source),
           catch: (error) =>
             error instanceof ImageImportUnavailable || error instanceof ImageSourceMissing
               ? error
@@ -121,6 +127,210 @@ describe.skipIf(!fixture.url)("profile file lifecycle", () => {
     userIds.push(owner!.id)
     return owner!
   }
+
+  test("queues owner references transactionally and recovers scheduled backfills after a storage outage", async () => {
+    const owners = await Promise.all([
+      createProfileFileUser(embedded),
+      createProfileFileUser("https://example.com/avatar.png"),
+      createProfileFileUser(),
+      createProfileFileUser(""),
+      createProfileFileUser(),
+    ])
+    const [customer] = await db
+      .insert(organization)
+      .values({ name: "Historical logo", slug: `logo-${crypto.randomUUID()}`, logo: embedded })
+      .returning()
+    organizationIds.push(customer!.id)
+    await db.insert(userImageImport).values({ userId: owners[4].id, status: "disabled" })
+    const selected = inArray(
+      userImageImport.userId,
+      owners.slice(0, 4).map((owner) => owner.id),
+    )
+    const pool = new Pool({ connectionString: fixture.url })
+    const client = await pool.connect()
+    try {
+      await client.query("begin")
+      await queueProfileFileMigration(client)
+      await client.query("rollback")
+      expect(await db.select().from(userImageImport).where(selected)).toEqual([])
+      await client.query("begin")
+      await queueProfileFileMigration(client)
+      await client.query("commit")
+      const queued = await db.select().from(userImageImport).where(selected)
+      expect(queued).toHaveLength(4)
+      expect(queued.every((row) => row.sourceUrl === null && row.expectedImage === null)).toBe(true)
+      await client.query("begin")
+      await queueProfileFileMigration(client)
+      await client.query("commit")
+      expect(await db.select().from(userImageImport).where(selected)).toEqual(queued)
+      expect(objects.size).toBe(0)
+    } finally {
+      client.release()
+      await pool.end()
+    }
+    const firstRuntime = ManagedRuntime.make(profileLayer)
+    failRead = true
+    try {
+      await firstRuntime.runPromise(fileMaintenance)
+      expect(
+        (await db.select().from(userImageImport).where(selected)).every(
+          (row) => row.status === "pending" && row.reason === "StorageUnavailable",
+        ),
+      ).toBe(true)
+      expect((await db.select().from(user).where(eq(user.id, owners[0].id)))[0]!.image).toBe(
+        embedded,
+      )
+      expect(
+        (await db.select().from(organization).where(eq(organization.id, customer!.id)))[0]!.logo,
+      ).toBe(embedded)
+    } finally {
+      await firstRuntime.dispose()
+    }
+    await db
+      .update(userImageImport)
+      .set({ retryAt: new Date(0) })
+      .where(selected)
+    await db
+      .update(organizationImageImport)
+      .set({ retryAt: new Date(0) })
+      .where(eq(organizationImageImport.organizationId, customer!.id))
+    failRead = false
+    const restartedRuntime = ManagedRuntime.make(profileLayer)
+    try {
+      await restartedRuntime.runPromise(fileMaintenance)
+      for (const owner of owners.slice(0, 4)) {
+        const [stored] = await db.select().from(user).where(eq(user.id, owner.id))
+        expect(stored!.image).toMatch(/^\/api\/files\/avatars\//)
+        await restartedRuntime.runPromise(
+          Effect.flatMap(ProfileFiles, (files) =>
+            files.verify({ owner: { kind: "avatar", id: owner.id }, source: stored!.image! }),
+          ),
+        )
+      }
+      const [storedLogo] = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, customer!.id))
+      await restartedRuntime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.verify({ owner: { kind: "logo", id: customer!.id }, source: storedLogo!.logo! }),
+        ),
+      )
+      expect(
+        (await db.select().from(userImageImport).where(selected)).every(
+          (row) => row.status === "imported",
+        ),
+      ).toBe(true)
+      expect(
+        (
+          await db.select().from(userImageImport).where(eq(userImageImport.userId, owners[4].id))
+        )[0]!.status,
+      ).toBe("disabled")
+      expect(
+        (
+          await db
+            .select()
+            .from(organizationImageImport)
+            .where(eq(organizationImageImport.organizationId, customer!.id))
+        )[0],
+      ).toMatchObject({ status: "imported", sourceUrl: null, expectedLogo: null })
+    } finally {
+      await restartedRuntime.dispose()
+    }
+  })
+
+  test("retains malformed queued data, audits missing historical sources, and fences newer import intent", async () => {
+    const malformed = await createProfileFileUser("data:image/png;base64,AA==")
+    const missing = await createProfileFileUser("https://example.com/missing.png")
+    const newer = await createProfileFileUser()
+    const [customer] = await db
+      .insert(organization)
+      .values({
+        name: "Queued logo",
+        slug: `logo-${crypto.randomUUID()}`,
+        logo: "https://example.com/old-logo.png",
+      })
+      .returning()
+    organizationIds.push(customer!.id)
+    await db
+      .insert(organizationImageImport)
+      .values({ organizationId: customer!.id, status: "pending" })
+    await db.insert(userImageImport).values(
+      [malformed, missing, newer].map((owner) => ({
+        userId: owner.id,
+        status: "pending" as const,
+      })),
+    )
+    let started!: () => void
+    const waiting = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    let release!: (bytes: Uint8Array) => void
+    const gate = new Promise<Uint8Array>((resolve) => {
+      release = resolve
+    })
+    let calls = 0
+    fixture.source = (source) => {
+      if (source.includes("missing")) return Promise.reject(new ImageSourceMissing({ status: 404 }))
+      calls += 1
+      if (calls === 2) started()
+      return gate
+    }
+    const runtime = ManagedRuntime.make(profileLayer)
+    try {
+      const processing = runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) => files.processImports),
+      )
+      await waiting
+      const newerSource = "https://example.com/newer.png"
+      await runtime.runPromise(
+        Effect.flatMap(ProfileFiles, (files) =>
+          files.queueAvatar({ userId: newer.id, email: newer.email, source: newerSource }),
+        ),
+      )
+      const logoSource = "https://example.com/new-logo.png"
+      await db
+        .update(organization)
+        .set({ logoImportGeneration: crypto.randomUUID(), logoImportSourceUrl: logoSource })
+        .where(eq(organization.id, customer!.id))
+      release(image)
+      await processing
+      expect(
+        (await db.select().from(organization).where(eq(organization.id, customer!.id)))[0],
+      ).toMatchObject({ logo: customer!.logo, logoImportSourceUrl: logoSource })
+      expect((await db.select().from(user).where(eq(user.id, newer.id)))[0]!.image).toBeNull()
+      expect(
+        (await db.select().from(userImageImport).where(eq(userImageImport.userId, newer.id)))[0],
+      ).toMatchObject({ status: "pending", sourceUrl: newerSource })
+      expect((await db.select().from(user).where(eq(user.id, malformed.id)))[0]!.image).toBe(
+        malformed.image,
+      )
+      expect(
+        (
+          await db.select().from(userImageImport).where(eq(userImageImport.userId, malformed.id))
+        )[0],
+      ).toMatchObject({ status: "pending", reason: "InvalidImage" })
+      expect((await db.select().from(user).where(eq(user.id, missing.id)))[0]!.image).toBeNull()
+      expect(
+        (await db.select().from(userImageImport).where(eq(userImageImport.userId, missing.id)))[0],
+      ).toMatchObject({
+        status: "unavailable",
+        reason: "ImageSourceMissing",
+        sourceUrl: missing.image,
+      })
+      fixture.source = () => Promise.resolve(image)
+      await runtime.runPromise(Effect.flatMap(ProfileFiles, (files) => files.processImports))
+      expect(
+        (await db.select().from(organization).where(eq(organization.id, customer!.id)))[0]!.logo,
+      ).toMatch(/^\/api\/files\/organizations\//)
+      expect((await db.select().from(user).where(eq(user.id, newer.id)))[0]!.image).toMatch(
+        /^\/api\/files\/avatars\//,
+      )
+    } finally {
+      release?.(image)
+      await runtime.dispose()
+    }
+  })
 
   test("refreshes failed preparation metadata but preserves verified content", async () => {
     const runtime = ManagedRuntime.make(storedLayer)

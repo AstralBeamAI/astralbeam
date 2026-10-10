@@ -57,6 +57,7 @@ CI skips the browser suites to stay fast, so run them locally right after creati
 - Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. The only formatting exceptions are GitHub-generated attachment markup inside the walkthrough bullet when required for an inline player and a required CLA acknowledgment checkbox. Retain the acknowledgment unchecked unless the contributor explicitly accepted it.
 - Prefer relevant links already supplied by the user or discovered in the current conversation and place them inline in the supporting bullet. Do not add a references section, revive superseded context, or invent links.
 - Honor compatible repository template requirements. Ask before creating the PR if a mandatory template conflicts with this format. Use issue-closing keywords only for a verified issue the user intends to close.
+- Omit the CLA acknowledgement for PRs authored by `mintuhouse` in `AstralBeamAI/astralbeam`, because that account is the maintainer. Preserve it for other contributors and repositories.
 
 ## Guardrails
 

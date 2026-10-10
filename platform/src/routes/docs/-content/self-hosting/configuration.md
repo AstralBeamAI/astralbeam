@@ -118,7 +118,9 @@ The first application upload pins the endpoint, region, bucket, and addressing m
 
 Avatars and Organization logos are stored in this bucket and served through authenticated application URLs. Images must be valid PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. External profile images and logos are imported by the server. While an import retries, the previous stored image or initials remain visible. External-fetch failures retry up to eight times with increasing backoff, while storage failures retain pending imports. A failed profile import does not prevent sign-in, and manually selected avatars are preserved.
 
-For an existing deployment, let's stop all application writers and scheduled runners before applying the file schema migration. Keep a database backup, configure storage, and migrate each source before starting the new server code. Run the following commands from the repository root to inspect the actual inventory, migrate one source, and verify its stored content:
+For an existing deployment, let's keep a database backup and configure storage before applying the file migrations. The paired TypeScript step queues historical avatars and logos by owner ID in the same transaction as the schema change. Once the new server starts, the existing FileMaintenance schedule uploads and verifies batches outside database transactions. Failed rows retain their original source and retry with backoff. Newer profile changes supersede queued migrations.
+
+Run the following commands from the repository root to inspect the inventory and verify the stored content after the queue drains. To complete the migration during downtime instead, stop all application writers and scheduled runners and use the explicit migration commands:
 
 ```sh
 deno task --cwd platform files inventory
@@ -130,7 +132,7 @@ deno task --cwd platform files verify --table organization.logo
 
 Omit `--table` to process both supported sources. The command uploads and reads back each object before replacing its source in a short transaction. An interrupted run reuses recorded progress. Storage failures or malformed embedded images stop the run and retain uncommitted source data. Historical external images that return a permanent HTTP client error, including `403`, `404`, or `410`, are cleared and recorded in private import metadata. Timeouts, rate limits, and server errors stop migration so it can be retried.
 
-After verification, start the new server code and its runners. Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
 
 ## Model providers
 

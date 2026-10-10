@@ -360,7 +360,11 @@ export class ProfileFiles extends Context.Service<
       const importAvatar = Effect.fn("ProfileFiles.importAvatar")(function* (
         pending: typeof userImageImport.$inferSelect,
       ) {
-        if (!pending.sourceUrl) return
+        if (pending.sourceUrl === null)
+          return yield* migrateQueuedImage({
+            owner: { kind: "avatar", id: pending.userId },
+            generation: pending.generation,
+          })
         const sourceUrl = pending.sourceUrl
         const file = yield* prepareImportedProfileImage(
           pending.sourceUrl,
@@ -428,6 +432,11 @@ export class ProfileFiles extends Context.Service<
       const importLogo = Effect.fn("ProfileFiles.importLogo")(function* (
         pending: typeof organizationImageImport.$inferSelect,
       ) {
+        if (pending.sourceUrl === null)
+          return yield* migrateQueuedImage({
+            owner: { kind: "logo", id: pending.organizationId },
+            generation: pending.generation,
+          })
         const pendingImport = and(
           eq(organizationImageImport.organizationId, pending.organizationId),
           eq(organizationImageImport.generation, pending.generation),
@@ -548,7 +557,10 @@ export class ProfileFiles extends Context.Service<
                 Effect.catch((error) =>
                   db
                     .update(userImageImport)
-                    .set(importFailure(error, pending.attempts))
+                    .set({
+                      ...importFailure(error, pending.attempts),
+                      ...(pending.sourceUrl === null ? { status: "pending" as const } : {}),
+                    })
                     .where(
                       and(
                         eq(userImageImport.userId, pending.userId),
@@ -565,7 +577,10 @@ export class ProfileFiles extends Context.Service<
                 Effect.catch((error) =>
                   db
                     .update(organizationImageImport)
-                    .set(importFailure(error, pending.attempts))
+                    .set({
+                      ...importFailure(error, pending.attempts),
+                      ...(pending.sourceUrl === null ? { status: "pending" as const } : {}),
+                    })
                     .where(
                       and(
                         eq(organizationImageImport.organizationId, pending.organizationId),
@@ -623,11 +638,24 @@ export class ProfileFiles extends Context.Service<
         owner,
         source,
         email,
+        generation,
       }: {
         owner: ImageOwner
         source: string | null
         email?: string
+        generation?: string
       }) {
+        const imports = owner.kind === "avatar" ? userImageImport : organizationImageImport
+        const importOwnerId =
+          owner.kind === "avatar" ? userImageImport.userId : organizationImageImport.organizationId
+        const pendingMigration = generation
+          ? and(
+              eq(importOwnerId, owner.id),
+              eq(imports.generation, generation),
+              eq(imports.status, "pending"),
+              isNull(imports.sourceUrl),
+            )
+          : undefined
         if (source?.startsWith("/api/files/")) {
           yield* verify({ owner, source })
           return "unchanged" as const
@@ -642,7 +670,7 @@ export class ProfileFiles extends Context.Service<
           if (prior && ["unavailable", "disabled", "imported"].includes(prior.status))
             return "unchanged" as const
         }
-        const importSource = source ?? (yield* Effect.promise(() => getGravatarAvatarUrl(email!)))
+        const importSource = source || (yield* Effect.promise(() => getGravatarAvatarUrl(email!)))
         if (!importSource) return yield* new InvalidImage()
         const identity = `${owner.kind}:${owner.id}:${yield* fileSha256(new TextEncoder().encode(importSource))}`
         let file = yield* files.resume(identity)
@@ -665,6 +693,12 @@ export class ProfileFiles extends Context.Service<
                   .for("update")
                   .pipe(mapDatabaseErrors())
                 if (!current || current.image !== source) return "unchanged" as const
+                if (
+                  generation &&
+                  !(yield* tx.select({ id: importOwnerId }).from(imports).where(pendingMigration))
+                    .length
+                )
+                  return "unchanged" as const
                 if (file)
                   yield* tx
                     .insert(userAvatar)
@@ -711,6 +745,14 @@ export class ProfileFiles extends Context.Service<
                   .for("update")
                   .pipe(mapDatabaseErrors())
                 if (!current || current.logo !== source) return "unchanged" as const
+                if (
+                  generation &&
+                  (!(yield* tx.select({ id: importOwnerId }).from(imports).where(pendingMigration))
+                    .length ||
+                    (current.logoImportGeneration && current.logoImportGeneration !== generation) ||
+                    current.logoImportSourceUrl)
+                )
+                  return "unchanged" as const
                 if (file)
                   yield* tx
                     .insert(organizationLogo)
@@ -742,11 +784,75 @@ export class ProfileFiles extends Context.Service<
                     })
                     .pipe(mapDatabaseErrors())
               }
+              if (generation)
+                yield* tx
+                  .update(imports)
+                  .set({
+                    status: file ? "imported" : "unavailable",
+                    reason: file ? null : "ImageSourceMissing",
+                  })
+                  .where(eq(importOwnerId, owner.id))
+                  .pipe(mapDatabaseErrors())
               return file ? ("migrated" as const) : ("unavailable" as const)
             }),
           )
           .pipe(mapDatabaseErrors())
         return result
+      })
+      // A null source queues historical data by owner ID, without copying its file bytes.
+      const migrateQueuedImage = Effect.fn("ProfileFiles.migrateQueuedImage")(function* ({
+        owner,
+        generation,
+      }: {
+        owner: ImageOwner
+        generation: string
+      }) {
+        const isAvatar = owner.kind === "avatar"
+        const imports = isAvatar ? userImageImport : organizationImageImport
+        const importOwnerId = isAvatar
+          ? userImageImport.userId
+          : organizationImageImport.organizationId
+        const queuedMigration = and(
+          eq(importOwnerId, owner.id),
+          eq(imports.generation, generation),
+          eq(imports.status, "pending"),
+          isNull(imports.sourceUrl),
+        )
+        const table = isAvatar ? user : organization
+        const [current] = yield* db
+          .select({
+            source: isAvatar ? user.image : organization.logo,
+            email: isAvatar ? user.email : sql<string>`null`,
+          })
+          .from(table)
+          .innerJoin(imports, eq(importOwnerId, table.id))
+          .where(
+            and(
+              queuedMigration,
+              ...(isAvatar
+                ? []
+                : [
+                    sql`(${organization.logoImportGeneration} is null or ${organization.logoImportGeneration} = ${generation})`,
+                    isNull(organization.logoImportSourceUrl),
+                  ]),
+            ),
+          )
+          .pipe(mapDatabaseErrors())
+        if (!current) {
+          yield* db
+            .update(imports)
+            .set({ status: "superseded", reason: "NewerImage" })
+            .where(queuedMigration)
+            .pipe(mapDatabaseErrors())
+          return
+        }
+        const result = yield* migrate({ owner, ...current, generation })
+        if (result === "unchanged")
+          yield* db
+            .update(imports)
+            .set({ status: "superseded", reason: "NewerImage" })
+            .where(queuedMigration)
+            .pipe(mapDatabaseErrors())
       })
       return ProfileFiles.of({
         uploadAvatar,

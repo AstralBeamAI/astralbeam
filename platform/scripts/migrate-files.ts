@@ -54,9 +54,9 @@ try {
           .select({
             total: sql<number>`count(*)::integer`,
             embedded: sql<number>`count(*) filter (where ${column} like 'data:%')::integer`,
-            external: sql<number>`count(*) filter (where ${column} is not null and ${column} not like 'data:%' and ${column} not like '/api/files/%')::integer`,
+            external: sql<number>`count(*) filter (where ${column} <> '' and ${column} not like 'data:%' and ${column} not like '/api/files/%')::integer`,
             stored: sql<number>`count(*) filter (where ${column} like '/api/files/%')::integer`,
-            empty: sql<number>`count(*) filter (where ${column} is null)::integer`,
+            empty: sql<number>`count(*) filter (where ${column} is null or ${column} = '')::integer`,
           })
           .from(table)
           .pipe(mapDatabaseErrors())
