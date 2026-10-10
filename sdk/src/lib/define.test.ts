@@ -13,6 +13,9 @@ test("definitions retain transformed input and inferred result types through wid
   const outputSchema: StandardSchemaV1<unknown, Item> = {
     "~standard": { version: 1, vendor: "test", validate: () => ({ value: { id: 1 } }) },
   }
+  const arrayOutputSchema: StandardSchemaV1<unknown, Item[]> = {
+    "~standard": { version: 1, vendor: "test", validate: () => ({ value: [] }) },
+  }
   const tools = {
     lookup: defineTool({
       description: "Read",
@@ -28,6 +31,11 @@ test("definitions retain transformed input and inferred result types through wid
       outputSchema,
       execute: () => toolResult({ content: "Not found", isError: true }),
     }),
+    list: defineTool({
+      description: "List",
+      outputSchema: arrayOutputSchema,
+      execute: (): Item[] => [{ id: 1 }],
+    }),
   } satisfies ToolRegistry
   expectTypeOf<ToolInput<typeof tools.lookup>>().toEqualTypeOf<{ id: string }>()
   defineReactWidget({
@@ -37,6 +45,7 @@ test("definitions retain transformed input and inferred result types through wid
     render: (_props, { input, callTool }) => {
       expectTypeOf(input.id).toEqualTypeOf<number>()
       expectTypeOf(callTool("lookup", { id: "1" })).toEqualTypeOf<Promise<Item>>()
+      expectTypeOf(callTool("list")).toEqualTypeOf<Promise<Item[]>>()
       return null
     },
   })
