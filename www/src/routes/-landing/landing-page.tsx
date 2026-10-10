@@ -186,6 +186,7 @@ export function LandingPage() {
                     key={benefit.name}
                     style={cssVars({ "--reveal-delay": `${(i % 2) * 0.1 + 0.1}s` })}
                   >
+                    {benefit.icon && <span className="benefit-icon">{benefit.icon}</span>}
                     <h3 className="benefit-name">{benefit.name}</h3>
                     <p className="benefit-desc">{benefit.desc}</p>
                     {benefit.soon && (
