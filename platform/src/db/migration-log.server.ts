@@ -24,6 +24,8 @@ export interface BundledMigration {
   load?: () => Promise<MigrationModule>
 }
 
+// Historical steps must not depend on today's Drizzle schema.
+// https://github.com/drizzle-team/drizzle-orm/issues/2695#issuecomment-2831644997
 export type MigrationClient = Pick<PoolClient, "query">
 
 export interface MigrationModule {
@@ -31,6 +33,7 @@ export interface MigrationModule {
 }
 
 // Preserve Drizzle's timestamps while all application entrypoints share the same history.
+// Migration folder format: https://github.com/drizzle-team/drizzle-orm/discussions/2832
 function folderMillisFromName(name: string): number {
   const stamp = name.slice(0, 14)
   return Date.UTC(
@@ -76,7 +79,8 @@ export function pendingDatabaseMigrations(
   })
 }
 
-/** The caller owns the transaction. SQL, TypeScript, and history use its exact client. */
+// The caller owns the transaction. Keep SQL, TypeScript, and history on its exact client.
+// Upstream TypeScript migration support: https://github.com/drizzle-team/drizzle-orm/issues/2695
 export async function executeMigration(client: MigrationClient, migration: BundledMigration) {
   for (const statement of migration.sql.split("--> statement-breakpoint")) {
     await client.query(statement)
