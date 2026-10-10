@@ -8,7 +8,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { Context, Effect, Layer, RcMap, Schema, SynchronizedRef } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
 import type { StorageConnection } from "./schemas"
 

@@ -10,7 +10,7 @@ import ResetPasswordEmail from "@/emails/templates/reset-password"
 import SupportRequestEmail from "@/emails/templates/support-request"
 import WelcomeEmail from "@/emails/templates/welcome"
 import { APP_NAME } from "@/lib/constants"
-import type { ProviderEmailAttachment } from "./providers/providers.server.ts"
+import type { ProviderEmailAttachment } from "./providers/providers.ts"
 
 /** Log label identifying which email a send outcome belongs to. */
 export type EmailKind =

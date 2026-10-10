@@ -1,12 +1,12 @@
 import { createHash, hkdfSync } from "node:crypto"
 import { Effect, Schema } from "effect"
 import { HttpApiSchema } from "effect/http-api"
-import type { DatabasePage, DatabasePageOptions } from "@/db/lib/pagination.server"
+import type { DatabasePage, DatabasePageOptions } from "@/db/lib/pagination"
 import { CompactSign, compactVerify, decodeProtectedHeader } from "jose"
 import {
   type DatabaseEncryptionKeyring,
   getDatabaseEncryptionKeyring,
-} from "@/db/lib/database-credentials.server"
+} from "@/db/lib/database-credentials"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { RestInvalidCursor } from "./errors.ts"
 import type { RestPageQuery, RestScope } from "./shared.server"

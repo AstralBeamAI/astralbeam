@@ -22,7 +22,7 @@ import type {
   ThreadRecord,
   MessageRecord,
   ParticipantRecord,
-} from "../../../../../lib/chat/threads/threads.server"
+} from "../../../../../lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
@@ -367,21 +367,15 @@ export function chatThreadHandlers(api: typeof ApiV1) {
     api,
     "chatThreads",
     Effect.fn("chatThreadHandlers")(function* (handlers) {
-      const { authenticateChatRequest } = yield* Effect.promise(
-        () => import("@/lib/chat/auth.server"),
-      )
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads.server"),
-      )
+      const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { resolveManagedChatTools } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/commands.server"),
+        () => import("@/lib/chat/threads/commands"),
       )
       const { ChatThreadForbidden } = yield* Effect.promise(
         () => import("@/lib/chat/threads/errors"),
       )
-      const { TenantUsers } = yield* Effect.promise(
-        () => import("@/lib/tenants/tenant-users.server"),
-      )
+      const { TenantUsers } = yield* Effect.promise(() => import("@/lib/tenants/tenant-users"))
       const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("../../-lib/pagination.server"),
@@ -613,7 +607,7 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   partId: string,
 ) {
   const { decodeAttachmentBytes } = yield* Effect.promise(
-    () => import("@/lib/chat/attachments/attachments.server"),
+    () => import("@/lib/chat/attachments/attachments"),
   )
   const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))

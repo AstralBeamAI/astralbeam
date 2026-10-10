@@ -18,9 +18,9 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { Database, getAuthDatabase } from "@/db/database.server"
-import { getForeignKeyDeferrability } from "@/db/lib/columns.server"
-import { sqlState } from "@/db/lib/sqlstate.server"
+import { Database, getAuthDatabase } from "@/db/database"
+import { getForeignKeyDeferrability } from "@/db/lib/columns"
+import { sqlState } from "@/db/lib/sqlstate"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
 import {
@@ -28,7 +28,7 @@ import {
   deleteOrganizationTenantBatch,
   revokeOrganizationAccess,
 } from "@/lib/organizations/deletion.server"
-import { deleteTenant } from "@/lib/tenants/deletion.server"
+import { deleteTenant } from "@/lib/tenants/deletion"
 import {
   agent,
   agentModel,
@@ -48,10 +48,8 @@ import {
   tenantUser,
   tables,
   user,
-} from "@/db/schema.server"
-import deleteOrganization, {
-  deleteOrganizationWorkflowLayer,
-} from "./delete-organization.server.ts"
+} from "@/db/schema"
+import deleteOrganization, { deleteOrganizationWorkflowLayer } from "./delete-organization.ts"
 
 describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workflow", () => {
   let db: ReturnType<typeof getAuthDatabase>

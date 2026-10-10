@@ -2,23 +2,23 @@ import { Layer, Logger, ManagedRuntime } from "effect"
 
 import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
 
-import { Database } from "@/db/database.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { DatabaseMigrations } from "@/db/migration-runner.server"
+import { Database } from "@/db/database"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
+import { DatabaseMigrations } from "@/db/migration-runner"
 import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { Chat } from "@/lib/chat/chat.server"
-import { ChatThreads } from "@/lib/chat/threads/threads.server"
-import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
-import { Config } from "@/lib/config/config.server"
+import { Chat } from "@/lib/chat/chat"
+import { ChatThreads } from "@/lib/chat/threads/threads"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
+import { Config } from "@/lib/config/config"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { Mailer } from "@/lib/email/email.server"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
-import { Tenants } from "@/lib/tenants/tenants.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
+import { Tenants } from "@/lib/tenants/tenants"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 
 const LoggerLayer = Logger.layer([
@@ -69,7 +69,7 @@ const appRuntimes = ((globalThis as typeof globalThis & { [appRuntimesKey]?: Set
   appRuntimesKey
 ] ??= new Set())
 
-// Pools stay process-wide in `src/db/database.server.ts`, so a reload rebuilds only these services.
+// Pools stay process-wide in `src/db/database.ts`, so a reload rebuilds only these services.
 // https://vite.dev/guide/api-hmr.html#hot-dispose-cb
 let appRuntime: AppRuntime | undefined
 

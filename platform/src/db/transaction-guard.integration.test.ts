@@ -9,12 +9,12 @@ import { SqlClient } from "effect/sql"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 
-import { Database, closeDatabase } from "./database.server.ts"
+import { Database, closeDatabase } from "./database.ts"
 import {
   guardPromiseDatabase,
   guardPromisePool,
   guardSqlTransactions,
-} from "./lib/transaction-guard.server.ts"
+} from "./lib/transaction-guard.ts"
 
 const transactionIntegrationUrl = process.env.DATABASE_URL
 const transactionIntegrationEnabled =

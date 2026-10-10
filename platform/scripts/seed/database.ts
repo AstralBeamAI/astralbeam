@@ -65,7 +65,7 @@ export type SeedTransaction = Parameters<Parameters<SeedDatabase["transaction"]>
 /**
  * A seed against an unmigrated database fails deep inside an insert with a confusing message, so
  * the missing tables are reported up front. Applied migrations are matched by folder name, the
- * same way `src/db/migration-runner.server.ts` and drizzle-orm's own migrator do.
+ * same way `src/db/migration-runner.ts` and drizzle-orm's own migrator do.
  */
 export async function assertSeedMigrationsApplied(database: SeedDatabase): Promise<void> {
   const bundled = readdirSync(migrationsDirectory, { withFileTypes: true })

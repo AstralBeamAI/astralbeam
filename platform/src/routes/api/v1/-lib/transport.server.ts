@@ -8,13 +8,13 @@ import {
 } from "effect/http"
 import { HttpApiBuilder, HttpApiError } from "effect/http-api"
 
-import { Database } from "@/db/database.server"
+import { Database } from "@/db/database"
 import { Auth } from "@/lib/auth/auth.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import { Config } from "@/lib/config/config.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
+import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { getAppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
-import { Tenants } from "@/lib/tenants/tenants.server"
+import { Tenants } from "@/lib/tenants/tenants"
 import { ApiV1 } from "./contract.server"
 import {
   ApiBoundary,

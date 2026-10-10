@@ -7,16 +7,16 @@ import {
 import { Cause, Duration, Effect, Stream } from "effect"
 import { HttpServerResponse } from "effect/http"
 
-import { Chat } from "@/lib/chat/chat.server"
-import { ChatThreads } from "@/lib/chat/threads/threads.server"
-import { managedChatRunParams } from "@/lib/chat/threads/commands.server"
+import { Chat } from "@/lib/chat/chat"
+import { ChatThreads } from "@/lib/chat/threads/threads"
+import { managedChatRunParams } from "@/lib/chat/threads/commands"
 import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_MAX_REQUEST_BYTES,
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
   CHAT_RATE_LIMIT_WINDOW_MS,
-} from "@/lib/chat/constants.server"
+} from "@/lib/chat/constants"
 import type { ChatPrincipal } from "@/lib/chat/types"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"

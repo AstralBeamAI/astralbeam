@@ -56,8 +56,8 @@ vi.mock("@/lib/email/email.server", async (original) => {
   return { Mailer: Object.assign(email.Mailer, { layer }) }
 })
 
-import { getAuthDatabase } from "@/db/database.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { getAuthDatabase } from "@/db/database"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import {
   account,
@@ -72,19 +72,19 @@ import {
   tenant,
   tenantUser,
   user,
-} from "@/db/schema.server"
-import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { encryptDatabaseValue } from "@/db/lib/encryption.server"
-import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
+} from "@/db/schema"
+import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
+import { encryptDatabaseValue } from "@/db/lib/encryption"
+import { ConfigValuePayloadSchema } from "@/db/schema/config"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { ConfigValues } from "@/lib/config/types"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
-import { authenticateChatRequest } from "@/lib/chat/auth.server"
+import { authenticateChatRequest } from "@/lib/chat/auth"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
 import type { ChatPrincipal } from "@/lib/chat/types"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import type { OwnerOnboarding } from "./schemas.ts"

@@ -3,7 +3,7 @@ import { CreateBucketCommand, DeleteBucketCommand, S3Client } from "@aws-sdk/cli
 import { Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { ObjectStorage } from "./object-storage.server"
 import { StorageDestinationLocked } from "./errors"
 

@@ -1,14 +1,14 @@
 import { jwtVerify } from "jose"
 import { Effect, Schema } from "effect"
 import { and, asc, eq } from "drizzle-orm"
-import { Database } from "@/db/database.server"
-import { user } from "@/db/schema/authentication.server"
-import { member } from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { user } from "@/db/schema/authentication"
+import { member } from "@/db/schema/organizations"
 import { parseApiKeyId } from "@/lib/api-keys/schemas"
 import { ChatAuthenticationError } from "@/lib/chat/errors"
 import { APP_HANDLE } from "@/lib/constants"
 import { EmailAddressSchema } from "@/lib/schemas"
-import { authenticateOrganizationIssuedToken } from "../chat/auth.server"
+import { authenticateOrganizationIssuedToken } from "../chat/auth"
 import { OrganizationMembershipError } from "./errors.ts"
 
 export const ORGANIZATION_TOKEN_TYPE = `${APP_HANDLE}-organization+jwt`

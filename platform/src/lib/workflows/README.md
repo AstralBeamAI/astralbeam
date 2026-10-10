@@ -4,7 +4,7 @@ Durable workflows run background operations through native Effect APIs and a Pos
 
 ## Scheduling
 
-Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.server.ts](cron.server.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
+Declare schedule names, cron expressions, time zones, and missed-run policies in [cron.ts](cron.ts), with operation logic in separate workflow modules. Use native [ClusterCron](https://effect.website/docs/v4/api/effect/cluster/ClusterCron/) for recurring operations on the existing runner. Repeatable operations can run directly. Operations requiring durable checkpoints can submit a registered workflow with a stable domain and occurrence idempotency key.
 
 Register the same cron layer on every replica using shared cluster storage and shard leases. ClusterCron coordinates scheduling and persisted delivery across replicas. Define how late an occurrence may run with `skipIfOlderThan`, and use `calculateNextRunFromPrevious: false` to calculate the next occurrence from completion time instead of replaying missed intervals. Failures are logged and the next occurrence is scheduled. Recovery can repeat an operation, so handlers must remain safe to repeat.
 
@@ -12,13 +12,13 @@ For batched maintenance, use `Effect.repeat` with a result-based stopping condit
 
 ## Architecture
 
-The [embedded cluster runtime](../cluster/README.md) owns private runner communication, PostgreSQL persistence, shard leases, and process lifecycle. This directory owns workflow definitions and [handler registration](registry.server.ts). `ClusterWorkflowEngine` connects the native workflow APIs to that infrastructure.
+The [embedded cluster runtime](../cluster/README.md) owns private runner communication, PostgreSQL persistence, shard leases, and process lifecycle. This directory owns workflow definitions and [handler registration](registry.ts). `ClusterWorkflowEngine` connects the native workflow APIs to that infrastructure.
 
 ## Define and register a workflow
 
-1. Define a versioned workflow in a `.server.ts` module in this folder, with payload, success, and error schemas. Use immutable Organization UUIDs and resource IDs for organization-owned operations. Derive the idempotency key from stable domain identity.
+1. Define a versioned workflow in a `.ts` module in this folder, with payload, success, and error schemas. Use immutable Organization UUIDs and resource IDs for organization-owned operations. Derive the idempotency key from stable domain identity.
 2. Implement the workflow with `.toLayer`. Put external operations inside named `Activity.make` steps with serializable results and typed failures. Yield Effects directly inside the handler.
-3. Import the handler layer into `registry.server.ts` and include it in `registeredWorkflowLayers`, using `Layer.mergeAll` for multiple handlers. Handlers may require any service in the [app runtime](../runtime/runtime.server.ts), which the cluster supervisor runs on together with the workflow engine and shared SQL client.
+3. Import the handler layer into `registry.ts` and include it in `registeredWorkflowLayers`, using `Layer.mergeAll` for multiple handlers. Handlers may require any service in the [app runtime](../runtime/runtime.server.ts), which the cluster supervisor runs on together with the workflow engine and shared SQL client.
 
 This schematic definition assumes an application-provided `performResourceOperation` Effect that returns a string. Supply its real error schema if the operation has typed failures and provide any services it requires.
 
@@ -64,7 +64,7 @@ const submitResourceOperation = Effect.gen(function* () {
 
 Both submission modes persist requests. `discard: true` returns the execution ID without waiting for completion. Durability still requires transaction commit. Polling returns an `Option` of the native workflow result. Inspect suspended versus complete results and the completed `Exit` to distinguish success from failure. An absent result is not proof of completion.
 
-Producers authorize submission at a server-only framework boundary and supply `WorkflowEngine` with `provideClusterWorkflowEngine` from the [cluster runtime](../cluster/runtime.server.ts), which fails with `ClusterUnavailableError` until the local runner is ready. The app runtime supplies application services but never the engine. Never construct a runner per request.
+Producers authorize submission at a server-only framework boundary and supply `WorkflowEngine` with `provideClusterWorkflowEngine` from the [cluster runtime](../cluster/runtime.ts), which fails with `ClusterUnavailableError` until the local runner is ready. The app runtime supplies application services but never the engine. Never construct a runner per request.
 
 Use the definition's `interrupt(executionId)` for cooperative cancellation and `resume(executionId)` for suspended work. Cancellation cannot undo completed external effects. Resumption does not create a fresh execution after terminal failure.
 

@@ -1,9 +1,9 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
-import { Database, type EffectDatabase } from "@/db/database.server"
+import { Database, type EffectDatabase } from "@/db/database"
 import { Auth, type AuthSession } from "@/lib/auth/auth.server"
-import { Config, type SetupState } from "@/lib/config/config.server"
+import { Config, type SetupState } from "@/lib/config/config"
 import { Organizations } from "./organizations.server.ts"
 
 const MEMBERSHIP = {

@@ -13,9 +13,9 @@ const storageDatabase = vi.hoisted(() => {
   return { url }
 })
 
-import { getAuthDatabase } from "@/db/database.server"
-import { configTable } from "@/db/schema.server"
-import { Config } from "./config.server"
+import { getAuthDatabase } from "@/db/database"
+import { configTable } from "@/db/schema"
+import { Config } from "./config"
 import { seedConfig } from "../../../scripts/seed/config"
 
 const destinationSettings = {

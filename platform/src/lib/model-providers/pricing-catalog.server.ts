@@ -1,7 +1,7 @@
 import { calcPrice, findProvider, type Provider } from "@pydantic/genai-prices"
 import { BigDecimal, Effect, Option, Schema } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import {
   ModelPriceCatalogProvidersSchema,
   ModelPriceCatalogSchema,

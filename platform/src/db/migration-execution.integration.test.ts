@@ -10,7 +10,7 @@ import {
   type MigrationClient,
   bundledMigration,
   runDatabaseMigrations,
-} from "./migration-log.server.ts"
+} from "./migration-log.ts"
 
 const migrationExecutionIntegration = vi.hoisted(() => {
   const configured = globalThis.process.env.DATABASE_URL

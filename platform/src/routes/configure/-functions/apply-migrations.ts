@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
-import { Config } from "@/lib/config/config.server"
-import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
-import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh.server"
+import { Config } from "@/lib/config/config"
+import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime"
+import { modelPriceCatalogInitialization } from "@/lib/workflows/model-price-catalog-refresh"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
