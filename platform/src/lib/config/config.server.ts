@@ -157,7 +157,7 @@ export class Config extends Context.Service<
     /** Returns one secret for the operator who asked to see it. */
     readonly reveal: (key: string) => Effect.Effect<string | null, ConfigValueNotRevealable>
     readonly applyMigrations: (
-      approved: readonly { readonly name: string; readonly hash: string }[],
+      approved: readonly string[],
     ) => Effect.Effect<void, MigrationsNotApplied>
   }
 >()("astralbeam/config/Config") {
@@ -314,7 +314,7 @@ export class Config extends Context.Service<
       })
 
       const applyMigrations = Effect.fn("Config.applyMigrations")(
-        function* (approved: readonly { readonly name: string; readonly hash: string }[]) {
+        function* (approved: readonly string[]) {
           yield* migrations.apply(approved)
         },
         (effect) => Effect.ensuring(effect, invalidate),

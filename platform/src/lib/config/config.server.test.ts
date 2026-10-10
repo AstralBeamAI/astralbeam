@@ -77,7 +77,7 @@ function configDatabase(state: { rows: StoredRow[]; reads: number; gate?: Effect
 
 const configMigrations = Layer.succeed(DatabaseMigrations, {
   state: Effect.sync(() => ({
-    pending: migrations.pending ? [{ name: "pending", sql: "", hash: "", folderMillis: 0 }] : [],
+    pending: migrations.pending ? [{ name: "pending", sql: "", folderMillis: 0 }] : [],
     appliedCount: 0,
   })),
   apply: () => Effect.void,

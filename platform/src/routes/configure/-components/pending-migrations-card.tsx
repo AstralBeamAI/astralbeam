@@ -43,7 +43,7 @@ export function PendingMigrationsCard({
     try {
       await applyMigrations({
         data: {
-          approvedMigrations: pending.map(({ name, hash }) => ({ name, hash })),
+          approvedMigrations: pending.map(({ name }) => name),
         },
       })
     } catch (applyError) {
@@ -62,8 +62,8 @@ export function PendingMigrationsCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          {pending.length} pending migration{pending.length === 1 ? "" : "s"} must run before
-          configuration ({appliedCount} already applied). Review the SQL, then apply.
+          {pending.length} pending migration{pending.length === 1 ? "" : "s"} ({appliedCount}{" "}
+          already applied). Review the SQL and any TypeScript before applying.
         </p>
         {error && (
           <Alert variant="destructive">
@@ -80,9 +80,18 @@ export function PendingMigrationsCard({
                   <CaretDownIcon aria-hidden="true" className="shrink-0" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <pre className="max-h-80 overflow-auto border-t bg-muted/50 p-3 text-xs">
+                  <p className="border-t px-3 py-2 text-xs font-medium">migration.sql</p>
+                  <pre className="max-h-80 overflow-auto bg-muted/50 p-3 text-xs">
                     {migration.sql}
                   </pre>
+                  {migration.typescript !== undefined && (
+                    <>
+                      <p className="border-t px-3 py-2 text-xs font-medium">migration.ts</p>
+                      <pre className="max-h-80 overflow-auto bg-muted/50 p-3 text-xs">
+                        {migration.typescript}
+                      </pre>
+                    </>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
             </li>

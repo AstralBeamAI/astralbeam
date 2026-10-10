@@ -10,7 +10,7 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.server.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
-- `migrations/` contains generated migration SQL and Drizzle snapshots.
+- `migrations/` contains generated migration SQL, Drizzle snapshots, and optional TypeScript data migrations.
 
 `schema/tables.server.ts` is the table-only namespace shared by Drizzle and adapters. `schema/relations.server.ts` creates the base relation definition, adds Better Auth's generated-shape and chat relation parts, and exports the single composition root passed to `drizzle()`.
 
@@ -78,7 +78,7 @@ deno task --cwd platform db-reset
 deno task --cwd platform db migrate
 ```
 
-`db migrate` uses the application runner. Other `db` commands invoke the installed Drizzle Kit version.
+`db migrate` uses the application runner, as do `scripts/setup.sh`, the compiled binary's `migrate` command, and `/configure`. The wrapper forwards only `generate`, `check`, `up`, and `export` to the installed Drizzle Kit version, and rejects all other commands, including `push` and `pull --init`. Run `deno task --cwd platform db --help` for the supported commands. Do not run `drizzle-kit migrate` directly, because it skips TypeScript steps while recording the SQL as applied.
 
 `db-reset` only recreates the selected disposable database. Apply migrations separately and never reset shared Compose volumes. Drizzle `check` validates migration-history consistency, not the live database's applied migrations.
 
@@ -104,10 +104,11 @@ Drizzle is schema-first: `src/db/schema.server.ts` is the hand-authored schema e
 
 Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migration unit:
 
-- `migration.sql` is the forward SQL that `migrate` executes and records in the database migration log.
+- `migration.sql` is the forward SQL that `migrate` executes first.
+- Optional `migration.ts` exports `async function up(client: MigrationClient)`. The runner executes it after the SQL, on the exact same PostgreSQL transaction client, before recording the migration in `drizzle.__drizzle_migrations`.
 - `snapshot.json` is Drizzle Kit-owned metadata describing the complete Drizzle-managed schema after that migration and its place in migration history. PostgreSQL never executes it, and it is not a database or data backup.
 
-Review the SQL and commit it with its matching snapshot and TypeScript schema change. Do not edit snapshots by hand.
+Review the SQL and any TypeScript step, then commit the migration folder with its matching schema changes. Do not edit snapshots by hand.
 
 - Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
@@ -115,6 +116,38 @@ Review the SQL and commit it with its matching snapshot and TypeScript schema ch
 - Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../lib/cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
+
+### TypeScript data migrations
+
+Add `migration.ts` to a new, unapplied migration folder. For a data-only change, run `deno task --cwd platform db generate --custom --name=normalize-names` and keep the comment-only SQL file.
+
+For example, normalize Organization names with JavaScript:
+
+```ts
+import type { MigrationClient } from "../../migration-log.server.ts"
+
+export async function up(client: MigrationClient) {
+  const { rows } = await client.query<{ id: string; name: string }>(
+    "SELECT id, name FROM organization",
+  )
+  for (const { id, name } of rows) {
+    await client.query("UPDATE organization SET name = $1 WHERE id = $2", [
+      name.normalize("NFKC"),
+      id,
+    ])
+  }
+}
+```
+
+SQL runs before `up`. Add backfill-dependent constraints through the supplied client after the transformation, or in a later migration.
+
+Migration code is trusted and may import helpers, packages, and application code under the deployment's normal runtime permissions. The supplied client is a PostgreSQL `PoolClient`. Use its `query` method or wrap it with `drizzle({ client })` from `drizzle-orm/node-postgres` to share the SQL transaction, awaiting the work without committing or rolling it back yourself. Other connections and external effects do not share its rollback. Put work in `up` so it runs only when the migration is applied.
+
+Setup, the CLI, and `/configure` commit each SQL/TypeScript pair and its history record together, holding the advisory lock and rechecking history on the same connection. Retry after failure to resume pending migrations. Listing migrations and `--dry-run` do not execute `up`.
+
+PostgreSQL requires an added enum value to be committed before use. Put `ALTER TYPE ... ADD VALUE` and code that uses the value in separate migration folders. Putting the use in the same folder's TypeScript step still fails. See [ALTER TYPE transaction restrictions](https://www.postgresql.org/docs/18/sql-altertype.html#SQL-ALTERTYPE-NOTES).
+
+Both sources ship in the binary and appear in `/configure`. Migrations are tracked by name, without checking for changes to applied files or imported dependencies. To run more work after a migration is applied, add a new migration. Direct `drizzle-kit migrate` skips TypeScript and records the migration as applied, so use the application commands above.
 
 ## Relations v2 composition
 
