@@ -11,15 +11,15 @@ import {
 import { Effect } from "effect"
 import { describe, expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import { createChatAdapter } from "./adapter.server"
-import { chatWebTools } from "./web.server"
-import { managedChatDelivery, managedChatMiddleware } from "./threads/stream.server"
+import { createChatAdapter } from "./adapter"
+import { chatWebTools } from "./web"
+import { managedChatDelivery, managedChatMiddleware } from "./threads/stream"
 import {
   chatStoredJson,
   projectChatModelHistory,
   projectChatPublicHistory,
-} from "./threads/projection.server"
-import type { ChatThreads } from "./threads/threads.server"
+} from "./threads/projection"
+import type { ChatThreads } from "./threads/threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./threads/schemas"
 
 const webTestSource = {

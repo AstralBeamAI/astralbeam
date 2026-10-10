@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8c476976-f65b-45b4-be0b-a8bfe604b130",
+  "id": "d14257a6-43e6-4a37-8455-812526e31e8b",
   "prevIds": [
-    "7e6f6fa2-429e-489f-8406-0a51eb7b56e5"
+    "7559b7fc-5dd7-4af5-bbc0-deb83128a585"
   ],
   "ddl": [
     {
@@ -2239,6 +2239,19 @@
       "generated": null,
       "identity": null,
       "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_model"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "configuration",
       "entityType": "columns",
       "schema": "public",
       "table": "provider_model"

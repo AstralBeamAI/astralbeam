@@ -15,12 +15,8 @@ import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
 import { Schema } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import { CHAT_MAX_MODEL_TURNS } from "./constants.server"
-import {
-  chatWebEvidenceChunk,
-  fetchChatWebProvider,
-  type ChatWebObservation,
-} from "./web-evidence.server"
+import { CHAT_MAX_MODEL_TURNS } from "./constants"
+import { chatWebEvidenceChunk, fetchChatWebProvider, type ChatWebObservation } from "./web-evidence"
 
 function createProviderChatAdapter(
   configuration: ChatModelConfiguration,

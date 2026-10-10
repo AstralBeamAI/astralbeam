@@ -22,7 +22,7 @@ import {
 } from "@/lib/model-providers/model-providers.server"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
-import { chatWebTools } from "./web.server"
+import { chatWebTools } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,

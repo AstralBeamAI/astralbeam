@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { Sse } from "effect/encoding"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import { chatStoredJson } from "./threads/projection.server"
+import { chatStoredJson } from "./threads/projection"
 
 export const CHAT_WEB_EVIDENCE_EVENT = `${APP_HANDLE}_private_web_evidence`
 

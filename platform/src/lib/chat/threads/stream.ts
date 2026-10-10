@@ -22,11 +22,7 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson, settleChatWebActivity } from "./projection"
-import {
-  CHAT_WEB_EVIDENCE_EVENT,
-  ChatWebEvidenceSchema,
-  publicChatWebPart,
-} from "../web-evidence.server"
+import { CHAT_WEB_EVIDENCE_EVENT, ChatWebEvidenceSchema, publicChatWebPart } from "../web-evidence"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
