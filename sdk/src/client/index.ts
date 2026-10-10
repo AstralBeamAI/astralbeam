@@ -25,6 +25,7 @@ export type {
   AstralBeamTokenSource,
   InferParameters,
   JsonSchemaObject,
+  OutputSchema,
   MountAstralBeamChatOptions,
   ParametersSchema,
   StandardSchemaV1,

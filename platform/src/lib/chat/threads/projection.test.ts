@@ -114,7 +114,7 @@ describe("stored conversation model projection", () => {
       })
       const output = {
         content: [{ type: "text", text: "Model fallback" }],
-        structuredContent: { safe: true },
+        structuredContent: [{ safe: true }],
         uiData: { secret: "UI_ONLY_SENTINEL" },
       }
       const responses = Array.from({ length: count }, (_, index) => ({

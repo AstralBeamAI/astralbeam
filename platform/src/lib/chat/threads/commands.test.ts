@@ -237,10 +237,13 @@ describe("managed conversation commands", () => {
                   declaration: {
                     resultVersion: 1,
                     outputSchema: {
-                      type: "object",
-                      properties: { id: { type: "string", pattern: "^[a-z]+$" } },
-                      required: ["id"],
-                      additionalProperties: false,
+                      type: ["array", "null"],
+                      items: {
+                        type: "object",
+                        properties: { id: { type: "string", pattern: "^[a-z]+$" } },
+                        required: ["id"],
+                        additionalProperties: false,
+                      },
                     },
                   },
                 },
@@ -255,7 +258,7 @@ describe("managed conversation commands", () => {
       return Effect.gen(function* () {
         const output = {
           content: [{ type: "text", text: "Found" }],
-          structuredContent: { id: "record" },
+          structuredContent: [{ id: "record" }],
           uiData: { display: "UI only" },
         }
         const input = {
@@ -273,7 +276,7 @@ describe("managed conversation commands", () => {
           ],
         }
         for (const invalidOutput of [
-          { ...output, structuredContent: { id: 1 } },
+          { ...output, structuredContent: [{ id: 1 }] },
           { id: "record" },
         ]) {
           const result = yield* resolveManagedChatTools({
@@ -285,6 +288,15 @@ describe("managed conversation commands", () => {
         assert.lengthOf(resolved, 0)
         yield* resolveManagedChatTools(input)
         assert.deepInclude(resolved[0]!.results[0]!.payload.parts[0], { resultVersion: 1, output })
+        const emptyOutput = { ...output, structuredContent: null }
+        yield* resolveManagedChatTools({
+          ...input,
+          results: [{ ...input.results[0]!, output: emptyOutput }],
+        })
+        assert.deepInclude(resolved[1]!.results[0]!.payload.parts[0], {
+          resultVersion: 1,
+          output: emptyOutput,
+        })
         yield* resolveManagedChatTools({
           ...input,
           results: [
@@ -294,7 +306,7 @@ describe("managed conversation commands", () => {
             },
           ],
         })
-        assert.lengthOf(resolved, 2)
+        assert.lengthOf(resolved, 3)
         for (const failure of [
           { outcome: "failed" as const, output: { ...output, isError: true } },
           {

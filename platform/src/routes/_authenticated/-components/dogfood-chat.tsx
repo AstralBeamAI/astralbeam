@@ -56,7 +56,7 @@ const docsTools: ToolRegistry = {
       properties: { query: { type: "string", description: "Keywords to search for" } },
       required: ["query"],
     },
-    execute: async ({ query }) => ({ data: (await loadDocsSearch()).searchDocs(String(query)) }),
+    execute: async ({ query }) => (await loadDocsSearch()).searchDocs(String(query)),
   },
   read_docs: {
     title: "Read a docs page",
@@ -66,7 +66,7 @@ const docsTools: ToolRegistry = {
       properties: { path: { type: "string", description: "Page path, such as sdk/theming" } },
       required: ["path"],
     },
-    execute: async ({ path }) => ({ data: (await loadDocsSearch()).readDocsPage(String(path)) }),
+    execute: async ({ path }) => (await loadDocsSearch()).readDocsPage(String(path)),
   },
 }
 
@@ -290,13 +290,11 @@ function DogfoodChatPanel({
               const { agents, defaultAgentId } = (
                 await getAgentsPageData({ data: { organizationSlug } })
               ).data
-              return {
-                data: agents.map(({ id, name }) => ({
-                  id,
-                  name,
-                  isDefault: id === defaultAgentId,
-                })),
-              }
+              return agents.map(({ id, name }) => ({
+                id,
+                name,
+                isDefault: id === defaultAgentId,
+              }))
             },
           },
         }

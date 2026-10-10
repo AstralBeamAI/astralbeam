@@ -45,21 +45,19 @@ export function createWorkspaceTools(workspaceId: string, navigation: AppNavigat
       execute: ({ query, status, projectId, assigneeId }) => {
         const current = demoStore.workspace(workspaceId)
         const terms = query?.trim().toLowerCase().split(/\s+/) ?? []
-        return {
-          data: current.issues
-            .filter(
-              (issue) =>
-                terms.every((term) =>
-                  `${current.prefix}-${issue.number} ${issue.title} ${issue.description}`
-                    .toLowerCase()
-                    .includes(term),
-                ) &&
-                (!status || issue.status === status) &&
-                (!projectId || issue.projectId === projectId) &&
-                (!assigneeId || issue.assigneeId === assigneeId),
-            )
-            .map((issue) => ({ ...issue, url: workspaceUrl(workspaceId, `issues/${issue.id}`) })),
-        }
+        return current.issues
+          .filter(
+            (issue) =>
+              terms.every((term) =>
+                `${current.prefix}-${issue.number} ${issue.title} ${issue.description}`
+                  .toLowerCase()
+                  .includes(term),
+              ) &&
+              (!status || issue.status === status) &&
+              (!projectId || issue.projectId === projectId) &&
+              (!assigneeId || issue.assigneeId === assigneeId),
+          )
+          .map((issue) => ({ ...issue, url: workspaceUrl(workspaceId, `issues/${issue.id}`) }))
       },
     }),
     navigate_app: defineTool({

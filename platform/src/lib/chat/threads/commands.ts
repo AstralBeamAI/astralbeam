@@ -326,7 +326,7 @@ const nativeToolResult = Schema.Struct({
   content: Schema.Array(
     Schema.StructWithRest(Schema.Struct({ type: Schema.String }), [Schema.JsonObject]),
   ),
-  structuredContent: Schema.optionalKey(Schema.JsonObject),
+  structuredContent: Schema.optionalKey(Schema.Json),
   uiData: Schema.optionalKey(Schema.JsonObject),
   isError: Schema.optionalKey(Schema.Boolean),
 })

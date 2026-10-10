@@ -62,7 +62,7 @@ Generate shadcn components with `deno task ui add <component>` and allow only mi
 
 ## Code conventions
 
-- Minimize consumer code. Tool and widget registries are keyed objects whose keys supply names and IDs. Infer schema and result types without required generics or registration helpers. Plain tool data gets an SDK-built envelope, and only `toolResult(...)` marks a custom envelope. Never infer envelopes from business field names. Keep protocol normalization internal.
+- Minimize consumer code. Tool and widget registries are keyed objects whose keys supply names and IDs. Infer schema and result types without required generics or registration helpers. Plain JSON tool data, including arrays and primitives, gets an SDK-built envelope, and only `toolResult(...)` marks a custom envelope. Inputs remain object-shaped, while output schemas may describe any JSON value. Never infer envelopes from business field names. Keep protocol normalization internal.
 - Minimize consumer and repository diff when adapting standards. Preserve existing names and callback argument positions where their meaning still fits, and translate protocol fields internally rather than adding aliases. Tool and widget input schemas remain `parameters`.
 - Keep `execute(input, context)` and its readonly cancellation signal required. Tool invocation IDs are optional, while SDK-managed widget IDs are required. Implementations may omit unused callback parameters without optional context or compatibility wrappers.
 - Define hand-written types alongside the implementation that owns them, not in separate `*-types.ts` files. Use type-only imports across runtime boundaries.

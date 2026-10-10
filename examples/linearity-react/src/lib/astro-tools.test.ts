@@ -48,7 +48,7 @@ it("makes consecutive tool changes readable immediately and rejects a stale work
     invocation,
   )
   const issues = await tools.list_issues.execute({ query: "Plan the launch" }, invocation)
-  expect(issues.data).toEqual([
+  expect(issues).toEqual([
     { ...created, status: "In progress", url: workspaceUrl(workspace.id, `issues/${created.id}`) },
   ])
   demoStore.switchWorkspace(demoWorkspaces[1].id)
@@ -90,5 +90,5 @@ it("finds a customer mentioned in the issue description", async () => {
     go: () => Promise.resolve(),
   })
   const issues = await tools.list_issues.execute({ query: "Atlas SSO" }, invocation)
-  expect(issues.data).toEqual([expect.objectContaining({ number: 128 })])
+  expect(issues).toEqual([expect.objectContaining({ number: 128 })])
 })

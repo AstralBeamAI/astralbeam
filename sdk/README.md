@@ -146,9 +146,9 @@ const widgets = {
 ```
 
 - Set a tool's `widget` to a widget ID for result presentation. Standalone widgets expose their own `show_<id>` tools.
-- Return object data directly, including typed domain objects. The SDK builds the envelope. `toolResult({ content: "Done" })` supplies custom text.
+- Return JSON data directly, including arrays, primitives, and typed domain objects. The SDK builds the envelope. `toolResult({ content: "Done" })` supplies custom text.
 - Custom results keep `uiData` out of model context. `structuredContent` remains model-safe. Set `isError: true` for a known failure.
-- Schemas are object JSON Schema, or Standard Schema with JSON Schema export. Both validate input. `outputSchema` validates `structuredContent`.
+- Use object schemas for inputs and any JSON value schema for outputs. Standard Schema needs JSON Schema export. `outputSchema` validates `structuredContent`.
 - Render receives props first, then context with result, status, cancellation, and `callTool` for app-visible actions. Local calls return the tool's data. React keeps host state and context.
 - Return plain JSON without `undefined`. An invalid result does not prove its business action failed.
 
