@@ -2,6 +2,7 @@ import type {
   InferParameters,
   JsonSchemaObject,
   ParametersSchema,
+  OutputSchema,
   ToolDefinition,
   ToolResult,
   ToolContent,
@@ -12,16 +13,16 @@ import type {
   WidgetRenderHandle,
 } from "./types.ts"
 
-export type ExplicitToolResult<Output = object> = ToolResult<Output> & {
+export type ExplicitToolResult<Output = unknown> = ToolResult<Output> & {
   readonly [Symbol.toStringTag]: "AstralBeam.ToolResult"
 }
 
-type OutputData<S extends ParametersSchema> =
-  S extends StandardSchemaV1<unknown, infer Output> ? Output : object
+type OutputData<S extends OutputSchema> =
+  S extends StandardSchemaV1<unknown, infer Output> ? Output : unknown
 
 export interface TypedToolDefinition<
   Input extends ParametersSchema = JsonSchemaObject,
-  Output extends ParametersSchema = JsonSchemaObject,
+  Output extends OutputSchema = Record<string, unknown>,
   Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
     | OutputData<Output>
     | ExplicitToolResult<OutputData<Output>>,
@@ -50,7 +51,7 @@ export interface TypedWidgetDefinition<
 
 export function defineTool<
   const Input extends ParametersSchema = JsonSchemaObject,
-  const Output extends ParametersSchema = JsonSchemaObject,
+  const Output extends OutputSchema = Record<string, unknown>,
   Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
     | OutputData<Output>
     | ExplicitToolResult<OutputData<Output>>,
@@ -65,7 +66,7 @@ export function defineWidget<
   return widget
 }
 
-type ToolResultOptions = Omit<ToolResult<object>, "content"> & {
+type ToolResultOptions = Omit<ToolResult, "content"> & {
   content?: string | readonly ToolContent[]
 }
 

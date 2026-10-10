@@ -31,6 +31,9 @@ export interface JsonSchemaObject {
 /** Schema of the input the agent supplies to a widget or tool, like a tool definition's parameters. */
 export type ParametersSchema = StandardSchemaV1 | JsonSchemaObject
 
+/** Schema of model-safe output, which may be any JSON value. */
+export type OutputSchema = StandardSchemaV1 | Record<string, unknown>
+
 export interface WidgetDefinition {
   description: string
   /**
@@ -58,7 +61,7 @@ export interface WidgetRenderHandle<
   dispose: () => void
 }
 
-export interface ToolResult<Output = Record<string, unknown>> {
+export interface ToolResult<Output = unknown> {
   /** Model-safe content, also useful when no widget renderer is available. */
   content: readonly ToolContent[]
   /** Model-safe data validated against outputSchema. */
@@ -128,12 +131,12 @@ export interface ToolDefinition {
    * Forwarded to the agent as JSON Schema. Both JSON Schema and Standard Schema validate input before execution.
    */
   parameters?: ParametersSchema
-  outputSchema?: ParametersSchema
+  outputSchema?: OutputSchema
   /**
-   * Return JSON object data for an automatic envelope, or toolResult(...) for a custom one.
+   * Return JSON data for an automatic envelope, or toolResult(...) for a custom one.
    * A thrown error leaves the outcome unknown because the action may already have run.
    */
-  execute(input: Record<string, unknown>, context: ToolExecutionContext): object | Promise<object>
+  execute(input: Record<string, unknown>, context: ToolExecutionContext): unknown
 }
 
 export type ToolRegistry = Readonly<Record<string, ToolDefinition>>

@@ -31,10 +31,26 @@ test("invalid results warn against retrying a completed mutation", async () => {
   expect(execute).toHaveBeenCalledTimes(1)
 })
 
+test.each([["first"], "done", 0, false, null].map((data) => ({ data })))(
+  "envelopes JSON output $data",
+  async ({ data }) => {
+    const { result, value } = await executeHostTool(
+      { name: "read", description: "Read", execute: () => data },
+      {},
+      context(),
+    )
+    expect(result).toEqual({
+      content: [{ type: "text", text: JSON.stringify(data) }],
+      structuredContent: data,
+    })
+    expect(value).toBe(data)
+  },
+)
+
 test("validates JSON inputs and structured outputs while preserving UI data", async () => {
   const result = {
     content: [{ type: "text", text: "Found" }],
-    structuredContent: { id: "issue-1" },
+    structuredContent: [{ id: "issue-1" }],
     uiData: { privateLabel: "UI only" },
   }
   const execute = vi.fn(() => toolResult(result))
@@ -48,7 +64,7 @@ test("validates JSON inputs and structured outputs while preserving UI data", as
     name: "get_issue",
     description: "Read",
     parameters: schema,
-    outputSchema: schema,
+    outputSchema: { type: "array", items: schema },
     execute,
   }
   await expect(executeHostTool(tool, { id: "invalid" }, context())).rejects.toThrow(
@@ -60,7 +76,7 @@ test("validates JSON inputs and structured outputs while preserving UI data", as
     value: toolResult(result),
   })
   await expect(
-    executeHostTool({ ...tool, execute: () => ({ id: 1 }) }, { id: "issue-1" }, context()),
+    executeHostTool({ ...tool, execute: () => [{ id: 1 }] }, { id: "issue-1" }, context()),
   ).rejects.toThrow("output validation")
   await expect(
     executeHostTool(

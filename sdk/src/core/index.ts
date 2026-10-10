@@ -48,6 +48,7 @@ export { defineTool, toolResult } from "../lib/define.ts"
 export type {
   InferParameters,
   JsonSchemaObject,
+  OutputSchema,
   ParametersSchema,
   StandardSchemaV1,
   ToolDefinition,
