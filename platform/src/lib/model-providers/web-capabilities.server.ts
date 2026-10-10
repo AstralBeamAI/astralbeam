@@ -1,4 +1,5 @@
 import { OPENAI_CHAT_MODELS, type OpenAIChatModelToolCapabilitiesByName } from "@tanstack/ai-openai"
+import { OPENROUTER_CHAT_MODELS } from "@tanstack/ai-openrouter/model-meta"
 import {
   ANTHROPIC_MODELS,
   type AnthropicChatModelToolCapabilitiesByName,
@@ -51,7 +52,13 @@ export function modelWebCapabilities(
   const knownEndpoint =
     model.baseUrl === undefined || new URL(model.baseUrl).href.replace(/\/+$/, "") === endpoint
   if (model.providerType === "openrouter" && model.api === "chat-completions")
-    return { available: knownEndpoint ? true : null, reason: null }
+    return {
+      available:
+        knownEndpoint && OPENROUTER_CHAT_MODELS.some((name) => name === model.modelId)
+          ? true
+          : null,
+      reason: null,
+    }
   if (model.providerType === "openai" && model.api === "chat-completions")
     return {
       available: false,

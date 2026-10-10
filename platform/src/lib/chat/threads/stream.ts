@@ -234,6 +234,7 @@ function managedAssistantPayload(
           const offset = textOffset
           textOffset += part.content.length
           const citations = state.web.citations
+            .map((citation, index) => ({ ...citation, number: index + 1 }))
             .filter((citation) => citation.endIndex > offset && citation.endIndex <= textOffset)
             .map((citation) => ({
               ...citation,

@@ -32,6 +32,13 @@ describe("portable web evidence", () => {
     expect(citedWebText(content, metadata)).toBe(
       "🛰 Evidence. [1](https://example.com/a%28b%29) [2](https://example.com/second)",
     )
+    expect(
+      citedWebText("Next.", {
+        web: {
+          citations: [{ ...metadata.web.citations[1], startIndex: 0, endIndex: 5, number: 3 }],
+        },
+      }),
+    ).toBe("Next. [3](https://example.com/second)")
   })
 
   test("provider activity stays settled with the same saved part identity after reload", () => {
@@ -73,7 +80,12 @@ describe("portable web evidence", () => {
       },
       records[0]!,
     ])
-    expect(deferred[0]!.parts[0]).toMatchObject({ id: "pending", state: "complete" })
+    expect(deferred[0]!.parts[0]).toMatchObject({
+      id: "pending",
+      state: "complete",
+      metadata: part.metadata,
+    })
+    expect(deferred.flatMap((message) => message.parts)).toHaveLength(1)
     const unrelated = projectThreadMessages([
       { ...records[0]!, parts: [{ ...part, state: "input-complete" }] },
       { ...records[0]!, id: "another-turn", parts: [{ ...part, providerTurnId: "another-turn" }] },

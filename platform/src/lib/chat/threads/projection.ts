@@ -207,30 +207,21 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
 
 /** A later provider result settles a deferred use without rewriting its saved node. */
 export function settleChatWebActivity(messages: { parts: Schema.JsonObject[] }[]) {
-  const parts = messages.flatMap((message) => message.parts)
-  const completed = new Map(
-    parts
-      .filter(
-        (part) =>
-          part.executionLocation === "provider" &&
-          (part.state === "complete" || part.state === "error"),
-      )
-      .map((part) => [JSON.stringify([part.providerTurnId, part.toolCallId]), part]),
-  )
-  for (const part of parts) {
-    if (
-      part.executionLocation !== "provider" ||
-      typeof part.providerTurnId !== "string" ||
-      part.state === "complete" ||
-      part.state === "error"
-    )
-      continue
-    const result = completed.get(JSON.stringify([part.providerTurnId, part.toolCallId]))
-    if (result)
-      Object.assign(part, {
-        state: result.state,
-        output: result.state === "error" ? result.output : { sources: [] },
-      })
+  const calls = new Map<string, Schema.JsonObject>()
+  for (const message of messages) {
+    message.parts = message.parts.filter((part) => {
+      if (part.executionLocation !== "provider" || typeof part.providerTurnId !== "string")
+        return true
+      const key = JSON.stringify([part.providerTurnId, part.toolCallId])
+      const first = calls.get(key)
+      if (!first) {
+        calls.set(key, part)
+        return true
+      }
+      if (part.state === "complete" || part.state === "error")
+        Object.assign(first, { state: part.state, output: part.output, metadata: part.metadata })
+      return false
+    })
   }
 }
 

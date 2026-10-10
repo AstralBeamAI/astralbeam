@@ -16,6 +16,7 @@ const ChatWebCitationSchema = Schema.Struct({
   ...ChatWebSourceSchema.fields,
   startIndex: Schema.Number,
   endIndex: Schema.Number,
+  number: Schema.optionalKey(Schema.Number),
 })
 export const ChatWebEvidenceSchema = Schema.Struct({
   sources: Schema.Array(ChatWebSourceSchema),

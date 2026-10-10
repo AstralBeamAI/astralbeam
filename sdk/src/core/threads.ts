@@ -1,5 +1,4 @@
 import type { UIMessage } from "@tanstack/ai-client"
-import { isSettledToolCall } from "./messages.ts"
 import type { WebPartMetadata } from "./web.ts"
 import type { JwtOptions } from "../api/api.ts"
 import { listChatMessages, type ChatHistoryPageEncodedMessagesItem } from "../api/generated/api.ts"
@@ -210,23 +209,25 @@ export function projectThreadMessages(
       },
     })
   }
-  const completed = new Map(
-    [...calls.values()]
-      .filter(
-        (part) =>
-          part.executionLocation === "provider" &&
-          (part.state === "complete" || part.state === "error"),
-      )
-      .map((part) => [`${part.providerTurnId}:${part.upstreamToolCallId}`, part]),
-  )
-  for (const part of calls.values()) {
-    if (part.executionLocation !== "provider" || !part.providerTurnId || isSettledToolCall(part))
-      continue
-    const result = completed.get(`${part.providerTurnId}:${part.upstreamToolCallId}`)
-    if (result) {
-      part.state = result.state
-      part.output = result.state === "error" ? (result.output as unknown) : { sources: [] }
-    }
+  const providerCalls = new Map<string, ChatToolCallPart>()
+  for (const message of messages) {
+    message.parts = message.parts.filter((part) => {
+      const call = part as ChatToolCallPart
+      if (call.executionLocation !== "provider" || !call.providerTurnId) return true
+      const key = JSON.stringify([call.providerTurnId, call.upstreamToolCallId])
+      const first = providerCalls.get(key)
+      if (!first) {
+        providerCalls.set(key, call)
+        return true
+      }
+      if (call.state === "complete" || call.state === "error")
+        Object.assign(first, {
+          state: call.state,
+          output: call.output as unknown,
+          metadata: call.metadata,
+        })
+      return false
+    })
   }
   return messages
 }

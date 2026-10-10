@@ -9,6 +9,8 @@ export interface WebCitation extends WebSource {
   /** UTF-16 offsets into this text part. A citation is inserted after endIndex. */
   startIndex: number
   endIndex: number
+  /** Response-wide citation number. Older saved evidence falls back to its local order. */
+  number?: number
 }
 
 export interface WebEvidence {
@@ -64,7 +66,16 @@ export function readWebEvidence(metadata: unknown): WebEvidence {
             Number.isInteger(citation.endIndex) &&
             citation.startIndex >= 0 &&
             citation.endIndex >= citation.startIndex
-            ? [{ ...source, startIndex: citation.startIndex, endIndex: citation.endIndex }]
+            ? [
+                {
+                  ...source,
+                  startIndex: citation.startIndex,
+                  endIndex: citation.endIndex,
+                  ...(Number.isInteger(citation.number) && citation.number! > 0
+                    ? { number: citation.number }
+                    : {}),
+                },
+              ]
             : []
         })
       : [],
@@ -79,7 +90,7 @@ export function citedWebText(content: string, metadata: unknown): string {
     .sort((a, b) => b[1].endIndex - a[1].endIndex || b[0] - a[0])) {
     if (citation.endIndex > content.length) continue
     const url = citation.url.replaceAll("(", "%28").replaceAll(")", "%29")
-    result = `${result.slice(0, citation.endIndex)} [${index + 1}](${url})${result.slice(citation.endIndex)}`
+    result = `${result.slice(0, citation.endIndex)} [${citation.number ?? index + 1}](${url})${result.slice(citation.endIndex)}`
   }
   return result
 }

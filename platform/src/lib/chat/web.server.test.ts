@@ -595,6 +595,23 @@ describe("native web access", () => {
         .find((message) => message.id === "decision")!
         .parts.find((part) => part.type === "tool-call"),
     ).toMatchObject({ state: "complete" })
+    const activities = (messages: { parts: object[] }[]) =>
+      messages
+        .flatMap((message) => message.parts)
+        .filter((part) => "executionLocation" in part && part.executionLocation === "provider")
+    expect(activities(nativeWebMessages(second.chunks))).toHaveLength(1)
+    const reloaded = activities(
+      projectChatPublicHistory([
+        ...records,
+        { id: "answer", role: "assistant", state: "complete", payload: second.saved.at(-1)! },
+      ]),
+    )
+    expect(reloaded).toHaveLength(1)
+    expect(reloaded[0]).toMatchObject({
+      id: decision.parts.find((part) => part.executionLocation === "provider")!.id,
+      state: "complete",
+      metadata: { web: { sources: [{ url: webTestSource.url }] } },
+    })
     expect(JSON.stringify(second.requests)).toContain("server_tool_use")
     const disabledHistory = projectChatModelHistory(
       [
@@ -738,9 +755,12 @@ describe("native web access", () => {
       .at(-1)!
       .parts.filter((part) => part.type === "text")
       .flatMap(
-        (part) => (part.metadata as { web: { citations: { endIndex: number }[] } }).web.citations,
+        (part) =>
+          (part.metadata as { web: { citations: { endIndex: number; number: number }[] } }).web
+            .citations,
       )
     expect(citations).toHaveLength(2)
+    expect(citations.map((citation) => citation.number)).toEqual([1, 2])
   })
 
   test("a server-tool error in a successful HTTP response is saved as failed activity", async () => {

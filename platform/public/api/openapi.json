@@ -9919,8 +9919,7 @@
                   "enum": [
                     "server_api",
                     "sandbox",
-                    "browser",
-                    "provider"
+                    "browser"
                   ]
                 }
               },

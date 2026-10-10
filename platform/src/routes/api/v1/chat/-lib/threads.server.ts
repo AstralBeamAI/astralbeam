@@ -27,7 +27,7 @@ import { ChatRunInputInvalid } from "./errors"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
-const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser", "provider"])
+const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser"])
 const threadDate = Schema.DateFromString.pipe(Schema.annotateEncoded({ format: "date-time" }))
 const threadTitle = NonEmptyStringSchema.check(Schema.isMaxLength(200))
 const threadParams = { id: ApiUuidSchema }
