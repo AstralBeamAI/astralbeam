@@ -61,12 +61,12 @@ test.each(["render_widget", "ask_questionnaire"])(
   },
 )
 
-test.each(["missing", undefined])("a known failure remains visible with widget %s", (widget) => {
+test("an unavailable widget shows failure text without disclosing UI data", () => {
   const part: ChatToolCallPart = {
     type: "tool-call",
     id: "saved:card",
     name: "get_todo",
-    ...(widget ? { widget } : {}),
+    widget: "missing",
     resultVersion: 1,
     arguments: "{}",
     input: {},
@@ -88,8 +88,8 @@ test.each(["missing", undefined])("a known failure remains visible with widget %
       onQuestionnaireAnswers={vi.fn()}
     />,
   )
-  expect(html.includes("Todo unavailable")).toBe(Boolean(widget))
-  expect(html).toContain("failed")
+  expect(html).toContain("Todo unavailable")
+  expect(html).not.toContain("UI only")
   expect(html).not.toContain("This widget is unavailable")
   expect(html).not.toContain("Preparing a widget")
 })

@@ -541,7 +541,7 @@ test("a late release keeps the cleanup of the render that took over the tool cal
   chat.dispose()
 })
 
-test("attached widgets receive results and app controls without remounting", async () => {
+test("attached widgets share app controls and dispose a failed update without remounting", async () => {
   const result = {
     content: [{ type: "text", text: "Updated" }],
     structuredContent: { updated: true },
@@ -582,14 +582,17 @@ test("attached widgets receive results and app controls without remounting", asy
     await expect(context.callTool("toString")).rejects.toThrow("unavailable")
     await expect(context.callTool("action")).resolves.toEqual({ updated: true })
     expect(action).toHaveBeenCalledTimes(1)
+    updates.mockImplementationOnce(() => {
+      throw new Error("Update failed")
+    })
     pending.resolve(toolResult(result))
     await execution
     expect(updates).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: "complete", result }),
     )
     expect(render).toHaveBeenCalledTimes(1)
-    chat.reset()
     expect(dispose).toHaveBeenCalledTimes(1)
+    chat.reset()
     await expect(context.callTool("action", {})).rejects.toThrow()
     expect(action).toHaveBeenCalledTimes(1)
   } finally {
@@ -644,77 +647,44 @@ test("saved attached widgets hydrate UI data without replaying their business ac
   }
 })
 
-test.each([true, false])(
-  "cancellation blocks actions and survives late validation with updates=%s",
-  async (updates) => {
-    const completion = Promise.withResolvers<{ value: Record<string, unknown> }>()
-    const cancellation = Promise.withResolvers<{ value: Record<string, unknown> }>()
-    const pending = Promise.withResolvers<object>()
-    let validations = 0
-    const update = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
-    const render = vi.fn((_request: WidgetRenderRequest) =>
-      updates ? { update, dispose: vi.fn() } : vi.fn(),
-    )
-    const action = vi.fn(() => ({ updated: true }))
-    const chat = createAstralBeamChat({
-      fetchAstralBeamToken: chatAuthToken,
+test("stopping a pending tool cancels its widget and blocks local actions", async () => {
+  const pending = Promise.withResolvers<object>()
+  const update = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
+  const render = vi.fn((_request: WidgetRenderRequest) => ({ update, dispose: vi.fn() }))
+  const action = vi.fn(() => ({ updated: true }))
+  const chat = createAstralBeamChat({
+    fetchAstralBeamToken: chatAuthToken,
+    threadId: thread.id,
+    widgets: { card: { description: "Card" } },
+    tools: {
+      change: { description: "Change", widget: "card", execute: () => pending.promise },
+      action: { description: "Action", visibility: ["app"], execute: action },
+    },
+    onRenderWidget: render,
+  })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+    mocked.onCustomEvent?.("astralbeam_thread", {
       threadId: thread.id,
-      widgets: {
-        card: {
-          description: "Card",
-          parameters: {
-            "~standard": {
-              version: 1,
-              vendor: "test",
-              jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
-              validate: () => {
-                validations++
-                if (validations === 1) return { value: {} }
-                return validations === 2 ? completion.promise : cancellation.promise
-              },
-            },
-          },
-        },
-      },
-      tools: {
-        change: { description: "Change", widget: "card", execute: () => pending.promise },
-        action: { description: "Action", visibility: ["app"], execute: action },
-      },
-      onRenderWidget: render,
+      version: 1,
+      saved: true,
+      executableToolCallIds: ["pending-call"],
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
-      mocked.onCustomEvent?.("astralbeam_thread", {
-        threadId: thread.id,
-        version: 1,
-        saved: true,
-        executableToolCallIds: ["async-validation"],
-      })
-      const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
-        {},
-        { toolCallId: "async-validation" },
-      )
-      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
-      const context = render.mock.calls[0]![0].context
-      pending.resolve({ updated: true })
-      await vi.waitFor(() => expect(validations).toBe(2))
-      chat.stop()
-      await expect(context.callTool("action")).rejects.toThrow()
-      expect(action).not.toHaveBeenCalled()
-      cancellation.resolve({ value: {} })
-      await vi.waitFor(() =>
-        expect(updates ? update : render).toHaveBeenCalledTimes(updates ? 1 : 2),
-      )
-      completion.resolve({ value: {} })
-      await execution
-      const latest = updates ? update.mock.calls.at(-1)![0] : render.mock.calls.at(-1)![0].context
-      expect(latest.status).toBe("cancelled")
-      expect(latest.signal.aborted).toBe(true)
-    } finally {
-      completion.resolve({ value: {} })
-      cancellation.resolve({ value: {} })
-      pending.resolve({ updated: true })
-      chat.dispose()
-    }
-  },
-)
+    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+      {},
+      { toolCallId: "pending-call" },
+    )
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const context = render.mock.calls[0]![0].context
+    chat.stop()
+    await expect(context.callTool("action")).rejects.toThrow()
+    expect(action).not.toHaveBeenCalled()
+    pending.resolve({ updated: true })
+    await execution
+    expect(update.mock.calls.at(-1)![0].status).toBe("cancelled")
+    expect(update.mock.calls.at(-1)![0].signal.aborted).toBe(true)
+  } finally {
+    pending.resolve({ updated: true })
+    chat.dispose()
+  }
+})

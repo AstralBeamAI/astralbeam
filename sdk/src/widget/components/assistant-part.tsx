@@ -148,15 +148,10 @@ function WidgetCallPart({
               .map((block) => block.text)
               .join("\n")
           : ""
-        return (
-          <div>
-            {text && <p className="whitespace-pre-wrap">{text}</p>}
-            <ToolCallDisclosure
-              part={part}
-              title={undefined}
-              failed={part.state === "error" || result?.isError === true}
-            />
-          </div>
+        return part.state === "error" || result?.isError ? (
+          <FailureMarker>{text || "This widget failed."}</FailureMarker>
+        ) : (
+          <p className="whitespace-pre-wrap">{text}</p>
         )
       }
       return <FailureMarker>This widget is unavailable.</FailureMarker>

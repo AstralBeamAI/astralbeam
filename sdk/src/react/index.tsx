@@ -241,13 +241,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       for (const [name, definition] of Object.entries(tools ?? {})) {
         adapted[name] = {
           ...definition,
-          execute: (input: Record<string, unknown>, context: ToolExecutionContext) => {
-            const registered = toolsRef.current
-            const current =
-              registered && Object.hasOwn(registered, name) ? registered[name] : undefined
-            if (!current) throw new Error(`Tool "${name}" is no longer registered`)
-            return current.execute(input, context)
-          },
+          execute: (input, context) => toolsRef.current![name]!.execute(input, context),
         }
       }
       return adapted

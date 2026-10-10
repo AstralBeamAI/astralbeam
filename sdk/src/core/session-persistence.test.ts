@@ -1630,12 +1630,30 @@ test("a host update during send keeps metadata paired with the captured tools", 
     if (path.endsWith("/threads"))
       return Promise.resolve(Response.json({ items: [thread], page_after: null }))
     body = JSON.parse(init!.body as string) as typeof body
-    return Promise.resolve(new Response("Rejected", { status: 400 }))
+    const run = { threadId: thread.id, runId: "run" }
+    const events = [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "TOOL_CALL_START",
+        parentMessageId: "assistant",
+        toolCallId: "call",
+        toolCallName: "old_tool",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+      { type: "TOOL_CALL_END", toolCallId: "call" },
+      { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
+    ]
+    return Promise.resolve(
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    )
   })
   const chat = createAstralBeamChat({
     threadId: thread.id,
     fetchAstralBeamToken: token,
-    tools: { old_tool: { description: "Old", execute: () => ({}) } },
+    tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
+    widgets: { card: { description: "Card" } },
     streamCallbacks: {
       onResponse: () =>
         chat.updateOptions({
@@ -1643,13 +1661,23 @@ test("a host update during send keeps metadata paired with the captured tools", 
         }),
     },
   })
+  let streamedPart: unknown
+  const unsubscribe = chat.subscribe(() => {
+    const part = chat
+      .getState()
+      .messages.flatMap((message) => message.parts)
+      .find((part) => part.type === "tool-call")
+    if (part) streamedPart = { ...part }
+  })
   try {
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     await chat.sendMessage("Check snapshot")
     expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
     expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
     expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+    expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
   } finally {
+    unsubscribe()
     chat.dispose()
   }
 })
