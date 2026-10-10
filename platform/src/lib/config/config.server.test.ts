@@ -1,9 +1,14 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Deferred, Effect, Fiber, Layer, Result } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import type { SqlClient, SqlConnection } from "effect/sql"
 import { afterEach, beforeAll, beforeEach, vi } from "vitest"
 
 import { Database, type EffectDatabase } from "@/db/database.server"
 import { DatabaseMigrations } from "@/db/migration-runner.server"
+import {
+  runGuardedPromiseTransaction,
+  withGuardedSqlTransaction,
+} from "@/db/lib/transaction-guard.server"
 import { configTable } from "@/db/schema/config.server"
 import { Config, publicConfigFromValues } from "./config.server.ts"
 import {
@@ -167,6 +172,54 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
+  it.effect("reads transaction-local config without replacing the committed cache", () => {
+    const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+    const transactionService = Context.Service<
+      SqlClient.TransactionConnection,
+      SqlClient.TransactionConnection.Service
+    >("test/ConfigTransaction")
+    const connection = {} as SqlConnection.Connection
+    const client = {
+      transactionService,
+      withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.provideService(effect, transactionService, [connection, 0]),
+    }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      const committed = yield* config.snapshot
+      state.rows = encryptedRows({
+        ...COMPLETE_VALUES,
+        support_email_address: "transaction@example.com",
+      })
+      const local = yield* withGuardedSqlTransaction(client, config.snapshot)
+      assert.strictEqual(local.values.support_email_address, "transaction@example.com")
+      state.rows = encryptedRows(COMPLETE_VALUES)
+      assert.strictEqual(yield* config.snapshot, committed)
+      assert.strictEqual(state.reads, 2)
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
+  it.effect("reuses committed config in Promise transactions and rejects a cold-cache read", () => {
+    const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      const committed = yield* config.snapshot
+      const read = Effect.promise(() =>
+        runGuardedPromiseTransaction({}, () => Effect.runPromise(config.snapshot)),
+      )
+      assert.strictEqual(yield* read, committed)
+      assert.strictEqual(state.reads, 1)
+      yield* config.invalidate
+      const exit = yield* Effect.exit(read)
+      assert.isTrue(Exit.isFailure(exit))
+      assert.include(
+        String(exit),
+        "Load configuration before entering a Promise database transaction",
+      )
+      assert.strictEqual(state.reads, 1)
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
   it.effect("lets environment values override stored ones while defaults remain", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
     stubEnvironment({

@@ -6,10 +6,17 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Redacted from "effect/Redacted"
+import { Statement } from "effect/sql"
 import { Pool } from "pg"
 
 import { getDatabaseUrl } from "./lib/database-credentials.server.ts"
 import { sqlState } from "./lib/sqlstate.server.ts"
+import {
+  guardPromiseDatabase,
+  guardPromisePool,
+  guardSqlTransactions,
+  transactionStatementGuard,
+} from "./lib/transaction-guard.server.ts"
 import { databaseRelations } from "./schema.server.ts"
 
 // Keep Better Auth and Effect connection lifecycles independent.
@@ -27,6 +34,7 @@ function createAuthDatabasePool(): Pool {
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
   })
+  guardPromisePool(pool)
   // An unhandled 'error' event on a pg pool terminates the process. Log its code, not its message.
   pool.on("error", (error) => {
     Effect.runFork(
@@ -55,11 +63,13 @@ function getDatabaseResources() {
 }
 
 function createAuthDatabase() {
-  return drizzle({
-    client: getDatabaseResources().authPool,
-    jit: true,
-    relations: databaseRelations,
-  })
+  return guardPromiseDatabase(
+    drizzle({
+      client: getDatabaseResources().authPool,
+      jit: true,
+      relations: databaseRelations,
+    }),
+  )
 }
 
 let authDatabase: ReturnType<typeof createAuthDatabase> | undefined
@@ -68,16 +78,26 @@ export function getAuthDatabase() {
   return (authDatabase ??= createAuthDatabase())
 }
 
-const makeEffectDatabase = PgDrizzle.makeWithDefaults({
-  relations: databaseRelations,
-  jit: true,
-})
+const makeEffectDatabase = Effect.flatMap(PgClient.PgClient, (client) =>
+  Effect.andThen(
+    Effect.sync(() => guardSqlTransactions(client)),
+    PgDrizzle.makeWithDefaults({ relations: databaseRelations, jit: true }),
+  ),
+)
 
 export type EffectDatabase = Effect.Success<typeof makeEffectDatabase>
 
 /** Borrows the process-wide PgClient, so every module graph's runtime shares one pool. */
 const SqlClientLayer = Layer.effectContext(
-  Effect.suspend(() => getDatabaseResources().runtime.contextEffect),
+  Effect.suspend(() => getDatabaseResources().runtime.contextEffect).pipe(
+    Effect.map((context) =>
+      Context.add(
+        context,
+        Statement.CurrentTransformer,
+        transactionStatementGuard(Context.get(context, PgClient.PgClient)),
+      ),
+    ),
+  ),
 )
 
 export class Database extends Context.Service<Database, EffectDatabase>()(
@@ -101,7 +121,11 @@ function createDatabaseResources() {
         prepare: false,
         // Stored uploads and tool outputs can exceed the driver's default 16 MiB row limit.
         maxMessageSize: 64 * 1024 * 1024,
-      }),
+      }).pipe(
+        Layer.tap((context) =>
+          Effect.sync(() => guardSqlTransactions(Context.get(context, PgClient.PgClient))),
+        ),
+      ),
     ),
     shutdown: undefined as Promise<void> | undefined,
   }

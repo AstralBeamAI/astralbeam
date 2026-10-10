@@ -99,13 +99,23 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
 
   test("cleanup skips a row while another transaction refreshes its TTL", async () => {
     await runAppEffect(writeTestCache({ ...cacheTestOptions, value: "old", timeToLive: 0 }))
-    await db.transaction(async (transaction) => {
+    const refreshed = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const updating = db.transaction(async (transaction) => {
       await transaction
         .update(cacheEntry)
         .set({ expiresAt: sql`now() + interval '1 hour'` })
         .where(eq(cacheEntry.namespace, cacheTestNamespace))
-      expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+      refreshed.resolve()
+      await release.promise
     })
+    await refreshed.promise
+    try {
+      expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
+    } finally {
+      release.resolve()
+      await updating
+    }
     expect(await runAppEffect(deleteExpiredDatabaseCacheBatch)).toBe(0)
     expect(await runAppEffect(readTestCache(cacheTestOptions))).toEqual(Option.some("old"))
   })
@@ -238,7 +248,9 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
       ),
     )
     expect(await runAppEffect(readTestCache(counter))).toEqual(Option.some(10))
-    const result = await runAppEffect(
+    const locked = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const transaction = runAppEffect(
       Effect.result(
         Effect.gen(function* () {
           const client = yield* SqlClient.SqlClient
@@ -246,11 +258,8 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
             withDatabaseCacheLock(counter, writeTestCache({ ...counter, value: 99 })).pipe(
               Effect.tap(() =>
                 Effect.promise(async () => {
-                  expect(
-                    await runAppEffect(
-                      tryWithDatabaseCacheLock(counter, Effect.die("Must not run")),
-                    ),
-                  ).toEqual(Option.none())
+                  locked.resolve()
+                  await release.promise
                 }),
               ),
               Effect.andThen(Effect.fail("rollback")),
@@ -259,7 +268,15 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
         }),
       ),
     )
-    expect(result).toMatchObject({ _tag: "Failure", failure: "rollback" })
+    await locked.promise
+    try {
+      expect(
+        await runAppEffect(tryWithDatabaseCacheLock(counter, Effect.die("Must not run"))),
+      ).toEqual(Option.none())
+    } finally {
+      release.resolve()
+    }
+    expect(await transaction).toMatchObject({ _tag: "Failure", failure: "rollback" })
     expect(await runAppEffect(tryWithDatabaseCacheLock(counter, Effect.succeed(null)))).toEqual(
       Option.some(null),
     )
