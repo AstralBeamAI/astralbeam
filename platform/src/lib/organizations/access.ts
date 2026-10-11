@@ -59,6 +59,8 @@ export interface OrganizationAccess {
   readonly organizationSlug: string
   readonly organizationName: string
   readonly role: string
+  readonly memberId: string
+  readonly avatarFileId: string | null
   readonly permissions: OrganizationPermissions
 }
 

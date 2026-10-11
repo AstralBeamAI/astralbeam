@@ -2,6 +2,7 @@ import { hasMemberRole, organizationQueryKeys } from "@better-auth-ui/core/plugi
 import { useAuthPlugin } from "@better-auth-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 
+import { ChangeAvatar } from "@/components/auth/organization/change-avatar"
 import { OrganizationInvitations } from "@/components/auth/organization/organization-invitations"
 import { OrganizationMembers } from "@/components/auth/organization/organization-members"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/members/")({
 
 function MembersPage() {
   const { data, permissions } = Route.useLoaderData()
+  const { organization } = Route.useRouteContext()
   const { creatorRole } = useAuthPlugin(organizationPlugin)
   const isOwner = hasMemberRole(data.memberRole, creatorRole)
 
@@ -44,6 +46,7 @@ function MembersPage() {
           Manage members and pending invitations for {data.organization.name}.
         </p>
       </div>
+      <ChangeAvatar organization={organization} />
       <div className="flex flex-col gap-4 md:gap-6">
         <OrganizationMembers
           pageSize={MEMBERS_PAGE_SIZE}

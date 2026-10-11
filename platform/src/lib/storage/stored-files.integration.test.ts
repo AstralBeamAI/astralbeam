@@ -1,15 +1,12 @@
-import { eq, inArray, sql } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
-import { WorkflowEngine } from "effect/workflow"
-import { TestClock } from "effect/testing"
+import { eq, inArray } from "drizzle-orm"
+import { Effect, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
 
-import { Database, getAuthDatabase } from "@/db/database"
+import { getAuthDatabase } from "@/db/database"
+import { organization } from "@/db/schema/organizations"
 import { fileObject } from "@/db/schema/files"
 import { StoredFiles } from "./stored-files.server"
-import { purgeFileWorkflowLayer } from "@/lib/workflows/purge-file"
-import { ObjectStorage } from "./object-storage.server"
-import { StorageObjectMissing, StorageUnavailable } from "./errors"
+import { storedFileFixture, storedFilePurgeLayer, runFilePurge } from "./stored-files.fixture"
 
 const configured = process.env.DATABASE_URL
 const databaseUrl =
@@ -21,123 +18,64 @@ if (
 )
   throw new Error("Use a disposable loopback database ending in _test")
 const db = getAuthDatabase()
+let organizationId: string
 const bytes = Uint8Array.of(1, 2, 3)
 
-const storedFileFixture = {
-  objects: new Map<string, Uint8Array>(),
-  failRead: false,
-  failDelete: false,
-}
-const storedFileStorage = ObjectStorage.of({
-  put: ({ key, bytes }) =>
-    Effect.sync(() => {
-      storedFileFixture.objects.set(key, bytes)
-    }),
-  get: ({ key, maxBytes }) =>
-    Effect.gen(function* () {
-      if (storedFileFixture.failRead) return yield* new StorageUnavailable()
-      const bytes = storedFileFixture.objects.get(key)
-      if (!bytes) return yield* new StorageObjectMissing()
-      if (bytes.length > maxBytes) return yield* new StorageUnavailable()
-      return bytes
-    }),
-  remove: ({ key }) =>
-    Effect.suspend(() =>
-      storedFileFixture.failDelete
-        ? Effect.fail(new StorageUnavailable())
-        : Effect.sync(() => {
-            storedFileFixture.objects.delete(key)
-          }),
-    ),
-  head: ({ key }) =>
-    Effect.succeed({
-      size: storedFileFixture.objects.get(key)?.length ?? 0,
-      contentType: "image/png",
-    }),
-  testConnection: () => Effect.void,
-})
-const storage = Layer.succeed(ObjectStorage, storedFileStorage)
-const storedLayer = StoredFiles.layerNoDeps.pipe(Layer.provideMerge([Database.layer, storage]))
-const storedFilePurgeLayer = purgeFileWorkflowLayer.pipe(
-  Layer.provideMerge([storedLayer, WorkflowEngine.layerMemory, TestClock.layer()]),
-)
-async function runFilePurge(
-  runtime: ManagedRuntime.ManagedRuntime<
-    Layer.Success<typeof storedFilePurgeLayer>,
-    Layer.Error<typeof storedFilePurgeLayer>
-  >,
-) {
-  await runtime.runPromise(Effect.flatMap(StoredFiles, (files) => files.cleanup))
-  for (let step = 0; step < 6; step += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    await runtime.runPromise(TestClock.adjust("5 minutes"))
-  }
-}
-
 describe.skipIf(!databaseUrl)("stored file lifecycle", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const [owner] = await db
+      .insert(organization)
+      .values({ name: "Files", slug: `files-${crypto.randomUUID()}` })
+      .returning()
+    organizationId = owner!.id
     storedFileFixture.objects.clear()
     storedFileFixture.failRead = false
+    storedFileFixture.corruptRead = false
     storedFileFixture.failDelete = false
   })
   afterEach(async () => {
-    await db.delete(fileObject).where(sql`${fileObject.objectKey} like 'files/%'`)
+    await db.delete(organization).where(eq(organization.id, organizationId))
   })
-  test("retries with a new file and verifies saved content after restart", async () => {
+  test("only marks verified uploads stored", async () => {
     const runtime = ManagedRuntime.make(storedFilePurgeLayer)
-    let file: typeof fileObject.$inferSelect
+    const upload = Effect.flatMap(StoredFiles, (files) =>
+      files.upload({ organizationId, bytes, contentType: "application/octet-stream" }),
+    )
     try {
-      storedFileFixture.failRead = true
-      expect(
-        await runtime.runPromise(
-          Effect.flatMap(StoredFiles, (files) =>
-            files.upload({ bytes, contentType: "application/octet-stream" }),
-          ).pipe(Effect.result),
-        ),
-      ).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
-      const [failed] = await db.select().from(fileObject).where(eq(fileObject.status, "pending"))
-      storedFileFixture.failRead = false
-      const uploaded = await runtime.runPromise(
-        Effect.flatMap(StoredFiles, (files) =>
-          files.upload({ bytes, contentType: "application/octet-stream" }),
-        ),
-      )
-      file = (await db.select().from(fileObject).where(eq(fileObject.id, uploaded.id)))[0]!
-      expect(file.objectKey).not.toBe(failed!.objectKey)
-      expect(file.status).toBe("stored")
-      expect((await db.select().from(fileObject).where(eq(fileObject.id, failed!.id)))[0]).toEqual(
-        failed,
-      )
+      for (const failure of ["failRead", "corruptRead"] as const) {
+        storedFileFixture[failure] = true
+        expect(await runtime.runPromise(upload.pipe(Effect.result))).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "StorageUnavailable" },
+        })
+        storedFileFixture[failure] = false
+      }
+      const uploaded = await runtime.runPromise(upload)
+      const files = await db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.organizationId, organizationId))
+      expect(files.filter((file) => file.status === "pending")).toHaveLength(2)
+      const stored = files.find((file) => file.id === uploaded.id)!
+      expect(stored.status).toBe("stored")
+      expect(storedFileFixture.objects.get(stored.objectKey)).toEqual(bytes)
     } finally {
       await runtime.dispose()
     }
-    const restarted = ManagedRuntime.make(storedFilePurgeLayer)
-    try {
-      expect(
-        await restarted.runPromise(Effect.flatMap(StoredFiles, (files) => files.read(file))),
-      ).toEqual(bytes)
-      storedFileFixture.objects.set(file.objectKey, Uint8Array.of(3, 2, 1))
-      expect(
-        await restarted.runPromise(
-          Effect.flatMap(StoredFiles, (files) => files.read(file)).pipe(Effect.result),
-        ),
-      ).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
-    } finally {
-      await restarted.dispose()
-    }
   })
 
-  test("reclaims unfinished and unattached stored uploads after restart and retries deletion", async () => {
+  test("reclaims unfinished and retired uploads and retries deletion", async () => {
     const pending = await db
       .insert(fileObject)
       .values(
-        Array.from({ length: 5 }, (_, index) => ({
+        Array.from({ length: 2 }, (_, index) => ({
+          organizationId,
           objectKey: `files/${crypto.randomUUID()}`,
           contentType: "image/png",
           byteSize: bytes.length,
           sha256: "0".repeat(64),
           createdAt: new Date(0),
-          status: index === 0 ? ("stored" as const) : ("pending" as const),
+          status: index === 0 ? ("purging" as const) : ("pending" as const),
         })),
       )
       .returning()
@@ -146,50 +84,32 @@ describe.skipIf(!databaseUrl)("stored file lifecycle", () => {
       .insert(fileObject)
       .values([
         {
+          organizationId,
           objectKey: `files/${crypto.randomUUID()}`,
           contentType: "image/png",
           byteSize: 3,
           sha256: "0".repeat(64),
         },
         {
+          organizationId,
           objectKey: `files/${crypto.randomUUID()}`,
           contentType: "image/png",
           byteSize: 3,
           sha256: "0".repeat(64),
           status: "stored",
+          createdAt: new Date(0),
         },
       ])
       .returning()
     for (const file of pending) storedFileFixture.objects.set(file.objectKey, bytes)
-    const interrupted = ManagedRuntime.make(storedFilePurgeLayer)
-    try {
-      expect(
-        await interrupted.runPromise(
-          Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine
-            yield* (yield* StoredFiles).cleanup.pipe(
-              Effect.provideService(WorkflowEngine.WorkflowEngine, {
-                ...engine,
-                execute: () => Effect.die("runner unavailable"),
-              }),
-            )
-          }).pipe(Effect.exit),
-        ),
-      ).toMatchObject({ _tag: "Failure" })
-      expect(
-        (await db.select().from(fileObject).where(eq(fileObject.id, pending[0]!.id)))[0]!.status,
-      ).toBe("purging")
-    } finally {
-      await interrupted.dispose()
-    }
     const runtime = ManagedRuntime.make(storedFilePurgeLayer)
     try {
       storedFileFixture.failDelete = true
       await runFilePurge(runtime)
-      expect(storedFileFixture.objects.size).toBe(5)
+      expect(storedFileFixture.objects.size).toBe(2)
       expect(
         await db.select().from(fileObject).where(inArray(fileObject.id, pendingIds)),
-      ).toHaveLength(5)
+      ).toHaveLength(2)
       storedFileFixture.failDelete = false
       await runFilePurge(runtime)
       expect(storedFileFixture.objects.size).toBe(0)

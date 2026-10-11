@@ -27,7 +27,7 @@ With [Deno installed](https://docs.deno.com/runtime/getting_started/installation
 ```sh
 (cd sdk && deno install --frozen)
 deno task --cwd sdk build
-(cd platform && SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen)
+(cd platform && deno install --frozen)
 deno task --cwd platform build
 ```
 

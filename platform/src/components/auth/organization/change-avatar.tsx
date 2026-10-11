@@ -1,9 +1,10 @@
 // Added with: deno task ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, preserve database success when remote cleanup fails, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
+// Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, attach uploads immediately to the current membership, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
 
-import { fileToAvatarDataUrl } from "@better-auth-ui/core"
-import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
+import { useAuth } from "@better-auth-ui/react"
 import { TrashIcon as Trash2, UploadSimpleIcon as Upload } from "@phosphor-icons/react"
+import { useRouter } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import { type ChangeEvent, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { UserAvatar } from "@/components/auth/user/user-avatar"
@@ -17,22 +18,19 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
+import { updateMemberAvatar } from "@/routes/_authenticated/$orgSlug/members/-functions/update-avatar"
 
 export type ChangeAvatarProps = {
   className?: string
+  organization: { organizationSlug: string; organizationName: string; avatarFileId: string | null }
 }
 
-export function ChangeAvatar({ className }: ChangeAvatarProps) {
-  const { authClient, localization, avatar } = useAuth()
-  const { data: session } = useSession(authClient)
-
-  const { mutate: updateUser, isPending: updatePending } = useUpdateUser(authClient)
-
+export function ChangeAvatar({ className, organization }: ChangeAvatarProps) {
+  const { localization, avatar } = useAuth()
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const isPending = updatePending || isUploading || isDeleting
+  const [isPending, setIsUploading] = useState(false)
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -45,15 +43,14 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     try {
       const resized = (await avatar.resize?.(file, avatar.size, avatar.extension)) || file
 
-      const image = (await avatar.upload?.(resized)) || (await fileToAvatarDataUrl(resized))
-
-      updateUser(
-        { image },
-        {
-          onSuccess: () =>
-            toast.add({ title: localization.settings.avatarChangedSuccess, type: "success" }),
+      await updateMemberAvatar({
+        data: {
+          organizationSlug: organization.organizationSlug,
+          bytes: new Uint8Array(await resized.arrayBuffer()),
         },
-      )
+      })
+      await Promise.all([router.invalidate(), queryClient.invalidateQueries()])
+      toast.add({ title: localization.settings.avatarChangedSuccess, type: "success" })
     } catch {
       toast.add({
         title: "Your avatar could not be updated. Please try again.",
@@ -64,45 +61,29 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
     setIsUploading(false)
   }
 
-  function handleDelete() {
-    const currentImage = session?.user.image
-
-    updateUser(
-      { image: null },
-      {
-        onSuccess: () =>
-          void (async () => {
-            let cleanupFailed = false
-            if (currentImage) {
-              setIsDeleting(true)
-              try {
-                await avatar.delete?.(currentImage)
-              } catch {
-                cleanupFailed = true
-              } finally {
-                setIsDeleting(false)
-              }
-            }
-
-            toast.add({
-              title: cleanupFailed
-                ? "Your avatar was removed, but its previous file could not be deleted."
-                : localization.settings.avatarDeletedSuccess,
-              type: cleanupFailed ? "warning" : "success",
-            })
-          })(),
-      },
-    )
+  async function handleDelete() {
+    setIsUploading(true)
+    try {
+      await updateMemberAvatar({
+        data: { organizationSlug: organization.organizationSlug, bytes: null },
+      })
+      await Promise.all([router.invalidate(), queryClient.invalidateQueries()])
+      toast.add({ title: localization.settings.avatarDeletedSuccess, type: "success" })
+    } catch {
+      toast.add({ title: "Your avatar could not be removed. Please try again.", type: "error" })
+    }
+    setIsUploading(false)
   }
 
   return (
     <Field className={className}>
-      <FieldLabel>{localization.settings.avatar}</FieldLabel>
+      <FieldLabel>Your avatar for {organization.organizationName}</FieldLabel>
+      <p className="text-sm text-muted-foreground">Only used in this Organization.</p>
 
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/gif,image/webp"
         className="hidden"
         onChange={(e) => void handleFileChange(e)}
       />
@@ -123,7 +104,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-            disabled={!session || isPending}
+            disabled={isPending}
           >
             {isPending && <Spinner />}
 
@@ -139,8 +120,8 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
 
             <DropdownMenuItem
               variant="destructive"
-              disabled={!session?.user.image}
-              onClick={handleDelete}
+              disabled={!organization.avatarFileId}
+              onClick={() => void handleDelete()}
             >
               <Trash2 />
 

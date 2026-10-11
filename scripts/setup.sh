@@ -79,9 +79,8 @@ install_workspace_packages() {
   local app
   for app in "${WORKSPACE_APPS[@]}"; do
     if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
-      # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips: https://sharp.pixelplumbing.com/install#custom-libvips
       cd "$WORKSPACE_PATH/$app"
-      SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno install --frozen --quiet
+      deno install --frozen --quiet
     fi
   done
 }

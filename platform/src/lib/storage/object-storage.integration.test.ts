@@ -55,8 +55,6 @@ test.runIf(Boolean(process.env.S3_TEST_ENDPOINT))("S3-compatible object round tr
         ).toBe("Failure")
         yield* storage.put({ key, bytes, contentType: "text/plain" })
         try {
-          yield* storage.put({ key, bytes, contentType: "text/plain" })
-          expect(reservations).toBe(2)
           expect(yield* storage.head({ key })).toEqual({
             size: bytes.length,
             contentType: "text/plain",

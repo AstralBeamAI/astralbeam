@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
+import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 
 import {
@@ -43,6 +44,7 @@ import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
 } from "../../lib/api-keys/schemas.ts"
+import { fileObject } from "./files.ts"
 import { user } from "./authentication.ts"
 
 export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
@@ -64,12 +66,20 @@ export const organization = snakeCase.table(
     id: uuidV7PrimaryKey(),
     name: text().notNull(),
     slug: text().notNull(),
+    // Better Auth requires this column. Keep it null and use logoFileId for logos.
+    // https://better-auth.com/docs/plugins/organization#schema
     logo: text(),
+    logoFileId: uuid(),
     metadata: text(),
     ...timestamps(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     uniqueIndex("organization_slug_uidx").on(table.slug),
+    deferrableForeignKey({
+      name: "organization_logo_current_fk",
+      columns: [table.id, table.logoFileId],
+      foreignColumns: [fileObject.organizationId, fileObject.id],
+    }),
     check("organization_slug_check", sql`${table.slug} ~ '^[0-9a-z-]{1,63}$'`),
   ],
 )
@@ -369,10 +379,16 @@ export const member = snakeCase.table(
     id: uuidV7PrimaryKey(),
     organizationId: uuid().notNull(),
     userId: uuid().notNull(),
+    avatarFileId: uuid(),
     role: text().default("viewer").notNull(),
     ...timestamps(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
+    deferrableForeignKey({
+      name: "member_avatar_current_fk",
+      columns: [table.organizationId, table.avatarFileId],
+      foreignColumns: [fileObject.organizationId, fileObject.id],
+    }),
     // Keep Better Auth's generated member shape: organization and user are referenced independently, while its official APIs enforce membership creation. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L140-L166
     index("member_organization_id_idx").on(table.organizationId),
     index("member_user_id_idx").on(table.userId),

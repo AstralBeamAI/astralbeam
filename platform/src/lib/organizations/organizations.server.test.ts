@@ -11,6 +11,8 @@ const MEMBERSHIP = {
   organizationSlug: "acme",
   organizationName: "Acme Inc",
   role: "owner",
+  memberId: "01990a5d-0000-7000-8000-000000000012",
+  avatarFileId: null,
 }
 
 function accessLayer(state: {

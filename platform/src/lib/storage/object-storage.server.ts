@@ -6,6 +6,7 @@ import {
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Context, Effect, Layer, RcMap, Schema, SynchronizedRef } from "effect"
 
 import { Config } from "@/lib/config/config"
@@ -23,19 +24,16 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
     Effect.tapError((error) =>
       error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
         ? Effect.void
-        : Effect.logWarning("Object storage request failed").pipe(
-            Effect.annotateLogs({
-              errorType: error instanceof Error ? error.name : "Unknown",
-              errorCode:
-                error instanceof Error && "code" in error && typeof error.code === "string"
-                  ? error.code
-                  : undefined,
-              httpStatusCode:
-                error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
-              requestId:
-                error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
-            }),
-          ),
+        : Effect.logWarning("Object storage request failed", {
+            errorType: error instanceof Error ? error.name : "Unknown",
+            errorCode:
+              error instanceof Error && "code" in error && typeof error.code === "string"
+                ? error.code
+                : undefined,
+            httpStatusCode:
+              error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
+            requestId: error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
+          }),
     ),
     Effect.mapError((error) =>
       error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
@@ -82,6 +80,7 @@ export class ObjectStorage extends Context.Service<
       key: string
     }) => Effect.Effect<{ size: number; contentType: string }, StorageFailure>
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
+    readonly signedUrl: (input: { key: string }) => Effect.Effect<string, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
 >()("astralbeam/storage/ObjectStorage") {
@@ -141,22 +140,16 @@ export class ObjectStorage extends Context.Service<
               if (size > maxBytes) throw new StorageUnavailable()
               chunks.push(chunk.value)
             }
-            const bytes = new Uint8Array(size)
-            let offset = 0
-            for (const chunk of chunks) {
-              bytes.set(chunk, offset)
-              offset += chunk.length
-            }
-            return bytes
+            return new Uint8Array(Buffer.concat(chunks, size))
           } finally {
             abortSignal.removeEventListener("abort", cancelRead)
             await reader.cancel()
             reader.releaseLock()
           }
         })
-      const removeObject = (client: S3Client, bucket: string, key: string, versionId?: string) =>
+      const removeObject = (client: S3Client, bucket: string, key: string) =>
         storageRequest((abortSignal) =>
-          client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key, VersionId: versionId }), {
+          client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), {
             abortSignal,
           }),
         ).pipe(Effect.asVoid)
@@ -213,16 +206,30 @@ export class ObjectStorage extends Context.Service<
         remove: Effect.fn("ObjectStorage.remove")((input) =>
           withClient((client, connection) => removeObject(client, connection.bucket, input.key)),
         ),
+        signedUrl: Effect.fn("ObjectStorage.signedUrl")((input) =>
+          withClient((client, connection) =>
+            storageRequest(() =>
+              getSignedUrl(
+                client,
+                new GetObjectCommand({
+                  Bucket: connection.bucket,
+                  Key: input.key,
+                  ResponseCacheControl: "private, no-store",
+                }),
+                { expiresIn: 60 },
+              ),
+            ),
+          ),
+        ),
         testConnection: Effect.fn("ObjectStorage.testConnection")((connection) =>
           Effect.scoped(
             Effect.gen(function* () {
               const client = yield* acquireStorageClient(connection)
               const key = `connection-tests/${crypto.randomUUID()}`
               const bytes = crypto.getRandomValues(new Uint8Array(32))
-              let versionId: string | undefined
               yield* Effect.gen(function* () {
-                yield* storageRequest(async (abortSignal) => {
-                  const object = await client.send(
+                yield* storageRequest((abortSignal) =>
+                  client.send(
                     new PutObjectCommand({
                       Bucket: connection.bucket,
                       Key: key,
@@ -230,9 +237,8 @@ export class ObjectStorage extends Context.Service<
                       ContentType: "application/octet-stream",
                     }),
                     { abortSignal },
-                  )
-                  versionId = object.VersionId
-                })
+                  ),
+                )
                 const object = yield* storageRequest((abortSignal) =>
                   client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
                     abortSignal,
@@ -246,12 +252,12 @@ export class ObjectStorage extends Context.Service<
                   return yield* new StorageUnavailable()
               }).pipe(
                 Effect.onError(() =>
-                  removeObject(client, connection.bucket, key, versionId).pipe(
+                  removeObject(client, connection.bucket, key).pipe(
                     Effect.catch(() => Effect.logWarning("Storage connection test cleanup failed")),
                   ),
                 ),
               )
-              yield* removeObject(client, connection.bucket, key, versionId)
+              yield* removeObject(client, connection.bucket, key)
               yield* storageRequest((abortSignal) =>
                 client.send(new HeadObjectCommand({ Bucket: connection.bucket, Key: key }), {
                   abortSignal,

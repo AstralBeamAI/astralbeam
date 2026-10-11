@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons.
+// Local changes: Replace Lucide with Phosphor icons and derive stored logos from logoFileId.
 
 "use client"
 
@@ -10,6 +10,7 @@ import type { ComponentProps, CSSProperties, ReactNode } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "cn"
+import { logoFileUrl } from "@/lib/organizations/images"
 
 export type OrganizationLogoSize = "sm" | "md" | "lg"
 
@@ -17,7 +18,7 @@ export type OrganizationLogoProps = {
   className?: string
   fallback?: ReactNode
   isPending?: boolean
-  organization?: Partial<Organization> | null
+  organization?: (Partial<Organization> & { logoFileId?: string | null }) | null
   size?: OrganizationLogoSize
 }
 
@@ -50,11 +51,14 @@ export function OrganizationLogo({
   }
 
   const initials = organization?.name?.slice(0, 2).toUpperCase()
-  const normalizedLogo = organization?.logo?.trim() || undefined
+  const logo =
+    organization?.id && organization.logoFileId
+      ? logoFileUrl(organization.id, organization.logoFileId)
+      : undefined
 
   return (
     <Avatar className={cn("rounded-full", sizeClasses[size], className)} style={style} {...props}>
-      <AvatarImage alt={organization?.name ?? "Organization"} src={normalizedLogo} />
+      <AvatarImage alt={organization?.name ?? "Organization"} src={logo} />
 
       <AvatarFallback className={cn("text-muted-foreground!", fallbackTextClasses[size])}>
         {fallback || initials || <Briefcase className="size-4" />}

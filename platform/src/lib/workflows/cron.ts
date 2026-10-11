@@ -1,7 +1,7 @@
-import { Cron, Effect, Layer } from "effect"
+import { Cron, Layer } from "effect"
 import { ClusterCron } from "effect/cluster"
 
-import { StoredFiles } from "@/lib/storage/stored-files.server"
+import fileMaintenance from "./file-maintenance.ts"
 import expiredCacheCleanup from "./expired-cache-cleanup.ts"
 import modelPriceCatalogRefresh from "./model-price-catalog-refresh.ts"
 
@@ -19,7 +19,7 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     cron: Cron.parseUnsafe("0 * * * * *", "UTC"),
     calculateNextRunFromPrevious: false,
     skipIfOlderThan: "10 minutes",
-    execute: Effect.flatMap(StoredFiles, (files) => files.cleanup),
+    execute: fileMaintenance,
   }),
   ClusterCron.make({
     name: "ModelPriceCatalogRefresh/v1",
