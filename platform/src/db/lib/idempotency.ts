@@ -39,6 +39,7 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
     readonly namespace?: string
     readonly scope: string
     readonly key: string
+    readonly cacheFailures?: boolean | undefined
     readonly operation: {
       readonly name: string
       readonly parameters: Parameters
@@ -88,9 +89,10 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
       // https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/internal/effect.ts
       if (
         Exit.isFailure(exit) &&
-        exit.cause.reasons.some(
-          (reason) => reason._tag !== "Fail" || SqlError.isSqlError(reason.error),
-        )
+        (options.cacheFailures === false ||
+          exit.cause.reasons.some(
+            (reason) => reason._tag !== "Fail" || SqlError.isSqlError(reason.error),
+          ))
       ) {
         return yield* Effect.failCause(exit.cause)
       }

@@ -17,6 +17,7 @@ import {
   getRunChatUrl,
   listChatThreads,
   updateChatThread,
+  steerChatTurn,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -39,7 +40,13 @@ import {
   updateAuthentication,
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
-import { isSettledToolCall } from "./messages.ts"
+import { isSettledToolCall, hasPendingToolRun } from "./messages.ts"
+import {
+  loadPendingMessages,
+  pendingMessageText,
+  storePendingMessages,
+  type PendingChatMessage,
+} from "./pending-messages.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
 import { validateParameters } from "./schema.ts"
@@ -85,6 +92,8 @@ export interface ChatSubmissionCallbacks {
   onThreadReady?: ((threadId: string) => void) | undefined
   /** Called once after the server acknowledges input, before generation finishes. */
   onAccepted?: (() => void) | undefined
+  /** Called after input is retained locally for later delivery. */
+  onQueued?: (() => void) | undefined
 }
 
 /**
@@ -158,6 +167,10 @@ export interface AstralBeamChatState {
   unsentMessage: string | MultimodalContent | undefined
   activeToolCallIds: readonly string[]
   pendingInteractions: readonly ChatPendingInteraction[]
+  pendingMessages: readonly PendingChatMessage[]
+  queuePaused: boolean
+  activeTurnId: string | undefined
+  activeTurnState: "running" | "waiting" | "completed" | "interrupted" | undefined
 }
 
 export interface AstralBeamChatCore {
@@ -175,7 +188,14 @@ export interface AstralBeamChatCore {
   sendMessage: (
     content: string | MultimodalContent,
     callbacks?: ChatSubmissionCallbacks,
+    options?: { whenBusy: "queue" | "steer" },
   ) => Promise<void>
+  editPendingMessage: (id: string, content: string | MultimodalContent) => boolean
+  removePendingMessage: (id: string) => void
+  steerPendingMessage: (id: string) => Promise<void>
+  resumeQueue: () => Promise<void>
+  /** Holds automatic delivery while editing. Release on save, cancel, or unmount. */
+  holdQueue: () => () => void
   /** Resolves a client tool call the host executed itself (a questionnaire, an approval). */
   addToolResult: ChatClient["addToolResult"]
   /** Stops the in-flight generation; the transcript keeps what already streamed. */
@@ -234,6 +254,10 @@ export function createAstralBeamChat(
     unsentMessage: undefined,
     activeToolCallIds: [],
     pendingInteractions: [],
+    pendingMessages: [],
+    queuePaused: false,
+    activeTurnId: undefined,
+    activeTurnState: undefined,
   }
   const update = (next: Partial<AstralBeamChatState>) => {
     state = { ...state, ...next }
@@ -257,23 +281,53 @@ export function createAstralBeamChat(
   let threadKey: string | undefined
   let startWithNewThread = false
   let threadRecords: Awaited<ReturnType<typeof loadThreadMessages>>["messages"] = []
-  const clientId = newUuid()
+  let clientId = newUuid()
+  let queueThreadId: string | undefined
+  let pendingMessages: PendingChatMessage[] = []
+  const messageQueues = new Map<string, PendingChatMessage[]>()
+  const pendingCallbacks = new Map<string, ChatSubmissionCallbacks>()
+  const queueKey = (id = queueThreadId) =>
+    threadKey ? `${threadKey}:pending:${id ?? "new"}` : undefined
+  const publishQueue = () => {
+    const key = queueKey()
+    if (key) messageQueues.set(key, pendingMessages)
+    storePendingMessages(key, pendingMessages)
+    update({ pendingMessages: [...pendingMessages] })
+  }
+  const restoreQueue = (id?: string) => {
+    queueThreadId = id
+    const key = queueKey()
+    pendingMessages = key ? (messageQueues.get(key) ?? loadPendingMessages(key)) : []
+    update({ pendingMessages: [...pendingMessages], queuePaused: true })
+  }
   let pendingSend:
     | {
         content: string | MultimodalContent
         accepted: boolean
         key: string
-        tools?: Array<Record<string, unknown>>
+        tools?: Array<Record<string, unknown>> | undefined
         callbacks?: ChatSubmissionCallbacks | undefined
       }
     | undefined
   let sending = false
+  let liveTurn = false
   const pendingSends = new Map<string, NonNullable<typeof pendingSend>>()
+  const notifySubmission = (callback: (() => void) | undefined) => {
+    try {
+      callback?.()
+    } catch (error) {
+      debug?.("error", "Submission callback failed", error)
+    }
+  }
   const acceptPendingSend = () => {
-    if (!pendingSend || pendingSend.accepted) return
-    pendingSend.accepted = true
+    const submission = pendingSend
+    if (!submission || submission.accepted) return
+    submission.accepted = true
+    pendingMessages = pendingMessages.filter((entry) => entry.id !== submission.key)
+    pendingCallbacks.delete(submission.key)
+    publishQueue()
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    pendingSend.callbacks?.onAccepted?.()
+    notifySubmission(submission.callbacks?.onAccepted)
   }
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
@@ -307,7 +361,8 @@ export function createAstralBeamChat(
   const reportError = (error: unknown) => {
     if (error instanceof Error && error.name === "AbortError") return
     const failure = error instanceof Error ? error : new Error(String(error))
-    update({ error: failure, status: "error" })
+    liveTurn = false
+    update({ error: failure, status: "error", queuePaused: true })
     live.streamCallbacks?.onError?.(failure)
   }
   const requestOptions = async (): Promise<JwtOptions> => {
@@ -548,6 +603,11 @@ export function createAstralBeamChat(
           clientId,
         },
       }
+      const queued = pendingMessages.find((entry) => entry.id === submission.key)
+      if (queued) {
+        queued.tools = submission.tools
+        publishQueue()
+      }
     } else {
       scopeCompletedToolCalls()
       const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
@@ -600,9 +660,16 @@ export function createAstralBeamChat(
         submission &&
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
-        (error.status === 400 || error.status === 413 || error.status === 429)
-      )
+        [400, 403, 404, 413, 429].includes(error.status)
+      ) {
         delete submission.tools
+        const queued = pendingMessages.find((entry) => entry.id === submission.key)
+        if (queued) {
+          delete queued.tools
+          queued.status = "queued"
+        }
+        publishQueue()
+      }
       throw error
     })
     if (generation !== selectionGeneration)
@@ -614,7 +681,10 @@ export function createAstralBeamChat(
       update({
         thread: { ...state.thread!, version: receipt.thread_version },
       })
-      if (submission) acceptPendingSend()
+      if (submission) {
+        liveTurn = false
+        acceptPendingSend()
+      }
       return new Response("", { headers: { "Content-Type": "text/event-stream" } })
     }
     return response
@@ -735,11 +805,27 @@ export function createAstralBeamChat(
           ).filter((message) => pageIds.has(message.id))
           if (history.thread.role === "viewer") disposeRenders()
           const agentChanged = state.thread?.agentId !== history.thread.agent_id
+          pendingMessages = pendingMessages.filter(
+            (entry) =>
+              !entry.acceptedMessageId ||
+              !history.messages.some((message) => message.id === entry.acceptedMessageId),
+          )
+          publishQueue()
+          const ownTurn = history.messages.findLast(
+            (message) =>
+              message.role === "user" &&
+              message.turn_message_id === null &&
+              message.author_tenant_user_id ===
+                (state.auth.status === "ready" ? state.auth.currentUser.user.id : undefined),
+          )
           update({
             thread: threadFromRecord(history.thread, history.messages.length > 0),
             messagesCursor: history.page_after ?? undefined,
             pendingInteractions: history.pendingInteractions,
             threadLoadFailed: false,
+            ...(!options?.before && ownTurn
+              ? { activeTurnId: ownTurn.id, activeTurnState: ownTurn.turn_state ?? undefined }
+              : {}),
           })
           restoreCompletedWidgets(messages)
           if (!options?.before && agentChanged) void resolveCapabilities()
@@ -762,8 +848,10 @@ export function createAstralBeamChat(
           // Complete loading after ChatClient applies the page, including hydration on React remount.
           const settled = (failed: boolean) =>
             queueMicrotask(() => {
-              if (generation === selectionGeneration && readGeneration === historyGeneration)
+              if (generation === selectionGeneration && readGeneration === historyGeneration) {
                 update({ threadLoading: false, threadLoadFailed: failed })
+                if (!failed) void drainQueue()
+              }
             })
           void read.then(
             () => settled(false),
@@ -788,8 +876,10 @@ export function createAstralBeamChat(
         update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
       },
       onStatusChange: (status) => {
-        if (client === next && generation === selectionGeneration)
-          update({ status, error: next.getError() })
+        if (client === next && generation === selectionGeneration) {
+          const error = next.getError()
+          update({ status, error, ...(error ? { queuePaused: true } : {}) })
+        }
       },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
@@ -803,8 +893,19 @@ export function createAstralBeamChat(
             saved?: boolean
             acceptedMessageId?: string
             executableToolCallIds?: string[]
+            turnMessageId?: string
+            turnState?: AstralBeamChatState["activeTurnState"]
+            appliedSteeringMessageIds?: string[]
           }
           if (state.thread?.id === event.threadId) {
+            if (event.appliedSteeringMessageIds?.length) {
+              pendingMessages = pendingMessages.filter(
+                (entry) =>
+                  !entry.acceptedMessageId ||
+                  !event.appliedSteeringMessageIds!.includes(entry.acceptedMessageId),
+              )
+              publishQueue()
+            }
             if (event.acceptedMessageId) acceptPendingSend()
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
@@ -812,10 +913,18 @@ export function createAstralBeamChat(
                 liveToolCalls.add(id)
               }
             update({
-              thread: { ...state.thread, version: event.version },
+              thread: {
+                ...state.thread,
+                version: Math.max(state.thread.version, event.version ?? state.thread.version),
+              },
               activeToolCallIds: [...liveToolCalls],
               ...(event.acceptedMessageId ? { unsentMessage: undefined } : {}),
+              ...(event.turnMessageId
+                ? { activeTurnId: event.turnMessageId, activeTurnState: event.turnState }
+                : {}),
             })
+            if (event.turnState === "completed" || event.turnState === "interrupted")
+              liveTurn = false
           }
           return
         }
@@ -896,6 +1005,8 @@ export function createAstralBeamChat(
   }
 
   const changeSelection = (threadId?: string) => {
+    publishQueue()
+    liveTurn = false
     const previousId = state.thread?.id
     if (previousId) {
       if (pendingSend && !pendingSend.accepted) pendingSends.set(previousId, pendingSend)
@@ -921,11 +1032,14 @@ export function createAstralBeamChat(
       sandbox: { files: [], commands: [] },
       sandboxStatus: undefined,
       pendingInteractions: [],
+      activeTurnId: undefined,
+      activeTurnState: undefined,
       threadLoadFailed: false,
       messagesCursor: undefined,
       olderMessagesLoading: false,
     })
     replaceClient(threadId)
+    restoreQueue(threadId)
   }
 
   const openThread = async (id: string, restoring = false) => {
@@ -986,6 +1100,13 @@ export function createAstralBeamChat(
     if (generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
     const thread = threadFromRecord(record, false)
+    const oldKey = queueKey()
+    queueThreadId = thread.id
+    if (oldKey) {
+      messageQueues.delete(oldKey)
+      storePendingMessages(oldKey, [])
+    }
+    publishQueue()
     update({ thread })
     replaceClient()
     await hydration
@@ -1119,49 +1240,56 @@ export function createAstralBeamChat(
       })
     }
     scopeCompletedToolCalls()
-    if (
-      pending &&
-      (!("tool" in result) ||
-        result.toolCallId ===
-          savedToolCallId(pending.sourceMessageId, pending.sourcePartId, pending.responseTargetId))
-    ) {
-      replaceClient()
-      await hydration
-      if (generation !== selectionGeneration) return
-      update({ threadLoading: false })
-      await client.append({
-        role: "tool",
-        toolCallId: result.toolCallId,
-        content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
-      })
-    } else if ("tool" in result) {
-      await client.addToolResult(result)
+    liveTurn = true
+    try {
+      if (
+        pending &&
+        (!("tool" in result) ||
+          result.toolCallId ===
+            savedToolCallId(
+              pending.sourceMessageId,
+              pending.sourcePartId,
+              pending.responseTargetId,
+            ))
+      ) {
+        replaceClient()
+        await hydration
+        if (generation !== selectionGeneration) return
+        update({ threadLoading: false })
+        await client.append({
+          role: "tool",
+          toolCallId: result.toolCallId,
+          content: JSON.stringify(toolResults.get(toolResultKey(result.toolCallId))),
+        })
+      } else if ("tool" in result) {
+        await client.addToolResult(result)
+      }
+      if (generation === selectionGeneration)
+        await refreshThread(client.getError() !== undefined, false)
+      void drainQueue()
+    } catch (error) {
+      if (generation === selectionGeneration) reportError(error)
     }
-    if (generation === selectionGeneration)
-      await refreshThread(client.getError() !== undefined, false)
   }
   const abandonToolCall = (toolCallId: string) => addToolResult({ toolCallId })
 
-  const sendMessage = async (
-    content: string | MultimodalContent,
-    callbacks?: ChatSubmissionCallbacks,
-  ) => {
-    const navigation = navigationGeneration
-    try {
-      await getValidChatAuthToken(authentication)
-    } catch (error) {
-      if (navigation !== navigationGeneration) return
-      update({ unsentMessage: content })
-      reportError(error)
-      return
-    }
-    if (navigation !== navigationGeneration) return
+  const canSubmitMessage = (retrying: boolean) => {
+    const reason = state.threadLoadFailed
+      ? "Reopen this conversation or start a new one before sending."
+      : !retrying && state.thread?.role === "viewer"
+        ? "You have read-only access to this conversation."
+        : !retrying && state.thread?.agentId === null
+          ? "This conversation’s agent is unavailable. Start a new conversation to continue."
+          : undefined
+    if (reason) reportError(new Error(reason))
+    return reason === undefined
+  }
+
+  const dispatchMessage = async (entry: PendingChatMessage) => {
+    const { content } = entry
+    const callbacks = pendingCallbacks.get(entry.id)
     if (sending || state.threadLoading || state.status === "streaming") {
       reportError(new Error("Wait for this client's current request to finish before sending."))
-      return
-    }
-    if (state.threadLoadFailed) {
-      reportError(new Error("Reopen this conversation or start a new one before sending."))
       return
     }
     const samePendingContent =
@@ -1169,18 +1297,7 @@ export function createAstralBeamChat(
     const uncertainSend =
       pendingSend?.tools !== undefined && !pendingSend.accepted ? pendingSend : undefined
     const retrying = uncertainSend !== undefined && samePendingContent
-    if (state.thread?.agentId === null && !retrying) {
-      reportError(
-        new Error(
-          "This conversation’s agent is unavailable. Start a new conversation to continue.",
-        ),
-      )
-      return
-    }
-    if (state.thread?.role === "viewer" && !retrying) {
-      reportError(new Error("You have read-only access to this conversation."))
-      return
-    }
+    if (!canSubmitMessage(retrying)) return
     if (uncertainSend && !samePendingContent) {
       update({ unsentMessage: uncertainSend.content })
       reportError(
@@ -1194,20 +1311,29 @@ export function createAstralBeamChat(
     historyGeneration++
     update({ olderMessagesLoading: false })
     sending = true
-    if (!pendingSend || pendingSend.accepted || !samePendingContent) {
+    liveTurn = true
+    if (
+      !pendingSend ||
+      pendingSend.accepted ||
+      pendingSend.key !== entry.id ||
+      !samePendingContent
+    ) {
       pendingSend = {
         content,
         accepted: false,
-        key: newUuid(),
-        callbacks,
+        key: entry.id,
+        callbacks: callbacks ?? (samePendingContent ? pendingSend?.callbacks : undefined),
+        tools: entry.tools,
       }
       client.stop()
       liveToolCalls.clear()
       scopeCompletedToolCalls()
       liveToolMessageIds.clear()
-      update({ activeToolCallIds: [] })
+      update({ activeToolCallIds: [], activeTurnId: undefined, activeTurnState: undefined })
     }
     pendingSend.callbacks ??= callbacks
+    entry.status = "sending"
+    publishQueue()
     update({ unsentMessage: content, error: undefined, status: "submitted" })
     try {
       await ensureThread()
@@ -1226,8 +1352,201 @@ export function createAstralBeamChat(
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
     } finally {
-      if (generation === selectionGeneration) sending = false
+      if (generation === selectionGeneration) {
+        sending = false
+        if (pendingMessages.includes(entry) && !entry.tools) {
+          entry.status = "queued"
+          publishQueue()
+        }
+        if (!state.activeTurnState) liveTurn = false
+        if (state.error || state.activeTurnState === "interrupted") update({ queuePaused: true })
+      }
     }
+  }
+
+  const turnBusy = () =>
+    sending ||
+    state.status === "submitted" ||
+    state.status === "streaming" ||
+    (liveTurn && (state.activeTurnState === "running" || state.activeTurnState === "waiting")) ||
+    (liveTurn &&
+      hasPendingToolRun(state.messages, new Set(state.agentTools.map((tool) => tool.name))))
+  let draining: Promise<void> | undefined
+  const queueHolds = new Set<symbol>()
+  const drainQueue = (): Promise<void> => {
+    if (draining) return draining
+    const generation = selectionGeneration
+    draining = (async () => {
+      while (
+        generation === selectionGeneration &&
+        !state.queuePaused &&
+        queueHolds.size === 0 &&
+        !turnBusy() &&
+        !state.threadLoading &&
+        !state.threadLoadFailed &&
+        !state.error
+      ) {
+        const entry = pendingMessages.find((message) => message.status !== "accepted")
+        if (!entry) return
+        if (entry.attachmentsRequired) {
+          update({ queuePaused: true })
+          return
+        }
+        if (entry.mode === "steer") {
+          await dispatchSteering(entry)
+          if (entry.status === "accepted") continue
+        }
+        if (entry.mode === "steer") return
+        await dispatchMessage(entry)
+        if (pendingMessages.includes(entry)) {
+          update({ queuePaused: true })
+          return
+        }
+      }
+    })().finally(() => {
+      draining = undefined
+      if (generation !== selectionGeneration) void drainQueue()
+    })
+    return draining
+  }
+  const requestSteering = async (entry: PendingChatMessage) => {
+    const generation = selectionGeneration
+    const thread = state.thread
+    const turnMessageId = entry.turnMessageId ?? state.activeTurnId
+    if (!thread || !turnMessageId || entry.attachmentsRequired) return
+    const attempted = entry.status === "sending"
+    entry.mode = "steer"
+    entry.turnMessageId = turnMessageId
+    publishQueue()
+    try {
+      const auth = await requestOptions()
+      if (generation !== selectionGeneration) return
+      entry.status = "sending"
+      publishQueue()
+      const parts = typeof entry.content === "string" ? entry.content : entry.content.content
+      const receipt = await steerChatTurn(
+        thread.id,
+        {
+          client_id: clientId,
+          turn_message_id: turnMessageId,
+          parts: (typeof parts === "string"
+            ? [{ type: "text", content: parts }]
+            : parts) as Parameters<typeof steerChatTurn>[1]["parts"],
+        },
+        { ...auth, headers: { "Idempotency-Key": entry.id } },
+      )
+      if (generation !== selectionGeneration) return
+      entry.status = "accepted"
+      entry.acceptedMessageId = receipt.accepted_message_id
+      if (state.messages.some((message) => message.id === receipt.accepted_message_id))
+        pendingMessages = pendingMessages.filter((message) => message.id !== entry.id)
+      update({
+        thread: {
+          ...state.thread!,
+          version: Math.max(state.thread!.version, receipt.thread_version),
+        },
+      })
+      notifySubmission(pendingCallbacks.get(entry.id)?.onAccepted)
+      pendingCallbacks.delete(entry.id)
+      publishQueue()
+    } catch (error) {
+      if (generation !== selectionGeneration) return
+      if (
+        isAstralBeamApiError(error) &&
+        error.status === 409 &&
+        error.body?.detail === "This turn has finished. Queue your message as a new turn"
+      ) {
+        entry.mode = "queue"
+        entry.status = "queued"
+        entry.steeringFallback = true
+        const callbacks = pendingCallbacks.get(entry.id)
+        pendingCallbacks.delete(entry.id)
+        entry.id = newUuid()
+        if (callbacks) pendingCallbacks.set(entry.id, callbacks)
+        entry.turnMessageId = undefined
+        publishQueue()
+      } else {
+        if (
+          !attempted &&
+          isAstralBeamApiError(error) &&
+          [400, 403, 404, 413, 429].includes(error.status)
+        )
+          entry.status = "queued"
+        const failure = error instanceof Error ? error : new Error(String(error))
+        update({ queuePaused: true, error: failure })
+        publishQueue()
+        live.streamCallbacks?.onError?.(failure)
+      }
+    }
+  }
+  const steeringRequests = new Map<PendingChatMessage, Promise<void>>()
+  const dispatchSteering = (entry: PendingChatMessage): Promise<void> => {
+    const pending = steeringRequests.get(entry)
+    if (pending) return pending
+    const request = requestSteering(entry).finally(() => steeringRequests.delete(entry))
+    steeringRequests.set(entry, request)
+    return request
+  }
+  const sendMessage = async (
+    content: string | MultimodalContent,
+    callbacks?: ChatSubmissionCallbacks,
+    options?: { whenBusy: "queue" | "steer" },
+  ) => {
+    const navigation = navigationGeneration
+    try {
+      await getValidChatAuthToken(authentication)
+    } catch (error) {
+      if (navigation === navigationGeneration) {
+        update({ unsentMessage: content })
+        reportError(error)
+      }
+      return
+    }
+    if (navigation !== navigationGeneration) return
+    const busy = turnBusy() || queueHolds.size > 0
+    const uncertain = pendingMessages.find((entry) => entry.status === "sending")
+    const retry = !busy
+      ? pendingMessages.find(
+          (entry) =>
+            (entry.status === "sending" || (state.error && entry.id === pendingSend?.key)) &&
+            JSON.stringify(entry.content) === JSON.stringify(content),
+        )
+      : undefined
+    if (!canSubmitMessage(Boolean(retry))) return
+    if (uncertain && !busy && !retry) {
+      update({ unsentMessage: uncertain.content })
+      reportError(
+        new Error(
+          "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation.",
+        ),
+      )
+      return
+    }
+    const entry = retry ?? {
+      id: newUuid(),
+      content,
+      mode: "queue" as const,
+      status: "queued" as const,
+      attachmentsRequired: false,
+    }
+    const awaitingResume = state.queuePaused && pendingMessages.length > 0 && !retry
+    if (!retry) pendingMessages.push(entry)
+    if (callbacks) pendingCallbacks.set(entry.id, callbacks)
+    publishQueue()
+    if (busy || awaitingResume) {
+      notifySubmission(callbacks?.onQueued)
+      if (busy && options?.whenBusy === "steer" && liveTurn && state.activeTurnId)
+        await dispatchSteering(entry)
+      return
+    }
+    if (retry) {
+      update({ error: undefined })
+      if (retry.mode === "steer") await dispatchSteering(retry)
+      else await dispatchMessage(retry)
+      return
+    }
+    update({ queuePaused: false, error: undefined })
+    await drainQueue()
   }
 
   const observeAuthentication = () => {
@@ -1244,8 +1563,15 @@ export function createAstralBeamChat(
       identity = nextIdentity
       const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}`
       if (threadKey !== nextThreadKey) {
+        try {
+          clientId = globalThis.sessionStorage?.getItem(`${nextThreadKey}:client`) ?? newUuid()
+          globalThis.sessionStorage?.setItem(`${nextThreadKey}:client`, clientId)
+        } catch {
+          clientId = newUuid()
+        }
         changeSelection()
         threadKey = nextThreadKey
+        restoreQueue()
         if (startWithNewThread) {
           selectedThread(nextThreadKey, null)
           startWithNewThread = false
@@ -1309,12 +1635,73 @@ export function createAstralBeamChat(
       if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
     },
     sendMessage,
+    editPendingMessage: (id, content) => {
+      const entry = pendingMessages.find((message) => message.id === id)
+      if (
+        !entry ||
+        entry.status === "accepted" ||
+        (entry.status === "sending" && !entry.attachmentsRequired)
+      )
+        return false
+      if (
+        entry.status === "sending" &&
+        pendingMessageText(content) !== pendingMessageText(entry.content)
+      )
+        return false
+      entry.content = content
+      entry.attachmentsRequired =
+        entry.attachmentsRequired &&
+        (typeof content === "string" ||
+          !Array.isArray(content.content) ||
+          !content.content.some((part) => part.type !== "text"))
+      publishQueue()
+      return true
+    },
+    removePendingMessage: (id) => {
+      pendingMessages = pendingMessages.filter(
+        (entry) => entry.id !== id || entry.status !== "queued",
+      )
+      pendingCallbacks.delete(id)
+      publishQueue()
+    },
+    steerPendingMessage: async (id) => {
+      const entry = pendingMessages.find((message) => message.id === id)
+      if (
+        entry?.status === "queued" &&
+        liveTurn &&
+        state.activeTurnId &&
+        !entry.attachmentsRequired
+      )
+        await dispatchSteering(entry)
+    },
+    resumeQueue: async () => {
+      update({ queuePaused: false, error: undefined })
+      const uncertain = pendingMessages.find(
+        (entry) => entry.mode === "steer" && entry.status === "sending",
+      )
+      if (uncertain) await dispatchSteering(uncertain)
+      await drainQueue()
+    },
+    holdQueue: () => {
+      const hold = Symbol()
+      queueHolds.add(hold)
+      return () => {
+        if (queueHolds.delete(hold) && queueHolds.size === 0 && !state.queuePaused)
+          void drainQueue()
+      }
+    },
     addToolResult,
-    stop: () => client.stop(),
+    stop: () => {
+      liveTurn = false
+      update({ queuePaused: true })
+      client.stop()
+    },
     retryAuthentication: () => {
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
     reload: async () => {
+      liveTurn = false
+      update({ queuePaused: true })
       const generation = selectionGeneration
       await refreshThread()
       if (generation !== selectionGeneration || state.error) return
@@ -1358,6 +1745,8 @@ export function createAstralBeamChat(
       newThread()
     },
     dispose: () => {
+      update({ queuePaused: true })
+      publishQueue()
       client.detach()
       disposeRenders()
       client.stop()

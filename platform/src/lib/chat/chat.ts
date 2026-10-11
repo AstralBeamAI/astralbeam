@@ -38,6 +38,7 @@ import {
 } from "./constants"
 import { chatDebugLog, withChatDebugLog } from "./debug"
 import {
+  CHAT_TURN_LIMIT_MESSAGE,
   ChatAgentNotFound,
   ChatDefaultAgentMissing,
   ChatModelMissing,
@@ -60,6 +61,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
   rate_limit_error: "The model provider is receiving too many requests. Please try again later.",
   model_not_found:
     "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
+  turn_limit: CHAT_TURN_LIMIT_MESSAGE,
 }
 
 /**
@@ -248,87 +250,140 @@ export class Chat extends Context.Service<
             : []),
           agent.systemPrompt,
         ]
-        const services = yield* Effect.context<never>()
-        const managed = managedChatMiddleware({
-          managed: input.managed,
-          threads,
-          history: convertMessagesToModelMessages(messages),
-          tools,
-          model,
-          agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-          execute: Effect.runPromiseWith(services),
-          refreshContext: (claim) =>
-            Effect.runPromiseWith(services)(
-              Effect.gen(function* () {
-                const saved = yield* threads.history({
-                  scope: claim.scope,
-                  id: claim.threadId,
-                })
-                const normalized = yield* prepareChatHistory({
-                  history: saved,
-                  model,
-                  sandbox: agent.sandboxProviderId !== null,
-                })
-                files.splice(0, files.length, ...normalized.files)
-                inputMessages.splice(0, inputMessages.length, ...normalized.projected)
-                if (session) yield* session.prepareUploads(files)
-                if (!unknownOutcome)
-                  tools.splice(
-                    0,
-                    tools.length,
-                    ...mergeAgentTools(
-                      [...sandboxTools, ...createChatAttachmentTools(files)],
-                      params.tools,
-                    ),
-                  )
-                if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
-                  systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
-                return {
-                  providerMessages: convertMessagesToModelMessages(normalized.messages),
-                  tools,
-                  systemPrompts,
-                }
-              }),
-            ),
+        const execute = Effect.runPromiseWith(yield* Effect.context<never>())
+        let modelTurns = 0
+        let execution = input.managed
+        let phaseMessages = messages
+        const preparePhaseHistory = Effect.fnUntraced(function* (
+          claim: typeof input.managed.claim,
+          beforeModel = false,
+        ) {
+          const saved = yield* beforeModel
+            ? threads.modelHistory({ claim })
+            : threads.history({ scope: claim.scope, id: claim.threadId })
+          const normalized = yield* prepareChatHistory({
+            history: saved,
+            model,
+            sandbox: agent.sandboxProviderId !== null,
+          })
+          return {
+            ...normalized,
+            steeringMessageIds: saved
+              .filter(
+                (message) =>
+                  beforeModel &&
+                  message.payload.steering?.appliedToMessageId === claim.assistantMessageId,
+              )
+              .map((message) => message.id),
+          }
         })
+        const createManagedPhase = (phaseMessages: typeof messages) =>
+          managedChatMiddleware({
+            managed: execution,
+            threads,
+            history: convertMessagesToModelMessages(phaseMessages),
+            tools,
+            model,
+            agentId: `agent_${input.principal.organization.id}_${agent.id}`,
+            execute,
+            canContinueSteering: () => modelTurns < CHAT_MAX_MODEL_TURNS,
+            refreshContext: (claim, beforeModel) =>
+              execute(
+                Effect.gen(function* () {
+                  const normalized = yield* preparePhaseHistory(claim, beforeModel)
+                  files.splice(0, files.length, ...normalized.files)
+                  inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                  if (session) yield* session.prepareUploads(files)
+                  if (!unknownOutcome)
+                    tools.splice(
+                      0,
+                      tools.length,
+                      ...mergeAgentTools(
+                        [...sandboxTools, ...createChatAttachmentTools(files)],
+                        params.tools,
+                      ),
+                    )
+                  if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
+                    systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
+                  return {
+                    providerMessages: convertMessagesToModelMessages(normalized.messages),
+                    tools,
+                    systemPrompts,
+                    steeringMessageIds: normalized.steeringMessageIds,
+                  }
+                }),
+              ),
+          })
+        let managed = createManagedPhase(messages)
         const events = Stream.unwrap(
           Effect.gen(function* () {
             yield* Effect.addFinalizer(() =>
               threads
-                .interrupt({ claim: managed.state.claim })
+                .interrupt({ claim: managed.state.nextClaim ?? managed.state.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
-            return chatEventStream((abortController) => {
-              const source = chat({
-                adapter: createChatAdapter(model),
-                messages,
-                systemPrompts,
-                // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
-                // drops a client tool named like a server tool.
-                tools,
-                // A sandbox command or publication can depend on an earlier tool's file write.
-                // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
-                toolExecution: "sequential",
-                // Interrupt snapshots preserve original uploads after provider normalization.
-                middleware: [
-                  createChatAttachmentSnapshotMiddleware(inputMessages),
-                  ...managed.middleware,
-                ],
-                agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
-                threadId: params.threadId,
-                runId: params.runId,
-                parentRunId: params.parentRunId,
-                resume: params.resume,
-                // Native OpenAI reasoning models keep main's effort. Other models reject the option.
-                ...(model.providerType === "openai" &&
-                  model.api === "responses" &&
-                  /^(?:gpt-5|o\d)/.test(model.modelId) &&
-                  !model.modelId.endsWith("-chat-latest") && {
-                    modelOptions: { reasoning: { effort: "high" } },
-                  }),
-                abortController,
-              })
-              return managedChatDelivery({ source, managed: input.managed, state: managed.state })
+            return chatEventStream(async function* (abortController) {
+              let started = false
+              while (!abortController.signal.aborted) {
+                const source = chat({
+                  adapter: createChatAdapter(model),
+                  messages: phaseMessages,
+                  systemPrompts,
+                  // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
+                  // drops a client tool named like a server tool.
+                  tools,
+                  // A sandbox command or publication can depend on an earlier tool's file write.
+                  // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
+                  toolExecution: "sequential",
+                  agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS - modelTurns),
+                  threadId: params.threadId,
+                  runId: params.runId,
+                  parentRunId: params.parentRunId,
+                  resume: modelTurns === 0 ? params.resume : undefined,
+                  // Native OpenAI reasoning models keep main's effort. Other models reject the option.
+                  ...(model.providerType === "openai" &&
+                    model.api === "responses" &&
+                    /^(?:gpt-5|o\d)/.test(model.modelId) &&
+                    !model.modelId.endsWith("-chat-latest") && {
+                      modelOptions: { reasoning: { effort: "high" } },
+                    }),
+                  abortController,
+                  middleware: [
+                    createChatAttachmentSnapshotMiddleware(inputMessages),
+                    ...managed.middleware,
+                    {
+                      name: "model-turn-budget",
+                      onIteration() {
+                        modelTurns += 1
+                      },
+                    },
+                  ],
+                })
+                for await (const chunk of managedChatDelivery({
+                  source,
+                  managed: execution,
+                  state: managed.state,
+                })) {
+                  if (chunk.type === EventType.RUN_STARTED) {
+                    if (started) continue
+                    started = true
+                  }
+                  yield (chunk.type === EventType.RUN_STARTED ||
+                    chunk.type === EventType.RUN_FINISHED) &&
+                  params.runId
+                    ? { ...chunk, runId: params.runId }
+                    : chunk
+                }
+                if (!managed.state.nextClaim) break
+                execution = {
+                  ...execution,
+                  claim: managed.state.nextClaim,
+                  acceptedMessageId: undefined,
+                  threadVersion: managed.state.version,
+                }
+                phaseMessages = (await execute(preparePhaseHistory(execution.claim))).messages
+                managed = createManagedPhase(phaseMessages)
+              }
             })
           }),
         ).pipe(

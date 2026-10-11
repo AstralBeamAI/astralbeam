@@ -787,6 +787,9 @@ describe("REST API through the Effect Fetch handler", () => {
           role: "user",
           state: "complete",
           parent_message_id: null,
+          turn_message_id: null,
+          turn_state: "completed",
+          steering_applied_to_message_id: null,
           parts: [
             ...restSavedMessage.payload.parts,
             { ...attachment, source: { type: "attachment", mimeType: "image/png" } },
@@ -1100,6 +1103,33 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await request({ ...body, messages: [] })).status).toBe(400)
     expect(restTestState.run).toHaveBeenCalledTimes(1)
     expect(restTestState.threadResolveTools).toHaveBeenCalledTimes(1)
+  })
+
+  test("steering accepts ordinary HTTP headers and requires an admission key", async () => {
+    const headers = {
+      Authorization: `Bearer ${restTenantJwt}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    }
+    const response = await restRequest(`/chat/threads/${restOtherId}/steer`, {
+      method: "POST",
+      headers: { ...headers, "Idempotency-Key": "steering-receipt" },
+      body: "{}",
+    })
+    expect(response.status).toBe(400)
+    expect(restTestState.consume).toHaveBeenCalledTimes(1)
+    const body: unknown = await response.json()
+    expect(Schema.decodeUnknownSync(RestApiErrorSchema)(body).detail).not.toBe(
+      "Invalid request parameters.",
+    )
+    restTestState.consume.mockClear()
+    const missingKey = await restRequest(`/chat/threads/${restOtherId}/steer`, {
+      method: "POST",
+      headers,
+      body: "{}",
+    })
+    expect(missingKey.status).toBe(400)
+    expect(restTestState.consume).not.toHaveBeenCalled()
   })
 
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {

@@ -274,6 +274,7 @@ describe("Chat.run", () => {
       const messages = JSON.stringify(chatRunTest.options[0]!.messages)
       assert.include(messages, "Saved input")
       assert.notInclude(messages, "Caller replacement")
+      assert.notInclude(messages, "Unprocessed guidance")
     }).pipe(
       Effect.provide(
         chatTestLayer({
@@ -287,6 +288,16 @@ describe("Chat.run", () => {
               payload: {
                 version: 1,
                 parts: [{ id: "part", type: "text", content: "Saved input" }],
+              },
+            },
+            {
+              id: "unprocessed-guidance",
+              role: "user",
+              state: "complete",
+              payload: {
+                version: 1,
+                steering: {},
+                parts: [{ id: "guidance", type: "text", content: "Unprocessed guidance" }],
               },
             },
           ] as unknown as MessageRecord[],

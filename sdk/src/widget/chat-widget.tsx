@@ -24,6 +24,8 @@ import {
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
+import { PendingMessages } from "./components/pending-messages.tsx"
+import { pendingMessageText } from "../core/pending-messages.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -169,6 +171,15 @@ export function ChatWidget({
     text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
   }
   const draft = composer.text
+  const composerScope = `${apiUrl}:${draftIdentity}:${draftKey}`
+  const [reattachment, setReattachment] = useState<{
+    id: string
+    scope: string
+    previous: typeof EMPTY_DRAFT
+    release: () => void
+  }>()
+  const reattaching = reattachment?.scope === composerScope ? reattachment : undefined
+  useEffect(() => reattaching?.release, [reattaching])
   const pendingAttachmentWrites = useRef(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
@@ -282,12 +293,8 @@ export function ChatWidget({
       attachments: update(current.attachments),
     }))
   // The agent's grant wins over the host option: the client may narrow, never widen.
-  const attachmentLimits = useMemo(
-    () =>
-      resolveAttachmentOptions(
-        capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
-      ),
-    [options.attachments, capabilities.attachments, composer.attachmentsLoaded],
+  const attachmentLimits = resolveAttachmentOptions(
+    capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
   )
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
@@ -309,15 +316,7 @@ export function ChatWidget({
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
   const isBusy =
-    authPending ||
-    authError !== undefined ||
     streamBusy ||
-    !composer.attachmentsLoaded ||
-    composer.attachments !== composer.settledAttachments ||
-    chatState.threadLoading ||
-    chatState.threadLoadFailed ||
-    chatState.thread?.role === "viewer" ||
-    chatState.thread?.agentId === null ||
     hasPendingToolRun(
       messages.map((message) => ({
         ...message,
@@ -384,13 +383,38 @@ export function ChatWidget({
     setAttachments((current) => current.filter((attachment) => attachment.id !== id))
   }
 
-  const sendDraft = () => {
+  const sendBlocked =
+    authPending ||
+    authError !== undefined ||
+    !composer.attachmentsLoaded ||
+    composer.attachments !== composer.settledAttachments ||
+    chatState.threadLoading ||
+    chatState.threadLoadFailed ||
+    chatState.thread?.role === "viewer" ||
+    chatState.thread?.agentId === null
+  const finishReattachment = () => {
+    if (!reattaching) return
+    storedThreadDraft(apiUrl, draftIdentity, draftKey, reattaching.previous.text)
+    updateDraft((current) => ({
+      ...reattaching.previous,
+      settledAttachments: current.settledAttachments,
+      savedAttachments: current.savedAttachments,
+    }))
+    setReattachment(undefined)
+  }
+  const sendDraft = (whenBusy: "queue" | "steer" = "queue") => {
     const text = draft.trim()
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
     const pendingRead = attachments.some((attachment) => attachment.status === "reading")
-    if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
+    if (
+      sendBlocked ||
+      pendingRead ||
+      (text.length === 0 && parts.length === 0) ||
+      (reattaching && parts.length === 0)
+    )
+      return
     debug?.(
       "send",
       text.length > 0 ? text : `${parts.length} attachment(s), no message text`,
@@ -411,7 +435,7 @@ export function ChatWidget({
       attachments.filter((file) => file.status === "ready").map((file) => file.id),
     )
     let submissionDraftKey = draftKey
-    void chat.sendMessage(
+    const content =
       parts.length === 0
         ? text
         : {
@@ -419,7 +443,38 @@ export function ChatWidget({
               ...parts,
               ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
             ],
-          },
+          }
+    if (reattaching) {
+      if (chat.editPendingMessage(reattaching.id, content)) finishReattachment()
+      return
+    }
+    const clearSubmittedDraft = () => {
+      void storedThreadAttachments({
+        apiUrl,
+        identity: draftIdentity,
+        threadId: submissionDraftKey,
+        update: (files) => files.filter((file) => !sentAttachmentIds.has(file.id)),
+      }).catch((error: unknown) =>
+        debug?.("error", "Submitted draft files could not be cleared", error),
+      )
+      if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
+        storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
+      setDrafts((cached) => {
+        if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
+        const value = cached.threads.get(submissionDraftKey)
+        if (!value) return cached
+        return {
+          ...cached,
+          threads: new Map(cached.threads).set(submissionDraftKey, {
+            ...value,
+            text: value.text === sentDraft ? "" : value.text,
+            attachments: value.attachments.filter((file) => !sentAttachmentIds.has(file.id)),
+          }),
+        }
+      })
+    }
+    void chat.sendMessage(
+      content,
       {
         onThreadReady: (id) => {
           if (submissionDraftKey !== "") return
@@ -460,32 +515,10 @@ export function ChatWidget({
             return { ...cached, threads }
           })
         },
-        onAccepted: () => {
-          if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
-            storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
-          void storedThreadAttachments({
-            apiUrl,
-            identity: draftIdentity,
-            threadId: submissionDraftKey,
-            update: (files) => files.filter((file) => !sentAttachmentIds.has(file.id)),
-          }).catch((error: unknown) =>
-            debug?.("error", "Accepted draft files could not be cleared", error),
-          )
-          setDrafts((cached) => {
-            if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
-            const value = cached.threads.get(submissionDraftKey)
-            if (!value) return cached
-            return {
-              ...cached,
-              threads: new Map(cached.threads).set(submissionDraftKey, {
-                ...value,
-                text: value.text === sentDraft ? "" : value.text,
-                attachments: value.attachments.filter((file) => !sentAttachmentIds.has(file.id)),
-              }),
-            }
-          })
-        },
+        onAccepted: clearSubmittedDraft,
+        onQueued: clearSubmittedDraft,
       },
+      { whenBusy },
     )
   }
 
@@ -499,8 +532,7 @@ export function ChatWidget({
   }
 
   const resetThread = () => {
-    // The session's reset is the client's own: it aborts an active stream, drops queued sends,
-    // resets resume state, and disposes the live widget renders.
+    // Reset stops foreground execution and preserves the previous conversation's pending input.
     chat.reset()
     storedThreadDraft(apiUrl, draftIdentity, "", "")
     void storedThreadAttachments({
@@ -655,6 +687,58 @@ export function ChatWidget({
             ))}
         {sandboxStatus !== undefined && <SandboxStatusPill status={sandboxStatus} />}
         {options.sandboxPanel === true && sandboxHasWork && <SandboxPanel activity={sandbox} />}
+        <PendingMessages
+          key={composerScope}
+          messages={chatState.pendingMessages}
+          paused={chatState.queuePaused}
+          canSteer={
+            !sendBlocked && !chatState.queuePaused && Boolean(chatState.activeTurnId) && isBusy
+          }
+          onEdit={(id, text) => {
+            const entry = chatState.pendingMessages.find((message) => message.id === id)
+            if (!entry) return false
+            const content = entry.content
+            return chat.editPendingMessage(
+              id,
+              typeof content === "string" || typeof content.content === "string"
+                ? text
+                : {
+                    ...content,
+                    content: [
+                      ...content.content.filter((part) => part.type !== "text"),
+                      { type: "text", content: text },
+                    ],
+                  },
+            )
+          }}
+          onRemove={(id) => {
+            if (reattaching?.id === id) finishReattachment()
+            chat.removePendingMessage(id)
+          }}
+          onSteer={(id) => void chat.steerPendingMessage(id)}
+          onResume={() => void chat.resumeQueue()}
+          onHold={chat.holdQueue}
+          onReattach={(id) => {
+            const entry = chatState.pendingMessages.find((message) => message.id === id)
+            if (!entry) return
+            setReattachment({
+              id,
+              scope: composerScope,
+              previous: reattaching?.previous ?? composer,
+              release: chat.holdQueue(),
+            })
+            setDraft(pendingMessageText(entry.content))
+            setAttachments(() => [])
+          }}
+        />
+        {reattaching && (
+          <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Reattach the original files, then save attachments.</span>
+            <Button type="button" variant="ghost" size="sm" onClick={finishReattachment}>
+              Cancel
+            </Button>
+          </div>
+        )}
         {attachmentLimits.enabled && composer.storageError && (
           <p role="status" className="w-full text-muted-foreground text-xs">
             Files cannot be recovered after reload because browser storage is unavailable.
@@ -666,8 +750,23 @@ export function ChatWidget({
             hostSlots.has("composerActions") ? hostSlotName("composerActions") : undefined
           }
           draft={draft}
+          saveAttachments={Boolean(reattaching)}
+          readOnly={Boolean(
+            reattaching &&
+            chatState.pendingMessages.find((message) => message.id === reattaching.id)?.status ===
+              "sending",
+          )}
           onDraftChange={setDraft}
-          onSend={sendDraft}
+          onSend={() => sendDraft()}
+          onSteer={
+            isBusy && !reattaching && chatState.activeTurnId && !chatState.queuePaused
+              ? () => sendDraft("steer")
+              : undefined
+          }
+          sendBlocked={
+            sendBlocked ||
+            Boolean(reattaching && !attachments.some((attachment) => attachment.status === "ready"))
+          }
           onStop={() => {
             debug?.("status", "generation stopped by user")
             chat.stop()
@@ -680,10 +779,12 @@ export function ChatWidget({
                 : undefined
           }
           retryLabel={chatState.unsentMessage !== undefined ? "Retry" : "Refresh"}
-          showError={status === "error"}
+          showError={status === "error" || error !== undefined}
           error={error}
           streamBusy={streamBusy}
-          isBusy={isBusy}
+          isBusy={
+            isBusy || chatState.pendingMessages.some((message) => message.status !== "accepted")
+          }
           authPending={authPending}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
