@@ -18,6 +18,7 @@
     "npm:@effect/vitest@4": "4.0.0_effect@4.0.0_vitest@5.0.3_vite@8.3.2",
     "npm:@fontsource-variable/inter@^5.2.8": "5.3.0",
     "npm:@fontsource-variable/manrope@^5.2.8": "5.3.0",
+    "npm:@imagemagick/magick-wasm@0.0.44": "0.0.44",
     "npm:@marsidev/react-turnstile@^1.6.0": "1.6.0_react@19.3.0_react-dom@19.3.0",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@playwright/test@^1.63.0": "1.63.0",
@@ -1604,6 +1605,9 @@
     },
     "@iarna/toml@2.2.5": {
       "integrity": "sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg=="
+    },
+    "@imagemagick/magick-wasm@0.0.44": {
+      "integrity": "sha512-J6oieSjlJzamANwtrNAlO+DKnRm49ILtSIWDhtkGn35f/5zS99AXta2gPsZuG9m2JvQbsu3h3CHe14ViXrFD/Q=="
     },
     "@img/colour@1.1.0": {
       "integrity": "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="
@@ -9483,6 +9487,7 @@
         "npm:@effect/vitest@4",
         "npm:@fontsource-variable/inter@^5.2.8",
         "npm:@fontsource-variable/manrope@^5.2.8",
+        "npm:@imagemagick/magick-wasm@0.0.44",
         "npm:@marsidev/react-turnstile@^1.6.0",
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@playwright/test@^1.63.0",

@@ -116,6 +116,12 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
+Avatars and Organization logos use authenticated application URLs. Images must be valid, non-animated PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. The server imports Gravatar after account creation or an email change, and imports external logos submitted through the Organization API. Sign-in never imports an image. Imports retry transient external-fetch failures up to eight times and storage failures indefinitely. A pending Gravatar import may replace a manually selected avatar. If the process stops between the account commit and workflow submission, that optional import may be missed.
+
+For an existing deployment, let's back up the database and configure storage before applying the file migration. It clears historical avatars and logos, leaving chat messages and attachments unchanged. Users see initials until they upload an avatar. The existing FileMaintenance schedule submits pending logo imports and object cleanup to durable workflows.
+
+Replacement and SQL cascades retain deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.

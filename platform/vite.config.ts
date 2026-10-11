@@ -68,7 +68,11 @@ const viteConfig = defineConfig(({ mode }) => {
     // Server bundles gain nothing from code splitting. Their dynamic imports break import cycles or
     // keep the OpenAPI export's graph database-free, so only the client keeps this check.
     environments: {
-      ssr: { build: { rolldownOptions: { checks: { ineffectiveDynamicImport: false } } } },
+      ssr: {
+        resolve: { external: ["@imagemagick/magick-wasm"] },
+        build: { rolldownOptions: { checks: { ineffectiveDynamicImport: false } } },
+      },
+      nitro: { resolve: { external: ["@imagemagick/magick-wasm"] } },
     },
     plugins: [
       {
