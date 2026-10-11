@@ -116,6 +116,14 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
 
+Let's use **Members** to upload or remove your avatar for an Organization. Global account screens show initials. OAuth login imports your provider image, and user or membership creation imports Gravatar. Each successful import replaces avatars across all of your memberships. Unavailable or invalid images leave existing avatars unchanged and do not prevent sign-in. Images must be valid, non-animated PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. External logos submitted through the Organization API are fetched, validated and stored during the write request. A failed logo replacement preserves the existing logo. Organization API responses expose `logoFileId`, and Better Auth compatibility columns `user.image` and `organization.logo` remain null.
+
+Avatars and Organization logos use application URLs that check current membership before redirecting to a signed S3 download URL valid for one minute. The storage endpoint must be reachable from your users' browsers. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
+
+For an existing deployment, let's back up the database and configure storage before applying the file migration. It clears historical avatars, logos and file metadata created before Organization ownership existed, leaving chat messages and attachments unchanged. Users see initials until they upload an avatar. The FileMaintenance schedule submits unfinished uploads and retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
+
+Replacement retains deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.

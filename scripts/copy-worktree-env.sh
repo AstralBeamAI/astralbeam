@@ -31,6 +31,4 @@ database_url=$(sed -n 's/^DATABASE_URL=//p' "$source_database_env_file")
 worktree_database=$(basename "${worktree_root%/$(basename "$source_root")}")
 printf 'DATABASE_URL=%s/%s\n' "${database_url%/*}" "$worktree_database" >>"$database_env_file"
 
-# This task can install dependencies before setup.sh. Keep Sharp on its prebuilt binary.
-# https://sharp.pixelplumbing.com/install#custom-libvips
-SHARP_IGNORE_GLOBAL_LIBVIPS=1 deno task --cwd platform db-reset
+deno task --cwd platform db-reset

@@ -6,6 +6,7 @@ import { Mailer } from "../email/email.server.ts"
 import {
   deleteOrganization as deleteOrganizationFn,
   deleteOrganizationTenantBatch,
+  deleteOrganizationFileBatch,
   readUserEmails,
 } from "../organizations/deletion.server.ts"
 import { UuidV7Schema } from "../schemas.ts"
@@ -74,6 +75,10 @@ export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((paylo
     yield* purgeOrganizationStep(
       "DeleteTenants",
       drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
+    )
+    yield* purgeOrganizationStep(
+      "DeleteFiles",
+      drainOrganizationBatches(deleteOrganizationFileBatch(organizationId)),
     )
     yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationFn(organizationId))
     yield* Effect.logInfo("Organization deleted", { organizationId })

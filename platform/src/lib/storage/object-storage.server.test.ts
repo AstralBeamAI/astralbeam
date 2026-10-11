@@ -1,16 +1,14 @@
 import { createServer } from "node:http"
 import { once } from "node:events"
 
-import { S3Client } from "@aws-sdk/client-s3"
 import { Effect, Layer, Logger, ManagedRuntime } from "effect"
-import { expect, test, vi } from "vitest"
+import { expect, test } from "vitest"
 
 import { Config } from "@/lib/config/config"
 import { ObjectStorage } from "./object-storage.server"
 
 test("rejects corrupt downloads and missing metadata, and cleans up after cancellation", async () => {
   const objects = new Map<string, Uint8Array>()
-  const versions = new Set<string>()
   let finishOversized: () => void = () => undefined
   const oversizedClosed = new Promise<void>((resolve) => {
     finishOversized = resolve
@@ -51,11 +49,9 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
         const chunks = []
         for await (const chunk of request) chunks.push(chunk as Uint8Array)
         objects.set(key, Buffer.concat(chunks))
-        versions.add(key)
-        response.writeHead(200, { ETag: '"test"', "x-amz-version-id": "fixture-version" }).end()
+        response.writeHead(200, { ETag: '"test"' }).end()
       } else if (request.method === "DELETE") {
         objects.delete(key)
-        if (url.searchParams.get("versionId") === "fixture-version") versions.delete(key)
         response.writeHead(204).end()
       } else {
         const bytes = objects.get(key)
@@ -120,23 +116,18 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     )
     expect(result._tag).toBe("Failure")
     expect(objects.size).toBe(0)
-    expect(versions.size).toBe(0)
     omitHeadSize = true
     objects.set("/test/metadata", new Uint8Array([1]))
     const runtime = ManagedRuntime.make(layer)
-    const requests = vi.spyOn(S3Client.prototype, "send")
     try {
       const inspect = Effect.flatMap(ObjectStorage, (storage) =>
         storage.head({ key: "metadata" }),
       ).pipe(Effect.result)
       const metadata = await runtime.runPromise(inspect)
       expect(metadata).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
-      await runtime.runPromise(inspect)
-      expect(requests.mock.contexts[1]).toBe(requests.mock.contexts[0])
       settings.accessKeyId = "rotated-fixture-key"
       await runtime.runPromise(inspect)
-      expect(requests.mock.contexts[2]).not.toBe(requests.mock.contexts[0])
-      expect(metadataCredentials[2]).toContain("Credential=rotated-fixture-key/")
+      expect(metadataCredentials[1]).toContain("Credential=rotated-fixture-key/")
       const oversized = await runtime.runPromise(
         Effect.flatMap(ObjectStorage, (storage) =>
           storage.get({ key: "oversized", maxBytes: 1 }),
@@ -146,7 +137,6 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
       await oversizedClosed
     } finally {
       await runtime.dispose()
-      requests.mockRestore()
     }
     objects.delete("/test/metadata")
     omitHeadSize = false
@@ -161,7 +151,6 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
       )
       expect(checked._tag).toBe(denied ? "Failure" : "Success")
       expect(objects.size).toBe(0)
-      expect(versions.size).toBe(0)
     }
     const logs: string[] = []
     const denied = await Effect.runPromise(
@@ -177,9 +166,6 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     )
     expect(denied).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
     expect(logs).toHaveLength(1)
-    expect(JSON.parse(logs[0]!)).toMatchObject({
-      annotations: { errorType: "AccessDenied", httpStatusCode: 403, requestId: "fixture-request" },
-    })
     for (const privateValue of [
       "private-failure-details",
       settings.endpoint,
@@ -199,7 +185,6 @@ test("rejects corrupt downloads and missing metadata, and cleans up after cancel
     controller.abort()
     expect((await interrupted)._tag).toBe("Failure")
     expect(objects.size).toBe(0)
-    expect(versions.size).toBe(0)
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

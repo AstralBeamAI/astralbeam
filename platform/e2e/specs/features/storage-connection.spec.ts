@@ -1,5 +1,4 @@
-import { once } from "node:events"
-import { createServer } from "node:http"
+import { startBrowserStorageFixture, stopBrowserStorageFixture } from "../../object-storage.ts"
 
 import { captureMilestone } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
@@ -9,41 +8,11 @@ test("the operator tests unsaved storage settings and sees safe verification fai
   page,
   configure,
 }) => {
-  const objects = new Map<string, Uint8Array>()
-  let corrupt = false
-  const server = createServer((request, response) => {
-    const respond = async () => {
-      const key = new URL(request.url!, "http://localhost").pathname
-      if (!key.startsWith("/storage/v1/s3/")) {
-        response.writeHead(404).end()
-        return
-      }
-      if (request.method === "PUT") {
-        const chunks: Uint8Array[] = []
-        for await (const chunk of request) chunks.push(chunk as Uint8Array)
-        objects.set(key, Buffer.concat(chunks))
-        response.writeHead(200, { ETag: '"fixture"' }).end()
-      } else if (request.method === "DELETE") {
-        objects.delete(key)
-        response.writeHead(204).end()
-      } else {
-        const bytes = objects.get(key)
-        if (!bytes) {
-          response.writeHead(404).end()
-          return
-        }
-        response.writeHead(200, { "Content-Length": bytes.length })
-        response.end(
-          request.method === "HEAD" ? undefined : corrupt ? new Uint8Array(bytes.length) : bytes,
-        )
-      }
-    }
-    void respond().catch(() => response.writeHead(500).end())
-  })
-  server.listen(0, "127.0.0.1")
-  await once(server, "listening")
-  const address = server.address()
-  if (!address || typeof address === "string") throw new Error("No storage fixture address")
+  const storageFixture = {
+    objects: new Map<string, { bytes: Uint8Array; contentType: string }>(),
+    corrupt: false,
+  }
+  const { server, endpoint } = await startBrowserStorageFixture(storageFixture)
   try {
     await configure.open()
     await configure.signIn(operatorKey)
@@ -72,12 +41,12 @@ test("the operator tests unsaved storage settings and sees safe verification fai
       await configure.setValue("s3_endpoint", invalid)
       await expect(button).toBeDisabled()
     }
-    await configure.setValue("s3_endpoint", `http://127.0.0.1:${address.port}/storage/v1/s3`)
+    await configure.setValue("s3_endpoint", endpoint)
     await configure.field("s3_path_style").click()
     await page.getByRole("option", { name: "Path style", exact: true }).click()
     await button.click()
     await expect(page.getByText("Storage connection succeeded", { exact: true })).toBeVisible()
-    expect(objects.size).toBe(0)
+    expect(storageFixture.objects.size).toBe(0)
     const storageGroup = page.locator('[data-slot="card"]').filter({ hasText: "File storage" })
     await page.setViewportSize({ width: 1280, height: 1400 })
     await storageGroup.scrollIntoViewIfNeeded()
@@ -89,10 +58,10 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await storageGroup.scrollIntoViewIfNeeded()
     await page.evaluate(() => window.scrollBy(0, -80))
     await storageGroup.screenshot({ path: test.info().outputPath("storage-presets-mobile.png") })
-    corrupt = true
+    storageFixture.corrupt = true
     await button.click()
     await expect(page.getByText("Storage connection failed", { exact: true })).toBeVisible()
-    expect(objects.size).toBe(0)
+    expect(storageFixture.objects.size).toBe(0)
     await configure.setValue("s3_bucket", "another-unsaved-bucket")
     await expect(page.getByText("Storage connection failed", { exact: true })).toBeHidden()
     await page.reload()
@@ -101,8 +70,6 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await expect(configure.field("s3_secret_access_key")).toHaveValue("")
     await captureMilestone(page, "storage-secrets-masked")
   } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    )
+    await stopBrowserStorageFixture(server)
   }
 })

@@ -1,4 +1,5 @@
 import { boolean, index, snakeCase, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
 
 import {
   caseInsensitiveText,
@@ -15,11 +16,13 @@ export const user = snakeCase.table(
     name: text().notNull(),
     email: caseInsensitiveText().notNull(),
     emailVerified: boolean().default(false).notNull(),
+    // Better Auth requires this column. Keep it null and use member.avatarFileId for avatars.
+    // https://better-auth.com/docs/concepts/database#core-schema
     image: text(),
     termsAcceptedAt: timestampWithTimeZone(),
     ...timestamps(),
   },
-  (table) => [uniqueIndex("user_email_uidx").on(table.email)],
+  (table): PgTableExtraConfigValue[] => [uniqueIndex("user_email_uidx").on(table.email)],
 )
 
 export const session = snakeCase.table(

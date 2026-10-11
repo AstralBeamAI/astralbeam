@@ -38,6 +38,7 @@ import {
   chatParticipant,
   chatThread,
   chatToolResponse,
+  fileObject,
   modelProvider,
   providerModel,
   member,
@@ -49,6 +50,10 @@ import {
   tables,
   user,
 } from "@/db/schema"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
+
+const removedOrganizationFiles: string[] = []
+
 import deleteOrganization, { deleteOrganizationWorkflowLayer } from "./delete-organization.ts"
 
 describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workflow", () => {
@@ -234,6 +239,12 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
             Layer.provide([Database.layerNoDeps, Layer.succeed(Mailer, {} as Mailer["Service"])]),
           ),
         ),
+        Effect.provideService(ObjectStorage, {
+          remove: ({ key }: { key: string }) =>
+            Effect.sync(() => {
+              removedOrganizationFiles.push(key)
+            }),
+        } as unknown as ObjectStorage["Service"]),
       )
   }
 
@@ -656,6 +667,25 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const kept = await createOrganization("kept", deleted.tenantId)
     const { organizationId: deletedId, ownerId } = deleted
     const { organizationId: keptId } = kept
+    for (const { organizationId } of [deleted, kept]) {
+      const [logo] = await db
+        .insert(fileObject)
+        .values({
+          organizationId,
+          objectKey: `workflow-logo:${organizationId}`,
+          contentType: "image/png",
+          byteSize: 1,
+          sha256: "0".repeat(64),
+          status: "stored",
+        })
+        .returning()
+      await db
+        .update(organization)
+        .set({
+          logoFileId: logo!.id,
+        })
+        .where(eq(organization.id, organizationId))
+    }
     const deletedChat = await createDeletionChat(deleted)
     const [anotherTenant] = await db
       .insert(tenant)
@@ -719,6 +749,19 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         { organizationId: keptId },
       ])
     }
+    expect(
+      await db.select().from(fileObject).where(eq(fileObject.organizationId, deletedId)),
+    ).toEqual([])
+    expect(removedOrganizationFiles).toContain(`workflow-logo:${deletedId}`)
+    expect(removedOrganizationFiles).not.toContain(`workflow-logo:${keptId}`)
+    expect(
+      (
+        await db
+          .select()
+          .from(fileObject)
+          .where(eq(fileObject.objectKey, `workflow-logo:${keptId}`))
+      )[0]!.organizationId,
+    ).toBe(keptId)
   })
 
   test("keeps retrying a failed purge past any backoff window until the database recovers", async () => {

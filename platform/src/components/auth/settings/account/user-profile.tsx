@@ -14,14 +14,13 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
-import { ChangeAvatar } from "./change-avatar"
 
 export type UserProfileProps = {
   className?: string
 }
 
 /**
- * Render a profile card that lets the authenticated user update their display name and avatar.
+ * Render a profile card that lets the authenticated user update their display name.
  *
  * @param className - Optional additional CSS class names applied to the card container
  * @returns A JSX element containing the profile card with avatar upload and an editable name field
@@ -54,8 +53,6 @@ export function UserProfile({ className }: UserProfileProps) {
       <form onSubmit={submitUserProfile}>
         <Card className={cn(className)}>
           <CardContent className="flex flex-col gap-6">
-            <ChangeAvatar />
-
             <Field data-invalid={!!fieldErrors.name}>
               <FieldLabel htmlFor="name">{localization.auth.name}</FieldLabel>
 

@@ -91,8 +91,6 @@ jobs:
 
       - name: Install Platform dependencies
         working-directory: platform
-        env:
-          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
       - name: Build the Platform
@@ -115,7 +113,8 @@ jobs:
           for pair in aarch64-unknown-linux-gnu:linux-arm64 x86_64-apple-darwin:macos-x86_64 \
             aarch64-apple-darwin:macos-arm64 x86_64-pc-windows-msvc:windows-x86_64.exe; do
             deno compile --no-check --node-modules-dir=none --exclude-unused-npm --unstable-detect-cjs \
-              --include npm:busboy --include .output --include src/db/migrations --config deno.jsonc \
+              --include npm:busboy --include npm:sharp --include npm:@img/sharp-wasm32 --no-prompt \
+              --include .output --include src/db/migrations --config deno.jsonc \
               -P=runtime --target "${pair%%:*}" \
               --output "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}" src/main.ts
           done

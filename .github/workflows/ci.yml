@@ -88,9 +88,6 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.project }}
-        env:
-          # Keep sharp on its lockfile-pinned binary instead of compiling against a host-installed libvips. https://sharp.pixelplumbing.com/install#custom-libvips
-          SHARP_IGNORE_GLOBAL_LIBVIPS: 1
         run: deno install --frozen
 
       - name: Prefetch the Platform binary's npm packages

@@ -1,6 +1,17 @@
-import { bigint, index, pgEnum, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core"
+import {
+  bigint,
+  index,
+  pgEnum,
+  primaryKey,
+  snakeCase,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core"
+import type { PgTableExtraConfigValue } from "drizzle-orm/pg-core"
 
-import { timestamps, uuidV7PrimaryKey } from "../lib/columns.ts"
+import { deferrableForeignKey, timestamps, uuidV7 } from "../lib/columns.ts"
+import { organization } from "./organizations.ts"
 
 // pending: upload not yet verified. stored: uploaded and verified, with or without an attachment.
 // purging: S3 content and metadata are being removed.
@@ -9,7 +20,8 @@ const fileObjectStatus = pgEnum("file_object_status", ["pending", "stored", "pur
 export const fileObject = snakeCase.table(
   "file_object",
   {
-    id: uuidV7PrimaryKey(),
+    organizationId: uuid().notNull(),
+    id: uuidV7(),
     objectKey: text().notNull(),
     contentType: text().notNull(),
     byteSize: bigint({ mode: "number" }).notNull(),
@@ -17,9 +29,14 @@ export const fileObject = snakeCase.table(
     status: fileObjectStatus().notNull().default("pending"),
     ...timestamps(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
+    primaryKey({ name: "file_object_pkey", columns: [table.organizationId, table.id] }),
     uniqueIndex("file_object_key_uidx").on(table.objectKey),
     index("file_object_status_created_at_idx").on(table.status, table.createdAt),
+    deferrableForeignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organization.id],
+    }).onDelete("cascade"),
   ],
 )
 

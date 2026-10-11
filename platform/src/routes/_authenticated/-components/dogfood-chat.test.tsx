@@ -6,6 +6,8 @@ const navigationOrganization: OrganizationAccess = {
   organizationId: "01990a5d-0000-7000-8000-000000000011",
   organizationSlug: "acme",
   organizationName: "Acme",
+  memberId: "01990a5d-0000-7000-8000-000000000012",
+  avatarFileId: null,
   role: "owner",
   permissions: deriveOrganizationPermissions("owner"),
 }

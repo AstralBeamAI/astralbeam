@@ -1,5 +1,6 @@
 // Added with: deno task ui add @better-auth-ui/organization
 // Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, address organizations by their root-level slug path, let a URL-scoped page supply the active organization, and size the trigger's organization row.
+// Resolve the URL-scoped organization's logo from the existing membership list.
 
 "use client"
 
@@ -76,9 +77,11 @@ export function OrganizationSwitcher({
 
   const { data: sessionOrganization, isPending: sessionOrganizationPending } =
     useActiveOrganization(authClient, { enabled: !routeOrganization })
-  const activeOrganization = routeOrganization ?? sessionOrganization
-
   const { data: organizations, isPending: organizationsPending } = useListOrganizations(authClient)
+  const activeOrganization = routeOrganization
+    ? (organizations?.find((organization) => organization.id === routeOrganization.id) ??
+      routeOrganization)
+    : sessionOrganization
 
   const isPending =
     sessionPending ||

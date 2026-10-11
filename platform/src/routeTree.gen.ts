@@ -53,6 +53,8 @@ import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport
 import { Route as AuthenticatedOrgSlugSandboxesNewIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/new/index'
 import { Route as AuthenticatedUserSettingsAccountIndexRouteImport } from './routes/_authenticated/_user/settings/account/index'
 import { Route as AuthenticatedUserSettingsSecurityIndexRouteImport } from './routes/_authenticated/_user/settings/security/index'
+import { Route as ApiFilesOrganizationsOrganizationIdAvatarsFileIdRouteImport } from './routes/api/files/organizations/$organizationId/avatars/$fileId'
+import { Route as ApiFilesOrganizationsOrganizationIdLogosFileIdRouteImport } from './routes/api/files/organizations/$organizationId/logos/$fileId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -296,6 +298,18 @@ const AuthenticatedUserSettingsSecurityIndexRoute =
     path: '/settings/security/',
     getParentRoute: () => AuthenticatedUserRouteRoute,
   } as any)
+const ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute =
+  ApiFilesOrganizationsOrganizationIdAvatarsFileIdRouteImport.update({
+    id: '/api/files/organizations/$organizationId/avatars/$fileId',
+    path: '/api/files/organizations/$organizationId/avatars/$fileId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiFilesOrganizationsOrganizationIdLogosFileIdRoute =
+  ApiFilesOrganizationsOrganizationIdLogosFileIdRouteImport.update({
+    id: '/api/files/organizations/$organizationId/logos/$fileId',
+    path: '/api/files/organizations/$organizationId/logos/$fileId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -340,6 +354,8 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
+  '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
+  '/api/files/organizations/$organizationId/logos/$fileId': typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRoute
 }
 export interface FileRoutesByTo {
   '/docs.md': typeof DocsDotmdRoute
@@ -381,6 +397,8 @@ export interface FileRoutesByTo {
   '/$orgSlug/sandboxes/new': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/settings/account': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/settings/security': typeof AuthenticatedUserSettingsSecurityIndexRoute
+  '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
+  '/api/files/organizations/$organizationId/logos/$fileId': typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -428,6 +446,8 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
   '/_authenticated/_user/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/_authenticated/_user/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
+  '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
+  '/api/files/organizations/$organizationId/logos/$fileId': typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -474,6 +494,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/sandboxes/new/'
     | '/settings/account/'
     | '/settings/security/'
+    | '/api/files/organizations/$organizationId/avatars/$fileId'
+    | '/api/files/organizations/$organizationId/logos/$fileId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/docs.md'
@@ -515,6 +537,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/sandboxes/new'
     | '/settings/account'
     | '/settings/security'
+    | '/api/files/organizations/$organizationId/avatars/$fileId'
+    | '/api/files/organizations/$organizationId/logos/$fileId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -561,6 +585,8 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/sandboxes/new/'
     | '/_authenticated/_user/settings/account/'
     | '/_authenticated/_user/settings/security/'
+    | '/api/files/organizations/$organizationId/avatars/$fileId'
+    | '/api/files/organizations/$organizationId/logos/$fileId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -576,6 +602,8 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
+  ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute: typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
+  ApiFilesOrganizationsOrganizationIdLogosFileIdRoute: typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -888,6 +916,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUserSettingsSecurityIndexRouteImport
       parentRoute: typeof AuthenticatedUserRouteRoute
     }
+    '/api/files/organizations/$organizationId/avatars/$fileId': {
+      id: '/api/files/organizations/$organizationId/avatars/$fileId'
+      path: '/api/files/organizations/$organizationId/avatars/$fileId'
+      fullPath: '/api/files/organizations/$organizationId/avatars/$fileId'
+      preLoaderRoute: typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/organizations/$organizationId/logos/$fileId': {
+      id: '/api/files/organizations/$organizationId/logos/$fileId'
+      path: '/api/files/organizations/$organizationId/logos/$fileId'
+      fullPath: '/api/files/organizations/$organizationId/logos/$fileId'
+      preLoaderRoute: typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1039,6 +1081,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
+  ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute:
+    ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute,
+  ApiFilesOrganizationsOrganizationIdLogosFileIdRoute:
+    ApiFilesOrganizationsOrganizationIdLogosFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
