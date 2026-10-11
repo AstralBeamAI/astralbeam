@@ -1,5 +1,6 @@
+import { S3Client } from "@aws-sdk/client-s3"
 import { like } from "drizzle-orm"
-import { Effect, ManagedRuntime } from "effect"
+import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const storageDatabase = vi.hoisted(() => {
@@ -15,6 +16,7 @@ const storageDatabase = vi.hoisted(() => {
 
 import { getAuthDatabase } from "@/db/database"
 import { configTable } from "@/db/schema"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { Config } from "./config"
 import { seedConfig } from "../../../scripts/seed/config"
 
@@ -84,7 +86,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     } finally {
       await runtime.dispose()
     }
-    const restarted = ManagedRuntime.make(Config.layer)
+    const restarted = ManagedRuntime.make(Layer.merge(Config.layer, ObjectStorage.layer))
     try {
       vi.stubEnv("S3_ENDPOINT", "http://127.0.0.1:9000")
       await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
@@ -118,6 +120,19 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
         ).pipe(Effect.result),
       )
       expect(pin._tag).toBe("Failure")
+      const objectKey = `destination-test/${crypto.randomUUID()}`
+      const requests = vi.spyOn(S3Client.prototype, "send").mockResolvedValue(undefined)
+      try {
+        const cleanup = await restarted.runPromise(
+          Effect.flatMap(ObjectStorage, (storage) => storage.remove({ key: objectKey })).pipe(
+            Effect.result,
+          ),
+        )
+        expect(cleanup).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
+        expect(requests).not.toHaveBeenCalled()
+      } finally {
+        requests.mockRestore()
+      }
     } finally {
       await restarted.dispose()
     }
