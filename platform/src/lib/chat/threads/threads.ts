@@ -29,10 +29,14 @@ import {
   chatMessagePart,
   chatToolResponse,
   chatParticipant,
+  chatFile,
 } from "@/db/schema/chat"
 import { tenant, tenantUser, agent, organizationConfiguration } from "@/db/schema/organizations"
 import type { ChatPrincipal } from "../types"
 import { ChatFiles, type ChatFileCache } from "../attachments/attachments"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { detectSandboxArtifactMimeType } from "../sandbox/artifacts"
+import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants"
 import { fileObject } from "@/db/schema/files"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
@@ -43,6 +47,7 @@ import {
   ChatThreadConflict,
   ChatThreadForbidden,
   ChatThreadInvalid,
+  ChatFileUnavailable,
   ChatThreadNotFound,
   ChatIdentityNotSynchronized,
   type ChatThreadError,
@@ -982,6 +987,10 @@ export class ChatThreads extends Context.Service<
     readonly assertActive: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<void, ChatThreadError>
+    readonly publishArtifact: (input: {
+      claim: ChatWriterClaim
+      bytes: Uint8Array
+    }) => Effect.Effect<string, ChatThreadError>
     readonly nextDraft: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<ChatWriterClaim, ChatThreadError>
@@ -1001,6 +1010,7 @@ export class ChatThreads extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const files = yield* ChatFiles
+      const storedFiles = yield* StoredFiles
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
         db
           .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
@@ -1633,6 +1643,39 @@ export class ChatThreads extends Context.Service<
             .pipe(mapDatabaseErrors()),
       )
 
+      // Publication belongs to the assistant message that requested it, even after sandbox shutdown.
+      const publishArtifact = Effect.fn("ChatThreads.publishArtifact")(function* ({
+        claim,
+        bytes,
+      }: {
+        claim: ChatWriterClaim
+        bytes: Uint8Array
+      }) {
+        if (bytes.length > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) return yield* new ChatThreadInvalid()
+        const file = yield* storedFiles
+          .upload({
+            organizationId: claim.scope.organizationId,
+            bytes,
+            contentType: detectSandboxArtifactMimeType(bytes),
+          })
+          .pipe(Effect.mapError(() => new ChatFileUnavailable()))
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* checkClaim(tx, claim)
+              yield* tx.insert(chatFile).values({
+                ...rowScope(claim.scope),
+                uploaderTenantUserId: claim.scope.tenantUserId,
+                fileObjectId: file.id,
+                threadId: claim.threadId,
+                messageId: claim.assistantMessageId,
+              })
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+        return file.id
+      })
+
       const nextDraft = Effect.fn("ChatThreads.nextDraft")(
         ({ claim }: { claim: ChatWriterClaim }) =>
           db
@@ -1802,6 +1845,7 @@ export class ChatThreads extends Context.Service<
         admit,
         checkpoint,
         assertActive,
+        publishArtifact,
         nextDraft,
         appendToolResults,
         resolveTools,
@@ -1811,6 +1855,6 @@ export class ChatThreads extends Context.Service<
     }),
   )
   static readonly layer = ChatThreads.layerNoDeps.pipe(
-    Layer.provide([Database.layer, ChatFiles.layer]),
+    Layer.provide([Database.layer, ChatFiles.layer, StoredFiles.layer]),
   )
 }

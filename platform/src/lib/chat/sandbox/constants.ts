@@ -6,12 +6,8 @@ export const CHAT_SANDBOX_ROOT = "/workspace"
 // A fresh cloud sandbox takes tens of seconds and a command can hang, so every step is bounded
 // and the tool reports its timeout to the agent rather than failing the run.
 export const CHAT_SANDBOX_START_TIMEOUT_MS = 120_000
-// Artifact downloads: bounded separately from the model-context clamps, because a download's
-// budget is transfer size, not tokens. The ticket lives exactly as long as an idle lease can.
+// Published files have a transfer limit separate from the model-context budget.
 export const CHAT_SANDBOX_MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
-export const CHAT_ARTIFACT_TICKET_LIFETIME_SECONDS = 15 * 60
-export const CHAT_ARTIFACT_TICKET_AUDIENCE = `${APP_HANDLE}-artifact`
-export const CHAT_ARTIFACT_TICKET_TYPE = `${APP_HANDLE}-artifact+jwt`
 export const CHAT_SANDBOX_COMMAND_TIMEOUT_MS = 120_000
 export const CHAT_SANDBOX_FILE_TIMEOUT_MS = 30_000
 

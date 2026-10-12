@@ -6,6 +6,5 @@ export type {
   ApiRequestOptions,
   AstralBeamApiError,
   AstralBeamApiErrorBody,
-  FileOptions,
   JwtOptions,
 } from "./api.ts"

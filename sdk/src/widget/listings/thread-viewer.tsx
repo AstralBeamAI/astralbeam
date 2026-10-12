@@ -4,7 +4,6 @@ import { useInfiniteQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon } from "@phosphor-icons/react"
 import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
-import { DEFAULT_API_URL } from "../../lib/constants.ts"
 import {
   loadDirectoryThreadHistory,
   loadDirectoryThreadAttachment,
@@ -107,7 +106,6 @@ export function ThreadViewer({
         <div className="h-[32rem] min-h-64 overflow-hidden rounded-lg border border-foreground/10 bg-background text-foreground [--card-spacing:--spacing(4)]">
           <ChatTranscript
             messages={messages}
-            apiUrl={session.options.apiUrl ?? DEFAULT_API_URL}
             widgets={{}}
             toolTitles={{}}
             activeSlots={new Map()}

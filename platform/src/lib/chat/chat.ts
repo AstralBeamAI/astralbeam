@@ -47,6 +47,7 @@ import {
   ChatSystemPromptRefused,
   ChatWebAccessUnavailable,
 } from "./errors.ts"
+import { ChatSandboxUnavailable } from "./sandbox/errors"
 import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
 import type { ChatParams, ChatPrincipal } from "./types"
@@ -252,7 +253,14 @@ export class Chat extends Context.Service<
               .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
           : undefined
         const sandboxTools = session
-          ? createChatSandboxTools({ session, services: yield* Effect.context<never>() })
+          ? createChatSandboxTools({
+              session,
+              services: yield* Effect.context<never>(),
+              publishArtifact: (bytes) =>
+                threads
+                  .publishArtifact({ claim: managed.state.claim, bytes })
+                  .pipe(Effect.mapError(() => new ChatSandboxUnavailable())),
+            })
           : []
         if (log && sandboxTools.length > 0) {
           yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)

@@ -40,7 +40,6 @@ test.each([
             metadata: { astralbeam: { state: readOnly ? "draft" : "interrupted" } },
           },
         ]}
-        apiUrl="http://localhost/api"
         widgets={{ card: { description: "Card", render: vi.fn() } }}
         toolTitles={{}}
         activeSlots={new Map([[slotNameForToolCall("saved:decision"), "card"]])}

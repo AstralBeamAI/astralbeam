@@ -90,7 +90,7 @@ test("invalid JSON successes and native abort errors propagate", async () => {
   expect(fetchClient).toHaveBeenCalledTimes(1)
 })
 
-// Generated authentication types distinguish resources, chat and tickets, checked by `typecheck`.
+// Generated authentication types distinguish resources and chat, checked by `typecheck`.
 {
   type ResourceOptions = NonNullable<Parameters<typeof listTenants>[1]>
   type ChatOptions = NonNullable<Parameters<typeof getChatConfig>[1]>
@@ -99,7 +99,7 @@ test("invalid JSON successes and native abort errors propagate", async () => {
   expectTypeOf<{ astralBeamToken: string }>().toExtend<ResourceOptions>()
   expectTypeOf<{ apiKey: string; astralBeamToken: string }>().not.toExtend<ResourceOptions>()
   expectTypeOf<{ apiKey: string }>().not.toExtend<ChatOptions>()
-  expectTypeOf<{ astralBeamToken: string }>().not.toExtend<DownloadOptions>()
+  expectTypeOf<{ astralBeamToken: string }>().toExtend<DownloadOptions>()
   expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof listTenants>>()
   expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof getChatConfig>>()
 }

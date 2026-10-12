@@ -609,7 +609,7 @@ export function ChatWidget({
           loadingHistory={chatState.threadLoading}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
-          apiUrl={apiUrl}
+          getFile={chat.getFile}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyHeadline={options.emptyHeadline}
           emptyDescription={options.emptyDescription}

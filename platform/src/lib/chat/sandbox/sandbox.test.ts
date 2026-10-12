@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import type { SandboxHandle, SandboxProvider } from "@tanstack/ai-sandbox"
 import { Context, Effect, Exit, Layer, Scope } from "effect"
-import { beforeAll, beforeEach, vi } from "vitest"
+import { beforeEach, vi } from "vitest"
 
 const sandboxTest = vi.hoisted(() => ({
   unreadable: false,
@@ -19,7 +19,6 @@ vi.mock("@/lib/sandboxes/factory.server", () => ({
 
 import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import { artifactContentDigest } from "./artifacts.ts"
 import { CHAT_SANDBOX_MAX_LIVE } from "./constants.ts"
 import { ChatSandboxes, type ChatSandboxStatus } from "./sandbox.ts"
 
@@ -78,10 +77,6 @@ function sessionFor(sandboxes: ChatSandboxes["Service"], threadId = "thread") {
 
 const noStatus = () => Effect.void
 
-beforeAll(() => {
-  vi.stubEnv("DATABASE_ENCRYPTION_KEY", "artifact-ticket-test-key-32-characters!!")
-})
-
 beforeEach(() => {
   Object.assign(sandboxTest, {
     unreadable: false,
@@ -139,38 +134,6 @@ describe("ChatSandboxes", () => {
       }
       yield* Effect.yieldNow
       assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-1"])
-    }).pipe(Effect.provide(sandboxesLayer)),
-  )
-
-  it.effect("serves only the exact bytes a ticket was minted for", () =>
-    Effect.gen(function* () {
-      const sandboxes = yield* ChatSandboxes
-      const session = yield* sessionFor(sandboxes)
-      const handle = yield* session.acquire(noStatus)
-      const bytes = new TextEncoder().encode("A published report")
-      sandboxTest.files.set("/workspace/report.txt", bytes)
-      const ticket = yield* session.mintArtifactTicket({
-        providerSandboxId: handle.id,
-        path: "/workspace/report.txt",
-        mimeType: "text/plain",
-        size: bytes.byteLength,
-        sha256: yield* artifactContentDigest(bytes),
-      })
-      const artifact = yield* sandboxes.readArtifact(ticket)
-      assert.deepStrictEqual(artifact, {
-        bytes,
-        mimeType: "text/plain",
-        path: "/workspace/report.txt",
-      })
-
-      sandboxTest.files.set("/workspace/report.txt", new TextEncoder().encode("changed"))
-      const changed = yield* Effect.flip(sandboxes.readArtifact(ticket))
-      assert.strictEqual(changed.reason, "Changed")
-      sandboxTest.resumable = false
-      const gone = yield* Effect.flip(sandboxes.readArtifact(ticket))
-      assert.strictEqual(gone.reason, "SandboxGone")
-      const invalid = yield* Effect.flip(sandboxes.readArtifact("not-a-ticket"))
-      assert.strictEqual(invalid.reason, "Expired")
     }).pipe(Effect.provide(sandboxesLayer)),
   )
 })

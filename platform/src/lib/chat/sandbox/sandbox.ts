@@ -24,32 +24,21 @@ import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import {
-  artifactContentDigest,
-  deriveArtifactTicketKey,
-  detectSandboxArtifactMimeType,
-  mintSandboxArtifactTicket,
-  type SandboxArtifactTicket,
-  verifySandboxArtifactTicket,
-} from "./artifacts"
 import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants"
 import {
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
   CHAT_SANDBOX_IDLE_TTL_MS,
-  CHAT_SANDBOX_MAX_ARTIFACT_BYTES,
   CHAT_SANDBOX_MAX_LIVE,
   CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS,
   CHAT_SANDBOX_START_TIMEOUT_MS,
   CHAT_SANDBOX_SWEEP_INTERVAL_MS,
 } from "./constants"
 import {
-  ChatArtifactUnavailable,
   ChatSandboxConfigurationUnreadable,
   ChatSandboxOperationFailed,
   ChatSandboxUnavailable,
 } from "./errors.ts"
 import { chatPrincipalScope } from "../identity"
-import { resolveSandboxPath } from "./paths"
 import type { ChatAttachmentFile } from "../attachments/types"
 import type { ChatPrincipal } from "../types"
 
@@ -95,19 +84,6 @@ export interface ChatSandboxSession {
   readonly prepareUploads: (
     files: readonly ChatAttachmentFile[],
   ) => Effect.Effect<void, ChatSandboxUnavailable>
-  /** Signs a download ticket for published bytes, scoped to the run's principal and provider. */
-  readonly mintArtifactTicket: (
-    artifact: Pick<
-      SandboxArtifactTicket,
-      "providerSandboxId" | "path" | "mimeType" | "size" | "sha256"
-    >,
-  ) => Effect.Effect<string>
-}
-
-export interface ChatArtifact {
-  readonly bytes: Uint8Array
-  readonly mimeType: string
-  readonly path: string
 }
 
 interface ChatSandboxLease {
@@ -151,15 +127,12 @@ export class ChatSandboxes extends Context.Service<
       readonly runId: string
       readonly uploads: readonly ChatAttachmentFile[]
     }) => Effect.Effect<ChatSandboxSession, ChatSandboxConfigurationUnreadable>
-    /** Rereads exactly the bytes a ticket was minted for, resuming but never creating a sandbox. */
-    readonly readArtifact: (ticket: string) => Effect.Effect<ChatArtifact, ChatArtifactUnavailable>
   }
 >()("astralbeam/chat/ChatSandboxes") {
   static readonly layerNoDeps = Layer.effect(
     ChatSandboxes,
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
-      const artifactTicketKey = yield* Effect.cached(deriveArtifactTicketKey)
       // Process-local, so resume works only within one replica: a conversation that lands on
       // another instance starts a new sandbox instead, which costs time but is never incorrect.
       const leases = MutableHashMap.empty<string, ChatSandboxLease>()
@@ -335,16 +308,6 @@ export class ChatSandboxes extends Context.Service<
                 yield* writeChatSandboxUploads(running, additions)
                 for (const file of additions) uploaded.add(file.handle)
               }).pipe(Effect.mapError(() => new ChatSandboxUnavailable())),
-            mintArtifactTicket: (artifact) =>
-              Effect.flatMap(artifactTicketKey, (key) =>
-                mintSandboxArtifactTicket(key, {
-                  ...artifact,
-                  organizationId,
-                  tenantId: input.principal.tenantUser.tenant.id,
-                  tenantUserId: input.principal.tenantUser.id,
-                  sandboxProviderId: input.sandboxProviderId,
-                }),
-              ),
           } satisfies ChatSandboxSession
         },
         Effect.tapError((error) =>
@@ -355,44 +318,7 @@ export class ChatSandboxes extends Context.Service<
         Effect.mapError(() => new ChatSandboxConfigurationUnreadable()),
       )
 
-      const readArtifact = Effect.fn("ChatSandboxes.readArtifact")(function* (token: string) {
-        const ticket = yield* verifySandboxArtifactTicket(yield* artifactTicketKey, token)
-        // Provider and file-read failures are unexpected here and surface as a 500.
-        const provider = yield* resolveProvider(
-          ticket.organizationId,
-          ticket.sandboxProviderId,
-        ).pipe(Effect.orDie)
-        const handle = yield* chatSandboxCall(
-          (signal) => provider.resume({ id: ticket.providerSandboxId, signal }),
-          CHAT_SANDBOX_FILE_TIMEOUT_MS,
-        ).pipe(Effect.orDie)
-        if (!handle) return yield* new ChatArtifactUnavailable({ reason: "SandboxGone" })
-        // The path was containment-checked at publish time, so recheck it against the resumed
-        // workspace so a root that moved cannot turn it into an escape.
-        const resolved = resolveSandboxPath(resolveHarnessCwd(handle), ticket.path)
-        if ("refusal" in resolved || resolved.path !== ticket.path) {
-          return yield* new ChatArtifactUnavailable({ reason: "Moved" })
-        }
-        const bytes = yield* chatSandboxCall(
-          () => handle.fs.readBytes(resolved.path),
-          CHAT_SANDBOX_FILE_TIMEOUT_MS,
-        ).pipe(Effect.orDie)
-        if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
-          return yield* new ChatArtifactUnavailable({ reason: "TooLarge" })
-        }
-        // The capability covers exactly the published bytes: a same-type overwrite must be
-        // republished, so the digest decides and the sniff is rerun for the response header.
-        const mimeType = detectSandboxArtifactMimeType(bytes)
-        if (
-          (yield* artifactContentDigest(bytes)) !== ticket.sha256 ||
-          mimeType !== ticket.mimeType
-        ) {
-          return yield* new ChatArtifactUnavailable({ reason: "Changed" })
-        }
-        return { bytes, mimeType, path: resolved.path }
-      })
-
-      return ChatSandboxes.of({ session, readArtifact })
+      return ChatSandboxes.of({ session })
     }),
   )
 

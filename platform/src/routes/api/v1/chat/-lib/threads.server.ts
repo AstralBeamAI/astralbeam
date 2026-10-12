@@ -613,7 +613,14 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
   const saved = message.payload.parts.find((entry) => entry.id === partId)
   if (!saved) return yield* new ChatThreadNotFound()
-  const source = saved.source
+  const output =
+    saved.type === "tool-result" && Schema.is(Schema.JsonObject)(saved.output)
+      ? saved.output
+      : undefined
+  const source =
+    output && typeof output.fileId === "string"
+      ? { type: APP_HANDLE, id: output.fileId }
+      : saved.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||
     source.type !== APP_HANDLE ||
@@ -632,6 +639,8 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   const path =
     Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
       ? metadata.filename
-      : "attachment"
+      : output && typeof output.path === "string"
+        ? output.path
+        : "attachment"
   return chatArtifactResponse({ ...file, path })
 })

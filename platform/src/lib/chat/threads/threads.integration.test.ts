@@ -152,6 +152,106 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("published files survive sandbox shutdown, remain scoped, and retire with their conversation", async () => {
+    const thread = await create()
+    const { claim } = await admit(thread.id)
+    const toolPartId = crypto.randomUUID()
+    await runtime.runPromise(
+      service.checkpoint({
+        claim: claim!,
+        state: "complete",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: toolPartId,
+              type: "tool-call",
+              toolCallId: "publish",
+              name: "sandbox_publish_artifact",
+              arguments: "{}",
+              executionLocation: "sandbox",
+              targets: [{ id: targetA }],
+            },
+          ],
+        },
+      }),
+    )
+    const bytes = new TextEncoder().encode("Durable report")
+    const fileId = await runtime.runPromise(service.publishArtifact({ claim: claim!, bytes }))
+    const [association] = await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))
+    expect(association).toMatchObject({ messageId: claim!.assistantMessageId, threadId: thread.id })
+    expect(association!.id).not.toBe(fileId)
+    await runtime.runPromise(
+      service.appendToolResults({
+        claim: claim!,
+        results: [
+          {
+            assistantMessageId: claim!.assistantMessageId,
+            toolPartId,
+            responseTargetId: targetA,
+            payload: {
+              version: 1,
+              parts: [
+                {
+                  id: crypto.randomUUID(),
+                  type: "tool-result",
+                  outcome: "succeeded",
+                  output: {
+                    fileId,
+                    path: "/workspace/report.txt",
+                    mimeType: "text/plain",
+                    size: bytes.length,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    )
+    // Downloads have no sandbox dependency, only the persisted message and verified object.
+    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    const result = history.find((message) => message.role === "tool")!
+    const response = await runtime.runPromise(
+      savedChatAttachmentResponse(result, result.payload.parts[0]!.id),
+    )
+    expect(await HttpServerResponse.toWeb(response).text()).toBe("Durable report")
+    await expect(
+      runtime.runPromise(files.read({ scope: { ...foreign, threadId: thread.id }, fileId })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    const empty = await create()
+    await expect(
+      runtime.runPromise(files.read({ scope: { ...scope, threadId: empty.id }, fileId })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 2,
+        tenantUserId: other.tenantUserId,
+        role: "viewer",
+      }),
+    )
+    expect((await runtime.runPromise(service.get({ scope: other, id: thread.id }))).role).toBe(
+      "viewer",
+    )
+    await runtime.runPromise(
+      service.removeParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 3,
+        tenantUserId: other.tenantUserId,
+      }),
+    )
+    await expect(
+      runtime.runPromise(service.get({ scope: other, id: thread.id })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
+    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 4 }))
+    const [retired] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
+    expect(retired!.status).toBe("purging")
+    expect(await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))).toEqual([])
+  })
+
   test("native evidence completes without response slots and survives a database reload", async () => {
     const thread = await create()
     const admitted = await admit(thread.id)

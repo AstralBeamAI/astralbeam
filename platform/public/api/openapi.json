@@ -4396,17 +4396,27 @@
         "operationId": "getChatFile",
         "parameters": [
           {
-            "name": "ticket",
+            "name": "threadId",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true
+          },
+          {
+            "name": "fileId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             },
             "required": true
           }
         ],
         "security": [
           {
-            "ArtifactTicket": []
+            "astralBeamToken": []
           }
         ],
         "responses": {
@@ -4703,7 +4713,7 @@
             }
           }
         },
-        "description": "Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.",
+        "description": "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId and conversation threadId. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
         "summary": "Download a chat artifact"
       }
     },
@@ -11159,12 +11169,6 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Organization-management JWT delegates the selected member's current database permissions: owners/developers read and write Tenant resources, viewers read only. The trusted API-key holder selects the member and retains owner-equivalent resource access. Does not authenticate chat or dashboard administration."
-      },
-      "ArtifactTicket": {
-        "type": "apiKey",
-        "in": "query",
-        "name": "ticket",
-        "description": "Short-lived signed download ticket returned by a chat artifact. No bearer token required."
       }
     }
   },

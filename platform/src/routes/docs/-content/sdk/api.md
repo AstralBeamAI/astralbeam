@@ -128,7 +128,7 @@ Tenant JWT resource calls require signed `user.admin: true` and are restricted t
 - Pass either `page_after` or `page_before`, not both. A null continuation means there is no page in that direction. Listings are live, not snapshots.
 - PATCH sends only the fields supplied. `name: null` clears a name. Metadata replaces the whole object, and `{}` clears it.
 - Set `apiUrl` to your deployment's `/api` base and use `signal` to cancel a request.
-- API-key requests reject redirects. JWT and signed-ticket requests follow Fetch defaults unless overridden. Requests do not retry automatically. Use trusted API URLs and redirect destinations. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
+- API-key requests reject redirects. JWT requests follow Fetch defaults unless overridden. Requests do not retry automatically. Use trusted API URLs and redirect destinations. A failed or aborted mutation may already have committed. Low-level JWT calls do not refresh tokens automatically.
 
 ```ts
 import { isAstralBeamApiError, updateTenant } from "@astralbeam/sdk/api"
@@ -168,12 +168,12 @@ const config = await getChatConfig({ agentId }, { astralBeamToken: token })
 const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
 // Consume response.body as an SSE stream. No events are buffered by the helper.
 
-const file = await getChatFile({ ticket })
+const file = await getChatFile({ threadId, fileId }, { astralBeamToken: token })
 const filename = file.headers.get("Content-Disposition")
 const bytes = await file.arrayBuffer()
 ```
 
-Chat accepts tenant JWTs without requiring admin privileges. Downloads use their signed ticket, not an API key or JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
+Chat accepts tenant JWTs without requiring admin privileges. Downloads use tenant JWTs and current conversation permissions. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
 
 ## Current user
 

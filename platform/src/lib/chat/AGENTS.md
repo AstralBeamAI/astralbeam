@@ -4,7 +4,7 @@
 
 ## Request arrival
 
-- This folder owns chat execution, identity, attachments, and sandbox orchestration. Keep it independent of API routes. `Chat.run` requires an admitted message execution claim, parsed input, and a verified principal and returns the event Stream, and interrupting it aborts the run. `ChatSandboxes.readArtifact` returns verified bytes, MIME type, and path.
+- This folder owns chat execution, identity, attachments, and sandbox orchestration. Keep it independent of API routes. `Chat.run` requires an admitted message execution claim, parsed input, and a verified principal and returns the event Stream, and interrupting it aborts the run.
 - `src/routes/api/v1/chat/-lib` owns the HTTP contracts, body parsing, SSE responses, and download headers. Runtime imports stay deferred so static OpenAPI generation needs no database configuration. Fail with the `Schema.TaggedError` classes in `errors.ts`, `attachments/errors.ts` and `sandbox/errors.ts`, whose `httpApiStatus` the v1 boundary encodes.
 - Keep agent selection and selected configuration fields in one lookup. Handler error conversion also satisfies Effect HttpApi's declared error types, so removing it requires type checking as well as HTTP tests.
 - `handleRaw` preserves TanStack's AG-UI parser and bounded body reader. A declared or actual streamed body over `CHAT_MAX_REQUEST_BYTES` (32 MiB) gives 413. Do not apply resource casing transformations to AG-UI input.
@@ -52,7 +52,7 @@
 - Sandbox leases are process-local, namespaced by `chatPrincipalScope`, swept at 15 minutes idle, and capped at 25 live with LRU eviction. Resume therefore works only within one replica.
 - When changing sandbox allocation, include the provider configuration ID in workspace identity, reserve capacity before provisioning, and protect active leases until run cleanup.
 - Bound sandbox reads, artifacts, and command output during collection, and propagate provider cancellation. Post-buffer checks and wrapper timeouts do not bound resource use.
-- `sandbox_publish_artifact` mints an HS256 JWT ticket using a key HKDF-derived from the active `DATABASE_ENCRYPTION_KEY`, carrying the principal scope, provider id, vendor sandbox id, path, content-sniffed MIME type, size, and a SHA-256 of the bytes. `files.server.ts` accepts `?ticket=` as the complete download capability. The SDK fetches the bytes and uses blob URLs for image previews, not iframes. Downloads resume rather than create a sandbox, recheck containment, and reread, recap, rehash, and sniff the bytes. A rejected artifact check returns 404.
+- `sandbox_publish_artifact` copies and verifies bytes through `StoredFiles` before returning a file ID. Its short commit attaches the file to the assistant message that requested publication, checking the active claim. Downloads authorize current conversation access, read verified S3 bytes without reconnecting to the sandbox, and use blob URLs for image previews. Saved administrative transcripts reuse the existing attachment endpoint.
 
 ## Streaming
 
@@ -63,7 +63,7 @@
 
 ## Invariants
 
-- Every tenant-scoped key folds in all three of organization id, tenant id, and tenant-user id: the rate-limit key, the sandbox instance-store namespace, and the artifact ticket. `threadId` is browser-supplied and upstream's `computeSandboxKey` is a 64-bit hash, so that key alone is not a tenant boundary.
+- Every tenant-scoped key folds in all three of organization id, tenant id, and tenant-user id: the rate-limit key, the sandbox instance-store namespace, and stored-file ownership. `threadId` is browser-supplied and upstream's `computeSandboxKey` is a 64-bit hash, so that key alone is not a tenant boundary.
 - An attachment source must stay `data`-only. A URL source would have the model provider fetch a caller-chosen host on this deployment's API key.
 - Every attachment cap is enforced here regardless of what the SDK composer already checked, because the caller need not be the SDK.
 - Agent instructions and the attachment grant are agent configuration. `/api/v1/chat/config` exists so a client can narrow a grant for UX. It can never widen one, and a client-sent system prompt is refused rather than dropped.

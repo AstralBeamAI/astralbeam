@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm"
+import { count, ne, sql } from "drizzle-orm"
 import { Effect } from "effect"
 
 import { Database } from "@/db/database"
@@ -10,6 +10,13 @@ import purgeFile from "./purge-file"
 // Rotating updated_at recovers missed submissions fairly across bounded batches.
 const fileMaintenance = Effect.gen(function* () {
   const db = yield* Database
+  const counts = yield* db
+    .select({ status: fileObject.status, count: count() })
+    .from(fileObject)
+    .where(ne(fileObject.status, "stored"))
+    .groupBy(fileObject.status)
+    .pipe(mapDatabaseErrors())
+  yield* Effect.logInfo("File storage backlog", { files: counts })
   const purging = yield* db
     .update(fileObject)
     .set({ updatedAt: sql`now()` })
