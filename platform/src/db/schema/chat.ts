@@ -21,6 +21,7 @@ import {
   timestamps,
   uuidV7,
 } from "../lib/columns.ts"
+import { fileObject } from "./files.ts"
 import { agent, tenant, tenantUser } from "./organizations.ts"
 
 const boundedChatJson = Schema.makeFilter(
@@ -388,6 +389,43 @@ export const chatToolResponse = snakeCase.table(
       columns: [table.organizationId, table.tenantId, table.tenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
     }),
+  ],
+)
+
+// Uploads belong to their uploader until sending attaches them to a message.
+export const chatFile = snakeCase.table(
+  "chat_file",
+  {
+    organizationId: uuid().notNull(),
+    id: uuidV7(),
+    tenantId: uuid().notNull(),
+    uploaderTenantUserId: uuid().notNull(),
+    fileObjectId: uuid().notNull(),
+    threadId: uuid(),
+    messageId: uuid(),
+    ...timestamps(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.tenantId, table.id] }),
+    index().on(table.organizationId, table.tenantId, table.fileObjectId),
+    index().on(table.organizationId, table.tenantId, table.threadId),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.tenantId, table.uploaderTenantUserId],
+      foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.tenantId, table.threadId, table.messageId],
+      foreignColumns: [
+        chatMessage.organizationId,
+        chatMessage.tenantId,
+        chatMessage.threadId,
+        chatMessage.id,
+      ],
+    }).onDelete("cascade"),
+    deferrableForeignKey({
+      columns: [table.organizationId, table.fileObjectId],
+      foreignColumns: [fileObject.organizationId, fileObject.id],
+    }).onDelete("cascade"),
   ],
 )
 

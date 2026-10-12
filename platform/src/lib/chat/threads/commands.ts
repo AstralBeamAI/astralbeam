@@ -5,7 +5,13 @@ import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { Agents } from "@/lib/agents/agents.server"
 import { withDatabaseIdempotency } from "@/db/lib/idempotency"
-import { normalizeChatAttachments } from "../attachments/attachments"
+import { CHAT_ATTACHMENT_MAX_COUNT } from "../attachments/constants"
+import {
+  ChatFiles,
+  identifyChatFiles,
+  normalizeChatAttachments,
+  sanitizeAttachmentFilename,
+} from "../attachments/attachments"
 import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ChatAdmission, type ThreadInput } from "./threads"
@@ -63,11 +69,18 @@ const managedUserParts = Schema.Array(
     Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
     Schema.Struct({
       type: Schema.Literals(["image", "document", "audio", "video"]),
-      source: Schema.Struct({
-        type: Schema.Literal("data"),
-        value: Schema.String,
-        mimeType: Schema.optionalKey(Schema.String),
-      }),
+      source: Schema.Union([
+        Schema.Struct({
+          type: Schema.Literal("data"),
+          value: Schema.String,
+          mimeType: Schema.optionalKey(Schema.String),
+        }),
+        Schema.Struct({
+          type: Schema.Literal("file"),
+          value: ApiUuidSchema,
+          mimeType: Schema.optionalKey(Schema.String),
+        }),
+      ]),
       metadata: Schema.optionalKey(Schema.JsonObject),
     }),
   ]),
@@ -77,7 +90,7 @@ const chatAdmissionOperation = {
   name: "ChatAdmission/v1",
   parameters: Schema.Struct({
     id: ApiUuidSchema,
-    parts: managedUserParts,
+    parts: Schema.Array(Schema.JsonObject),
     tools: Schema.Array(Schema.JsonObject),
     clientId: ApiUuidSchema,
     agentId: Schema.optionalKey(Schema.String),
@@ -140,8 +153,21 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       ).parts.map(chatStoredJson),
     catch: () => new ChatThreadInvalid(),
   })
-  const parts = yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
+  const parts = (yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
+  )).map((part) =>
+    part.type === "text"
+      ? part
+      : {
+          ...part,
+          metadata: {
+            ...part.metadata,
+            filename: sanitizeAttachmentFilename(
+              part.metadata?.filename,
+              part.type === "image" ? "image" : "attachment",
+            ),
+          },
+        },
   )
   const tools = yield* Effect.try({
     try: () => params.tools.map(chatStoredJson),
@@ -155,41 +181,49 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
     id,
-    parts,
+    parts: yield* identifyChatFiles(parts),
     tools,
     clientId: options.clientId,
     ...(options.agentId === undefined ? {} : { agentId: options.agentId }),
   }
+  if (thread.role === "viewer") return yield* new ChatThreadForbidden()
+  const agentId = thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
+  if (agentId === null) return yield* new ChatThreadNotFound()
+  if (options.agentId !== undefined && options.agentId !== agentId)
+    return yield* new ChatThreadInvalid()
+  const agent = yield* agents
+    .resolveForChat({ organizationId: scope.organizationId, agentId })
+    .pipe(Effect.mapError(() => new ChatThreadNotFound()))
+  if (!agent.attachmentsEnabled && parts.some((part) => part.type !== "text"))
+    return yield* new ChatAttachmentsDisabled()
+  if (parts.filter((part) => part.type !== "text").length > CHAT_ATTACHMENT_MAX_COUNT)
+    return yield* new ChatThreadInvalid()
+  const files = yield* ChatFiles
+  const normalized = normalizeChatAttachments(
+    yield* files.hydrate({
+      scope: { ...scope, threadId: id },
+      messages: convertMessagesToModelMessages(params.messages),
+    }),
+    { sandbox: agent.sandboxProviderId !== null },
+  )
+  if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
+    return yield* new ChatThreadInvalid()
+  const stored = yield* files.store({
+    scope: { ...scope, threadId: id },
+    payload: {
+      version: 1,
+      parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+      tools,
+      provenance: { clientId: options.clientId },
+    },
+  })
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
-    // Recovery returns the authorized receipt even after write access or agent configuration changes.
-    // These checks apply only to a new admission, not to a previously accepted intent.
-    if (thread.role === "viewer") return yield* new ChatThreadForbidden()
-    const agentId =
-      thread.agentId === null ? null : `agent_${scope.organizationId}_${thread.agentId}`
-    if (agentId === null) return yield* new ChatThreadNotFound()
-    if (command.agentId !== undefined && command.agentId !== agentId)
-      return yield* new ChatThreadInvalid()
-    const agent = yield* agents
-      .resolveForChat({ organizationId: scope.organizationId, agentId })
-      .pipe(Effect.mapError(() => new ChatThreadNotFound()))
-    const normalized = normalizeChatAttachments(params.messages, {
-      sandbox: agent.sandboxProviderId !== null,
-    })
-    if (!agent.attachmentsEnabled && normalized.attachments.length > 0)
-      return yield* new ChatAttachmentsDisabled()
-    if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
-      return yield* new ChatThreadInvalid()
     admission = yield* threads.admit({
       scope,
       id: command.id,
-      payload: {
-        version: 1,
-        parts: command.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
-        tools: command.tools,
-        provenance: { clientId: command.clientId },
-      },
+      payload: stored,
     })
     return {
       threadId: admission.thread.id,

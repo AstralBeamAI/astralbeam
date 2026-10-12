@@ -44,8 +44,32 @@ const chatRunInput = Schema.Struct({
   ],
 })
 
+const chatFileInput = Schema.Struct({
+  agentId: Schema.optionalKey(Schema.String),
+  type: Schema.Literals(["image", "document"]),
+  source: Schema.Struct({
+    type: Schema.Literal("data"),
+    value: Schema.String,
+    mimeType: Schema.String,
+  }),
+  metadata: Schema.Struct({ filename: Schema.String }),
+})
+
 export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
   .add(
+    HttpApiEndpoint.post("uploadChatFile", "/chat/files", {
+      payload: chatFileInput,
+      success: Schema.Struct({
+        fileId: ApiUuidSchema,
+        mimeType: Schema.String,
+        byteSize: Schema.Int,
+      }).annotate({ identifier: "UploadedChatFile" }),
+    })
+      .annotate(OpenApi.Summary, "Upload a chat file")
+      .annotate(
+        OpenApi.Description,
+        "Upload a file before sending a message using a synchronized tenant user JWT. The returned fileId is private to the uploader until sending attaches it to a message. Send it as source: { type: 'file', value: fileId }. Uploads do not expire. Maximum request size: 32 MiB.",
+      ),
     HttpApiEndpoint.post("runChat", "/chat", {
       headers: Schema.Struct({
         "idempotency-key": Schema.optionalKey(
@@ -104,9 +128,19 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/threads/commands"),
       )
       const { ChatSandboxes } = yield* Effect.promise(() => import("@/lib/chat/sandbox/sandbox"))
-      const { consumeChatRateLimit, readChatRunParams, chatAdmissionResponse } =
-        yield* Effect.promise(() => import("./run.server"))
+      const {
+        consumeChatRateLimit,
+        readChatRunParams,
+        chatAdmissionResponse,
+        readChatRequestBody,
+      } = yield* Effect.promise(() => import("./run.server"))
       const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
+      const { ChatFiles } = yield* Effect.promise(
+        () => import("@/lib/chat/attachments/attachments"),
+      )
+      const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
+      const { ChatThreadInvalid } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
+      const files = yield* ChatFiles
       const chat = yield* Chat
       const threads = yield* ChatThreads
       const sandboxes = yield* ChatSandboxes
@@ -123,6 +157,45 @@ export function chatHandlers(api: typeof ApiV1) {
           Effect.provideContext(services),
         )
       return handlers
+        .handleRaw(
+          "uploadChatFile",
+          Effect.fn("uploadChatFile")(function* ({ request }) {
+            const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal, "upload").pipe(Effect.provideContext(services))
+            const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
+            const body = yield* readChatRequestBody(native)
+            const input = yield* Schema.decodeUnknownEffect(chatFileInput)(body).pipe(
+              Effect.mapError(() => new ChatThreadInvalid()),
+            )
+            if (!(yield* chat.capabilities({ principal, agentId: input.agentId })).attachments)
+              return yield* new ChatAttachmentsDisabled()
+            const scope = yield* threads.resolveScope({ principal })
+            const payload = yield* files.store({
+              scope,
+              payload: {
+                version: 1,
+                parts: [
+                  {
+                    id: crypto.randomUUID(),
+                    type: input.type,
+                    source: input.source,
+                    metadata: input.metadata,
+                  },
+                ],
+              },
+            })
+            const source = payload.parts[0]!.source as {
+              id: string
+              mimeType: string
+              byteSize: number
+            }
+            return HttpServerResponse.jsonUnsafe({
+              fileId: source.id,
+              mimeType: source.mimeType,
+              byteSize: source.byteSize,
+            })
+          }),
+        )
         .handleRaw(
           "runChat",
           Effect.fn("runChat")(function* ({ request }) {

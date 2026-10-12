@@ -369,13 +369,22 @@ export function ChatWidget({
         mimeType: pick.mimeType,
         size: pick.size,
       })
-      void readAttachmentData(file).then(
-        (data) => settle(pick.id, { status: "ready", data }),
-        (error: unknown) => {
-          debug?.("error", `attachment "${pick.name}" could not be read`, error)
-          settle(pick.id, { status: "error", error: "The file could not be read" })
-        },
-      )
+      const data = readAttachmentData(file)
+      void chat
+        .uploadAttachment({ data, filename: pick.name, mimeType: pick.mimeType })
+        .then(async (uploaded) => {
+          settle(pick.id, {
+            status: "ready",
+            fileId: uploaded.fileId,
+            mimeType: uploaded.mimeType,
+            size: uploaded.byteSize,
+            ...(pick.kind === "image" ? { data: await data } : {}),
+          })
+        })
+        .catch((error: unknown) => {
+          debug?.("error", `attachment "${pick.name}" could not be uploaded`, error)
+          settle(pick.id, { status: "error", error: "The file could not be uploaded" })
+        })
     }
   }
 

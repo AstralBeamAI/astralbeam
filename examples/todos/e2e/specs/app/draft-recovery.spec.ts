@@ -85,11 +85,11 @@ test("unsent text, images, and large files recover, and accepted files stay clea
       }>
     }
     const parts = body.messages.find((message) => message.role === "user")!.content
-    expect(parts.find((part) => part.metadata?.filename === large.name)?.source?.value).toBe(
-      large.buffer.toString("base64"),
+    expect(parts.find((part) => part.metadata?.filename === large.name)?.source?.value).toEqual(
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
     )
-    expect(parts.find((part) => part.metadata?.filename === image.name)?.source?.value).toBe(
-      image.buffer.toString("base64"),
+    expect(parts.find((part) => part.metadata?.filename === image.name)?.source?.value).toEqual(
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
     )
     expect(parts.some((part) => part.metadata?.filename === note.name)).toBe(false)
     await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
@@ -100,6 +100,13 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await chat.composer().fill("  Keep my unsent question\nwith these files  ")
   await chat.attach([note, image, large])
   await expect(chat.sendButton()).toBeEnabled()
+  const stored = await page.evaluate(() =>
+    Object.keys(localStorage)
+      .map((key) => localStorage.getItem(key) ?? "")
+      .filter((value) => value.includes('"fileId"')),
+  )
+  expect(stored).toHaveLength(1)
+  expect(stored[0]).not.toContain(note.buffer.toString("base64"))
   await page.reload()
   await expect(chat.composer()).toHaveValue("  Keep my unsent question\nwith these files  ")
   for (const file of [note, image, large])
@@ -174,10 +181,9 @@ test("stale tabs preserve newer files and cannot restore accepted files", async 
   await otherChat.selectConversation(thread.title)
   await expect(otherChat.attachmentChip(note.name)).toBeVisible()
 
-  await chat.attach(image)
-  await expect(chat.sendButton()).toBeEnabled()
   const later = { ...note, name: "later.txt" }
-  await otherChat.attach(later)
+  await Promise.all([chat.attach(image), otherChat.attach(later)])
+  await expect(chat.sendButton()).toBeEnabled()
   await expect(otherChat.sendButton()).toBeEnabled()
   await page.reload()
   for (const file of [note, image, later])
@@ -320,37 +326,116 @@ test("draft files remain isolated between conversations and accounts", async ({ 
   await expect(chat.attachmentChip(note.name)).toBeVisible()
 })
 
-for (const failure of ["disabled", "quota"] as const) {
-  test(`${failure} browser storage does not prevent attaching or sending`, async ({ page }) => {
-    await page.addInitScript((mode) => {
-      if (mode === "disabled") {
-        Object.defineProperty(window, "indexedDB", {
-          get: () => {
-            throw new DOMException("Disabled", "SecurityError")
-          },
-        })
-      } else {
-        IDBObjectStore.prototype.put = () => {
-          throw new DOMException("Full", "QuotaExceededError")
-        }
-      }
-    }, failure)
-    await page.route("**/api/v1/chat", (route) =>
-      route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
-    )
-    await todosPage(page).open()
-    const chat = chatWidget(page)
-    await chat.waitForReady()
-    await chat.composer().fill("Still usable")
-    await chat.attach(note)
-    await expect(chat.sendButton()).toBeEnabled()
-    await expect(
-      page.getByText(
-        "Files cannot be recovered after reload because browser storage is unavailable.",
-      ),
-    ).toBeVisible()
-    await chat.sendButton().click()
-    await expect(chat.composer()).toHaveValue("")
-    await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+test("full browser storage does not prevent attaching or sending", async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Full", "QuotaExceededError")
+    }
   })
-}
+  await page.route("**/api/v1/chat", (route) =>
+    route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
+  )
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.composer().fill("Still usable")
+  await chat.attach(note)
+  await expect(chat.sendButton()).toBeEnabled()
+  await expect(
+    page.getByText(
+      "Files cannot be recovered after reload because browser storage is unavailable.",
+    ),
+  ).toBeVisible()
+  await chat.sendButton().click()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
+})
+
+test("accepted uploads preview and download before reload and survive stream snapshots", async ({
+  page,
+}) => {
+  const messageId = "00000000-0000-4000-8000-000000000083"
+  const partId = "00000000-0000-4000-8000-000000000084"
+  await page.route(`**/messages/${messageId}/attachments/${partId}`, (route) =>
+    route.fulfill({ contentType: image.mimeType, body: image.buffer }),
+  )
+  const acceptedMessage = {
+    id: messageId,
+    role: "user",
+    state: "complete",
+    parent_message_id: null,
+    author_tenant_user_id: null,
+    source_assistant_message_id: null,
+    source_tool_part_id: null,
+    response_target_id: null,
+    created_at: thread.created_at,
+    parts: [
+      {
+        id: partId,
+        type: "image",
+        source: { type: "attachment", mimeType: image.mimeType, byteSize: image.buffer.length },
+        metadata: { filename: image.name },
+      },
+    ],
+  }
+  let accepted = false
+  let releaseHistory: (() => void) | undefined
+  await page.route("**/api/v1/chat/threads/*/messages?*", async (route) => {
+    if (accepted)
+      await new Promise<void>((resolve) => {
+        releaseHistory = resolve
+      })
+    await route.fulfill({
+      json: {
+        thread,
+        messages: accepted ? [acceptedMessage] : [],
+        pending_interactions: [],
+        page_after: null,
+        page_before: null,
+      },
+    })
+  })
+  await page.route("**/api/v1/chat", (route) => {
+    const body = route.request().postDataJSON() as {
+      messages: Array<{ content: Array<Record<string, unknown>> }>
+    }
+    const input = body.messages[0]!
+    accepted = true
+    return route.fulfill({
+      contentType: "text/event-stream",
+      body: [
+        { type: "RUN_STARTED", threadId: thread.id, runId: "preview-test" },
+        {
+          type: "CUSTOM",
+          name: "astralbeam_thread",
+          value: { threadId: thread.id, version: 2, acceptedMessageId: messageId, acceptedMessage },
+        },
+        {
+          type: "MESSAGES_SNAPSHOT",
+          threadId: thread.id,
+          messages: [{ id: messageId, role: "user", parts: input.content }],
+        },
+        { type: "RUN_FINISHED", threadId: thread.id, runId: "preview-test" },
+      ]
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join(""),
+    })
+  })
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.attach(image)
+  await expect(chat.sendButton()).toBeEnabled()
+  await chat.sendButton().click()
+  const preview = chat.root.locator('img[src^="blob:"]')
+  await expect(preview).toBeVisible()
+  await expect
+    .poll(() => preview.evaluate((element: HTMLImageElement) => element.naturalWidth))
+    .toBeGreaterThan(0)
+  const download = page.waitForEvent("download")
+  await chat.root.getByRole("button", { name: `Download ${image.name}` }).click()
+  expect((await download).suggestedFilename()).toBe(image.name)
+  await captureMoment(page, "accepted-upload-preview-and-download")
+  await expect.poll(() => releaseHistory !== undefined).toBe(true)
+  releaseHistory!()
+})

@@ -1,5 +1,19 @@
-import { type ChatMiddleware, EventType } from "@tanstack/ai"
-import { Predicate, Result } from "effect"
+import { type ChatMiddleware, type ModelMessage, EventType } from "@tanstack/ai"
+import { Context, Effect, Layer, Predicate, Result, Schema } from "effect"
+import { createHash } from "node:crypto"
+import { and, eq, isNull, or } from "drizzle-orm"
+import { mapDatabaseErrors } from "../../../db/lib/sqlstate.ts"
+import { Database } from "../../../db/database.ts"
+import { chatFile } from "../../../db/schema/chat.ts"
+import { fileObject } from "../../../db/schema/files.ts"
+import { StoredFiles } from "../../storage/stored-files.server.ts"
+import {
+  ChatMessagePayloadSchema,
+  type ChatMessagePayload,
+  type ChatThreadScope,
+} from "../threads/schemas.ts"
+import { ChatFileUnavailable, ChatThreadInvalid, ChatThreadNotFound } from "../threads/errors.ts"
+import type { MessageRecord } from "../threads/threads.ts"
 
 import { APP_HANDLE } from "@/lib/constants"
 
@@ -31,23 +45,12 @@ import type { ChatMessages } from "../types"
 /**
  * Rewrites a run's user messages into what the model actually receives.
  *
- * There are exactly two deliveries. An image or a PDF is a modality the provider reads itself, so
- * it passes through as a file input. Everything else becomes a *file*: the user's message keeps
- * only its name, and the agent reaches the contents with `read_attachment` or with code in the
- * sandbox.
+ * Images and PDFs pass through as provider file inputs. Other uploads become files the agent
+ * reads through `read_attachment` or code in its sandbox, rather than quoted user instructions.
+ * Paging keeps long files readable, and spreadsheets can be analyzed rather than transcribed.
  *
- * That split is what makes an upload behave like an upload. Nothing quotes a file into the user's
- * own words, so a file cannot impersonate the user's instructions; nothing is silently truncated,
- * because a paged read has no end to fall off; and a spreadsheet is analyzed as a spreadsheet
- * rather than transcribed into the conversation.
- *
- * Nothing read out of a file is written into a prompt here, either. A filename, a sheet name and a
- * column name are all chosen by whoever made the file, so they travel only as user-message text
- * and as `read_attachment` results — never in a system prompt, whose authority they would borrow.
- *
- * The client re-sends every past attachment on each turn, so each run re-reads them. That is
- * deliberate: it costs a re-read of bytes already in the request and keeps every handle in the
- * conversation resolvable for as long as the client keeps sending it.
+ * Filenames, sheet names, and column names are caller-controlled. They travel only as user
+ * messages and tool results, never in a system prompt whose authority they could borrow.
  */
 
 // The AG-UI wire carries a user message's attachments in its `content` array, where a text entry
@@ -99,7 +102,7 @@ function isTextualMimeType(mimeType: string): boolean {
 // The filename is client-supplied and lands in the prompt, in the provider request, and in a
 // sandbox path, so control characters (which could forge line structure) are replaced and the
 // length is bounded.
-function sanitizeAttachmentFilename(value: unknown, fallback: string): string {
+export function sanitizeAttachmentFilename(value: unknown, fallback: string): string {
   if (!Predicate.isString(value)) return fallback
   const cleaned = value.replace(/\p{C}/gu, " ").trim()
   if (cleaned.length === 0) return fallback
@@ -303,8 +306,8 @@ export function normalizeChatAttachments(
     if (!Predicate.isString(entry.source.value) || entry.source.value.length === 0) {
       return refuse("its contents were missing.")
     }
-    // Only inline data: a URL source would have the provider fetch a caller-chosen host on this
-    // deployment's API key, and the SDK composer never produces one.
+    // Execution uses transiently hydrated bytes. Never let a provider fetch a caller-chosen URL
+    // using this deployment's API key.
     if (entry.source.type !== "data") {
       return refuse("this assistant accepts only files uploaded with the message.")
     }
@@ -484,20 +487,54 @@ export function redactChatAttachmentData(messages: ChatMessages): ChatMessages {
  * {@link normalizeChatAttachments} rewrites a user message for the *model*, and the snapshot an
  * interrupt boundary emits is built from those same rewritten messages. The client replaces its
  * transcript with that snapshot, so without this pass a sent file's chip becomes the
- * `[Attached: …]` line as text mid-conversation, and the bytes leave the client's copy of the
- * turn: the next request no longer carries the file and its handle stops resolving.
+ * `[Attached: …]` line as text mid-conversation. Saved history keeps durable file references,
+ * while this snapshot preserves the current run's attachment presentation.
  *
- * A user message that arrived with a media entry is restored exactly as it arrived, so the
- * transcript the client keeps is the one it sent.
+ * Persisted messages restore their file references and download IDs. Execution-only bytes
+ * stay out of client snapshots.
  */
-export function createChatAttachmentSnapshotMiddleware(messages: ChatMessages): ChatMiddleware {
+export function createChatAttachmentSnapshotMiddleware(
+  messages: ChatMessages,
+  records: readonly Pick<
+    MessageRecord,
+    "id" | "payload" | "createdAt" | "state" | "authorTenantUserId"
+  >[],
+): ChatMiddleware {
   const sent = new Map<string, ChatMessages[number]>()
   for (const message of messages) {
     if (message.role !== "user") continue
     const source = message as { id?: unknown; content?: unknown; parts?: unknown }
     if (!Predicate.isString(source.id) || source.id.length === 0) continue
     const entries = Array.isArray(source.parts) ? source.parts : source.content
-    if (Array.isArray(entries) && entries.some(isMediaEntry)) sent.set(source.id, message)
+    if (Array.isArray(entries) && entries.some(isMediaEntry)) {
+      const id = source.id
+      const record = records.find((record) => record.id === id.split(":")[0])
+      if (!record) continue
+      const parts = record.payload.parts.map((part) => {
+        const file = part.source
+        return Schema.is(Schema.JsonObject)(file) && file.type === APP_HANDLE
+          ? {
+              ...part,
+              source: {
+                type: "file",
+                value: file.id,
+                mimeType: file.mimeType,
+                byteSize: file.byteSize,
+              },
+              savedAttachmentId: part.id,
+            }
+          : part
+      })
+      sent.set(id, {
+        id,
+        role: "user",
+        createdAt: record.createdAt,
+        metadata: {
+          astralbeam: { state: record.state, authorTenantUserId: record.authorTenantUserId },
+        },
+        parts,
+      } as unknown as ChatMessages[number])
+    }
   }
   return {
     name: `${APP_HANDLE}-chat-attachment-snapshot`,
@@ -516,4 +553,373 @@ export function createChatAttachmentSnapshotMiddleware(messages: ChatMessages): 
       return restored ? { ...chunk, messages: snapshot } : undefined
     },
   }
+}
+
+type JsonObject = typeof Schema.JsonObject.Type
+export interface ChatFileScope {
+  organizationId: string
+  tenantId: string
+  threadId: string
+  tenantUserId?: string
+}
+export type ChatFileCache = Map<string, typeof storedSource.Type & { byteSize: number }>
+type FileError = ChatThreadInvalid | ChatFileUnavailable | ChatThreadNotFound
+
+const storedSource = Schema.Struct({
+  type: Schema.Literal(APP_HANDLE),
+  id: Schema.String.check(Schema.isUUID()),
+  mimeType: Schema.String,
+})
+const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
+const ownedFiles = (scope: ChatFileScope) =>
+  and(
+    eq(chatFile.organizationId, scope.organizationId),
+    eq(chatFile.tenantId, scope.tenantId),
+    eq(chatFile.threadId, scope.threadId),
+  )
+
+// Visit media in canonical parts and native provider content. Tool outputs and arguments stay opaque.
+function mapChatMedia<E, R>(
+  value: unknown,
+  change: (part: JsonObject) => Effect.Effect<JsonObject, E, R>,
+): Effect.Effect<unknown, E, R> {
+  return Effect.gen(function* () {
+    if (Array.isArray(value))
+      return yield* Effect.forEach(value, (item) => mapChatMedia(item, change))
+    if (!Schema.is(Schema.JsonObject)(value)) return value
+    if (
+      typeof value.type === "string" &&
+      ["image", "document", "audio", "video"].includes(value.type) &&
+      Schema.is(Schema.JsonObject)(value.source)
+    )
+      return yield* change(value)
+    if (value.type === "tool-call" || value.type === "tool-result") return value
+    let result: Record<string, unknown> = value
+    for (const key of ["parts", "modelMessages", "content"]) {
+      if (Array.isArray(value[key]))
+        result = { ...result, [key]: yield* mapChatMedia(value[key], change) }
+    }
+    return result
+  })
+}
+
+function chatFileMimeType(part: JsonObject) {
+  const source = part.source as JsonObject
+  const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : {}
+  return resolveMimeType(
+    normalizeMimeType(source.mimeType) || "application/octet-stream",
+    typeof metadata.filename === "string" ? metadata.filename : "",
+  )
+}
+
+function inlineFile(part: JsonObject, limit: number) {
+  const source = Schema.decodeUnknownSync(Schema.JsonObject)(part.source)
+  const value = Schema.decodeUnknownSync(Schema.String)(source.value)
+  const mimeType = chatFileMimeType(part)
+  if (mimeType.length > 255 || !/^[\w.+-]+\/[\w.+-]+$/.test(mimeType)) throw new ChatThreadInvalid()
+  if (
+    value.length > CHAT_ATTACHMENT_MAX_TOTAL_BYTES * 2 ||
+    base64ByteLength(value) > limit ||
+    !hasDeclaredFileSignature(value, mimeType)
+  )
+    throw new ChatThreadInvalid()
+  const bytes = decodeAttachmentBytes(value)
+  if (!bytes || bytes.length > limit) throw new ChatThreadInvalid()
+  return { bytes, mimeType, digest: sha256(bytes) }
+}
+
+export const identifyChatFiles = (parts: readonly JsonObject[]) =>
+  Effect.forEach(parts, (part) =>
+    Effect.try({
+      try: () => {
+        if (!Schema.is(Schema.JsonObject)(part.source) || part.source.type !== "data") return part
+        const file = inlineFile(part, CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+        return {
+          ...part,
+          source: {
+            type: "content",
+            sha256: file.digest,
+            byteSize: file.bytes.length,
+            mimeType: file.mimeType,
+          },
+        }
+      },
+      catch: () => new ChatThreadInvalid(),
+    }),
+  )
+
+export class ChatFiles extends Context.Service<
+  ChatFiles,
+  {
+    readonly store: (input: {
+      scope: ChatThreadScope & { threadId?: string }
+      payload: ChatMessagePayload
+      cache?: ChatFileCache
+    }) => Effect.Effect<ChatMessagePayload, FileError>
+    readonly read: (input: {
+      scope: ChatFileScope
+      fileId: string
+    }) => Effect.Effect<{ bytes: Uint8Array; mimeType: string }, FileError>
+    readonly hydrate: (input: {
+      scope: ChatFileScope
+      messages: readonly ModelMessage[]
+    }) => Effect.Effect<ModelMessage[], FileError>
+    readonly attach: (input: {
+      scope: ChatFileScope & { tenantUserId: string }
+      messageId: string
+      value: unknown
+    }) => Effect.Effect<number, ChatThreadInvalid>
+  }
+>()("astralbeam/chat/ChatFiles") {
+  // Stores verified bytes outside transactions. Callers authorize writes and commit references afterward.
+  static readonly layerNoDeps = Layer.effect(
+    ChatFiles,
+    Effect.gen(function* () {
+      const db = yield* Database
+      const files = yield* StoredFiles
+      const queryFile = (id: string, ownership: ReturnType<typeof ownedFiles>) =>
+        db
+          .select({ file: fileObject, attachment: chatFile })
+          .from(chatFile)
+          .innerJoin(
+            fileObject,
+            and(
+              eq(fileObject.organizationId, chatFile.organizationId),
+              eq(fileObject.id, chatFile.fileObjectId),
+            ),
+          )
+          .where(and(ownership, eq(fileObject.id, id), eq(fileObject.status, "stored")))
+      const available = (scope: ChatThreadScope & { threadId?: string }) =>
+        and(
+          eq(chatFile.organizationId, scope.organizationId),
+          eq(chatFile.tenantId, scope.tenantId),
+          or(
+            and(isNull(chatFile.messageId), eq(chatFile.uploaderTenantUserId, scope.tenantUserId)),
+            scope.threadId ? eq(chatFile.threadId, scope.threadId) : undefined,
+          ),
+        )
+      const upload = Effect.fnUntraced(function* (
+        scope: ChatThreadScope,
+        part: JsonObject,
+        input: ReturnType<typeof inlineFile>,
+        cache: ChatFileCache,
+      ) {
+        const key = `${input.mimeType}:${input.digest}`
+        let reference = cache.get(key)
+        if (!reference) {
+          const saved = yield* files
+            .upload({
+              organizationId: scope.organizationId,
+              bytes: input.bytes,
+              contentType: input.mimeType,
+            })
+            .pipe(Effect.mapError(() => new ChatFileUnavailable()))
+          yield* db
+            .insert(chatFile)
+            .values({
+              organizationId: scope.organizationId,
+              tenantId: scope.tenantId,
+              uploaderTenantUserId: scope.tenantUserId,
+              fileObjectId: saved.id,
+            })
+            .pipe(mapDatabaseErrors())
+          reference = {
+            type: APP_HANDLE,
+            id: saved.id,
+            mimeType: input.mimeType,
+            byteSize: input.bytes.length,
+          }
+          cache.set(key, reference)
+        }
+        return { ...part, source: reference }
+      })
+      const store: typeof ChatFiles.Service.store = ({ scope, payload, cache = new Map() }) => {
+        const sizes = new Map<string, number>()
+        return mapChatMedia(payload, (inputPart) =>
+          Effect.gen(function* () {
+            const rawMetadata = inputPart.metadata
+            const metadata: Record<string, typeof Schema.Json.Type> = Schema.is(Schema.JsonObject)(
+              rawMetadata,
+            )
+              ? rawMetadata
+              : {}
+            const part: JsonObject = {
+              ...inputPart,
+              metadata: {
+                ...metadata,
+                filename: sanitizeAttachmentFilename(
+                  metadata.filename,
+                  inputPart.type === "image" ? "image" : "attachment",
+                ),
+              },
+            }
+            const source = part.source as JsonObject
+            if (
+              source.type === "file" &&
+              Schema.is(Schema.String.check(Schema.isUUID()))(source.value)
+            ) {
+              const id = source.value
+              const [saved] = yield* queryFile(id, available(scope)).pipe(mapDatabaseErrors())
+              if (!saved) return yield* new ChatThreadInvalid()
+              return {
+                ...part,
+                source: {
+                  type: APP_HANDLE,
+                  id,
+                  mimeType: saved.file.contentType,
+                  byteSize: saved.file.byteSize,
+                },
+              }
+            }
+            if (source.type !== "data") return part
+            const kind = attachmentKind(chatFileMimeType(part))
+            if (!kind && (part.type === "image" || part.type === "document"))
+              return yield* new ChatThreadInvalid()
+            const input = yield* Effect.try({
+              try: () =>
+                inlineFile(
+                  part,
+                  kind ? CHAT_ATTACHMENT_MAX_BYTES_BY_KIND[kind] : CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+                ),
+              catch: () => new ChatThreadInvalid(),
+            })
+            sizes.set(`${input.mimeType}:${input.digest}`, input.bytes.length)
+            if (
+              sizes.size > CHAT_ATTACHMENT_MAX_COUNT ||
+              [...sizes.values()].reduce((a, b) => a + b, 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES
+            )
+              return yield* new ChatThreadInvalid()
+            return yield* upload(scope, part, input, cache)
+          }),
+        ).pipe(
+          Effect.flatMap((stored) =>
+            Schema.decodeUnknownEffect(ChatMessagePayloadSchema)(stored).pipe(
+              Effect.mapError(() => new ChatThreadInvalid()),
+            ),
+          ),
+        )
+      }
+      const read = Effect.fnUntraced(function* ({
+        scope,
+        fileId,
+        maxBytes = CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+      }: {
+        scope: ChatFileScope
+        fileId: string
+        maxBytes?: number
+      }) {
+        // Admission reads uploader-private files. Saved downloads use conversation ownership.
+        const ownership = scope.tenantUserId
+          ? available({ ...scope, tenantUserId: scope.tenantUserId })
+          : ownedFiles(scope)
+        const [saved] = yield* queryFile(fileId, ownership)
+        if (!saved) return yield* new ChatThreadInvalid()
+        const file = saved.file
+        if (file.byteSize > maxBytes) return yield* new ChatThreadInvalid()
+        const bytes = yield* files
+          .read({ file })
+          .pipe(Effect.mapError(() => new ChatFileUnavailable()))
+        return { bytes, mimeType: file.contentType }
+      })
+      const hydrate = ({ scope, messages }: Parameters<typeof ChatFiles.Service.hydrate>[0]) => {
+        let totalBytes = 0
+        return Effect.forEach(messages, (message) =>
+          Array.isArray(message.content)
+            ? Effect.forEach(message.content, (part) =>
+                Effect.gen(function* () {
+                  if (part.type === "text") return part
+                  const source: unknown = part.source
+                  if (!Schema.is(Schema.JsonObject)(source)) return part
+                  const id =
+                    source.type === APP_HANDLE
+                      ? source.id
+                      : source.type === "file"
+                        ? source.value
+                        : undefined
+                  if (!Schema.is(Schema.String.check(Schema.isUUID()))(id)) return part
+                  const file = yield* read({
+                    scope,
+                    fileId: id,
+                    maxBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES - totalBytes,
+                  })
+                  totalBytes += file.bytes.length
+                  return {
+                    ...part,
+                    source: {
+                      type: "data" as const,
+                      value: Buffer.from(file.bytes).toString("base64"),
+                      mimeType: file.mimeType,
+                      byteSize: file.bytes.length,
+                    },
+                  }
+                }),
+              ).pipe(Effect.map((content) => ({ ...message, content })))
+            : Effect.succeed(message),
+        )
+      }
+      const attach = Effect.fnUntraced(function* ({
+        scope,
+        messageId,
+        value,
+      }: {
+        scope: ChatFileScope & { tenantUserId: string }
+        messageId: string
+        value: unknown
+      }) {
+        let size = 0
+        let count = 0
+        yield* mapChatMedia(value, (part) =>
+          Effect.gen(function* () {
+            if (!Schema.is(storedSource)(part.source)) {
+              if (Schema.is(Schema.JsonObject)(part.source) && part.source.type === "data")
+                return yield* new ChatThreadInvalid()
+              return part
+            }
+            const rows = yield* queryFile(part.source.id, available(scope)).for("update")
+            const saved = rows[0]
+            if (!saved) return yield* new ChatThreadInvalid()
+            const file = saved.file
+            if (!rows.some(({ attachment }) => attachment.messageId === messageId)) {
+              const pending = rows.find(({ attachment }) => attachment.messageId === null)
+              if (pending)
+                yield* db
+                  .update(chatFile)
+                  .set({ threadId: scope.threadId, messageId })
+                  .where(
+                    and(
+                      eq(chatFile.organizationId, scope.organizationId),
+                      eq(chatFile.tenantId, scope.tenantId),
+                      eq(chatFile.id, pending.attachment.id),
+                    ),
+                  )
+              else
+                yield* db.insert(chatFile).values({
+                  organizationId: scope.organizationId,
+                  tenantId: scope.tenantId,
+                  uploaderTenantUserId: scope.tenantUserId,
+                  fileObjectId: file.id,
+                  threadId: scope.threadId,
+                  messageId,
+                })
+            }
+            size += file.byteSize
+            count++
+            if (count > CHAT_ATTACHMENT_MAX_COUNT || size > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+              return yield* new ChatThreadInvalid()
+            return part
+          }),
+        )
+        return size
+      })
+      return ChatFiles.of({
+        store: (input) => store(input).pipe(mapDatabaseErrors()),
+        read: (input) => read(input).pipe(mapDatabaseErrors()),
+        hydrate: (input) => hydrate(input).pipe(mapDatabaseErrors()),
+        attach: (input) => attach(input).pipe(mapDatabaseErrors()),
+      })
+    }),
+  )
+  static readonly layer = ChatFiles.layerNoDeps.pipe(
+    Layer.provide([Database.layer, StoredFiles.layer]),
+  )
 }

@@ -1,3 +1,5 @@
+import { APP_HANDLE } from "@/lib/constants"
+import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
 import { Effect, Layer, Stream } from "effect"
@@ -13,6 +15,7 @@ const chatRunTest = vi.hoisted(() => ({
     toolExecution?: string
     middleware: ChatMiddleware[]
   }>,
+  hydrated: undefined as unknown,
   order: [] as string[],
   runError: undefined as object | undefined,
 }))
@@ -110,6 +113,15 @@ function chatTestLayer(options: {
   } as unknown as ChatSandboxes["Service"]
   return Chat.layerNoDeps.pipe(
     Layer.provide([
+      Layer.succeed(ChatFiles, {
+        store: ({ payload }) => Effect.succeed(payload),
+        read: () => Effect.die("unused"),
+        hydrate: ({ messages }) => {
+          chatRunTest.hydrated = messages
+          return Effect.succeed([...messages])
+        },
+        attach: () => Effect.succeed(0),
+      }),
       Layer.succeed(Agents, agents),
       Layer.succeed(ModelProviders, {
         resolveForAgent: () =>
@@ -152,6 +164,7 @@ const runChat = (body?: Record<string, unknown>) =>
   })
 
 beforeEach(() => {
+  chatRunTest.hydrated = undefined
   chatRunTest.options = []
   chatRunTest.order = []
   chatRunTest.runError = undefined
@@ -274,6 +287,8 @@ describe("Chat.run", () => {
       const messages = JSON.stringify(chatRunTest.options[0]!.messages)
       assert.include(messages, "Saved input")
       assert.notInclude(messages, "Caller replacement")
+      assert.include(messages, "Saved caption")
+      assert.notInclude(JSON.stringify(chatRunTest.hydrated), "unavailable-stored-image")
     }).pipe(
       Effect.provide(
         chatTestLayer({
@@ -287,6 +302,26 @@ describe("Chat.run", () => {
               payload: {
                 version: 1,
                 parts: [{ id: "part", type: "text", content: "Saved input" }],
+              },
+            },
+            {
+              id: "generated",
+              role: "assistant",
+              state: "complete",
+              payload: {
+                version: 1,
+                parts: [
+                  { id: "caption", type: "text", content: "Saved caption" },
+                  {
+                    id: "image",
+                    type: "image",
+                    source: {
+                      type: APP_HANDLE,
+                      id: "unavailable-stored-image",
+                      mimeType: "image/png",
+                    },
+                  },
+                ],
               },
             },
           ] as unknown as MessageRecord[],

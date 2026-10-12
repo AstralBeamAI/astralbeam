@@ -32,7 +32,8 @@ import {
 } from "@/db/schema/chat"
 import { tenant, tenantUser, agent, organizationConfiguration } from "@/db/schema/organizations"
 import type { ChatPrincipal } from "../types"
-import { base64ByteLength } from "../attachments/attachments"
+import { ChatFiles, type ChatFileCache } from "../attachments/attachments"
+import { fileObject } from "@/db/schema/files"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
@@ -970,11 +971,13 @@ export class ChatThreads extends Context.Service<
     readonly removeParticipant: (
       input: ThreadInput & { lockVersion: number; tenantUserId: string },
     ) => Effect.Effect<void, ChatThreadError>
+    // Admission commits prepared references, with permissions and file ownership checked in SQL.
     readonly admit: (input: AdmitInput) => Effect.Effect<ChatAdmission, ChatThreadError>
     readonly checkpoint: (input: {
       claim: ChatWriterClaim
       payload: ChatMessagePayload
       state: "draft" | "complete"
+      cache?: ChatFileCache
     }) => Effect.Effect<void, ChatThreadError>
     readonly assertActive: (input: {
       claim: ChatWriterClaim
@@ -989,10 +992,7 @@ export class ChatThreads extends Context.Service<
     readonly resolveTools: (
       input: ResolveToolsInput,
     ) => Effect.Effect<ChatAdmission, ChatThreadError>
-    readonly finish: (input: {
-      claim: ChatWriterClaim
-      payload?: ChatMessagePayload | undefined
-    }) => Effect.Effect<void, ChatThreadError>
+    readonly finish: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
     readonly interrupt: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
   }
 >()("astralbeam/chat/threads/ChatThreads") {
@@ -1000,6 +1000,7 @@ export class ChatThreads extends Context.Service<
     ChatThreads,
     Effect.gen(function* () {
       const db = yield* Database
+      const files = yield* ChatFiles
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
         db
           .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
@@ -1272,6 +1273,12 @@ export class ChatThreads extends Context.Service<
                   .update(chatThread)
                   .set({ currentLeafMessageId: null })
                   .where(scopeWhere(input.scope, input.id))
+                yield* tx
+                  .update(fileObject)
+                  .set({ status: "purging" })
+                  .where(
+                    sql`${fileObject.organizationId} = ${input.scope.organizationId} and ${fileObject.id} in (select file_object_id from chat_file where organization_id = ${input.scope.organizationId} and tenant_id = ${input.scope.tenantId} and thread_id = ${input.id})`,
+                  )
                 yield* deleteWithOptimisticLock({
                   executor: tx,
                   table: chatThread,
@@ -1475,8 +1482,9 @@ export class ChatThreads extends Context.Service<
           changeParticipant(input).pipe(Effect.asVoid),
       )
 
-      const admit = Effect.fn("ChatThreads.admit")((input: AdmitInput) =>
-        db
+      const admit = Effect.fn("ChatThreads.admit")(function* (input: AdmitInput) {
+        const scope = { ...input.scope, threadId: input.id }
+        return yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
               const row = yield* readThread(tx, input, true)
@@ -1485,55 +1493,6 @@ export class ChatThreads extends Context.Service<
               const payload = yield* decodePayload(input.payload).pipe(
                 Effect.mapError(() => new ChatThreadInvalid()),
               )
-              const attachmentBytes = payload.parts.reduce((total, part) => {
-                const source = part.source
-                return (
-                  total +
-                  (Schema.is(Schema.JsonObject)(source) && typeof source.value === "string"
-                    ? base64ByteLength(source.value)
-                    : 0)
-                )
-              }, 0)
-              if (attachmentBytes > 0) {
-                // Enforce the restored run budget under the append lock, counting encodings in SQL
-                // so concurrent uploads cannot persist a history that normalizeChatAttachments rejects.
-                const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
-                const [saved] = ids.length
-                  ? yield* tx
-                      .select({
-                        bytes:
-                          sql<number>`coalesce(sum(length(encoded.value) * 3 / 4 - length(encoded.value) + length(rtrim(encoded.value, '='))), 0)`.mapWith(
-                            Number,
-                          ),
-                      })
-                      .from(chatMessagePart)
-                      .innerJoin(
-                        chatMessage,
-                        and(
-                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
-                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
-                          eq(chatMessage.threadId, chatMessagePart.threadId),
-                          eq(chatMessage.id, chatMessagePart.messageId),
-                        ),
-                      )
-                      .crossJoin(
-                        sql`lateral (select regexp_replace(${chatMessagePart.payload} #>> '{source,value}', '^data:[^,]*,|[[:space:]]', '', 'g') as value) encoded`,
-                      )
-                      .where(
-                        and(
-                          chatPartWhere(input.scope, input.id),
-                          eq(chatMessage.role, "user"),
-                          sql`${chatMessagePart.payload}->>'type' in ('image', 'document', 'audio', 'video')`,
-                          inArray(
-                            chatMessagePart.messageId,
-                            ids.map((item) => item.id),
-                          ),
-                        ),
-                      )
-                  : []
-                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-                  return yield* new ChatThreadInvalid()
-              }
               const invocationId = crypto.randomUUID()
               const [userMessage] = yield* tx
                 .insert(chatMessage)
@@ -1548,6 +1507,51 @@ export class ChatThreads extends Context.Service<
                   turnState: "running",
                 })
                 .returning()
+              const attachmentBytes = yield* files.attach({
+                scope,
+                messageId: userMessage!.id,
+                value: payload.parts,
+              })
+              if (attachmentBytes > 0) {
+                const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
+                const [saved] = ids.length
+                  ? yield* tx
+                      .select({
+                        bytes: sql<number>`coalesce(sum(${fileObject.byteSize}), 0)`.mapWith(
+                          Number,
+                        ),
+                      })
+                      .from(chatMessagePart)
+                      .innerJoin(
+                        chatMessage,
+                        and(
+                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
+                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
+                          eq(chatMessage.threadId, chatMessagePart.threadId),
+                          eq(chatMessage.id, chatMessagePart.messageId),
+                        ),
+                      )
+                      .innerJoin(
+                        fileObject,
+                        and(
+                          eq(fileObject.organizationId, chatMessagePart.organizationId),
+                          sql`${fileObject.id}::text = ${chatMessagePart.payload}->'source'->>'id'`,
+                        ),
+                      )
+                      .where(
+                        and(
+                          chatPartWhere(input.scope, input.id),
+                          eq(chatMessage.role, "user"),
+                          inArray(
+                            chatMessagePart.messageId,
+                            ids.map((item) => item.id),
+                          ),
+                        ),
+                      )
+                  : []
+                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+                  return yield* new ChatThreadInvalid()
+              }
               yield* insertChatContent(tx, input.scope, input.id, userMessage!.id, payload)
               const assistantMessage = yield* appendDraft(
                 tx,
@@ -1591,24 +1595,36 @@ export class ChatThreads extends Context.Service<
               }
             }),
           )
-          .pipe(mapDatabaseErrors()),
-      )
+          .pipe(mapDatabaseErrors())
+      })
 
-      const checkpoint = Effect.fn("ChatThreads.checkpoint")(
-        (input: {
-          claim: ChatWriterClaim
-          payload: ChatMessagePayload
-          state: "draft" | "complete"
-        }) =>
-          db
-            .transaction((tx) =>
-              Effect.gen(function* () {
-                const { message } = yield* checkClaim(tx, input.claim)
-                yield* persistChatOutput(tx, input.claim, message, input.payload, input.state)
-              }),
-            )
-            .pipe(mapDatabaseErrors()),
-      )
+      const checkpoint = Effect.fn("ChatThreads.checkpoint")(function* (input: {
+        claim: ChatWriterClaim
+        payload: ChatMessagePayload
+        state: "draft" | "complete"
+        cache?: ChatFileCache
+      }) {
+        const scope = { ...input.claim.scope, threadId: input.claim.threadId }
+        const stored = yield* files.store({
+          scope,
+          payload: input.payload,
+          ...(input.cache ? { cache: input.cache } : {}),
+        })
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const { message } = yield* checkClaim(tx, input.claim)
+              yield* files.attach({ scope, messageId: message.id, value: stored.parts })
+              yield* files.attach({
+                scope,
+                messageId: message.id,
+                value: stored.modelMessages ?? [],
+              })
+              yield* persistChatOutput(tx, input.claim, message, stored, input.state)
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+      })
 
       const assertActive = Effect.fn("ChatThreads.assertActive")(
         ({ claim }: { claim: ChatWriterClaim }) =>
@@ -1722,33 +1738,20 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors()),
       )
 
-      const finish = Effect.fn("ChatThreads.finish")(
-        ({
-          claim,
-          payload,
-        }: {
-          claim: ChatWriterClaim
-          payload?: ChatMessagePayload | undefined
-        }) =>
-          db
-            .transaction((tx) =>
-              Effect.gen(function* () {
-                const { message, thread } = yield* checkClaim(tx, claim)
-                if (message.state === "draft")
-                  yield* persistChatOutput(
-                    tx,
-                    claim,
-                    message,
-                    payload ?? message.payload,
-                    "complete",
-                  )
-                const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
-                  ({ message: source }) => source.turnMessageId === claim.inputMessageId,
-                )
-                yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
-              }),
-            )
-            .pipe(mapDatabaseErrors()),
+      const finish = Effect.fn("ChatThreads.finish")(({ claim }: { claim: ChatWriterClaim }) =>
+        db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const { message, thread } = yield* checkClaim(tx, claim)
+              if (message.state === "draft")
+                yield* persistChatOutput(tx, claim, message, message.payload, "complete")
+              const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
+                ({ message: source }) => source.turnMessageId === claim.inputMessageId,
+              )
+              yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
+            }),
+          )
+          .pipe(mapDatabaseErrors()),
       )
 
       const interrupt = Effect.fn("ChatThreads.interrupt")(
@@ -1807,5 +1810,7 @@ export class ChatThreads extends Context.Service<
       })
     }),
   )
-  static readonly layer = ChatThreads.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = ChatThreads.layerNoDeps.pipe(
+    Layer.provide([Database.layer, ChatFiles.layer]),
+  )
 }

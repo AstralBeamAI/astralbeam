@@ -3,9 +3,9 @@
  */
 import { astralBeamApiFetch } from "../api.ts"
 import { astralBeamResourceFetch } from "../api.ts"
-import { astralBeamChatFetch } from "../api.ts"
 import { astralBeamJwtFetch } from "../api.ts"
 import { astralBeamFileFetch } from "../api.ts"
+import { astralBeamChatFetch } from "../api.ts"
 export type AstralBeamApiErrorIssuesItem = {
   path: string
   message: string
@@ -347,6 +347,12 @@ export interface ChatRunInput {
   parentRunId?: string
 }
 
+export interface UploadedChatFile {
+  fileId: string
+  mimeType: string
+  byteSize: number
+}
+
 export type ChatMessageEncodedRole =
   (typeof ChatMessageEncodedRole)[keyof typeof ChatMessageEncodedRole]
 
@@ -619,12 +625,44 @@ export type ListThreadMessagesParams = {
   page_before?: string
 }
 
-export type GetChatConfigParams = {
+export type UploadChatFileBodyType =
+  (typeof UploadChatFileBodyType)[keyof typeof UploadChatFileBodyType]
+
+export const UploadChatFileBodyType = {
+  image: "image",
+  document: "document",
+} as const
+
+export type UploadChatFileBodySourceType =
+  (typeof UploadChatFileBodySourceType)[keyof typeof UploadChatFileBodySourceType]
+
+export const UploadChatFileBodySourceType = {
+  data: "data",
+} as const
+
+export type UploadChatFileBodySource = {
+  type: UploadChatFileBodySourceType
+  value: string
+  mimeType: string
+}
+
+export type UploadChatFileBodyMetadata = {
+  filename: string
+}
+
+export type UploadChatFileBody = {
   agentId?: string
+  type: UploadChatFileBodyType
+  source: UploadChatFileBodySource
+  metadata: UploadChatFileBodyMetadata
 }
 
 export type GetChatFileParams = {
   ticket: string
+}
+
+export type GetChatConfigParams = {
+  agentId?: string
 }
 
 export type ListChatThreadsParams = {
@@ -1078,6 +1116,75 @@ export const getThreadAttachment = (
   })
 }
 
+export const getUploadChatFileUrl = () => {
+  return `/api/v1/chat/files`
+}
+
+/**
+ * Upload a file before sending a message using a synchronized tenant user JWT. The returned fileId is private to the uploader until sending attaches it to a message. Send it as source: { type: 'file', value: fileId }. Uploads do not expire. Maximum request size: 32 MiB.
+ * @summary Upload a chat file
+ */
+export const uploadChatFile = (
+  uploadChatFileBody: UploadChatFileBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<UploadedChatFile>(getUploadChatFileUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(uploadChatFileBody),
+  })
+}
+
+export const getGetChatFileUrl = (params: GetChatFileParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/files?${stringifiedParams}`
+    : `/api/v1/chat/files`
+}
+
+/**
+ * Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.
+ * @summary Download a chat artifact
+ */
+export const getChatFile = (
+  params: GetChatFileParams,
+  options?: Parameters<typeof astralBeamFileFetch>[1],
+) => {
+  return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
 export const getRunChatUrl = () => {
   return `/api/v1/chat`
 }
@@ -1142,36 +1249,6 @@ export const getChatConfig = (
   options: Parameters<typeof astralBeamJwtFetch>[1],
 ) => {
   return astralBeamJwtFetch<ChatConfiguration>(getGetChatConfigUrl(params), {
-    ...options,
-    method: "GET",
-  })
-}
-
-export const getGetChatFileUrl = (params: GetChatFileParams) => {
-  const normalizedParams = new URLSearchParams()
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value))
-    }
-  })
-
-  const stringifiedParams = normalizedParams.toString()
-
-  return stringifiedParams.length > 0
-    ? `/api/v1/chat/files?${stringifiedParams}`
-    : `/api/v1/chat/files`
-}
-
-/**
- * Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.
- * @summary Download a chat artifact
- */
-export const getChatFile = (
-  params: GetChatFileParams,
-  options?: Parameters<typeof astralBeamFileFetch>[1],
-) => {
-  return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
     ...options,
     method: "GET",
   })

@@ -120,7 +120,9 @@ Let's use **Members** to upload or remove your avatar for an Organization. Globa
 
 Avatars and Organization logos use application URLs that check current membership before redirecting to a signed S3 download URL valid for one minute. The storage endpoint must be reachable from your users' browsers. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
 
-For an existing deployment, let's back up the database and configure storage before applying the file migration. It clears historical avatars, logos and file metadata created before Organization ownership existed, leaving chat messages and attachments unchanged. Users see initials until they upload an avatar. The FileMaintenance schedule submits unfinished uploads and retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
+Files do not expire. The FileMaintenance schedule submits explicitly retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
+
+Conversation uploads use the same private bucket. PostgreSQL stores file metadata and conversation ownership, and authenticated downloads check current conversation permissions. Message parts and provider continuation media store file references. Attachment descriptors include verified byte sizes.
 
 Replacement retains deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
 

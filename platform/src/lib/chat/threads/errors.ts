@@ -41,7 +41,16 @@ export class ChatIdentityNotSynchronized extends Schema.TaggedError<ChatIdentity
     "Synchronize your identity with POST /api/v1/me before opening saved conversations"
 }
 
+export class ChatFileUnavailable extends Schema.TaggedError<ChatFileUnavailable>()(
+  "ChatFileUnavailable",
+  {},
+  { httpApiStatus: 503 },
+) {
+  override readonly message = "File storage is temporarily unavailable"
+}
+
 export type ChatThreadError =
+  | ChatFileUnavailable
   | ChatThreadNotFound
   | ChatThreadConflict
   | ChatThreadForbidden

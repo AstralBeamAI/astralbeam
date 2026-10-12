@@ -25,6 +25,7 @@ import { createChatAdapter } from "./adapter"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
+  ChatFiles,
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments/attachments"
@@ -85,12 +86,16 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
   sandbox,
+  scope,
+  files,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
+  readonly files: typeof ChatFiles.Service
   readonly sandbox: boolean
+  readonly scope: { organizationId: string; tenantId: string; threadId: string }
 }) {
-  const projected = yield* Effect.try({
+  const stored = yield* Effect.try({
     try: () =>
       projectChatModelHistory(history, {
         providerId: model.providerId,
@@ -99,6 +104,14 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
       }),
     catch: () => new ChatThreadInvalid(),
   })
+  const executable = stored.flatMap((message) => {
+    if (message.role === "user" || !Array.isArray(message.content)) return [message]
+    const content = message.content.filter(
+      (part) => !["image", "document", "audio", "video"].includes(part.type),
+    )
+    return content.length ? [{ ...message, content }] : []
+  })
+  const projected = yield* files.hydrate({ scope, messages: executable })
   const normalized = normalizeChatAttachments(projected, { sandbox })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
@@ -137,6 +150,7 @@ export class Chat extends Context.Service<
       const sandboxes = yield* ChatSandboxes
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
+      const storedFiles = yield* ChatFiles
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -180,8 +194,10 @@ export class Chat extends Context.Service<
           files,
         } = yield* prepareChatHistory({
           history,
+          files: storedFiles,
           model,
           sandbox: agent.sandboxProviderId !== null,
+          scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
         const unknownOutcome = history.some(
           (message) =>
@@ -266,6 +282,8 @@ export class Chat extends Context.Service<
                 })
                 const normalized = yield* prepareChatHistory({
                   history: saved,
+                  files: storedFiles,
+                  scope: { ...claim.scope, threadId: claim.threadId },
                   model,
                   sandbox: agent.sandboxProviderId !== null,
                 })
@@ -311,7 +329,7 @@ export class Chat extends Context.Service<
                 toolExecution: "sequential",
                 // Interrupt snapshots preserve original uploads after provider normalization.
                 middleware: [
-                  createChatAttachmentSnapshotMiddleware(inputMessages),
+                  createChatAttachmentSnapshotMiddleware(inputMessages, history),
                   ...managed.middleware,
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
@@ -383,6 +401,12 @@ export class Chat extends Context.Service<
   )
 
   static readonly layer = Chat.layerNoDeps.pipe(
-    Layer.provide([Agents.layer, ChatSandboxes.layer, ModelProviders.layer, ChatThreads.layer]),
+    Layer.provide([
+      Agents.layer,
+      ChatSandboxes.layer,
+      ModelProviders.layer,
+      ChatThreads.layer,
+      ChatFiles.layer,
+    ]),
   )
 }

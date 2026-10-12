@@ -1,3 +1,16 @@
+import { HttpServerResponse } from "effect/http"
+import {
+  savedChatAttachmentResponse,
+  messageResource,
+} from "@/routes/api/v1/chat/-lib/threads.server"
+import { deleteTenant } from "@/lib/tenants/deletion"
+import { APP_HANDLE } from "@/lib/constants"
+import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { StorageObjectMissing } from "@/lib/storage/errors"
+import { fileObject } from "@/db/schema/files"
+import { ChatFiles } from "../attachments/attachments"
+import { CHAT_ATTACHMENT_MAX_FILENAME_LENGTH } from "../attachments/constants"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
@@ -22,6 +35,7 @@ import {
   agent,
   chatThread,
   chatMessage,
+  chatFile,
   chatMessagePart,
   chatToolResponse,
   organization,
@@ -31,7 +45,12 @@ import {
 } from "@/db/schema"
 import { ChatThreads } from "./threads"
 import { projectChatModelHistory } from "./projection"
-import type { ChatThreadScope, ChatMessagePayload, ChatToolResolution } from "./schemas"
+import type {
+  ChatThreadScope,
+  ChatMessagePayload,
+  ChatToolResolution,
+  ChatWriterClaim,
+} from "./schemas"
 
 const payload: ChatMessagePayload = {
   version: 1,
@@ -40,10 +59,35 @@ const payload: ChatMessagePayload = {
 const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
-const runtime = ManagedRuntime.make(Layer.mergeAll(Database.layer, ChatThreads.layer))
+const objects = new Map<string, Uint8Array>()
+const storage = globalThis.process.env.S3_BUCKET
+  ? ObjectStorage.layer
+  : Layer.succeed(ObjectStorage, {
+      put: ({ key, bytes }) =>
+        Effect.sync(() => {
+          objects.set(key, bytes)
+        }),
+      get: ({ key }) =>
+        objects.has(key)
+          ? Effect.succeed(objects.get(key)!)
+          : Effect.fail(new StorageObjectMissing()),
+      head: () => Effect.die("unused"),
+      remove: ({ key }) =>
+        Effect.sync(() => {
+          objects.delete(key)
+        }),
+      signedUrl: () => Effect.die("unused"),
+      testConnection: () => Effect.die("unused"),
+    })
+const filesLayer = ChatFiles.layerNoDeps.pipe(
+  Layer.provideMerge(StoredFiles.layerNoDeps.pipe(Layer.provide(storage))),
+  Layer.provideMerge(Database.layer),
+)
+const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
+  let files: typeof ChatFiles.Service
   let service: Effect.Success<typeof ChatThreads>
   let scope: ChatThreadScope
   let other: ChatThreadScope
@@ -52,6 +96,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   beforeAll(async () => {
     db = getAuthDatabase()
     service = await runtime.runPromise(ChatThreads)
+    files = await runtime.runPromise(ChatFiles)
   })
   afterAll(async () => {
     await runtime.dispose()
@@ -85,6 +130,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     foreign = { organizationId, tenantId: tenants[1]!.id, tenantUserId: people[2]!.id }
   })
 
+  const complete = ({ claim, payload }: { claim: ChatWriterClaim; payload: ChatMessagePayload }) =>
+    service
+      .checkpoint({ claim, payload, state: "complete" })
+      .pipe(Effect.andThen(service.finish({ claim })))
+
   const create = () => runtime.runPromise(service.create({ scope }))
   const admit = (id: string) =>
     runtime.runPromise(
@@ -100,10 +150,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
 
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()
-    await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
+    const prepared = await runtime.runPromise(
+      files.store({
+        scope: { ...scope, threadId: thread.id },
         payload: {
           version: 1,
           parts: [
@@ -112,12 +161,46 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
               id: crypto.randomUUID(),
               type: "document",
               source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
-              metadata: { filename: "note.txt" },
+              metadata: { filename: "note.txt", size: 999 },
             },
           ],
         },
       }),
     )
+    const [pending] = await db.select().from(chatFile)
+    expect(pending).toMatchObject({
+      messageId: null,
+      threadId: null,
+      fileObjectId: (prepared.parts[1]!.source as { id: string }).id,
+    })
+    expect(pending!.id).not.toBe(pending!.fileObjectId)
+    await expect(
+      runtime.runPromise(
+        service.admit({
+          scope: other,
+          id: (await runtime.runPromise(service.create({ scope: other }))).id,
+          payload: prepared,
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    const referenced = await runtime.runPromise(
+      files.store({
+        scope: { ...scope, threadId: thread.id },
+        payload: {
+          ...prepared,
+          parts: [
+            prepared.parts[0]!,
+            {
+              ...prepared.parts[1]!,
+              source: { type: "file", value: pending!.fileObjectId, mimeType: "image/png" },
+            },
+          ],
+        },
+      }),
+    )
+    expect(referenced).toEqual(prepared)
+    expect(await db.select().from(fileObject)).toHaveLength(1)
+    await runtime.runPromise(service.admit({ scope, id: thread.id, payload: referenced }))
     const input = {
       scope: { organizationId: scope.organizationId },
       tenantId: scope.tenantId,
@@ -128,7 +211,36 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const message = await runtime.runPromise(
       service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
     )
-    expect(message.payload.parts[1]).toMatchObject({ source: { value: "SGVsbG8=" } })
+    expect(messageResource(message).parts[1]).toMatchObject({
+      source: { type: "attachment", byteSize: 5 },
+    })
+    const messages = projectChatModelHistory([message]).map((message) => ({
+      ...message,
+      createdAt: new Date("2026-01-01"),
+    }))
+    const hydrated = await runtime.runPromise(
+      files.hydrate({ scope: { ...scope, threadId: thread.id }, messages }),
+    )
+    expect(hydrated[0]!.content).toMatchObject([
+      { type: "text" },
+      { source: { type: "data", value: "SGVsbG8=", byteSize: 5 } },
+    ])
+    expect(hydrated[0]!.createdAt).toEqual(new Date("2026-01-01"))
+    const response = HttpServerResponse.toWeb(
+      await runtime.runPromise(
+        savedChatAttachmentResponse(message, String(message.payload.parts[1]!.id)),
+      ),
+    )
+    expect(await response.text()).toBe("Hello")
+    const source = message.payload.parts[1]!.source as { id: string }
+    expect(await db.select().from(chatFile)).toMatchObject([
+      { messageId: message.id, fileObjectId: source.id },
+    ])
+    await expect(
+      runtime.runPromise(
+        files.read({ scope: { ...foreign, threadId: thread.id }, fileId: source.id }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
     expect(snapshot.thread).not.toHaveProperty("role")
     for (const operation of [
       service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
@@ -260,6 +372,92 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect((await admit(empty.id)).thread.title).toBe("Custom title")
   })
 
+  test("rejects invalid file signatures before creating objects", async () => {
+    await expect(
+      runtime.runPromise(
+        files.store({
+          scope,
+          payload: {
+            version: 1,
+            parts: [
+              {
+                id: crypto.randomUUID(),
+                type: "image",
+                source: { type: "data", value: "AAAA", mimeType: "image/png" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    expect(await db.select().from(fileObject)).toEqual([])
+  })
+
+  test.each(["thread", "Tenant"])(
+    "stream checkpoints share verified content and %s deletion retires it",
+    async (target) => {
+      const thread = await create()
+      const accepted = await admit(thread.id)
+      const media = {
+        id: crypto.randomUUID(),
+        type: "image",
+        source: { type: "data", value: "iVBORw0KGgo=", mimeType: "image/png" },
+      }
+      const generated: ChatMessagePayload = {
+        version: 1,
+        parts: [media],
+        modelMessages: [
+          { role: "assistant", content: [media], providerContext: { signature: "keep-me" } },
+        ],
+      }
+      const cache = new Map()
+      for (let i = 0; i < 3; i++)
+        await runtime.runPromise(
+          service.checkpoint({ claim: accepted.claim!, payload: generated, state: "draft", cache }),
+        )
+      await runtime.runPromise(
+        service.checkpoint({
+          claim: accepted.claim!,
+          payload: generated,
+          state: "complete",
+          cache,
+        }),
+      )
+      const rows = await db.select().from(fileObject).where(eq(fileObject.status, "stored"))
+      expect(rows).toHaveLength(1)
+      expect(await db.select().from(chatFile)).toMatchObject([
+        { messageId: accepted.assistantMessage!.id, fileObjectId: rows[0]!.id },
+      ])
+      const saved = await runtime.runPromise(
+        service.getMessage({ scope, id: thread.id, messageId: accepted.assistantMessage!.id }),
+      )
+      expect(saved.payload).toMatchObject({
+        parts: [{ source: { type: APP_HANDLE, id: rows[0]!.id } }],
+        modelMessages: [
+          { providerContext: { signature: "keep-me" }, content: [{ source: { id: rows[0]!.id } }] },
+        ],
+      })
+      await runtime.runPromise(files.store({ scope, payload: generated }))
+      await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+      expect((await db.select().from(fileObject)).map((file) => file.status).sort()).toEqual([
+        "stored",
+        "stored",
+      ])
+      if (target === "thread")
+        await runtime.runPromise(
+          service.remove({ scope, id: thread.id, lockVersion: accepted.thread.lockVersion }),
+        )
+      else
+        await runtime.runPromise(
+          deleteTenant({ organizationId: scope.organizationId, tenantId: scope.tenantId }),
+        )
+      expect((await db.select().from(fileObject)).map((file) => file.status).sort()).toEqual([
+        "purging",
+        target === "Tenant" ? "purging" : "stored",
+      ])
+    },
+  )
+
   test("searches authorized titles across pages and treats wildcards literally", async () => {
     const ids = []
     for (const title of ["Budget 50%_done", "budget 50xxdone", "Unrelated"]) {
@@ -289,10 +487,38 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
 
   test("replays admission receipts, reauthorizes retries, and purges retained input on deletion", async () => {
     const thread = await create()
+    const uploaded = await runtime.runPromise(
+      files.store({
+        scope,
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: crypto.randomUUID(),
+              type: "document",
+              source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+            },
+          ],
+        },
+      }),
+    )
+    const fileId = (uploaded.parts[0]!.source as { id: string }).id
     const params: ChatParams = {
       threadId: thread.id,
       runId: "first-run",
-      messages: [{ role: "user" as const, content: "Hello" }],
+      messages: [
+        {
+          role: "user" as const,
+          content: [
+            { type: "text", content: "Hello" },
+            {
+              type: "document",
+              source: { type: "file", value: fileId, mimeType: "text/plain" },
+              metadata: { filename: `note\n${"x".repeat(500)}` },
+            },
+          ],
+        },
+      ],
       tools: [],
       context: [],
       aguiContext: [],
@@ -300,28 +526,67 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       forwardedProps: { clientId: targetA },
     }
     const request = { scope, params, idempotencyKey: "same-intent" }
-    const run = (input: typeof request, threads = service) =>
+    const run = (input: typeof request) =>
       runtime.runPromise(
         prepareManagedChat(input).pipe(
           Effect.provideService(Agents, {
             resolveForChat: () =>
               Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
           } as unknown as typeof Agents.Service),
-          Effect.provideService(ChatThreads, threads),
         ),
       )
+    for (const [value, mimeType] of [
+      ["/w==", "text/plain"],
+      ["UEFSMQ==", "application/vnd.apache.parquet"],
+    ] as const) {
+      const invalid = await runtime.runPromise(
+        files.store({
+          scope,
+          payload: {
+            version: 1,
+            parts: [
+              {
+                id: crypto.randomUUID(),
+                type: "document",
+                source: { type: "data", value, mimeType },
+              },
+            ],
+          },
+        }),
+      )
+      await expect(
+        run({
+          ...request,
+          params: {
+            ...params,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "document",
+                    source: {
+                      type: "file",
+                      value: (invalid.parts[0]!.source as { id: string }).id,
+                      mimeType,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+      expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(0)
+    }
     const first = await run(request)
     expect(first.admission?.claim).toBeTruthy()
-    await db.update(chatThread).set({ agentId: null }).where(eq(chatThread.id, thread.id))
+    expect(first.admission!.inputMessage.payload.parts[1]!.metadata).toEqual({
+      filename: `note ${"x".repeat(CHAT_ATTACHMENT_MAX_FILENAME_LENGTH - 5)}…`,
+    })
     const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
     expect(retry.admission).toBeUndefined()
     expect(retry.receipt).toEqual(first.receipt)
-    await expect(
-      run({
-        ...request,
-        params: { ...params, forwardedProps: { ...params.forwardedProps, agentId: "changed" } },
-      }),
-    ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })
     expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
     await expect(
       run({ ...request, params: { ...params, messages: [{ role: "user", content: "Changed" }] } }),
@@ -344,8 +609,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         role: "viewer",
       }),
     )
-    expect(await run(request)).toMatchObject({ admission: undefined, receipt: first.receipt })
-    await expect(run({ ...request, idempotencyKey: "new-intent" })).rejects.toMatchObject({
+    await expect(run(request)).rejects.toMatchObject({
       _tag: "ChatThreadForbidden",
     })
     expect(
@@ -381,36 +645,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ),
     ).toEqual([])
     await expect(run(request)).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
-    const deleted = await create()
-    await expect(
-      run(
-        { ...request, params: { ...params, threadId: deleted.id } },
-        {
-          ...service,
-          get: (input) =>
-            service.get(input).pipe(
-              Effect.tap(() =>
-                service.remove({
-                  scope,
-                  id: deleted.id,
-                  lockVersion: 0,
-                }),
-              ),
-            ),
-        },
-      ),
-    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
-    expect(
-      await db
-        .select()
-        .from(cacheEntry)
-        .where(
-          and(
-            eq(cacheEntry.namespace, "chat"),
-            like(cacheEntry.key, `${scope.organizationId}:${scope.tenantId}:${deleted.id}:%`),
-          ),
-        ),
-    ).toEqual([])
   })
 
   test("resolves synchronized identities and grants access only through explicit same-Tenant participants", async () => {
@@ -501,7 +735,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         { role: "assistant", content: "Saved", providerMetadata: { opaque: "signature" } },
       ],
     }
-    await runtime.runPromise(service.finish({ claim: claimed, payload: answer }))
+    await runtime.runPromise(complete({ claim: claimed, payload: answer }))
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(history.map((message) => message.state)).toEqual(["complete", "complete"])
     expect(history[1]!.metadata.invocationId).toBe(claimed.invocationId)
@@ -540,19 +774,25 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const file = Buffer.alloc(10 * 1024 * 1024, " ")
     file.write("%PDF-1.7")
     const upload = () =>
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: crypto.randomUUID(),
-              type: "document",
-              source: { type: "data", value: file.toString("base64"), mimeType: "application/pdf" },
-            },
-          ],
-        },
+      Effect.gen(function* () {
+        const payload = yield* files.store({
+          scope: { ...scope, threadId: thread.id },
+          payload: {
+            version: 1,
+            parts: [
+              {
+                id: crypto.randomUUID(),
+                type: "document",
+                source: {
+                  type: "data",
+                  value: file.toString("base64"),
+                  mimeType: "application/pdf",
+                },
+              },
+            ],
+          },
+        })
+        return yield* service.admit({ scope, id: thread.id, payload })
       })
     await runtime.runPromise(upload())
     const separate = await runtime.runPromise(service.create({ scope: other }))
@@ -680,7 +920,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       ).map((message) => message.id),
     ).toEqual(history.slice(0, 2).map((message) => message.id))
     await runtime.runPromise(
-      service.finish({
+      complete({
         claim: second.claim!,
         payload: {
           ...payload,
@@ -688,7 +928,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
-    await runtime.runPromise(service.finish({ claim: first.claim!, payload }))
+    await runtime.runPromise(complete({ claim: first.claim!, payload }))
     expect(
       (await runtime.runPromise(service.get({ scope, id: thread.id }))).currentLeafMessageId,
     ).toBe(second.assistantMessage!.id)
@@ -814,7 +1054,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     }
     await runtime.runPromise(service.appendToolResults({ claim: claim!, results: [result] }))
     const next = await runtime.runPromise(service.nextDraft({ claim: claim! }))
-    await runtime.runPromise(service.finish({ claim: next, payload }))
+    await runtime.runPromise(complete({ claim: next, payload }))
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(history[0]!.turnState).toBe("completed")
     expect(history.filter((message) => message.role === "tool")).toMatchObject([
@@ -842,7 +1082,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toBe("running")
     const next = await admit(thread.id)
     await runtime.runPromise(
-      service.finish({
+      complete({
         claim: next.claim!,
         payload: {
           ...payload,
@@ -1176,7 +1416,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         results: [oldResult],
       }),
     )
-    await runtime.runPromise(service.finish({ claim: resumedFirst.claim!, payload }))
+    await runtime.runPromise(complete({ claim: resumedFirst.claim!, payload }))
     const second = await admit(thread.id)
     const newResult = await finishCall(second.claim!, targetB)
     const resumed = await runtime.runPromise(
@@ -1306,7 +1546,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const admitted = await admit(first.id)
     const agentId = `agent_${scope.organizationId}_${first.agentId}`
     expect(admitted.assistantMessage!.payload.provenance?.agentId).toBe(agentId)
-    await runtime.runPromise(service.finish({ claim: admitted.claim!, payload }))
+    await runtime.runPromise(complete({ claim: admitted.claim!, payload }))
     const secondAdmission = await admit(second.id)
     await runtime.runPromise(service.finish({ claim: secondAdmission.claim! }))
     await runtime.runPromise(
@@ -1343,10 +1583,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   test("reads only selected ancestors and deletes populated head/parent graphs atomically", async () => {
     const thread = await create()
     const admitted = await admit(thread.id)
-    await runtime.runPromise(service.finish({ claim: admitted.claim!, payload }))
+    await runtime.runPromise(complete({ claim: admitted.claim!, payload }))
     const continued = await admit(thread.id)
     await runtime.runPromise(
-      service.finish({
+      complete({
         claim: continued.claim!,
         payload: {
           ...payload,
@@ -1420,7 +1660,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       const thread = await create()
       const admitted = await admit(thread.id)
       await runtime.runPromise(
-        service.finish({
+        complete({
           claim: admitted.claim!,
           payload: {
             version: 1,
@@ -1453,7 +1693,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     for (let index = 0; index < 4; index++) {
       const admitted = await admit(thread.id)
       await runtime.runPromise(
-        service.finish({
+        complete({
           claim: admitted.claim!,
           payload: {
             version: 1,

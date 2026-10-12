@@ -4,7 +4,7 @@ import {
   type StreamChunk,
   toServerSentEventsResponse,
 } from "@tanstack/ai"
-import { Cause, Duration, Effect, Stream } from "effect"
+import { Cause, Duration, Effect, Schema, Stream } from "effect"
 import { HttpServerResponse } from "effect/http"
 
 import { Chat } from "@/lib/chat/chat"
@@ -21,20 +21,22 @@ import type { ChatPrincipal } from "@/lib/chat/types"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
+import { chatMessageRecord, messageResource } from "./threads.server.ts"
 import { ChatRunInputInvalid, ChatRunTooLarge } from "./errors.ts"
 
 export function consumeChatRateLimit(
   principal: ChatPrincipal,
-  operation: "message" | "tool-result",
+  operation: "message" | "tool-result" | "upload",
 ) {
   const continuation = operation === "tool-result"
   return consumeRestRateLimit(
-    continuation ? "chat-continuation" : "chat",
+    continuation ? "chat-continuation" : operation === "upload" ? "chat-upload" : "chat",
     [principal.organization.id, principal.tenantUser.tenant.id, principal.tenantUser.id],
     {
-      limit: continuation
-        ? CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS
-        : CHAT_RATE_LIMIT_MAX_REQUESTS,
+      limit:
+        continuation || operation === "upload"
+          ? CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS
+          : CHAT_RATE_LIMIT_MAX_REQUESTS,
       window: Duration.millis(CHAT_RATE_LIMIT_WINDOW_MS),
     },
   )
@@ -103,6 +105,9 @@ export const chatAdmissionResponse = Effect.fn("chatAdmissionResponse")(function
           clientId,
           threadVersion: admission.thread.lockVersion,
           acceptedMessageId: admission.inputMessage.id,
+          acceptedMessage: yield* Schema.encodeEffect(chatMessageRecord)(
+            messageResource(admission.inputMessage),
+          ).pipe(Effect.orDie),
         },
       }),
     )

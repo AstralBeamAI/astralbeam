@@ -16,8 +16,7 @@ import type { DraftAttachment } from "../lib/types.ts"
 import { formatByteSize } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
-// The chip's own state drives the frame and the title shimmer; "uploading" is the read, which
-// is local, so there is no separate upload step to show.
+// Reading and uploading share the chip's busy state until the server returns a file reference.
 const CHIP_STATE = {
   reading: "uploading",
   ready: "done",

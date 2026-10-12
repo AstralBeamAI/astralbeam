@@ -53,7 +53,9 @@ export interface DraftAttachment {
   mimeType: string
   kind?: AttachmentKind
   status: "reading" | "ready" | "error"
-  /** Base64 payload without the data-URI prefix; present once the status is `"ready"`. */
+  /** Uploaded object ID. Only this reference and file metadata are persisted locally. */
+  fileId?: string
+  /** Transient base64 for the upload and image preview. */
   data?: string
   /** Why the file was rejected or could not be read; present when the status is `"error"`. */
   error?: string

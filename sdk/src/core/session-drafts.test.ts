@@ -225,13 +225,31 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     }
     stream!.enqueue(
       new TextEncoder().encode(
-        [{ type: "RUN_STARTED", threadId: threadA, runId: "initial" }, accepted, accepted]
+        [
+          { type: "RUN_STARTED", threadId: threadA, runId: "initial" },
+          accepted,
+          {
+            ...accepted,
+            value: {
+              ...accepted.value,
+              acceptedMessage: {
+                id: "older-user",
+                role: "user",
+                created_at: thread(threadA).created_at,
+                parts: [{ id: "older-part", type: "text", content: "An older input" }],
+              },
+            },
+          },
+        ]
           .map((event) => `data: ${JSON.stringify(event)}\n\n`)
           .join(""),
       ),
     )
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1))
     expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().messages.findLast((message) => message.role === "user")?.parts).toEqual([
+      { type: "text", content: "Start a saved conversation" },
+    ])
     expect(settled).not.toHaveBeenCalled()
     chat.reset()
     stream?.close()
@@ -243,6 +261,42 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     expect(chat.getState().unsentMessage).toBeUndefined()
   } finally {
     stream?.close()
+    chat.dispose()
+  }
+})
+
+test("an upload keeps its picked agent while its file is read across conversation changes", async () => {
+  const upload = vi.fn()
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/messages")) {
+      const id = path.split("/").at(-2)!
+      return Promise.resolve(
+        Response.json({ ...page(id), thread: { ...thread(id), agent_id: id } }),
+      )
+    }
+    if (path.endsWith("/files")) {
+      new Request(input, init)
+      if (typeof init?.body !== "string") throw new Error("Expected an upload body")
+      upload(JSON.parse(init.body))
+      return Promise.resolve(Response.json({ fileId: "file", mimeType: "text/plain", byteSize: 4 }))
+    }
+    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+  })
+  const chat = createAstralBeamChat({ threadId: threadA, fetchAstralBeamToken: token })
+  try {
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+    let finish!: (data: string) => void
+    const data = new Promise<string>((resolve) => {
+      finish = resolve
+    })
+    const uploading = chat.uploadAttachment({ data, filename: "note.txt", mimeType: "text/plain" })
+    await chat.openThread(threadB)
+    finish(btoa("note"))
+    await uploading
+    expect(upload).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ agentId: threadA }))
+  } finally {
     chat.dispose()
   }
 })
