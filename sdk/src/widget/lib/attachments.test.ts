@@ -178,7 +178,7 @@ test("sends images as image parts and everything else as named documents", () =>
       mimeType: "image/png",
       kind: "image",
       status: "ready",
-      data: "aW1n",
+      fileId: "image-object",
     },
     {
       id: "2",
@@ -187,7 +187,7 @@ test("sends images as image parts and everything else as named documents", () =>
       mimeType: "application/pdf",
       kind: "pdf",
       status: "ready",
-      data: "cGRm",
+      fileId: "document-object",
     },
     {
       id: "3",
@@ -209,12 +209,12 @@ test("sends images as image parts and everything else as named documents", () =>
   expect(attachmentContentParts(attachments)).toEqual([
     {
       type: "image",
-      source: { type: "data", value: "aW1n", mimeType: "image/png" },
+      source: { type: "file", value: "image-object", mimeType: "image/png" },
       metadata: { filename: "shot.png", size: 12 },
     },
     {
       type: "document",
-      source: { type: "data", value: "cGRm", mimeType: "application/pdf" },
+      source: { type: "file", value: "document-object", mimeType: "application/pdf" },
       metadata: { filename: "spec.pdf", size: 34 },
     },
   ])
@@ -223,10 +223,17 @@ test("sends images as image parts and everything else as named documents", () =>
 // The href becomes an <img src> and a download anchor, so a part carrying an active scheme, or
 // bytes of a type this chat never sends, must reach neither — whoever built the transcript.
 test("a sent attachment points only at data the composer itself sends", () => {
-  const href = (value: string, mimeType?: string) =>
+  expect(
     describeSentAttachment({
       type: "document",
-      source: mimeType === undefined ? { value } : { value, mimeType },
+      source: { type: "url", value: "", mimeType: "text/plain", byteSize: 11 },
+      metadata: { size: 999 },
+    }).description,
+  ).toBe("11 B")
+  const href = (value: string, mimeType?: string, type?: string) =>
+    describeSentAttachment({
+      type: "document",
+      source: { value, ...(mimeType ? { mimeType } : {}), ...(type ? { type } : {}) },
     }).href
 
   expect(href("cGRm", "application/pdf")).toBe("data:application/pdf;base64,cGRm")
@@ -234,6 +241,17 @@ test("a sent attachment points only at data the composer itself sends", () => {
   expect(href("data:application/octet-stream;base64,AAAA")).toBeUndefined()
   expect(href("javascript:alert(1)")).toBeUndefined()
   expect(href("")).toBeUndefined()
+  expect(href("https://example.com/image.png", "image/png", "url")).toBe(
+    "https://example.com/image.png",
+  )
+  expect(href("file-provider-handle", "image/png", "file")).toBeUndefined()
+  expect(
+    describeSentAttachment({
+      type: "audio",
+      source: { type: "data", value: "AAAA", mimeType: "audio/mpeg" },
+    }).href,
+  ).toBe("data:audio/mpeg;base64,AAAA")
+  expect(href("javascript:alert(1)", "image/png", "url")).toBeUndefined()
 })
 
 test("attachments are on unless the host turns them off", () => {

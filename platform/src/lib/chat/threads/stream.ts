@@ -16,6 +16,7 @@ import {
 } from "@tanstack/ai-persistence"
 import { Effect, Schema } from "effect"
 
+import type { ChatFileCache } from "../attachments/attachments"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import type { ChatThreads } from "./threads"
@@ -28,6 +29,7 @@ export interface ManagedChatExecution {
   readonly claim: ChatWriterClaim
   readonly threadVersion: number
   readonly acceptedMessageId?: string | undefined
+  readonly acceptedMessage?: { id: string; parts: readonly Record<string, unknown>[] }
   readonly clientId: string
 }
 
@@ -62,6 +64,7 @@ interface ManagedChatStreamState {
   version: number
   payload: ChatMessagePayload
   usage: typeof Schema.JsonObject.Type | undefined
+  readonly fileCache: ChatFileCache
   readonly partIds: Map<string, string>
   readonly modelIds: Map<string, string>
   readonly messageIds: Map<string, string>
@@ -177,6 +180,7 @@ async function saveManagedProjection(
       claim: state.claim,
       payload,
       state: complete ? "complete" : "draft",
+      cache: state.fileCache,
     }),
   )
   state.payload = payload
@@ -258,6 +262,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     version: options.managed.threadVersion,
     payload: { version: 1, parts: [] },
     usage: undefined,
+    fileCache: new Map(),
     partIds: new Map(),
     modelIds: new Map(),
     messageIds: new Map(),
@@ -437,6 +442,7 @@ export async function* managedChatDelivery(input: {
       ...(input.managed.acceptedMessageId
         ? { acceptedMessageId: input.managed.acceptedMessageId }
         : {}),
+      ...(input.managed.acceptedMessage ? { acceptedMessage: input.managed.acceptedMessage } : {}),
       saved: false,
     },
   }

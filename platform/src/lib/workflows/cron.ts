@@ -13,7 +13,7 @@ export const scheduledWorkflowsLayer = Layer.mergeAll(
     skipIfOlderThan: "10 minutes",
     execute: expiredCacheCleanup,
   }),
-  // Finds abandoned uploads and recovers missed purge submissions once a minute.
+  // Recovers missed purge submissions once a minute.
   ClusterCron.make({
     name: "FileMaintenance/v1",
     cron: Cron.parseUnsafe("0 * * * * *", "UTC"),

@@ -4,6 +4,7 @@
 - For non-trivial changes, perform a proportionate self-review of the final result for correctness, scope, and unnecessary complexity. Preserve useful code and documentation, and follow the project's rules for test value and validation.
 - Use the product glossary consistently: an Organization is an AstralBeam customer (typically a SaaS app), organization users are that customer's employees who use the AstralBeam dashboard, Tenants are the Organization's customers, and tenant users (`TenantUser`) are the Tenants' users who interact with the embedded agent sidebar. The assistant embedded in the AstralBeam dashboard itself is called Astro.
 - Organizations have immutable UUIDs and editable slugs. Only the organization table may have a `slug` column. Use organization slugs only for URLs and their validation, never as identity in credentials, tokens, relationships, or seed lookups. Changing the slug breaks old URLs.
+- Give each entity its own primary-key ID. References to other entities belong in separate foreign-key columns.
 - Other entities use opaque UUIDs. First-party organization-owned tables use `(organization_id, id)` primary keys. Better Auth tables retain their adapter-compatible keys. Compose public agent IDs as `agent_<organizationId>_<id>` and API-key IDs as `key_<organizationId>_<id>`.
 
 ## Tooling and validation

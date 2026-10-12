@@ -48,9 +48,17 @@ const validateOrganizationLogo = Effect.fn("validateOrganizationLogo")(function*
   const prefix = logoFileUrl(organizationId, "")
   if (!image.startsWith(prefix) || !Schema.is(UuidV7Schema)(image.slice(prefix.length)))
     return yield* new InvalidImage()
+  // A stored URL may keep the current logo. Other files must enter through the image upload path.
   const [file] = yield* db
     .select({ id: fileObject.id })
     .from(fileObject)
+    .innerJoin(
+      organization,
+      and(
+        eq(organization.id, fileObject.organizationId),
+        eq(organization.logoFileId, fileObject.id),
+      ),
+    )
     .where(
       and(
         eq(fileObject.organizationId, organizationId),

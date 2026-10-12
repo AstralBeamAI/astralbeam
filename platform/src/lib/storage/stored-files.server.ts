@@ -16,6 +16,9 @@ type FileUpload = { organizationId: string; bytes: Uint8Array; contentType: stri
 export class StoredFiles extends Context.Service<
   StoredFiles,
   {
+    readonly read: (input: {
+      file: StoredFile
+    }) => Effect.Effect<Uint8Array, StorageUnavailable | StorageObjectMissing>
     readonly upload: (
       input: FileUpload,
     ) => Effect.Effect<{ readonly id: string }, StorageUnavailable | StorageObjectMissing>
@@ -28,10 +31,11 @@ export class StoredFiles extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const storage = yield* ObjectStorage
-      const verifyStoredUpload = Effect.fn("verifyStoredUpload")(function* (file: StoredFile) {
+      const read = Effect.fn("StoredFiles.read")(function* ({ file }: { file: StoredFile }) {
         const bytes = yield* storage.get({ key: file.objectKey, maxBytes: file.byteSize })
         if (bytes.length !== file.byteSize || fileSha256(bytes) !== file.sha256)
           return yield* new StorageUnavailable()
+        return bytes
       })
       const upload = Effect.fn("StoredFiles.upload")(function* (input: FileUpload) {
         const [file] = yield* db
@@ -46,7 +50,7 @@ export class StoredFiles extends Context.Service<
           .returning()
           .pipe(mapDatabaseErrors())
         yield* storage.put({ ...input, key: file!.objectKey })
-        yield* verifyStoredUpload(file!)
+        yield* read({ file: file! })
         const [verified] = yield* db
           .update(fileObject)
           .set({ status: "stored" })
@@ -62,7 +66,7 @@ export class StoredFiles extends Context.Service<
         if (!verified) return yield* new StorageUnavailable()
         return verified
       })
-      return StoredFiles.of({ upload })
+      return StoredFiles.of({ upload, read })
     }),
   )
   static readonly layer = StoredFiles.layerNoDeps.pipe(

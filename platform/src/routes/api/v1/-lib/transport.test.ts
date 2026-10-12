@@ -1,3 +1,5 @@
+import { APP_HANDLE } from "@/lib/constants"
+import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -191,6 +193,16 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
+  Layer.succeed(ChatFiles, {
+    store: ({ payload }) => Effect.succeed(payload),
+    read: ({ fileId }) =>
+      Effect.succeed({
+        bytes: new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
+        mimeType: fileId === restUserId ? "image/png" : "text/plain",
+      }),
+    hydrate: ({ messages }) => Effect.succeed([...messages]),
+    attach: () => Effect.succeed(0),
+  }),
   Layer.succeed(Chat, {
     run: (input) => restTestState.run(input) as never,
     capabilities: (input) => restTestState.agent(input) as never,
@@ -746,11 +758,12 @@ describe("REST API through the Effect Fetch handler", () => {
       id: "upload",
       type: "image",
       source: {
-        type: "data",
-        value: `data:image/png;base64,${btoa("saved image")}`,
+        type: APP_HANDLE,
+        id: restUserId,
         mimeType: "image/png",
+        byteSize: 11,
       },
-      metadata: { filename: "upload.png", size: 11 },
+      metadata: { filename: "upload.png", size: 999 },
     }
     const savedMessage = {
       ...restSavedMessage,
@@ -789,7 +802,7 @@ describe("REST API through the Effect Fetch handler", () => {
           parent_message_id: null,
           parts: [
             ...restSavedMessage.payload.parts,
-            { ...attachment, source: { type: "attachment", mimeType: "image/png" } },
+            { ...attachment, source: { type: "attachment", mimeType: "image/png", byteSize: 11 } },
           ],
           author_tenant_user_id: restUserId,
           source_assistant_message_id: null,
@@ -1726,7 +1739,7 @@ describe("administrative conversation reads", () => {
             {
               id: "upload",
               type: "document",
-              source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+              source: { type: APP_HANDLE, id: restTenantId, mimeType: "text/plain", byteSize: 5 },
               metadata: { filename: "note.txt" },
             },
           ],

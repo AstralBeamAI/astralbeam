@@ -37,32 +37,8 @@ export function storedThreadDraft(
   return ""
 }
 
-let attachmentDatabase: Promise<IDBDatabase> | undefined
-
-function openAttachmentDatabase(): Promise<IDBDatabase> {
-  attachmentDatabase ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("astralbeam:drafts", 1)
-    request.onupgradeneeded = () => request.result.createObjectStore("attachments")
-    request.onsuccess = () => {
-      const database = request.result
-      database.onversionchange = () => {
-        database.close()
-        attachmentDatabase = undefined
-      }
-      resolve(database)
-    }
-    request.onerror = () => reject(request.error ?? new Error("Draft storage is unavailable"))
-    request.onblocked = () => reject(new Error("Draft storage is unavailable"))
-  }).catch((error: unknown) => {
-    attachmentDatabase = undefined
-    throw error
-  })
-  return attachmentDatabase
-}
-
-// IndexedDB keeps file contents beyond Web Storage's small string quota.
-// https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
-export async function storedThreadAttachments({
+// Drafts retain uploaded object references, never file bytes or signed URLs.
+export function storedThreadAttachments({
   apiUrl,
   identity,
   threadId,
@@ -75,42 +51,41 @@ export async function storedThreadAttachments({
   update?: (attachments: DraftAttachment[]) => DraftAttachment[]
   moveTo?: string
 }): Promise<DraftAttachment[]> {
-  if (!identity) return []
-  const database = await openAttachmentDatabase()
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(
-      "attachments",
-      update || moveTo ? "readwrite" : "readonly",
-    )
-    const store = transaction.objectStore("attachments")
-    const key = draftStorageKey(apiUrl, identity, threadId)
-    const request = store.get(key)
-    let attachments: DraftAttachment[] = []
-    request.onsuccess = () => {
-      attachments = (request.result as DraftAttachment[] | undefined) ?? []
-      if (update) attachments = update(attachments).filter((file) => file.status === "ready")
-      if (moveTo !== undefined) {
-        const destinationKey = draftStorageKey(apiUrl, identity, moveTo)
-        const destination = store.get(destinationKey)
-        destination.onsuccess = () => {
-          attachments = [
-            ...new Map(
-              [
-                ...((destination.result as DraftAttachment[] | undefined) ?? []),
-                ...attachments,
-              ].map((file) => [file.id, file]),
-            ).values(),
-          ]
-          if (attachments.length) store.put(attachments, destinationKey)
-          store.delete(key)
-        }
-      } else if (update) {
-        if (attachments.length) store.put(attachments, key)
-        else store.delete(key)
-      }
+  // Web Locks serialize local-storage edits and moves across tabs sharing this origin.
+  // https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
+  const applyChanges = () => {
+    if (!identity) return []
+    const key = `astralbeam:attachments:${draftStorageKey(apiUrl, identity, threadId)}`
+    const read = (key: string): DraftAttachment[] =>
+      JSON.parse(globalThis.localStorage?.getItem(key) ?? "[]") as DraftAttachment[]
+    let attachments = read(key)
+    if (update)
+      attachments = update(attachments).filter(
+        (file) => file.status === "ready" && file.fileId !== undefined,
+      )
+    if (moveTo !== undefined) {
+      const destinationKey = `astralbeam:attachments:${draftStorageKey(apiUrl, identity, moveTo)}`
+      attachments = [
+        ...new Map(
+          [...read(destinationKey), ...attachments].map((file) => [file.id, file]),
+        ).values(),
+      ]
+      globalThis.localStorage?.setItem(
+        destinationKey,
+        JSON.stringify(attachments.map(({ data: _data, ...file }) => file)),
+      )
+      globalThis.localStorage?.removeItem(key)
+    } else if (update) {
+      if (attachments.length)
+        globalThis.localStorage?.setItem(
+          key,
+          JSON.stringify(attachments.map(({ data: _data, ...file }) => file)),
+        )
+      else globalThis.localStorage?.removeItem(key)
     }
-    transaction.oncomplete = () => resolve(attachments)
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error("Draft storage is unavailable"))
-  })
+    return attachments
+  }
+  return globalThis.navigator?.locks
+    ? navigator.locks.request("astralbeam:attachment-drafts", applyChanges)
+    : Promise.resolve().then(applyChanges)
 }

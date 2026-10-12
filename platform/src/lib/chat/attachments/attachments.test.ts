@@ -1,3 +1,4 @@
+import { APP_HANDLE } from "@/lib/constants"
 import type { ChatMiddleware, ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
 import { expect, test } from "vitest"
 
@@ -401,10 +402,7 @@ function onChunk(middleware: ChatMiddleware, chunk: unknown) {
   return hook({} as ChatMiddlewareContext, chunk as StreamChunk)
 }
 
-// The client rebuilds its whole transcript from the snapshot an interrupt boundary emits. A turn
-// that arrived with a file therefore has to come back carrying that file: otherwise its chip
-// becomes the announcement line as text mid-conversation, and the next request no longer carries
-// the bytes the handle resolves against.
+// Snapshots keep authenticated file references while hydrated model input stays server-side.
 test("restores the user's own attachments in a messages snapshot", () => {
   const sent = [
     {
@@ -424,16 +422,54 @@ test("restores the user's own attachments in a messages snapshot", () => {
       { id: "user-2", role: "user", content: "and this one has no file" },
     ],
   }
-  expect(onChunk(createChatAttachmentSnapshotMiddleware(sent), snapshot)).toMatchObject({
-    type: "MESSAGES_SNAPSHOT",
-    messages: [sent[0], snapshot.messages[1], snapshot.messages[2]],
+  const stored = onChunk(
+    createChatAttachmentSnapshotMiddleware(sent, [
+      {
+        id: "user-1",
+        createdAt: new Date(0),
+        state: "complete",
+        authorTenantUserId: null,
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: "file-part",
+              type: "document",
+              source: {
+                type: APP_HANDLE,
+                id: "00000000-0000-4000-8000-000000000001",
+                mimeType: "text/csv",
+                byteSize: 4,
+              },
+            },
+          ],
+        },
+      },
+    ]),
+    snapshot,
+  )
+  expect(stored).toMatchObject({
+    messages: [
+      {
+        parts: [
+          {
+            savedAttachmentId: "file-part",
+            source: { type: "file", value: "00000000-0000-4000-8000-000000000001" },
+          },
+        ],
+      },
+      snapshot.messages[1],
+      snapshot.messages[2],
+    ],
   })
+  expect(JSON.stringify(stored)).not.toContain(base64("a\n1\n"))
 })
 
 test("leaves every other chunk, and a conversation with no attachment, untouched", () => {
-  const middleware = createChatAttachmentSnapshotMiddleware([
-    { id: "user-1", role: "user", content: "hello" },
-  ] as unknown as ChatMessages)
+  const middleware = createChatAttachmentSnapshotMiddleware(
+    [{ id: "user-1", role: "user", content: "hello" }] as unknown as ChatMessages,
+    [],
+  )
   expect(
     onChunk(middleware, { type: "MESSAGES_SNAPSHOT", timestamp: 0, messages: [] }),
   ).toBeUndefined()

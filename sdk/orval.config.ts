@@ -30,6 +30,7 @@ export default defineConfig({
         operations: {
           getCurrentUser: { mutator: mutator("astralBeamJwtFetch") },
           getChatConfig: { mutator: mutator("astralBeamJwtFetch") },
+          uploadChatFile: { mutator: mutator("astralBeamJwtFetch") },
           runChat: { mutator: mutator("astralBeamChatFetch") },
           resolveChatToolResult: { mutator: mutator("astralBeamChatFetch") },
           getChatFile: { mutator: mutator("astralBeamFileFetch") },

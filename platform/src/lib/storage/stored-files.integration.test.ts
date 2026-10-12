@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { Effect, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
 
@@ -64,70 +64,38 @@ describe.skipIf(!databaseUrl)("stored file lifecycle", () => {
     }
   })
 
-  test("reclaims unfinished and retired uploads and retries deletion", async () => {
-    const pending = await db
+  test("retries retired files without expiring other uploads", async () => {
+    const files = await db
       .insert(fileObject)
       .values(
-        Array.from({ length: 2 }, (_, index) => ({
+        (["purging", "pending", "stored"] as const).map((status) => ({
           organizationId,
           objectKey: `files/${crypto.randomUUID()}`,
           contentType: "image/png",
           byteSize: bytes.length,
           sha256: "0".repeat(64),
           createdAt: new Date(0),
-          status: index === 0 ? ("purging" as const) : ("pending" as const),
+          status,
         })),
       )
       .returning()
-    const pendingIds = pending.map((file) => file.id)
-    const protectedFiles = await db
-      .insert(fileObject)
-      .values([
-        {
-          organizationId,
-          objectKey: `files/${crypto.randomUUID()}`,
-          contentType: "image/png",
-          byteSize: 3,
-          sha256: "0".repeat(64),
-        },
-        {
-          organizationId,
-          objectKey: `files/${crypto.randomUUID()}`,
-          contentType: "image/png",
-          byteSize: 3,
-          sha256: "0".repeat(64),
-          status: "stored",
-          createdAt: new Date(0),
-        },
-      ])
-      .returning()
-    for (const file of pending) storedFileFixture.objects.set(file.objectKey, bytes)
+    for (const file of files) storedFileFixture.objects.set(file.objectKey, bytes)
     const runtime = ManagedRuntime.make(storedFilePurgeLayer)
+    const remaining = () =>
+      db
+        .select()
+        .from(fileObject)
+        .where(eq(fileObject.organizationId, organizationId))
+        .orderBy(fileObject.id)
     try {
       storedFileFixture.failDelete = true
       await runFilePurge(runtime)
-      expect(storedFileFixture.objects.size).toBe(2)
-      expect(
-        await db.select().from(fileObject).where(inArray(fileObject.id, pendingIds)),
-      ).toHaveLength(2)
+      expect(storedFileFixture.objects.size).toBe(3)
+      expect(await remaining()).toHaveLength(3)
       storedFileFixture.failDelete = false
       await runFilePurge(runtime)
-      expect(storedFileFixture.objects.size).toBe(0)
-      expect(await db.select().from(fileObject).where(inArray(fileObject.id, pendingIds))).toEqual(
-        [],
-      )
-      expect(
-        await db
-          .select()
-          .from(fileObject)
-          .where(
-            inArray(
-              fileObject.id,
-              protectedFiles.map((file) => file.id),
-            ),
-          )
-          .orderBy(fileObject.id),
-      ).toEqual(protectedFiles)
+      expect(storedFileFixture.objects.size).toBe(2)
+      expect(await remaining()).toEqual(files.slice(1))
     } finally {
       await runtime.dispose()
     }
