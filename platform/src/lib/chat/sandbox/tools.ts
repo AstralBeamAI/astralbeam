@@ -88,8 +88,8 @@ type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandbo
  * command and a timeout are ordinary results the agent can act on, and only a broken sandbox fails. */
 export function createChatSandboxTools(input: {
   readonly session: ChatSandboxSession
-  /** The run's services, which each tool's Effect runs with. */
   readonly publishArtifact: (bytes: Uint8Array) => Effect.Effect<string, ChatSandboxUnavailable>
+  /** The run's services, which each tool's Effect runs with. */
   readonly services: Context.Context<never>
 }): AnyServerTool[] {
   const { session } = input

@@ -5,119 +5,9 @@ import { Button } from "@/widget/components/ui/button"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Spinner } from "@/widget/components/ui/spinner"
 import { readSandboxArtifact, sandboxRefusal } from "../../core/sandbox.ts"
-import type { SandboxArtifact } from "../../core/types.ts"
 import { formatByteSize, isSettledToolCall, saveBlob } from "../lib/utils.ts"
 
-function artifactBasename(path: string): string {
-  const index = path.lastIndexOf("/")
-  return index === -1 ? path : path.slice(index + 1)
-}
-
-async function downloadArtifact(
-  artifact: SandboxArtifact,
-  getFile: () => Promise<Blob>,
-): Promise<boolean> {
-  try {
-    saveBlob(artifactBasename(artifact.path), await getFile())
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Fetch a verified image through current conversation permissions, then release its object URL. */
-function ArtifactImage({
-  artifact,
-  getFile,
-}: {
-  artifact: SandboxArtifact
-  getFile: () => Promise<Blob>
-}) {
-  const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
-  const [failed, setFailed] = useState(false)
-  const download = () => {
-    void downloadArtifact(artifact, getFile).then((ok) => {
-      if (!ok) setFailed(true)
-    })
-  }
-  useEffect(() => {
-    let revoked: string | undefined
-    let cancelled = false
-    void (async () => {
-      try {
-        const url = URL.createObjectURL(await getFile())
-        if (cancelled) {
-          URL.revokeObjectURL(url)
-          return
-        }
-        revoked = url
-        setObjectUrl(url)
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-      if (revoked) URL.revokeObjectURL(revoked)
-    }
-  }, [getFile])
-  if (failed) {
-    return <ArtifactUnavailable label={artifact.label} />
-  }
-  if (!objectUrl) {
-    return (
-      <Marker role="status">
-        <MarkerIcon>
-          <Spinner />
-        </MarkerIcon>
-        <MarkerContent className="shimmer">
-          Loading <span className="font-mono">{artifact.label}</span>
-        </MarkerContent>
-      </Marker>
-    )
-  }
-  return (
-    <figure className="my-1 flex max-w-full flex-col gap-1">
-      <img
-        src={objectUrl}
-        alt={artifact.label}
-        className="max-h-80 w-fit max-w-full rounded-md border object-contain"
-      />
-      <figcaption className="flex items-center gap-1 text-xs text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate font-mono">{artifact.label}</span>
-        {formatByteSize(artifact.size)}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Download ${artifact.label}`}
-          title="Download"
-          onClick={download}
-        >
-          <DownloadSimpleIcon />
-        </Button>
-      </figcaption>
-    </figure>
-  )
-}
-
-function ArtifactUnavailable({ label }: { label: string }) {
-  return (
-    <Marker>
-      <MarkerIcon>
-        <WarningCircleIcon />
-      </MarkerIcon>
-      <MarkerContent>
-        <span className="font-mono">{label}</span> is no longer available; ask the agent to publish
-        it again.
-      </MarkerContent>
-    </Marker>
-  )
-}
-
-/**
- * A `sandbox_publish_artifact` call in the transcript: an image renders inline with a download,
- * anything else is a download row. Both use the existing authenticated chat transport.
- */
+// Published images render inline, other files as download rows. Both use current conversation access.
 export function SandboxArtifactPart({
   part,
   getFile: readFile,
@@ -127,15 +17,42 @@ export function SandboxArtifactPart({
   getFile?: ((id: string) => Promise<Blob>) | undefined
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
 }) {
-  const [downloadFailed, setDownloadFailed] = useState(false)
+  const [failedDownload, setFailedDownload] = useState(false)
+  const [objectUrl, setObjectUrl] = useState<string>()
   const artifact = readSandboxArtifact(part)
+  const { artifactMessageId, artifactPartId } = part
+  const fileId = artifact?.fileId
   const getFile = useCallback(() => {
-    if (part.artifactMessageId && part.artifactPartId)
-      return getAttachment(part.artifactMessageId, part.artifactPartId)
-    const fileId = readSandboxArtifact(part)?.fileId
+    if (artifactMessageId && artifactPartId) return getAttachment(artifactMessageId, artifactPartId)
     if (fileId && readFile) return readFile(fileId)
     return Promise.reject(new Error("File unavailable"))
-  }, [part, getAttachment, readFile])
+  }, [artifactMessageId, artifactPartId, fileId, getAttachment, readFile])
+  const isImage = artifact?.published && artifact.mimeType?.startsWith("image/")
+  useEffect(() => {
+    if (!isImage) return
+    let url: string | undefined
+    let cancelled = false
+    void getFile()
+      .then((blob) => {
+        if (cancelled) return
+        url = URL.createObjectURL(blob)
+        setObjectUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) setFailedDownload(true)
+      })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [getFile, isImage])
+  const download = async () => {
+    try {
+      saveBlob(artifact?.path.split("/").at(-1) || "artifact", await getFile())
+    } catch {
+      setFailedDownload(true)
+    }
+  }
   const refusal = sandboxRefusal(part)
   const failed = part.state === "error" || refusal !== undefined
   if (failed) {
@@ -163,11 +80,57 @@ export function SandboxArtifactPart({
       </Marker>
     )
   }
-  if (downloadFailed) {
-    return <ArtifactUnavailable label={artifact.label} />
+  if (failedDownload) {
+    return (
+      <Marker>
+        <MarkerIcon>
+          <WarningCircleIcon />
+        </MarkerIcon>
+        <MarkerContent>
+          <span className="font-mono">{artifact.label}</span> is no longer available. Ask the agent
+          to publish it again.
+        </MarkerContent>
+      </Marker>
+    )
   }
-  if (artifact.mimeType?.startsWith("image/")) {
-    return <ArtifactImage artifact={artifact} getFile={getFile} />
+  if (isImage && !objectUrl) {
+    return (
+      <Marker role="status">
+        <MarkerIcon>
+          <Spinner />
+        </MarkerIcon>
+        <MarkerContent className="shimmer">
+          Loading <span className="font-mono">{artifact.label}</span>
+        </MarkerContent>
+      </Marker>
+    )
+  }
+  const downloadButton = (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={`Download ${artifact.label}`}
+      title="Download"
+      onClick={() => void download()}
+    >
+      <DownloadSimpleIcon />
+    </Button>
+  )
+  if (isImage) {
+    return (
+      <figure className="my-1 flex max-w-full flex-col gap-1">
+        <img
+          src={objectUrl}
+          alt={artifact.label}
+          className="max-h-80 w-fit max-w-full rounded-md border object-contain"
+        />
+        <figcaption className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate font-mono">{artifact.label}</span>
+          {formatByteSize(artifact.size)}
+          {downloadButton}
+        </figcaption>
+      </figure>
+    )
   }
   return (
     <div className="flex w-fit max-w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
@@ -178,19 +141,7 @@ export function SandboxArtifactPart({
           {formatByteSize(artifact.size)}
         </span>
       )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Download ${artifact.label}`}
-        title="Download"
-        onClick={() => {
-          void downloadArtifact(artifact, getFile).then((ok) => {
-            if (!ok) setDownloadFailed(true)
-          })
-        }}
-      >
-        <DownloadSimpleIcon />
-      </Button>
+      {downloadButton}
     </div>
   )
 }

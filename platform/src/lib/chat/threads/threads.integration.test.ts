@@ -176,7 +176,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
-    const bytes = new TextEncoder().encode("Durable report")
+    const report = "x".repeat(2 * 1024 * 1024)
+    const bytes = new TextEncoder().encode(report)
     const fileId = await runtime.runPromise(service.publishArtifact({ claim: claim!, bytes }))
     const [association] = await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))
     expect(association).toMatchObject({ messageId: claim!.assistantMessageId, threadId: thread.id })
@@ -215,7 +216,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const response = await runtime.runPromise(
       savedChatAttachmentResponse(result, result.payload.parts[0]!.id),
     )
-    expect(await HttpServerResponse.toWeb(response).text()).toBe("Durable report")
+    expect(await HttpServerResponse.toWeb(response).text()).toBe(report)
     await expect(
       runtime.runPromise(files.read({ scope: { ...foreign, threadId: thread.id }, fileId })),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })

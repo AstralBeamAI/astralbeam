@@ -67,7 +67,7 @@
 - An attachment source must stay `data`-only. A URL source would have the model provider fetch a caller-chosen host on this deployment's API key.
 - Every attachment cap is enforced here regardless of what the SDK composer already checked, because the caller need not be the SDK.
 - Agent instructions and the attachment grant are agent configuration. `/api/v1/chat/config` exists so a client can narrow a grant for UX. It can never widen one, and a client-sent system prompt is refused rather than dropped.
-- Sandbox paths are contained against the provider's _real_ workspace root from `resolveHarnessCwd`, and re-checked at download time. Containment is not the security boundary, the sandbox is, but the agent's own files and the widget's file list depend on it.
+- Sandbox paths are contained against the provider's _real_ workspace root from `resolveHarnessCwd` before publication. Containment is not the security boundary, the sandbox is, but the agent's own files and the widget's file list depend on it.
 - Never expose raw provider errors, credentials, or database/setup details in chat responses. Use fixed actionable messages for allowlisted model provider error codes and `CHAT_MODEL_UNAVAILABLE_MESSAGE` for unknown model or stream failures, including iterator and middleware failures before SSE encoding. Preserve an already delivered safe error, and withhold saved acknowledgments on persistence failure. Record only redacted diagnostic metadata in server logs.
 
 ## Saved conversations

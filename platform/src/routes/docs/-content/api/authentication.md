@@ -44,7 +44,7 @@ JWT resource requests have a separate limit of 100 requests per five minutes per
 
 Chat accepts tenant JWTs without administrator privileges, but not API keys or organization-management JWTs. Configuration reads do not synchronize identity. Before sending, call `POST /api/v1/me` and select a participant-authorized saved conversation. The SDK handles both. Endpoint operations select three independent rate buckets per Organization, Tenant, and tenant user: 20 new turns, 200 tool-result submissions, and 200 uploads per minute.
 
-Artifact downloads use the signed `ticket` query parameter provided by the agent. Treat download URLs as temporary credentials. They do not require a Bearer header.
+Artifact downloads require a Bearer JWT and current conversation access. Pass the published `fileId` and its `threadId` as query parameters. Published files survive sandbox shutdown.
 
 ## Browser transport
 
