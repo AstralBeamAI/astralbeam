@@ -13,11 +13,11 @@ import { createOpenRouterText } from "@tanstack/ai-openrouter"
 import { HTTPClient } from "@openrouter/sdk/lib/http"
 import type { ChatContentItems } from "@openrouter/sdk/models"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
-import { Schema } from "effect"
+import { Effect, Queue, Schema, Stream } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
-import { fetchChatWeb, type ChatWebState } from "./web"
+import { CHAT_WEB_ACTIVITY_EVENT, fetchChatWeb, type ChatWebState } from "./web"
 
 type ChatWebTerminal = Extract<AdapterYieldChunk, { type: "RUN_FINISHED" | "RUN_ERROR" }>
 
@@ -165,7 +165,7 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
   const stream = adapter.chatStream.bind(adapter) as (
     options: TextOptions,
   ) => AsyncIterable<AdapterYieldChunk>
-  // Native adapters omit pause_turn and citations. Keep the continuation on this provider.
+  // Native adapters delay retrieval starts and omit pause_turn and citations.
   // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
   adapter.chatStream = async function* (options: TextOptions): AsyncGenerator<AdapterYieldChunk> {
     web.blocks = []
@@ -189,10 +189,23 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
     const signal = options.request?.signal
     const usages: TokenUsage[] = []
     let terminal: ChatWebTerminal | undefined
+    const progress = Effect.runSync(Queue.unbounded<AdapterYieldChunk>())
+    web.onActivity = () =>
+      Queue.offerUnsafe(progress, {
+        type: EventType.CUSTOM,
+        name: CHAT_WEB_ACTIVITY_EVENT,
+        value: null,
+      })
     try {
       do {
         web.pause = false
-        for await (const chunk of stream({ ...options, messages })) {
+        for await (const chunk of Stream.toAsyncIterable(
+          Stream.merge(
+            Stream.fromAsyncIterable(stream({ ...options, messages }), (error) => error),
+            Stream.fromQueue(progress),
+            { haltStrategy: "left" },
+          ),
+        )) {
           const output = chatWebContent(chunk, text, signal)
           if (output === null) return
           if (!output) continue
@@ -223,6 +236,8 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
         yield chatWebTerminal(terminal, usages, web)
       }
     } finally {
+      web.onActivity = undefined
+      Queue.shutdownUnsafe(progress)
       web.blocks = [...previous, ...web.blocks]
       if (signal?.aborted) web.failed ||= !web.settled
     }

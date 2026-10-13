@@ -24,7 +24,7 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson, chatPublicParts } from "./projection"
-import { chatWebContext, type ChatWebState } from "../web"
+import { CHAT_WEB_ACTIVITY_EVENT, chatWebContext, type ChatWebState } from "../web"
 
 const CHAT_THREAD_EVENT = `${APP_HANDLE}_thread`
 
@@ -496,7 +496,23 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         await saveManagedToolResult(options, state, result.toolCallId, "failed", result.result)
       }
     },
-    onChunk(_ctx, chunk) {
+    async onChunk(ctx, chunk) {
+      if (chunk.type === EventType.CUSTOM && chunk.name === CHAT_WEB_ACTIVITY_EVENT) {
+        await saveManagedProjection(
+          options,
+          state,
+          [
+            ...ctx.messages.slice(0, state.phaseStart),
+            {
+              id: ctx.currentMessageId ?? state.claim.assistantMessageId,
+              role: "assistant",
+              content: ctx.accumulatedContent,
+            },
+          ],
+          false,
+        )
+        return managedPublicChunk(state, { type: EventType.MESSAGES_SNAPSHOT, messages: [] })
+      }
       if (
         options.web &&
         chunk.type.startsWith("TOOL_CALL_") &&

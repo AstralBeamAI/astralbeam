@@ -9,7 +9,9 @@ test("citations retain answer text and use safe numbered links", () => {
     endIndex: 6,
     number: 2,
   }
-  expect(citedWebText("Answer", [citation])).toBe("Answer [2](<https://example.com/page>)")
+  expect(citedWebText("Answer", [citation])).toBe(
+    'Answer [2](<https://example.com/page> "Example")',
+  )
   expect(citedWebText("Answer", [{ ...citation, url: "javascript:alert(1)" }])).toBe("Answer")
   expect(safeWebUrl("https://user:password@example.com")).toBeUndefined()
 })

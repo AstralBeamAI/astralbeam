@@ -10,7 +10,7 @@ import { Effect, Schema } from "effect"
 import { expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { createChatAdapter } from "./adapter"
-import { chatWebState, chatWebTools } from "./web"
+import { chatWebState, chatWebTools, fetchChatWeb } from "./web"
 import { managedChatMiddleware, managedChatDelivery } from "./threads/stream"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
 import type { ChatThreads } from "./threads/threads"
@@ -257,9 +257,11 @@ async function exerciseWeb(
     cancel?: boolean
     reject?: boolean
     pending?: boolean
+    slow?: boolean
   } = {},
 ) {
   const requests: Schema.JsonObject[] = []
+  const release = Promise.withResolvers<void>()
   const signals: AbortSignal[] = []
   const model: ChatModelConfiguration = {
     providerId: "provider",
@@ -288,12 +290,30 @@ async function exerciseWeb(
           },
           { status: 400 },
         )
-      return webResponse(
+      const response = webResponse(
         provider,
         options.pause === "always" || (options.pause === "once" && requests.length === 1),
         Boolean(options.application) && requests.length === 1,
         options.failure,
         options.pending,
+      )
+      if (!options.slow) return response
+      const text = await response.text()
+      const split =
+        text.indexOf(
+          "\n\n",
+          text.indexOf(provider === "anthropic" ? '"server_tool_use"' : '"web_search_call"'),
+        ) + 2
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          async start(controller) {
+            controller.enqueue(new TextEncoder().encode(text.slice(0, split)))
+            await release.promise
+            controller.enqueue(new TextEncoder().encode(text.slice(split)))
+            controller.close()
+          },
+        }),
+        { headers: response.headers },
       )
     },
   }
@@ -432,6 +452,7 @@ async function exerciseWeb(
       }),
     })) {
       chunks.push(chunk)
+      if (options.slow && chunk.type === EventType.MESSAGES_SNAPSHOT) release.resolve()
       if (options.cancel && chunk.type === EventType.TEXT_MESSAGE_CONTENT) controller.abort()
     }
   } catch (error) {
@@ -439,6 +460,75 @@ async function exerciseWeb(
   }
   return { model, web, saved, chunks, requests, signals, results }
 }
+
+test.each(["openai", "anthropic"] as const)(
+  "%s delivers pending Web activity before retrieval completes",
+  async (provider) => {
+    const result = await exerciseWeb(provider, { slow: true })
+    const snapshots = result.chunks.filter((chunk) => chunk.type === EventType.MESSAGES_SNAPSHOT)
+    const processor = new StreamProcessor()
+    processor.processChunk(snapshots[0]!)
+    const pending = processor
+      .getMessages()
+      .at(-1)!
+      .parts.find((part) => part.type === "tool-call")!
+    const completed = result.saved
+      .at(-1)!
+      .parts.find((part) => part.executionLocation === "provider")!
+    expect(pending).toMatchObject({ name: "web_access", state: "input-complete", targets: [] })
+    expect(pending).not.toHaveProperty("output")
+    expect(completed).toMatchObject({ id: pending.id, state: "complete" })
+  },
+)
+
+test("Responses streamed citations in later output and content parts keep one correct offset", async () => {
+  const state = chatWebState()
+  const annotation = { type: "url_citation", ...webSourceFixture, start_index: 0, end_index: 6 }
+  const part = { type: "output_text", text: "Answer", annotations: [annotation] }
+  const first = {
+    type: "message",
+    content: [{ type: "output_text", text: "Intro. ", annotations: [] }],
+  }
+  const second = {
+    type: "message",
+    content: [{ type: "output_text", text: "More. ", annotations: [] }, part],
+  }
+  const events = [
+    { type: "response.output_item.done", output_index: 0, item: first },
+    { type: "response.output_item.added", output_index: 1, item: { type: "message", content: [] } },
+    {
+      type: "response.content_part.done",
+      output_index: 1,
+      content_index: 0,
+      part: second.content[0],
+    },
+    {
+      type: "response.output_text.annotation.added",
+      output_index: 1,
+      content_index: 1,
+      annotation,
+    },
+    { type: "response.output_item.done", output_index: 1, item: second },
+    { type: "response.completed", response: { output: [first, second] } },
+  ]
+  const response = await fetchChatWeb(
+    {
+      api: "responses",
+      providerType: "openai",
+      fetch: () =>
+        Promise.resolve(
+          new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")),
+        ),
+    },
+    state,
+    "https://provider.example/v1/responses",
+    { method: "POST", body: "{}" },
+  )
+  await response.text()
+  expect(state.evidence.citations).toEqual([
+    { ...webSourceFixture, startIndex: 13, endIndex: 19, number: 1 },
+  ])
+})
 
 test.each(["openai", "anthropic", "openrouter"] as const)(
   "%s native-only evidence survives delivery, reload, and compatible replay",

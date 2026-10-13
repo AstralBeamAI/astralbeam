@@ -12,6 +12,7 @@ interface ChatProjectionRecord {
   readonly sourceAssistantMessageId?: string | null
   readonly sourceToolPartId?: string | null
   readonly responseTargetId?: string | null
+  readonly authorTenantUserId?: string | null
 }
 
 interface ChatProjectionTarget {
@@ -285,6 +286,12 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
           id: record.id,
           role: record.role,
           parts: chatPublicParts(record.payload.parts),
+          metadata: {
+            astralbeam: {
+              state: record.state,
+              authorTenantUserId: record.authorTenantUserId ?? null,
+            },
+          },
         },
       ]),
   )

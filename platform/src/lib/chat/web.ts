@@ -15,6 +15,9 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import { modelWebAccess } from "@/lib/model-providers/web.server"
 import { ChatWebAccessUnavailable } from "./errors"
 import { CHAT_MAX_MODEL_TURNS } from "./constants"
+import { APP_HANDLE } from "@/lib/constants"
+
+export const CHAT_WEB_ACTIVITY_EVENT = `${APP_HANDLE}_web_activity`
 
 type WebJson = Record<string, Schema.Json>
 
@@ -30,6 +33,7 @@ export interface ChatWebState {
   failed: boolean
   offset: number
   evidence: WebEvidence
+  onActivity?: (() => void) | undefined
 }
 
 export function chatWebState(): ChatWebState {
@@ -200,24 +204,51 @@ function observeAnthropicWeb(state: ChatWebState, event: WebJson) {
 }
 
 function observeResponsesWeb(state: ChatWebState, event: WebJson) {
-  if (
-    event.type === "response.output_item.added" &&
-    webJson(event.item).type === "web_search_call"
-  ) {
-    state.active = true
-    state.settled = false
+  switch (event.type) {
+    case "response.output_item.added": {
+      const item = webJson(event.item)
+      state.blocks[Number(event.output_index)] = item
+      if (item.type === "web_search_call") {
+        state.active = true
+        state.settled = false
+      }
+      return
+    }
+    case "response.content_part.done":
+    case "response.output_text.annotation.added": {
+      const block = state.blocks[Number(event.output_index)]!
+      const content = Array.isArray(block.content) ? block.content : []
+      const index = Number(event.content_index)
+      const part = webJson(content[index])
+      content[index] =
+        event.type === "response.content_part.done"
+          ? webJson(event.part)
+          : {
+              ...part,
+              annotations: [
+                ...Schema.decodeUnknownSync(Schema.Array(Schema.Json))(part.annotations ?? []),
+                event.annotation!,
+              ],
+            }
+      block.content = content
+      break
+    }
+    case "response.output_item.done":
+      state.blocks[Number(event.output_index)] = webJson(event.item)
+      break
+    case "response.completed": {
+      const response = webJson(event.response)
+      state.blocks = [
+        ...Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(
+          response.output ?? state.blocks,
+        ),
+      ]
+      state.usage.push(webJson(response.usage))
+      break
+    }
+    default:
+      return
   }
-  if (event.type === "response.output_text.annotation.added")
-    webCitation(state, webJson(event.annotation), 0)
-  if (event.type === "response.output_item.done") {
-    state.blocks[Number(event.output_index)] = webJson(event.item)
-  } else if (event.type === "response.completed") {
-    const response = webJson(event.response)
-    state.blocks = [
-      ...Schema.decodeUnknownSync(Schema.Array(Schema.JsonObject))(response.output ?? state.blocks),
-    ]
-    state.usage.push(webJson(response.usage))
-  } else return
   let offset = 0
   for (const block of state.blocks) {
     if (block.type === "web_search_call") {
@@ -281,7 +312,7 @@ function observeRouterWeb(state: ChatWebState, event: WebJson) {
 
 // Capture fields the maintained adapters omit. https://github.com/TanStack/ai/tree/main/packages/ai-anthropic/src/adapters
 export async function fetchChatWeb(
-  model: ChatModelConfiguration,
+  model: Pick<ChatModelConfiguration, "api" | "providerType" | "fetch">,
   state: ChatWebState,
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -329,9 +360,12 @@ export async function fetchChatWeb(
   const parser = Sse.makeParser((event) => {
     if (event._tag !== "Event" || event.data === "[DONE]") return
     const value = webJson(JSON.parse(event.data))
+    const active = state.active
+    const settled = state.settled
     if (model.api === "anthropic-messages") observeAnthropicWeb(state, value)
     else if (model.providerType === "openrouter") observeRouterWeb(state, value)
     else observeResponsesWeb(state, value)
+    if (state.active && (!active || settled !== state.settled)) state.onActivity?.()
   })
   return new Response(
     response.body.pipeThrough(

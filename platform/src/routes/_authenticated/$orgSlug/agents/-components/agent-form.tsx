@@ -245,10 +245,10 @@ export function AgentForm({
                   <FieldLabel htmlFor="agent-web-access">Web access</FieldLabel>
                   <FieldDescription id="agent-web-access-description">
                     {!webAvailable
-                      ? "Select a supported model. OpenAI connections require Responses."
+                      ? "Select a supported default model. OpenAI connections require Responses."
                       : selectedModel?.webAccess === null
                         ? "For custom models and endpoints, enable only if native web tools are supported."
-                        : "Search the web and read public pages through the selected model."}
+                        : "Search the web and read public pages through the default model."}
                   </FieldDescription>
                 </FieldContent>
                 <Switch

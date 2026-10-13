@@ -43,7 +43,7 @@ export function citedWebText(content: string, citations: readonly WebCitation[])
     .reduce((text, citation) => {
       const url = safeWebUrl(citation.url)
       return url && citation.startIndex >= 0 && citation.endIndex <= content.length
-        ? `${text.slice(0, citation.endIndex)} [${citation.number}](<${url}>)${text.slice(citation.endIndex)}`
+        ? `${text.slice(0, citation.endIndex)} [${citation.number}](<${url}> ${JSON.stringify(citation.title.replaceAll(/\s+/g, " "))})${text.slice(citation.endIndex)}`
         : text
     }, content)
     .replaceAll(/cite[^]*/gu, "")

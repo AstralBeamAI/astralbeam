@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { chatStoredJson, projectChatModelHistory } from "./projection"
+import { chatStoredJson, projectChatModelHistory, projectChatPublicHistory } from "./projection"
 import type { ChatMessagePayload } from "./schemas"
 
 const projectionTarget = { providerId: "provider-one", protocol: "responses", modelId: "model-one" }
@@ -78,6 +78,9 @@ describe("stored conversation model projection", () => {
       "provider-b",
     ])
     expect(records).toEqual(before)
+    expect(
+      projectChatPublicHistory([{ ...input, authorTenantUserId: "another-user" }])[0]!.metadata,
+    ).toMatchObject({ astralbeam: { state: "complete", authorTenantUserId: "another-user" } })
   })
 
   test("aggregates multiple responders into one provider result in stable target order", () => {

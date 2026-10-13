@@ -148,7 +148,7 @@ export function ChatTranscript({
                         <UserMessageBody message={message} getAttachment={getAttachment} />
                       ) : (
                         message.parts.map((part, partIndex) => (
-                          <PartErrorBoundary key={partIndex}>
+                          <PartErrorBoundary key={part.type === "tool-call" ? part.id : partIndex}>
                             <AssistantPart
                               readOnly={readOnly}
                               part={part}

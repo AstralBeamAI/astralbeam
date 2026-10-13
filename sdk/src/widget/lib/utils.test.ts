@@ -15,16 +15,27 @@ test("falls back to a string for an unserializable tool payload", () => {
 })
 
 test("copies only user and assistant text as Markdown", () => {
+  const answer = {
+    type: "text" as const,
+    content: "**Hello**",
+    metadata: {
+      web: {
+        sources: [],
+        citations: [
+          { url: "https://example.com", title: "Example", startIndex: 0, endIndex: 9, number: 1 },
+        ],
+      },
+    },
+  }
   const markdown = transcriptMarkdown("Plan", [
     { id: "1", role: "user", parts: [{ type: "text", content: "Hi" }] },
     {
       id: "2",
       role: "assistant",
-      parts: [
-        { type: "thinking", content: "hidden" },
-        { type: "text", content: "**Hello**" },
-      ],
+      parts: [{ type: "thinking", content: "hidden" }, answer],
     },
   ])
-  expect(markdown).toBe("# Plan\n\n## User\n\nHi\n\n## Assistant\n\n**Hello**\n")
+  expect(markdown).toBe(
+    '# Plan\n\n## User\n\nHi\n\n## Assistant\n\n**Hello** [1](<https://example.com/> "Example")\n',
+  )
 })

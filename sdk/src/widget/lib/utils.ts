@@ -1,5 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import type { WidgetDefinition } from "../../lib/types.ts"
+import { citedWebText, webPartMetadata } from "../../core/web.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../../core/messages.ts"
 import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./style-bridge.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
@@ -46,7 +47,15 @@ export function slotNameForToolCall(toolCallId: string): string {
 }
 
 export function getMessageText(message: UIMessage): string {
-  return message.parts.map((part) => (part.type === "text" ? part.content : "")).join("")
+  return message.parts
+    .map((part) =>
+      part.type === "text"
+        ? message.role === "assistant"
+          ? citedWebText(part.content, webPartMetadata(part).web?.citations ?? [])
+          : part.content
+        : "",
+    )
+    .join("")
 }
 
 /** The conversation's visible text as Markdown, one section per user or assistant message. */
