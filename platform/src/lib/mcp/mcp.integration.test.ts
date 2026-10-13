@@ -489,16 +489,52 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         warning.mockRestore()
       }
     })
-    test.each(["invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope"])(
-      "%s clears the unusable grant",
-      async (error) => {
+    test.each([
+      "invalid_grant",
+      "invalid_client",
+      "unauthorized_client",
+      "invalid_scope",
+      "invalid_request",
+      "unsupported_grant_type",
+    ])("%s clears the unusable grant", async (error) => {
+      const { reference } = await connectedOAuth()
+      await expire(reference)
+      fixture.state.refreshError = error
+      await expect(
+        authority((service) => service.getCredential({ actor, reference })),
+      ).rejects.toThrow()
+      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(
+        (await connections((service) => service.catalog(actor))).connections[0]!.authState,
+      ).toBe("reauthorization_required")
+    })
+    test.each(["expired", "rejected"])(
+      "%s tokens without a refresh token require reconnecting without losing registration",
+      async (reason) => {
+        fixture.state.authorizationRefreshToken = null
         const { reference } = await connectedOAuth()
-        await expire(reference)
-        fixture.state.refreshError = error
+        if (reason === "expired") await expire(reference)
+        await expect(
+          authority((service) =>
+            service.getCredential({
+              actor,
+              reference,
+              ...(reason === "rejected" ? { rejectedToken: "access-0" } : {}),
+            }),
+          ),
+        ).rejects.toThrow()
         await expect(
           authority((service) => service.getCredential({ actor, reference })),
         ).rejects.toThrow()
-        expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+        expect(fixture.state.refreshes).toBe(0)
+        expect(
+          (await connections((service) => service.catalog(actor))).connections[0]!.authState,
+        ).toBe("reauthorization_required")
+        const [stored] = await db.select().from(mcpConnection)
+        expect(stored!.credentials!.credential).toMatchObject({
+          kind: "oauth",
+          clientInformation: { client_id: "registered-1" },
+        })
       },
     )
     test("private static credentials stay isolated and cannot be transplanted", async () => {

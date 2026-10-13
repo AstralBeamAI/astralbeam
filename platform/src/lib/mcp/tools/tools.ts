@@ -180,7 +180,13 @@ const makeMcpTools = Effect.gen(function* () {
         ),
       { concurrency: 4 },
     )
-    const result: McpToolSet = { tools: [], presentation: [], unavailable: [] }
+    const result: McpToolSet = {
+      tools: [],
+      presentation: [],
+      unavailable: catalog.connections
+        .filter((entry) => entry.authState === "reauthorization_required")
+        .map((entry) => entry.id),
+    }
     let catalogBytes = 0
     for (const [index, entry] of pending.entries()) {
       if (

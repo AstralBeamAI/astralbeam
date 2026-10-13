@@ -135,6 +135,27 @@ describe("request-oriented MCP tools", () => {
       )
     },
   )
+  test("reports accounts needing authorization without opening them or hiding healthy tools", async () => {
+    const stale = {
+      ...mcpToolTestConnection,
+      id: "019a0000-0000-7000-8000-000000000005",
+      authState: "reauthorization_required",
+    }
+    await withMcpTools(
+      (tools) =>
+        Effect.gen(function* () {
+          const set = yield* tools.acquire(mcpToolTestActor)
+          expect(set.tools).toHaveLength(1)
+          expect(set.unavailable).toEqual([stale.id])
+          expect(
+            mcpToolFixture.state.requests.filter((request) => request.method === "server/discover"),
+          ).toHaveLength(1)
+        }),
+      undefined,
+      undefined,
+      [mcpToolTestConnection, stale],
+    )
+  })
   test.each([
     { boundary: "count", toolCount: 100, catalogDescription: "", exposed: 200 },
     { boundary: "bytes", toolCount: 1, catalogDescription: "x".repeat(400_000), exposed: 2 },

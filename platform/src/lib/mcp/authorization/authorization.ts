@@ -396,18 +396,29 @@ const makeMcpAuthorization = Effect.gen(function* () {
   ) {
     if (envelope.credential.kind !== "oauth") return yield* new McpAuthorizationRequired()
     const credential = envelope.credential
-    if (!credential.tokens.refresh_token) return yield* new McpAuthorizationRequired()
     if (envelope.refreshStartedAt !== undefined) return null
-    const started = yield* Clock.currentTimeMillis
     const predicate = and(
       mcpConnectionOwner(input.actor),
       eq(mcpConnection.id, connection.id),
       eq(mcpConnection.lockVersion, connection.lockVersion),
     )
+    const unchanged = and(
+      predicate,
+      sql`${mcpConnection.credentials} = ${connection.storedCredentials}`,
+    )
+    if (!credential.tokens.refresh_token) {
+      yield* db
+        .update(mcpConnection)
+        .set({ credentials: { ...envelope, refreshStartedAt: 0 } })
+        .where(unchanged)
+        .pipe(Effect.orDie)
+      return yield* new McpAuthorizationRequired()
+    }
+    const started = yield* Clock.currentTimeMillis
     const claimed = yield* db
       .update(mcpConnection)
       .set({ credentials: { ...envelope, refreshStartedAt: started } })
-      .where(and(predicate, sql`${mcpConnection.credentials} = ${connection.storedCredentials}`))
+      .where(unchanged)
       .returning({ credentials: sql<string>`${mcpConnection.credentials}::text` })
       .pipe(Effect.orDie)
     if (!claimed.length) return null
@@ -430,10 +441,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       Effect.catch((error) => {
         const definite = error instanceof OAuthError
         const reauthorize =
-          definite &&
-          ["invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope"].includes(
-            error.code,
-          )
+          definite && !["server_error", "temporarily_unavailable"].includes(error.code)
         return db
           .update(mcpConnection)
           .set(

@@ -133,7 +133,9 @@ const makeMcpConnections = Effect.gen(function* () {
         )
           ? "connected"
           : row.storedCredentials === null
-            ? "disconnected"
+            ? row.lockVersion > 0
+              ? "reauthorization_required"
+              : "disconnected"
             : !credential ||
                 (credential.refreshStartedAt !== undefined &&
                   credential.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)
