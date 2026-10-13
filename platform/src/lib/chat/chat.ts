@@ -47,7 +47,6 @@ import {
   ChatSystemPromptRefused,
   ChatWebAccessUnavailable,
 } from "./errors.ts"
-import { ChatSandboxUnavailable } from "./sandbox/errors"
 import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
 import type { ChatParams, ChatPrincipal } from "./types"
@@ -259,7 +258,7 @@ export class Chat extends Context.Service<
               publishArtifact: (bytes) =>
                 threads
                   .publishArtifact({ claim: managed.state.claim, bytes })
-                  .pipe(Effect.mapError(() => new ChatSandboxUnavailable())),
+                  .pipe(Effect.catch(() => Effect.succeed(undefined))),
             })
           : []
         if (log && sandboxTools.length > 0) {

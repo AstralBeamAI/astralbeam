@@ -88,7 +88,7 @@ type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandbo
  * command and a timeout are ordinary results the agent can act on, and only a broken sandbox fails. */
 export function createChatSandboxTools(input: {
   readonly session: ChatSandboxSession
-  readonly publishArtifact: (bytes: Uint8Array) => Effect.Effect<string, ChatSandboxUnavailable>
+  readonly publishArtifact: (bytes: Uint8Array) => Effect.Effect<string | undefined>
   /** The run's services, which each tool's Effect runs with. */
   readonly services: Context.Context<never>
 }): AnyServerTool[] {
@@ -295,6 +295,7 @@ export function createChatSandboxTools(input: {
         // the download route will serve it.
         const mimeType = detectSandboxArtifactMimeType(bytes)
         const fileId = yield* input.publishArtifact(bytes)
+        if (!fileId) return { refusal: "The file could not be published. Try again." }
         return {
           path: resolved.path,
           relativePath: resolved.relativePath,
