@@ -95,6 +95,7 @@ type McpRuntimeCredentialInput = {
   actor: McpActor
   reference: McpReference
   rejectedToken?: string | undefined
+  expectedGeneration?: McpStoredConnection["authGeneration"] | undefined
 }
 
 function mcpManualClientInformation(client: McpManualClient, issuer: string) {
@@ -899,6 +900,11 @@ const makeMcpAuthorization = Effect.gen(function* () {
         reference: input.reference,
         use: true,
       })
+      if (
+        input.expectedGeneration !== undefined &&
+        connection.authGeneration !== input.expectedGeneration
+      )
+        return yield* new McpChanged()
       if (connection.authState !== "connected") return yield* new McpAuthorizationRequired()
       if (server.authConfig.kind === "none") return Redacted.make<McpCredential | null>(null)
       const envelope = mcpDecodeCredential(connection)

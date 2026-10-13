@@ -91,6 +91,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     draft: false,
     pages: [
       { slug: "models", title: "Models" },
+      { slug: "connections", title: "Connections" },
       { slug: "agents", title: "Agents" },
       { slug: "sandboxes", title: "Sandboxes" },
       { slug: "usage-limits", title: "Usage limits" },

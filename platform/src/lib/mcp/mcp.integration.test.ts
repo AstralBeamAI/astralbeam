@@ -248,6 +248,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     )
     test("reconnect never combines a new account's access token with the previous refresh token", async () => {
       const { reference } = await connectedOAuth()
+      const { connection: original } = await connections((service) =>
+        service.getConnection({ actor, reference }),
+      )
       fixture.state.authorizationToken = "another-account"
       fixture.state.authorizationRefreshToken = null
       const flow = await authorize(reference)
@@ -255,6 +258,11 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         service.callback({ params: flow.params, browserBinding: flow.challenge }),
       )
       await authority((service) => service.complete({ actor, reference: flow.started.attempt }))
+      await expect(
+        authority((service) =>
+          service.getCredential({ actor, reference, expectedGeneration: original.authGeneration }),
+        ),
+      ).rejects.toThrow()
       const credential = Redacted.value(
         await authority((service) => service.getCredential({ actor, reference })),
       )

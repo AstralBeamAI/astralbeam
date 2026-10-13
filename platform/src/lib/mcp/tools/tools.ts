@@ -45,11 +45,12 @@ const makeMcpTools = Effect.gen(function* () {
     const dispatcher = yield* Effect.acquireRelease(Effect.sync(mcpCreateDispatcher), (agent) =>
       Effect.promise(() => agent.close()),
     )
+    const credentialInput = { ...input, expectedGeneration: connection.authGeneration }
     const readCredential = (rejectedToken?: string) =>
-      Effect.runPromise(authorization.getCredential({ ...input, rejectedToken })).then(
+      Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken })).then(
         Redacted.value,
       )
-    const initial = Redacted.value(yield* authorization.getCredential(input))
+    const initial = Redacted.value(yield* authorization.getCredential(credentialInput))
     const state = {
       lastToken: initial?.kind === "oauth" ? initial.tokens.access_token : undefined,
     }

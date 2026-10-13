@@ -91,7 +91,7 @@ Refresh uses a conditional PostgreSQL claim across replicas. Token exchange runs
 
 Deterministic fixtures cover protocol and OAuth behavior, including concurrency against a disposable database. Live provider verification requires opt-in credentials and is separate from fixture evidence. Legacy MCP revisions, stdio, protocol sessions, private networks, subscriptions, resources, prompts, sampling and elicitation are outside this client.
 
-To verify live providers, first authorize Organization-shared accounts through Connections. Set `MCP_LIVE_ORGANIZATION_ID` and `MCP_LIVE_ORGANIZATION_USER_ID`, plus `MCP_LIVE_DCR_CONNECTION_ID` or `MCP_LIVE_GOOGLE_CONNECTION_ID`, in the test process and run `deno task --cwd platform test --project=integration src/lib/mcp/live-provider.integration.test.ts` against that database. The checks exercise authenticated discovery and runtime credential refresh. They do not automate provider consent or establish fresh browser authorization compatibility. Without those inputs they skip.
+To verify live providers, first connect Organization-shared accounts through Connections. Set `MCP_LIVE_ORGANIZATION_ID`, `MCP_LIVE_ORGANIZATION_USER_ID` and comma-separated `MCP_LIVE_CONNECTION_IDS` in the test process and run `deno task --cwd platform test --project=integration src/lib/mcp/live-provider.integration.test.ts` against that database. The check lists remote tools and verifies their server-side TanStack exposure without invoking business tools. It does not automate provider consent. Without those inputs it skips. See [Connections](platform/src/routes/docs/-content/dashboard/connections.md) for hosted server examples.
 
 ### Conversation schema choices
 

@@ -27,6 +27,7 @@ const mcpToolTestConnection = {
   enabled: true,
   authState: "connected",
   availability: "available",
+  authGeneration: "019a0000-0000-7000-8000-000000000006",
 }
 const mcpToolTestServer = {
   ...mcpToolTestActor,
@@ -40,7 +41,7 @@ afterEach(async () => {
 })
 async function withMcpTools<A>(
   use: (tools: typeof McpTools.Service) => Effect.Effect<A, unknown, Scope.Scope>,
-  getCredential: () => McpCredential | null = () => null,
+  getCredential: (input: { expectedGeneration?: string }) => McpCredential | null = () => null,
   authConfig: McpAuthConfig = { kind: "none" },
   catalog = [mcpToolTestConnection],
 ) {
@@ -64,7 +65,8 @@ async function withMcpTools<A>(
                 }),
             } as unknown as typeof McpConnections.Service),
             Layer.succeed(McpAuthorization, {
-              getCredential: () => Effect.succeed(Redacted.make(getCredential())),
+              getCredential: (input: { expectedGeneration?: string }) =>
+                Effect.sync(() => Redacted.make(getCredential(input))),
             } as unknown as typeof McpAuthorization.Service),
           ]),
         ),
@@ -73,6 +75,29 @@ async function withMcpTools<A>(
   )
 }
 describe("request-oriented MCP tools", () => {
+  test("a discovered tool cannot dispatch with a replacement account's credentials", async () => {
+    let generation = mcpToolTestConnection.authGeneration
+    await withMcpTools(
+      (tools) =>
+        Effect.gen(function* () {
+          const set = yield* tools.acquire(mcpToolTestActor)
+          generation = "019a0000-0000-7000-8000-000000000007"
+          yield* Effect.promise(() =>
+            expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow(),
+          )
+          expect(mcpToolFixture.state.calls).toBe(0)
+        }),
+      ({ expectedGeneration }) => {
+        if (expectedGeneration !== undefined && expectedGeneration !== generation)
+          throw new Error("Account replaced")
+        return {
+          kind: "static_headers",
+          headers: { Authorization: `Bearer account-${generation}` },
+        }
+      },
+      { kind: "static_headers", headerNames: ["Authorization"] },
+    )
+  })
   test("omits a duplicate tool catalog without disrupting another connection", async () => {
     const healthy = { ...mcpToolTestConnection, id: "019a0000-0000-7000-8000-000000000005" }
     await withMcpTools(
