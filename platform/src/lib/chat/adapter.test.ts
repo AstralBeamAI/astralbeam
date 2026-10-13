@@ -28,6 +28,14 @@ const chatAdapterCases: readonly (Pick<
   {
     providerType: "openai",
     api: "chat-completions",
+    baseUrl: "https://southcentralus.privatelink.api.openai.com/v1",
+    modelId: "gpt-5.6-terra",
+    path: "/v1/chat/completions",
+    capField: "max_completion_tokens",
+  },
+  {
+    providerType: "openai",
+    api: "chat-completions",
     baseUrl: "https://gateway.example/v1",
     modelId: "custom-compatible-model",
     path: "/v1/chat/completions",

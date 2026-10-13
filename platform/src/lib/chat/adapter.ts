@@ -1,4 +1,4 @@
-import { createModel, extendAdapter } from "@tanstack/ai"
+import { createModel, extendAdapter, EventType } from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createOpenaiChat } from "@tanstack/ai-openai"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
@@ -11,7 +11,7 @@ export function modelOutputOptions(configuration: ChatModelConfiguration) {
     configuration.api === "responses"
       ? "max_output_tokens"
       : configuration.api === "chat-completions" &&
-          new URL(configuration.baseUrl).hostname === "api.openai.com"
+          /(?:^|\.)api\.openai\.com$/.test(new URL(configuration.baseUrl).hostname)
         ? "max_completion_tokens"
         : "max_tokens"
   return { [field]: configuration.outputCap }
@@ -32,13 +32,29 @@ export function createChatAdapter(configuration: ChatModelConfiguration) {
       createModel(configuration.modelId, ["text", "image", "document"]),
     ])
     // Null stops the SDK reading OPENAI_ORG_ID and OPENAI_PROJECT_ID from the deployment.
-    return createOpenaiModel(configuration.modelId, configuration.apiKey, {
+    const adapter = createOpenaiModel(configuration.modelId, configuration.apiKey, {
       baseURL: configuration.baseUrl,
       fetch: boundedFetch,
       organization: null,
       project: null,
       maxRetries: 0,
     })
+    const chatStream = adapter.chatStream.bind(adapter)
+    // Normalize token-cap exhaustion until the adapter handles response.incomplete as length.
+    // https://github.com/TanStack/ai/blob/main/packages/openai-base/src/adapters/responses-text.ts
+    adapter.chatStream = async function* (options): ReturnType<typeof chatStream> {
+      let scope = { runId: "", threadId: "" }
+      for await (const chunk of chatStream(options)) {
+        if (chunk.type === EventType.RUN_STARTED)
+          scope = { runId: chunk.runId, threadId: chunk.threadId }
+        yield chunk.type === EventType.RUN_ERROR &&
+        chunk.code === "incomplete" &&
+        chunk.message === "max_output_tokens"
+          ? { ...scope, type: EventType.RUN_FINISHED, finishReason: "length" }
+          : chunk
+      }
+    }
+    return adapter
   }
   if (configuration.api === "anthropic-messages") {
     const createAnthropicModel = extendAdapter(createAnthropicChat, [
