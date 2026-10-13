@@ -1,5 +1,4 @@
 import { chat, EventType, type StreamChunk } from "@tanstack/ai"
-import { Schema } from "effect"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
@@ -78,9 +77,7 @@ describe("chat provider request routing", () => {
         requests.push({
           url: new URL(input instanceof Request ? input.url : input),
           headers: new Headers(init.headers),
-          body: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
-            JSON.parse(init.body),
-          ),
+          body: JSON.parse(init.body) as Record<string, unknown>,
         })
         return Promise.resolve(
           Response.json(

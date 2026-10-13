@@ -189,6 +189,13 @@ export class ModelProviders extends Context.Service<
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
       const readPricing = readModelPriceCatalog.pipe(Effect.provideService(Config, config))
+      const readEffectiveModelConfiguration = Effect.fnUntraced(function* (
+        input: Omit<Parameters<typeof effectiveModelConfiguration>[0], "catalog">,
+      ) {
+        return input.configured?.pricingSource.kind === "manual"
+          ? input.configured
+          : effectiveModelConfiguration({ ...input, catalog: yield* readPricing })
+      })
       const allowsPrivateEndpoints = Effect.map(
         config.get("allow_private_model_endpoints"),
         (value) => value === "true",
@@ -591,14 +598,7 @@ export class ModelProviders extends Context.Service<
           .pipe(Effect.orDie)
         if (!selected) return null
         const { storedCredentials, configured, ...configuration } = selected
-        const settings =
-          configured?.pricingSource.kind === "manual"
-            ? configured
-            : effectiveModelConfiguration({
-                ...configuration,
-                catalog: yield* readPricing,
-                configured,
-              })
+        const settings = yield* readEffectiveModelConfiguration({ ...configuration, configured })
         if (!settings) return null
         const apiKey = readModelProviderKey({
           id: selected.providerId,
@@ -629,7 +629,7 @@ export class ModelProviders extends Context.Service<
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const [model] = yield* db
-          .select({ modelId: providerModel.modelId, configuration: providerModel.configuration })
+          .select({ modelId: providerModel.modelId, configured: providerModel.configuration })
           .from(providerModel)
           .where(
             and(
@@ -643,15 +643,7 @@ export class ModelProviders extends Context.Service<
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
-        const settings =
-          model.configuration?.pricingSource.kind === "manual"
-            ? model.configuration
-            : effectiveModelConfiguration({
-                catalog: yield* readPricing,
-                providerType: provider.providerType,
-                modelId: model.modelId,
-                configured: model.configuration,
-              })
+        const settings = yield* readEffectiveModelConfiguration({ ...provider, ...model })
         if (!settings) return yield* new ModelProviderTestFailed({ reason: "configuration" })
         yield* rateLimiter
           .consume({

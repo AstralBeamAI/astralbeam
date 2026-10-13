@@ -427,41 +427,33 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const otherModelId = providers.find((provider) => provider.id !== id)!.models[0]!.id
     vi.stubEnv("ALLOW_PRIVATE_MODEL_ENDPOINTS", "true")
     await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    const requestedCaps: unknown[] = []
+    vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) => {
+      requestedCaps.push(
+        (JSON.parse(init.body as string) as Record<string, unknown>).max_output_tokens,
+      )
+      return Promise.resolve(
+        new Response(
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"OK"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[]}}\n\n',
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+      )
+    })
     try {
-      for (const [outputCap, expectedCap] of [
-        [512, 512],
-        [3072, 1024],
-      ] as const) {
+      for (const outputCap of [512, 3072]) {
         await db
           .update(providerModel)
-          .set({
-            configuration: {
-              ...modelTestConfiguration,
-              maxOutputTokens: outputCap,
-              outputCap,
-            },
-          })
+          .set({ configuration: { ...modelTestConfiguration, outputCap } })
           .where(
             and(eq(providerModel.organizationId, organizationId), eq(providerModel.id, modelId)),
           )
-        let requestedCap: unknown
-        vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) => {
-          requestedCap = (JSON.parse(init.body as string) as Record<string, unknown>)
-            .max_output_tokens
-          return Promise.resolve(
-            new Response(
-              'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"OK"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[]}}\n\n',
-              { headers: { "content-type": "text/event-stream" } },
-            ),
-          )
-        })
         await runAppEffect(
           Effect.flatMap(ModelProviders, (service) =>
             service.testModel({ organizationId, id, lockVersion: 0, modelId }),
           ),
         )
-        expect(requestedCap).toBe(expectedCap)
       }
+      expect(requestedCaps).toEqual([512, 1024])
     } finally {
       vi.unstubAllGlobals()
       vi.unstubAllEnvs()
