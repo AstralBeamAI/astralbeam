@@ -4,9 +4,10 @@ import { safeWebUrl, webPartMetadata } from "../../core/web.ts"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 import { Spinner } from "./ui/spinner.tsx"
 
-export function WebActivity({ part }: { part: ChatToolCallPart }) {
+export function WebActivity({ part, active }: { part: ChatToolCallPart; active: boolean }) {
   const evidence = webPartMetadata(part).web
-  const running = part.output === undefined && part.state !== "error"
+  const pending = part.state !== "complete" && part.state !== "error"
+  const running = active && pending
   return (
     <ToolDisclosure
       running={running}
@@ -16,7 +17,9 @@ export function WebActivity({ part }: { part: ChatToolCallPart }) {
           ? "Web retrieval failed"
           : running
             ? "Searching and reading the web"
-            : "Web access"
+            : pending
+              ? "Web retrieval unfinished"
+              : "Web access"
       }
     >
       <ul className="space-y-1 text-xs">

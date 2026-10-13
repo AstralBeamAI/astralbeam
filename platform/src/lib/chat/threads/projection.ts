@@ -163,7 +163,9 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     }
     if (missing.length > 0) {
       // An incomplete exchange is context, never an executable or unmatched provider tool call.
-      const visible = record.payload.parts.filter((part) => part.type !== "tool-call")
+      const visible = record.payload.parts.filter(
+        (part) => part.type !== "tool-call" || part.executionLocation === "provider",
+      )
       const settled = outputs.map((result) => result.payload.parts[0]!)
       return [
         {

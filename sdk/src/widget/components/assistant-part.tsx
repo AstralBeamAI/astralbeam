@@ -236,7 +236,8 @@ export function AssistantPart({
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
-      if (webPartMetadata(part).providerExecuted) return <WebActivity part={part} />
+      if (webPartMetadata(part).providerExecuted)
+        return <WebActivity part={part} active={!readOnly && !interrupted} />
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))

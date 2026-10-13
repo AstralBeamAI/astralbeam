@@ -16,15 +16,34 @@ function projectionRecord(
 describe("stored conversation model projection", () => {
   test("keeps unfinished tool exchanges out of context and groups completed results before interleaved input", () => {
     const calls = projectionRecord("calls", {
-      parts: ["a", "b"].map((id) => ({
-        id,
-        type: "tool-call",
-        toolCallId: `provider-${id}`,
-        name: "lookup",
-        arguments: "{}",
-        executionLocation: "server_api",
-        targets: [{ id: `target-${id}` }],
-      })),
+      parts: [
+        ...["a", "b"].map((id) => ({
+          id,
+          type: "tool-call",
+          toolCallId: `provider-${id}`,
+          name: "lookup",
+          arguments: "{}",
+          executionLocation: "server_api",
+          targets: [{ id: `target-${id}` }],
+        })),
+        {
+          id: "web",
+          type: "tool-call",
+          toolCallId: "web",
+          name: "web_access",
+          arguments: "{}",
+          executionLocation: "provider",
+          targets: [],
+          state: "complete",
+          metadata: {
+            providerExecuted: true,
+            web: {
+              sources: [{ url: "https://example.com/consulted", title: "Consulted" }],
+              citations: [],
+            },
+          },
+        },
+      ],
     })
     const input = projectionRecord(
       "later-input",
@@ -51,6 +70,7 @@ describe("stored conversation model projection", () => {
     expect(incomplete.map((message) => message.role)).toEqual(["assistant", "user"])
     expect(incomplete[0]!.toolCalls).toBeUndefined()
     expect(JSON.stringify(incomplete[0]!.content)).toContain("awaiting confirmation")
+    expect(JSON.stringify(incomplete[0]!.content)).toContain("https://example.com/consulted")
     const complete = projectChatModelHistory(records)
     expect(complete.map((message) => message.role)).toEqual(["assistant", "tool", "tool", "user"])
     expect(complete.slice(1, 3).map((message) => message.toolCallId)).toEqual([
