@@ -59,6 +59,7 @@ import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { Chat } from "./chat.ts"
+import { McpTools } from "../mcp/tools/tools"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./constants.ts"
 import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
@@ -125,6 +126,10 @@ function chatTestLayer(options: {
         attach: () => Effect.succeed(0),
       }),
       Layer.succeed(Agents, agents),
+      Layer.succeed(McpTools, {
+        acquire: () => Effect.succeed({ tools: [], presentation: [], unavailable: [] }),
+        test: () => Effect.succeed({ toolCount: 0 }),
+      }),
       Layer.succeed(ModelProviders, {
         resolveForAgent: () =>
           options.model === undecryptable

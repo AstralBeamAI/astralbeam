@@ -43,6 +43,13 @@ import {
   updateAuthentication,
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
+import {
+  loadMcpCatalog,
+  manageMcp,
+  connectMcpAccount,
+  type McpCatalog,
+  type McpManagementOperation,
+} from "./mcp.ts"
 import { isSettledToolCall } from "./messages.ts"
 import { webPartMetadata } from "./web.ts"
 import {
@@ -156,6 +163,8 @@ export interface AstralBeamChatState {
   /** What the resolved agent grants; the UI should render only that. */
   capabilities: { attachments: boolean }
   /** The tool set currently declared to the agent, in declaration order. */
+  serverToolTitles?: Readonly<Record<string, string>>
+  unavailableMcpConnections?: readonly string[]
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
   /** The usage limit that ended the last run, by display name, until another run starts. */
@@ -218,6 +227,9 @@ export interface AstralBeamChatCore {
     mimeType: string
   }) => Promise<UploadedChatFile>
   getFile: (fileId: string) => Promise<Blob>
+  getMcpCatalog: () => Promise<McpCatalog>
+  manageMcp: (operation: McpManagementOperation) => ReturnType<typeof manageMcp>
+  connectMcpAccount: (input: Parameters<typeof connectMcpAccount>[0]) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -338,10 +350,10 @@ export function createAstralBeamChat(
     if (state.auth.status !== "error" || state.auth.error !== failure)
       live.streamCallbacks?.onError?.(failure)
   }
-  const requestOptions = async (conversation = true): Promise<JwtOptions> => {
+  const requestOptions = async (conversation = true, fresh = false): Promise<JwtOptions> => {
     const generation = selectionGeneration
     const authSignal = authentication.session.abortController.signal
-    const token = await getValidChatAuthToken(authentication)
+    const token = await getValidChatAuthToken({ ...authentication, force: fresh })
     authSignal.throwIfAborted()
     if (conversation && generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
@@ -893,6 +905,18 @@ export function createAstralBeamChat(
           update({ usageLimitReached: { name: limit.name, resetsAt: limit.resetsAt } })
           return
         }
+        if (eventType === "astralbeam_mcp_tools") {
+          const event = data as {
+            tools?: { name: string; title: string }[]
+            unavailable?: string[]
+          }
+          const titles: Record<string, string> = {}
+          for (const tool of event.tools ?? [])
+            if (typeof tool.name === "string" && typeof tool.title === "string")
+              titles[tool.name] = tool.title
+          update({ serverToolTitles: titles, unavailableMcpConnections: event.unavailable ?? [] })
+          return
+        }
         const value = (data as { state?: unknown } | undefined)?.state
         if (
           eventType === SANDBOX_STATUS_EVENT &&
@@ -907,6 +931,8 @@ export function createAstralBeamChat(
       // Read per event rather than captured, so a `debug` update reaches the next chunk.
       onChunk: (chunk) => {
         if (client !== next) return
+        if (chunk.type === EventType.RUN_STARTED)
+          update({ serverToolTitles: {}, unavailableMcpConnections: [] })
         live.streamCallbacks?.onChunk?.(chunk)
       },
       onResponse: (response) => {
@@ -1444,6 +1470,9 @@ export function createAstralBeamChat(
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
     },
+    getMcpCatalog: async () => loadMcpCatalog(await requestOptions(false)),
+    manageMcp: async (operation) => manageMcp(operation, await requestOptions(false)),
+    connectMcpAccount: (input) => connectMcpAccount(input, () => requestOptions(false, true)),
     abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")

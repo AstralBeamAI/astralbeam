@@ -13,6 +13,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/c
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
+import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
@@ -136,10 +137,10 @@ export function ChatWidget({
     messages,
   ])
   const toolTitles = useMemo(() => {
-    const titles: Record<string, string> = {}
+    const titles: Record<string, string> = { ...chatState.serverToolTitles }
     for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
     return titles
-  }, [agentTools])
+  }, [agentTools, chatState.serverToolTitles])
   useEffect(() => {
     debug?.("mount", "tool set declared to the agent", {
       tools: [...toolNames],
@@ -569,6 +570,7 @@ export function ChatWidget({
               <CardTitle className="truncate">{options.title ?? DEFAULT_TITLE}</CardTitle>
             )}
           </div>
+          <McpConnectionsPanel key={`${apiUrl}:${draftIdentity}`} chat={chat} state={chatState} />
           <ThreadHistory
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
@@ -591,6 +593,11 @@ export function ChatWidget({
           </Button>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
         </CardHeader>
+      )}
+      {!!chatState.unavailableMcpConnections?.length && (
+        <p role="status" className="px-4 py-2 text-xs text-muted-foreground">
+          Some connected tools are unavailable. Open Connections to review them.
+        </p>
       )}
       {options.showConversationTitle === true && chatState.thread?.title && (
         <ConversationTitle

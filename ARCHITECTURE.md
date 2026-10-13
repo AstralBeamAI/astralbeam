@@ -70,10 +70,28 @@ First-party organization-owned rows use `(organization_id, id)` keys. Tenant-own
 | `chat_thread`, `chat_participant`, `chat_message`, `chat_message_part`, `chat_tool_response` | Shared history, ancestry, turn claims, structured content, and expected tool responses |
 | `config` | Encrypted deployment settings |
 | `rate_limit` | Shared authentication, setup, and API counters |
+| `mcp_server`, `tenant_mcp_server` | Remote endpoint definitions and authentication configuration |
+| `mcp_oauth_client`, `tenant_mcp_oauth_client` | Immutable resource-bound OAuth applications with encrypted client credentials |
+| `mcp_connection`, `tenant_mcp_connection` | Named Organization, Tenant or personal accounts with atomic encrypted credential sets |
+| `mcp_oauth_attempt`, `tenant_mcp_oauth_attempt` | Expiring browser-bound authorization, PKCE and staged replacement credentials |
 
 The application encrypts `config.value` and `sandbox_provider.credentials` through the Drizzle column codec. Compact JWE uses keys derived from `DATABASE_ENCRYPTION_KEY`. Payloads include row identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
 
 Configuration snapshots, migration state, and sandbox leases are process-local. Restart other replicas after configuration changes. A conversation routed to another replica may receive a fresh sandbox.
+
+### Remote MCP connections
+
+Remote tools use the official MCP client SDK pinned to protocol 2026-07-28. Each run acquires clients with public HTTPS socket resolution and request-scoped JSON or SSE responses. Clients advertise no optional capabilities. A thin TanStack adapter validates input, preserves the MCP result envelope and keeps account-qualified presentation separate from browser tool dispatch. Original schemas and allowlisted provenance are retained in existing tool declarations so saved transcripts preserve titles.
+
+An Organization default specifies who connects. Sharing a definition or OAuth application never shares personal credentials. Tenant and personal BYO policies are checked when discovering tools and immediately before execution. Credentials bind the complete immutable owner, connection, endpoint revision, registration and resource inside the encrypted envelope. Renames and Organization slug changes do not alter that binding. Endpoint or application changes require reconnection.
+
+Authorization attempts last ten minutes. The initiating authenticated actor binds a nonce from the first-party popup, which keeps its own HttpOnly cookie. Callbacks validate state, issuer and browser binding before staging credentials. Fresh authenticated completion checks authority and connection generation before replacing the previous credentials. Failed reconnects retain the previous set. No token-read API exists.
+
+Refresh uses a conditional PostgreSQL claim across replicas. Token exchange runs outside database transactions and rotates the whole credential set with generation and revision fencing, preserving an omitted refresh token within that grant. Fresh consent replaces the entire grant because the person may select another external account. Google authorization requests consent and offline access. If a fresh grant still omits a refresh token, it requires reconnection when its access token expires. An expired claim or lost response is uncertain because a rotating refresh token may already have been redeemed. These accounts require reconnection. Disconnect clears local credentials and pending attempts without revoking a broader provider grant. Attempts are cleaned through existing cron infrastructure. Tokens never enter workflow journals or idempotency receipts.
+
+Deterministic fixtures cover protocol and OAuth behavior, including concurrency against a disposable database. Live provider verification requires opt-in credentials and is separate from fixture evidence. Legacy MCP revisions, stdio, protocol sessions, private networks, subscriptions, resources, prompts, sampling and elicitation are outside this client.
+
+To verify live providers, first authorize Organization-shared accounts through Connections. Set `MCP_LIVE_ORGANIZATION_ID` and `MCP_LIVE_ORGANIZATION_USER_ID`, plus `MCP_LIVE_DCR_CONNECTION_ID` or `MCP_LIVE_GOOGLE_CONNECTION_ID`, in the test process and run `deno task --cwd platform test --project=integration src/lib/mcp/live-provider.integration.test.ts` against that database. The checks exercise authenticated discovery and runtime credential refresh. They do not automate provider consent or establish fresh browser authorization compatibility. Without those inputs they skip.
 
 ### Conversation schema choices
 

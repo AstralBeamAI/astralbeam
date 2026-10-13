@@ -141,6 +141,10 @@ widgets: {
 
 ## Documentation
 
+Remote MCP accounts appear under Connections in the authenticated Tenant widget. Organization defaults determine whether each Tenant or TenantUser connects, and separate policies allow shared or personal custom servers. The widget supports public endpoints, static headers and OAuth, including manually registered applications. Tool results follow the conversation's existing visibility and retention rules. Disconnect clears AstralBeam credentials locally.
+
+Headless consumers can use `chat.getMcpCatalog()`, `chat.manageMcp(operation)` and `chat.connectMcpAccount({ id, tenantId?, manualClient? })`. Call OAuth connection from a user gesture so the browser can open its popup. Shared management requires the current Tenant JWT's `user.admin` claim. Each browser-binding and completion request obtains fresh authentication. Server tool titles arrive in `state.serverToolTitles`, independently of host tool execution.
+
 | Guide | Covers |
 | --- | --- |
 | [API client](https://astralbeam.ai/docs/sdk/api) | Typed resource and chat requests with API keys or JWTs. |

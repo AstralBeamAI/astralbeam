@@ -114,6 +114,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
       "Dashboard",
+      "Connections",
       "Models",
       "Agents",
       "Sandboxes",

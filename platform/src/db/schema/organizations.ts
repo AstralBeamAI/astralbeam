@@ -292,6 +292,8 @@ export const organizationConfiguration = snakeCase.table(
     id: uuidV7(),
     organizationId: uuid().notNull(),
     defaultAgentId: uuid(),
+    allowTenantMcpServers: boolean().default(false).notNull(),
+    allowTenantUserMcpServers: boolean().default(false).notNull(),
     lockVersion: lockVersion(),
     ...timestamps(),
   },

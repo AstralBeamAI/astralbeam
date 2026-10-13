@@ -15,6 +15,9 @@ import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { Config } from "@/lib/config/config"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { Mailer } from "@/lib/email/email.server"
+import { McpConnections } from "@/lib/mcp/mcp.server"
+import { McpAuthorization } from "@/lib/mcp/authorization/authorization"
+import { McpTools } from "@/lib/mcp/tools/tools"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
@@ -49,6 +52,9 @@ function makeAppLayer() {
     ImageSources.layer,
     Organizations.layer,
     ModelProviders.layer,
+    McpConnections.layer,
+    McpAuthorization.layer,
+    McpTools.layer,
     SandboxProviders.layer,
     Tenants.layer,
     TenantUsers.layer,
