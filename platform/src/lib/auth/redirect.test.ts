@@ -1,12 +1,32 @@
 import { describe, expect, test } from "vitest"
 
 import {
+  getInvitationContext,
   normalizeReturnPath,
   normalizeReturnPathFromSearch,
   resolveRedirectOrigin,
 } from "./redirect.ts"
 
 const ORIGIN = "https://app.example.com"
+
+test("invitation hints survive auth redirects without accepting external destinations", () => {
+  const target = `/auth/accept-invitation?${new URLSearchParams({
+    invitationId: "invitation-a",
+    email: "teammate+test@example.com",
+    organization: "Example & Co",
+  })}`
+  const redirectTo = normalizeReturnPathFromSearch(
+    `?${new URLSearchParams({ redirectTo: target })}`,
+    ORIGIN,
+    ["/auth/accept-invitation"],
+  )
+  expect(getInvitationContext(redirectTo)).toEqual({
+    email: "teammate+test@example.com",
+    organization: "Example & Co",
+  })
+  expect(getInvitationContext(`https://attacker.example${target}`)).toBeUndefined()
+  expect(getInvitationContext("/auth/accept-invitation?email=someone@example.com")).toBeUndefined()
+})
 
 describe("resolveRedirectOrigin", () => {
   test.each([

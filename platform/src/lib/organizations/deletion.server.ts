@@ -1,12 +1,14 @@
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { Database } from "../../db/database.server.ts"
-import { user } from "../../db/schema/authentication.server.ts"
-import { apiKey, invitation, member, organization } from "../../db/schema/organizations.server.ts"
-import { deleteTenant } from "../tenants/deletion.server.ts"
+import { Database } from "../../db/database.ts"
+import { user } from "../../db/schema/authentication.ts"
+import { apiKey, invitation, member, organization } from "../../db/schema/organizations.ts"
+import { fileObject } from "../../db/schema/files.ts"
+import { ObjectStorage } from "../storage/object-storage.server.ts"
+import { deleteTenant } from "../tenants/deletion.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
 export const revokeOrganizationAccess = Effect.fn("revokeOrganizationAccess")(function* (
@@ -59,4 +61,34 @@ export const deleteOrganization = Effect.fn("deleteOrganization")(function* (
       return yield* db.delete(organization).where(eq(organization.id, organizationId))
     }),
   )
+})
+
+// Delete objects before the Organization cascade removes their metadata. Workflow retries retain progress.
+export const deleteOrganizationFileBatch = Effect.fn("deleteOrganizationFileBatch")(function* (
+  organizationId: string,
+) {
+  const db = yield* Database
+  const storage = yield* ObjectStorage
+  yield* db
+    .update(organization)
+    .set({ logo: null, logoFileId: null })
+    .where(eq(organization.id, organizationId))
+  const batch = yield* db
+    .select()
+    .from(fileObject)
+    .where(eq(fileObject.organizationId, organizationId))
+    .orderBy(fileObject.id)
+    .limit(1000)
+  yield* Effect.forEach(
+    batch,
+    (file) =>
+      Effect.gen(function* () {
+        yield* storage.remove({ key: file.objectKey })
+        yield* db
+          .delete(fileObject)
+          .where(and(eq(fileObject.organizationId, organizationId), eq(fileObject.id, file.id)))
+      }),
+    { concurrency: 4, discard: true },
+  )
+  return batch.length
 })

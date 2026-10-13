@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { count } from "drizzle-orm"
 import { Effect } from "effect"
 
-import { Database } from "@/db/database.server"
-import { organization } from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { organization } from "@/db/schema/organizations"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 /**

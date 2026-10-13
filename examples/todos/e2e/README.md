@@ -2,7 +2,7 @@
 
 Browser tests cover the example, SDK, and chat endpoint against a seeded platform. Deterministic specs run without a model, while agent specs use real model calls.
 
-The suite reads its identities from `platform/scripts/seed/fixtures.ts`, the same file `deno task db-seed` writes, so there is nothing to copy between the two.
+The suite reads its identities from `platform/scripts/seed/fixtures.ts`, which `deno task --cwd platform db-seed` also uses, so there is nothing to copy between the two.
 
 ## Run it
 

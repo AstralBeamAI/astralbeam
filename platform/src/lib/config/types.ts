@@ -38,12 +38,19 @@ export type ConfigKey =
   | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
+  | "s3_destination"
+  | "s3_endpoint"
+  | "s3_region"
+  | "s3_bucket"
+  | "s3_access_key_id"
+  | "s3_secret_access_key"
+  | "s3_path_style"
 
 export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
   key: ConfigKey
-  group: "General" | "Authentication" | "Email Delivery"
+  group: "General" | "Authentication" | "Email Delivery" | "File storage"
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"

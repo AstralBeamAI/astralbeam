@@ -91,6 +91,12 @@ test("React conversation directory reads saved pages, uploads and decisions with
                 state: "draft",
                 parts: [
                   {
+                    id: "report",
+                    type: "document",
+                    source: { type: "attachment", mimeType: "text/plain", byteSize: 16 },
+                    metadata: { filename: "generated-report.txt" },
+                  },
+                  {
                     id: "question",
                     type: "tool-call",
                     name: "ask_questionnaire",
@@ -106,6 +112,13 @@ test("React conversation directory reads saved pages, uploads and decisions with
   })
   await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
     route.fulfill({ body: "Saved upload", contentType: "text/plain" }),
+  )
+  await page.route(
+    "**/api/v1/tenants/*/threads/*/messages/decision/attachments/report",
+    (route) => {
+      expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
+      return route.fulfill({ body: "Generated report", contentType: "text/plain" })
+    },
   )
   await directory.openReact()
   await expect(
@@ -144,6 +157,10 @@ test("React conversation directory reads saved pages, uploads and decisions with
   const download = page.waitForEvent("download")
   await directory.transcript.getByRole("button", { name: "Download support-notes.txt" }).click()
   expect((await download).suggestedFilename()).toBe("support-notes.txt")
+  await expect(directory.transcript.getByText("16 B", { exact: true })).toBeVisible()
+  const generated = page.waitForEvent("download")
+  await directory.transcript.getByRole("button", { name: "Download generated-report.txt" }).click()
+  expect((await generated).suggestedFilename()).toBe("generated-report.txt")
   await directory.refresh.click()
   await captureMoment(page, "read-only-conversation-transcript")
   expect(mutations).toEqual([])

@@ -10,7 +10,7 @@ import ResetPasswordEmail from "@/emails/templates/reset-password"
 import SupportRequestEmail from "@/emails/templates/support-request"
 import WelcomeEmail from "@/emails/templates/welcome"
 import { APP_NAME } from "@/lib/constants"
-import type { ProviderEmailAttachment } from "./providers/providers.server.ts"
+import type { ProviderEmailAttachment } from "./providers/providers.ts"
 
 /** Log label identifying which email a send outcome belongs to. */
 export type EmailKind =
@@ -158,6 +158,8 @@ export function organizationInvitationEmailMessage(
 ): EmailMessage {
   const invitationURL = new URL("/auth/accept-invitation", appBaseUrl)
   invitationURL.searchParams.set("invitationId", data.id)
+  invitationURL.searchParams.set("email", data.email)
+  invitationURL.searchParams.set("organization", data.organization.name)
   return {
     to: data.email,
     subject: `You're invited to ${sanitizeEmailSubjectPart(data.organization.name)} on ${APP_NAME}`,

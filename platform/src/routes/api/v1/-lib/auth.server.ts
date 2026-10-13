@@ -5,18 +5,18 @@ import {
   authenticateOrganizationRequest,
   ORGANIZATION_TOKEN_TYPE,
 } from "@/lib/auth/organization-token.server"
-import { Database } from "@/db/database.server"
-import { apiKey, organization } from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { apiKey, organization } from "@/db/schema/organizations"
 import {
   DatabaseRateLimiter,
   hashedRateLimitKey,
   rateLimitRetryAfterSeconds,
-} from "@/db/lib/rate-limiter.server"
-import { Tenants } from "@/lib/tenants/tenants.server"
+} from "@/db/lib/rate-limiter"
+import { Tenants } from "@/lib/tenants/tenants"
 import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { Auth } from "@/lib/auth/auth.server"
 import { authorizeOrganizationRole } from "@/lib/organizations/access"
-import { authenticateChatRequest, readBearerToken } from "@/lib/chat/auth.server"
+import { authenticateChatRequest, readBearerToken } from "@/lib/chat/auth"
 import {
   RestInvalidCredentials,
   RestMembershipRequired,

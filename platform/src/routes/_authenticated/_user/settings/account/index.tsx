@@ -15,9 +15,7 @@ function AccountSettingsRoute() {
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Account settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Update your display name, profile photo, and appearance.
-        </p>
+        <p className="text-sm text-muted-foreground">Update your display name and appearance.</p>
       </div>
       <Settings view="account" />
     </div>

@@ -3,15 +3,15 @@ import { generateRandomString } from "better-auth/crypto"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { Effect } from "effect"
 
-import { Database } from "@/db/database.server"
-import { apiKey, member, organization, user } from "@/db/schema.server"
+import { Database } from "@/db/database"
+import { apiKey, member, organization, user } from "@/db/schema"
 import {
   formatApiKeyCredential,
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_SECRET_LENGTH,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
 } from "@/lib/api-keys/schemas"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { OwnerOnboardingFailed } from "./errors.ts"
 import type { OwnerOnboarding, PendingOnboarding } from "./schemas.ts"
 

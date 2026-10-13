@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 import { runEffect } from "@/lib/runtime/server-fn.server"

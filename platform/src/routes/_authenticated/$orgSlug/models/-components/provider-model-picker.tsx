@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Schema } from "effect"
 
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
@@ -15,7 +13,7 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { ProviderModelFieldsSchema, type ProviderModelFields } from "@/lib/model-providers/schemas"
+import type { ProviderModelFields } from "@/lib/model-providers/schemas"
 
 export function ProviderModelPicker({
   catalog,
@@ -31,39 +29,20 @@ export function ProviderModelPicker({
   errors: readonly { message: string }[]
 }) {
   const [search, setSearch] = useState("")
-  const [customModelId, setCustomModelId] = useState("")
-  const [customModels, setCustomModels] = useState<readonly ProviderModelFields[]>(models)
-  const [customError, setCustomError] = useState<string | null>(null)
+  const [previousSelections, setPreviousSelections] = useState<readonly ProviderModelFields[]>([])
   const choices = [
     ...new Map(
-      [...catalog, ...customModels, ...models].map((model) => [model.modelId, model]),
+      [...catalog, ...previousSelections, ...models].map((model) => [model.modelId, model]),
     ).values(),
   ]
   const filtered = choices.filter((model) =>
     model.modelId.toLowerCase().includes(search.trim().toLowerCase()),
   )
-  const addCustomModel = () => {
-    const modelId = customModelId.trim()
-    const model = {
-      modelId,
-      name: modelId.slice(0, 100),
-    }
-    if (!Schema.is(ProviderModelFieldsSchema)(model)) {
-      setCustomError("Enter a model ID between 1 and 256 characters")
-      return
-    }
-    onChange([...models.filter((item) => item.modelId !== modelId), model])
-    setCustomModels((current) => [...current.filter((item) => item.modelId !== modelId), model])
-    setCustomModelId("")
-    setCustomError(null)
-    setSearch("")
-  }
   return (
     <FieldSet aria-describedby="provider-models-description provider-models-error">
       <FieldLegend>Models</FieldLegend>
       <FieldDescription id="provider-models-description">
-        Enable the models this connection can access. Catalog suggestions do not verify access.{" "}
-        {models.length} selected.
+        Choose models your API key can access. Test access after saving. {models.length} selected.
       </FieldDescription>
       {choices.length > 0 && (
         <>
@@ -87,13 +66,18 @@ export function ProviderModelPicker({
                     id={`provider-model-${modelId}`}
                     checked={selected}
                     disabled={disabled}
-                    onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) => {
+                      if (!checked)
+                        setPreviousSelections((current) => [
+                          ...current.filter((model) => model.modelId !== modelId),
+                          choice,
+                        ])
                       onChange(
                         checked
                           ? [...models, choice]
                           : models.filter((model) => model.modelId !== modelId),
                       )
-                    }
+                    }}
                   />
                   <FieldLabel htmlFor={`provider-model-${modelId}`} className="font-normal">
                     {modelId}
@@ -102,40 +86,11 @@ export function ProviderModelPicker({
               )
             })}
             {filtered.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No matching models. Add a custom model below.
-              </p>
+              <p className="text-sm text-muted-foreground">No matching models.</p>
             )}
           </FieldGroup>
         </>
       )}
-      <Field data-invalid={customError !== null || undefined}>
-        <FieldLabel htmlFor="custom-model-id">Custom model ID</FieldLabel>
-        <div className="flex gap-2">
-          <Input
-            id="custom-model-id"
-            value={customModelId}
-            disabled={disabled}
-            maxLength={256}
-            aria-invalid={customError !== null || undefined}
-            aria-describedby="custom-model-id-error"
-            placeholder="Model or deployment ID from your provider"
-            onChange={(event) => {
-              setCustomModelId(event.target.value)
-              setCustomError(null)
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled || !customModelId.trim()}
-            onClick={addCustomModel}
-          >
-            Add model
-          </Button>
-        </div>
-        <FieldError id="custom-model-id-error">{customError}</FieldError>
-      </Field>
       <FieldError id="provider-models-error" errors={[...errors]} />
     </FieldSet>
   )

@@ -1,6 +1,6 @@
 import { Effect } from "effect"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
-import { CHAT_AUTH_TOKEN_TYPE } from "@/lib/chat/constants.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
+import { CHAT_AUTH_TOKEN_TYPE } from "@/lib/chat/constants"
 import { ORGANIZATION_TOKEN_TYPE } from "@/lib/auth/organization-token.server"
 import {
   authenticateRestOrganizationToken,

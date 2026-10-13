@@ -1,10 +1,10 @@
 import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { Database } from "@/db/database.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { apiKey } from "@/db/schema/organizations.server"
-import { Config } from "@/lib/config/config.server"
+import { Database } from "@/db/database"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate"
+import { apiKey } from "@/db/schema/organizations"
+import { Config } from "@/lib/config/config"
 import { ApiKeyNotFound, DogfoodApiKeyInUse, LastApiKey } from "./errors.ts"
 import { ORGANIZATION_API_KEY_CONFIG_ID, parseApiKeyCredential } from "./schemas.ts"
 

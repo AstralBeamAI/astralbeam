@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { Mailer } from "@/lib/email/email.server"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"

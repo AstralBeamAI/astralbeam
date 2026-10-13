@@ -1,10 +1,7 @@
 import { HttpServerResponse } from "effect/http"
 
-import {
-  artifactContentDisposition,
-  isInlineArtifactMimeType,
-} from "@/lib/chat/sandbox/artifacts.server"
-import type { ChatArtifact } from "@/lib/chat/sandbox/sandbox.server"
+import { artifactContentDisposition, isInlineArtifactMimeType } from "@/lib/chat/sandbox/artifacts"
+import type { ChatArtifact } from "@/lib/chat/sandbox/sandbox"
 
 export function chatArtifactResponse({ bytes, mimeType, path }: ChatArtifact) {
   return HttpServerResponse.fromWeb(

@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 
-import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
+import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials"
 
 function digestCredential(value: string): Buffer {
   return createHash("sha256").update(value).digest()

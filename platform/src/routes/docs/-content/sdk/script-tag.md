@@ -70,7 +70,7 @@ Rails loads JavaScript through import maps, so the SDK needs no npm or bundler t
 
 4. Add `post "astralbeam/token" => "astral_beam_tokens#create"` to `config/routes.rb` and a controller that mints the token as shown in [Authentication](./authentication.md).
 
-- A full page load discards the transcript. Tools and forms that change server data should call your controllers with `fetch` and update the page in place.
+- A full page load can interrupt the current response, but saved history is restored by default in the same tab. Tools and forms that change server data should call your controllers with `fetch` and update the page in place.
 - Widgets render into the mount point's light DOM, so your stylesheet styles them. Name your CSS custom properties distinctly, because the widget's own tokens such as `--card` and `--border` shadow same-named variables inside the conversation.
 
 **TIP**: The [`examples/todos-rails`](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos-rails) app is a complete Rails 8 integration with host tools over a JSON API, a `todoCard` widget, and the tenant-user directory.

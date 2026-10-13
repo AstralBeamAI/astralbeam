@@ -8,11 +8,11 @@ Each platform process runs one private Effect Cluster runner, backed by PostgreS
 
 | Module | Responsibility |
 | --- | --- |
-| [plugin.server.ts](plugin.server.ts) | Starts the runner through Nitro and disposes its scope on reload and application close. |
-| [runtime.server.ts](runtime.server.ts) | Serializes process-wide lifecycle transitions, supervises readiness on the app runtime's services, and retries unavailable storage. |
-| [runner.server.ts](runner.server.ts) | Composes Deno HTTP and crypto, SQL storage, sharding, and `ClusterWorkflowEngine`. |
-| [registry.server.ts](../workflows/registry.server.ts) | Registers application workflow handler layers. |
-| [db/database.server.ts](../../db/database.server.ts) | Owns the separate pools, shared SQL runtime and shutdown, with module-local Drizzle adapters. |
+| [plugin.ts](plugin.ts) | Starts the runner through Nitro and disposes its scope on reload and application close. |
+| [runtime.ts](runtime.ts) | Serializes process-wide lifecycle transitions, supervises readiness on the app runtime's services, and retries unavailable storage. |
+| [runner.ts](runner.ts) | Composes Deno HTTP and crypto, SQL storage, sharding, and `ClusterWorkflowEngine`. |
+| [registry.ts](../workflows/registry.ts) | Registers application workflow handler layers. |
+| [db/database.ts](../../db/database.ts) | Owns the separate pools, shared SQL runtime and shutdown, with module-local Drizzle adapters. |
 
 On SIGTERM or SIGINT, Nitro drains HTTP responses for up to five seconds, because Deno's server shutdown otherwise waits for open streams. The plugin then stops the runner, disposes every [app runtime](../runtime/runtime.server.ts) so service finalizers such as chat sandbox cleanup run, closes both database pools, and exits. Cleanup has its own five-second budget, with exit status 1 on timeout or failure. Nitro plugins and request handlers load separate copies of the runtime module, so each copy's runtime joins a process-wide set that shutdown disposes. See [shutdown operations](../../routes/docs/-content/self-hosting/operations.md#shutdown) for stream and supervisor implications.
 

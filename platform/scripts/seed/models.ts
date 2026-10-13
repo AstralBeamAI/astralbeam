@@ -8,7 +8,7 @@ import {
   configTable,
   modelProvider,
   providerModel,
-} from "../../src/db/schema.server.ts"
+} from "../../src/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_MODEL_PROVIDER, SEED_ORGANIZATIONS } from "./fixtures.ts"

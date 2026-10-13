@@ -1,7 +1,7 @@
 import { Cause, Effect } from "effect"
 import { HttpServerResponse } from "effect/http"
 
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { RestInternalError, RestSetupRequired } from "./errors.ts"
 import { restProblemResponse } from "./shared.server"

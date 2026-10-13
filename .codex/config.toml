@@ -1,0 +1,3 @@
+# The root, Platform, and chat instruction chain exceeds Codex's 32 KiB default.
+# https://learn.chatgpt.com/docs/agent-configuration/agents-md
+project_doc_max_bytes = 98304

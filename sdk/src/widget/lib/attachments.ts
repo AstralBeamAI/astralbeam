@@ -226,10 +226,10 @@ export function attachmentDataUri(mimeType: string, data: string): string {
  * the provider requires alongside PDF data.
  */
 function attachmentContentPart(attachment: DraftAttachment): ContentPart | undefined {
-  if (attachment.status !== "ready" || attachment.data === undefined) return undefined
+  if (attachment.status !== "ready" || attachment.fileId === undefined) return undefined
   const source = {
-    type: "data" as const,
-    value: attachment.data,
+    type: "file" as const,
+    value: attachment.fileId,
     mimeType: attachment.mimeType,
   }
   const metadata = { filename: attachment.name, size: attachment.size }
@@ -243,10 +243,15 @@ function attachmentContentPart(attachment: DraftAttachment): ContentPart | undef
  * scheme, or inline data of a type this chat accepts. An active scheme (`javascript:`) or opaque
  * bytes are dropped instead, leaving the chip without its download.
  */
-function safeAttachmentHref(href: string): string | undefined {
+function safeAttachmentHref(href: string, mediaType: string): string | undefined {
   if (/^(?:https?|blob):/i.test(href)) return href
   const declared = /^data:([^;,]*)/i.exec(href)?.[1]
-  return declared !== undefined && mimeTypeKind(normalizeMimeType(declared)) ? href : undefined
+  return declared !== undefined &&
+    (mimeTypeKind(normalizeMimeType(declared)) ||
+      ((mediaType === "audio" || mediaType === "video") &&
+        normalizeMimeType(declared).startsWith(`${mediaType}/`)))
+    ? href
+    : undefined
 }
 
 /**
@@ -255,8 +260,8 @@ function safeAttachmentHref(href: string): string | undefined {
  * composer is the only thing that puts a filename on them.
  */
 export function describeSentAttachment(part: {
-  type: "image" | "document"
-  source: { value: string; mimeType?: string }
+  type: "image" | "document" | "audio" | "video"
+  source: { type?: string; value: string; mimeType?: string; byteSize?: number }
   metadata?: unknown
 }): {
   kind: AttachmentKind
@@ -276,29 +281,29 @@ export function describeSentAttachment(part: {
       : part.type === "image"
         ? "Image"
         : "Attachment"
-  const size =
-    typeof metadata.size === "number" && metadata.size > 0
-      ? formatByteSize(metadata.size)
-      : undefined
+  const byteSize = part.source.byteSize ?? metadata.size
+  const size = typeof byteSize === "number" && byteSize > 0 ? formatByteSize(byteSize) : undefined
   // A restored or host-built part may carry no type at all, so an unrecognized one reads as text.
   const kind: AttachmentKind =
     part.type === "image"
       ? "image"
       : (mimeTypeKind(normalizeMimeType(part.source.mimeType ?? "")) ?? "text")
-  // The part carries the bytes itself — the chat endpoint refuses a `url` source — so one data URI
-  // serves both the thumbnail and the download.
+  // Inline bytes become data URIs. URL sources stay URLs, and provider handles have no preview.
   const href =
-    part.source.value.length === 0
+    part.source.type === "file" || part.source.value.length === 0
       ? undefined
-      : safeAttachmentHref(
-          part.source.value.startsWith("data:")
-            ? part.source.value
-            : attachmentDataUri(
-                part.source.mimeType ??
-                  (kind === "image" ? "image/png" : "application/octet-stream"),
-                part.source.value,
-              ),
-        )
+      : part.source.type === "url"
+        ? safeAttachmentHref(part.source.value, part.type)
+        : safeAttachmentHref(
+            part.source.value.startsWith("data:")
+              ? part.source.value
+              : attachmentDataUri(
+                  part.source.mimeType ??
+                    (kind === "image" ? "image/png" : "application/octet-stream"),
+                  part.source.value,
+                ),
+            part.type,
+          )
   return { kind, title, description: size, href }
 }
 

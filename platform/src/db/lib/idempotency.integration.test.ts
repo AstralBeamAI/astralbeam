@@ -16,15 +16,15 @@ const idempotencyIntegration = vi.hoisted(() => {
   return { url }
 })
 
-import { makeDatabaseCache } from "../cache.server.ts"
-import { getAuthDatabase } from "../database.server.ts"
-import { cacheEntry } from "../schema.server.ts"
+import { makeDatabaseCache } from "../cache.ts"
+import { getAuthDatabase } from "../database.ts"
+import { cacheEntry } from "../schema.ts"
 import { runAppEffect } from "../../lib/runtime/app-effect.server.ts"
 import {
   IdempotencyInProgress,
   IdempotencyParametersMismatch,
   withDatabaseIdempotency,
-} from "./idempotency.server.ts"
+} from "./idempotency.ts"
 
 const idempotencyTestNamespace = "idempotency"
 const idempotencyTestParameters = {

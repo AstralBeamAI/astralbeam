@@ -18,13 +18,14 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
+import { avatarFileUrl } from "@/lib/organizations/images"
 import { UserView } from "../user/user-view"
 import { EditMemberRolesDialog } from "./edit-member-roles-dialog"
 import { LeaveOrganizationDialog } from "./leave-organization-dialog"
 import { RemoveMemberDialog } from "./remove-member-dialog"
 
 export type OrganizationMemberRowProps = {
-  member: Member & { user: Partial<User> }
+  member: Member & { user: Partial<User>; avatarFileId?: string | null }
   isOwner?: boolean
   ownerCount?: number | undefined
   organization: Pick<Organization, "id" | "name" | "slug">
@@ -65,7 +66,12 @@ export function OrganizationMemberRow({
   return (
     <TableRow>
       <TableCell>
-        <UserView user={member.user} />
+        <UserView
+          user={member.user}
+          avatarUrl={
+            member.avatarFileId ? avatarFileUrl(organization.id, member.avatarFileId) : undefined
+          }
+        />
       </TableCell>
 
       <TableCell>{roleLabel}</TableCell>

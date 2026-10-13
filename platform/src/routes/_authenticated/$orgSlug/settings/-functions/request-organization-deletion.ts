@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 
-import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime.server"
-import { Config } from "@/lib/config/config.server"
+import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime"
+import { Config } from "@/lib/config/config"
 import { revokeOrganizationAccess } from "@/lib/organizations/deletion.server"
 import {
   DogfoodOrganizationProtected,
@@ -14,7 +14,7 @@ import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema, UuidV7Schema } from "@/lib/schemas"
-import deleteOrganization from "@/lib/workflows/delete-organization.server"
+import deleteOrganization from "@/lib/workflows/delete-organization"
 
 export const requestOrganizationDeletion = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["delete"] })])

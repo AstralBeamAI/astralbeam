@@ -36,6 +36,24 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+test("rejected authentication reaches callbacks before sending and recovers", async () => {
+  const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 401 }))
+  vi.stubGlobal("fetch", fetch)
+  const onError = vi.fn<(error: Error) => void>()
+  const chat = createTestSession({
+    streamCallbacks: { onError },
+  })
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError.mock.calls[0]![0]).toMatchObject({ status: 401 })
+  expect(onError.mock.calls[0]![0].message).toContain("create a replacement in API Keys")
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(chat.getState().auth.status).toBe("error")
+  fetch.mockResolvedValue(Response.json(currentUser))
+  chat.retryAuthentication()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+
+})
+
 test("HTTP errors reach chat state and callbacks with their API details", async () => {
   const problem = { type: "about:blank", title: "Throttled", status: 429, detail: "Try later" }
   vi.stubGlobal(
@@ -47,8 +65,9 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
     streamCallbacks: { onError },
   })
   await chat.sendMessage("Hello")
+  expect(chat.getState().unsentMessage).toBe("Hello")
   expect(chat.getState().error?.message).toBe(problem.detail)
-  expect(onError).toHaveBeenCalledWith(
+  expect(onError).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       name: "AstralBeamApiError",
       message: problem.detail,

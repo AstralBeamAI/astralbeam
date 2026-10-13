@@ -4,7 +4,7 @@ import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { Cause, Effect, Exit, Layer } from "effect"
 
-import { Database, type EffectDatabase } from "@/db/database.server"
+import { Database, type EffectDatabase } from "@/db/database"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents, defaultAgentName } from "./agents.server.ts"
 import { formatAgentId } from "./schemas.ts"

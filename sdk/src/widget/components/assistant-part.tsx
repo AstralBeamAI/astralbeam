@@ -20,10 +20,13 @@ import {
 import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
+import { SentAttachment } from "./user-message-body.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 
 interface AssistantPartProps {
   readOnly?: boolean | undefined
+  messageId: string
+  getAttachment: (messageId: string, partId: string) => Promise<Blob>
   part: MessagePart
   apiUrl: string
   widgets: Record<string, WidgetDefinition>
@@ -199,6 +202,8 @@ function QuestionnaireCallPart({
 
 export function AssistantPart({
   readOnly = false,
+  messageId,
+  getAttachment,
   part,
   apiUrl,
   widgets,
@@ -209,6 +214,12 @@ export function AssistantPart({
   interrupted,
 }: AssistantPartProps) {
   switch (part.type) {
+    case "image":
+    case "document":
+    case "audio":
+    case "video":
+      return <SentAttachment part={part} messageId={messageId} getAttachment={getAttachment} />
+
     case "text":
       // Ghost, per the docs: assistant replies are unframed and take the container's full width.
       return (

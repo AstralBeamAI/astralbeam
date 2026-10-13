@@ -9,6 +9,7 @@ import {
   OpenApi,
 } from "effect/http-api"
 
+import { APP_HANDLE } from "../../../../../lib/constants.ts"
 import { LockVersionSchema, NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
 import { ApiUuidSchema, tenantUserEmail } from "../../../../../lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
@@ -22,7 +23,7 @@ import type {
   ThreadRecord,
   MessageRecord,
   ParticipantRecord,
-} from "../../../../../lib/chat/threads/threads.server"
+} from "../../../../../lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
 
@@ -340,15 +341,16 @@ export function messageResource(row: MessageRecord) {
     parts: row.payload.parts.map((part) => {
       const source = part.source
       if (
-        (part.type === "image" || part.type === "document") &&
+        ["image", "document", "audio", "video"].includes(String(part.type)) &&
         Schema.is(Schema.JsonObject)(source) &&
-        source.type === "data"
+        source.type === APP_HANDLE
       ) {
         return {
           ...part,
           source: {
             type: "attachment",
             ...(typeof source.mimeType === "string" ? { mimeType: source.mimeType } : {}),
+            ...(typeof source.byteSize === "number" ? { byteSize: source.byteSize } : {}),
           },
         }
       }
@@ -367,21 +369,15 @@ export function chatThreadHandlers(api: typeof ApiV1) {
     api,
     "chatThreads",
     Effect.fn("chatThreadHandlers")(function* (handlers) {
-      const { authenticateChatRequest } = yield* Effect.promise(
-        () => import("@/lib/chat/auth.server"),
-      )
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads.server"),
-      )
+      const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { resolveManagedChatTools } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/commands.server"),
+        () => import("@/lib/chat/threads/commands"),
       )
       const { ChatThreadForbidden } = yield* Effect.promise(
         () => import("@/lib/chat/threads/errors"),
       )
-      const { TenantUsers } = yield* Effect.promise(
-        () => import("@/lib/tenants/tenant-users.server"),
-      )
+      const { TenantUsers } = yield* Effect.promise(() => import("@/lib/tenants/tenant-users"))
       const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("../../-lib/pagination.server"),
@@ -612,29 +608,30 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   message: MessageRecord,
   partId: string,
 ) {
-  const { decodeAttachmentBytes } = yield* Effect.promise(
-    () => import("@/lib/chat/attachments/attachments.server"),
-  )
+  const { ChatFiles } = yield* Effect.promise(() => import("@/lib/chat/attachments/attachments"))
   const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
-  const part = message.payload.parts.find((entry) => entry.id === partId)
-  const source = part?.source
+  const saved = message.payload.parts.find((entry) => entry.id === partId)
+  if (!saved) return yield* new ChatThreadNotFound()
+  const source = saved.source
   if (
     !Schema.is(Schema.JsonObject)(source) ||
-    source.type !== "data" ||
-    typeof source.value !== "string"
+    source.type !== APP_HANDLE ||
+    typeof source.id !== "string"
   )
     return yield* new ChatThreadNotFound()
-  const metadata = part?.metadata
+  const file = yield* (yield* ChatFiles).read({
+    scope: {
+      organizationId: message.organizationId,
+      tenantId: message.tenantId,
+      threadId: message.threadId,
+    },
+    fileId: source.id,
+  })
+  const metadata = saved.metadata
   const path =
     Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
       ? metadata.filename
       : "attachment"
-  const mimeType =
-    typeof source.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(source.mimeType)
-      ? source.mimeType
-      : "application/octet-stream"
-  const bytes = decodeAttachmentBytes(source.value)
-  if (!bytes) return yield* new ChatThreadNotFound()
-  return chatArtifactResponse({ bytes, mimeType, path })
+  return chatArtifactResponse({ ...file, path })
 })

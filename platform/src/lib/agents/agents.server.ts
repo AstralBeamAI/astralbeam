@@ -2,13 +2,10 @@ import { and, eq, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Context, Effect, Layer, Schema } from "effect"
 
-import { Database } from "@/db/database.server"
-import {
-  deleteWithOptimisticLock,
-  updateWithOptimisticLock,
-} from "@/db/lib/optimistic-locking.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate"
+import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
 import { ModelProviders, type ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"

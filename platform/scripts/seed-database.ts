@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 import { seedAgents } from "./seed/agents.ts"
 import { seedApiKeys } from "./seed/api-keys.ts"
-import { seedConfig } from "./seed/config.ts"
+import { initializeStorage, seedConfig } from "./seed/config.ts"
 import {
   assertSeedMigrationsApplied,
   createSeedDatabase,
@@ -42,7 +42,7 @@ try {
 
   // One transaction, so a failure anywhere leaves no half-seeded database behind.
   const summary = await database.transaction(async (transaction) => {
-    const config = await seedConfig(transaction)
+    const config = await seedConfig(transaction, databaseName)
     const userIdsByEmail = await seedUsers(transaction)
     await seedOrganizations(transaction, userIdsByEmail)
     const agents = await seedAgents(transaction)
@@ -53,6 +53,8 @@ try {
     const modelProviders = await seedModelProviders(transaction)
     return { config, agents, apiKeys, modelProviders, tenantUserCount, conversations }
   })
+
+  await initializeStorage(database)
 
   console.log(`\nSeeded database '${databaseName}'.\n`)
 

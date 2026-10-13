@@ -160,6 +160,7 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
   expect(created).toBe(1)
   expect(chat.getState().thread?.hasMessages).toBe(true)
+  expect(chat.getState().messages.find((message) => message.role === "user")?.id).toBe("accepted")
 })
 
 test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", async (mode) => {

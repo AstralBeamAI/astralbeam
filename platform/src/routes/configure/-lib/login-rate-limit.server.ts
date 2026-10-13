@@ -2,8 +2,8 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import { RateLimiter } from "effect/persistence"
 
-import { sqlState } from "@/db/lib/sqlstate.server"
-import { DatabaseRateLimiter, rateLimitRetryAfterSeconds } from "@/db/lib/rate-limiter.server"
+import { sqlState } from "@/db/lib/sqlstate"
+import { DatabaseRateLimiter, rateLimitRetryAfterSeconds } from "@/db/lib/rate-limiter"
 
 const OPERATOR_LOGIN_RATE_LIMIT_KEY = "configure:operator-login"
 const OPERATOR_LOGIN_WINDOW = Duration.minutes(1)

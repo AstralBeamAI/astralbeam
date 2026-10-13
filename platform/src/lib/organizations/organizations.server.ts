@@ -1,16 +1,10 @@
 import { and, asc, count, eq } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
-import { Database } from "@/db/database.server"
-import {
-  agent,
-  apiKey,
-  member,
-  organization,
-  sandboxProvider,
-} from "@/db/schema/organizations.server"
+import { Database } from "@/db/database"
+import { agent, apiKey, member, organization, sandboxProvider } from "@/db/schema/organizations"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { UuidV7Schema } from "@/lib/schemas"
 import { SlugSchema } from "./slug.ts"
 import {
@@ -28,6 +22,8 @@ const decodeOrganizationMembership = Schema.decodeUnknownEffect(
     organizationSlug: SlugSchema,
     organizationName: Schema.String,
     role: Schema.String,
+    memberId: UuidV7Schema,
+    avatarFileId: Schema.NullOr(UuidV7Schema),
   }),
   { onExcessProperty: "error" },
 )
@@ -96,6 +92,8 @@ export class Organizations extends Context.Service<
             organizationSlug: organization.slug,
             organizationName: organization.name,
             role: member.role,
+            memberId: member.id,
+            avatarFileId: member.avatarFileId,
           })
           .from(organization)
           .innerJoin(

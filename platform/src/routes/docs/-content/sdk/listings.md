@@ -220,7 +220,7 @@ Conversation views also expose `directory-transcript`. The directory styling slo
 
 ## Troubleshooting
 
-- An empty directory can mean no persisted records or no search matches. Tokens never create or synchronize records. Check provisioning first, then clear filters.
+- An empty directory can mean no persisted records or no search matches. The SDK synchronizes a tenant JWT's own Tenant and TenantUser through `/me`. Other users appear after their own synchronization or a management API import. Check provisioning first, then clear filters.
 - A `403` means the token lacks permission. Tenant views require signed tenant-admin authority.
 - A missing tenant shows an empty state. Check the token and record's external IDs for exact spelling and case.
 - Stored admin controls are hidden intentionally. Enable `showAdmin` only when the attribute is useful to your audience.

@@ -1,13 +1,13 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Context, Effect, Layer, Logger } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { APP_NAME } from "@/lib/constants"
 
 import { Mailer } from "./email.server.ts"
 import { EmailDeliveryError } from "./errors.ts"
 import { maskEmailAddressForLog } from "./messages.server.ts"
-import { EmailProviders, type ProviderEmail } from "./providers/providers.server.ts"
+import { EmailProviders, type ProviderEmail } from "./providers/providers.ts"
 
 const MAILER_TEST_CONFIG = {
   app_base_url: "https://app.example.test",
@@ -141,6 +141,8 @@ describe("Mailer", () => {
       assert.strictEqual(verification?.from, MAILER_TEST_CONFIG.email_from_address)
       const invitationURL = new URL("/auth/accept-invitation", MAILER_TEST_CONFIG.app_base_url)
       invitationURL.searchParams.set("invitationId", invitationId)
+      invitationURL.searchParams.set("email", "new-member@example.test")
+      invitationURL.searchParams.set("organization", "Example Organization")
       assert.deepStrictEqual(invitation?.to, ["new-member@example.test"])
       assert.include(invitation?.text, invitationURL.toString())
       assert.include(invitation?.text, "72 hours")

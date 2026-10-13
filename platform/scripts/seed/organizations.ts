@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import { invitation, member, organization } from "../../src/db/schema.server.ts"
+import { invitation, member, organization } from "../../src/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"

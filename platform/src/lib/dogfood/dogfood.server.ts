@@ -1,12 +1,13 @@
 import { sql } from "drizzle-orm"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Schema } from "effect"
+import type { SqlError } from "effect/sql/SqlError"
 
-import { Database } from "@/db/database.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
+import { Database } from "@/db/database"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { Agents } from "@/lib/agents/agents.server"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
-import type { DatabaseConfigState } from "@/lib/config/store.server"
+import { Config } from "@/lib/config/config"
+import type { DatabaseConfigState } from "@/lib/config/store"
 import type { ConfigValues } from "@/lib/config/types"
 import { ConfigurationBusy, OwnerOnboardingFailed } from "./errors.ts"
 import {
@@ -202,20 +203,30 @@ export class Dogfood extends Context.Service<
 
       const withProvisioningLock = <A, E, R>(operation: Effect.Effect<A, E, R>) =>
         Effect.gen(function* () {
-          const context = yield* Effect.context<R>()
-          return yield* db.transaction((transaction) =>
-            Effect.gen(function* () {
-              const [lock] = yield* transaction
-                .execute<{ acquired: boolean }>(
-                  sql`select pg_try_advisory_xact_lock(734028190) as acquired`,
-                  "objects",
+          const acquired = yield* Deferred.make<void, ConfigurationBusy | SqlError>()
+          const release = yield* Deferred.make<void>()
+          // Keep the advisory lock in its own fiber. Recovery commits and email run outside it.
+          // https://effect.website/docs/v4/api/effect/Effect/#acquireuserelease
+          return yield* Effect.acquireUseRelease(
+            Effect.forkChild(
+              db
+                .transaction((transaction) =>
+                  Effect.gen(function* () {
+                    const [lock] = yield* transaction
+                      .execute<{ acquired: boolean }>(
+                        sql`select pg_try_advisory_xact_lock(734028190) as acquired`,
+                        "objects",
+                      )
+                      .pipe(Effect.orDie)
+                    if (!lock?.acquired) return yield* new ConfigurationBusy()
+                    yield* Deferred.succeed(acquired, undefined)
+                    yield* Deferred.await(release)
+                  }),
                 )
-                .pipe(Effect.orDie)
-              if (!lock?.acquired) return yield* new ConfigurationBusy()
-              // Keep recovery commits outside the lock's ambient transaction, even when email
-              // fails. https://effect.website/docs/requirements-management/services/
-              return yield* Effect.setContext(operation, context)
-            }),
+                .pipe(Effect.onExit((exit) => Deferred.done(acquired, Exit.asVoid(exit)))),
+            ),
+            () => Effect.andThen(Deferred.await(acquired), operation),
+            (fiber) => Effect.andThen(Deferred.succeed(release, undefined), Fiber.join(fiber)),
           )
         }).pipe(mapDatabaseErrors())
 

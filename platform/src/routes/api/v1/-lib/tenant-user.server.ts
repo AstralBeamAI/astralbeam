@@ -142,9 +142,7 @@ export function tenantUserHandlers(api: typeof ApiV1) {
     api,
     "tenant_users",
     Effect.fn("tenantUserHandlers")(function* (handlers) {
-      const { TenantUsers } = yield* Effect.promise(
-        () => import("@/lib/tenants/tenant-users.server"),
-      )
+      const { TenantUsers } = yield* Effect.promise(() => import("@/lib/tenants/tenant-users"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
       )

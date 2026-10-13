@@ -23,7 +23,7 @@ const CHAT_IDLE_TIMEOUT_MS = 150_000
  * retryable error. Waiting the window out and pressing Retry keeps a throttled request from
  * failing an otherwise good spec. The example's token route mints one fixed tenant user, so every
  * spec shares the buckets; the limits live beside `CHAT_RATE_LIMIT_MAX_REQUESTS` in
- * `platform/src/lib/chat/constants.server.ts`.
+ * `platform/src/lib/chat/constants.ts`.
  */
 const CHAT_RATE_LIMIT_COOLDOWN_MS = 65_000
 const CHAT_RATE_LIMIT_MAX_RECOVERIES = 2
@@ -44,6 +44,15 @@ export function chatWidget(page: Page) {
 
     composer(): Locator {
       return composer
+    },
+
+    sendButton(): Locator {
+      return sendButton
+    },
+
+    async selectConversation(title: string): Promise<void> {
+      await root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
+      await page.getByRole("option", { name: title, exact: true }).click()
     },
 
     /** The composer's bottom row. Its middle is padding between the attach and send buttons. */
@@ -146,8 +155,9 @@ export function chatWidget(page: Page) {
       return root.getByRole("button", { name: label })
     },
 
-    async attach(filePath: string): Promise<void> {
-      await root.locator('input[type="file"]').setInputFiles(filePath)
+    async attach(files: Parameters<Locator["setInputFiles"]>[0]): Promise<void> {
+      await expect(root.getByRole("button", { name: "Attach files", exact: true })).toBeEnabled()
+      await root.locator('input[type="file"]').setInputFiles(files)
     },
 
     attachmentChip(name: string): Locator {

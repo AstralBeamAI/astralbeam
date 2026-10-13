@@ -1,7 +1,7 @@
 import { hashPassword } from "better-auth/crypto"
 import { sql } from "drizzle-orm"
 
-import { account, user } from "../../src/db/schema.server.ts"
+import { account, user } from "../../src/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_PASSWORD, SEED_USERS } from "./fixtures.ts"

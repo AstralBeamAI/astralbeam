@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/user-button
-// Local changes: remove username-plugin fields, apply strict optional typing, and optionally wrap the name and email.
+// Local changes: remove username fields, accept membership avatar URLs, and optionally wrap the name and email.
 
 import { useAuth, useSession } from "@better-auth-ui/react"
 import type { User } from "better-auth"
@@ -9,6 +9,7 @@ import { cn } from "cn"
 import { UserAvatar } from "./user-avatar"
 
 export type UserViewProps = {
+  avatarUrl?: string | undefined
   className?: string
   isPending?: boolean
   /**
@@ -22,16 +23,8 @@ export type UserViewProps = {
   wrap?: boolean
 }
 
-/**
- * Render a compact user item with an avatar, a primary label (name or email), and an optional subtitle (email).
- *
- * @param isPending - If true and no `user` prop is provided, renders a loading skeleton instead of user details
- * @param className - Additional CSS classes applied to the outer container
- * @param hideSubtitle - When true, omits the muted subtitle row under the primary label
- * @param user - Optional user object to display; when omitted the current session user is used
- * @returns A React element showing the user's avatar with their identifying information
- */
 export function UserView({
+  avatarUrl,
   className,
   isPending,
   hideSubtitle = false,
@@ -61,7 +54,7 @@ export function UserView({
 
   return (
     <div className={cn("flex items-center gap-2 min-w-0", className)}>
-      <UserAvatar {...(resolvedUser ? { user: resolvedUser } : {})} />
+      <UserAvatar user={user} avatarUrl={avatarUrl} />
 
       <div className="grid min-w-0 flex-1 text-start text-sm leading-tight">
         <span className={cn("font-medium text-foreground", wrap ? "wrap-anywhere" : "truncate")}>

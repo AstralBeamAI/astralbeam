@@ -1,8 +1,8 @@
 import { getSessionCookie } from "better-auth/cookies"
 import { Effect } from "effect"
 
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
-import { Config } from "@/lib/config/config.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
+import { Config } from "@/lib/config/config"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 // Website routes served at the same path. Keep in step with `prerenderRoutes` in www/vite.config.ts.

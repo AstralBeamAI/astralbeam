@@ -181,7 +181,7 @@ const viteConfig = defineConfig(({ mode }) => {
             plugins: [
               "./src/lib/runtime/request-context.server.ts",
               "./src/lib/runtime/response-headers.server.ts",
-              "./src/lib/cluster/plugin.server.ts",
+              "./src/lib/cluster/plugin.ts",
             ],
           })),
       tailwindcss(),
@@ -190,9 +190,13 @@ const viteConfig = defineConfig(({ mode }) => {
           client: {
             files: [
               "**/*.server.*",
-              "**/src/lib/cluster/**",
               "**/src/db/**",
               "**/src/emails/**",
+              "**/src/lib/chat/**",
+              "**/src/lib/cluster/**",
+              "**/src/lib/config/**",
+              "**/src/lib/email/providers/**",
+              "**/src/lib/tenants/**",
               "**/src/lib/workflows/**",
             ],
           },

@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { base64url, CompactSign, decodeProtectedHeader } from "jose"
-import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
+import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { decodeRestCursor, encodeRestCursor } from "./pagination.server"
 
 const cursorOldSecret = "old-pagination-test-key-not-production"

@@ -4,8 +4,7 @@
   "exclude": [".output"],
   "nodeModulesDir": "auto",
   // msgpackr-extract is optional native acceleration; installs skip its Node-only probe under Deno. https://github.com/kriszyp/msgpackr#native-acceleration
-  // Sharp validates its lockfile-pinned prebuilt binary during install. https://sharp.pixelplumbing.com/install
-  "allowScripts": ["npm:esbuild", "npm:msgpackr-extract", "npm:sharp"],
+  "allowScripts": ["npm:esbuild", "npm:msgpackr-extract"],
   "unstable": ["no-legacy-abort"],
   "permissions": {
     "tooling": {
@@ -24,7 +23,8 @@
       "env": true,
       "net": true,
       "read": true,
-      "sys": ["gid", "homedir", "hostname", "osRelease", "uid"],
+      // Sharp WASM reads the CPU count for its worker pool. https://sharp.pixelplumbing.com/install/#webassembly
+      "sys": ["cpus", "gid", "homedir", "hostname", "osRelease", "uid"],
       // Saves prompted database variables under ~/.astralbeam, which permission paths cannot expand.
       "write": true,
     },

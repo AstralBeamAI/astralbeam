@@ -13,6 +13,9 @@ import {
   deleteChatThread,
   getChatAttachment,
   getChatConfig,
+  uploadChatFile,
+  type UploadedChatFile,
+  type ChatHistoryPageEncodedMessagesItem,
   getResolveChatToolResultUrl,
   getRunChatUrl,
   listChatThreads,
@@ -200,6 +203,11 @@ export interface AstralBeamChatCore {
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
+  uploadAttachment: (file: {
+    data: string | Promise<string>
+    filename: string
+    mimeType: string
+  }) => Promise<UploadedChatFile>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -275,6 +283,14 @@ export function createAstralBeamChat(
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
     pendingSend.callbacks?.onAccepted?.()
   }
+  const replaceAcceptedMessage = (record: ChatHistoryPageEncodedMessagesItem) => {
+    const messages = [...client.getMessages()]
+    const index = messages.findLastIndex((message) => message.role === "user")
+    if (index !== -1) {
+      messages[index] = projectThreadMessages([record])[0]!
+      client.setMessagesManually(messages)
+    }
+  }
   const liveToolCalls = new Set<string>()
   const liveToolMessageIds = new Map<string, string>()
   const historicalToolIds = new Map<string, Map<string, string>>()
@@ -308,21 +324,21 @@ export function createAstralBeamChat(
     if (error instanceof Error && error.name === "AbortError") return
     const failure = error instanceof Error ? error : new Error(String(error))
     update({ error: failure, status: "error" })
-    live.streamCallbacks?.onError?.(failure)
+    if (state.auth.status !== "error" || state.auth.error !== failure)
+      live.streamCallbacks?.onError?.(failure)
   }
-  const requestOptions = async (): Promise<JwtOptions> => {
+  const requestOptions = async (conversation = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
+    const authSignal = authentication.session.abortController.signal
     const token = await getValidChatAuthToken(authentication)
-    if (generation !== selectionGeneration)
+    authSignal.throwIfAborted()
+    if (conversation && generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
     return {
       apiUrl: authentication.apiUrl,
       astralBeamToken: token,
       cache: "no-store",
-      signal: AbortSignal.any([
-        requestController.signal,
-        authentication.session.abortController.signal,
-      ]),
+      signal: conversation ? AbortSignal.any([requestController.signal, authSignal]) : authSignal,
       fetchClient: (input, init) => fetchAuthenticatedChat({ ...authentication, input, init }),
     }
   }
@@ -608,13 +624,25 @@ export function createAstralBeamChat(
     if (generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
     if (response.headers.get("Content-Type")?.includes("application/json")) {
-      const receipt = (await response.json()) as { thread_version: number }
+      const receipt = (await response.json()) as {
+        thread_version: number
+        accepted_message_id: string
+      }
       if (generation !== selectionGeneration)
         throw new DOMException("Conversation changed", "AbortError")
       update({
         thread: { ...state.thread!, version: receipt.thread_version },
       })
-      if (submission) acceptPendingSend()
+      if (submission) {
+        const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
+        if (generation !== selectionGeneration)
+          throw new DOMException("Conversation changed", "AbortError")
+        const accepted = history.messages.find(
+          (message) => message.id === receipt.accepted_message_id,
+        )
+        if (accepted) replaceAcceptedMessage(accepted)
+        acceptPendingSend()
+      }
       return new Response("", { headers: { "Content-Type": "text/event-stream" } })
     }
     return response
@@ -785,6 +813,12 @@ export function createAstralBeamChat(
         if (client !== next || generation !== selectionGeneration) return
         // Model snapshots omit client render IDs. Retain the existing slot before publishing them.
         restoreCompletedWidgets(messages)
+        // User messages are immutable. Keep saved download identities across model snapshots.
+        for (const message of messages) {
+          if (message.role !== "user") continue
+          const saved = state.messages.find((previous) => previous.id === message.id)
+          if (saved?.parts.some((part) => "savedAttachmentId" in part)) message.parts = saved.parts
+        }
         update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
       },
       onStatusChange: (status) => {
@@ -802,9 +836,12 @@ export function createAstralBeamChat(
             version: number
             saved?: boolean
             acceptedMessageId?: string
+            acceptedMessage?: ChatHistoryPageEncodedMessagesItem
             executableToolCallIds?: string[]
           }
           if (state.thread?.id === event.threadId) {
+            if (event.acceptedMessage && pendingSend && !pendingSend.accepted)
+              replaceAcceptedMessage(event.acceptedMessage)
             if (event.acceptedMessageId) acceptPendingSend()
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
@@ -842,7 +879,8 @@ export function createAstralBeamChat(
         if (client === next) live.streamCallbacks?.onFinish?.(message)
       },
       onError: (error) => {
-        if (client === next) live.streamCallbacks?.onError?.(error)
+        if (client === next && (state.auth.status !== "error" || state.auth.error !== error))
+          live.streamCallbacks?.onError?.(error)
       },
     })
     return next
@@ -1232,6 +1270,7 @@ export function createAstralBeamChat(
 
   const observeAuthentication = () => {
     const auth = authenticationState(authentication)
+    const previous = state.auth
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
@@ -1259,6 +1298,8 @@ export function createAstralBeamChat(
       }
     }
     update({ auth })
+    if (auth.status === "error" && (previous.status !== "error" || previous.error !== auth.error))
+      live.streamCallbacks?.onError?.(auth.error)
   }
   const start = () => {
     if (started) return
@@ -1346,6 +1387,19 @@ export function createAstralBeamChat(
     deleteThread,
     refreshThread,
     loadOlderMessages,
+    uploadAttachment: async ({ data, filename, mimeType }) => {
+      const agentId = state.thread ? state.thread.agentId : live.agentId
+      const [encoded, options] = await Promise.all([data, requestOptions(false)])
+      return uploadChatFile(
+        {
+          ...(agentId ? { agentId } : {}),
+          type: mimeType.startsWith("image/") ? "image" : "document",
+          source: { type: "data", value: encoded, mimeType },
+          metadata: { filename },
+        },
+        options,
+      )
+    },
     getAttachment: async (messageId, partId) => {
       const thread = state.thread
       if (!thread) throw new Error("Open a conversation before downloading attachments.")

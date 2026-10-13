@@ -27,7 +27,7 @@ export function Sidebar() {
 ```
 
 - The package has no runtime dependencies. `react` and `react-dom` are optional peers, and other entry points never load them.
-- All options update in place, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`, preserving the session and transcript.
+- All options update in place without remounting, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Changing `apiUrl` clears the previous deployment's local session.
 
 ## Mount anywhere else
 

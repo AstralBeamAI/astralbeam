@@ -1,6 +1,6 @@
 # Overview
 
-AstralBeam runs as a single web application process in front of one PostgreSQL database. Basic knowledge of Linux, PostgreSQL, and reverse proxies is assumed here.
+AstralBeam runs as a single web application process with one PostgreSQL database and a private S3-compatible bucket. Basic knowledge of Linux, PostgreSQL, and reverse proxies is assumed here.
 
 Every command below runs from the repository root in the `deno task --cwd platform <task>` form.
 
@@ -21,18 +21,19 @@ Each tagged release publishes prebuilt platform binaries for Linux, macOS, and W
 ## What you need alongside it
 
 - PostgreSQL 18 or newer. The schema depends on server-side `uuidv7()` defaults and the `citext` extension.
-- A transaction-pooling connection pooler such as PgBouncer. The application sends prepared queries, so the pooler also needs a prepared statement allowance. The reference Compose setup runs one and sets `MAX_PREPARED_STATEMENTS: 200`.
+- A transaction-pooling connection pooler such as PgBouncer. The native Effect client uses unnamed queries. The reference Compose setup sets `MAX_PREPARED_STATEMENTS: 200` for clients that use named prepared statements.
+- A private S3-compatible bucket and credentials. Configure and test them in **File storage** at `/configure`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS. Production requires HTTPS.
 - A model provider for each organization. Owners or developers add connections in **Models**, enable models, and assign them to agents. Each connection stores its own credentials and API URL.
 
-Nothing else is required. There is no object storage, no queue, and no separate cache server.
+Nothing else is required. There is no queue or separate cache server.
 
-**NOTE**: The development Compose file also starts Valkey and Mailpit. No application code uses Valkey, and Mailpit is a local sink that captures mail instead of delivering it.
+**NOTE**: The development Compose file starts RustFS for storage, Valkey, and Mailpit. No application code uses Valkey, and Mailpit is a local sink that captures mail instead of delivering it.
 
 ## Where state lives
 
-Everything is a row in the one PostgreSQL database, so a backup of that database is a backup of the deployment.
+PostgreSQL stores application state and encrypted settings. Back up the database and any stored S3 objects together. Configuring storage does not migrate existing database files.
 
 | Tables | State |
 | --- | --- |

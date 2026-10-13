@@ -56,8 +56,8 @@ vi.mock("@/lib/email/email.server", async (original) => {
   return { Mailer: Object.assign(email.Mailer, { layer }) }
 })
 
-import { getAuthDatabase } from "@/db/database.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { getAuthDatabase } from "@/db/database"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import {
   account,
@@ -72,24 +72,24 @@ import {
   tenant,
   tenantUser,
   user,
-} from "@/db/schema.server"
-import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.server"
-import { encryptDatabaseValue } from "@/db/lib/encryption.server"
-import { ConfigValuePayloadSchema } from "@/db/schema/config.server"
+} from "@/db/schema"
+import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
+import { encryptDatabaseValue } from "@/db/lib/encryption"
+import { ConfigValuePayloadSchema } from "@/db/schema/config"
 import { Auth } from "@/lib/auth/auth.server"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { ConfigValues } from "@/lib/config/types"
 import { createOperatorSession } from "@/routes/configure/-lib/operator-session.server"
-import { authenticateChatRequest } from "@/lib/chat/auth.server"
+import { authenticateChatRequest } from "@/lib/chat/auth"
 import { authenticateRestRequest } from "@/routes/api/v1/-lib/auth.server"
 import type { ChatPrincipal } from "@/lib/chat/types"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import type { OwnerOnboarding } from "./schemas.ts"
 import { seedModelProviders } from "../../../scripts/seed/models.ts"
-import { SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
+import { SEED_CONFIG_VALUES, SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",
@@ -163,6 +163,9 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.SUPPORT_EMAIL_ADDRESS = "support@example.com"
+      for (const [key, value] of Object.entries(SEED_CONFIG_VALUES)) {
+        if (key.startsWith("s3_")) process.env[key.toUpperCase()] = value
+      }
       process.env.TERMS_OF_SERVICE_URL = "https://example.com/terms"
       dogfoodIntegration.failEmail = false
       dogfoodIntegration.resetUrl = ""

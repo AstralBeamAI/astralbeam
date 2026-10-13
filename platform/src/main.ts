@@ -15,7 +15,7 @@ import process from "node:process"
 import { Command } from "commander"
 
 import packageJson from "../package.json" with { type: "json" }
-import { migrateDatabase } from "./db/migrate-command.server.ts"
+import { migrateDatabase } from "./db/migrate-command.ts"
 import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
 
 const CLI_HELP_FOOTER = `
@@ -139,7 +139,7 @@ program
 
 program
   .command("migrate")
-  .description("apply pending database migrations in one transaction")
+  .description("apply pending database migrations, committing each separately")
   .option("--dry-run", "list pending migrations without applying them")
   .action(async (options: { dryRun?: boolean }) => {
     loadBootstrapEnvironment(["DATABASE_URL"])

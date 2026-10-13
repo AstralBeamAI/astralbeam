@@ -1,3 +1,5 @@
+import { APP_HANDLE } from "@/lib/constants"
+import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -7,14 +9,14 @@ import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-import { Database, type EffectDatabase } from "@/db/database.server"
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
+import { Database, type EffectDatabase } from "@/db/database"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
+import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { type AppAuth, Auth } from "@/lib/auth/auth.server"
 import { OrganizationMembershipError } from "@/lib/auth/errors"
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { Organizations } from "@/lib/organizations/organizations.server"
-import { Chat } from "@/lib/chat/chat.server"
+import { Chat } from "@/lib/chat/chat"
 import { Agents } from "@/lib/agents/agents.server"
 import {
   ChatThreads,
@@ -22,13 +24,13 @@ import {
   type ThreadRecord,
   type MessageRecord,
   type ParticipantRecord,
-} from "@/lib/chat/threads/threads.server"
+} from "@/lib/chat/threads/threads"
 import { ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
-import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox.server"
+import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import { TenantUsers } from "@/lib/tenants/tenant-users.server"
-import { Tenants } from "@/lib/tenants/tenants.server"
-import { organization } from "@/db/schema/organizations.server"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
+import { Tenants } from "@/lib/tenants/tenants"
+import { organization } from "@/db/schema/organizations"
 import {
   createTenant as sdkCreateTenant,
   getChatFile as sdkGetChatFile,
@@ -73,14 +75,14 @@ const restTestState = vi.hoisted(() => ({
   appRuntime: undefined as ManagedRuntime.ManagedRuntime<never, never> | undefined,
 }))
 
-vi.mock("@/db/lib/database-credentials.server", async (original) => ({
-  ...(await original<typeof import("@/db/lib/database-credentials.server")>()),
+vi.mock("@/db/lib/database-credentials", async (original) => ({
+  ...(await original<typeof import("@/db/lib/database-credentials")>()),
   getDatabaseBootstrapIssues: vi.fn(),
 }))
-vi.mock("@/lib/chat/auth.server", async (original) => {
+vi.mock("@/lib/chat/auth", async (original) => {
   const { ChatAuthenticationError } = await import("@/lib/chat/errors")
   return {
-    ...(await original<typeof import("@/lib/chat/auth.server")>()),
+    ...(await original<typeof import("@/lib/chat/auth")>()),
     authenticateChatRequest: (request: Request) =>
       Effect.tryPromise({
         try: () => restTestState.chat(request) as Promise<unknown>,
@@ -111,7 +113,7 @@ import {
   CHAT_CONTINUATION_RATE_LIMIT_MAX_REQUESTS,
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_RATE_LIMIT_MAX_REQUESTS,
-} from "@/lib/chat/constants.server"
+} from "@/lib/chat/constants"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
 import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
 
@@ -191,6 +193,16 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
+  Layer.succeed(ChatFiles, {
+    store: ({ payload }) => Effect.succeed(payload),
+    read: ({ fileId }) =>
+      Effect.succeed({
+        bytes: new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
+        mimeType: fileId === restUserId ? "image/png" : "text/plain",
+      }),
+    hydrate: ({ messages }) => Effect.succeed([...messages]),
+    attach: () => Effect.succeed(0),
+  }),
   Layer.succeed(Chat, {
     run: (input) => restTestState.run(input) as never,
     capabilities: (input) => restTestState.agent(input) as never,
@@ -724,11 +736,12 @@ describe("REST API through the Effect Fetch handler", () => {
       id: "upload",
       type: "image",
       source: {
-        type: "data",
-        value: `data:image/png;base64,${btoa("saved image")}`,
+        type: APP_HANDLE,
+        id: restUserId,
         mimeType: "image/png",
+        byteSize: 11,
       },
-      metadata: { filename: "upload.png", size: 11 },
+      metadata: { filename: "upload.png", size: 999 },
     }
     const savedMessage = {
       ...restSavedMessage,
@@ -767,7 +780,7 @@ describe("REST API through the Effect Fetch handler", () => {
           parent_message_id: null,
           parts: [
             ...restSavedMessage.payload.parts,
-            { ...attachment, source: { type: "attachment", mimeType: "image/png" } },
+            { ...attachment, source: { type: "attachment", mimeType: "image/png", byteSize: 11 } },
           ],
           author_tenant_user_id: restUserId,
           source_assistant_message_id: null,
@@ -1660,7 +1673,7 @@ describe("administrative conversation reads", () => {
             {
               id: "upload",
               type: "document",
-              source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+              source: { type: APP_HANDLE, id: restTenantId, mimeType: "text/plain", byteSize: 5 },
               metadata: { filename: "note.txt" },
             },
           ],

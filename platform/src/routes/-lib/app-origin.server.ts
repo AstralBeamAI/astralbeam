@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 
-import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials.server"
-import { Config } from "@/lib/config/config.server"
+import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
+import { Config } from "@/lib/config/config"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 /** The deployment's public origin, for the absolute URLs crawlers require. */

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { eq, sql } from "drizzle-orm"
 
-import { apiKey } from "../../src/db/schema.server.ts"
+import { apiKey } from "../../src/db/schema.ts"
 import {
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,

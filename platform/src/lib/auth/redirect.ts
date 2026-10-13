@@ -1,4 +1,16 @@
 import { getSafeRedirectTo } from "@better-auth-ui/core"
+import { AUTH_ALLOWED_RETURN_PATHS, INERT_REDIRECT_ORIGIN } from "../constants.ts"
+
+// Invitation link hints only prefill the form. Better Auth verifies the signed-in recipient.
+export function getInvitationContext(redirectTo: string) {
+  const path = normalizeReturnPath(redirectTo, INERT_REDIRECT_ORIGIN, AUTH_ALLOWED_RETURN_PATHS)
+  const url = new URL(path, INERT_REDIRECT_ORIGIN)
+  if (url.pathname !== "/auth/accept-invitation" || !url.searchParams.get("invitationId")) return
+  return {
+    email: url.searchParams.get("email") ?? "",
+    organization: url.searchParams.get("organization") || "your organization",
+  }
+}
 
 /** Accept only network browser origins; opaque SSR origins serialize as `null`. https://url.spec.whatwg.org/#origin */
 export function resolveRedirectOrigin(

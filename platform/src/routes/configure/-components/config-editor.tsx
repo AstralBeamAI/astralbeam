@@ -22,6 +22,7 @@ import {
 } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import { StorageConnectionSchema } from "@/lib/storage/schemas"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -123,6 +124,14 @@ export function ConfigEditor({
     settings,
   })
   const canTestEmailProvider = Option.isSome(emailProviderConnectionInput)
+  const storageSettings = Schema.decodeUnknownOption(StorageConnectionSchema)({
+    endpoint: currentValue("s3_endpoint"),
+    region: currentValue("s3_region"),
+    bucket: currentValue("s3_bucket"),
+    accessKeyId: currentValue("s3_access_key_id"),
+    secretAccessKey: currentValue("s3_secret_access_key"),
+    pathStyle: currentValue("s3_path_style") === "true",
+  })
 
   const run = async (action: () => Promise<void>, kind: "save" | "invite" | "other" = "other") => {
     setPendingAction(kind)
@@ -341,6 +350,7 @@ export function ConfigEditor({
         canTestEmailProvider={canTestEmailProvider}
         emailProviderTesting={emailProviderTesting}
         emailProviderTestResult={emailProviderTestResult}
+        storageSettings={Option.getOrUndefined(storageSettings)}
       />
 
       {actions}

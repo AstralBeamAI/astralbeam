@@ -75,7 +75,22 @@ services:
       <<: *healthcheck-timing
       test: ["CMD", "/mailpit", "readyz"]
 
+  rustfs:
+    image: rustfs/rustfs:1.0.1
+    restart: unless-stopped
+    command: ["/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-development}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-development-only-storage-key}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/health/ready"]
+
 volumes:
   postgres-data:
   valkey-data:
   mailpit-data:
+  rustfs-data:

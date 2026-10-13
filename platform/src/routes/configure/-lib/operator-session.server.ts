@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto"
 import { Clock, Effect, Option, Schema } from "effect"
 import { jwtVerify, SignJWT } from "jose"
 
-import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials.server"
+import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials"
 import { generateSecret } from "@/lib/utils.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 

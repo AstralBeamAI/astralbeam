@@ -19,7 +19,7 @@ export function userSettingsPage(page: Page) {
       await expect(page.getByRole("heading", { level: 1, name: "Security settings" })).toBeVisible()
     },
 
-    /** The one editable profile field; the avatar upload is out of scope for a headless run. */
+    /** Updates the editable display name. */
     async setDisplayName(name: string): Promise<void> {
       const save = page.getByRole("button", { name: /save changes/i }).first()
       await waitForHydration(save)

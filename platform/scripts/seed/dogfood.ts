@@ -7,7 +7,7 @@ import {
   member,
   organization,
   organizationConfiguration,
-} from "../../src/db/schema.server.ts"
+} from "../../src/db/schema.ts"
 import type { SeedTransaction } from "./database.ts"
 import { hashSeedApiKeySecret } from "./api-keys.ts"
 import { SEED_DOGFOOD } from "./fixtures.ts"

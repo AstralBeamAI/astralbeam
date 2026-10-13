@@ -1,6 +1,6 @@
 import { Cause, Context, Effect, Predicate } from "effect"
 
-import { sqlConstraint, sqlState } from "@/db/lib/sqlstate.server"
+import { sqlConstraint, sqlState } from "@/db/lib/sqlstate"
 
 const STACK_FRAME_LIMIT = 8
 

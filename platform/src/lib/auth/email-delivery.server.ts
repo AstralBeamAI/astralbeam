@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 
+import { queueAfterTransactionHook } from "@better-auth/core/context"
 import { APIError } from "better-auth/api"
 import { Cause, Effect } from "effect"
 
@@ -51,20 +52,24 @@ export function deliverBlockingAuthEmail(
 ): Promise<void> {
   // Read before the fiber starts, which may resume in another request's async context.
   const scope = blockingAuthEmailContext.getStore()
-  return runAppEffect(
-    send.pipe(
-      // The Mailer already logged a provider's reason, so only a defect is reported here.
-      Effect.catchCause((cause) =>
-        Effect.andThen(
-          Cause.hasDies(cause) ? reportFailure("deliverBlockingAuthEmail", cause) : Effect.void,
-          Effect.fail(authEmailDeliveryError()),
+  // Signup invokes email callbacks inside its transaction. Await delivery only after commit.
+  // https://github.com/better-auth/better-auth/blob/v1.7.7/packages/core/src/context/transaction.ts
+  return queueAfterTransactionHook(() =>
+    runAppEffect(
+      send.pipe(
+        // The Mailer already logged a provider's reason, so only a defect is reported here.
+        Effect.catchCause((cause) =>
+          Effect.andThen(
+            Cause.hasDies(cause) ? reportFailure("deliverBlockingAuthEmail", cause) : Effect.void,
+            Effect.fail(authEmailDeliveryError()),
+          ),
         ),
-      ),
-      Effect.tapError((error) =>
-        Effect.sync(() => {
-          if (scope) scope.error = error
-          if (request) failedAuthEmailRequests.set(request, error)
-        }),
+        Effect.tapError((error) =>
+          Effect.sync(() => {
+            if (scope) scope.error = error
+            if (request) failedAuthEmailRequests.set(request, error)
+          }),
+        ),
       ),
     ),
   )

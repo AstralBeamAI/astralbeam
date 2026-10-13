@@ -44,6 +44,6 @@ Limits on requests, attachments, and sandboxes belong to the deployment rather t
 
 ## Your own account
 
-Your display name and avatar are yours rather than the organization's, and you change them on your account page, reached from your name at the bottom of the sidebar. Your sign-in email address cannot be changed from the dashboard.
+Let's change your display name from your account page, reached from your name at the bottom of the sidebar, and your Organization avatar from **Members**. Signing in with OAuth imports your provider image into all your Organization memberships. Gravatar imports run when a user or membership is created. A successful import replaces existing avatars, while an unavailable or invalid image leaves them unchanged. Your sign-in email address cannot be changed from the dashboard.
 
 Your password, your connected sign-in providers, and your active sessions are on the security page alongside it. Revoking a session there is the fastest way to cut off a device you no longer control, and changing your password revokes your other sessions for you.

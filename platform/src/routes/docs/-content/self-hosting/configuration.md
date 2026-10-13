@@ -92,6 +92,40 @@ For SES, we should leave both AWS credential fields unset so the deployment uses
 
 **TIP**: Configure one provider per deployment and leave the other providers' credentials unset.
 
+## File storage
+
+File storage uses one private S3-compatible bucket per deployment. Let's configure it before completing setup.
+
+| Setting | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `s3_endpoint` | Yes | none | S3 API URL, including any path prefix such as `/storage/v1/s3`. HTTPS is required except for loopback and local `rustfs`/`minio` hosts |
+| `s3_region` | Yes | none | Bucket region, or `auto` for Cloudflare R2 |
+| `s3_bucket` | Yes | none | Private bucket dedicated to this deployment |
+| `s3_access_key_id` | Yes | none | Storage access-key ID, independent of SES credentials |
+| `s3_secret_access_key` | Yes | none | Storage secret access key |
+| `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
+
+1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
+2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
+3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
+4. Save the configuration and restart other running server instances.
+
+The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
+
+For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
+
+The first application upload pins the endpoint, region, bucket, and addressing mode. These values cannot change afterwards until a storage migration is available. Credential rotation remains supported. A failed first upload can also pin the destination because the server reserves it before contacting storage, preventing concurrent configuration changes from losing an object.
+
+Let's use **Members** to upload or remove your avatar for an Organization. Global account screens show initials. OAuth login imports your provider image, and user or membership creation imports Gravatar. Each successful import replaces avatars across all of your memberships. Unavailable or invalid images leave existing avatars unchanged and do not prevent sign-in. Images must be valid, non-animated PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. External logos submitted through the Organization API are fetched, validated and stored during the write request. A failed logo replacement preserves the existing logo. Organization API responses expose `logoFileId`, and Better Auth compatibility columns `user.image` and `organization.logo` remain null.
+
+Avatars and Organization logos use application URLs that check current membership before redirecting to a signed S3 download URL valid for one minute. The storage endpoint must be reachable from your users' browsers. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
+
+Files do not expire. The FileMaintenance schedule submits explicitly retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
+
+Conversation uploads use the same private bucket. PostgreSQL stores file metadata and conversation ownership, and authenticated downloads check current conversation permissions. Message parts and provider continuation media store file references. Attachment descriptors include verified byte sizes.
+
+Replacement retains deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+
 ## Model providers
 
 Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.

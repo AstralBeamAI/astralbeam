@@ -6,12 +6,15 @@ import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { buttonVariants } from "@/components/ui/button"
 import { authClient } from "@/lib/auth/client"
+import { normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import {
   APP_LOGO_DARK_SVG_URL,
   APP_LOGO_LIGHT_SVG_URL,
   APP_NAME,
   APP_WORDMARK_DARK_SVG_URL,
   APP_WORDMARK_LIGHT_SVG_URL,
+  AUTH_ALLOWED_RETURN_PATHS,
+  INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import { cn } from "cn"
 
@@ -98,11 +101,16 @@ export function DocsLink() {
 
 /** Docs pages load without the auth providers, so their links leave through a full navigation. */
 function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
+  const redirectTo = useLocation({
+    select: ({ searchStr }) =>
+      normalizeReturnPathFromSearch(searchStr, INERT_REDIRECT_ORIGIN, AUTH_ALLOWED_RETURN_PATHS),
+  })
   return (
     <>
       <Link
         to="/auth/$path"
         params={{ path: "sign-in" }}
+        search={{ redirectTo }}
         reloadDocument={reloadDocument}
         className={navLinkClassName}
       >
@@ -111,6 +119,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
       <Link
         to="/auth/$path"
         params={{ path: "sign-up" }}
+        search={{ redirectTo }}
         reloadDocument={reloadDocument}
         className={cn(buttonVariants({ size: "sm" }), "ms-2.5")}
       >
