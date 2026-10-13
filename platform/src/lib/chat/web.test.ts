@@ -25,6 +25,7 @@ function webResponse(
   pause = false,
   application = false,
   failure = false,
+  pending = false,
 ) {
   let events: object[]
   if (provider === "anthropic") {
@@ -52,7 +53,7 @@ function webResponse(
       },
       { type: "text", text: "", citations: [] },
       ...(application ? [{ type: "tool_use", id: "call", name: "lookup", input: {} }] : []),
-    ]
+    ].filter((block) => !pending || block.type !== "web_fetch_tool_result")
     events = [
       {
         type: "message_start",
@@ -62,7 +63,7 @@ function webResponse(
           role: "assistant",
           model: "test-model",
           content: [],
-          usage: { input_tokens: 10, output_tokens: 0 },
+          usage: { input_tokens: 10, output_tokens: 0, cache_read_input_tokens: 2 },
         },
       },
     ]
@@ -180,6 +181,20 @@ function webResponse(
           {
             index: 0,
             delta: {
+              reasoning_details: [
+                { type: "reasoning.encrypted", data: "signed-context", id: "reasoning", index: 0 },
+              ],
+            },
+            finish_reason: null,
+          },
+        ],
+      },
+      {
+        ...envelope,
+        choices: [
+          {
+            index: 0,
+            delta: {
               role: "assistant",
               content: webAnswer,
               ...(application
@@ -241,6 +256,7 @@ async function exerciseWeb(
     failure?: boolean
     cancel?: boolean
     reject?: boolean
+    pending?: boolean
   } = {},
 ) {
   const requests: Schema.JsonObject[] = []
@@ -277,6 +293,7 @@ async function exerciseWeb(
         options.pause === "always" || (options.pause === "once" && requests.length === 1),
         Boolean(options.application) && requests.length === 1,
         options.failure,
+        options.pending,
       )
     },
   }
@@ -514,6 +531,12 @@ test.each(
       result.requests[1]?.[provider === "openai" ? "input" : "messages"] ?? [],
     )
     expect(wire.includes('"name":"lookup"')).toBe(application === "server")
+    expect(JSON.stringify(decision.modelMessages).includes("signed-context")).toBe(
+      provider === "openrouter",
+    )
+    expect(wire.includes("signed-context")).toBe(
+      provider === "openrouter" && application === "server",
+    )
     expect(
       decision.parts.filter((part) => part.type === "tool-call").map((part) => part.targets),
     ).toMatchObject([[{}], []])
@@ -537,6 +560,12 @@ test.each(
 )
 
 test("native errors and cancellation retain observed evidence without application responses", async () => {
+  const pending = await exerciseWeb("anthropic", { pending: true })
+  const activity = pending.saved
+    .at(-1)!
+    .parts.find((part) => part.executionLocation === "provider")!
+  expect(activity.state).toBe("input-complete")
+  expect(activity.output).toBeUndefined()
   const failure = await exerciseWeb("anthropic", { failure: true })
   expect(
     failure.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider")?.state,
@@ -556,6 +585,13 @@ test.each(["once", "always"] as const)(
     const result = await exerciseWeb("anthropic", { pause })
     expect(result.requests).toHaveLength(pause === "once" ? 2 : CHAT_MAX_MODEL_TURNS)
     expect(JSON.stringify(result.requests[1])).toContain("web_fetch_result")
+    const usage = Schema.decodeUnknownSync(Schema.UndefinedOr(Schema.JsonObject))(
+      result.saved.at(-1)!.provenance?.usage,
+    )
+    expect([usage?.promptTokens, usage?.completionTokens, usage?.totalTokens]).toEqual(
+      pause === "once" ? [24, 10, 34] : [undefined, undefined, undefined],
+    )
+    expect(usage?.promptTokensDetails).toEqual(pause === "once" ? { cachedTokens: 4 } : undefined)
     expect(result.chunks.some((chunk) => chunk.type === EventType.RUN_ERROR)).toBe(
       pause === "always",
     )

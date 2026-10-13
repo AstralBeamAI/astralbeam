@@ -21,6 +21,15 @@ import { fetchChatWeb, type ChatWebState } from "./web"
 
 type ChatWebTerminal = Extract<AdapterYieldChunk, { type: "RUN_FINISHED" | "RUN_ERROR" }>
 
+function sumUsageFields(values: readonly (object | undefined)[]): Record<string, number> {
+  return values
+    .flatMap((value) => Object.entries(value ?? {}))
+    .reduce<Record<string, number>>((total, [key, value]) => {
+      if (typeof value === "number") total[key] = (total[key] ?? 0) + value
+      return total
+    }, {})
+}
+
 function chatWebTerminal(
   terminal: ChatWebTerminal,
   usages: TokenUsage[],
@@ -38,10 +47,19 @@ function chatWebTerminal(
         }
       : {}),
     usage: {
-      ...(!Array.isArray(terminal.usage) ? terminal.usage : {}),
-      promptTokens: usages.reduce((n, usage) => n + usage.promptTokens, 0),
-      completionTokens: usages.reduce((n, usage) => n + usage.completionTokens, 0),
-      totalTokens: usages.reduce((n, usage) => n + usage.totalTokens, 0),
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      ...sumUsageFields(usages),
+      ...Object.fromEntries(
+        (["promptTokensDetails", "completionTokensDetails", "costDetails"] as const).flatMap(
+          (key) =>
+            usages.some((usage) => usage[key])
+              ? [[key, sumUsageFields(usages.map((usage) => usage[key]))]]
+              : [],
+        ),
+      ),
+      providerUsageDetails: { requestUsage: usages },
       ...(web.usage.some((usage) => typeof usage.cost === "number")
         ? { cost: web.usage.reduce((n, usage) => n + Number(usage.cost ?? 0), 0) }
         : {}),

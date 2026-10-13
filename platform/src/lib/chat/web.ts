@@ -257,6 +257,8 @@ function observeRouterWeb(state: ChatWebState, event: WebJson) {
   const choices = Array.isArray(event.choices) ? event.choices : []
   for (const choice of choices) {
     const delta = webJson(webJson(choice).delta)
+    if (Array.isArray(delta.reasoning_details))
+      state.blocks.push({ reasoning_details: delta.reasoning_details })
     if (!Array.isArray(delta.annotations)) continue
     state.active = true
     state.settled = true
@@ -367,6 +369,11 @@ export function chatWebContext(
             ? {
                 annotations: state.blocks.flatMap((block) =>
                   Schema.decodeUnknownSync(Schema.Array(Schema.Json))(block.annotations ?? []),
+                ),
+                reasoning_details: state.blocks.flatMap((block) =>
+                  Schema.decodeUnknownSync(Schema.Array(Schema.Json))(
+                    block.reasoning_details ?? [],
+                  ),
                 ),
                 tool_calls: toolCalls
                   .filter(

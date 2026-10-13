@@ -204,7 +204,7 @@ function managedAssistantPayload(
         executionLocation: "provider",
         targets: [],
         state: web.failed ? "error" : web.settled ? "complete" : "input-complete",
-        output: { sources },
+        ...(web.settled || web.failed ? { output: { sources } } : {}),
         metadata: { providerExecuted: true, web: { sources, citations: [] } },
       }),
       id,
