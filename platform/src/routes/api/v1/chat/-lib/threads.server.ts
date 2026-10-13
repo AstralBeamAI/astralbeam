@@ -624,7 +624,7 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
   if (
     !Schema.is(Schema.JsonObject)(source) ||
     source.type !== APP_HANDLE ||
-    typeof source.id !== "string"
+    !Schema.is(ApiUuidSchema)(source.id)
   )
     return yield* new ChatThreadNotFound()
   const file = yield* (yield* ChatFiles).read({
