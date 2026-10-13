@@ -4,7 +4,9 @@ import { LockVersionSchema, NonEmptyStringSchema, UuidV7Schema } from "../schema
 export const MCP_PROTOCOL_VERSION = "2026-07-28"
 export const MCP_MAX_METADATA_BYTES = 1_048_576
 export const MCP_MAX_RESULT_BYTES = 5_242_880
-export const MCP_MAX_DISCOVERY_PAGES = 64
+export const MCP_MAX_DISCOVERY_PAGES = 8
+export const MCP_MAX_TOOLS = 256
+export const MCP_MAX_CATALOG_BYTES = 1_048_576
 export const MCP_AUTH_TIMEOUT_MS = 15_000
 export const MCP_TOOL_TIMEOUT_MS = 60_000
 export const MCP_ATTEMPT_LIFETIME_MS = 600_000

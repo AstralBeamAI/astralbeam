@@ -3,7 +3,6 @@ import {
   personalMcpGetCatalog,
   personalMcpCreateConnection,
   personalMcpSetHeaders,
-  personalMcpDeleteConnection,
   personalMcpDisconnectConnection,
   personalMcpTestConnection,
   personalMcpAuthorizeConnection,
@@ -15,7 +14,7 @@ import { runMcpAuthorization } from "./mcp-authorization.ts"
 export type McpManagementOperation =
   | { action: "connect"; mcpServerId: string }
   | { action: "headers"; mcpServerId: string; headers: Record<string, string> }
-  | { action: "disconnect" | "delete_connection" | "test"; id: string }
+  | { action: "disconnect" | "test"; id: string }
 export type McpCatalog = Awaited<ReturnType<typeof personalMcpGetCatalog>>
 export function loadMcpCatalog(options: JwtOptions): Promise<McpCatalog> {
   return personalMcpGetCatalog(options)
@@ -35,8 +34,6 @@ export async function manageMcp(operation: McpManagementOperation, options: JwtO
         options,
       )
     }
-    case "delete_connection":
-      return personalMcpDeleteConnection(operation.id, options)
     case "disconnect":
       return personalMcpDisconnectConnection(operation.id, options)
     case "test":

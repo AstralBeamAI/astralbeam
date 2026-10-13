@@ -41,4 +41,6 @@ For Google providers, choose the **Google** OAuth profile and a pre-registered a
 
 Each connection belongs to one TenantUser. One account per server is supported. Shared accounts and user-added servers are deferred. Tool results follow the conversation's existing visibility and retention rules.
 
-Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Existing accounts must reconnect. Disconnect clears local credentials without revoking provider-wide access.
+Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Existing accounts must reconnect. Disconnect deletes the local connection and credentials without revoking provider-wide access. Connecting again creates a new connection.
+
+Configure the OAuth scopes your tools require before connecting. Incremental consent during tool execution is deferred. If a tool requires additional permissions, update the server definition and authorize again.

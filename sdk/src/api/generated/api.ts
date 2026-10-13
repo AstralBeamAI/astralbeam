@@ -1898,20 +1898,6 @@ export const personalMcpCreateConnection = (
   })
 }
 
-export const getPersonalMcpDeleteConnectionUrl = (id: string) => {
-  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}`
-}
-
-export const personalMcpDeleteConnection = (
-  id: string,
-  options: Parameters<typeof astralBeamJwtFetch>[1],
-) => {
-  return astralBeamJwtFetch<void>(getPersonalMcpDeleteConnectionUrl(id), {
-    ...options,
-    method: "DELETE",
-  })
-}
-
 export const getPersonalMcpSetHeadersUrl = (id: string) => {
   return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/headers`
 }
@@ -1949,7 +1935,7 @@ export const personalMcpSetHeaders = (
 }
 
 export const getPersonalMcpDisconnectConnectionUrl = (id: string) => {
-  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/disconnect`
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}`
 }
 
 export const personalMcpDisconnectConnection = (
@@ -1958,7 +1944,7 @@ export const personalMcpDisconnectConnection = (
 ) => {
   return astralBeamJwtFetch<void>(getPersonalMcpDisconnectConnectionUrl(id), {
     ...options,
-    method: "POST",
+    method: "DELETE",
   })
 }
 

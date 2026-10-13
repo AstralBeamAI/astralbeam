@@ -2,6 +2,7 @@ import { PlugIcon } from "@phosphor-icons/react"
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query"
 import { useId, useRef, useState } from "react"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
+import type { McpManagementOperation } from "../../core/mcp.ts"
 import { Button } from "./ui/button.tsx"
 import { Input } from "./ui/input.tsx"
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx"
@@ -18,8 +19,6 @@ export function McpConnectionsPanel({
   const [client] = useState(() => new QueryClient())
   const [open, setOpen] = useState(false)
   const [headersFor, setHeadersFor] = useState<string | null>(null)
-  const [removal, setRemoval] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ message: string; error: boolean } | null>(null)
   const identity =
     state.auth.status === "ready" && state.auth.currentUser.scope === "tenant"
@@ -41,11 +40,17 @@ export function McpConnectionsPanel({
   )
   const mutation = useMutation(
     {
-      mutationFn: chat.manageMcp,
+      mutationFn: (
+        operation:
+          | McpManagementOperation
+          | { action: "authorize"; mcpServerId: string; id?: string },
+      ) =>
+        operation.action === "authorize"
+          ? chat.connectMcpAccount(operation)
+          : chat.manageMcp(operation),
       onMutate: () => setNotice(null),
       onSuccess: async (result, operation) => {
         setHeadersFor(null)
-        setRemoval(null)
         await catalog.refetch()
         setNotice({
           message:
@@ -53,9 +58,7 @@ export function McpConnectionsPanel({
               ? `${result.tool_count} tools available.`
               : operation.action === "disconnect"
                 ? "Account disconnected locally."
-                : operation.action === "delete_connection"
-                  ? "Connection removed."
-                  : "Account connected.",
+                : "Account connected.",
           error: false,
         })
       },
@@ -64,23 +67,9 @@ export function McpConnectionsPanel({
     client,
   )
   if (!identity) return null
-  const busy = mutation.isPending || connecting !== null
-  const connect = async (mcpServerId: string, id?: string) => {
-    setNotice(null)
-    setConnecting(mcpServerId)
-    try {
-      await chat.connectMcpAccount({ mcpServerId, ...(id ? { id } : {}) })
-      await catalog.refetch()
-      setNotice({ message: "Account connected.", error: false })
-    } catch (error) {
-      setNotice({
-        message: error instanceof Error ? error.message : "Unable to connect account.",
-        error: true,
-      })
-    } finally {
-      setConnecting(null)
-    }
-  }
+  const busy = mutation.isPending
+  const authorizing =
+    busy && mutation.variables?.action === "authorize" ? mutation.variables.mcpServerId : null
   return (
     <div ref={container}>
       <Popover open={open} onOpenChange={setOpen}>
@@ -208,29 +197,35 @@ export function McpConnectionsPanel({
                         disabled={busy}
                         onClick={() =>
                           server.auth_kind === "oauth"
-                            ? void connect(server.id, account?.id)
+                            ? mutation.mutate({
+                                action: "authorize",
+                                mcpServerId: server.id,
+                                ...(account ? { id: account.id } : {}),
+                              })
                             : server.auth_kind === "static_headers"
                               ? setHeadersFor(server.id)
                               : mutation.mutate({ action: "connect", mcpServerId: server.id })
                         }
                       >
-                        {connecting === server.id
+                        {authorizing === server.id
                           ? "Waiting for authorization…"
                           : connected
                             ? "Reconnect account"
                             : "Connect account"}
                       </Button>
                     )}
-                    {account && connected && (
+                    {account && (
                       <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => mutation.mutate({ action: "test", id: account.id })}
-                        >
-                          Test connection
-                        </Button>
+                        {connected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => mutation.mutate({ action: "test", id: account.id })}
+                          >
+                            Test connection
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -241,36 +236,6 @@ export function McpConnectionsPanel({
                         </Button>
                       </>
                     )}
-                    {account && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => setRemoval(account.id)}
-                      >
-                        Remove connection
-                      </Button>
-                    )}
-                  </div>
-                )}
-                {account && removal === account.id && (
-                  <div className="space-y-2">
-                    <p className="text-xs">Remove this connection and its stored credentials?</p>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        onClick={() =>
-                          mutation.mutate({ action: "delete_connection", id: account.id })
-                        }
-                      >
-                        Confirm removal
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setRemoval(null)}>
-                        Cancel
-                      </Button>
-                    </div>
                   </div>
                 )}
               </article>

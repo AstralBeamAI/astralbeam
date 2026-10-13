@@ -68,57 +68,39 @@ async function withMcpTools<A>(
   )
 }
 describe("request-oriented MCP tools", () => {
-  test("a discovered tool cannot dispatch with a replacement account's credentials", async () => {
-    let generation = mcpToolTestConnection.lockVersion
-    await withMcpTools(
-      (tools) =>
-        Effect.gen(function* () {
-          const set = yield* tools.acquire(mcpToolTestActor)
-          generation = 1
-          yield* Effect.promise(() =>
-            expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow(),
-          )
-          expect(mcpToolFixture.state.calls).toBe(0)
-        }),
-      ({ expectedVersion }) => {
-        if (expectedVersion !== undefined && expectedVersion !== generation)
-          throw new Error("Account replaced")
-        return {
-          kind: "static_headers",
-          headers: { Authorization: `Bearer account-${generation}` },
-        }
-      },
-      { kind: "static_headers", headerNames: ["Authorization"] },
-    )
-  })
-  test("dispatch rereads credentials after the SDK token hook", async () => {
-    let reads = 0
-    await withMcpTools(
-      (tools) =>
-        Effect.gen(function* () {
-          const set = yield* tools.acquire(mcpToolTestActor)
-          expect(mcpToolFixture.state.requests[0]!.headers.authorization).toBe(
-            "Bearer replacement-token",
-          )
-          yield* Effect.promise(() =>
-            Promise.resolve(set.tools[0]!.execute!({ region: "eu" }, undefined)),
-          )
-          const request = mcpToolFixture.state.requests.find((row) => row.method === "tools/call")!
-          expect(request.headers.authorization).toBe("Bearer replacement-token")
-        }),
-      () => ({
-        kind: "oauth",
-        clientInformation: {},
-        tokens: {
-          access_token: ++reads === 1 ? "old-token" : "replacement-token",
-          token_type: "Bearer",
+  test.each(["static_headers", "oauth"] as const)(
+    "%s tools cannot dispatch a replacement account",
+    async (kind) => {
+      let generation = mcpToolTestConnection.lockVersion
+      await withMcpTools(
+        (tools) =>
+          Effect.gen(function* () {
+            const set = yield* tools.acquire(mcpToolTestActor)
+            generation = 1
+            yield* Effect.promise(() =>
+              expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow(),
+            )
+            expect(mcpToolFixture.state.calls).toBe(0)
+          }),
+        ({ expectedVersion }) => {
+          if (expectedVersion !== undefined && expectedVersion !== generation)
+            throw new Error("Account replaced")
+          return kind === "static_headers"
+            ? { kind, headers: { Authorization: `Bearer account-${generation}` } }
+            : {
+                kind,
+                clientInformation: {},
+                tokens: { access_token: `account-${generation}`, token_type: "Bearer" },
+                expiresAt: null,
+                discovery: {},
+              }
         },
-        expiresAt: null,
-        discovery: {},
-      }),
-      { kind: "oauth", profile: "standard", requestedScopes: [] },
-    )
-  })
+        kind === "static_headers"
+          ? { kind, headerNames: ["Authorization"] }
+          : { kind, profile: "standard", requestedScopes: [] },
+      )
+    },
+  )
   test.each([false, true])(
     "discovers paginated tools and executes with SDK metadata over SSE=%s",
     async (sse) => {
@@ -144,6 +126,7 @@ describe("request-oriented MCP tools", () => {
             (request) => request.method === "tools/call",
           )!
           expect(call.headers["mcp-param-region"]).toBe("eu")
+          expect(call.headers["mcp-method"]).toBe("tools/call")
           expect(call.headers["mcp-protocol-version"]).toBe("2026-07-28")
           expect(
             mcpToolFixture.state.requests.some((request) => request.method === "initialize"),
@@ -152,6 +135,30 @@ describe("request-oriented MCP tools", () => {
       )
     },
   )
+  test.each([
+    { boundary: "count", toolCount: 100, catalogDescription: "", exposed: 200 },
+    { boundary: "bytes", toolCount: 1, catalogDescription: "x".repeat(400_000), exposed: 2 },
+  ])("bounds the combined catalog by $boundary", async (input) => {
+    const catalog = [
+      mcpToolTestConnection,
+      ...[5, 6].map((suffix) => ({
+        ...mcpToolTestConnection,
+        id: `019a0000-0000-7000-8000-00000000000${suffix}`,
+      })),
+    ]
+    await withMcpTools(
+      (tools) =>
+        Effect.gen(function* () {
+          Object.assign(mcpToolFixture.state, input)
+          const set = yield* tools.acquire(mcpToolTestActor)
+          expect(set.tools).toHaveLength(input.exposed)
+          expect(set.unavailable).toEqual([catalog[2]!.id])
+        }),
+      undefined,
+      undefined,
+      catalog,
+    )
+  })
   test("rejects legacy protocol and invalid structured output without replaying tool calls", async () => {
     await withMcpTools((tools) =>
       Effect.gen(function* () {

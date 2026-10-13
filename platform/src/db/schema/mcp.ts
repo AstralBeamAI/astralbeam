@@ -1,4 +1,4 @@
-import { primaryKey, snakeCase, text, unique, uuid } from "drizzle-orm/pg-core"
+import { index, primaryKey, snakeCase, text, unique, uuid } from "drizzle-orm/pg-core"
 import {
   deferrableForeignKey,
   encryptedJson,
@@ -48,6 +48,7 @@ export const mcpConnection = snakeCase.table(
       t.tenantUserId,
       t.mcpServerId,
     ),
+    index("mcp_connection_server_idx").on(t.organizationId, t.mcpServerId),
     deferrableForeignKey({
       columns: [t.organizationId, t.tenantId, t.tenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],

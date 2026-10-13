@@ -75,34 +75,17 @@ export async function mcpBoundedResponse(response: Response, maximum: number): P
     throw new TypeError("MCP response exceeds the size limit")
   }
   if (!response.body) return response
-  const reader = response.body.getReader()
   let received = 0
-  const body = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const next = await reader.read()
-        if (next.done) {
-          controller.close()
-          return
-        }
-        received += next.value.byteLength
-        if (received > maximum) {
-          await reader.cancel()
-          controller.error(new TypeError("MCP response exceeds the size limit"))
-          return
-        }
-        controller.enqueue(next.value)
-      } catch {
-        controller.error(new TypeError("MCP response could not be read"))
-      }
-    },
-    cancel: (reason) => reader.cancel(reason),
-  })
-  return new Response(body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  })
+  const body = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength
+        if (received > maximum) throw new TypeError("MCP response exceeds the size limit")
+        controller.enqueue(chunk)
+      },
+    }),
+  )
+  return new Response(body, response)
 }
 
 export async function mcpGuardedFetch(
@@ -110,28 +93,22 @@ export async function mcpGuardedFetch(
   input: string | URL | Request,
   init?: RequestInit,
 ): Promise<Response> {
-  const url = new URL(input instanceof Request ? input.url : input)
+  const request = new Request(input, init)
+  const url = new URL(request.url)
   if (!mcpUrlIsPublic(url)) throw new TypeError("MCP endpoint must be public HTTPS")
-  const request = input instanceof Request ? input : undefined
   const options = {
     ...init,
-    ...(request
-      ? {
-          method: init?.method ?? request.method,
-          headers: init?.headers ?? request.headers,
-          body:
-            init?.body ??
-            (request.method === "GET" || request.method === "HEAD" ? undefined : request.body),
-          signal: init?.signal ?? request.signal,
-        }
-      : {}),
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    signal: request.signal,
     dispatcher,
     redirect: "error",
-    ...(init?.body instanceof ReadableStream || request?.body ? { duplex: "half" } : {}),
+    duplex: "half",
   }
   const response = await undiciFetch(url, options as UndiciRequestInit)
   const maximum =
-    new Headers(init?.headers ?? request?.headers).get("Mcp-Method") === "tools/call"
+    request.headers.get("Mcp-Method") === "tools/call"
       ? MCP_MAX_RESULT_BYTES
       : MCP_MAX_METADATA_BYTES
   return mcpBoundedResponse(response as unknown as Response, maximum)

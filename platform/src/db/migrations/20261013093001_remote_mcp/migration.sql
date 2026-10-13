@@ -23,6 +23,7 @@ CREATE TABLE "mcp_server" (
 	CONSTRAINT "mcp_server_endpoint_uidx" UNIQUE("organization_id","endpoint_url")
 );
 --> statement-breakpoint
+CREATE INDEX "mcp_connection_server_idx" ON "mcp_connection" ("organization_id","mcp_server_id");--> statement-breakpoint
 ALTER TABLE "mcp_connection" ADD CONSTRAINT "mcp_connection_1Th9UqXvL2Kh_fkey" FOREIGN KEY ("organization_id","tenant_id","tenant_user_id") REFERENCES "tenant_user"("organization_id","tenant_id","id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "mcp_connection" ADD CONSTRAINT "mcp_connection_DGP2PG7HfgOP_fkey" FOREIGN KEY ("organization_id","mcp_server_id") REFERENCES "mcp_server"("organization_id","id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "mcp_server" ADD CONSTRAINT "mcp_server_organization_id_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;

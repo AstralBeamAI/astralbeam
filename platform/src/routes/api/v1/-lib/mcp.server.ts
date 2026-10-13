@@ -33,7 +33,6 @@ const mcpAttemptBody = Schema.Struct({ attemptId: ApiUuidSchema }).pipe(
   Schema.encodeKeys({ attemptId: "attempt_id" }),
 )
 export const personalMcpApi = HttpApiGroup.make("personalMcp")
-  .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
   .add(
     HttpApiEndpoint.get("getCatalog", "/me/mcp/catalog", {
       success: Schema.Struct({
@@ -45,14 +44,11 @@ export const personalMcpApi = HttpApiGroup.make("personalMcp")
       payload: McpConnectionWriteSchema.pipe(Schema.encodeKeys(mcpWireKeys)),
       success: McpRestConnection,
     }),
-    HttpApiEndpoint.delete("deleteConnection", "/me/mcp/connections/:id", {
-      params: mcpPersonalParams,
-    }),
     HttpApiEndpoint.post("setHeaders", "/me/mcp/connections/:id/headers", {
       params: mcpPersonalParams,
       payload: McpHeadersWriteSchema.pipe(Schema.encodeKeys(mcpWireKeys)),
     }),
-    HttpApiEndpoint.post("disconnectConnection", "/me/mcp/connections/:id/disconnect", {
+    HttpApiEndpoint.delete("disconnectConnection", "/me/mcp/connections/:id", {
       params: mcpPersonalParams,
     }),
     HttpApiEndpoint.post("testConnection", "/me/mcp/connections/:id/test", {
@@ -79,6 +75,7 @@ export const personalMcpApi = HttpApiGroup.make("personalMcp")
       payload: mcpAttemptBody,
     }),
   )
+  .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
 export function personalMcpHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
@@ -125,14 +122,6 @@ export function personalMcpHandlers(api: typeof ApiV1) {
               yield* actorFor(request),
               payload.mcpServerId,
             )
-          }),
-        )
-        .handle(
-          "deleteConnection",
-          Effect.fn("mcpDeleteConnection")(function* ({ request, params }) {
-            const access = yield* accessFor(request, params.id)
-            yield* authorization.disconnect(access)
-            yield* connections.removeConnection(access)
           }),
         )
         .handle(

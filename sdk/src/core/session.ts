@@ -1023,6 +1023,8 @@ export function createAstralBeamChat(
       sandboxStatus: undefined,
       usageLimitReached: undefined,
       pendingInteractions: [],
+      serverToolTitles: {},
+      unavailableMcpConnections: [],
       threadLoadFailed: false,
       messagesCursor: undefined,
       olderMessagesLoading: false,

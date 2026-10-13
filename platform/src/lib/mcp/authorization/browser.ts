@@ -2,11 +2,7 @@ import { randomBytes } from "node:crypto"
 import { Effect, Schema } from "effect"
 import { Config } from "@/lib/config/config"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
-import {
-  McpApplicationOriginSchema,
-  McpAttemptReferenceSchema,
-  type McpAttemptReference,
-} from "../schemas.ts"
+import { McpApplicationOriginSchema } from "../schemas.ts"
 import { McpAuthorization, mcpAttemptLocator } from "./authorization.ts"
 import { mcpClientMetadata } from "./provider.ts"
 
@@ -29,13 +25,7 @@ function mcpPopupHtml(script: string, cookie?: string): Response {
 function mcpPopupJson(value: unknown): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c")
 }
-function mcpBrowserCookie(request: Request, reference: McpAttemptReference) {
-  const value = request.headers
-    .get("cookie")
-    ?.split(";")
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith(`mcp_oauth_${reference.id}=`))
-    ?.split("=")[1]
+function mcpBrowserCookie(value: string | undefined) {
   if (!value) return null
   try {
     return Schema.decodeUnknownSync(mcpBrowserCookieSchema)(
@@ -45,18 +35,8 @@ function mcpBrowserCookie(request: Request, reference: McpAttemptReference) {
     return null
   }
 }
-function mcpPopupReference(url: URL) {
-  try {
-    return Schema.decodeUnknownSync(McpAttemptReferenceSchema)(
-      JSON.parse(Buffer.from(url.searchParams.get("attempt") ?? "", "base64url").toString()),
-    )
-  } catch {
-    return null
-  }
-}
-
 export const handleMcpBrowserRequest = Effect.gen(function* () {
-  const { request } = yield* ServerRequest
+  const { request, cookie: getCookie } = yield* ServerRequest
   const url = new URL(request.url)
   const config = yield* Config
   const baseUrl = yield* config.get("app_base_url")
@@ -67,7 +47,7 @@ export const handleMcpBrowserRequest = Effect.gen(function* () {
       headers: { "Cache-Control": "public, max-age=300" },
     })
   if (url.pathname.endsWith("/connect")) {
-    const reference = mcpPopupReference(url)
+    const reference = mcpAttemptLocator(url.searchParams.get("attempt") ?? "")
     const origin = url.searchParams.get("origin")
     if (!reference || !Schema.is(McpApplicationOriginSchema)(origin))
       return new Response("Invalid authorization request", { status: 400 })
@@ -77,26 +57,28 @@ export const handleMcpBrowserRequest = Effect.gen(function* () {
     const next = new URL("/api/mcp/oauth/continue", baseUrl)
     next.searchParams.set("attempt", url.searchParams.get("attempt")!)
     return mcpPopupHtml(
-      `const attempt=${mcpPopupJson(reference)},origin=${mcpPopupJson(origin)},challenge=${mcpPopupJson(challenge)}; if(!window.opener){document.getElementById('status').textContent='Open this connection from the application.'}else{window.opener.postMessage({type:'mcp-browser-challenge',attempt,challenge},origin);const timer=setInterval(async()=>{try{const response=await fetch(${mcpPopupJson(next.href)},{credentials:'same-origin'});if(response.ok){const result=await response.json();clearInterval(timer);location.replace(result.url)}}catch{}},500);setTimeout(()=>{clearInterval(timer);document.getElementById('status').textContent='Authorization expired. Close this window and try again.'},600000)}`,
+      `const attempt=${mcpPopupJson(reference)},origin=${mcpPopupJson(origin)},challenge=${mcpPopupJson(challenge)}; if(!window.opener){document.getElementById('status').textContent='Open this connection from the application.'}else{window.opener.postMessage({type:'mcp-browser-challenge',attempt,challenge},origin);const timer=setInterval(async()=>{try{const response=await fetch(${mcpPopupJson(next.href)},{credentials:'same-origin'});if(response.ok){const result=await response.json();clearInterval(timer);location.replace(result.url)}else if(response.status!==409&&response.status<500){clearInterval(timer);document.getElementById('status').textContent='Authorization ended. Close this window and try again.';window.opener.postMessage({type:'mcp-authorization-result',attempt,status:'failed'},origin)}}catch{}},500);setTimeout(()=>{clearInterval(timer);document.getElementById('status').textContent='Authorization expired. Close this window and try again.'},600000)}`,
       cookie,
     )
   }
   if (url.pathname.endsWith("/continue")) {
-    const reference = mcpPopupReference(url)
-    const cookie = reference && mcpBrowserCookie(request, reference)
+    const reference = mcpAttemptLocator(url.searchParams.get("attempt") ?? "")
+    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.id}`))
     if (!reference || !cookie) return new Response("Authorization required", { status: 403 })
     return yield* authority
       .browserRedirect({ reference, browserBinding: cookie.challenge, origin: cookie.origin })
       .pipe(
         Effect.map((destination) =>
-          Response.json({ url: destination }, { headers: { "Cache-Control": "no-store" } }),
+          destination
+            ? Response.json({ url: destination }, { headers: { "Cache-Control": "no-store" } })
+            : new Response("Authorization pending", { status: 409 }),
         ),
-        Effect.catch(() => Effect.succeed(new Response("Authorization pending", { status: 409 }))),
+        Effect.catch(() => Effect.succeed(new Response("Authorization ended", { status: 403 }))),
       )
   }
   if (url.pathname.endsWith("/callback")) {
     const reference = mcpAttemptLocator(url.searchParams.get("state") ?? "")
-    const cookie = reference && mcpBrowserCookie(request, reference)
+    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.id}`))
     if (!reference || !cookie)
       return new Response("Authorization browser did not match", { status: 403 })
     return yield* authority

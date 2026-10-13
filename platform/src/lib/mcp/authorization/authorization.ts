@@ -48,7 +48,6 @@ import {
 } from "../store.server.ts"
 import { mcpCreateDispatcher } from "../network.server.ts"
 import {
-  mcpAttemptProvider,
   mcpAuthorizationFetch,
   mcpClientMetadata,
   mcpDiscoveryBinding,
@@ -136,12 +135,15 @@ const makeMcpAuthorization = Effect.gen(function* () {
       mapDatabaseErrors(),
       Effect.provideService(SqlClient.SqlClient, sqlClient),
     )
-  const persistAttempt = (payload: McpAttemptEnvelope) =>
+  const persistAttempt = (
+    payload: McpAttemptEnvelope,
+    expectedStatus: McpAttemptEnvelope["status"] = payload.status,
+  ) =>
     attemptLock(
       payload.attempt,
       Effect.gen(function* () {
         const current = yield* readAttempt(payload.attempt)
-        if (current.status !== payload.status) return yield* new McpChanged()
+        if (current.status !== expectedStatus) return yield* new McpChanged()
         yield* writeAttempt(payload)
       }),
     )
@@ -166,26 +168,29 @@ const makeMcpAuthorization = Effect.gen(function* () {
   ) {
     const origin = yield* baseUrl
     const { connection, server } = yield* connections.getConnection(input)
-    if (server.authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
-    if (
-      input.origin !== new URL(origin).origin &&
-      input.origin !== server.authConfig.applicationOrigin
-    )
+    const authConfig = server.authConfig
+    if (authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
+    if (input.origin !== new URL(origin).origin && input.origin !== authConfig.applicationOrigin)
       return yield* new McpForbidden()
-    let challengedScope: string | undefined
-    const discovery = yield* Effect.tryPromise({
-      try: () =>
-        discoverOAuthServerInfo(server.endpointUrl, {
-          fetchFn: async (url, init) => {
-            const response = await guardedAuthFetch(url, init)
-            if (
-              new URL(url instanceof Request ? url.url : url).href === server.endpointUrl &&
-              response.status === 401
-            )
-              challengedScope = extractWWWAuthenticateParams(response).scope
-            return response
+    const { discovery, challengedScope } = yield* Effect.tryPromise({
+      try: async () => {
+        const response = await guardedAuthFetch(server.endpointUrl)
+        const challenge =
+          response.status === 401 ? extractWWWAuthenticateParams(response) : undefined
+        await response.body?.cancel()
+        const resourceMetadataUrl = challenge?.resourceMetadataUrl
+        const metadata = await discoverOAuthServerInfo(server.endpointUrl, {
+          fetchFn: guardedAuthFetch,
+          ...(resourceMetadataUrl ? { resourceMetadataUrl } : {}),
+        })
+        return {
+          discovery: {
+            ...metadata,
+            ...(resourceMetadataUrl ? { resourceMetadataUrl: resourceMetadataUrl.href } : {}),
           },
-        }),
+          challengedScope: challenge?.scope,
+        }
+      },
       catch: () => new McpUnavailable(),
     })
     const binding = yield* Effect.try({
@@ -194,7 +199,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     })
     const metadata = mcpClientMetadata(origin)
     const prior = mcpDecodeCredential(connection)?.credential
-    const client = server.authConfig.client
+    const client = authConfig.client
     const attempt: McpAttemptReference = {
       organizationId: connection.organizationId,
       tenantId: connection.tenantId,
@@ -230,20 +235,16 @@ const makeMcpAuthorization = Effect.gen(function* () {
       pendingCredential: null,
     }
     yield* attemptLock(attempt, writeAttempt(payload))
-    const provider = mcpAttemptProvider({
-      payload,
-      baseUrl: origin,
-      serverUrl: server.endpointUrl,
-      authConfig: server.authConfig,
-      now: () => Effect.runPromise(Clock.currentTimeMillis),
-    })
-    const scope = server.authConfig.requestedScopes.length
-      ? server.authConfig.requestedScopes.join(" ")
+    const scope = authConfig.requestedScopes.length
+      ? authConfig.requestedScopes.join(" ")
       : (challengedScope ?? discovery.resourceMetadata?.scopes_supported?.join(" "))
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({
-          provider,
+          payload,
+          baseUrl: origin,
+          authConfig,
+          now: () => Effect.runPromise(Clock.currentTimeMillis),
           dispatcher,
           serverUrl: server.endpointUrl,
           scope: scope || undefined,
@@ -284,9 +285,11 @@ const makeMcpAuthorization = Effect.gen(function* () {
     if (
       payload.origin !== input.origin ||
       payload.status !== "authorizing" ||
-      payload.browserBindingHash !== mcpHashSecret(input.browserBinding) ||
       !payload.authorizationUrl
     )
+      return yield* new McpForbidden()
+    if (payload.browserBindingHash === null) return null
+    if (payload.browserBindingHash !== mcpHashSecret(input.browserBinding))
       return yield* new McpForbidden()
     return payload.authorizationUrl
   })
@@ -330,19 +333,16 @@ const makeMcpAuthorization = Effect.gen(function* () {
       }),
     )
     const { server } = yield* attemptConnection(payload.actor, payload)
-    if (server.authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
+    const authConfig = server.authConfig
+    if (authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
     const origin = yield* baseUrl
-    const provider = mcpAttemptProvider({
-      payload,
-      baseUrl: origin,
-      serverUrl: server.endpointUrl,
-      authConfig: server.authConfig,
-      now: () => Effect.runPromise(Clock.currentTimeMillis),
-    })
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({
-          provider,
+          payload,
+          baseUrl: origin,
+          authConfig,
+          now: () => Effect.runPromise(Clock.currentTimeMillis),
           dispatcher,
           serverUrl: server.endpointUrl,
           callback: input.params,
@@ -350,15 +350,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
       catch: () => new McpAuthorizationRequired(),
     })
     if (!payload.pendingCredential) return yield* new McpAuthorizationRequired()
-    yield* attemptLock(
-      reference,
-      Effect.gen(function* () {
-        const current = yield* readAttempt(reference)
-        if (current.status !== "exchanging") return yield* new McpChanged()
-        payload.status = "awaiting_completion"
-        yield* writeAttempt(payload)
-      }),
-    )
+    payload.status = "awaiting_completion"
+    yield* persistAttempt(payload, "exchanging")
     return reference
   })
   const complete = Effect.fn("McpAuthorization.complete")(function* (input: {
@@ -404,11 +397,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     if (envelope.credential.kind !== "oauth") return yield* new McpAuthorizationRequired()
     const credential = envelope.credential
     if (!credential.tokens.refresh_token) return yield* new McpAuthorizationRequired()
-    if (envelope.refreshStartedAt !== undefined) {
-      if (envelope.refreshStartedAt + MCP_REFRESH_LEASE_MS <= (yield* Clock.currentTimeMillis))
-        return yield* new McpAuthorizationRequired()
-      return null
-    }
+    if (envelope.refreshStartedAt !== undefined) return null
     const started = yield* Clock.currentTimeMillis
     const predicate = and(
       mcpConnectionOwner(input.actor),
@@ -440,11 +429,16 @@ const makeMcpAuthorization = Effect.gen(function* () {
     }).pipe(
       Effect.catch((error) => {
         const definite = error instanceof OAuthError
+        const reauthorize =
+          definite &&
+          ["invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope"].includes(
+            error.code,
+          )
         return db
           .update(mcpConnection)
           .set(
             definite
-              ? error.code === "invalid_grant"
+              ? reauthorize
                 ? { credentials: null, lockVersion: sql`${mcpConnection.lockVersion} + 1` }
                 : { credentials: envelope }
               : { credentials: { ...envelope, refreshStartedAt: started - MCP_REFRESH_LEASE_MS } },
@@ -455,18 +449,16 @@ const makeMcpAuthorization = Effect.gen(function* () {
             Effect.tap(() =>
               Effect.logWarning("MCP refresh failed", {
                 connectionId: connection.id,
-                category: definite
-                  ? error.code === "invalid_grant"
-                    ? "reauthorization_required"
-                    : "transient"
-                  : "refresh_uncertain",
+                category: reauthorize
+                  ? "reauthorization_required"
+                  : definite
+                    ? "transient"
+                    : "refresh_uncertain",
               }),
             ),
             Effect.andThen(
               Effect.fail(
-                definite && error.code !== "invalid_grant"
-                  ? new McpUnavailable()
-                  : new McpAuthorizationRequired(),
+                definite && !reauthorize ? new McpUnavailable() : new McpAuthorizationRequired(),
               ),
             ),
           )
@@ -484,8 +476,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
         }),
       catch: () => new McpAuthorizationRequired(),
     })
-    if (started + MCP_REFRESH_LEASE_MS <= (yield* Clock.currentTimeMillis))
-      return yield* new McpAuthorizationRequired()
     const updated = yield* db
       .update(mcpConnection)
       .set({ credentials: { ...envelope, credential: refreshed } })
@@ -503,6 +493,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       const { connection, server } = yield* connections.getConnection(input)
       if (input.expectedVersion !== undefined && input.expectedVersion !== connection.lockVersion)
         return yield* new McpChanged()
+      if (server.authConfig.kind === "none") return Redacted.make({ kind: "none" } as const)
       const envelope = mcpDecodeCredential(connection)
       if (
         !envelope ||

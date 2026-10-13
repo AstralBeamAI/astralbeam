@@ -15,6 +15,8 @@ export async function startMcpFixture() {
     registrations: 0,
     refreshes: 0,
     calls: 0,
+    toolCount: 1,
+    catalogDescription: "",
     refreshError: "",
     gatewayError: false,
     authorizationError: "",
@@ -37,7 +39,7 @@ export async function startMcpFixture() {
       const text = Buffer.concat(chunks).toString()
       const path = new URL(request.url!, "http://fixture").pathname
       response.setHeader("Content-Type", "application/json")
-      if (path.includes("oauth-protected-resource"))
+      if (path === "/metadata/resource" || path.includes("oauth-protected-resource"))
         return response.end(
           JSON.stringify({
             resource: "https://fixture.example/mcp",
@@ -111,7 +113,7 @@ export async function startMcpFixture() {
           response.statusCode = 401
           response.setHeader(
             "WWW-Authenticate",
-            'Bearer resource_metadata="https://fixture.example/.well-known/oauth-protected-resource/mcp", scope="read admin"',
+            'Bearer resource_metadata="https://fixture.example/metadata/resource", scope="read admin"',
           )
           return response.end()
         }
@@ -129,29 +131,28 @@ export async function startMcpFixture() {
             capabilities: { tools: {} },
           }
         else if (body.method === "tools/list")
-          result = body.params?.cursor
+          result = !body.params?.cursor
             ? {
                 tools: [],
+                nextCursor: "next-page",
               }
             : {
-                tools: [
-                  {
-                    name: "lookup",
-                    title: "Look up",
-                    inputSchema: {
-                      type: "object",
-                      properties: { region: { type: "string", "x-mcp-header": "Region" } },
-                      required: ["region"],
-                      additionalProperties: false,
-                    },
-                    outputSchema: {
-                      type: "object",
-                      properties: { ok: { type: "boolean" } },
-                      required: ["ok"],
-                    },
+                tools: Array.from({ length: state.toolCount }, (_, index) => ({
+                  name: index ? `lookup_${index}` : "lookup",
+                  title: "Look up",
+                  description: state.catalogDescription,
+                  inputSchema: {
+                    type: "object",
+                    properties: { region: { type: "string", "x-mcp-header": "Region" } },
+                    required: ["region"],
+                    additionalProperties: false,
                   },
-                ],
-                nextCursor: "next-page",
+                  outputSchema: {
+                    type: "object",
+                    properties: { ok: { type: "boolean" } },
+                    required: ["ok"],
+                  },
+                })),
               }
         else if (body.method === "tools/call") {
           state.calls++

@@ -160,6 +160,15 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       ).value
       expect(entry!.value).not.toContain(payload.verifier)
       const challenge = "b".repeat(43)
+      expect(
+        await authority((service) =>
+          service.browserRedirect({
+            reference: started.attempt,
+            browserBinding: challenge,
+            origin: mcpIntegration.baseUrl,
+          }),
+        ),
+      ).toBeNull()
       await authority((service) =>
         service.bindBrowser({
           actor,
@@ -219,6 +228,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
       expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
       expect(url.searchParams.get("scope")).toBe("read")
+      expect(flow.payload.discovery!.resourceMetadataUrl).toBe(
+        "https://fixture.example/metadata/resource",
+      )
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)
       await authority((service) => service.complete({ actor, reference: flow.started.attempt }))
@@ -245,7 +257,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         authority((service) => service.getCredential({ actor, reference })),
       ).rejects.toThrow()
       await authority((service) => service.disconnect({ actor, reference }))
-      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(await db.select().from(mcpConnection)).toEqual([])
     })
 
     test("rejects browser mismatch, issuer substitution, replay and a superseded attempt", async () => {
@@ -308,7 +320,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       await expect(
         authority((service) => service.complete({ actor, reference: fresh.started.attempt })),
       ).rejects.toThrow()
-      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(await db.select().from(mcpConnection)).toEqual([])
     })
     test("two Deno application processes redeem one refresh token", async () => {
       const { reference } = await connectedOAuth()
@@ -428,7 +440,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         release()
       }
       expect(await pending).toBe(true)
-      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(await db.select().from(mcpConnection)).toEqual([])
     })
     test.each(["disconnectResponse", "gatewayError"] as const)(
       "expired claims and %s require reconnecting without a second redemption",
@@ -477,15 +489,18 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         warning.mockRestore()
       }
     })
-    test("invalid_grant clears the unusable grant", async () => {
-      const { reference } = await connectedOAuth()
-      await expire(reference)
-      fixture.state.refreshError = "invalid_grant"
-      await expect(
-        authority((service) => service.getCredential({ actor, reference })),
-      ).rejects.toThrow()
-      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
-    })
+    test.each(["invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope"])(
+      "%s clears the unusable grant",
+      async (error) => {
+        const { reference } = await connectedOAuth()
+        await expire(reference)
+        fixture.state.refreshError = error
+        await expect(
+          authority((service) => service.getCredential({ actor, reference })),
+        ).rejects.toThrow()
+        expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      },
+    )
     test("private static credentials stay isolated and cannot be transplanted", async () => {
       await expect(
         connections((service) =>
@@ -558,7 +573,14 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const account = await connections((service) => service.createConnection(actor, server.id))
       await authority((service) => service.disconnect({ actor, reference: account }))
       const reconnected = await connections((service) => service.createConnection(actor, server.id))
-      expect(reconnected).toMatchObject({ id: account.id, authState: "connected", lockVersion: 2 })
+      expect(reconnected).toMatchObject({ authState: "connected", lockVersion: 0 })
+      expect(reconnected.id).not.toBe(account.id)
+      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(
+        Redacted.value(
+          await authority((service) => service.getCredential({ actor, reference: reconnected })),
+        ),
+      ).toEqual({ kind: "none" })
       await db.transaction(async (transaction) => {
         await transaction.execute(sql`set constraints all deferred`)
         await transaction.delete(tenant).where(eq(tenant.id, actor.tenantId))

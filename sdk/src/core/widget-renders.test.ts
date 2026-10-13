@@ -77,6 +77,23 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+test("API scope changes clear private MCP presentation and ignore old client events", async () => {
+  const chat = createTestSession({ threadId: "new" })
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const oldEvent = mocked.onCustomEvent!
+  const event = {
+    tools: [{ name: "mcp-tool", title: "Private account" }],
+    unavailable: ["private-id"],
+  }
+  oldEvent("astralbeam_mcp_tools", event)
+  expect(chat.getState().serverToolTitles).toEqual({ "mcp-tool": "Private account" })
+  expect(chat.getState().unavailableMcpConnections).toEqual(["private-id"])
+  chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+  oldEvent("astralbeam_mcp_tools", event)
+  expect(chat.getState().serverToolTitles).toEqual({})
+  expect(chat.getState().unavailableMcpConnections).toEqual([])
+})
+
 function savedWidget(widget: string, id: string) {
   return [
     {

@@ -1,5 +1,6 @@
 import {
   auth,
+  checkResourceAllowed,
   OAuthErrorCode,
   type OAuthClientProvider,
   type OAuthDiscoveryState,
@@ -30,7 +31,8 @@ export async function mcpAuthorizationFetch(
       AbortSignal.timeout(MCP_AUTH_TIMEOUT_MS),
     ]),
   })
-  if (response.ok && (init?.method ?? "GET").toUpperCase() !== "POST") return response
+  if ((init?.method ?? (url instanceof Request ? url.method : "GET")).toUpperCase() !== "POST")
+    return response
   const body: unknown = await response
     .clone()
     .json()
@@ -72,13 +74,7 @@ export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState, serverUrl: s
   if (
     !mcpUrlIsPublic(new URL(issuer)) ||
     !mcpUrlIsPublic(resourceUrl) ||
-    resourceUrl.origin !== endpoint.origin ||
-    !(
-      endpoint.pathname === resourceUrl.pathname ||
-      endpoint.pathname.startsWith(
-        resourceUrl.pathname.endsWith("/") ? resourceUrl.pathname : `${resourceUrl.pathname}/`,
-      )
-    ) ||
+    !checkResourceAllowed({ requestedResource: endpoint, configuredResource: resourceUrl }) ||
     resourceUrl.search !== endpoint.search
   )
     throw new TypeError("MCP OAuth resource binding was refused")
@@ -112,7 +108,7 @@ export function mcpOAuthCredential(input: {
   }
 }
 
-export function mcpAttemptProvider(input: {
+function mcpAttemptProvider(input: {
   payload: McpAttemptEnvelope
   baseUrl: string
   serverUrl: string
@@ -127,12 +123,8 @@ export function mcpAttemptProvider(input: {
       : {}),
     clientMetadata: metadata,
     state: () => input.payload.state,
-    clientInformation: (context) => {
-      const information = input.payload.clientInformation as StoredOAuthClientInformation | null
-      return information && (!context || information.issuer === context.issuer)
-        ? information
-        : undefined
-    },
+    clientInformation: () =>
+      (input.payload.clientInformation as StoredOAuthClientInformation | null) ?? undefined,
     saveClientInformation(information) {
       input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(information)
     },
@@ -185,14 +177,14 @@ export function mcpAttemptProvider(input: {
   }
 }
 
-export async function mcpRunAuthorization(input: {
-  provider: OAuthClientProvider
-  dispatcher: Agent
-  serverUrl: string
-  scope?: string | undefined
-  callback?: URLSearchParams | undefined
-}) {
-  return auth(input.provider, {
+export async function mcpRunAuthorization(
+  input: Parameters<typeof mcpAttemptProvider>[0] & {
+    dispatcher: Agent
+    scope?: string | undefined
+    callback?: URLSearchParams | undefined
+  },
+) {
+  return auth(mcpAttemptProvider(input), {
     serverUrl: input.serverUrl,
     ...(input.scope ? { scope: input.scope } : {}),
     ...(input.callback

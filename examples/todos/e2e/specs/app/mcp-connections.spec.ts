@@ -42,11 +42,9 @@ test("private MCP accounts connect, replace and clear credentials without return
     await captureMoment(page, "mcp-private-mobile")
     await account.getByRole("button", { name: "Disconnect locally" }).click()
     await expect(account).toContainText("Not connected")
-    await account.getByRole("button", { name: "Remove connection", exact: true }).click()
-    await account.getByRole("button", { name: "Confirm removal", exact: true }).click()
-    await expect(connections.notice).toContainText("Connection removed")
+    await expect(connections.notice).toContainText("Account disconnected locally")
     await expect(
-      account.getByRole("button", { name: "Remove connection", exact: true }),
+      account.getByRole("button", { name: "Disconnect locally", exact: true }),
     ).toHaveCount(0)
     await connections.hideHeader()
     await connections.open()
