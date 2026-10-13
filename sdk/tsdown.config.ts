@@ -4,12 +4,8 @@ import { defineConfig } from "tsdown"
 // the widget owns its copy, pass 2 leaves it external so the wrapper's hooks bind to the host's.
 const reactPackages = /^react(-dom)?(\/|$)/
 const selfPackage = /^@astralbeam\/sdk(\/|$)/
-// Match tsconfig's @/* and use fast-json-patch's ESM build to avoid unpublished TS sources.
-// https://github.com/Starcounter-Jack/JSON-Patch/blob/master/package.json
-const srcAlias = {
-  "@": new URL("src", import.meta.url).pathname,
-  "fast-json-patch": "fast-json-patch/index.mjs",
-}
+// Mirrors the tsconfig `@/*` path shadcn-generated components import through.
+const srcAlias = { "@": new URL("src", import.meta.url).pathname }
 
 export default defineConfig([
   {
@@ -33,7 +29,6 @@ export default defineConfig([
     },
     platform: "neutral",
     dts: true,
-    alias: srcAlias,
     deps: { neverBundle: [reactPackages, selfPackage] },
     // Pass 1 already cleaned dist; cleaning again would delete its output.
     clean: false,

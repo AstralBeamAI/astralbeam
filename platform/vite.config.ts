@@ -33,8 +33,7 @@ const legalAssets = [
 
 const viteConfig = defineConfig(({ mode }) => {
   return {
-    // Deno resolves its incomplete TS entry. https://github.com/Starcounter-Jack/JSON-Patch/blob/master/package.json
-    resolve: { tsconfigPaths: true, alias: { "fast-json-patch": "fast-json-patch/index.mjs" } },
+    resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
     // would leave APP_BASE_URL, auth cookies, and email links pointing at another server.
     server: {
