@@ -1,5 +1,14 @@
 import { Schema } from "effect"
 
+export class ChatWebAccessUnavailable extends Schema.TaggedError<ChatWebAccessUnavailable>()(
+  "ChatWebAccessUnavailable",
+  {},
+  { httpApiStatus: 503 },
+) {
+  override readonly message =
+    "Web access requires a supported model using OpenAI Responses, Anthropic Messages, or OpenRouter Chat Completions. Check the model and provider web-tool permissions."
+}
+
 // Errors with an `httpApiStatus` reach the tenant user's widget verbatim, so their messages are
 // written for that reader.
 

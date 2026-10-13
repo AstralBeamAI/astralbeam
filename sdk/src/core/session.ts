@@ -43,6 +43,7 @@ import {
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
 import { isSettledToolCall } from "./messages.ts"
+import { webPartMetadata } from "./web.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
 import { validateParameters } from "./schema.ts"
@@ -906,7 +907,7 @@ export function createAstralBeamChat(
       state.messages.map((message) => {
         const aliases = new Map<string, string>()
         const parts = message.parts.map((part) => {
-          if (part.type !== "tool-call") return part
+          if (part.type !== "tool-call" || webPartMetadata(part).providerExecuted) return part
           const stored = part as ChatToolCallPart
           const upstreamToolCallId = stored.upstreamToolCallId ?? part.id
           if (liveToolMessageIds.get(upstreamToolCallId) === message.id && !isSettledToolCall(part))
@@ -1157,12 +1158,7 @@ export function createAstralBeamChat(
       })
     }
     scopeCompletedToolCalls()
-    if (
-      pending &&
-      (!("tool" in result) ||
-        result.toolCallId ===
-          savedToolCallId(pending.sourceMessageId, pending.sourcePartId, pending.responseTargetId))
-    ) {
+    if (pending) {
       replaceClient()
       await hydration
       if (generation !== selectionGeneration) return

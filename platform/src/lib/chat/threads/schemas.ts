@@ -23,7 +23,7 @@ export const ChatToolDecisionSchema = Schema.StructWithRest(
     toolCallId: Schema.String,
     name: Schema.String,
     arguments: Schema.String,
-    executionLocation: Schema.Literals(["server_api", "sandbox", "browser"]),
+    executionLocation: Schema.Literals(["server_api", "sandbox", "browser", "provider"]),
     targets: Schema.Array(
       Schema.Struct({
         id: Schema.String.check(Schema.isUUID()),
@@ -31,13 +31,16 @@ export const ChatToolDecisionSchema = Schema.StructWithRest(
         clientId: Schema.optional(Schema.String),
       }),
     ).check(
-      Schema.isMinLength(1),
       Schema.makeFilter(
         (targets) => new Set(targets.map((target) => target.id)).size === targets.length,
       ),
     ),
   }),
   [Schema.JsonObject],
+).check(
+  Schema.makeFilter((part) =>
+    part.executionLocation === "provider" ? part.targets.length === 0 : part.targets.length > 0,
+  ),
 )
 
 export const ChatMessagePayloadSchema = Schema.Struct({

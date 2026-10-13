@@ -1,6 +1,6 @@
 # Agents
 
-An agent is one named configuration the embedded chat runs with: its instructions, models, whether it accepts file attachments, and whether it can run code in a sandbox. Let's configure an agent, then use its public ID to select it in your application.
+An agent is one named configuration the embedded chat runs with: its instructions, models, attachments, and tools. Let's configure an agent, then use its public ID to select it in your application.
 
 Each agent selects models from the organization's configured providers and uses one as its default. Request, attachment, and sandbox caps still come from the deployment's [Limits](/docs/sdk/limits).
 
@@ -16,7 +16,7 @@ Models come from providers configured in [Models](./models.md). Select at least 
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
-A sandbox provider is optional, and selecting one of the organization's [sandbox providers](./sandboxes.md) is what lets the agent write and run code.
+The **Tools** section controls Web access and Sandbox. New agents enable Web access when the default model supports it, and Sandbox when a connection is available. Existing agents retain their saved choices.
 
 You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
 
@@ -52,9 +52,15 @@ The attachment setting is enforced at the chat endpoint rather than in the widge
 
 While attachments are on, the accepted types, per-file sizes, and per-message count come from the deployment. An SDK option can narrow them for your users but never widen them. See [Attachments](/docs/sdk/attachments) and [Limits](/docs/sdk/limits).
 
+## Web access
+
+Web access lets the agent search and read public pages through its model connection. It supports OpenAI Responses, Anthropic Messages, and OpenRouter's managed server tools. OpenAI Chat Completions requires switching the connection to Responses. Custom models and endpoints require explicit opt-in, and an unsupported configuration reports an error.
+
+Answers show clickable citations and consulted sources, which remain available in saved conversations. Tenant users cannot enable this grant from the embedded chat. Model-provider charges may include web-tool fees.
+
 ## Sandboxes
 
-Selecting a sandbox provider gives the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
+Enable **Sandbox** and select a connection to give the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
 
 When the provider's configuration cannot be read as a run starts, the sandbox tools and their instructions drop together and the agent answers without them rather than failing.
 

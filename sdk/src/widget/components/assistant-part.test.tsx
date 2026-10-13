@@ -3,9 +3,14 @@ import { expect, test, vi } from "vitest"
 import { slotNameForToolCall } from "../lib/utils.ts"
 import { ChatTranscript } from "./chat-transcript.tsx"
 
-test.each(["render_widget", "ask_questionnaire"])(
-  "read-only transcripts show saved %s without interactive controls or live progress",
-  (name) => {
+test.each([
+  ["render_widget", true],
+  ["ask_questionnaire", true],
+  ["web_access", true],
+  ["web_access", false],
+] as const)(
+  "saved %s has no interactive controls or live progress when readOnly=%s",
+  (name, readOnly) => {
     const html = renderToStaticMarkup(
       <ChatTranscript
         messages={[
@@ -29,9 +34,10 @@ test.each(["render_widget", "ask_questionnaire"])(
                   ],
                 },
                 state: "input-complete",
+                ...(name === "web_access" ? { metadata: { providerExecuted: true } } : {}),
               },
             ],
-            metadata: { astralbeam: { state: "draft" } },
+            metadata: { astralbeam: { state: readOnly ? "draft" : "interrupted" } },
           },
         ]}
         apiUrl="http://localhost/api"
@@ -46,12 +52,14 @@ test.each(["render_widget", "ask_questionnaire"])(
         isBusy={false}
         awaitingReply={false}
         onQuestionnaireAnswers={vi.fn()}
-        readOnly
+        readOnly={readOnly}
       />,
     )
-    expect(html).toContain("Saved partial response")
+    expect(html).toContain(readOnly ? "Saved partial response" : "Response interrupted.")
     expect(html).not.toContain("Response in progress.")
     expect(html).not.toContain("Running")
+    expect(html).not.toContain("Searching and reading the web")
+    expect(html).not.toContain('data-slot="spinner"')
     expect(html).not.toContain("<form")
     expect(html).not.toContain("<slot")
   },

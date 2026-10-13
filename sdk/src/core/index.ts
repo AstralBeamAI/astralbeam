@@ -51,3 +51,4 @@ export type {
   StandardSchemaV1,
   ToolDefinition,
 } from "../lib/types.ts"
+export type { WebSource, WebCitation, WebEvidence, WebPartMetadata } from "./web.ts"

@@ -152,6 +152,62 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("native evidence completes without response slots and survives a database reload", async () => {
+    const thread = await create()
+    const admitted = await admit(thread.id)
+    const id = crypto.randomUUID()
+    const source = { url: "https://example.com/page", title: "Example", excerpt: "Actual page" }
+    const evidence: ChatMessagePayload = {
+      version: 1,
+      parts: [
+        {
+          id: crypto.randomUUID(),
+          type: "text",
+          content: "Answer",
+          metadata: {
+            web: { sources: [], citations: [{ ...source, startIndex: 0, endIndex: 6, number: 1 }] },
+          },
+        },
+        {
+          id,
+          type: "tool-call",
+          toolCallId: id,
+          name: "web_access",
+          arguments: "{}",
+          executionLocation: "provider",
+          targets: [],
+          state: "complete",
+          metadata: { providerExecuted: true, web: { sources: [source], citations: [] } },
+        },
+      ],
+      provenance: { providerId: "provider", protocol: "responses", modelId: "model" },
+      modelMessages: [
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Answer",
+          metadata: { webProviderContext: [{ type: "web_search_call", id: "opaque" }] },
+        },
+      ],
+    }
+    await runtime.runPromise(complete({ claim: admitted.claim!, payload: evidence }))
+    expect(await db.select().from(chatToolResponse)).toHaveLength(0)
+    const records = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(records[1]!.payload.parts).toEqual(evidence.parts)
+    expect(
+      JSON.stringify(
+        projectChatModelHistory(records, {
+          providerId: "provider",
+          protocol: "responses",
+          modelId: "model",
+        }),
+      ),
+    ).toContain("opaque")
+    const portable = JSON.stringify(projectChatModelHistory(records))
+    expect(portable).not.toContain("opaque")
+    expect(portable).toContain(source.url)
+  })
+
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()
     const prepared = await runtime.runPromise(

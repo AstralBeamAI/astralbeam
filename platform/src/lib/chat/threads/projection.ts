@@ -2,6 +2,7 @@ import { convertMessagesToModelMessages, type ModelMessage, type UIMessage } fro
 import { Schema } from "effect"
 
 import type { ChatMessagePayload } from "./schemas"
+import { APP_HANDLE } from "@/lib/constants"
 
 interface ChatProjectionRecord {
   readonly id: string
@@ -11,12 +12,14 @@ interface ChatProjectionRecord {
   readonly sourceAssistantMessageId?: string | null
   readonly sourceToolPartId?: string | null
   readonly responseTargetId?: string | null
+  readonly authorTenantUserId?: string | null
 }
 
 interface ChatProjectionTarget {
   readonly providerId: string
   readonly protocol: string
   readonly modelId: string
+  readonly webAccessEnabled?: boolean
 }
 
 export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
@@ -25,8 +28,17 @@ export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
 
 function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.JsonObject.Type)[] {
   switch (part.type) {
-    case "text":
-      return [{ type: "text", content: Schema.decodeUnknownSync(Schema.String)(part.content) }]
+    case "text": {
+      const citations = portableChatWebEvidence(part, "citations")
+      return [
+        {
+          type: "text",
+          content:
+            Schema.decodeUnknownSync(Schema.String)(part.content) +
+            (citations ? `\nSupporting citations: ${citations}` : ""),
+        },
+      ]
+    }
     case "image":
     case "audio":
     case "video":
@@ -46,7 +58,17 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     }
     case "tool-call": {
       const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
-      if (metadata?.providerExecuted === true) return []
+      if (metadata?.providerExecuted === true) {
+        const sources = portableChatWebEvidence(part, "sources")
+        return sources
+          ? [
+              {
+                type: "text",
+                content: `Consulted web sources: ${sources}`,
+              },
+            ]
+          : []
+      }
       return [
         {
           type: "tool-call",
@@ -64,6 +86,13 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     default:
       return []
   }
+}
+
+function portableChatWebEvidence(part: Schema.JsonObject, key: "sources" | "citations"): string {
+  const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
+  const web = Schema.is(Schema.JsonObject)(metadata?.web) ? metadata.web : undefined
+  const evidence = web?.[key]
+  return Array.isArray(evidence) && evidence.length ? JSON.stringify(evidence) : ""
 }
 
 function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatProjectionRecord[] {
@@ -85,6 +114,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     const missing: Schema.JsonObject[] = []
     for (const part of record.payload.parts) {
       if (part.type !== "tool-call" || !Array.isArray(part.targets)) continue
+      if (part.executionLocation === "provider") continue
       const targets = (part.targets as readonly Schema.Json[])
         .map((item) => Schema.decodeUnknownSync(Schema.JsonObject)(item))
         .sort((a, b) =>
@@ -134,7 +164,9 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
     }
     if (missing.length > 0) {
       // An incomplete exchange is context, never an executable or unmatched provider tool call.
-      const visible = record.payload.parts.filter((part) => part.type !== "tool-call")
+      const visible = record.payload.parts.filter(
+        (part) => part.type !== "tool-call" || part.executionLocation === "provider",
+      )
       const settled = outputs.map((result) => result.payload.parts[0]!)
       return [
         {
@@ -171,7 +203,9 @@ export function projectChatModelHistory(
       target !== undefined &&
       provenance?.providerId === target.providerId &&
       provenance.protocol === target.protocol &&
-      provenance.modelId === target.modelId
+      provenance.modelId === target.modelId &&
+      (target.webAccessEnabled !== false ||
+        !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]
     if (compatible && record.payload.modelMessages) {
       messages = structuredClone(record.payload.modelMessages).map((message) => ({
@@ -221,4 +255,56 @@ export function projectChatModelHistory(
       }
     })
   })
+}
+
+export function chatPublicParts(parts: ChatMessagePayload["parts"]) {
+  return parts.map((part) => ({
+    ...part,
+    ...(Schema.is(Schema.JsonObject)(part.source) && part.source.type === APP_HANDLE
+      ? {
+          source: {
+            type: "url",
+            value: "",
+            mimeType: part.source.mimeType ?? "application/octet-stream",
+          },
+          savedAttachmentId: part.id,
+        }
+      : {}),
+    ...(part.type === "tool-call" && part.executionLocation !== "provider"
+      ? { id: Schema.decodeUnknownSync(Schema.String)(part.toolCallId), applicationPartId: part.id }
+      : {}),
+  }))
+}
+
+export function projectChatPublicHistory(records: readonly ChatProjectionRecord[]) {
+  const messages = new Map(
+    records
+      .filter((record) => record.role !== "tool")
+      .map((record) => [
+        record.id,
+        {
+          id: record.id,
+          role: record.role,
+          parts: chatPublicParts(record.payload.parts),
+          metadata: {
+            astralbeam: {
+              state: record.state,
+              authorTenantUserId: record.authorTenantUserId ?? null,
+            },
+          },
+        },
+      ]),
+  )
+  for (const record of records.filter((record) => record.role === "tool")) {
+    const part = messages
+      .get(record.sourceAssistantMessageId!)
+      ?.parts.find((candidate) => candidate.id === record.payload.parts[0]?.toolCallId)
+    if (part)
+      Object.assign(part, {
+        output: record.payload.parts[0]?.output ?? null,
+        resultOutcome: record.payload.parts[0]?.outcome,
+        state: record.payload.parts[0]?.outcome === "succeeded" ? "complete" : "error",
+      })
+  }
+  return [...messages.values()] as unknown as UIMessage[]
 }

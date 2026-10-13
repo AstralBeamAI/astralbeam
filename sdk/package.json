@@ -61,8 +61,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "deno task generate:styles && tsdown",
-    "dev": "deno task generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts --watch & tsdown --watch --no-clean)",
+    "build": "deno task generate:styles && tsdown --platform browser",
+    "dev": "deno task generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts --watch & tsdown --platform browser --watch --no-clean)",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && deno run --allow-read=.generated --allow-write=src/widget scripts/embed-styles.ts",
     "generate:api": "orval && oxfmt src/api/generated",
     "api:check": "deno task generate:api && git diff --exit-code -- src/api/generated",
@@ -85,8 +85,8 @@
     "@phosphor-icons/react": "^2.1.10",
     "@shadcn/react": "^0.3.0",
     "@tailwindcss/cli": "^4.3.3",
-    "@tanstack/ai": "^0.64.0",
-    "@tanstack/ai-client": "^0.36.1",
+    "@tanstack/ai": "^0.68.0",
+    "@tanstack/ai-client": "^0.39.2",
     "@tanstack/eslint-plugin-query": "^5.103.2",
     "@tanstack/markdown": "^1.0.0",
     "@tanstack/react-pacer": "^0.23.0",
