@@ -275,5 +275,4 @@ test("an upload keeps its picked agent while its file is read across conversatio
   finish(btoa("note"))
   await uploading
   expect(upload).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ agentId: threadA }))
-
 })

@@ -51,7 +51,6 @@ test("rejected authentication reaches callbacks before sending and recovers", as
   fetch.mockResolvedValue(Response.json(currentUser))
   chat.retryAuthentication()
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-
 })
 
 test("HTTP errors reach chat state and callbacks with their API details", async () => {
