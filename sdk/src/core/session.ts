@@ -1158,12 +1158,7 @@ export function createAstralBeamChat(
       })
     }
     scopeCompletedToolCalls()
-    if (
-      pending &&
-      (!("tool" in result) ||
-        result.toolCallId ===
-          savedToolCallId(pending.sourceMessageId, pending.sourcePartId, pending.responseTargetId))
-    ) {
+    if (pending) {
       replaceClient()
       await hydration
       if (generation !== selectionGeneration) return

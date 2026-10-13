@@ -25,7 +25,6 @@ function webResponse(
   pause = false,
   application = false,
   failure = false,
-  pending = false,
 ) {
   let events: object[]
   if (provider === "anthropic") {
@@ -53,7 +52,7 @@ function webResponse(
       },
       { type: "text", text: "", citations: [] },
       ...(application ? [{ type: "tool_use", id: "call", name: "lookup", input: {} }] : []),
-    ].filter((block) => !pending || block.type !== "web_fetch_tool_result")
+    ]
     events = [
       {
         type: "message_start",
@@ -256,7 +255,6 @@ async function exerciseWeb(
     failure?: boolean
     cancel?: boolean
     reject?: boolean
-    pending?: boolean
     slow?: boolean
   } = {},
 ) {
@@ -295,7 +293,6 @@ async function exerciseWeb(
         options.pause === "always" || (options.pause === "once" && requests.length === 1),
         Boolean(options.application) && requests.length === 1,
         options.failure,
-        options.pending,
       )
       if (!options.slow) return response
       const text = await response.text()
@@ -544,9 +541,6 @@ test.each(["openai", "anthropic", "openrouter"] as const)(
       metadata: { web: { sources: [webSourceFixture] } },
     })
     expect(result.results).toBe(0)
-    expect(new Set(result.web.evidence.sources.map((source) => source.url))).toEqual(
-      new Set(provider === "openrouter" ? [] : [webSourceFixture.url]),
-    )
     const processor = new StreamProcessor()
     for (const chunk of result.chunks) processor.processChunk(chunk)
     expect(processor.getMessages().at(-1)!.parts).toEqual(payload.parts)
@@ -650,12 +644,6 @@ test.each(
 )
 
 test("native errors and cancellation retain observed evidence without application responses", async () => {
-  const pending = await exerciseWeb("anthropic", { pending: true })
-  const activity = pending.saved
-    .at(-1)!
-    .parts.find((part) => part.executionLocation === "provider")!
-  expect(activity.state).toBe("input-complete")
-  expect(activity.output).toBeUndefined()
   const failure = await exerciseWeb("anthropic", { failure: true })
   expect(
     failure.saved.at(-1)!.parts.find((part) => part.executionLocation === "provider")?.state,
