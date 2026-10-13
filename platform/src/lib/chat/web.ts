@@ -9,7 +9,7 @@ import {
   webSearchTool as routerSearch,
   webFetchTool as routerFetch,
 } from "@tanstack/ai-openrouter/tools"
-import type { Tool } from "@tanstack/ai"
+import type { Tool, ModelMessage } from "@tanstack/ai"
 import type { WebEvidence, WebSource } from "@astralbeam/sdk/core"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { modelWebAccess } from "@/lib/model-providers/web.server"
@@ -351,9 +351,14 @@ export function chatWebContext(
   model: ChatModelConfiguration,
   state: ChatWebState,
   text: string,
+  toolCalls: NonNullable<ModelMessage["toolCalls"]>,
 ): WebJson[] {
   return model.api === "responses"
-    ? state.blocks
+    ? state.blocks.map((block) => {
+        if (block.type !== "function_call") return block
+        const { id: _id, ...call } = block
+        return call
+      })
     : [
         {
           role: "assistant",
@@ -363,6 +368,14 @@ export function chatWebContext(
                 annotations: state.blocks.flatMap((block) =>
                   Schema.decodeUnknownSync(Schema.Array(Schema.Json))(block.annotations ?? []),
                 ),
+                tool_calls: toolCalls
+                  .filter(
+                    (call) =>
+                      !Schema.is(Schema.Struct({ providerExecuted: Schema.Literal(true) }))(
+                        call.metadata,
+                      ),
+                  )
+                  .map((call) => ({ id: call.id, type: call.type, function: call.function })),
               }
             : {}),
         },

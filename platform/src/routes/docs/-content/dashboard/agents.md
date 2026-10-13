@@ -16,7 +16,7 @@ Models come from providers configured in [Models](./models.md). Select at least 
 
 File attachments are allowed by default. Turn the setting off and the agent refuses files.
 
-The **Tools** section controls Web access and Sandbox. New agents enable Web access when the selected models support it, and Sandbox when a connection is available. Existing agents retain their saved choices.
+The **Tools** section controls Web access and Sandbox. New agents enable Web access when the default model supports it, and Sandbox when a connection is available. Existing agents retain their saved choices.
 
 You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
 

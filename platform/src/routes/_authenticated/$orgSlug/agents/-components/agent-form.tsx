@@ -92,12 +92,9 @@ export function AgentForm({
   }))
   const selectedSandboxProviderId =
     sandboxEnabled && sandboxProviderId !== NO_SANDBOX_PROVIDER ? sandboxProviderId : null
-  const selectedModels = models.filter((model) => modelIds.includes(model.id))
-  const webAvailable =
-    selectedModels.length > 0 && selectedModels.every((model) => model.webAccess !== false)
-  const webAccessEnabled =
-    webOverride ??
-    (selectedModels.length > 0 && selectedModels.every((model) => model.webAccess === true))
+  const selectedModel = models.find((model) => model.id === modelIds[0])
+  const webAvailable = selectedModel !== undefined && selectedModel.webAccess !== false
+  const webAccessEnabled = webOverride ?? selectedModel?.webAccess === true
   const normalizedName = name.trim()
   const valid =
     Schema.is(AgentNameSchema)(normalizedName) &&
@@ -249,7 +246,7 @@ export function AgentForm({
                   <FieldDescription id="agent-web-access-description">
                     {!webAvailable
                       ? "Select a supported model. OpenAI connections require Responses."
-                      : selectedModels.some((model) => model.webAccess === null)
+                      : selectedModel?.webAccess === null
                         ? "For custom models and endpoints, enable only if native web tools are supported."
                         : "Search the web and read public pages through the selected model."}
                   </FieldDescription>

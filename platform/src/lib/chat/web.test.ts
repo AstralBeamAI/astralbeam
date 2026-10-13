@@ -124,6 +124,14 @@ function webResponse(
         },
       ],
     }
+    const call = {
+      type: "function_call",
+      id: "function-item",
+      call_id: "call",
+      name: "lookup",
+      arguments: "{}",
+      status: "completed",
+    }
     events = [
       { type: "response.created", response: { id: "response", model: "test-model", output: [] } },
       {
@@ -141,13 +149,19 @@ function webResponse(
         delta: webAnswer,
       },
       { type: "response.output_item.done", output_index: 1, item: message },
+      ...(application
+        ? [
+            { type: "response.output_item.added", output_index: 2, item: call },
+            { type: "response.output_item.done", output_index: 2, item: call },
+          ]
+        : []),
       {
         type: "response.completed",
         response: {
           id: "response",
           model: "test-model",
           status: "completed",
-          output: [search, message],
+          output: [search, message, ...(application ? [call] : [])],
           usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
         },
       },
@@ -168,6 +182,18 @@ function webResponse(
             delta: {
               role: "assistant",
               content: webAnswer,
+              ...(application
+                ? {
+                    tool_calls: [
+                      {
+                        index: 0,
+                        id: "call",
+                        type: "function",
+                        function: { name: "lookup", arguments: "{}" },
+                      },
+                    ],
+                  }
+                : {}),
               annotations: [
                 {
                   type: "url_citation",
@@ -185,7 +211,7 @@ function webResponse(
       },
       {
         ...envelope,
-        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        choices: [{ index: 0, delta: {}, finish_reason: application ? "tool_calls" : "stop" }],
         usage: {
           prompt_tokens: 10,
           completion_tokens: 5,
@@ -469,15 +495,25 @@ test.each(["openai", "anthropic", "openrouter"] as const)(
   },
 )
 
-test.each(["server", "browser"] as const)(
-  "mixed native and %s calls retain executable identities and only application slots",
-  async (application) => {
-    const result = await exerciseWeb("anthropic", { application })
+test.each(
+  (["openai", "anthropic", "openrouter"] as const).flatMap((provider) =>
+    (["server", "browser"] as const).map((application) => ({ provider, application })),
+  ),
+)(
+  "$provider mixed native and $application calls retain executable identities and only application slots",
+  async ({ provider, application }) => {
+    const result = await exerciseWeb(provider, { application })
     expect(result.requests).toHaveLength(application === "server" ? 2 : 1)
     expect(result.results).toBe(application === "server" ? 1 : 0)
     const decision = result.saved.find((payload) =>
       payload.parts.some((part) => part.name === "lookup"),
     )!
+    expect(JSON.stringify(decision.modelMessages)).toContain('"name":"lookup"')
+    expect(JSON.stringify(decision.modelMessages)).not.toContain('"id":"function-item"')
+    const wire = JSON.stringify(
+      result.requests[1]?.[provider === "openai" ? "input" : "messages"] ?? [],
+    )
+    expect(wire.includes('"name":"lookup"')).toBe(application === "server")
     expect(
       decision.parts.filter((part) => part.type === "tool-call").map((part) => part.targets),
     ).toMatchObject([[{}], []])

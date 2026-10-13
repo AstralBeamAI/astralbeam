@@ -218,7 +218,12 @@ function managedAssistantPayload(
           id: models[0]?.id ?? state.claim.assistantMessageId,
           content,
           metadata: {
-            webProviderContext: chatWebContext(options.model, web, content),
+            webProviderContext: chatWebContext(
+              options.model,
+              web,
+              content,
+              models.flatMap((message) => message.toolCalls ?? []),
+            ),
           },
         },
       ]
