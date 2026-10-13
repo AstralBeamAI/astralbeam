@@ -629,7 +629,7 @@ export class ModelProviders extends Context.Service<
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const [model] = yield* db
-          .select({ modelId: providerModel.modelId })
+          .select({ modelId: providerModel.modelId, configuration: providerModel.configuration })
           .from(providerModel)
           .where(
             and(
@@ -643,6 +643,16 @@ export class ModelProviders extends Context.Service<
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
+        const settings =
+          model.configuration?.pricingSource.kind === "manual"
+            ? model.configuration
+            : effectiveModelConfiguration({
+                catalog: yield* readPricing,
+                providerType: provider.providerType,
+                modelId: model.modelId,
+                configured: model.configuration,
+              })
+        if (!settings) return yield* new ModelProviderTestFailed({ reason: "configuration" })
         yield* rateLimiter
           .consume({
             key: hashedRateLimitKey("model-test", [input.organizationId]),
@@ -664,7 +674,7 @@ export class ModelProviders extends Context.Service<
           api: provider.api,
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
-          outputCap: 1024,
+          outputCap: Math.min(settings.outputCap, 1024),
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         })

@@ -417,7 +417,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
   })
 
-  test("validates saved model ownership and revision before reading credentials for a test", async () => {
+  test("respects saved output caps and validates model ownership and revision before testing", async () => {
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
     await runAppEffect(saveIntegrationProvider(organizationId, { name: "Other provider" }))
     const providers = await runAppEffect(
@@ -425,6 +425,48 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     )
     const modelId = providers.find((provider) => provider.id === id)!.models[0]!.id
     const otherModelId = providers.find((provider) => provider.id !== id)!.models[0]!.id
+    vi.stubEnv("ALLOW_PRIVATE_MODEL_ENDPOINTS", "true")
+    await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    try {
+      for (const [outputCap, expectedCap] of [
+        [512, 512],
+        [3072, 1024],
+      ] as const) {
+        await db
+          .update(providerModel)
+          .set({
+            configuration: {
+              ...modelTestConfiguration,
+              maxOutputTokens: outputCap,
+              outputCap,
+            },
+          })
+          .where(
+            and(eq(providerModel.organizationId, organizationId), eq(providerModel.id, modelId)),
+          )
+        let requestedCap: unknown
+        vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) => {
+          requestedCap = (JSON.parse(init.body as string) as Record<string, unknown>)
+            .max_output_tokens
+          return Promise.resolve(
+            new Response(
+              'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"OK"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[]}}\n\n',
+              { headers: { "content-type": "text/event-stream" } },
+            ),
+          )
+        })
+        await runAppEffect(
+          Effect.flatMap(ModelProviders, (service) =>
+            service.testModel({ organizationId, id, lockVersion: 0, modelId }),
+          ),
+        )
+        expect(requestedCap).toBe(expectedCap)
+      }
+    } finally {
+      vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
+      await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    }
     await db.execute(
       sql`update model_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
     )
