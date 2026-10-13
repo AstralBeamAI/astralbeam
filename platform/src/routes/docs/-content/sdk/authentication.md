@@ -164,7 +164,9 @@ The tenant JWT identifies the tenant user to AstralBeam, so treat it like a sess
 
 ## Troubleshooting
 
-- A disabled composer with an error note means the token fetch failed. The retry link refetches.
+- A disabled composer means token acquisition or verification failed. Retry refetches the token and verifies it again.
+- If the assistant's connection is rejected, check that `apiUrl` points to the deployment that issued your key. For a revoked or expired key, create a replacement under **API Keys**, update your server's secret, and retry. Minting another token with the old key cannot restore access.
+- Authentication failures reach the headless chat's `streamCallbacks.onError` callback and the widget's `debug` logging. These diagnostics distinguish a rejected AstralBeam token from a failing host token endpoint. The widget keeps raw error details out of its authentication message.
 - A CORS error in the console is usually a non-200 token response whose error path omits CORS headers.
 
 ## Switching workspaces

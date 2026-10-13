@@ -324,7 +324,8 @@ export function createAstralBeamChat(
     if (error instanceof Error && error.name === "AbortError") return
     const failure = error instanceof Error ? error : new Error(String(error))
     update({ error: failure, status: "error" })
-    live.streamCallbacks?.onError?.(failure)
+    if (state.auth.status !== "error" || state.auth.error !== failure)
+      live.streamCallbacks?.onError?.(failure)
   }
   const requestOptions = async (conversation = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
@@ -878,7 +879,8 @@ export function createAstralBeamChat(
         if (client === next) live.streamCallbacks?.onFinish?.(message)
       },
       onError: (error) => {
-        if (client === next) live.streamCallbacks?.onError?.(error)
+        if (client === next && (state.auth.status !== "error" || state.auth.error !== error))
+          live.streamCallbacks?.onError?.(error)
       },
     })
     return next
@@ -1268,6 +1270,7 @@ export function createAstralBeamChat(
 
   const observeAuthentication = () => {
     const auth = authenticationState(authentication)
+    const previous = state.auth
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
@@ -1295,6 +1298,8 @@ export function createAstralBeamChat(
       }
     }
     update({ auth })
+    if (auth.status === "error" && (previous.status !== "error" || previous.error !== auth.error))
+      live.streamCallbacks?.onError?.(auth.error)
   }
   const start = () => {
     if (started) return

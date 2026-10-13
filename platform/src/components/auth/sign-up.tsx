@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
+// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants.
 
 "use client"
 
@@ -10,7 +10,7 @@ import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { usePublicConfig } from "@/components/public-config-provider"
+import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
@@ -84,6 +85,8 @@ export function SignUp({
     privacyPolicyUrl ? { href: privacyPolicyUrl, label: "Privacy Policy" } : null,
   ].filter((link) => link !== null)
   const legalAcceptanceRequired = legalLinks.length > 0
+
+  const invitation = getInvitationContext(redirectTo)
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
@@ -192,6 +195,12 @@ export function SignUp({
         <CardTitle className="text-xl font-semibold">
           <h1>{localization.auth.signUp}</h1>
         </CardTitle>
+        {invitation && (
+          <CardDescription>
+            Create an account to join {invitation.organization}. Use{" "}
+            {invitation.email || "the email address that received the invitation"}.
+          </CardDescription>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -252,6 +261,7 @@ export function SignUp({
                     name="email"
                     type="email"
                     autoComplete="email"
+                    defaultValue={invitation?.email}
                     placeholder={localization.auth.emailPlaceholder}
                     required
                     disabled={isPending}

@@ -141,6 +141,8 @@ describe("Mailer", () => {
       assert.strictEqual(verification?.from, MAILER_TEST_CONFIG.email_from_address)
       const invitationURL = new URL("/auth/accept-invitation", MAILER_TEST_CONFIG.app_base_url)
       invitationURL.searchParams.set("invitationId", invitationId)
+      invitationURL.searchParams.set("email", "new-member@example.test")
+      invitationURL.searchParams.set("organization", "Example Organization")
       assert.deepStrictEqual(invitation?.to, ["new-member@example.test"])
       assert.include(invitation?.text, invitationURL.toString())
       assert.include(invitation?.text, "72 hours")

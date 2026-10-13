@@ -158,6 +158,8 @@ export function organizationInvitationEmailMessage(
 ): EmailMessage {
   const invitationURL = new URL("/auth/accept-invitation", appBaseUrl)
   invitationURL.searchParams.set("invitationId", data.id)
+  invitationURL.searchParams.set("email", data.email)
+  invitationURL.searchParams.set("organization", data.organization.name)
   return {
     to: data.email,
     subject: `You're invited to ${sanitizeEmailSubjectPart(data.organization.name)} on ${APP_NAME}`,

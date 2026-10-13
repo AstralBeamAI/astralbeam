@@ -3,7 +3,11 @@ import { expect, test } from "vitest"
 import { resolveAttachmentOptions } from "../lib/attachments.ts"
 import { ChatComposer } from "./chat-composer.tsx"
 
-test("normalized transport failures do not repeat the raw error in the alert or title", () => {
+test("transport and authentication errors keep private diagnostics out of the UI", () => {
+  const authError = Object.assign(new Error("private server exception"), {
+    name: "AstralBeamApiError",
+    status: 401,
+  })
   const html = renderToStaticMarkup(
     <ChatComposer
       title="Assistant"
@@ -18,7 +22,7 @@ test("normalized transport failures do not repeat the raw error in the alert or 
       streamBusy={false}
       isBusy={false}
       authPending={false}
-      authError={undefined}
+      authError={authError}
       onAuthRetry={undefined}
       attachments={[]}
       attachmentLimits={resolveAttachmentOptions(false)}
@@ -27,5 +31,6 @@ test("normalized transport failures do not repeat the raw error in the alert or 
     />,
   )
   expect(html).toContain("The assistant service returned an error (HTTP 500).")
+  expect(html).toContain("connection was rejected")
   expect(html).not.toContain("private server exception")
 })

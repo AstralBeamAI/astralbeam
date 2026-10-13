@@ -1,5 +1,5 @@
 // Added with: deno task ui add @better-auth-ui/auth
-// Local changes: Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"
 
@@ -10,7 +10,7 @@ import { EyeIcon as Eye, EyeSlashIcon as EyeOff } from "@phosphor-icons/react"
 import { type SyntheticEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
@@ -28,6 +28,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
+import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
 
@@ -58,6 +59,8 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
     navigate,
     Link,
   } = useAuth()
+
+  const invitation = getInvitationContext(redirectTo)
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
@@ -126,6 +129,12 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
         <CardTitle className="text-xl font-semibold">
           <h1>{localization.auth.signIn}</h1>
         </CardTitle>
+        {invitation && (
+          <CardDescription>
+            Sign in or create an account to join {invitation.organization}. Use{" "}
+            {invitation.email || "the email address that received the invitation"}.
+          </CardDescription>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -155,6 +164,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                     name="email"
                     type="email"
                     autoComplete="email"
+                    defaultValue={invitation?.email}
                     placeholder={localization.auth.emailPlaceholder}
                     required
                     disabled={isPending}

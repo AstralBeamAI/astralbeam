@@ -137,7 +137,11 @@ export function ChatComposer({
           role="alert"
           className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
         >
-          <div className="min-w-0 flex-1">The assistant could not verify your session.</div>
+          <div className="min-w-0 flex-1">
+            {isAstralBeamApiError(authError) && authError.status === 401
+              ? "The assistant's connection was rejected. Contact this app's support team."
+              : "The assistant could not verify your session. Retry or contact this app's support team."}
+          </div>
           {onAuthRetry && (
             <Button type="button" variant="outline" size="sm" onClick={onAuthRetry}>
               Retry
