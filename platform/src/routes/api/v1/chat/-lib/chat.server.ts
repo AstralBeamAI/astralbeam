@@ -99,7 +99,11 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
         "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
       ),
     HttpApiEndpoint.get("getChatFile", "/chat/files", {
-      query: Schema.Struct({ threadId: ApiUuidSchema, fileId: ApiUuidSchema }),
+      query: Schema.Struct({
+        threadId: ApiUuidSchema,
+        fileId: ApiUuidSchema,
+        filename: Schema.optional(Schema.String),
+      }),
       success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
         "Content-Disposition": Schema.String,
         "Content-Length": Schema.String,
@@ -108,7 +112,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Download a chat artifact")
       .annotate(
         OpenApi.Description,
-        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId and conversation threadId. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
+        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -135,7 +139,9 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/attachments/attachments"),
       )
       const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
-      const { ChatThreadInvalid } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
+      const { ChatThreadInvalid, ChatThreadNotFound } = yield* Effect.promise(
+        () => import("@/lib/chat/threads/errors"),
+      )
       const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const files = yield* ChatFiles
       const chat = yield* Chat
@@ -232,15 +238,19 @@ export function chatHandlers(api: typeof ApiV1) {
               scope.tenantUserId,
             ]).pipe(Effect.provideContext(services))
             yield* threads.get({ scope, id: query.threadId })
-            const file = yield* files.read({
-              scope: {
-                organizationId: scope.organizationId,
-                tenantId: scope.tenantId,
-                threadId: query.threadId,
-              },
-              fileId: query.fileId,
-            })
-            return chatArtifactResponse({ ...file, path: "artifact" })
+            const file = yield* files
+              .read({
+                scope: {
+                  organizationId: scope.organizationId,
+                  tenantId: scope.tenantId,
+                  threadId: query.threadId,
+                },
+                fileId: query.fileId,
+              })
+              .pipe(
+                Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
+              )
+            return chatArtifactResponse({ ...file, path: query.filename ?? "artifact" })
           }),
         )
     }),

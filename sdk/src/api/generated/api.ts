@@ -659,6 +659,7 @@ export type UploadChatFileBody = {
 export type GetChatFileParams = {
   threadId: string
   fileId: string
+  filename?: string | null
 }
 
 export type GetChatConfigParams = {
@@ -1172,7 +1173,7 @@ export const getGetChatFileUrl = (params: GetChatFileParams) => {
 }
 
 /**
- * Download a stored file using a tenant JWT and current conversation membership. Pass its fileId and conversation threadId. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.
+ * Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.
  * @summary Download a chat artifact
  */
 export const getChatFile = (

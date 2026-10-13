@@ -25,7 +25,7 @@ import {
   type MessageRecord,
   type ParticipantRecord,
 } from "@/lib/chat/threads/threads"
-import { ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
+import { ChatThreadInvalid, ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
@@ -1146,7 +1146,7 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("stored artifacts require current conversation access and retain safe download headers", async () => {
-    const query = { threadId: restOtherId, fileId: restUserId }
+    const query = { threadId: restOtherId, fileId: restUserId, filename: "report.txt" }
     restTestState.readFile.mockReturnValue(
       Effect.succeed({
         bytes: new TextEncoder().encode("A published report"),
@@ -1159,6 +1159,7 @@ describe("REST API through the Effect Fetch handler", () => {
       fetchClient: restSdkFetch,
     })
     expect(await response.text()).toBe("A published report")
+    expect(response.headers.get("content-disposition")).toContain('filename="report.txt"')
     expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
     expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
@@ -1170,11 +1171,13 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(denied.status).toBe(404)
     expect(restTestState.readFile).not.toHaveBeenCalled()
     restTestState.thread.mockReturnValue(Effect.succeed(restThread))
-    restTestState.readFile.mockReturnValue(Effect.fail(new ChatFileUnavailable()))
-    const unavailable = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
-      headers: { Authorization: "Bearer chat-token" },
-    })
-    expect(unavailable.status).toBe(503)
+    for (const error of [new ChatThreadInvalid(), new ChatFileUnavailable()]) {
+      restTestState.readFile.mockReturnValue(Effect.fail(error))
+      const unavailable = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+        headers: { Authorization: "Bearer chat-token" },
+      })
+      expect(unavailable.status).toBe(error._tag === "ChatThreadInvalid" ? 404 : 503)
+    }
   })
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {

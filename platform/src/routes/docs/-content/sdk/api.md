@@ -168,7 +168,7 @@ const config = await getChatConfig({ agentId }, { astralBeamToken: token })
 const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
 // Consume response.body as an SSE stream. No events are buffered by the helper.
 
-const file = await getChatFile({ threadId, fileId }, { astralBeamToken: token })
+const file = await getChatFile({ threadId, fileId, filename: "report.csv" }, { astralBeamToken: token })
 const filename = file.headers.get("Content-Disposition")
 const bytes = await file.arrayBuffer()
 ```
