@@ -4,6 +4,8 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
+import { pinDockerHost, worktreeHash } from "./bootstrap.ts"
+
 const e2eDirectory = dirname(fileURLToPath(import.meta.url))
 const platformDirectory = join(e2eDirectory, "..")
 const repositoryRoot = join(platformDirectory, "..")
@@ -16,17 +18,8 @@ const E2E_PORT_BASE = 15_500
 const E2E_PORT_SLOTS = 400
 const E2E_PORTS_PER_SLOT = 3
 
-function derivePortBase(seed: string): number {
-  // FNV-1a, for a stable spread across worktree paths without a hash dependency.
-  let hash = 0x811c9dc5
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  return E2E_PORT_BASE + (hash % E2E_PORT_SLOTS) * E2E_PORTS_PER_SLOT
-}
-
-const portBase = derivePortBase(repositoryRoot)
+const portBase =
+  E2E_PORT_BASE + (worktreeHash(repositoryRoot) % E2E_PORT_SLOTS) * E2E_PORTS_PER_SLOT
 
 const platformPort = Number(process.env.E2E_PLATFORM_PORT ?? portBase)
 const mailboxApiPort = Number(process.env.E2E_MAILBOX_PORT ?? portBase + 2)
@@ -93,22 +86,6 @@ export const e2eDatabaseUrl = deriveE2eDatabaseUrl()
  * what you want when the run itself is the evidence for a pull request.
  */
 export const captureEverything = process.env.E2E_CAPTURE === "all" || seededMode
-
-/**
- * Pins one Docker endpoint for the whole run. The CLI resolves its endpoint through contexts while
- * the server's client reads `DOCKER_HOST`, so with it unset the two can disagree and the spec's
- * probe passes against a daemon the application never reaches.
- * https://docs.docker.com/engine/manage-resources/contexts/
- */
-function pinDockerHost(): void {
-  if (process.env.DOCKER_HOST) return
-  const probe = spawnSync(
-    "docker",
-    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
-    { encoding: "utf8" },
-  )
-  if (probe.status === 0 && probe.stdout.trim()) process.env.DOCKER_HOST = probe.stdout.trim()
-}
 
 pinDockerHost()
 

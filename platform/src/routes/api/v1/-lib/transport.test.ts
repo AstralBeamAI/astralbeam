@@ -317,6 +317,28 @@ const restSavedMessage: MessageRecord = {
   createdAt: restTenantRow.createdAt,
   updatedAt: restTenantRow.createdAt,
 }
+function restLimitFailure(options: { key: string; limit: number; retryAfter: Duration.Duration }) {
+  return Effect.fail(
+    new RateLimiter.RateLimiterError({
+      reason: new RateLimiter.RateLimitExceeded({ ...options, remaining: 0 }),
+    }),
+  )
+}
+
+function restWriterClaim(): NonNullable<ChatAdmission["claim"]> {
+  return {
+    scope: restThreadScope,
+    threadId: restOtherId,
+    assistantMessageId: restOtherId,
+    inputMessageId: restUserId,
+    invocationId: crypto.randomUUID(),
+  }
+}
+
+function restChatAdmission(claim = restWriterClaim()): ChatAdmission {
+  return { thread: restThread, inputMessage: restSavedMessage, assistantMessage: null, claim }
+}
+
 function restRequest(path: string, init: RequestInit = {}) {
   return restWebHandler.handler(
     new Request(`http://localhost/api/v1${path}`, {
@@ -511,16 +533,7 @@ describe("REST API through the Effect Fetch handler", () => {
     }
     expect((await restRequest("/me?tenant=other", options)).status).toBe(400)
     restTestState.consume.mockReturnValue(
-      Effect.fail(
-        new RateLimiter.RateLimiterError({
-          reason: new RateLimiter.RateLimitExceeded({
-            key: "current-user:test",
-            limit: 100,
-            remaining: 0,
-            retryAfter: Duration.millis(1500),
-          }),
-        }),
-      ),
+      restLimitFailure({ key: "current-user:test", limit: 100, retryAfter: Duration.millis(1500) }),
     )
     const response = await restRequest("/me", options)
     expect(response.status).toBe(429)
@@ -594,20 +607,7 @@ describe("REST API through the Effect Fetch handler", () => {
   })
 
   test("chat logs safe stream diagnostics and hides thrown middleware errors", async () => {
-    restTestState.threadAdmission.mockReturnValue(
-      Effect.succeed({
-        thread: restThread,
-        inputMessage: restSavedMessage,
-        assistantMessage: null,
-        claim: {
-          scope: restThreadScope,
-          threadId: restOtherId,
-          assistantMessageId: restOtherId,
-          inputMessageId: restUserId,
-          invocationId: crypto.randomUUID(),
-        },
-      } satisfies ChatAdmission),
-    )
+    restTestState.threadAdmission.mockReturnValue(Effect.succeed(restChatAdmission()))
     const failure = new AggregateError(
       [new Error("private server details sk-private-credential")],
       "2 middleware onFinish hooks failed: chat-persistence, managed-thread",
@@ -650,20 +650,7 @@ describe("REST API through the Effect Fetch handler", () => {
       tenantUser: { ...restPrincipal.tenantUser, admin: false },
     })
     let stopped = false
-    restTestState.threadAdmission.mockReturnValue(
-      Effect.succeed({
-        thread: restThread,
-        inputMessage: restSavedMessage,
-        assistantMessage: null,
-        claim: {
-          scope: restThreadScope,
-          threadId: restOtherId,
-          assistantMessageId: restOtherId,
-          inputMessageId: restUserId,
-          invocationId: crypto.randomUUID(),
-        },
-      } satisfies ChatAdmission),
-    )
+    restTestState.threadAdmission.mockReturnValue(Effect.succeed(restChatAdmission()))
     restTestState.run.mockReturnValue(
       Effect.succeed(
         Stream.make({ type: "RUN_STARTED", threadId: "thread", runId: "run" }).pipe(
@@ -721,16 +708,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await restRequest("/chat/threads", request)).status).toBe(201)
     expect(restTestState.consume.mock.calls[0]![0].key).toMatch(/^chat-resource:/)
     restTestState.consume.mockReturnValue(
-      Effect.fail(
-        new RateLimiter.RateLimiterError({
-          reason: new RateLimiter.RateLimitExceeded({
-            key: "test-limit",
-            limit: 100,
-            remaining: 0,
-            retryAfter: Duration.seconds(5),
-          }),
-        }),
-      ),
+      restLimitFailure({ key: "test-limit", limit: 100, retryAfter: Duration.seconds(5) }),
     )
     const rejected = await restRequest("/chat/threads", request)
     expect(rejected.status).toBe(429)
@@ -1026,34 +1004,15 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(
       restTestState.consume.mock.calls.every(([options]) => options.key.startsWith("chat:")),
     ).toBe(true)
-    const claim = {
-      scope: restThreadScope,
-      threadId: restOtherId,
-      assistantMessageId: restOtherId,
-      inputMessageId: restUserId,
-      invocationId: crypto.randomUUID(),
-    }
-    restTestState.threadAdmission.mockReturnValue(
-      Effect.succeed({
-        thread: restThread,
-        inputMessage: restSavedMessage,
-        assistantMessage: null,
-        claim,
-      }),
-    )
+    const claim = restWriterClaim()
+    restTestState.threadAdmission.mockReturnValue(Effect.succeed(restChatAdmission(claim)))
     restTestState.run.mockReturnValue(Effect.fail(new ChatAgentNotFound()))
     expect((await request(input)).status).toBe(404)
     expect(restTestState.threadInterrupt).toHaveBeenCalledWith({ claim })
   })
 
   test("tool-result continuation preserves native run correlation and rejects caller history", async () => {
-    const claim = {
-      scope: restThreadScope,
-      threadId: restOtherId,
-      assistantMessageId: restOtherId,
-      inputMessageId: restUserId,
-      invocationId: crypto.randomUUID(),
-    }
+    const claim = restWriterClaim()
     restTestState.threadMessage.mockReturnValue(
       Effect.succeed({
         ...restSavedMessage,
@@ -1072,14 +1031,7 @@ describe("REST API through the Effect Fetch handler", () => {
         },
       }),
     )
-    restTestState.threadResolveTools.mockReturnValue(
-      Effect.succeed({
-        thread: restThread,
-        inputMessage: restSavedMessage,
-        assistantMessage: null,
-        claim,
-      } satisfies ChatAdmission),
-    )
+    restTestState.threadResolveTools.mockReturnValue(Effect.succeed(restChatAdmission(claim)))
     restTestState.run.mockReturnValue(Effect.succeed(Stream.empty))
     const body = {
       client_id: restUserId,
@@ -1150,16 +1102,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(await unauthorized.text()).not.toContain("private")
     restTestState.chat.mockResolvedValue(restPrincipal)
     restTestState.consume.mockReturnValue(
-      Effect.fail(
-        new RateLimiter.RateLimiterError({
-          reason: new RateLimiter.RateLimitExceeded({
-            key: "chat:test",
-            limit: 20,
-            remaining: 0,
-            retryAfter: Duration.millis(1500),
-          }),
-        }),
-      ),
+      restLimitFailure({ key: "chat:test", limit: 20, retryAfter: Duration.millis(1500) }),
     )
     for (const path of ["/chat", `/chat/threads/${restOtherId}/tool-results`]) {
       for (const [body, extra] of [
@@ -1627,16 +1570,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(first!.limit).toBe(100)
     expect(Duration.toMillis(first!.window)).toBe(300000)
     restTestState.consume.mockReturnValue(
-      Effect.fail(
-        new RateLimiter.RateLimiterError({
-          reason: new RateLimiter.RateLimitExceeded({
-            key: "test",
-            limit: 100,
-            remaining: 0,
-            retryAfter: Duration.seconds(2),
-          }),
-        }),
-      ),
+      restLimitFailure({ key: "test", limit: 100, retryAfter: Duration.seconds(2) }),
     )
     const limited = await restRequest("/tenants", {
       headers: { Authorization: `Bearer ${restTenantJwt}` },

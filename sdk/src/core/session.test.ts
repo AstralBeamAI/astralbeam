@@ -4,13 +4,7 @@ import { EventType } from "@tanstack/ai/client"
 import type { UIMessage } from "@tanstack/ai-client"
 
 import { ASK_QUESTIONNAIRE_TOOL } from "./protocol.ts"
-import { createAstralBeamChat } from "./session.ts"
-
-// The token cache only reads `exp` out of the payload; nothing here verifies a signature.
-function chatAuthToken(): { token: string } {
-  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1_000) + 300 }))
-  return { token: `header.${payload}.signature` }
-}
+import { chatTestToken, createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 const currentUser = {
   scope: "tenant",
@@ -38,6 +32,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  disposeTestSessions()
   vi.unstubAllGlobals()
 })
 
@@ -45,22 +40,17 @@ test("rejected authentication reaches callbacks before sending and recovers", as
   const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 401 }))
   vi.stubGlobal("fetch", fetch)
   const onError = vi.fn<(error: Error) => void>()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     streamCallbacks: { onError },
   })
-  try {
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
-    expect(onError.mock.calls[0]![0]).toMatchObject({ status: 401 })
-    expect(onError.mock.calls[0]![0].message).toContain("create a replacement in API Keys")
-    expect(fetch).toHaveBeenCalledTimes(2)
-    expect(chat.getState().auth.status).toBe("error")
-    fetch.mockResolvedValue(Response.json(currentUser))
-    chat.retryAuthentication()
-    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce())
+  expect(onError.mock.calls[0]![0]).toMatchObject({ status: 401 })
+  expect(onError.mock.calls[0]![0].message).toContain("create a replacement in API Keys")
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(chat.getState().auth.status).toBe("error")
+  fetch.mockResolvedValue(Response.json(currentUser))
+  chat.retryAuthentication()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
 })
 
 test("HTTP errors reach chat state and callbacks with their API details", async () => {
@@ -70,24 +60,19 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
     vi.fn().mockImplementation(() => Promise.resolve(Response.json(problem, { status: 429 }))),
   )
   const onError = vi.fn()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     streamCallbacks: { onError },
   })
-  try {
-    await chat.sendMessage("Hello")
-    expect(chat.getState().unsentMessage).toBe("Hello")
-    expect(chat.getState().error?.message).toBe(problem.detail)
-    expect(onError).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        name: "AstralBeamApiError",
-        message: problem.detail,
-        status: 429,
-      }),
-    )
-  } finally {
-    chat.dispose()
-  }
+  await chat.sendMessage("Hello")
+  expect(chat.getState().unsentMessage).toBe("Hello")
+  expect(chat.getState().error?.message).toBe(problem.detail)
+  expect(onError).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      name: "AstralBeamApiError",
+      message: problem.detail,
+      status: 429,
+    }),
+  )
 })
 
 test("reset during a terminal chunk suppresses the old completion callback", async () => {
@@ -126,8 +111,7 @@ test("reset during a terminal chunk suppresses the old completion callback", asy
     )
   })
   const onFinish = vi.fn()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     streamCallbacks: {
       onChunk: (chunk) => {
         if (chunk.type === EventType.RUN_FINISHED && turns === 1) chat.reset()
@@ -135,15 +119,11 @@ test("reset during a terminal chunk suppresses the old completion callback", asy
       onFinish,
     },
   })
-  try {
-    await chat.sendMessage("First")
-    expect(chat.getState().messages).toEqual([])
-    expect(onFinish).not.toHaveBeenCalled()
-    await chat.sendMessage("Second")
-    expect(onFinish).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "reply-2" }))
-  } finally {
-    chat.dispose()
-  }
+  await chat.sendMessage("First")
+  expect(chat.getState().messages).toEqual([])
+  expect(onFinish).not.toHaveBeenCalled()
+  await chat.sendMessage("Second")
+  expect(onFinish).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "reply-2" }))
 })
 
 // Trimmed from a recorded sandbox turn: the server runs the tool and streams the reply in one body.
@@ -188,25 +168,20 @@ test("the reply after a server tool round keeps its first text delta", async () 
     return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }))
   })
   const onFinish = vi.fn<(message: UIMessage) => void>()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     streamCallbacks: { onFinish },
   })
   const statuses: string[] = []
   chat.subscribe(() => statuses.push(chat.getState().status))
-  try {
-    await chat.sendMessage("Write a file")
-    expect(onFinish.mock.calls.at(-1)?.[0].parts.at(-1)).toEqual({
-      type: "text",
-      content: "I wrote it.",
-    })
-    // The tool round's intermediate RUN_FINISHED must not make the widget look idle mid-turn.
-    expect(
-      statuses.slice(statuses.indexOf("streaming"), statuses.lastIndexOf("streaming")),
-    ).not.toContain("ready")
-  } finally {
-    chat.dispose()
-  }
+  await chat.sendMessage("Write a file")
+  expect(onFinish.mock.calls.at(-1)?.[0].parts.at(-1)).toEqual({
+    type: "text",
+    content: "I wrote it.",
+  })
+  // The tool round's intermediate RUN_FINISHED must not make the widget look idle mid-turn.
+  expect(
+    statuses.slice(statuses.indexOf("streaming"), statuses.lastIndexOf("streaming")),
+  ).not.toContain("ready")
 })
 
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an
@@ -219,7 +194,7 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
       execute: () => "done",
     },
   })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatAuthToken, tools: tools() })
+  const chat = createTestSession({ tools: tools() })
   let notifications = 0
   chat.subscribe(() => {
     notifications += 1
@@ -244,7 +219,6 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
     { name: ASK_QUESTIONNAIRE_TOOL, title: undefined },
     { name: "refresh", title: undefined },
   ])
-  chat.dispose()
 })
 
 // The handshake runs again per agent and API base, and the responses can land out of order; the
@@ -262,9 +236,8 @@ test("a capability response for a superseded agent does not overwrite the curren
           })
         }),
   )
-  const chat = createAstralBeamChat({
+  const chat = createTestSession({
     agentId: "agt_acme_first",
-    fetchAstralBeamToken: chatAuthToken,
   })
   await vi.waitFor(() => expect(requests).toHaveLength(1))
 
@@ -278,7 +251,6 @@ test("a capability response for a superseded agent does not overwrite the curren
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(chat.getState().capabilities.attachments).toBe(false)
-  chat.dispose()
 })
 
 test("a rejected capability request renews once without a refresh notification loop", async () => {
@@ -290,16 +262,12 @@ test("a rejected capability request renews once without a refresh notification l
     ),
   )
   vi.stubGlobal("fetch", fetch)
-  const source = vi.fn(chatAuthToken)
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: source })
-  try {
-    await vi.waitFor(() =>
-      expect(
-        fetch.mock.calls.filter(([input]) => String(input).includes("/chat/config")),
-      ).toHaveLength(2),
-    )
-    expect(source).toHaveBeenCalledTimes(2)
-  } finally {
-    chat.dispose()
-  }
+  const source = vi.fn(chatTestToken)
+  createTestSession({ fetchAstralBeamToken: source })
+  await vi.waitFor(() =>
+    expect(
+      fetch.mock.calls.filter(([input]) => String(input).includes("/chat/config")),
+    ).toHaveLength(2),
+  )
+  expect(source).toHaveBeenCalledTimes(2)
 })

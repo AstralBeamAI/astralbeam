@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer"
-import { expect, test } from "../../fixtures.ts"
+import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
 import { openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
@@ -63,24 +63,14 @@ test("React conversation directory reads saved pages, uploads and decisions with
         .boundingBox())!.y
     }
     return route.fulfill({
-      json: {
-        thread: savedThread,
-        messages: earlier
-          ? [
-              {
-                id: "early",
-                role: "user",
-                state: "complete",
-                parts: [{ id: "text", type: "text", content: "Earlier support context" }],
-              },
-            ]
+      json: savedDirectoryMessages(
+        savedThread,
+        earlier
+          ? [savedUserMessage("early", "Earlier support context")]
           : [
-              ...Array.from({ length: 20 }, (_, index) => ({
-                id: `context-${index}`,
-                role: "user",
-                state: "complete",
-                parts: [{ id: "text", type: "text", content: `Support note ${index}` }],
-              })),
+              ...Array.from({ length: 20 }, (_, index) =>
+                savedUserMessage(`context-${index}`, `Support note ${index}`),
+              ),
               {
                 id: "input",
                 role: "user",
@@ -115,9 +105,8 @@ test("React conversation directory reads saved pages, uploads and decisions with
                 ],
               },
             ],
-        page_after: earlier ? null : "earlier",
-        page_before: null,
-      },
+        earlier ? null : "earlier",
+      ),
     })
   })
   await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
@@ -215,19 +204,9 @@ test("vanilla conversation directory follows cursors, filters Tenants and clears
   })
   await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
     route.fulfill({
-      json: {
-        thread: savedThread,
-        messages: [
-          {
-            id: "saved",
-            role: "user",
-            state: "complete",
-            parts: [{ id: "text", type: "text", content: "Private saved history" }],
-          },
-        ],
-        page_after: null,
-        page_before: null,
-      },
+      json: savedDirectoryMessages(savedThread, [
+        savedUserMessage("saved", "Private saved history"),
+      ]),
     }),
   )
   await openVanillaDirectories(page, { scope: "organization" }, ["threads"])
@@ -291,32 +270,23 @@ test("empty projected history pages automatically load earlier messages", async 
     const earlier = new URL(route.request().url()).searchParams.has("page_after")
     if (earlier) earlierRequests++
     return route.fulfill({
-      json: {
+      json: savedDirectoryMessages(
         thread,
-        messages:
-          earlierRequests === 2
-            ? [
-                {
-                  id: "earlier",
-                  role: "user",
-                  state: "complete",
-                  parts: [{ id: "text", type: "text", content: "Earlier context" }],
-                },
-              ]
-            : Array.from({ length: 100 }, (_, i) => ({
-                id: `result-${earlierRequests}-${i}`,
-                role: "tool",
-                state: "complete",
-                source_assistant_message_id: "assistant",
-                source_tool_part_id: "call",
-                response_target_id: `target-${i}`,
-                parts: [
-                  { id: "result", type: "tool-result", output: { ok: true }, outcome: "succeeded" },
-                ],
-              })),
-        page_after: earlierRequests === 2 ? null : `earlier-${earlierRequests}`,
-        page_before: null,
-      },
+        earlierRequests === 2
+          ? [savedUserMessage("earlier", "Earlier context")]
+          : Array.from({ length: 100 }, (_, i) => ({
+              id: `result-${earlierRequests}-${i}`,
+              role: "tool",
+              state: "complete",
+              source_assistant_message_id: "assistant",
+              source_tool_part_id: "call",
+              response_target_id: `target-${i}`,
+              parts: [
+                { id: "result", type: "tool-result", output: { ok: true }, outcome: "succeeded" },
+              ],
+            })),
+        earlierRequests === 2 ? null : `earlier-${earlierRequests}`,
+      ),
     })
   })
   await directory.openReact()
@@ -346,33 +316,18 @@ test("scrolling during refresh waits without canceling the latest history", asyn
       if (firstRequests > 1) await refreshGate
     }
     await route.fulfill({
-      json: {
+      json: savedDirectoryMessages(
         thread,
-        messages: earlier
-          ? [
-              {
-                id: "earlier",
-                role: "user",
-                state: "complete",
-                parts: [{ id: "text", type: "text", content: "Older context" }],
-              },
-            ]
-          : Array.from({ length: 20 }, (_, i) => ({
-              id: `context-${i}`,
-              role: "user",
-              state: "complete",
-              parts: [
-                {
-                  id: "text",
-                  type: "text",
-                  content:
-                    firstRequests > 1 && i === 19 ? "Updated latest message" : `Saved context ${i}`,
-                },
-              ],
-            })),
-        page_after: earlier ? null : "earlier",
-        page_before: null,
-      },
+        earlier
+          ? [savedUserMessage("earlier", "Older context")]
+          : Array.from({ length: 20 }, (_, i) =>
+              savedUserMessage(
+                `context-${i}`,
+                firstRequests > 1 && i === 19 ? "Updated latest message" : `Saved context ${i}`,
+              ),
+            ),
+        earlier ? null : "earlier",
+      ),
     })
   })
   await directory.openReact()
@@ -410,19 +365,16 @@ for (const status of [503, 403]) {
           },
         })
       return route.fulfill({
-        json: {
-          thread: savedThread,
-          messages: Array.from({ length: earlier ? 1 : 20 }, (_, i) => ({
-            id: `${earlier ? "older" : "saved"}-${i}`,
-            role: "user",
-            state: "complete",
-            parts: [
-              { id: "text", type: "text", content: `${earlier ? "Older" : "Saved"} context ${i}` },
-            ],
-          })),
-          page_after: earlier ? null : "earlier",
-          page_before: null,
-        },
+        json: savedDirectoryMessages(
+          savedThread,
+          Array.from({ length: earlier ? 1 : 20 }, (_, i) =>
+            savedUserMessage(
+              `${earlier ? "older" : "saved"}-${i}`,
+              `${earlier ? "Older" : "Saved"} context ${i}`,
+            ),
+          ),
+          earlier ? null : "earlier",
+        ),
       })
     })
     await directory.openReact()
@@ -457,27 +409,22 @@ for (const status of [401, 403, 404]) {
     )
     await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
       route.fulfill({
-        json: {
-          thread: savedThread,
-          messages: [
-            {
-              id: "input",
-              role: "user",
-              state: "complete",
-              parts: [
-                { id: "text", type: "text", content: "Private saved context" },
-                {
-                  id: "upload",
-                  type: "document",
-                  source: { type: "attachment", mimeType: "text/plain" },
-                  metadata: { filename: "support-notes.txt" },
-                },
-              ],
-            },
-          ],
-          page_after: null,
-          page_before: null,
-        },
+        json: savedDirectoryMessages(savedThread, [
+          {
+            id: "input",
+            role: "user",
+            state: "complete",
+            parts: [
+              { id: "text", type: "text", content: "Private saved context" },
+              {
+                id: "upload",
+                type: "document",
+                source: { type: "attachment", mimeType: "text/plain" },
+                metadata: { filename: "support-notes.txt" },
+              },
+            ],
+          },
+        ]),
       }),
     )
     await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
@@ -510,26 +457,21 @@ test("refresh preserves saved image previews without downloading again", async (
   await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) => {
     histories++
     return route.fulfill({
-      json: {
-        thread,
-        messages: [
-          {
-            id: "input",
-            role: "user",
-            state: "complete",
-            parts: [
-              {
-                id: "picture",
-                type: "image",
-                source: { type: "attachment", mimeType: "image/png" },
-                metadata: { filename: "picture.png" },
-              },
-            ],
-          },
-        ],
-        page_after: null,
-        page_before: null,
-      },
+      json: savedDirectoryMessages(thread, [
+        {
+          id: "input",
+          role: "user",
+          state: "complete",
+          parts: [
+            {
+              id: "picture",
+              type: "image",
+              source: { type: "attachment", mimeType: "image/png" },
+              metadata: { filename: "picture.png" },
+            },
+          ],
+        },
+      ]),
     })
   })
   await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture", (route) => {
