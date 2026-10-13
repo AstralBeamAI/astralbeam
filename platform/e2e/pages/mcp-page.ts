@@ -16,6 +16,7 @@ export function mcpPage(page: Page) {
       await expect(page.getByLabel("Client ID", { exact: true })).toBeVisible()
       await expect(page.getByLabel("Redirect URI")).toHaveValue(/\/api\/mcp\/oauth\/callback$/)
       await openDialog(page).getByRole("button", { name: "Cancel", exact: true }).click()
+      await expect(openDialog(page)).not.toBeVisible()
     },
     async createStaticServer(endpoint: string) {
       await page.getByRole("button", { name: "Add server", exact: true }).click()
@@ -38,6 +39,7 @@ export function mcpPage(page: Page) {
       })
       await server.getByRole("button", { name: "Remove server", exact: true }).click()
       await openAlertDialog(page).getByRole("button", { name: "Cancel", exact: true }).click()
+      await expect(openAlertDialog(page)).not.toBeVisible()
       await expect(server).toBeVisible()
       await server.getByRole("button", { name: "Remove server", exact: true }).click()
       await openAlertDialog(page)
