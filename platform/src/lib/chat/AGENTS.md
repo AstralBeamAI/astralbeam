@@ -19,7 +19,7 @@
 - Key lifecycle (`enabled`, `expires_at`) is re-read _after_ the signature verifies, in a second query keyed by `(id, organizationId)`. A disabled or expired key fails there, preventing revoked keys from working for the remaining token lifetime.
 - Verification is read-only. It never touches `request_count`, `remaining`, the refill columns, or `last_request`, so a chat run does not consume Better Auth API-key quota.
 - The trusted context is a `ChatPrincipal`: `organization.id` from the loaded row, plus the token's `user` and `tenant` claims. No organization id ever comes from the request body.
-- Rate limiting (`consumeChatRateLimit` in `src/routes/api/v1/chat/-lib/run.server.ts`) uses separate database-backed buckets for new turns at 20 per 60 seconds and tool-result continuations at 200 per 60 seconds. Classify by the validated operation, never by a caller-supplied historical role. The key is a SHA-256 over the JSON tuple `[organizationId, tenantId, tenantUserId]`. The tenant ids are host-supplied external strings, so the JSON tuple makes arbitrary text an unambiguous key.
+- Rate limiting (`consumeChatRateLimit` in `src/routes/api/v1/chat/-lib/run.server.ts`) uses three independent database-backed buckets per 60 seconds: 20 new turns, 200 tool-result continuations, and 200 uploads. Classify by the validated operation, never by a caller-supplied historical role. The key is a SHA-256 over the JSON tuple `[organizationId, tenantId, tenantUserId]` from the verified principal.
 - Chat resolves existing internal Tenant and TenantUser IDs without provisioning them. `/me` remains the sole synchronization boundary.
 
 ## Agent resolution

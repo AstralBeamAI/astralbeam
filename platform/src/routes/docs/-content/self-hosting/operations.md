@@ -131,12 +131,12 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | --- | --- | --- |
 | Operator sign-in at `/configure` | 5 per minute | The whole deployment. Cleared by a successful sign-in |
 | Chat turns | 20 per 60 seconds | Organization, Tenant, and tenant user combined |
-| Chat host-tool continuations and uploads | 200 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Chat host-tool continuations and uploads | 200 per 60 seconds each, in separate buckets | Organization, Tenant, and tenant user combined |
 | Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address |
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |
 
-The two chat buckets are independent. The validated endpoint operation selects the bucket, so budget for up to 220 chat requests per minute from one tenant user, including uploads and tool-result submissions.
+The validated endpoint operation selects one of three independent chat buckets, so budget for up to 420 requests per minute from one tenant user.
 
 Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration, operator sign-in permits attempts so first boot remains possible. Chat reaches the setup gate first and returns `503` with `Retry-After: 10` while configuration or migrations are incomplete.
 

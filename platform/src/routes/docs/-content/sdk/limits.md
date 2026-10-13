@@ -8,14 +8,14 @@ The chat endpoint enforces every limit below on every request, whatever the SDK 
 | --- | --- | --- |
 | Request body | 32 MB, checked against `content-length` and again while reading | `413`, "The message and its attachments are too large." |
 | Rate limit | 20 new turns per 60 seconds, counted per organization, tenant, and tenant user | `429`, "Too many chat requests; try again in a minute." |
-| Tool-result and upload rate limit | 200 requests per 60 seconds, counted separately from turns | `429`, "Too many chat requests; try again in a minute." |
+| Tool-result and upload rate limits | 200 requests per 60 seconds each, in separate buckets | `429`, "Too many chat requests; try again in a minute." |
 | Model turns | 25 per request, each tool round counting as one | the run ends after the last tool result without a final reply |
 | Chat auth token lifetime | 60–600 seconds, 300 by default | `createAstralBeamToken` throws, a token outside the range is rejected as invalid |
 | Chat auth token size | 16,384 bytes | minting throws, and a longer bearer header is rejected before it is verified |
 | `user` and `tenant` claims | 8,192 bytes of JSON | minting throws "user and tenant must not exceed 8192 bytes" |
 | Clock difference | 30 seconds either way | the token reads as expired or not yet valid, the composer offers a retry |
 
-**NOTE**: The validated endpoint operation selects the bucket. The two buckets are independent, so one tenant user can send up to 220 chat requests per minute, including uploads and tool-result submissions.
+**NOTE**: The validated endpoint operation selects one of three independent buckets, allowing up to 20 turns, 200 tool-result submissions, and 200 uploads per tenant user per minute.
 
 ## Attachments
 
