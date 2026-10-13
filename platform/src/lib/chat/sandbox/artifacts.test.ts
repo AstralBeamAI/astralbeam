@@ -1,5 +1,9 @@
 import { assert, describe, it } from "@effect/vitest"
-import { artifactContentDisposition, detectSandboxArtifactMimeType } from "./artifacts"
+import {
+  artifactContentDisposition,
+  detectSandboxArtifactMimeType,
+  isInlineArtifactMimeType,
+} from "./artifacts"
 
 describe("detectSandboxArtifactMimeType", () => {
   it("sniffs raster images and PDFs from magic bytes", () => {
@@ -12,6 +16,7 @@ describe("detectSandboxArtifactMimeType", () => {
   it("treats valid UTF-8 as plain text, so SVG can never be served as an image", () => {
     const svg = new TextEncoder().encode('<svg onload="alert(1)"></svg>')
     assert.strictEqual(detectSandboxArtifactMimeType(svg), "text/plain")
+    assert.isFalse(isInlineArtifactMimeType("text/plain"))
   })
 
   it("treats NUL-bearing and invalid UTF-8 content as an opaque download", () => {

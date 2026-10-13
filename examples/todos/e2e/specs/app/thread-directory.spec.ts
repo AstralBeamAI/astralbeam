@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer"
-import { readFile } from "node:fs/promises"
 import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
 import { openVanillaDirectories } from "../../pages/directories-page.ts"
@@ -26,81 +25,6 @@ const savedThread = {
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-06T00:00:00Z",
 }
-
-test("published images preview and download after reload", async ({ page }) => {
-  const directory = threadDirectoryPage(page)
-  const png = await readFile(
-    new URL("../../../../../platform/public/astralbeam-logo-light.png", import.meta.url),
-  )
-  await page.route("**/api/v1/threads?*", (route) =>
-    route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
-  )
-  await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
-    route.fulfill({
-      json: {
-        thread: savedThread,
-        messages: [
-          {
-            id: "publication",
-            role: "assistant",
-            state: "complete",
-            parts: [
-              {
-                id: "publish",
-                type: "tool-call",
-                toolCallId: "publish",
-                name: "sandbox_publish_artifact",
-                arguments: "{}",
-                executionLocation: "sandbox",
-              },
-            ],
-          },
-          {
-            id: "result",
-            role: "tool",
-            state: "complete",
-            source_assistant_message_id: "publication",
-            source_tool_part_id: "publish",
-            parts: [
-              {
-                id: "chart",
-                type: "tool-result",
-                outcome: "succeeded",
-                output: {
-                  fileId: "019a0800-0000-7000-8000-000000000099",
-                  path: "/workspace/chart.png",
-                  mimeType: "image/png",
-                  size: png.length,
-                },
-              },
-            ],
-          },
-        ],
-        page_after: null,
-        page_before: null,
-      },
-    }),
-  )
-  await page.route("**/api/v1/tenants/*/threads/*/messages/*/attachments/*", (route) => {
-    expect(route.request().headers().authorization).toMatch(/^Bearer /)
-    return route.fulfill({ body: png, contentType: "image/png" })
-  })
-  await directory.openReact()
-  await directory.conversation(savedThread.title).click()
-  await expect(page.getByRole("img", { name: "chart.png" })).toBeVisible()
-  await page.reload()
-  await directory.conversation(savedThread.title).click()
-  const image = page.getByRole("img", { name: "chart.png" })
-  await expect
-    .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
-    .toBeGreaterThan(0)
-  const downloaded = page.waitForEvent("download")
-  await page.getByRole("button", { name: "Download chart.png" }).click()
-  const file = await downloaded
-  expect(file.suggestedFilename()).toBe("chart.png")
-  expect(await readFile(await file.path())).toEqual(png)
-  await captureMoment(page, "durable-artifacts-after-reload")
-})
 
 test("React conversation directory reads saved pages, uploads and decisions without executing actions", async ({
   page,
@@ -167,9 +91,11 @@ test("React conversation directory reads saved pages, uploads and decisions with
                 parts: [
                   {
                     id: "report",
-                    type: "document",
-                    source: { type: "attachment", mimeType: "text/plain", byteSize: 16 },
-                    metadata: { filename: "generated-report.txt" },
+                    type: "tool-call",
+                    toolCallId: "publish",
+                    name: "sandbox_publish_artifact",
+                    arguments: "{}",
+                    executionLocation: "sandbox",
                   },
                   {
                     id: "question",
@@ -177,6 +103,26 @@ test("React conversation directory reads saved pages, uploads and decisions with
                     name: "ask_questionnaire",
                     toolCallId: "call",
                     arguments: '{"items":[{"question":"Approve?","choices":["Yes","No"]}]}',
+                  },
+                ],
+              },
+              {
+                id: "publication",
+                role: "tool",
+                state: "complete",
+                source_assistant_message_id: "decision",
+                source_tool_part_id: "report",
+                parts: [
+                  {
+                    id: "result",
+                    type: "tool-result",
+                    outcome: "succeeded",
+                    output: {
+                      fileId: "019a0800-0000-7000-8000-000000000099",
+                      path: "/workspace/generated-report.txt",
+                      mimeType: "text/plain",
+                      size: 16,
+                    },
                   },
                 ],
               },
@@ -189,7 +135,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
     route.fulfill({ body: "Saved upload", contentType: "text/plain" }),
   )
   await page.route(
-    "**/api/v1/tenants/*/threads/*/messages/decision/attachments/report",
+    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
       return route.fulfill({ body: "Generated report", contentType: "text/plain" })

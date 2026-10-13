@@ -1,6 +1,6 @@
 import { HttpServerResponse } from "effect/http"
 
-import { artifactContentDisposition } from "@/lib/chat/sandbox/artifacts"
+import { artifactContentDisposition, isInlineArtifactMimeType } from "@/lib/chat/sandbox/artifacts"
 
 export function chatArtifactResponse({
   bytes,
@@ -11,16 +11,19 @@ export function chatArtifactResponse({
   mimeType: string
   path: string
 }) {
-  return HttpServerResponse.uint8Array(bytes, {
-    contentType: mimeType,
-    headers: {
-      "content-disposition": artifactContentDisposition(
-        mimeType.startsWith("image/") ? "inline" : "attachment",
-        path,
-      ),
-      "cache-control": "private, no-store",
-      "x-content-type-options": "nosniff",
-      "content-security-policy": "sandbox; default-src 'none'",
-    },
-  })
+  return HttpServerResponse.fromWeb(
+    new Response(bytes as BodyInit, {
+      headers: {
+        "content-type": mimeType,
+        "content-disposition": artifactContentDisposition(
+          isInlineArtifactMimeType(mimeType) ? "inline" : "attachment",
+          path,
+        ),
+        "content-length": String(bytes.byteLength),
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "sandbox; default-src 'none'",
+      },
+    }),
+  )
 }

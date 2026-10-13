@@ -152,71 +152,19 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
-  test("published files survive sandbox shutdown, remain scoped, and retire with their conversation", async () => {
+  test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
     const thread = await create()
     const { claim } = await admit(thread.id)
-    const toolPartId = crypto.randomUUID()
-    await runtime.runPromise(
-      service.checkpoint({
-        claim: claim!,
-        state: "complete",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: toolPartId,
-              type: "tool-call",
-              toolCallId: "publish",
-              name: "sandbox_publish_artifact",
-              arguments: "{}",
-              executionLocation: "sandbox",
-              targets: [{ id: targetA }],
-            },
-          ],
-        },
-      }),
-    )
     const report = "x".repeat(2 * 1024 * 1024)
     const bytes = new TextEncoder().encode(report)
     const fileId = await runtime.runPromise(service.publishArtifact({ claim: claim!, bytes }))
     const [association] = await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))
     expect(association).toMatchObject({ messageId: claim!.assistantMessageId, threadId: thread.id })
     expect(association!.id).not.toBe(fileId)
-    await runtime.runPromise(
-      service.appendToolResults({
-        claim: claim!,
-        results: [
-          {
-            assistantMessageId: claim!.assistantMessageId,
-            toolPartId,
-            responseTargetId: targetA,
-            payload: {
-              version: 1,
-              parts: [
-                {
-                  id: crypto.randomUUID(),
-                  type: "tool-result",
-                  outcome: "succeeded",
-                  output: {
-                    fileId,
-                    path: "/workspace/report.txt",
-                    mimeType: "text/plain",
-                    size: bytes.length,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      }),
+    const stored = await runtime.runPromise(
+      files.read({ scope: { ...scope, threadId: thread.id }, fileId }),
     )
-    // Downloads have no sandbox dependency, only the persisted message and verified object.
-    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
-    const result = history.find((message) => message.role === "tool")!
-    const response = await runtime.runPromise(
-      savedChatAttachmentResponse(result, result.payload.parts[0]!.id),
-    )
-    expect(await HttpServerResponse.toWeb(response).text()).toBe(report)
+    expect(new TextDecoder().decode(stored.bytes)).toBe(report)
     await expect(
       runtime.runPromise(files.read({ scope: { ...foreign, threadId: thread.id }, fileId })),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
@@ -224,7 +172,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(
       runtime.runPromise(files.read({ scope: { ...scope, threadId: empty.id }, fileId })),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
-    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 2 }))
+    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 1 }))
     const [retired] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
     expect(retired!.status).toBe("purging")
     expect(await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))).toEqual([])

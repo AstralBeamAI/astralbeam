@@ -810,24 +810,21 @@ describe("REST API through the Effect Fetch handler", () => {
       id: restOtherId,
       messageId: restUserId,
     })
-    restTestState.threadMessage.mockReturnValue(
-      Effect.succeed({
-        ...savedMessage,
-        payload: {
-          parts: [{ id: "upload", type: "tool-result", output: { fileId: "invoice-123" } }],
-        },
-      }),
-    )
-    restTestState.readFile.mockClear()
-    expect(
-      (
-        await restRequest(
-          `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
-          { headers },
-        )
-      ).status,
-    ).toBe(404)
-    expect(restTestState.readFile).not.toHaveBeenCalled()
+    for (const fileId of [restUserId, "invoice-123"]) {
+      restTestState.threadMessage.mockReturnValue(
+        Effect.succeed({
+          ...savedMessage,
+          payload: { parts: [{ id: "upload", type: "tool-result", output: { fileId } }] },
+        }),
+      )
+      restTestState.readFile.mockClear()
+      const artifact = await restRequest(
+        `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+        { headers },
+      )
+      expect(artifact.status).toBe(fileId === restUserId ? 200 : 404)
+      expect(restTestState.readFile).toHaveBeenCalledTimes(fileId === restUserId ? 1 : 0)
+    }
     restTestState.threadMessage.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
     const deniedDownload = await restRequest(
       `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,

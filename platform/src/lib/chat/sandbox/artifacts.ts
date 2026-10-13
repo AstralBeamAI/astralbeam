@@ -1,6 +1,15 @@
 import { Result } from "effect"
 import { CHAT_ATTACHMENT_MAGIC_BYTES } from "../attachments/constants"
 
+function matchesMagicBytes(
+  bytes: Uint8Array,
+  signature: ReadonlyArray<{ offset: number; bytes: readonly number[] }>,
+): boolean {
+  return signature.every(({ offset, bytes: expected }) =>
+    expected.every((value, index) => bytes[offset + index] === value),
+  )
+}
+
 /**
  * Content-sniffed MIME type for an artifact. The signature check, not the extension, decides:
  * raster images and PDFs by magic bytes, valid UTF-8 without NUL as plain text, and everything
@@ -9,19 +18,24 @@ import { CHAT_ATTACHMENT_MAGIC_BYTES } from "../attachments/constants"
  */
 export function detectSandboxArtifactMimeType(bytes: Uint8Array): string {
   for (const [mimeType, signature] of Object.entries(CHAT_ATTACHMENT_MAGIC_BYTES)) {
-    if (
-      signature.every(({ offset, bytes: expected }) =>
-        expected.every((value, index) => bytes[offset + index] === value),
-      )
-    )
-      return mimeType
+    if (matchesMagicBytes(bytes, signature)) return mimeType
   }
-  // NUL distinguishes binary content. The bounded decode checks the head for valid UTF-8.
+  if (isPlainText(bytes)) return "text/plain"
+  return "application/octet-stream"
+}
+
+/** An artifact renders inline only as a sniffed raster image; everything else downloads. */
+export function isInlineArtifactMimeType(mimeType: string): boolean {
+  return mimeType.startsWith("image/")
+}
+
+function isPlainText(bytes: Uint8Array): boolean {
+  // NUL is the practical text/binary discriminator; a full decode then proves valid UTF-8.
   const head = bytes.subarray(0, 4096)
-  return !head.includes(0) &&
+  return (
+    !head.includes(0) &&
     Result.isSuccess(Result.try(() => new TextDecoder("utf-8", { fatal: true }).decode(head)))
-    ? "text/plain"
-    : "application/octet-stream"
+  )
 }
 
 /**
@@ -31,7 +45,13 @@ export function detectSandboxArtifactMimeType(bytes: Uint8Array): string {
  */
 export function artifactContentDisposition(disposition: string, path: string): string {
   const base = path.slice(path.lastIndexOf("/") + 1)
-  const fallback = base.replace(/[^\x20-\x7e]|["\\]/g, "_") || "artifact"
+  let ascii = ""
+  for (let index = 0; index < base.length; index += 1) {
+    const code = base.charCodeAt(index)
+    ascii +=
+      code < 0x20 || code > 0x7e || base[index] === '"' || base[index] === "\\" ? "_" : base[index]
+  }
+  const fallback = ascii.length > 0 ? ascii : "artifact"
   // encodeURIComponent leaves RFC 5987 attr-char specials like * ' ( ) unescaped; fix them up.
   const encoded = encodeURIComponent(base).replace(
     /[*'()]/g,
