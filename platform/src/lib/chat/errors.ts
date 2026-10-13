@@ -42,7 +42,7 @@ export class ChatModelMissing extends Schema.TaggedError<ChatModelMissing>()(
   { httpApiStatus: 503 },
 ) {
   override readonly message =
-    "This agent has no model configured. Add a provider and select a model in the dashboard"
+    "This agent's model is not ready. Check its model settings in the dashboard."
 }
 
 /** The stored key failed to decrypt or belongs to another organization. */

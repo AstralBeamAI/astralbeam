@@ -97,8 +97,8 @@ export function catalogModelConfiguration(input: {
       aboveInputTokens,
       prices: ratesAt(aboveInputTokens + 1),
     })),
-    maxInputTokens: result.model.context_window,
-    contextWindowTokens: null,
+    maxInputTokens: null,
+    contextWindowTokens: result.model.context_window,
     maxOutputTokens: 4096,
     outputCap: 4096,
   })

@@ -20,6 +20,7 @@ import {
   agentModel,
   configTable,
   modelProvider,
+  providerModel,
   organization,
   organizationConfiguration,
 } from "@/db/schema"
@@ -44,7 +45,7 @@ const modelTestConfiguration: ModelConfiguration = {
   maxInputTokens: 128_000,
   contextWindowTokens: null,
   maxOutputTokens: 8192,
-  outputCap: 4096,
+  outputCap: 3072,
 }
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
@@ -129,6 +130,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       modelId: "same-model",
       providerId: gatewayId,
       api: "chat-completions",
+      outputCap: 3072,
     })
     const [source] = await db
       .select({ ciphertext: sql<string>`${modelProvider.credentials}::text` })
@@ -145,6 +147,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+    await db
+      .update(providerModel)
+      .set({ configuration: null })
+      .where(
+        and(
+          eq(providerModel.organizationId, organizationId),
+          eq(providerModel.id, gateway.models[0]!.id),
+        ),
+      )
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.resolveForAgent({ organizationId, agentId }),
+        ),
+      ),
+    ).toBeNull()
   })
 
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {
@@ -399,7 +417,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
   })
 
-  test("validates saved model ownership and revision before reading credentials for a test", async () => {
+  test("respects saved output caps and validates model ownership and revision before testing", async () => {
     const id = await runAppEffect(saveIntegrationProvider(organizationId))
     await runAppEffect(saveIntegrationProvider(organizationId, { name: "Other provider" }))
     const providers = await runAppEffect(
@@ -407,6 +425,40 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     )
     const modelId = providers.find((provider) => provider.id === id)!.models[0]!.id
     const otherModelId = providers.find((provider) => provider.id !== id)!.models[0]!.id
+    vi.stubEnv("ALLOW_PRIVATE_MODEL_ENDPOINTS", "true")
+    await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    const requestedCaps: unknown[] = []
+    vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) => {
+      requestedCaps.push(
+        (JSON.parse(init.body as string) as Record<string, unknown>).max_output_tokens,
+      )
+      return Promise.resolve(
+        new Response(
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"OK"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[]}}\n\n',
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+      )
+    })
+    try {
+      for (const outputCap of [512, 3072]) {
+        await db
+          .update(providerModel)
+          .set({ configuration: { ...modelTestConfiguration, outputCap } })
+          .where(
+            and(eq(providerModel.organizationId, organizationId), eq(providerModel.id, modelId)),
+          )
+        await runAppEffect(
+          Effect.flatMap(ModelProviders, (service) =>
+            service.testModel({ organizationId, id, lockVersion: 0, modelId }),
+          ),
+        )
+      }
+      expect(requestedCaps).toEqual([512, 1024])
+    } finally {
+      vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
+      await runAppEffect(Effect.flatMap(Config, (config) => config.invalidate))
+    }
     await db.execute(
       sql`update model_provider set credentials = 'corrupt', updated_at = now() where organization_id = ${organizationId} and id = ${id}`,
     )

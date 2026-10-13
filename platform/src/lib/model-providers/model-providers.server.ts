@@ -75,6 +75,7 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  readonly outputCap: number
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: typeof fetch
 }
@@ -188,6 +189,13 @@ export class ModelProviders extends Context.Service<
       const config = yield* Config
       const rateLimiter = yield* DatabaseRateLimiter
       const readPricing = readModelPriceCatalog.pipe(Effect.provideService(Config, config))
+      const readEffectiveModelConfiguration = Effect.fnUntraced(function* (
+        input: Omit<Parameters<typeof effectiveModelConfiguration>[0], "catalog">,
+      ) {
+        return input.configured?.pricingSource.kind === "manual"
+          ? input.configured
+          : effectiveModelConfiguration({ ...input, catalog: yield* readPricing })
+      })
       const allowsPrivateEndpoints = Effect.map(
         config.get("allow_private_model_endpoints"),
         (value) => value === "true",
@@ -561,6 +569,7 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
+            configured: providerModel.configuration,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -588,7 +597,9 @@ export class ModelProviders extends Context.Service<
           .limit(1)
           .pipe(Effect.orDie)
         if (!selected) return null
-        const { storedCredentials, ...configuration } = selected
+        const { storedCredentials, configured, ...configuration } = selected
+        const settings = yield* readEffectiveModelConfiguration({ ...configuration, configured })
+        if (!settings) return null
         const apiKey = readModelProviderKey({
           id: selected.providerId,
           organizationId: input.organizationId,
@@ -606,6 +617,7 @@ export class ModelProviders extends Context.Service<
         }
         return {
           ...configuration,
+          outputCap: settings.outputCap,
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         }
@@ -617,7 +629,7 @@ export class ModelProviders extends Context.Service<
         const provider = yield* readModelProviderRow(input.organizationId, input.id)
         if (provider?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
         const [model] = yield* db
-          .select({ modelId: providerModel.modelId })
+          .select({ modelId: providerModel.modelId, configured: providerModel.configuration })
           .from(providerModel)
           .where(
             and(
@@ -631,6 +643,8 @@ export class ModelProviders extends Context.Service<
         if (!model) return yield* new ModelProviderChanged()
         const apiKey = readModelProviderKey(provider)
         if (!apiKey) return yield* new ModelProviderUnreadable()
+        const settings = yield* readEffectiveModelConfiguration({ ...provider, ...model })
+        if (!settings) return yield* new ModelProviderTestFailed({ reason: "configuration" })
         yield* rateLimiter
           .consume({
             key: hashedRateLimitKey("model-test", [input.organizationId]),
@@ -652,6 +666,7 @@ export class ModelProviders extends Context.Service<
           api: provider.api,
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
+          outputCap: Math.min(settings.outputCap, 1024),
           apiKey,
           fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
         })
