@@ -81,6 +81,9 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await expect(
       page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }),
     ).toHaveAttribute("aria-invalid", "true")
+    await expect(
+      page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }),
+    ).toHaveAccessibleDescription("Output cap exceeds the configured output maximum")
     await page.getByLabel(`Output cap for ${upstreamModel}`, { exact: true }).fill("1024")
     await models.save()
     await page.reload()

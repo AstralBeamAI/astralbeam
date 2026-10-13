@@ -35,7 +35,7 @@ import { strictParseOptions } from "@/lib/schemas"
 import { saveModelProvider } from "../-functions/save-model-provider"
 import { modelProviderApiItems, modelProviderDescriptors } from "../-lib/constants"
 import { SaveModelProviderInputSchema } from "../-lib/schemas"
-import { ModelProviderField } from "./model-provider-field"
+import { ProviderField } from "../../-components/provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
 import { ProviderModelConfigurationFields } from "./provider-model-configuration-fields"
@@ -177,7 +177,7 @@ export function ModelProviderForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <ModelProviderField
+            <ProviderField
               id="model-provider-name"
               label="Name"
               value={name}
@@ -221,7 +221,7 @@ export function ModelProviderForm({
                 </FieldDescription>
               )}
             </Field>
-            <ModelProviderField
+            <ProviderField
               id="model-provider-url"
               label="API URL"
               value={baseUrl}
@@ -262,7 +262,7 @@ export function ModelProviderForm({
                 <FieldDescription>Use the API format your endpoint supports.</FieldDescription>
               </Field>
             )}
-            <ModelProviderField
+            <ProviderField
               id="model-provider-key"
               label="API key"
               value={apiKey}

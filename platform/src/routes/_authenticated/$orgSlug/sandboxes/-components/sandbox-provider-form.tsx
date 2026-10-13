@@ -39,7 +39,7 @@ import { type SandboxProviderId, type SandboxProviderOptions } from "@/lib/sandb
 import { saveSandboxProvider } from "../-functions/save-sandbox-provider"
 import { SANDBOX_PROVIDER_OPTION_DEFAULTS } from "../-lib/constants"
 import { SandboxProviderOptionFields } from "./sandbox-provider-option-fields"
-import { SandboxTextField } from "./sandbox-text-field"
+import { ProviderField } from "../../-components/provider-field"
 
 const SANDBOX_PROVIDER_NAME_MAX_LENGTH = 100
 const formatSandboxIssues = SchemaIssue.makeFormatterStandardSchemaV1()
@@ -161,7 +161,7 @@ export function SandboxProviderForm({
       </CardHeader>
       <CardContent>
         <FieldGroup>
-          <SandboxTextField
+          <ProviderField
             id="sandbox-provider-name"
             label="Name"
             value={name}
