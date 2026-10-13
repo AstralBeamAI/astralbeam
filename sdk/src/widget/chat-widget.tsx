@@ -594,6 +594,11 @@ export function ChatWidget({
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
         </CardHeader>
       )}
+      {!showHeader && (
+        <div className="flex justify-end px-2">
+          <McpConnectionsPanel key={`${apiUrl}:${draftIdentity}`} chat={chat} state={chatState} />
+        </div>
+      )}
       {!!chatState.unavailableMcpConnections?.length && (
         <p role="status" className="px-4 py-2 text-xs text-muted-foreground">
           Some connected tools are unavailable. Open Connections to review them.

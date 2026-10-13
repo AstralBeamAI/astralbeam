@@ -49,9 +49,10 @@ export function McpServerForm({
                           ...(fields.get("secret")
                             ? { clientSecret: fields.get("secret") as string }
                             : {}),
-                          tokenEndpointAuthMethod: fields.get("secret")
-                            ? ("client_secret_post" as const)
-                            : ("none" as const),
+                          tokenEndpointAuthMethod: fields.get("method") as
+                            | "none"
+                            | "client_secret_basic"
+                            | "client_secret_post",
                         },
                       }
                     : {}),
@@ -129,6 +130,12 @@ export function McpServerForm({
                 <Input id="mcp-client" name="clientId" required />
                 <Label htmlFor="mcp-secret">Client secret, if required</Label>
                 <Input id="mcp-secret" name="secret" type="password" autoComplete="off" />
+                <Label htmlFor="mcp-method">Token endpoint authentication</Label>
+                <NativeSelect id="mcp-method" name="method" defaultValue="client_secret_post">
+                  <option value="client_secret_post">Client secret in request body</option>
+                  <option value="client_secret_basic">Client secret with HTTP Basic</option>
+                  <option value="none">Public client, no secret</option>
+                </NativeSelect>
               </>
             )}
           </>

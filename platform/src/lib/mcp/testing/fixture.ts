@@ -40,7 +40,7 @@ export async function startMcpFixture() {
           JSON.stringify({
             resource: "https://fixture.example/mcp",
             authorization_servers: ["https://fixture.example"],
-            scopes_supported: ["read"],
+            scopes_supported: ["read", "admin"],
           }),
         )
       if (path.includes(".well-known"))
@@ -96,7 +96,7 @@ export async function startMcpFixture() {
           response.statusCode = 401
           response.setHeader(
             "WWW-Authenticate",
-            'Bearer resource_metadata="https://fixture.example/.well-known/oauth-protected-resource/mcp", scope="read"',
+            'Bearer resource_metadata="https://fixture.example/.well-known/oauth-protected-resource/mcp", scope="read admin"',
           )
           return response.end()
         }

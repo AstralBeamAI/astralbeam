@@ -201,6 +201,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
       expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
+      expect(url.searchParams.get("scope")).toBe("read")
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await authority((service) =>
         service.callback({ params: flow.params, browserBinding: flow.challenge }),
@@ -435,6 +436,14 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
     })
     test("private static credentials stay isolated and cannot be transplanted", async () => {
+      await expect(
+        connections((service) =>
+          service.createServer(actor.organizationId, {
+            endpointUrl: "https://fixture.example/mcp",
+            authConfig: { kind: "static_headers", headerNames: ["Authorization", "Authorization"] },
+          }),
+        ),
+      ).rejects.toThrow()
       const server = await connections((service) =>
         service.createServer(actor.organizationId, {
           endpointUrl: "https://fixture.example/mcp",

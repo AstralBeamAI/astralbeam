@@ -48,6 +48,11 @@ test("private MCP accounts connect, replace and clear credentials without return
     await expect(
       account.getByRole("button", { name: "Remove connection", exact: true }),
     ).toHaveCount(0)
+    await connections.hideHeader()
+    await connections.open()
+    await expect(
+      account.getByRole("button", { name: "Connect account", exact: true }),
+    ).toBeVisible()
   } finally {
     await cleanup()
   }

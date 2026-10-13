@@ -33,7 +33,11 @@ const McpManualClientSchema = Schema.Struct({
   clientId: NonEmptyStringSchema.check(Schema.isMaxLength(2048)),
   clientSecret: Schema.optionalKey(NonEmptyStringSchema.check(Schema.isMaxLength(8192))),
   tokenEndpointAuthMethod: Schema.Literals(["none", "client_secret_basic", "client_secret_post"]),
-})
+}).check(
+  Schema.makeFilter((client) =>
+    client.tokenEndpointAuthMethod === "none" ? !client.clientSecret : !!client.clientSecret,
+  ),
+)
 const McpAuthConfigSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("none") }),
   Schema.Struct({
@@ -49,7 +53,7 @@ const McpAuthConfigSchema = Schema.Union([
       Schema.isMaxLength(64),
     ),
     client: Schema.optionalKey(McpManualClientSchema),
-  }),
+  }).check(Schema.makeFilter((config) => config.profile !== "google" || !!config.client)),
 ])
 export type McpAuthConfig = typeof McpAuthConfigSchema.Type
 export const McpServerWriteSchema = Schema.Struct({

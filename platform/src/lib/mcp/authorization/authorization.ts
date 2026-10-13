@@ -236,14 +236,9 @@ const makeMcpAuthorization = Effect.gen(function* () {
       now: () => Effect.runPromise(Clock.currentTimeMillis),
       persist: () => Effect.runPromise(persistAttempt(payload)),
     })
-    const scope = [
-      ...new Set([
-        ...(challengedScope?.split(/\s+/).filter(Boolean) ??
-          discovery.resourceMetadata?.scopes_supported ??
-          []),
-        ...server.authConfig.requestedScopes,
-      ]),
-    ].join(" ")
+    const scope = server.authConfig.requestedScopes.length
+      ? server.authConfig.requestedScopes.join(" ")
+      : (challengedScope ?? discovery.resourceMetadata?.scopes_supported?.join(" "))
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({

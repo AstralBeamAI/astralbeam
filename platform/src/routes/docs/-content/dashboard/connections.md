@@ -6,7 +6,7 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 
 1. Open **Connections** in the Organization dashboard and choose **Add server**.
 2. Enter the public HTTPS endpoint and choose public, static-header or OAuth authentication.
-3. For providers without automatic registration, enable **Use a pre-registered OAuth application** and enter its client ID and secret. Register the exact redirect URI shown in the form with your provider.
+3. For providers without automatic registration, enable **Use a pre-registered OAuth application** and enter its client ID and secret. Choose the registered token authentication method and register the exact redirect URI shown in the form with your provider.
 4. Open **Connections** in your application's embedded sidebar. Each person chooses **Connect account** and authorizes their own account or enters their own header values.
 5. Choose **Test connection** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 

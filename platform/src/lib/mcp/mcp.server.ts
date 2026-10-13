@@ -61,9 +61,10 @@ const makeMcpConnections = Effect.gen(function* () {
       try: () =>
         mcpUrlIsPublic(new URL(fields.endpointUrl)) &&
         (fields.authConfig.kind !== "static_headers" ||
-          mcpHeadersAreAllowed(
-            Object.fromEntries(fields.authConfig.headerNames.map((name) => [name, ""])),
-          )),
+          (new Set(fields.authConfig.headerNames).size === fields.authConfig.headerNames.length &&
+            mcpHeadersAreAllowed(
+              Object.fromEntries(fields.authConfig.headerNames.map((name) => [name, ""])),
+            ))),
       catch: () => new McpInvalidConfiguration(),
     })
     if (!valid) return yield* new McpInvalidConfiguration()
