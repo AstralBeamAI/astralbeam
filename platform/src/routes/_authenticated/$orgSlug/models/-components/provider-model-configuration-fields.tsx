@@ -7,7 +7,7 @@ import {
   type ModelConfiguration,
   type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
-import { ModelProviderField } from "./model-provider-field"
+import { ProviderField } from "../../-components/provider-field"
 
 const modelPricingFields = [
   ["inputPerMillion", "Input price"],
@@ -51,7 +51,7 @@ export function ProviderModelConfigurationFields({
   const hasCatalogDefaults = catalogConfiguration !== null
   const overrideId = `model-${model.modelId}-override`
   const priceFields = modelPricingFields.map(([key, label]) => (
-    <ModelProviderField
+    <ProviderField
       key={key}
       id={`model-${model.modelId}-${key}`}
       label={
@@ -117,7 +117,7 @@ export function ProviderModelConfigurationFields({
           <p className="text-sm font-medium">Token limits</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {modelBoundFields.map(([key, label]) => (
-              <ModelProviderField
+              <ProviderField
                 key={key}
                 id={`model-${model.modelId}-${key}`}
                 label={

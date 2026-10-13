@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { SandboxProviderId, SandboxProviderOptions } from "@/lib/sandboxes/schemas"
-import { SandboxTextField } from "./sandbox-text-field"
+import { ProviderField } from "../../-components/provider-field"
 
 export type SandboxProviderOptionFieldsProps = {
   provider: SandboxProviderId
@@ -27,7 +27,7 @@ export function SandboxProviderOptionFields({
   if (provider === "docker") {
     const value = options as SandboxProviderOptions["docker"]
     return (
-      <SandboxTextField
+      <ProviderField
         id="docker-image"
         label="Image"
         value={value.image}
@@ -58,7 +58,7 @@ export function SandboxProviderOptionFields({
             </SelectContent>
           </Select>
         </Field>
-        <SandboxTextField
+        <ProviderField
           id="daytona-snapshot"
           label="Snapshot"
           value={value.snapshot}
@@ -75,7 +75,7 @@ export function SandboxProviderOptionFields({
   const value = options as SandboxProviderOptions["vercel"]
   return (
     <>
-      <SandboxTextField
+      <ProviderField
         id="vercel-team-id"
         label="Team ID"
         value={value.teamId}
@@ -84,7 +84,7 @@ export function SandboxProviderOptionFields({
         disabled={disabled}
         onChange={(teamId) => onChange({ teamId })}
       />
-      <SandboxTextField
+      <ProviderField
         id="vercel-project-id"
         label="Project ID"
         value={value.projectId}
