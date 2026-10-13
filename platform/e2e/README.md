@@ -98,17 +98,6 @@ The platform server receives its derived ports, database URL, and resolved `DOCK
 
 `E2E_DATABASE_URL`, `E2E_PLATFORM_PORT`, `E2E_SMTP_PORT`, and `E2E_MAILBOX_PORT` override the derived values.
 
-## When something changes, update this
-
-| Change                                 | Update                                    |
-| -------------------------------------- | ----------------------------------------- |
-| A page's markup or control labels      | that surface's module in `pages/`         |
-| Required configuration keys            | the configure step in `specs/`            |
-| Server startup, ports, or required env | `worktree.ts`                             |
-| A new capability to cover              | a new spec under `specs/features`         |
-| A capability that needs a container    | a new spec under `specs/sandbox`          |
-| What a focused spec may assume         | `baseline.ts` and the journey's last step |
-
 ## Things that will bite you
 
 - **Every page is server-rendered, so a control is clickable before React attaches to it.** An early click is dropped, an early submit posts the form natively, and an early fill into a React-controlled input is discarded at hydration. `waitForHydration(locator)` from `hydration.ts` waits for React's own instance key on the element; use it after any `page.goto`, and not after an in-app navigation.

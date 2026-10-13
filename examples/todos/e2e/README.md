@@ -44,7 +44,7 @@ Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `c
 | `fixtures.ts` | The `test` a spec imports, with `todos` and `chat` open and hydrated |
 | `pages/todos-page.ts` | Selectors and actions for the host app's own UI |
 | `pages/chat-widget.ts` | Selectors and actions for the embedded widget, including shadow-root notes |
-| `tokens.ts` | Signs chat auth tokens directly, for keys the app's token route will never mint |
+| `tokens.ts` | Signs chat auth tokens directly, kept in step with `sdk/src/server/index.ts` |
 | `capture.ts` | Attaches a labelled screenshot to the report |
 | `specs/app/` | Deterministic specs, never call a model |
 | `specs/agent/` | Specs that drive a real agent run |
@@ -57,17 +57,6 @@ Compose it from the page objects. A spec should read as the user's steps and not
 2. Add `specs/<project>/<feature>.spec.ts` and import `{ expect, test }` from `../../fixtures.ts`.
 3. Take what you need from the `todos` and `chat` fixtures. Add a method to a page object rather than putting a raw selector in a spec.
 4. Assert on side effects: the host's todo list, a tool row, the sandbox panel. Never assert on the assistant's wording, which changes between runs.
-
-## When something changes, update this
-
-| Change | Update |
-| --- | --- |
-| SDK widget markup or accessible names | `pages/chat-widget.ts` |
-| Host app UI or control labels | `pages/todos-page.ts` |
-| Seeded accounts, keys, agents, or tenants | `platform/scripts/seed/fixtures.ts` |
-| Auth token claims or signing | `tokens.ts`, kept in step with `sdk/src/server/index.ts` |
-| Server startup, ports, or required env | `worktree.ts` |
-| A new capability to cover | a new spec under `specs/app` or `specs/agent` |
 
 ## Things that will bite you
 

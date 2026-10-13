@@ -77,7 +77,7 @@ const createTodo = defineTool({
 
 Definitions are declared once but called many turns later, so make sure they read current state.
 
-- In React, the SDK routes `execute` through the latest `tools` prop, so rebuilding the object each render is fine and keeps closures fresh.
+- The drop-in React component routes `execute` through the latest `tools` prop, keeping closures fresh. Headless and vanilla sessions capture callbacks for the active run, so replacements or removals take effect on the next run.
 - Widget renders re-read the current `widgets` prop, so host state changes re-render projected UI.
 - Pass ids in widget props and resolve them against your own state, rather than snapshotting data into props.
 

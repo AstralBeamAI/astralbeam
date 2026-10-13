@@ -1,6 +1,6 @@
 # Durable workflows
 
-Durable workflows run background operations through native Effect APIs and a PostgreSQL journal. Named activities provide checkpoints for one operation or a sequence, using the same embedded runner for one process or multiple replicas.
+Durable workflows run background operations through native Effect APIs and a PostgreSQL journal. Named activities provide checkpoints for one operation or a sequence, using the [embedded cluster runner](../cluster/README.md) for one process or multiple replicas.
 
 ## Scheduling
 
@@ -9,10 +9,6 @@ Declare schedule names, cron expressions, time zones, and missed-run policies in
 Register the same cron layer on every replica using shared cluster storage and shard leases. ClusterCron coordinates scheduling and persisted delivery across replicas. Define how late an occurrence may run with `skipIfOlderThan`, and use `calculateNextRunFromPrevious: false` to calculate the next occurrence from completion time instead of replaying missed intervals. Failures are logged and the next occurrence is scheduled. Recovery can repeat an operation, so handlers must remain safe to repeat.
 
 For batched maintenance, use `Effect.repeat` with a result-based stopping condition and `Schedule.spaced` to pause between batches. Keep each database transaction bounded and make skipped work eligible for a later run.
-
-## Architecture
-
-The [embedded cluster runtime](../cluster/README.md) owns private runner communication, PostgreSQL persistence, shard leases, and process lifecycle. This directory owns workflow definitions and [handler registration](registry.ts). `ClusterWorkflowEngine` connects the native workflow APIs to that infrastructure.
 
 ## Define and register a workflow
 
@@ -110,10 +106,6 @@ Use `DurableClock.sleep` for persisted delays and `DurableDeferred` for external
 Organization-owned workflows carry immutable Organization UUIDs in their payload and execution identity. Include Tenant UUIDs where applicable. Keys establish identity, not authorization. Authorize submissions and external signals, and scope handler database operations to the relevant organization and resources. System-wide workflows need no artificial organization.
 
 Resolve credentials when an activity executes. Prefer resource IDs over secrets, request objects, or large attachments in persisted payloads and results. Journal entries remain until an explicit retention policy is implemented.
-
-## Operation
-
-See the [cluster guide](../cluster/README.md) for storage migrations, readiness and recovery, private replica addresses, and PgBouncer configuration.
 
 ## References
 

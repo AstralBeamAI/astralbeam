@@ -8,27 +8,27 @@ The chat endpoint enforces every limit below on every request, whatever the SDK 
 | --- | --- | --- |
 | Request body | 32 MB, checked against `content-length` and again while reading | `413`, "The message and its attachments are too large." |
 | Rate limit | 20 new turns per 60 seconds, counted per organization, tenant, and tenant user | `429`, "Too many chat requests; try again in a minute." |
-| Tool-result rate limit | 200 requests per 60 seconds that return host-tool results, counted separately from turns | `429`, "Too many chat requests; try again in a minute." |
+| Tool-result and upload rate limit | 200 requests per 60 seconds, counted separately from turns | `429`, "Too many chat requests; try again in a minute." |
 | Model turns | 25 per request, each tool round counting as one | the run ends after the last tool result without a final reply |
 | Chat auth token lifetime | 60–600 seconds, 300 by default | `createAstralBeamToken` throws, a token outside the range is rejected as invalid |
 | Chat auth token size | 16,384 bytes | minting throws, and a longer bearer header is rejected before it is verified |
 | `user` and `tenant` claims | 8,192 bytes of JSON | minting throws "user and tenant must not exceed 8192 bytes" |
 | Clock difference | 30 seconds either way | the token reads as expired or not yet valid, the composer offers a retry |
 
-**NOTE**: The request body decides which bucket a request spends, so 20 new turns is the normal allowance for an ordinary client, not a hard quota. The two buckets are independent, so one tenant user can send up to 220 chat requests per minute in total.
+**NOTE**: The validated endpoint operation selects the bucket. The two buckets are independent, so one tenant user can send up to 220 chat requests per minute, including uploads and tool-result submissions.
 
 ## Attachments
 
-A refused file keeps its chip in the composer, and the agent is told in one sentence that the file could not be included and why.
+A file rejected by the composer never reaches the agent. Server validation can reject the entire message with a generic invalid-conversation error. The draft remains unsent.
 
-| Limit | Value | What the agent is told |
-| --- | --- | --- |
-| Files per message | 5 | "the message went over the limit of 5 attachments." |
-| One file, by kind | 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office | "it is larger than the 5.0 MB limit for that file type." |
-| All files on one message | 20 MB | "the message went over the 20 MB attachment limit." |
-| Accepted types | PNG, JPEG, WebP, GIF, PDF, text and source files, CSV, TSV, Parquet, SQLite, `.docx`, `.pptx`, `.xlsx` | "this assistant reads images, PDFs, text and source files, CSV and TSV data, Word, Excel, and PowerPoint files." |
-| Declared type | must match the file's leading bytes | "its contents are not a `<type>` file." |
-| Filename | 120 characters | truncated with an ellipsis rather than refused |
+| Limit | Value |
+| --- | --- |
+| Files per message | 5 |
+| One file, by kind | 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office |
+| All files along the selected conversation path | 20 MB, including the new message |
+| Accepted types | PNG, JPEG, WebP, GIF, PDF, text and source files, CSV, TSV, Parquet, SQLite, `.docx`, `.pptx`, `.xlsx` |
+| Declared type | Must match the file's leading bytes |
+| Display filename | 120 characters, truncated with an ellipsis |
 
 ## Files the agent reads
 
@@ -44,8 +44,8 @@ A refused file keeps its chip in the composer, and the agent is told in one sent
 
 | Limit | Value | What happens at the limit |
 | --- | --- | --- |
-| Idle sandbox | 15 minutes, swept every minute | destroyed, the conversation's next turn provisions a new one |
-| Live sandboxes | 25 per server process | the least recently used sandbox is destroyed |
+| Idle sandbox | 15 minutes, swept every minute | Destroyed. An active command does not prevent reclamation |
+| Live sandboxes | 25 per server process, shared across Organizations | An existing workspace is destroyed, including one used by an active run |
 | Published artifact | 10 MB | "Artifacts are limited to 10485760 bytes. Compress or split the file." |
 | Artifact download ticket | 15 minutes | `404`, "The download has expired. Ask the agent to publish the file again." |
 | Text in the transcript | 20,000 characters of command output, 40,000 of a file read, 200,000 of a file write | clamped with the middle elided |

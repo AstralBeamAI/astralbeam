@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 - Directory access additionally requires signed `user.admin: true`, derived from trusted tenant permissions, and persisted records. Follow [Tenant directories](https://astralbeam.ai/docs/sdk/listings).
 - For employee-facing Tenant management, use `createAstralBeamOrganizationToken`. The [API client guide](https://astralbeam.ai/docs/sdk/api) covers database-backed roles and browser integration.
 
-Existing token props and the default chat endpoint keep working. After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://astralbeam.ai/docs/sdk/authentication).
+After acquiring a token, components call `POST /api/v1/me` and renew before expiry. See [authentication and refresh behavior](https://astralbeam.ai/docs/sdk/authentication).
 
 ## Options
 
@@ -161,7 +161,7 @@ widgets: {
 
 Read-only Tenant, TenantUser and conversation widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
-There is no root export. Conversations are saved on the server and can be reopened across clients.
+There is no root export.
 
 | Entry point              | Contents                                     | Peer dependency      |
 | ------------------------ | -------------------------------------------- | -------------------- |
