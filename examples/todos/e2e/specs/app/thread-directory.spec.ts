@@ -91,9 +91,11 @@ test("React conversation directory reads saved pages, uploads and decisions with
                 parts: [
                   {
                     id: "report",
-                    type: "document",
-                    source: { type: "attachment", mimeType: "text/plain", byteSize: 16 },
-                    metadata: { filename: "generated-report.txt" },
+                    type: "tool-call",
+                    toolCallId: "publish",
+                    name: "sandbox_publish_artifact",
+                    arguments: "{}",
+                    executionLocation: "sandbox",
                   },
                   {
                     id: "question",
@@ -101,6 +103,26 @@ test("React conversation directory reads saved pages, uploads and decisions with
                     name: "ask_questionnaire",
                     toolCallId: "call",
                     arguments: '{"items":[{"question":"Approve?","choices":["Yes","No"]}]}',
+                  },
+                ],
+              },
+              {
+                id: "publication",
+                role: "tool",
+                state: "complete",
+                source_assistant_message_id: "decision",
+                source_tool_part_id: "report",
+                parts: [
+                  {
+                    id: "result",
+                    type: "tool-result",
+                    outcome: "succeeded",
+                    output: {
+                      fileId: "019a0800-0000-7000-8000-000000000099",
+                      path: "/workspace/generated-report.txt",
+                      mimeType: "text/plain",
+                      size: 16,
+                    },
                   },
                 ],
               },
@@ -113,7 +135,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
     route.fulfill({ body: "Saved upload", contentType: "text/plain" }),
   )
   await page.route(
-    "**/api/v1/tenants/*/threads/*/messages/decision/attachments/report",
+    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
       return route.fulfill({ body: "Generated report", contentType: "text/plain" })

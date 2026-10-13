@@ -98,11 +98,12 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
         OpenApi.Description,
         "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
       ),
-  )
-  .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
-  .add(
     HttpApiEndpoint.get("getChatFile", "/chat/files", {
-      query: Schema.Struct({ ticket: Schema.String }),
+      query: Schema.Struct({
+        threadId: ApiUuidSchema,
+        fileId: ApiUuidSchema,
+        filename: Schema.optionalKey(Schema.String),
+      }),
       success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
         "Content-Disposition": Schema.String,
         "Content-Length": Schema.String,
@@ -111,10 +112,10 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Download a chat artifact")
       .annotate(
         OpenApi.Description,
-        "Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.",
-      )
-      .annotate(OpenApi.Override, { security: [{ ArtifactTicket: [] }] }),
+        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
+      ),
   )
+  .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
 
 export function chatHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
@@ -127,7 +128,6 @@ export function chatHandlers(api: typeof ApiV1) {
       const { prepareManagedChat } = yield* Effect.promise(
         () => import("@/lib/chat/threads/commands"),
       )
-      const { ChatSandboxes } = yield* Effect.promise(() => import("@/lib/chat/sandbox/sandbox"))
       const {
         consumeChatRateLimit,
         readChatRunParams,
@@ -139,11 +139,13 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/attachments/attachments"),
       )
       const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
-      const { ChatThreadInvalid } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
+      const { ChatThreadInvalid, ChatThreadNotFound } = yield* Effect.promise(
+        () => import("@/lib/chat/threads/errors"),
+      )
+      const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const files = yield* ChatFiles
       const chat = yield* Chat
       const threads = yield* ChatThreads
-      const sandboxes = yield* ChatSandboxes
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
@@ -227,8 +229,28 @@ export function chatHandlers(api: typeof ApiV1) {
         )
         .handle(
           "getChatFile",
-          Effect.fn("getChatFile")(function* ({ query }) {
-            return chatArtifactResponse(yield* sandboxes.readArtifact(query.ticket))
+          Effect.fn("getChatFile")(function* ({ query, request }) {
+            const principal = yield* authenticate(request)
+            const scope = yield* threads.resolveScope({ principal })
+            yield* consumeRestRateLimit("chat-resource", [
+              scope.organizationId,
+              scope.tenantId,
+              scope.tenantUserId,
+            ]).pipe(Effect.provideContext(services))
+            yield* threads.get({ scope, id: query.threadId })
+            const file = yield* files
+              .read({
+                scope: {
+                  organizationId: scope.organizationId,
+                  tenantId: scope.tenantId,
+                  threadId: query.threadId,
+                },
+                fileId: query.fileId,
+              })
+              .pipe(
+                Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
+              )
+            return chatArtifactResponse({ ...file, path: query.filename ?? "artifact" })
           }),
         )
     }),

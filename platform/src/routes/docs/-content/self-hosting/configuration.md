@@ -124,7 +124,13 @@ Files do not expire. The FileMaintenance schedule submits explicitly retired fil
 
 Conversation uploads use the same private bucket. PostgreSQL stores file metadata and conversation ownership, and authenticated downloads check current conversation permissions. Message parts and provider continuation media store file references. Attachment descriptors include verified byte sizes.
 
-Replacement retains deletion targets until object deletion succeeds. Keep database and object backups together, because restoring database references requires their matching objects.
+Published sandbox files use the same storage and permissions. Publication copies and verifies the bytes before returning a file ID. Files remain attached to the assistant message after the sandbox stops, and conversation deletion schedules cleanup.
+
+Let's rotate credentials by creating a key with the same bucket permissions, entering it at `/configure`, testing the round trip, and saving. Restart other replicas and verify uploads and downloads before revoking the old key. Keep the destination fields unchanged.
+
+Replacement retains deletion targets until object deletion succeeds. Because database references require matching objects, let's stop writers and maintenance runners for a coordinated PostgreSQL and object backup. Preserve the database encryption root separately. Restore both backups into the pinned destination before restarting the application. A database-only restore can reference deleted objects. Bucket versioning can preserve older bytes, with a separate retention policy. See [S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
+
+Storage failures are logged without file content or credentials. Repair settings at `/configure` and test the connection so durable purges can retry.
 
 ## Model providers
 

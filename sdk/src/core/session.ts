@@ -12,6 +12,7 @@ import {
   createChatThread,
   deleteChatThread,
   getChatAttachment,
+  getChatFile,
   getChatConfig,
   uploadChatFile,
   type UploadedChatFile,
@@ -209,6 +210,7 @@ export interface AstralBeamChatCore {
     filename: string
     mimeType: string
   }) => Promise<UploadedChatFile>
+  getFile: (fileId: string) => Promise<Blob>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -1395,6 +1397,11 @@ export function createAstralBeamChat(
         },
         options,
       )
+    },
+    getFile: async (fileId) => {
+      const thread = state.thread
+      if (!thread) throw new Error("Open a conversation before downloading files.")
+      return (await getChatFile({ threadId: thread.id, fileId }, await requestOptions())).blob()
     },
     getAttachment: async (messageId, partId) => {
       const thread = state.thread

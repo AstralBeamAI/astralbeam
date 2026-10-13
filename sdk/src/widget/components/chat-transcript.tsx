@@ -24,7 +24,7 @@ import { UserMessageBody } from "./user-message-body.tsx"
 interface ChatTranscriptProps {
   readOnly?: boolean | undefined
   messages: UIMessage[]
-  apiUrl: string
+  getFile?: ((id: string) => Promise<Blob>) | undefined
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_HEADLINE`. */
@@ -51,7 +51,7 @@ interface ChatTranscriptProps {
 export function ChatTranscript({
   readOnly = false,
   messages,
-  apiUrl,
+  getFile,
   emptySlot,
   emptyHeadline,
   emptyDescription,
@@ -154,7 +154,7 @@ export function ChatTranscript({
                               part={part}
                               messageId={message.id}
                               getAttachment={getAttachment}
-                              apiUrl={apiUrl}
+                              getFile={getFile}
                               widgets={widgets}
                               toolTitles={toolTitles}
                               activeSlots={activeSlots}

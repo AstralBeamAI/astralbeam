@@ -101,7 +101,7 @@ New attachments require the agent to allow them. Turning that setting off refuse
 
 Select a tested sandbox provider on the agent and the agent gains file and command tools. Each conversation gets its own isolated sandbox, so work in one conversation cannot be seen from another and nothing survives into the next one.
 
-Ask it to export the todos as CSV. Published files come back as short-lived download tickets rather than as bytes in the transcript, and the example's sandbox panel shows the commands, their exit codes, and the resulting downloads.
+Ask it to export the todos as CSV. Published files remain available in the conversation after the sandbox stops. The example's sandbox panel shows the commands, their exit codes, and the resulting downloads.
 
 ## Automated checks
 

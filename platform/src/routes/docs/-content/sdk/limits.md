@@ -47,7 +47,7 @@ A file rejected by the composer never reaches the agent. Server validation can r
 | Idle sandbox | 15 minutes, swept every minute | Destroyed. An active command does not prevent reclamation |
 | Live sandboxes | 25 per server process, shared across Organizations | An existing workspace is destroyed, including one used by an active run |
 | Published artifact | 10 MB | "Artifacts are limited to 10485760 bytes. Compress or split the file." |
-| Artifact download ticket | 15 minutes | `404`, "The download has expired. Ask the agent to publish the file again." |
+| Published artifact retention | Until conversation deletion | Downloads check current conversation access |
 | Text in the transcript | 20,000 characters of command output, 40,000 of a file read, 200,000 of a file write | clamped with the middle elided |
 
 These limits are enforced by the deployment and cannot be raised through SDK options.

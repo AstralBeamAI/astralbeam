@@ -40,15 +40,14 @@ export interface SandboxCommandRun {
   finished: boolean
 }
 
-/** One file the agent published for the user, with the ticket its download is authorized by. */
+/** One file the agent published for the user, with its durable stored reference. */
 export interface SandboxArtifact {
   toolCallId: string
   path: string
   label: string
   mimeType: string | undefined
   size: number | undefined
-  /** Capability the files endpoint accepts in its query; the whole download authorization. */
-  ticket: string | undefined
+  fileId: string | undefined
   published: boolean
 }
 

@@ -17,10 +17,10 @@ One principle everywhere: the dashboard grants, the chat endpoint enforces, and 
 
 ## Sandbox artifacts
 
-- Signed tickets authorize artifact downloads and bind them to the published bytes. No separate Bearer header is required.
-- The serving route re-reads, re-sniffs (magic bytes, never extensions), re-caps, and re-hashes the bytes at download time. Any change since publishing is refused.
+- Published files are copied and verified in private storage before the tool returns. Downloads require your token and current conversation access.
+- The download route verifies stored size and hash before returning any bytes. MIME types are sniffed at publication, never inferred from extensions.
 - Only sniffed raster images render inline. SVG can only ever be served as `text/plain`, and every response carries `nosniff` plus a frame-and-script-free CSP.
-- Tickets expire after 15 minutes. Downloads can fail sooner if the workspace is reclaimed or the file changes. Publishing does not make a durable copy.
+- Published files survive sandbox shutdown and retire when the conversation is deleted. Temporary working files remain inside the sandbox.
 
 ## What the SDK does not protect against
 

@@ -3,7 +3,7 @@ import { resolveHarnessCwd, type SandboxHandle } from "@tanstack/ai-sandbox"
 import { Clock, type Context, Effect, Result, Schema } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
-import { artifactContentDigest, detectSandboxArtifactMimeType } from "./artifacts"
+import { detectSandboxArtifactMimeType } from "./artifacts"
 import {
   CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -88,6 +88,7 @@ type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandbo
  * command and a timeout are ordinary results the agent can act on, and only a broken sandbox fails. */
 export function createChatSandboxTools(input: {
   readonly session: ChatSandboxSession
+  readonly publishArtifact: (bytes: Uint8Array) => Effect.Effect<string | undefined>
   /** The run's services, which each tool's Effect runs with. */
   readonly services: Context.Context<never>
 }): AnyServerTool[] {
@@ -293,19 +294,14 @@ export function createChatSandboxTools(input: {
         // Sniffed from content, never from the extension, so a renamed file cannot change how
         // the download route will serve it.
         const mimeType = detectSandboxArtifactMimeType(bytes)
-        const ticket = yield* session.mintArtifactTicket({
-          providerSandboxId: handle.id,
-          path: resolved.path,
-          mimeType,
-          size: bytes.byteLength,
-          sha256: yield* artifactContentDigest(bytes),
-        })
+        const fileId = yield* input.publishArtifact(bytes)
+        if (!fileId) return { refusal: "The file could not be published. Try again." }
         return {
           path: resolved.path,
           relativePath: resolved.relativePath,
           mimeType,
           size: bytes.byteLength,
-          ticket,
+          fileId,
         }
       }),
     ),

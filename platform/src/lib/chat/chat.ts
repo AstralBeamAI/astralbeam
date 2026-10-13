@@ -252,7 +252,14 @@ export class Chat extends Context.Service<
               .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
           : undefined
         const sandboxTools = session
-          ? createChatSandboxTools({ session, services: yield* Effect.context<never>() })
+          ? createChatSandboxTools({
+              session,
+              services: yield* Effect.context<never>(),
+              publishArtifact: (bytes) =>
+                threads
+                  .publishArtifact({ claim: managed.state.claim, bytes })
+                  .pipe(Effect.catch(() => Effect.succeed(undefined))),
+            })
           : []
         if (log && sandboxTools.length > 0) {
           yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)

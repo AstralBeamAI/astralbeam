@@ -13,11 +13,9 @@ export default defineConfig({
         ...clients.fetch,
         client: async (operation, ...args) => {
           const result = await clients.fetch.client(operation, ...args)
-          if (operation.operationId !== "getChatFile") {
-            result.implementation = result.implementation
-              .replaceAll("params?: ", "params: ")
-              .replace("options?: Parameters<", "options: Parameters<")
-          }
+          result.implementation = result.implementation
+            .replaceAll("params?: ", "params: ")
+            .replace("options?: Parameters<", "options: Parameters<")
           return result
         },
       }),
@@ -33,7 +31,7 @@ export default defineConfig({
           uploadChatFile: { mutator: mutator("astralBeamJwtFetch") },
           runChat: { mutator: mutator("astralBeamChatFetch") },
           resolveChatToolResult: { mutator: mutator("astralBeamChatFetch") },
-          getChatFile: { mutator: mutator("astralBeamFileFetch") },
+          getChatFile: { mutator: mutator("astralBeamChatFetch") },
           getThreadAttachment: { mutator: mutator("astralBeamResourceFetch") },
           getChatAttachment: { mutator: mutator("astralBeamChatFetch") },
         },

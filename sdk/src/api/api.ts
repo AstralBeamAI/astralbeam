@@ -11,7 +11,6 @@ export interface ApiRequestOptions extends RequestInit {
 export type ApiKeyOptions = ApiRequestOptions & { apiKey: string; astralBeamToken?: never }
 export type JwtOptions = ApiRequestOptions & { astralBeamToken: string; apiKey?: never }
 export type ApiOptions = ApiKeyOptions | JwtOptions
-export type FileOptions = ApiRequestOptions & { apiKey?: never; astralBeamToken?: never }
 
 export interface AstralBeamApiError extends Error {
   name: "AstralBeamApiError"
@@ -50,7 +49,7 @@ function isApiErrorBody(value: unknown, status: number): value is AstralBeamApiE
   )
 }
 
-async function apiResponse(path: string, options: ApiOptions | FileOptions): Promise<Response> {
+async function apiResponse(path: string, options: ApiOptions): Promise<Response> {
   const { apiUrl, apiKey, astralBeamToken, fetchClient = globalThis.fetch, ...init } = options
   const headers = new Headers()
   const entries =
@@ -104,12 +103,5 @@ export function astralBeamResourceFetch<_T>(path: string, options: ApiOptions): 
 }
 
 export function astralBeamChatFetch<_T>(path: string, options: JwtOptions): Promise<Response> {
-  return apiResponse(path, options)
-}
-
-export function astralBeamFileFetch<_T>(
-  path: string,
-  options: FileOptions = {},
-): Promise<Response> {
   return apiResponse(path, options)
 }

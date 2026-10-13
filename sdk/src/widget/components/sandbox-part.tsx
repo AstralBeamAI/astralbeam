@@ -5,12 +5,11 @@ import {
   TerminalWindowIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react"
-import type { MessagePart } from "@tanstack/ai-client"
-import type { ReactNode } from "react"
+import type { ChatToolCallPart } from "../../core/threads.ts"
+import { useCallback, type ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
 import {
   SANDBOX_LIST_FILES_TOOL,
-  SANDBOX_PUBLISH_ARTIFACT_TOOL,
   SANDBOX_READ_FILE_TOOL,
   SANDBOX_RUN_COMMAND_TOOL,
   SANDBOX_WRITE_FILE_TOOL,
@@ -19,27 +18,37 @@ import {
   describeSandboxCommandRun,
   readSandboxCommandRun,
   readSandboxFileWrite,
+  readSandboxArtifact,
   sandboxPathLabel,
   sandboxRefusal,
 } from "../../core/sandbox.ts"
 import { formatToolJson, isSettledToolCall } from "../lib/utils.ts"
-import { SandboxArtifactPart } from "./sandbox-artifact.tsx"
+import { SentAttachment } from "./user-message-body.tsx"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 import { SandboxCommandLog } from "./sandbox-command-log.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
-
-type ToolCallPart = Extract<MessagePart, { type: "tool-call" }>
 
 /**
  * A sandbox tool call in the transcript. These are the endpoint's own server-side tools, so unlike
  * a host tool the widget knows exactly what their input and output mean and can show the file it
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
-export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: string }) {
-  // Published artifacts have their own rendering: inline image or download row.
-  if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
-    return <SandboxArtifactPart part={part} apiUrl={apiUrl} />
-  }
+export function SandboxPart({
+  part,
+  getFile,
+  getAttachment,
+}: {
+  part: ChatToolCallPart
+  getFile?: ((id: string) => Promise<Blob>) | undefined
+  getAttachment: (messageId: string, partId: string) => Promise<Blob>
+}) {
+  const readFile = useCallback(
+    (messageId: string, fileId: string) => {
+      if (messageId) return getAttachment(messageId, fileId)
+      return getFile ? getFile(fileId) : Promise.reject(new Error("File unavailable"))
+    },
+    [getAttachment, getFile],
+  )
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)
   const running = !failed && !isSettledToolCall(part)
@@ -56,6 +65,27 @@ export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: stri
         {refusal ?? readSandboxToolError(part) ?? "The sandbox step did not finish."}
       </span>
     ) : undefined
+
+  const artifact = readSandboxArtifact(part)
+  if (artifact?.published && !failed) {
+    return (
+      <SentAttachment
+        expanded
+        messageId={part.artifactMessageId ?? ""}
+        getAttachment={readFile}
+        part={{
+          type: artifact.mimeType?.startsWith("image/") ? "image" : "document",
+          source: {
+            type: "url",
+            value: "",
+            mimeType: artifact.mimeType ?? "application/octet-stream",
+          },
+          metadata: { filename: artifact.path.split("/").at(-1), size: artifact.size },
+          savedAttachmentId: part.artifactPartId ?? artifact.fileId,
+        }}
+      />
+    )
+  }
 
   const command = readSandboxCommandRun(part)
   if (command) {
@@ -115,7 +145,7 @@ export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: stri
     )
   }
 
-  // The remaining two tools are reads, so the useful body is their output rather than their input.
+  // Reads and unfinished publications share the standard tool disclosure.
   const path = sandboxPathLabel(part)
   return (
     <ToolDisclosure
@@ -123,7 +153,12 @@ export function SandboxPart({ part, apiUrl }: { part: ToolCallPart; apiUrl: stri
       running={running}
       label={
         <>
-          {readSandboxVerb(part.name, running)} {path ? <Code>{path}</Code> : "the sandbox"}
+          {artifact
+            ? failed || refusal
+              ? "Could not share"
+              : "Sharing"
+            : readSandboxVerb(part.name, running)}{" "}
+          {path ? <Code>{path}</Code> : "the sandbox"}
         </>
       }
       detail={detail}
@@ -159,7 +194,7 @@ function readSandboxVerb(name: string, running: boolean): string {
 }
 
 /** A thrown sandbox tool stores its message as `{ error }`, the same shape a client failure uses. */
-function readSandboxToolError(part: ToolCallPart): string | undefined {
+function readSandboxToolError(part: ChatToolCallPart): string | undefined {
   const error = (part.output as { error?: unknown } | null | undefined)?.error
   return typeof error === "string" && error.length > 0 ? error : undefined
 }
@@ -168,7 +203,7 @@ function readSandboxToolError(part: ToolCallPart): string | undefined {
  * The body of a read or a listing. A file read shows its contents; a listing shows one entry per
  * line with directories marked, which is far easier to scan than the JSON array behind it.
  */
-function readSandboxOutputText(part: ToolCallPart): string {
+function readSandboxOutputText(part: ChatToolCallPart): string {
   const output = part.output as { content?: unknown; entries?: unknown } | null | undefined
   if (output == null) return ""
   if (typeof output.content === "string") return output.content

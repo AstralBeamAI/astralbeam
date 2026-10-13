@@ -30,7 +30,7 @@ interface AssistantPartProps {
   messageId: string
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   part: MessagePart
-  apiUrl: string
+  getFile?: ((id: string) => Promise<Blob>) | undefined
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
@@ -207,7 +207,7 @@ export function AssistantPart({
   messageId,
   getAttachment,
   part,
-  apiUrl,
+  getFile,
   widgets,
   toolTitles,
   activeSlots,
@@ -241,7 +241,7 @@ export function AssistantPart({
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
-          return <SandboxPart part={part} apiUrl={apiUrl} />
+          return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
         return (
           <ToolCallDisclosure part={part} title={title} failed={part.state === "error"} readOnly />
         )
@@ -265,7 +265,7 @@ export function AssistantPart({
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
       if (isSandboxTool(part.name)) {
-        return <SandboxPart part={part} apiUrl={apiUrl} />
+        return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
       }
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />

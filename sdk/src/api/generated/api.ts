@@ -4,7 +4,6 @@
 import { astralBeamApiFetch } from "../api.ts"
 import { astralBeamResourceFetch } from "../api.ts"
 import { astralBeamJwtFetch } from "../api.ts"
-import { astralBeamFileFetch } from "../api.ts"
 import { astralBeamChatFetch } from "../api.ts"
 export type AstralBeamApiErrorIssuesItem = {
   path: string
@@ -658,7 +657,9 @@ export type UploadChatFileBody = {
 }
 
 export type GetChatFileParams = {
-  ticket: string
+  threadId: string
+  fileId: string
+  filename?: string
 }
 
 export type GetChatConfigParams = {
@@ -1172,14 +1173,14 @@ export const getGetChatFileUrl = (params: GetChatFileParams) => {
 }
 
 /**
- * Use the signed ticket returned when chat publishes an artifact. No bearer token is required. Returns the original bytes with a content-sniffed Content-Type and Content-Disposition filename. Invalid or expired tickets, a missing sandbox, and rejected artifact checks return 404. Provider or file-read failures return 500.
+ * Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.
  * @summary Download a chat artifact
  */
 export const getChatFile = (
   params: GetChatFileParams,
-  options?: Parameters<typeof astralBeamFileFetch>[1],
+  options: Parameters<typeof astralBeamChatFetch>[1],
 ) => {
-  return astralBeamFileFetch<Blob>(getGetChatFileUrl(params), {
+  return astralBeamChatFetch<Blob>(getGetChatFileUrl(params), {
     ...options,
     method: "GET",
   })

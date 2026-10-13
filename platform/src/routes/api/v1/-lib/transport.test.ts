@@ -25,7 +25,11 @@ import {
   type MessageRecord,
   type ParticipantRecord,
 } from "@/lib/chat/threads/threads"
-import { ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
+import {
+  ChatThreadInvalid,
+  ChatThreadNotFound,
+  ChatIdentityNotSynchronized,
+} from "@/lib/chat/threads/errors"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
@@ -115,7 +119,7 @@ import {
   CHAT_RATE_LIMIT_MAX_REQUESTS,
 } from "@/lib/chat/constants"
 import { ChatAgentNotFound } from "@/lib/chat/errors"
-import { ChatArtifactUnavailable, ChatSandboxOperationFailed } from "@/lib/chat/sandbox/errors"
+import { ChatFileUnavailable } from "@/lib/chat/threads/errors"
 
 // Return queued driver results, not a second implementation of database filtering or constraints.
 function restTestDatabase(): EffectDatabase {
@@ -195,11 +199,7 @@ const restTestServices = Layer.mergeAll(
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
   Layer.succeed(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
-    read: ({ fileId }) =>
-      Effect.succeed({
-        bytes: new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
-        mimeType: fileId === restUserId ? "image/png" : "text/plain",
-      }),
+    read: (input) => restTestState.readFile(input) as never,
     hydrate: ({ messages }) => Effect.succeed([...messages]),
     attach: () => Effect.succeed(0),
   }),
@@ -209,7 +209,6 @@ const restTestServices = Layer.mergeAll(
   }),
   Layer.succeed(ChatSandboxes, {
     session: () => Effect.die("unused"),
-    readArtifact: (ticket) => restTestState.readFile(ticket) as never,
   }),
   Layer.succeed(Agents, {
     resolveForChat: () =>
@@ -386,6 +385,12 @@ afterAll(() => restWebHandler.dispose())
 
 beforeEach(() => {
   vi.resetAllMocks()
+  restTestState.readFile.mockImplementation(({ fileId }: { fileId: string }) =>
+    Effect.succeed({
+      bytes: new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
+      mimeType: fileId === restUserId ? "image/png" : "text/plain",
+    }),
+  )
   vi.stubEnv("DATABASE_ENCRYPTION_KEY", "rest-unit-test-key-not-for-deployment")
   Object.assign(restTestState, {
     rows: [],
@@ -809,6 +814,21 @@ describe("REST API through the Effect Fetch handler", () => {
       id: restOtherId,
       messageId: restUserId,
     })
+    for (const fileId of [restUserId, "invoice-123"]) {
+      restTestState.threadMessage.mockReturnValue(
+        Effect.succeed({
+          ...savedMessage,
+          payload: { parts: [{ id: "upload", type: "tool-result", output: { fileId } }] },
+        }),
+      )
+      restTestState.readFile.mockClear()
+      const artifact = await restRequest(
+        `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+        { headers },
+      )
+      expect(artifact.status).toBe(fileId === restUserId ? 200 : 404)
+      expect(restTestState.readFile).toHaveBeenCalledTimes(fileId === restUserId ? 1 : 0)
+    }
     restTestState.threadMessage.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
     const deniedDownload = await restRequest(
       `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
@@ -1129,50 +1149,39 @@ describe("REST API through the Effect Fetch handler", () => {
     }
   })
 
-  test("artifact tickets serve unchanged bytes and security headers without bearer auth", async () => {
-    const bytes = new TextEncoder().encode("A published report")
-    const ticket = "signed-ticket"
+  test("stored artifacts require current conversation access and retain safe download headers", async () => {
+    const query = { threadId: restOtherId, fileId: restUserId, filename: "report.txt" }
     restTestState.readFile.mockReturnValue(
-      Effect.succeed({ bytes, mimeType: "text/plain", path: "/workspace/report.txt" }),
+      Effect.succeed({
+        bytes: new TextEncoder().encode("A published report"),
+        mimeType: "text/plain",
+      }),
     )
-    const response = await sdkGetChatFile(
-      { ticket },
-      {
-        apiUrl: "http://localhost/api",
-        fetchClient: restSdkFetch,
-      },
-    )
-    expect(response.status).toBe(200)
+    const response = await sdkGetChatFile(query, {
+      apiUrl: "http://localhost/api",
+      astralBeamToken: "chat-token",
+      fetchClient: restSdkFetch,
+    })
     expect(await response.text()).toBe("A published report")
-    expect(response.headers.get("content-disposition")).toContain("report.txt")
+    expect(response.headers.get("content-disposition")).toContain('filename="report.txt"')
     expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
-    expect(response.headers.get("access-control-expose-headers")).toContain("Content-Disposition")
-    expect(restTestState.chat).not.toHaveBeenCalled()
-    expect(restTestState.verify).not.toHaveBeenCalled()
-    restTestState.readFile.mockReturnValue(
-      Effect.fail(new ChatArtifactUnavailable({ reason: "Changed" })),
-    )
-    const changed = await restRequest(`/chat/files?ticket=${ticket}`)
-    expect(changed.status).toBe(404)
-    expect(await changed.json()).toMatchObject({
-      detail: "The file changed since it was published.",
+    expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
+    restTestState.readFile.mockClear()
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+      headers: { Authorization: "Bearer chat-token" },
     })
-    const cause = Object.assign(new Error("private provider details"), {
-      name: "FileReadError",
-      code: "ENOENT",
-    })
-    restTestState.readFile.mockReturnValue(
-      Effect.die(new ChatSandboxOperationFailed({ timedOut: false, cause })),
-    )
-    const failed = await restRequest(`/chat/files?ticket=${ticket}`)
-    expect(failed.status).toBe(500)
-    expect(restTestState.logs).toHaveLength(1)
-    expect(restTestState.logs[0]).toContain('"operation":"getChatFile"')
-    expect(restTestState.logs[0]).toContain('"type":"ChatSandboxOperationFailed"')
-    expect(restTestState.logs[0]).toContain('"sqlstate":"ENOENT"')
-    expect(restTestState.logs[0]).not.toContain("private provider details")
-    expect(await failed.text()).not.toContain("private provider details")
+    expect(denied.status).toBe(404)
+    expect(restTestState.readFile).not.toHaveBeenCalled()
+    restTestState.thread.mockReturnValue(Effect.succeed(restThread))
+    for (const error of [new ChatThreadInvalid(), new ChatFileUnavailable()]) {
+      restTestState.readFile.mockReturnValue(Effect.fail(error))
+      const unavailable = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+        headers: { Authorization: "Bearer chat-token" },
+      })
+      expect(unavailable.status).toBe(error._tag === "ChatThreadInvalid" ? 404 : 503)
+    }
   })
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {

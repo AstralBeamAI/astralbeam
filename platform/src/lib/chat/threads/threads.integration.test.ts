@@ -152,6 +152,32 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
+    const thread = await create()
+    const { claim } = await admit(thread.id)
+    const report = "x".repeat(2 * 1024 * 1024)
+    const bytes = new TextEncoder().encode(report)
+    const fileId = await runtime.runPromise(service.publishArtifact({ claim: claim!, bytes }))
+    const [association] = await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))
+    expect(association).toMatchObject({ messageId: claim!.assistantMessageId, threadId: thread.id })
+    expect(association!.id).not.toBe(fileId)
+    const stored = await runtime.runPromise(
+      files.read({ scope: { ...scope, threadId: thread.id }, fileId }),
+    )
+    expect(new TextDecoder().decode(stored.bytes)).toBe(report)
+    await expect(
+      runtime.runPromise(files.read({ scope: { ...foreign, threadId: thread.id }, fileId })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    const empty = await create()
+    await expect(
+      runtime.runPromise(files.read({ scope: { ...scope, threadId: empty.id }, fileId })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 1 }))
+    const [retired] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
+    expect(retired!.status).toBe("purging")
+    expect(await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))).toEqual([])
+  })
+
   test("native evidence completes without response slots and survives a database reload", async () => {
     const thread = await create()
     const admitted = await admit(thread.id)
