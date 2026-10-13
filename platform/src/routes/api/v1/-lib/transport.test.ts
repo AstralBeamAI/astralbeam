@@ -25,7 +25,11 @@ import {
   type MessageRecord,
   type ParticipantRecord,
 } from "@/lib/chat/threads/threads"
-import { ChatThreadInvalid, ChatThreadNotFound, ChatIdentityNotSynchronized } from "@/lib/chat/threads/errors"
+import {
+  ChatThreadInvalid,
+  ChatThreadNotFound,
+  ChatIdentityNotSynchronized,
+} from "@/lib/chat/threads/errors"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
