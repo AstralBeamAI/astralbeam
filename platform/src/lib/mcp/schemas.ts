@@ -38,32 +38,52 @@ const McpManualClientSchema = Schema.Struct({
     client.tokenEndpointAuthMethod === "none" ? !client.clientSecret : !!client.clientSecret,
   ),
 )
-const McpAuthConfigSchema = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("none") }),
-  Schema.Struct({
-    kind: Schema.Literal("static_headers"),
-    headerNames: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(128))).check(
-      Schema.isMaxLength(16),
-    ),
+export const McpApplicationOriginSchema = Schema.String.check(
+  Schema.isMaxLength(2048),
+  Schema.makeFilter((value) => {
+    if (!URL.canParse(value)) return false
+    const url = new URL(value)
+    return (
+      value === url.origin &&
+      (url.protocol === "https:" ||
+        (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
+    )
   }),
-  Schema.Struct({
-    kind: Schema.Literal("oauth"),
-    profile: Schema.Literals(["standard", "google"]),
-    requestedScopes: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(512))).check(
-      Schema.isMaxLength(64),
-    ),
-    client: Schema.optionalKey(McpManualClientSchema),
-  }).check(Schema.makeFilter((config) => config.profile !== "google" || !!config.client)),
-])
+)
+const mcpAuthConfigSchema = <S extends Schema.Constraint>(clientSchema: S) =>
+  Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("none") }),
+    Schema.Struct({
+      kind: Schema.Literal("static_headers"),
+      headerNames: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(128))).check(
+        Schema.isMaxLength(16),
+      ),
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("oauth"),
+      profile: Schema.Literals(["standard", "google"]),
+      applicationOrigin: Schema.optionalKey(McpApplicationOriginSchema),
+      requestedScopes: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(512))).check(
+        Schema.isMaxLength(64),
+      ),
+      client: Schema.optionalKey(clientSchema),
+    }),
+  ])
+const McpAuthConfigSchema = mcpAuthConfigSchema(McpManualClientSchema).check(
+  Schema.makeFilter(
+    (config) => config.kind !== "oauth" || config.profile !== "google" || !!config.client,
+  ),
+)
 export type McpAuthConfig = typeof McpAuthConfigSchema.Type
 export const McpServerWriteSchema = Schema.Struct({
   endpointUrl: Schema.String.check(Schema.isMaxLength(2048)),
   authConfig: McpAuthConfigSchema,
 })
-export const McpServerEnvelopeSchema = Schema.Struct({
+export const McpStoredAuthConfigSchema = mcpAuthConfigSchema(Schema.String)
+export const McpClientEnvelopeSchema = Schema.Struct({
   organizationId: UuidV7Schema,
   id: UuidV7Schema,
-  authConfig: McpAuthConfigSchema,
+  client: McpManualClientSchema,
 })
 export const McpServerSummarySchema = Schema.Struct({
   organizationId: UuidV7Schema,
@@ -99,8 +119,9 @@ export const McpCredentialEnvelopeSchema = Schema.Struct({
   version: Schema.Literal(1),
   ...McpActorSchema.fields,
   id: UuidV7Schema,
-  serverId: UuidV7Schema,
+  mcpServerId: UuidV7Schema,
   lockVersion: LockVersionSchema,
+  refreshStartedAt: Schema.optionalKey(Schema.Number),
   credential: McpCredentialSchema,
 })
 export type McpCredentialEnvelope = typeof McpCredentialEnvelopeSchema.Type
@@ -108,6 +129,7 @@ export const McpAttemptEnvelopeSchema = Schema.Struct({
   attempt: McpAttemptReferenceSchema,
   actor: McpActorSchema,
   expectedVersion: LockVersionSchema,
+  origin: Schema.String,
   expiresAt: Schema.Number,
   status: Schema.Literals(["authorizing", "exchanging", "awaiting_completion"]),
   browserBindingHash: Schema.NullOr(Schema.String),
@@ -123,14 +145,14 @@ export type McpAttemptEnvelope = {
     K in keyof typeof McpAttemptEnvelopeSchema.Type
   ]: (typeof McpAttemptEnvelopeSchema.Type)[K]
 }
-export const McpConnectionWriteSchema = Schema.Struct({ serverId: UuidV7Schema })
+export const McpConnectionWriteSchema = Schema.Struct({ mcpServerId: UuidV7Schema })
 export const McpHeadersWriteSchema = Schema.Struct({
   lockVersion: LockVersionSchema,
   headers: Schema.Record(Schema.String, Schema.String),
 })
 export const McpConnectionSummarySchema = Schema.Struct({
   ...McpReferenceSchema.fields,
-  serverId: UuidV7Schema,
+  mcpServerId: UuidV7Schema,
   lockVersion: LockVersionSchema,
   authState: Schema.Literals(["disconnected", "connected", "reauthorization_required"]),
 })
@@ -138,7 +160,7 @@ export type McpConnectionSummary = typeof McpConnectionSummarySchema.Type
 export const McpToolPresentationSchema = Schema.Struct({
   name: Schema.String,
   title: Schema.String,
-  serverId: UuidV7Schema,
+  mcpServerId: UuidV7Schema,
   connectionId: UuidV7Schema,
   nativeToolName: Schema.String,
 })

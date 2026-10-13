@@ -51,7 +51,7 @@ export interface McpConnectionEncoded {
   /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
   id: string
   /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
-  server_id: string
+  mcp_server_id: string
   /** @minimum 0 */
   lock_version: number
   auth_state: McpConnectionEncodedAuthState
@@ -893,7 +893,7 @@ export type PersonalMcpGetCatalog200 = {
 
 export type PersonalMcpCreateConnectionBody = {
   /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
-  server_id: string
+  mcp_server_id: string
 }
 
 export type PersonalMcpSetHeadersBodyHeaders = { [key: string]: string }

@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm"
-import { Clock, Context, Effect, Layer } from "effect"
+import { Clock, Context, Effect, Layer, Schema } from "effect"
 import { Database } from "@/db/database"
 import { updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
@@ -13,6 +13,7 @@ import {
 } from "./errors.ts"
 import {
   MCP_REFRESH_LEASE_MS,
+  McpApplicationOriginSchema,
   type McpActor,
   type McpReference,
   type McpServerWriteSchema,
@@ -23,6 +24,7 @@ import {
   mcpConnectionOwner,
   mcpDecodeCredential,
   mcpDecodeServer,
+  mcpEncodeServer,
   mcpNewId,
   mcpReadConnections,
   mcpReadServers,
@@ -68,6 +70,12 @@ const makeMcpConnections = Effect.gen(function* () {
       catch: () => new McpInvalidConfiguration(),
     })
     if (!valid) return yield* new McpInvalidConfiguration()
+    if (
+      fields.authConfig.kind === "oauth" &&
+      fields.authConfig.applicationOrigin &&
+      !Schema.is(McpApplicationOriginSchema)(fields.authConfig.applicationOrigin)
+    )
+      return yield* new McpInvalidConfiguration()
     const id = yield* mcpNewId(db)
     yield* db
       .insert(mcpServer)
@@ -75,7 +83,7 @@ const makeMcpConnections = Effect.gen(function* () {
         organizationId,
         id,
         endpointUrl: new URL(fields.endpointUrl).href,
-        authConfig: { organizationId, id, authConfig: fields.authConfig },
+        authConfig: mcpEncodeServer({ organizationId, id, authConfig: fields.authConfig }),
       })
       .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpChanged() }))
     return (yield* listServers(organizationId)).find((entry) => entry.id === id)!
@@ -104,48 +112,61 @@ const makeMcpConnections = Effect.gen(function* () {
       (entry) => entry.id === input.reference.id,
     )
     if (!connection) return yield* new McpNotFound()
-    return { connection, server: yield* getServer(input.actor.organizationId, connection.serverId) }
+    return {
+      connection,
+      server: yield* getServer(input.actor.organizationId, connection.mcpServerId),
+    }
   })
   const catalog = Effect.fn("McpConnections.catalog")(function* (actor: McpActor) {
     const now = yield* Clock.currentTimeMillis
-    const connections = (yield* mcpReadConnections(db, actor)).map((row): McpConnectionSummary => ({
-      organizationId: row.organizationId,
-      tenantId: row.tenantId,
-      id: row.id,
-      serverId: row.serverId,
-      lockVersion: row.lockVersion,
-      authState:
-        row.storedCredentials === null
-          ? "disconnected"
-          : !mcpDecodeCredential(row) ||
-              (row.refreshStartedAt !== null &&
-                row.refreshStartedAt.getTime() + MCP_REFRESH_LEASE_MS <= now)
-            ? "reauthorization_required"
-            : "connected",
-    }))
+    const connections = (yield* mcpReadConnections(db, actor)).map((row): McpConnectionSummary => {
+      const credential = mcpDecodeCredential(row)
+      return {
+        organizationId: row.organizationId,
+        tenantId: row.tenantId,
+        id: row.id,
+        mcpServerId: row.mcpServerId,
+        lockVersion: row.lockVersion,
+        authState:
+          row.storedCredentials === null
+            ? "disconnected"
+            : !credential ||
+                (credential.refreshStartedAt !== undefined &&
+                  credential.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)
+              ? "reauthorization_required"
+              : "connected",
+      }
+    })
     return { servers: yield* listServers(actor.organizationId), connections }
   })
   const createConnection = Effect.fn("McpConnections.createConnection")(function* (
     actor: McpActor,
-    serverId: string,
+    mcpServerId: string,
   ) {
-    const server = yield* getServer(actor.organizationId, serverId)
+    const server = yield* getServer(actor.organizationId, mcpServerId)
     const id = yield* mcpNewId(db)
     yield* db
       .insert(mcpConnection)
       .values({
         ...actor,
         id,
-        serverId,
+        mcpServerId,
         credentials:
           server.authConfig.kind === "none"
-            ? { version: 1, ...actor, id, serverId, lockVersion: 0, credential: { kind: "none" } }
+            ? {
+                version: 1,
+                ...actor,
+                id,
+                mcpServerId,
+                lockVersion: 0,
+                credential: { kind: "none" },
+              }
             : null,
       })
       .onConflictDoNothing()
       .pipe(Effect.orDie)
     const connection = (yield* catalog(actor)).connections.find(
-      (entry) => entry.serverId === serverId,
+      (entry) => entry.mcpServerId === mcpServerId,
     )!
     if (server.authConfig.kind === "none" && connection.authState === "disconnected") {
       yield* updateWithOptimisticLock({
@@ -159,11 +180,10 @@ const makeMcpConnections = Effect.gen(function* () {
             version: 1,
             ...actor,
             id: connection.id,
-            serverId,
+            mcpServerId,
             lockVersion: connection.lockVersion + 1,
             credential: { kind: "none" },
           },
-          refreshStartedAt: null,
         },
       }).pipe(
         mapDatabaseErrors(),
@@ -202,11 +222,10 @@ const makeMcpConnections = Effect.gen(function* () {
           version: 1,
           ...input.actor,
           id: connection.id,
-          serverId: connection.serverId,
+          mcpServerId: connection.mcpServerId,
           lockVersion: input.lockVersion + 1,
           credential: { kind: "static_headers", headers: input.headers },
         },
-        refreshStartedAt: null,
       },
     }).pipe(
       mapDatabaseErrors(),
@@ -217,15 +236,23 @@ const makeMcpConnections = Effect.gen(function* () {
     actor: McpActor
     reference: McpReference
   }) {
-    yield* db
+    const cleared = yield* db
       .update(mcpConnection)
       .set({
         credentials: null,
-        refreshStartedAt: null,
         lockVersion: sql`${mcpConnection.lockVersion} + 1`,
       })
-      .where(and(mcpConnectionOwner(input.actor), eq(mcpConnection.id, input.reference.id)))
+      .where(
+        and(
+          mcpConnectionOwner(input.actor),
+          eq(mcpConnection.id, input.reference.id),
+          eq(mcpConnection.organizationId, input.reference.organizationId),
+          eq(mcpConnection.tenantId, input.reference.tenantId),
+        ),
+      )
+      .returning({ id: mcpConnection.id })
       .pipe(Effect.orDie)
+    if (!cleared.length) return yield* new McpNotFound()
   })
   const removeConnection = Effect.fn("McpConnections.removeConnection")(function* (input: {
     actor: McpActor

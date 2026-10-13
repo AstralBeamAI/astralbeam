@@ -16,6 +16,8 @@ export async function startMcpFixture() {
     refreshes: 0,
     calls: 0,
     refreshError: "",
+    gatewayError: false,
+    authorizationError: "",
     disconnectResponse: false,
     tokenGate: null as (() => Promise<void>) | null,
     tokenRequests: 0,
@@ -67,8 +69,21 @@ export async function startMcpFixture() {
       if (path === "/token") {
         const fields = new URLSearchParams(text)
         state.tokenRequests++
+        if (state.authorizationError && fields.get("grant_type") === "authorization_code") {
+          response.statusCode = 400
+          return response.end(
+            JSON.stringify({
+              error: state.authorizationError,
+              error_description: "private-provider-description",
+            }),
+          )
+        }
         if (fields.get("grant_type") === "refresh_token") {
           state.refreshes++
+          if (state.gatewayError) {
+            response.statusCode = 502
+            return response.end("Gateway lost the redeemed token response")
+          }
           if (state.disconnectResponse) return response.destroy()
           if (state.refreshError) {
             response.statusCode = 400

@@ -257,19 +257,6 @@ export class Chat extends Context.Service<
               })
               .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
           : undefined
-        const sandboxTools = session
-          ? createChatSandboxTools({
-              session,
-              services: yield* Effect.context<never>(),
-              publishArtifact: (bytes) =>
-                threads
-                  .publishArtifact({ claim: managed.state.claim, bytes })
-                  .pipe(Effect.catch(() => Effect.succeed(undefined))),
-            })
-          : []
-        if (log && sandboxTools.length > 0) {
-          yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
-        }
         const systemPrompts = [
           CHAT_SYSTEM_PROMPT,
           ...(unknownOutcome
@@ -278,9 +265,7 @@ export class Chat extends Context.Service<
               ]
             : []),
           ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
-          ...(sandboxTools.length > 0
-            ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
-            : []),
+          ...(session ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT] : []),
           agent.systemPrompt,
         ]
         const services = yield* Effect.context<never>()
@@ -302,6 +287,19 @@ export class Chat extends Context.Service<
             const mcp = unknownOutcome
               ? { tools: [], presentation: [], unavailable: [] }
               : yield* mcpTools.acquire(input.managed.claim.scope)
+            const sandboxTools = session
+              ? createChatSandboxTools({
+                  session,
+                  services,
+                  publishArtifact: (bytes) =>
+                    threads
+                      .publishArtifact({ claim: managed.state.claim, bytes })
+                      .pipe(Effect.catch(() => Effect.succeed(undefined))),
+                })
+              : []
+            if (log && sandboxTools.length > 0) {
+              yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
+            }
             const tools = unknownOutcome
               ? webTools
               : [

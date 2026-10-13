@@ -13,8 +13,8 @@ import {
 import { runMcpAuthorization } from "./mcp-authorization.ts"
 
 export type McpManagementOperation =
-  | { action: "connect"; serverId: string }
-  | { action: "headers"; serverId: string; headers: Record<string, string> }
+  | { action: "connect"; mcpServerId: string }
+  | { action: "headers"; mcpServerId: string; headers: Record<string, string> }
   | { action: "disconnect" | "delete_connection" | "test"; id: string }
 export type McpCatalog = Awaited<ReturnType<typeof personalMcpGetCatalog>>
 export function loadMcpCatalog(options: JwtOptions): Promise<McpCatalog> {
@@ -23,10 +23,10 @@ export function loadMcpCatalog(options: JwtOptions): Promise<McpCatalog> {
 export async function manageMcp(operation: McpManagementOperation, options: JwtOptions) {
   switch (operation.action) {
     case "connect":
-      return personalMcpCreateConnection({ server_id: operation.serverId }, options)
+      return personalMcpCreateConnection({ mcp_server_id: operation.mcpServerId }, options)
     case "headers": {
       const connection = await personalMcpCreateConnection(
-        { server_id: operation.serverId },
+        { mcp_server_id: operation.mcpServerId },
         options,
       )
       return personalMcpSetHeaders(
@@ -44,15 +44,19 @@ export async function manageMcp(operation: McpManagementOperation, options: JwtO
   }
 }
 export async function connectMcpAccount(
-  input: { serverId: string; id?: string },
+  input: { mcpServerId: string; id?: string },
   requestOptions: () => Promise<JwtOptions>,
 ) {
   await runMcpAuthorization({
     start: async () => {
       const id =
         input.id ??
-        (await personalMcpCreateConnection({ server_id: input.serverId }, await requestOptions()))
-          .id
+        (
+          await personalMcpCreateConnection(
+            { mcp_server_id: input.mcpServerId },
+            await requestOptions(),
+          )
+        ).id
       const response = await personalMcpAuthorizeConnection(id, await requestOptions())
       return {
         popupUrl: response.popup_url,

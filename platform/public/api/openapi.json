@@ -10413,14 +10413,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "server_id": {
+                  "mcp_server_id": {
                     "type": "string",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
                     "format": "uuid"
                   }
                 },
                 "required": [
-                  "server_id"
+                  "mcp_server_id"
                 ],
                 "additionalProperties": false
               }
@@ -12676,7 +12676,7 @@
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
           },
-          "server_id": {
+          "mcp_server_id": {
             "type": "string",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
             "format": "uuid"
@@ -12698,7 +12698,7 @@
           "organization_id",
           "tenant_id",
           "id",
-          "server_id",
+          "mcp_server_id",
           "lock_version",
           "auth_state"
         ],

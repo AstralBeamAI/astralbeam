@@ -14,7 +14,7 @@ import {
 const mcpWireKeys = {
   organizationId: "organization_id",
   tenantId: "tenant_id",
-  serverId: "server_id",
+  mcpServerId: "mcp_server_id",
   connectionId: "connection_id",
   endpointUrl: "endpoint_url",
   authKind: "auth_kind",
@@ -121,7 +121,10 @@ export function personalMcpHandlers(api: typeof ApiV1) {
         .handle(
           "createConnection",
           Effect.fn("mcpCreateConnection")(function* ({ request, payload }) {
-            return yield* connections.createConnection(yield* actorFor(request), payload.serverId)
+            return yield* connections.createConnection(
+              yield* actorFor(request),
+              payload.mcpServerId,
+            )
           }),
         )
         .handle(
@@ -153,7 +156,10 @@ export function personalMcpHandlers(api: typeof ApiV1) {
         .handle(
           "authorizeConnection",
           Effect.fn("mcpAuthorizeConnection")(function* ({ request, params }) {
-            return yield* authorization.start(yield* accessFor(request, params.id))
+            return yield* authorization.start({
+              ...(yield* accessFor(request, params.id)),
+              origin: request.headers.origin ?? "",
+            })
           }),
         )
         .handle(

@@ -6,7 +6,7 @@ vi.mock("../network.server.ts", async (original) => ({
   mcpGuardedFetch: (_dispatcher: unknown, input: string | URL | Request, init?: RequestInit) =>
     mcpFixtureFetch.fetch(input, init),
 }))
-import { McpTools, mcpToolAlias } from "./tools.ts"
+import { McpTools } from "./tools.ts"
 import { McpConnections } from "../mcp.server.ts"
 import { McpAuthorization } from "../authorization/authorization.ts"
 import { startMcpFixture } from "../testing/fixture.ts"
@@ -19,7 +19,6 @@ const mcpToolTestActor: McpActor = {
 const mcpToolTestConnection = {
   ...mcpToolTestActor,
   id: "019a0000-0000-7000-8000-000000000003",
-  name: "Account",
   authState: "connected",
   lockVersion: 0,
 }
@@ -35,7 +34,7 @@ afterEach(async () => {
 })
 async function withMcpTools<A>(
   use: (tools: typeof McpTools.Service) => Effect.Effect<A, unknown, Scope.Scope>,
-  getCredential: (input: { expectedVersion?: number }) => McpCredential | null = () => null,
+  getCredential: (input: { expectedVersion?: number }) => McpCredential = () => ({ kind: "none" }),
   authConfig: McpAuthConfig = { kind: "none" },
   catalog = [mcpToolTestConnection],
 ) {
@@ -111,7 +110,7 @@ describe("request-oriented MCP tools", () => {
         kind: "oauth",
         clientInformation: {},
         tokens: {
-          access_token: ++reads <= 2 ? "old-token" : "replacement-token",
+          access_token: ++reads === 1 ? "old-token" : "replacement-token",
           token_type: "Bearer",
         },
         expiresAt: null,
@@ -131,7 +130,6 @@ describe("request-oriented MCP tools", () => {
           expect(set.tools).toHaveLength(1)
           const tool = set.tools[0]!
           expect(tool.name).toHaveLength(61)
-          expect(tool.name).toBe(mcpToolAlias(mcpToolTestConnection.id, "lookup"))
           const schema = tool.inputSchema as {
             "~standard": { validate: (input: unknown) => unknown }
           }

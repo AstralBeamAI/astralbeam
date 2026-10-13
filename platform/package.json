@@ -82,6 +82,7 @@
     "drizzle-orm": "^1.0.0-rc.5",
     "effect": "^4.0.4",
     "fflate": "^0.8.3",
+    "ipaddr.js": "2.5.0",
     "jose": "^6.2.12",
     "minisearch": "^7.2.0",
     "nodemailer": "^10.1.1",

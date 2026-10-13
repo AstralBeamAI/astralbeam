@@ -38,6 +38,9 @@ export function McpServerForm({
                 }
               : {
                   kind: "oauth",
+                  ...(fields.get("applicationOrigin")
+                    ? { applicationOrigin: fields.get("applicationOrigin") as string }
+                    : {}),
                   profile: profile === "google" ? "google" : "standard",
                   requestedScopes: ((fields.get("scopes") as string | null) ?? "")
                     .split(/\s+/)
@@ -106,6 +109,17 @@ export function McpServerForm({
               <option value="standard">Standard</option>
               <option value="google">Google</option>
             </NativeSelect>
+            <Label htmlFor="mcp-application-origin">Application origin, optional</Label>
+            <Input
+              id="mcp-application-origin"
+              name="applicationOrigin"
+              type="url"
+              placeholder="https://app.example.com"
+            />
+            <p className="text-sm text-muted-foreground">
+              Allow OAuth from your embedded application&apos;s origin. The dashboard origin is
+              always allowed.
+            </p>
             <Label htmlFor="mcp-scopes">Requested scopes, optional</Label>
             <Input id="mcp-scopes" name="scopes" />
             <label className="flex items-center gap-2 text-sm">

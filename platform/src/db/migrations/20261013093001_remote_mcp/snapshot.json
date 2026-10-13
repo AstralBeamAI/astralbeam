@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "89b6c9a0-9004-4ddb-8f31-ce0591e91720",
+  "id": "f09eb811-91ad-4d24-ae6f-7e5bb43da625",
   "prevIds": [
     "97f5a334-d163-49be-b8a4-7905c954cc0b"
   ],
@@ -2129,7 +2129,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "server_id",
+      "name": "mcp_server_id",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
@@ -2156,19 +2156,6 @@
       "generated": null,
       "identity": null,
       "name": "lock_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "refresh_started_at",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
@@ -2239,7 +2226,7 @@
       "table": "mcp_server"
     },
     {
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -5372,7 +5359,7 @@
       "nameExplicit": false,
       "columns": [
         "organization_id",
-        "server_id"
+        "mcp_server_id"
       ],
       "schemaTo": "public",
       "tableTo": "mcp_server",
@@ -5382,7 +5369,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "mcp_connection_FsiUkbB75BnC_fkey",
+      "name": "mcp_connection_DGP2PG7HfgOP_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "mcp_connection"
@@ -5948,7 +5935,7 @@
         "organization_id",
         "tenant_id",
         "tenant_user_id",
-        "server_id"
+        "mcp_server_id"
       ],
       "nullsNotDistinct": false,
       "name": "mcp_connection_owner_server_uidx",

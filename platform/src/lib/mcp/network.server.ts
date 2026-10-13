@@ -1,46 +1,14 @@
 import { lookup } from "node:dns/promises"
-import { BlockList, isIP } from "node:net"
+import { isIP } from "node:net"
+import ipaddr from "ipaddr.js"
 import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici"
 import { MCP_MAX_METADATA_BYTES, MCP_MAX_RESULT_BYTES } from "./schemas.ts"
 
-const mcpBlockedAddresses = new BlockList()
-for (const [network, prefix] of [
-  ["0.0.0.0", 8],
-  ["10.0.0.0", 8],
-  ["100.64.0.0", 10],
-  ["127.0.0.0", 8],
-  ["169.254.0.0", 16],
-  ["172.16.0.0", 12],
-  ["192.0.0.0", 24],
-  ["192.0.2.0", 24],
-  ["192.168.0.0", 16],
-  ["192.88.99.0", 24],
-  ["198.18.0.0", 15],
-  ["198.51.100.0", 24],
-  ["203.0.113.0", 24],
-  ["224.0.0.0", 3],
-] as const)
-  mcpBlockedAddresses.addSubnet(network, prefix, "ipv4")
-for (const [network, prefix] of [
-  ["::", 96],
-  ["64:ff9b::", 96],
-  ["64:ff9b:1::", 48],
-  ["100::", 64],
-  ["2001::", 23],
-  ["2001:db8::", 32],
-  ["2002::", 16],
-  ["fc00::", 7],
-  ["fe80::", 10],
-  ["ff00::", 8],
-] as const)
-  mcpBlockedAddresses.addSubnet(network, prefix, "ipv6")
-
 export function mcpAddressIsPublic(address: string): boolean {
-  const family = isIP(address)
   return (
-    family !== 0 &&
-    (family !== 6 || /^2[0-9a-f]{3}:/i.test(address)) &&
-    !mcpBlockedAddresses.check(address, family === 6 ? "ipv6" : "ipv4")
+    isIP(address) !== 0 &&
+    (!address.includes(":") || /^2[0-9a-f]{3}:/i.test(address)) &&
+    ipaddr.parse(address).range() === "unicast"
   )
 }
 

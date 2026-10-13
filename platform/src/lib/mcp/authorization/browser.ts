@@ -2,7 +2,11 @@ import { randomBytes } from "node:crypto"
 import { Effect, Schema } from "effect"
 import { Config } from "@/lib/config/config"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
-import { McpAttemptReferenceSchema, type McpAttemptReference } from "../schemas.ts"
+import {
+  McpApplicationOriginSchema,
+  McpAttemptReferenceSchema,
+  type McpAttemptReference,
+} from "../schemas.ts"
 import { McpAuthorization, mcpAttemptLocator } from "./authorization.ts"
 import { mcpClientMetadata } from "./provider.ts"
 
@@ -65,17 +69,7 @@ export const handleMcpBrowserRequest = Effect.gen(function* () {
   if (url.pathname.endsWith("/connect")) {
     const reference = mcpPopupReference(url)
     const origin = url.searchParams.get("origin")
-    let validOrigin = false
-    try {
-      const parsed = new URL(origin ?? "")
-      validOrigin =
-        parsed.origin === origin &&
-        (parsed.protocol === "https:" ||
-          (parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname)))
-    } catch {
-      validOrigin = false
-    }
-    if (!reference || !validOrigin)
+    if (!reference || !Schema.is(McpApplicationOriginSchema)(origin))
       return new Response("Invalid authorization request", { status: 400 })
     const challenge = randomBytes(32).toString("base64url")
     const secure = new URL(baseUrl).protocol === "https:" ? "; Secure" : ""
@@ -91,12 +85,14 @@ export const handleMcpBrowserRequest = Effect.gen(function* () {
     const reference = mcpPopupReference(url)
     const cookie = reference && mcpBrowserCookie(request, reference)
     if (!reference || !cookie) return new Response("Authorization required", { status: 403 })
-    return yield* authority.browserRedirect({ reference, browserBinding: cookie.challenge }).pipe(
-      Effect.map((destination) =>
-        Response.json({ url: destination }, { headers: { "Cache-Control": "no-store" } }),
-      ),
-      Effect.catch(() => Effect.succeed(new Response("Authorization pending", { status: 409 }))),
-    )
+    return yield* authority
+      .browserRedirect({ reference, browserBinding: cookie.challenge, origin: cookie.origin })
+      .pipe(
+        Effect.map((destination) =>
+          Response.json({ url: destination }, { headers: { "Cache-Control": "no-store" } }),
+        ),
+        Effect.catch(() => Effect.succeed(new Response("Authorization pending", { status: 409 }))),
+      )
   }
   if (url.pathname.endsWith("/callback")) {
     const reference = mcpAttemptLocator(url.searchParams.get("state") ?? "")
@@ -104,7 +100,11 @@ export const handleMcpBrowserRequest = Effect.gen(function* () {
     if (!reference || !cookie)
       return new Response("Authorization browser did not match", { status: 403 })
     return yield* authority
-      .callback({ params: url.searchParams, browserBinding: cookie.challenge })
+      .callback({
+        params: url.searchParams,
+        browserBinding: cookie.challenge,
+        origin: cookie.origin,
+      })
       .pipe(
         Effect.map((attempt) =>
           mcpPopupHtml(

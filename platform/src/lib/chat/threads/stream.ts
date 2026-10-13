@@ -118,7 +118,7 @@ function managedToolPart(
         ? {
             source: "mcp",
             title: tool.metadata.title,
-            serverId: tool.metadata.serverId,
+            mcpServerId: tool.metadata.mcpServerId,
             connectionId: tool.metadata.connectionId,
             nativeToolName: tool.metadata.nativeToolName,
             inputSchema: tool.metadata.originalInputSchema,

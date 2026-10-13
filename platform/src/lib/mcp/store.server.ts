@@ -1,14 +1,16 @@
 import { and, eq, sql } from "drizzle-orm"
-import { Effect, Result } from "effect"
+import { Effect, Result, Schema } from "effect"
 import type { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
-import { decryptDatabaseValue } from "@/db/lib/encryption"
+import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
 import { mcpConnection, mcpServer } from "@/db/schema/mcp"
 import {
   McpCredentialEnvelopeSchema,
-  McpServerEnvelopeSchema,
+  McpStoredAuthConfigSchema,
+  McpClientEnvelopeSchema,
   mcpActorEquals,
   type McpActor,
+  type McpAuthConfig,
 } from "./schemas.ts"
 
 export function mcpConnectionOwner(actor: McpActor) {
@@ -34,26 +36,55 @@ export const mcpReadServers = Effect.fnUntraced(function* (
       organizationId: mcpServer.organizationId,
       id: mcpServer.id,
       endpointUrl: mcpServer.endpointUrl,
-      storedConfig: sql<string>`${mcpServer.authConfig}::text`,
+      storedConfig: sql<unknown>`${mcpServer.authConfig}`,
     })
     .from(mcpServer)
     .where(eq(mcpServer.organizationId, organizationId))
     .orderBy(mcpServer.id)
     .pipe(Effect.orDie)
 })
-export function mcpDecodeServer(row: Effect.Success<ReturnType<typeof mcpReadServers>>[number]) {
-  const decoded = decryptDatabaseValue({
-    storedValue: row.storedConfig,
-    schema: McpServerEnvelopeSchema,
+export function mcpEncodeServer(row: {
+  organizationId: string
+  id: string
+  authConfig: McpAuthConfig
+}): typeof McpStoredAuthConfigSchema.Type {
+  if (row.authConfig.kind !== "oauth") return row.authConfig
+  const { client, ...authConfig } = row.authConfig
+  return {
+    ...authConfig,
+    ...(client
+      ? {
+          client: Result.getOrThrow(
+            encryptDatabaseValue({
+              value: { organizationId: row.organizationId, id: row.id, client },
+              schema: McpClientEnvelopeSchema,
+              keyring: getDatabaseEncryptionKeyring(),
+            }),
+          ),
+        }
+      : {}),
+  }
+}
+export function mcpDecodeServer(
+  row: Effect.Success<ReturnType<typeof mcpReadServers>>[number],
+): McpAuthConfig | null {
+  const decoded = Schema.decodeUnknownResult(McpStoredAuthConfigSchema, {
+    onExcessProperty: "error",
+  })(row.storedConfig)
+  if (Result.isFailure(decoded)) return null
+  if (decoded.success.kind !== "oauth") return decoded.success
+  const { client, ...authConfig } = decoded.success
+  if (!client) return authConfig.profile === "google" ? null : authConfig
+  const decrypted = decryptDatabaseValue({
+    storedValue: client,
+    schema: McpClientEnvelopeSchema,
     keyring: getDatabaseEncryptionKeyring(),
   })
-  if (
-    Result.isFailure(decoded) ||
-    decoded.success.value.organizationId !== row.organizationId ||
-    decoded.success.value.id !== row.id
-  )
-    return null
-  return decoded.success.value.authConfig
+  return Result.isSuccess(decrypted) &&
+    decrypted.success.value.organizationId === row.organizationId &&
+    decrypted.success.value.id === row.id
+    ? { ...authConfig, client: decrypted.success.value.client }
+    : null
 }
 export const mcpReadConnections = Effect.fnUntraced(function* (
   db: Pick<typeof Database.Service, "select">,
@@ -65,9 +96,8 @@ export const mcpReadConnections = Effect.fnUntraced(function* (
       tenantId: mcpConnection.tenantId,
       id: mcpConnection.id,
       tenantUserId: mcpConnection.tenantUserId,
-      serverId: mcpConnection.serverId,
+      mcpServerId: mcpConnection.mcpServerId,
       lockVersion: mcpConnection.lockVersion,
-      refreshStartedAt: mcpConnection.refreshStartedAt,
       storedCredentials: sql<string | null>`${mcpConnection.credentials}::text`,
     })
     .from(mcpConnection)
@@ -86,7 +116,7 @@ export function mcpDecodeCredential(row: McpStoredConnection) {
   const envelope = decoded.success.value
   return mcpActorEquals(envelope, row) &&
     envelope.id === row.id &&
-    envelope.serverId === row.serverId &&
+    envelope.mcpServerId === row.mcpServerId &&
     envelope.lockVersion === row.lockVersion
     ? envelope
     : null

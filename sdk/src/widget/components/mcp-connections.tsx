@@ -65,11 +65,11 @@ export function McpConnectionsPanel({
   )
   if (!identity) return null
   const busy = mutation.isPending || connecting !== null
-  const connect = async (serverId: string, id?: string) => {
+  const connect = async (mcpServerId: string, id?: string) => {
     setNotice(null)
-    setConnecting(serverId)
+    setConnecting(mcpServerId)
     try {
-      await chat.connectMcpAccount({ serverId, ...(id ? { id } : {}) })
+      await chat.connectMcpAccount({ mcpServerId, ...(id ? { id } : {}) })
       await catalog.refetch()
       setNotice({ message: "Account connected.", error: false })
     } catch (error) {
@@ -130,7 +130,9 @@ export function McpConnectionsPanel({
             </p>
           )}
           {catalog.data?.servers.map((server) => {
-            const account = catalog.data.connections.find((entry) => entry.server_id === server.id)
+            const account = catalog.data.connections.find(
+              (entry) => entry.mcp_server_id === server.id,
+            )
             const connected = account?.auth_state === "connected"
             return (
               <article key={server.id} data-slot="mcp-account" className="space-y-2 border p-3">
@@ -156,7 +158,7 @@ export function McpConnectionsPanel({
                       const fields = new FormData(event.currentTarget)
                       mutation.mutate({
                         action: "headers",
-                        serverId: server.id,
+                        mcpServerId: server.id,
                         headers: Object.fromEntries(
                           server.header_names.map((name) => [name, fields.get(name) as string]),
                         ),
@@ -209,7 +211,7 @@ export function McpConnectionsPanel({
                             ? void connect(server.id, account?.id)
                             : server.auth_kind === "static_headers"
                               ? setHeadersFor(server.id)
-                              : mutation.mutate({ action: "connect", serverId: server.id })
+                              : mutation.mutate({ action: "connect", mcpServerId: server.id })
                         }
                       >
                         {connecting === server.id

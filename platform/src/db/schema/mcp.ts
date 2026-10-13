@@ -3,12 +3,12 @@ import {
   deferrableForeignKey,
   encryptedJson,
   lockVersion,
+  schemaJsonb,
   timestamps,
-  timestampWithTimeZone,
   uuidV7,
 } from "../lib/columns.ts"
 import { organization, tenantUser } from "./organizations.ts"
-import { McpCredentialEnvelopeSchema, McpServerEnvelopeSchema } from "../../lib/mcp/schemas.ts"
+import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "../../lib/mcp/schemas.ts"
 
 export const mcpServer = snakeCase.table(
   "mcp_server",
@@ -16,7 +16,7 @@ export const mcpServer = snakeCase.table(
     organizationId: uuid().notNull(),
     id: uuidV7(),
     endpointUrl: text().notNull(),
-    authConfig: encryptedJson({ schema: McpServerEnvelopeSchema }).notNull(),
+    authConfig: schemaJsonb(McpStoredAuthConfigSchema).notNull(),
     ...timestamps(),
   },
   (t) => [
@@ -35,10 +35,9 @@ export const mcpConnection = snakeCase.table(
     tenantId: uuid().notNull(),
     id: uuidV7(),
     tenantUserId: uuid().notNull(),
-    serverId: uuid().notNull(),
+    mcpServerId: uuid().notNull(),
     credentials: encryptedJson({ schema: McpCredentialEnvelopeSchema }),
     lockVersion: lockVersion(),
-    refreshStartedAt: timestampWithTimeZone(),
     ...timestamps(),
   },
   (t) => [
@@ -47,14 +46,14 @@ export const mcpConnection = snakeCase.table(
       t.organizationId,
       t.tenantId,
       t.tenantUserId,
-      t.serverId,
+      t.mcpServerId,
     ),
     deferrableForeignKey({
       columns: [t.organizationId, t.tenantId, t.tenantUserId],
       foreignColumns: [tenantUser.organizationId, tenantUser.tenantId, tenantUser.id],
     }).onDelete("cascade"),
     deferrableForeignKey({
-      columns: [t.organizationId, t.serverId],
+      columns: [t.organizationId, t.mcpServerId],
       foreignColumns: [mcpServer.organizationId, mcpServer.id],
     }).onDelete("cascade"),
   ],

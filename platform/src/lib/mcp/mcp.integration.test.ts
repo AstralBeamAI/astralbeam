@@ -139,7 +139,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       return { server, reference }
     }
     async function authorize(reference: McpReference) {
-      const started = await authority((service) => service.start({ actor, reference }))
+      const started = await authority((service) =>
+        service.start({ actor, reference, origin: mcpIntegration.baseUrl }),
+      )
       const [entry] = await db
         .select()
         .from(cacheEntry)
@@ -159,7 +161,11 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(entry!.value).not.toContain(payload.verifier)
       const challenge = "b".repeat(43)
       await authority((service) =>
-        service.bindBrowser({ actor, reference: started.attempt, challenge }),
+        service.bindBrowser({
+          actor,
+          reference: started.attempt,
+          challenge,
+        }),
       )
       return {
         started,
@@ -172,12 +178,23 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         }),
       }
     }
-    async function connectedOAuth() {
-      const created = await createOAuth()
-      const flow = await authorize(created.reference)
-      await authority((service) =>
-        service.callback({ params: flow.params, browserBinding: flow.challenge }),
+    function callback(
+      flow: Awaited<ReturnType<typeof authorize>>,
+      overrides: Partial<{ params: URLSearchParams; browserBinding: string; origin: string }> = {},
+    ) {
+      return authority((service) =>
+        service.callback({
+          params: flow.params,
+          browserBinding: flow.challenge,
+          origin: mcpIntegration.baseUrl,
+          ...overrides,
+        }),
       )
+    }
+    async function connectedOAuth(manual = false) {
+      const created = await createOAuth(false, manual)
+      const flow = await authorize(created.reference)
+      await callback(flow)
       await authority((service) => service.complete({ actor, reference: flow.started.attempt }))
       return created
     }
@@ -203,47 +220,46 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
       expect(url.searchParams.get("scope")).toBe("read")
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
-      await authority((service) =>
-        service.callback({ params: flow.params, browserBinding: flow.challenge }),
-      )
+      await callback(flow)
       await authority((service) => service.complete({ actor, reference: flow.started.attempt }))
       expect(
         Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
       ).toMatchObject({ tokens: { access_token: "access-0", refresh_token: "rotating-refresh" } })
+      const {
+        rows: [stored],
+      } = await db.execute<{ auth_config: unknown }>(
+        sql`select auth_config from mcp_server where id = ${reference.mcpServerId}`,
+      )
+      expect(stored!.auth_config).toMatchObject({ kind: "oauth" })
+      expect(JSON.stringify(stored!.auth_config)).not.toContain("manual-secret")
       expect(JSON.stringify(await connections((service) => service.catalog(actor)))).not.toMatch(
         /manual-secret|access-0|rotating-refresh/,
       )
     })
+    test("unreadable OAuth application credentials do not prevent local disconnect", async () => {
+      const { reference } = await connectedOAuth(true)
+      await db.execute(
+        sql`update mcp_server set auth_config = jsonb_set(auth_config, '{client}', '"unreadable"') where id = ${reference.mcpServerId}`,
+      )
+      await expect(
+        authority((service) => service.getCredential({ actor, reference })),
+      ).rejects.toThrow()
+      await authority((service) => service.disconnect({ actor, reference }))
+      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+    })
+
     test("rejects browser mismatch, issuer substitution, replay and a superseded attempt", async () => {
       const { reference } = await createOAuth()
       const old = await authorize(reference)
       const flow = await authorize(reference)
-      await expect(
-        authority((service) =>
-          service.callback({ params: old.params, browserBinding: old.challenge }),
-        ),
-      ).rejects.toThrow()
-      await expect(
-        authority((service) =>
-          service.callback({ params: flow.params, browserBinding: "other-browser" }),
-        ),
-      ).rejects.toThrow()
+      await expect(callback(old)).rejects.toThrow()
+      await expect(callback(flow, { browserBinding: "other-browser" })).rejects.toThrow()
       const substituted = new URLSearchParams(flow.params)
       substituted.set("iss", "https://attacker.example")
-      await expect(
-        authority((service) =>
-          service.callback({ params: substituted, browserBinding: flow.challenge }),
-        ),
-      ).rejects.toThrow()
+      await expect(callback(flow, { params: substituted })).rejects.toThrow()
       expect(fixture.state.tokenRequests).toBe(0)
-      await authority((service) =>
-        service.callback({ params: flow.params, browserBinding: flow.challenge }),
-      )
-      await expect(
-        authority((service) =>
-          service.callback({ params: flow.params, browserBinding: flow.challenge }),
-        ),
-      ).rejects.toThrow()
+      await callback(flow)
+      await expect(callback(flow)).rejects.toThrow()
       await expect(
         authority((service) =>
           service.complete({
@@ -258,6 +274,26 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       ).rejects.toThrow()
       expect(fixture.state.tokenRequests).toBe(1)
     })
+    test("untrusted openers cannot relay browser challenges into another user's grant", async () => {
+      const { reference } = await createOAuth()
+      const origin = "https://attacker.example"
+      await expect(
+        authority((service) => service.start({ actor, reference, origin })),
+      ).rejects.toThrow()
+      expect(fixture.state.registrations).toBe(0)
+      const flow = await authorize(reference)
+      await expect(
+        authority((service) =>
+          service.browserRedirect({
+            reference: flow.started.attempt,
+            browserBinding: flow.challenge,
+            origin,
+          }),
+        ),
+      ).rejects.toThrow()
+      await expect(callback(flow, { origin })).rejects.toThrow()
+      expect(fixture.state.tokenRequests).toBe(0)
+    })
     test("expired attempts and disconnect cannot commit callback credentials", async () => {
       const { reference } = await createOAuth()
       const flow = await authorize(reference)
@@ -265,15 +301,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .update(cacheEntry)
         .set({ expiresAt: new Date(0) })
         .where(eq(cacheEntry.namespace, "mcp-oauth"))
-      await expect(
-        authority((service) =>
-          service.callback({ params: flow.params, browserBinding: flow.challenge }),
-        ),
-      ).rejects.toThrow()
+      await expect(callback(flow)).rejects.toThrow()
       const fresh = await authorize(reference)
-      await authority((service) =>
-        service.callback({ params: fresh.params, browserBinding: fresh.challenge }),
-      )
+      await callback(fresh)
       await authority((service) => service.disconnect({ actor, reference }))
       await expect(
         authority((service) => service.complete({ actor, reference: fresh.started.attempt })),
@@ -340,7 +370,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           .from(mcpConnection)
           .where(eq(mcpConnection.id, reference.id))
         expect(row!.lockVersion).toBe(1)
-        expect(row!.refreshStartedAt).toBeNull()
+        expect(row!.credentials!.refreshStartedAt).toBeUndefined()
       } finally {
         release()
         for (const { child } of processes) if (child.exitCode === null) child.kill("SIGTERM")
@@ -351,9 +381,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       fixture.state.authorizationToken = "new-account"
       fixture.state.authorizationRefreshToken = null
       const flow = await authorize(reference)
-      await authority((service) =>
-        service.callback({ params: flow.params, browserBinding: flow.challenge }),
-      )
+      await callback(flow)
       await expire(reference)
       let release!: () => void
       fixture.state.tokenGate = () =>
@@ -402,29 +430,52 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(await pending).toBe(true)
       expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
     })
-    test("expired refresh claims and lost responses require reconnecting without a second redemption", async () => {
-      const { reference } = await connectedOAuth()
-      await expire(reference)
-      await db
-        .update(mcpConnection)
-        .set({ refreshStartedAt: new Date(0) })
-        .where(eq(mcpConnection.id, reference.id))
-      await expect(
-        authority((service) => service.getCredential({ actor, reference })),
-      ).rejects.toThrow()
-      expect(fixture.state.refreshes).toBe(0)
-      await db
-        .update(mcpConnection)
-        .set({ refreshStartedAt: null })
-        .where(eq(mcpConnection.id, reference.id))
-      fixture.state.disconnectResponse = true
-      await expect(
-        authority((service) => service.getCredential({ actor, reference })),
-      ).rejects.toThrow()
-      await expect(
-        authority((service) => service.getCredential({ actor, reference })),
-      ).rejects.toThrow()
-      expect(fixture.state.refreshes).toBe(1)
+    test.each(["disconnectResponse", "gatewayError"] as const)(
+      "expired claims and %s require reconnecting without a second redemption",
+      async (failure) => {
+        const { reference } = await connectedOAuth()
+        await expire(reference)
+        const [original] = await db
+          .select()
+          .from(mcpConnection)
+          .where(eq(mcpConnection.id, reference.id))
+        await db
+          .update(mcpConnection)
+          .set({ credentials: { ...original!.credentials!, refreshStartedAt: 0 } })
+          .where(eq(mcpConnection.id, reference.id))
+        await expect(
+          authority((service) => service.getCredential({ actor, reference })),
+        ).rejects.toThrow()
+        expect(fixture.state.refreshes).toBe(0)
+        await db
+          .update(mcpConnection)
+          .set({ credentials: original!.credentials })
+          .where(eq(mcpConnection.id, reference.id))
+        fixture.state[failure] = true
+        await expect(
+          authority((service) => service.getCredential({ actor, reference })),
+        ).rejects.toThrow()
+        await expect(
+          authority((service) => service.getCredential({ actor, reference })),
+        ).rejects.toThrow()
+        expect(fixture.state.refreshes).toBe(1)
+        expect(
+          (await connections((service) => service.catalog(actor))).connections[0]!.authState,
+        ).toBe("reauthorization_required")
+      },
+    )
+    test("SDK authorization errors do not log raw provider descriptions", async () => {
+      const { reference } = await createOAuth()
+      const flow = await authorize(reference)
+      fixture.state.authorizationError = "invalid_grant"
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
+      try {
+        await expect(callback(flow)).rejects.toThrow()
+        expect(warning).toHaveBeenCalled()
+        expect(JSON.stringify(warning.mock.calls)).not.toContain("private-provider-description")
+      } finally {
+        warning.mockRestore()
+      }
     })
     test("invalid_grant clears the unusable grant", async () => {
       const { reference } = await connectedOAuth()

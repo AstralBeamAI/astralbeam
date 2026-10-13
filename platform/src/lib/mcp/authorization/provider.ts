@@ -1,5 +1,6 @@
 import {
   auth,
+  OAuthErrorCode,
   type OAuthClientProvider,
   type OAuthDiscoveryState,
   type StoredOAuthClientInformation,
@@ -16,6 +17,34 @@ import {
   type McpCredential,
 } from "../schemas.ts"
 import { mcpGuardedFetch, mcpUrlIsPublic } from "../network.server.ts"
+
+export async function mcpAuthorizationFetch(
+  dispatcher: Agent,
+  url: string | URL | Request,
+  init?: RequestInit,
+): Promise<Response> {
+  const response = await mcpGuardedFetch(dispatcher, url, {
+    ...init,
+    signal: AbortSignal.any([
+      ...(init?.signal ? [init.signal] : []),
+      AbortSignal.timeout(MCP_AUTH_TIMEOUT_MS),
+    ]),
+  })
+  if (response.ok && (init?.method ?? "GET").toUpperCase() !== "POST") return response
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null)
+  if (response.ok && !(body && typeof body === "object" && "error" in body)) return response
+  // Gateway errors can follow token redemption. Strip descriptions before SDK logging.
+  // https://github.com/modelcontextprotocol/typescript-sdk/blob/main/packages/client/src/client/auth.ts
+  const error = Schema.decodeUnknownResult(
+    Schema.Struct({ error: Schema.Literals(Object.values(OAuthErrorCode)) }),
+  )(body)
+  if (response.status >= 500 || error._tag === "Failure")
+    throw new TypeError("MCP OAuth request outcome is uncertain")
+  return Response.json({ error: error.success.error }, { status: response.status })
+}
 
 export function mcpClientMetadata(baseUrl: string) {
   return {
@@ -89,7 +118,6 @@ export function mcpAttemptProvider(input: {
   serverUrl: string
   authConfig: Extract<McpAuthConfig, { kind: "oauth" }>
   now: () => Promise<number>
-  persist: () => Promise<void>
 }): OAuthClientProvider {
   const metadata = mcpClientMetadata(input.baseUrl)
   return {
@@ -105,9 +133,8 @@ export function mcpAttemptProvider(input: {
         ? information
         : undefined
     },
-    async saveClientInformation(information) {
+    saveClientInformation(information) {
       input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(information)
-      await input.persist()
     },
     tokens: () => undefined,
     async saveTokens(tokens) {
@@ -120,9 +147,8 @@ export function mcpAttemptProvider(input: {
         serverUrl: input.serverUrl,
         now: await input.now(),
       })
-      await input.persist()
     },
-    async redirectToAuthorization(url) {
+    redirectToAuthorization(url) {
       if (!mcpUrlIsPublic(url)) throw new TypeError("MCP authorization endpoint was refused")
       if (input.authConfig.profile === "google") {
         url.searchParams.set("access_type", "offline")
@@ -132,31 +158,29 @@ export function mcpAttemptProvider(input: {
         url.searchParams.set("prompt", "consent")
       }
       input.payload.authorizationUrl = url.href
-      await input.persist()
     },
-    async saveCodeVerifier(verifier) {
+    saveCodeVerifier(verifier) {
       input.payload.verifier = verifier
-      await input.persist()
     },
     codeVerifier: () => {
       if (!input.payload.verifier) throw new TypeError("MCP verifier is missing")
       return input.payload.verifier
     },
-    async saveDiscoveryState(discovery) {
+    saveDiscoveryState(discovery) {
       mcpDiscoveryBinding(discovery, input.serverUrl)
       input.payload.discovery = Schema.decodeUnknownSync(Schema.JsonObject)(discovery)
-      await input.persist()
     },
     discoveryState: () =>
       (input.payload.discovery as unknown as OAuthDiscoveryState | undefined) ?? undefined,
-    async invalidateCredentials(scope) {
+    invalidateCredentials(scope) {
       if (scope === "client" || scope === "all") {
+        if (input.authConfig.client)
+          throw new TypeError("MCP application credentials were rejected")
         input.payload.clientInformation = null
       }
       if (scope === "tokens" || scope === "all") input.payload.pendingCredential = null
       if (scope === "verifier" || scope === "all") input.payload.verifier = null
       if (scope === "discovery" || scope === "all") input.payload.discovery = null
-      await input.persist()
     },
   }
 }
@@ -177,13 +201,6 @@ export async function mcpRunAuthorization(input: {
           ...(input.callback.has("iss") ? { iss: input.callback.get("iss")! } : {}),
         }
       : { forceReauthorization: true }),
-    fetchFn: (url, init) =>
-      mcpGuardedFetch(input.dispatcher, url, {
-        ...init,
-        signal: AbortSignal.any([
-          ...(init?.signal ? [init.signal] : []),
-          AbortSignal.timeout(MCP_AUTH_TIMEOUT_MS),
-        ]),
-      }),
+    fetchFn: (url, init) => mcpAuthorizationFetch(input.dispatcher, url, init),
   })
 }

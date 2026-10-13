@@ -23,7 +23,7 @@ import {
 import { McpUnavailable } from "../errors.ts"
 import { mcpCreateDispatcher, mcpGuardedFetch } from "../network.server.ts"
 
-export function mcpToolAlias(connectionId: string, nativeName: string): string {
+function mcpToolAlias(connectionId: string, nativeName: string): string {
   return `mcp_${connectionId.replaceAll("-", "")}_${createHash("sha256").update(nativeName).digest("hex").slice(0, 24)}`
 }
 type McpPresentation = typeof McpToolPresentationSchema.Type
@@ -49,10 +49,7 @@ const makeMcpTools = Effect.gen(function* () {
       Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken })).then(
         Redacted.value,
       )
-    const initial = Redacted.value(yield* authorization.getCredential(credentialInput))
-    const state = {
-      lastToken: initial?.kind === "oauth" ? initial.tokens.access_token : undefined,
-    }
+    let lastToken: string | undefined
     const validator = new AjvJsonSchemaValidator()
     const client = new Client(
       { name: APP_NAME, version: "1.0" },
@@ -76,11 +73,11 @@ const makeMcpTools = Effect.gen(function* () {
       fetch: async (url, init) => {
         const credential = await readCredential()
         const headers = new Headers(init?.headers)
-        if (credential?.kind === "static_headers")
+        if (credential.kind === "static_headers")
           for (const [name, value] of Object.entries(credential.headers)) headers.set(name, value)
-        if (credential?.kind === "oauth") {
-          state.lastToken = credential.tokens.access_token
-          headers.set("Authorization", `Bearer ${state.lastToken}`)
+        if (credential.kind === "oauth") {
+          lastToken = credential.tokens.access_token
+          headers.set("Authorization", `Bearer ${lastToken}`)
         }
         return mcpGuardedFetch(dispatcher, url, { ...init, headers })
       },
@@ -89,12 +86,11 @@ const makeMcpTools = Effect.gen(function* () {
             authProvider: {
               token: async () => {
                 const credential = await readCredential()
-                state.lastToken =
-                  credential?.kind === "oauth" ? credential.tokens.access_token : undefined
-                return state.lastToken
+                lastToken = credential.kind === "oauth" ? credential.tokens.access_token : undefined
+                return lastToken
               },
               onUnauthorized: async () => {
-                await readCredential(state.lastToken)
+                await readCredential(lastToken)
               },
             },
           }
@@ -149,7 +145,7 @@ const makeMcpTools = Effect.gen(function* () {
                     const presentation = {
                       name,
                       title: `${new URL(opened.server.endpointUrl).hostname}: ${remote.title ?? remote.name}`,
-                      serverId: opened.server.id,
+                      mcpServerId: opened.server.id,
                       connectionId: connection.id,
                       nativeToolName: remote.name,
                     }
@@ -179,7 +175,10 @@ const makeMcpTools = Effect.gen(function* () {
                           catch: () => new McpUnavailable(),
                         }).pipe(
                           Effect.withSpan("McpTools.call", {
-                            attributes: { connectionId: connection.id, serverId: opened.server.id },
+                            attributes: {
+                              connectionId: connection.id,
+                              mcpServerId: opened.server.id,
+                            },
                           }),
                         ),
                       )
