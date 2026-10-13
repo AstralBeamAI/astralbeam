@@ -42,7 +42,7 @@ JWT resource requests have a separate limit of 100 requests per five minutes per
 
 ## Chat and downloads
 
-Chat runs and configuration accept a Bearer JWT without requiring administrator privileges or persisted Tenant/TenantUser records. Organization API keys cannot call chat directly. Chat runs have their own limits per organization, external Tenant, and external user identity: 20 new turns per minute in ordinary use, and 200 requests per minute that return host-tool results. The request body decides which limit applies, so the two together cap one identity at 220 chat requests per minute.
+Chat accepts tenant JWTs without administrator privileges, but not API keys or organization-management JWTs. Configuration reads do not synchronize identity. Before sending, call `POST /api/v1/me` and select a participant-authorized saved conversation. The SDK handles both. Endpoint operations select three independent rate buckets per Organization, Tenant, and tenant user: 20 new turns, 200 tool-result submissions, and 200 uploads per minute.
 
 Artifact downloads use the signed `ticket` query parameter provided by the agent. Treat download URLs as temporary credentials. They do not require a Bearer header.
 

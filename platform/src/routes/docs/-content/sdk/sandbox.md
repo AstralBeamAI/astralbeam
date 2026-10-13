@@ -1,6 +1,6 @@
 # Sandbox
 
-Configure a sandbox provider on the agent in the dashboard to enable files, commands, and published results. Each conversation gets an isolated Linux sandbox, with no additional SDK wiring.
+Configure a sandbox provider on the agent in the dashboard to enable files, commands, and published results. Workspaces are scoped by agent, conversation, and tenant user, with no additional SDK wiring.
 
 ## In the chat
 
@@ -27,4 +27,4 @@ Off by default: the transcript already shows each step where it happened. `sandb
 
 - File and command output shown in the chat is clamped server-side for model context.
 - Published artifacts are capped at 10 MB and served with content-sniffed types. See [Security model](./security.md).
-- The sandbox is reused across turns of one conversation and expires after ~15 idle minutes. Expired downloads say to ask the agent to regenerate.
+- Workspaces can disappear after idle cleanup, eviction, restart, or routing to another replica. Publishing grants a temporary download, not durable storage. Download files you need to keep.

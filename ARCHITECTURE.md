@@ -77,7 +77,7 @@ Configuration snapshots, migration state, and sandbox leases are process-local. 
 
 ### Conversation schema choices
 
-Conversation storage uses five Tenant-owned tables: `chat_thread` has 9 columns, `chat_participant` has 8, `chat_message` has 13, `chat_message_part` has 10, and `chat_tool_response` has 10. All have Organization/Tenant-scoped keys and `timestamps()`. Participants grant access without permanent ownership. Human authorship remains on messages after membership removal.
+Conversation storage uses five Tenant-owned tables with scoped keys. Participants grant access without permanent ownership. Human authorship remains on messages after membership removal.
 
 Only 1:N relationships receive separate tables. Conversations contain participants and messages, messages contain ordered parts, and committed tool-decision parts expect one or more responses. One accepted input currently starts one turn, so its execution fields stay on the user message. One tool call has one decision part, so declaration and routing stay on that part. Response rows point to accepted result messages instead of duplicating outcome, output, or status.
 
@@ -90,14 +90,6 @@ Only 1:N relationships receive separate tables. Conversations contain participan
 | [Vercel Chatbot schema](https://github.com/vercel/chatbot/blob/c2f8235e1f3ea903ad8b7f61447c4f74164b5c58/lib/db/schema.ts) | Chats and message JSON offer a small initial storage model. | Flexible JSON complements relational authorization and ancestry. A small message table alone does not implement multiplayer execution. |
 
 These are inspectable open-source implementation references, not claims about proprietary hosted schemas. Separate parts are an AstralBeam decision, not a requirement inferred from OpenCode V2.
-
-`current_leaf_message_id` selects the default parent-linked path. UUIDs and timestamps do not order messages. `updated_at` orders thread activity, including message appends, renames, and participant changes. Token checkpoints update messages rather than threads. `lock_version` protects metadata and membership commands. Sends append under a short conversation lock without a client revision or conversation-wide execution claim.
-
-An initiating user message holds `turn_state` and its current server-generated invocation ID in metadata. Generated messages reference that input separately from transcript ancestry and retain the executing participant in provenance. Producer writes verify both invocation identity and current participant permission. Only one assistant draft exists per turn.
-
-Message metadata stores allowlisted provenance, opaque provider continuation, invocation correlation, and client tool declarations. Part JSON stores structured content, original uploads, and immutable tool declarations, with stable part IDs and routing held in columns. Both JSON contracts embed their format version and use Effect Schema codecs for Drizzle writes, ordinary reads, and relational reads. Raw SQL bypasses codecs and explicitly maintains `updated_at`.
-
-A tool response row exists before execution or delivery. Server and sandbox calls have one untargeted slot. Browser calls bind a slot to the initiating participant and browser instance. Result messages record actual authorship and success, failure, skip, or unknown outcome. Every expected slot must receive a result before continuation, so no separate completion-policy field is needed. Multiple slots can represent future fan-out, but client registration and targeted production delivery remain deferred.
 
 ## Configuration
 
@@ -125,8 +117,6 @@ Each platform process embeds `ClusterWorkflowEngine` and one Effect Cluster runn
 
 Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/lib/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring and recovery.
 
-When chat moves to Effect workflows, atomically commit input admission and workflow submission through the same native SQL transaction. Give each initiating turn a stable, versioned workflow identity. Checkpoint exact model decisions and individual tool outcomes separately, and use durable deferreds for browser waits and durable clocks for deadlines. Propagate cancellation and participant revocation, guard transcript writes against superseded execution, and require downstream idempotency or reconciliation for external mutations. Wrapping the entire chat loop in one activity is insufficient to recover completed sibling tools safely.
-
 ## SDK boundary
 
 The vanilla entry lazily loads a widget with its own React and styles. The React entry uses the host's React. Both build on the framework-free headless core, which owns authentication, transport, tool execution, and transcript state.
@@ -153,16 +143,16 @@ Commands and build constraints belong to each project's instructions and manifes
 
 ## Saved conversations
 
-Every chat uses saved threads. PostgreSQL stores conversation metadata, participant grants, parent-linked messages, ordered content parts, and expected tool responses. `current_leaf_message_id` identifies the selected path. Messages preserve authorship independently of membership. A participant can read, contribute, or manage according to their role, and no permanent owner field is required.
+Every chat uses participant-authorized saved threads. The [chat persistence guide](platform/src/lib/chat/README.md) covers the schema, execution lifecycle, SDK and HTTP workflows, and failure behavior.
 
-`ChatThreads` owns database transitions. A short transaction locks the conversation, appends to its current leaf, and advances that leaf. Concurrent participants can submit without an expected conversation version. Parent links establish ordering without message sequences. New input and an assistant draft commit before model preparation. The shared database idempotency helper retains admission receipts for 24 hours in a conversation-scoped namespace, purged on deletion. Replays require current participant authorization and return receipts without restarting generation.
+Execution remains attached to its foreground request. Process crashes can leave unfinished turns indefinitely, and `writer_active` reports saved state rather than confirmed process liveness. Unfinished turns do not block new sends. Reopening history never executes stored business calls. Stream replay and automatic execution recovery remain unavailable.
 
-Parent links are the canonical ancestry. History reads traverse parent identities before loading content only for the requested page. Pending-interaction discovery reads outstanding decision parts separately, without loading unrelated content or uploads. Profile complete hydration with long conversations before choosing an optimization. A derived `ltree` path can be added if measured ancestry-query costs justify its storage and maintenance, without changing message identities or the public API.
+## Known hosted runtime limits
 
-Each foreground invocation retains its initiating input identity and updates only its own assistant draft. The input’s current metadata invocation ID and assistant provenance fence stale execution without holding database locks during generation. Before every model phase, TanStack’s `providerMessages` middleware receives a consistent projection of current shared history, including interleaved participant input and refreshed attachments. Finishing an earlier draft does not move the current leaf backward. Membership revocation and deletion invalidate affected executions. Explicit unknown-outcome closure invalidates an unfinished invocation before accepting the closure and reserving a continuation.
+Sandbox reuse omits the configured provider connection ID, so switching connections to the same vendor can resume the previous workspace. The shared 25-workspace cap applies after provisioning. Eviction and idle cleanup can destroy active workspaces, and filesystem activity does not refresh leases.
 
-TanStack drives the model loop through a messages-only persistence adapter. Explicit application gates commit tool decisions before execution, append results before another model phase, and delay executable browser events and saved acknowledgments until commit. Public tool-result fields identify a source message, source part, and response target, derived through response and part relationships. A newly accepted final required response reserves exactly one continuation with a fresh claim. Repeated results recover prior acceptance without restarting generation. Multiple responses become one aggregate provider result in stable response-ID order, while visible history preserves each author’s result. Native streaming checkpoints run approximately once per second through `withPersistence`. Native terminal persistence completion is awaited before application finalization, except at browser waits where that promise remains pending. The application saved acknowledgment covers final content and claim release together.
+Sandbox files and command output are buffered before size checks or truncation, and wrapper timeouts may not stop transfers. Sparse XLSX worksheets are padded and rendered synchronously before text truncation, without a document-wide work budget. Both paths can exhaust replica resources.
 
-The SDK uses server-authoritative `ChatClient` hydration and `loadOlderMessages` through an authenticated connection adapter. That adapter translates REST cursors and joins response rows to their decision parts across page boundaries. Native pagination owns transcript prepending. Application state retains participant permissions, pending responses, scoped drafts, and saved widget presentation. Hydration reports no resumable active run until replay is implemented and never executes stored business calls.
+Management APIs lack application body, name, and metadata budgets. Their schemas can accept NUL or ill-formed Unicode that PostgreSQL rejects as internal failures. Ingress limits and client-address forwarding require hosted verification.
 
-Conversation storage does not provide stream replay or execution recovery. Current execution ends with the foreground request. Graceful cancellation saves an interruption, but a process crash can leave drafts and turns marked unfinished indefinitely. `writer_active` reports saved running state, not confirmed process liveness. Unfinished turns do not block new sends. A committed unanswered tool can be explicitly closed as unknown without repeating its external action. Future branches can name other leaves, while forks copy nodes and remap their references. These capabilities build on the existing ancestry without requiring materialized root paths.
+After a safe provider `RUN_ERROR`, failed managed delivery can make `chatRunResponse` append a generic error that replaces the actionable widget message. This remains unfixed, and failed persistence still withholds the saved acknowledgment.

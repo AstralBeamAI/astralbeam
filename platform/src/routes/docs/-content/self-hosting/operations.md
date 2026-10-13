@@ -40,8 +40,6 @@ Run this command to apply them:
 astralbeam-platform migrate
 ```
 
-Like `/configure`, the command commits each migration separately, with its lock, SQL, TypeScript step, and history record on one connection. A failure rolls back that migration. Fix the cause and retry the command, which skips earlier committed migrations.
-
 Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
 ```sh
@@ -93,7 +91,7 @@ Then start the application with that `DATABASE_URL` and the encryption keyring t
 | `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete |
 | Page routes | Redirect to `/configure` while setup is incomplete |
 
-Point a process supervisor or load balancer probe at `/api/status`. It counts organization rows and reports `{"status":"ok"}` only when that query succeeds, so a database outage returns `503` with an `error` field. This endpoint does not check cluster readiness. There is no separate readiness endpoint. For API readiness, probe an API route and treat `503` as not ready and `401` as ready.
+Point a process supervisor or load balancer probe at `/api/status`. It does not check cluster readiness. There is no separate readiness endpoint. For API readiness, probe an API route and treat `503` as not ready and `401` as ready.
 
 ## Shutdown
 
@@ -115,7 +113,7 @@ The process writes plain text to stdout and stderr. There is no log file, no log
 
 Cluster readiness logs include the advertised private runner address. Failures on `/configure` and in the config layer omit submitted values and are recorded as a classification plus a PostgreSQL error code, precisely so a submitted secret cannot end up in the log. That is also why a `/configure` error in the log is terse, and why it is worth pairing with the message the page showed the operator.
 
-Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value for '<key>'` means a stored setting no longer decodes, so the deployment is running as if that setting were unset. `API request failed` marks a `500` from the public API, with the stage and error code.
+Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value` carries the affected `key` in its annotations and means the deployment treats that setting as unset. `Request failed` records an unexposed failure with `operation`, `referenceId`, and redacted `reasons`. A chat stream can log it after HTTP headers have already been sent.
 
 ## Connection pooling
 
@@ -133,14 +131,14 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | --- | --- | --- |
 | Operator sign-in at `/configure` | 5 per minute | The whole deployment. Cleared by a successful sign-in |
 | Chat turns | 20 per 60 seconds | Organization, Tenant, and tenant user combined |
-| Chat host-tool continuations | 200 per 60 seconds | Organization, Tenant, and tenant user combined |
+| Chat host-tool continuations and uploads | 200 per 60 seconds each, in separate buckets | Organization, Tenant, and tenant user combined |
 | Sign-up, password reset, verification email, and organization invite | 5 per 60 seconds each | The requesting client address |
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |
 
-The two chat buckets are independent, and the request body decides which one a request spends, so budget for up to 220 chat requests per minute from one tenant user.
+The validated endpoint operation selects one of three independent chat buckets, so budget for up to 420 requests per minute from one tenant user.
 
-Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration the `rate_limit` table does not exist yet, and the two callers behave differently: operator sign-in lets the attempt through so first boot is possible, while the chat endpoint answers `500` with `Request limit could not be checked.`. Apply the migrations and the counters start working.
+Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration, operator sign-in permits attempts so first boot remains possible. Chat reaches the setup gate first and returns `503` with `Retry-After: 10` while configuration or migrations are incomplete.
 
 **TIP**: The operator bucket counts attempts for the deployment as a whole rather than per client address, so add an ingress-level limit in front of `/configure` if you want per-address throttling during setup.
 

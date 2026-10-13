@@ -23,8 +23,6 @@ The [architecture document](../../../../ARCHITECTURE.md#saved-conversations) exp
 
 ## Scope and access
 
-An Organization is an AstralBeam customer, typically a SaaS application. A Tenant is one of that Organization's customer accounts. A TenantUser is an end user of that Tenant. Organization dashboard users and TenantUsers are separate identities.
-
 A thread belongs to one Organization and Tenant. Access comes from explicit participant grants within that Tenant. Creation gives the requesting TenantUser a manager grant, without establishing a permanent owner.
 
 | Participant role | Permissions |
@@ -123,7 +121,7 @@ A part is one ordered unit of message content: text, reasoning presentation, an 
 | `thread_id` | Thread scope for queries and same-thread response references. |
 | `message_id` | Message containing this part. |
 | `position` | Explicit zero-based order inside the message. Nonnegative and unique within the scoped message. It has no default, and gaps are allowed. |
-| `payload` | Validated, versioned structured content. Tool declarations and original accepted upload bytes stay here. |
+| `payload` | Validated, versioned structured content, tool declarations, and stored-file references. |
 | `execution_location` | Where a tool decision should execute: `server_api`, `sandbox`, or `browser`, using PostgreSQL enum `chat_message_part_execution_location`. Specific responders live in `chat_tool_response`. Populated only for tool-decision parts. |
 
 The row ID is the stable application part identity. Stored JSON does not duplicate `id`, `executionLocation`, or response `targets`. The service adds those fields when assembling transport payloads. Identities remain stable across checkpoints, including when upstream message identifiers repeat. Draft positions can change when final provider output introduces parts omitted by streaming snapshots, such as reasoning before text. Completed content remains immutable.
@@ -482,7 +480,7 @@ For writes, `prepareManagedChat` validates admission and platform idempotency, t
 
 ## Files, deletion, and failure behavior
 
-Accepted original upload bytes are stored in attachment parts. History transfers attachment metadata, and authorized attachment reads retrieve the bytes. Provider handles and sandbox upload paths alone are not durable storage. Generated artifacts retain their existing capability and availability rules, and reopening history never reruns a generating tool to recreate a missing artifact.
+Accepted upload bytes live in S3, referenced by attachment parts. Authorized attachment reads retrieve the bytes. Provider handles and sandbox upload paths alone are not durable storage. Generated artifacts retain their existing capability and availability rules, and reopening history never reruns a generating tool to recreate a missing artifact.
 
 A manager deletion locks the thread, clears its leaf, invalidates turns, deletes its database content, and purges thread-scoped idempotency records before acknowledgment. Participants, messages, parts, and response rows are removed with the thread. A later producer write fails rather than recreating the resource. Organization deletion delegates to Tenant deletion, which cascades chat rows and TenantUsers together, then purges the Tenant-scoped admission receipts in the same transaction. Agent deletion clears live agent references while preserving historical provenance.
 
