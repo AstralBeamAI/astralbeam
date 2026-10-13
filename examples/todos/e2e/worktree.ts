@@ -1,9 +1,9 @@
-import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
+import { pinDockerHost, worktreeHash } from "../../../scripts/e2e.mts"
 import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
 
 /**
@@ -32,20 +32,9 @@ const sdkDistDirectory = join(repositoryRoot, "sdk", "dist")
 const E2E_PORT_BASE = 14_500
 const E2E_PORT_SLOTS = 500
 
-function derivePortPair(seed: string): { platform: number; todos: number } {
-  // FNV-1a, for a stable spread across worktree paths without a hash dependency.
-  let hash = 0x811c9dc5
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  const platform = E2E_PORT_BASE + (hash % E2E_PORT_SLOTS) * 2
-  return { platform, todos: platform + 1 }
-}
-
-const ports = derivePortPair(repositoryRoot)
-const platformPort = Number(process.env.E2E_PLATFORM_PORT ?? ports.platform)
-const todosPort = Number(process.env.E2E_TODOS_PORT ?? ports.todos)
+const portBase = E2E_PORT_BASE + (worktreeHash(repositoryRoot) % E2E_PORT_SLOTS) * 2
+const platformPort = Number(process.env.E2E_PLATFORM_PORT ?? portBase)
+const todosPort = Number(process.env.E2E_TODOS_PORT ?? portBase + 1)
 
 /**
  * The platform's environment files, in Vite's precedence order, lowest first. Only plain `KEY=value`
@@ -85,27 +74,6 @@ export const seedTarget = SEED_TODOS_TARGET
 
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
 export const agentSpecsEnabled = Boolean(platformEnvValue("OPENAI_API_KEY"))
-
-/**
- * Pins one Docker endpoint for the whole run.
- *
- * The `docker` CLI resolves its endpoint through contexts, while the sandbox provider's client
- * reads `DOCKER_HOST` and otherwise guesses a default. With `DOCKER_HOST` unset the two can
- * disagree, which is worth avoiding: the sandbox spec skips itself on what the CLI reports, so a
- * disagreement once let it pass against a sandbox that had never started. Resolving the CLI's own
- * endpoint into the environment makes both sides agree, whatever Docker runtime is installed.
- * https://docs.docker.com/engine/manage-resources/contexts/
- */
-function pinDockerHost(): void {
-  if (process.env.DOCKER_HOST) return
-  const probe = spawnSync(
-    "docker",
-    ["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
-    { encoding: "utf8" },
-  )
-  const host = probe.status === 0 ? probe.stdout.trim() : ""
-  if (host) process.env.DOCKER_HOST = host
-}
 
 pinDockerHost()
 

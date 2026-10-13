@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures.ts"
+import { savedUserMessage } from "../../fixtures/threads.ts"
 import { todosPage } from "../../pages/todos-page.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -51,14 +52,7 @@ test("chat history search, selection, and new chat preserve the correct local st
     return route.fulfill({
       json: {
         thread: thread,
-        messages: [
-          {
-            id: "saved-input",
-            role: "user",
-            state: "complete",
-            parts: [{ id: "text", type: "text", content: thread.title }],
-          },
-        ],
+        messages: [savedUserMessage("saved-input", thread.title)],
         pending_interactions: [],
         page_after: null,
         page_before: null,
@@ -127,14 +121,7 @@ for (const role of ["member", "manager", "viewer"]) {
           thread,
           messages:
             earlierRequests === 2
-              ? [
-                  {
-                    id: "context",
-                    role: "user",
-                    state: "complete",
-                    parts: [{ id: "text", type: "text", content: "Earlier support context" }],
-                  },
-                ]
+              ? [savedUserMessage("context", "Earlier support context")]
               : [
                   {
                     id: `result-${earlierRequests}`,

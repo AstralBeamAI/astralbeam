@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 
 import { RENDER_WIDGET_TOOL } from "./protocol.ts"
-import { createAstralBeamChat, type WidgetRenderRequest } from "./session.ts"
+import type { WidgetRenderRequest } from "./session.ts"
+import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 interface ClientTool {
   name: string
@@ -27,11 +28,6 @@ vi.mock("@tanstack/ai-client", async (importOriginal) => {
     },
   }
 })
-
-function chatAuthToken(): { token: string } {
-  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1_000) + 300 }))
-  return { token: `header.${payload}.signature` }
-}
 
 const thread = {
   id: "conversation",
@@ -76,7 +72,10 @@ beforeEach(() => {
     )
   })
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  disposeTestSessions()
+  vi.unstubAllGlobals()
+})
 
 function savedWidget(widget: string, id: string) {
   return [
@@ -119,8 +118,7 @@ test("hydration restores distinct widget calls and skips missing or incompatible
     savedWidget(widget, String(index)),
   )
   const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     threadId: thread.id,
     widgets: {
       card: { description: "A host card" },
@@ -137,17 +135,13 @@ test("hydration restores distinct widget calls and skips missing or incompatible
     },
     onRenderWidget,
   })
-  try {
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(2))
-    expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual([
-      "saved:assistant-0:part-0",
-      "saved:assistant-1:part-1",
-    ])
-    await chat.refreshThread()
-    expect(onRenderWidget).toHaveBeenCalledTimes(2)
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(2))
+  expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual([
+    "saved:assistant-0:part-0",
+    "saved:assistant-1:part-1",
+  ])
+  await chat.refreshThread()
+  expect(onRenderWidget).toHaveBeenCalledTimes(2)
 })
 
 test.each(["manager", "viewer"])(
@@ -158,63 +152,54 @@ test.each(["manager", "viewer"])(
     const cleanup = vi.fn()
     const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
     const execute = vi.fn()
-    const chat = createAstralBeamChat({
-      fetchAstralBeamToken: chatAuthToken,
+    const chat = createTestSession({
       threadId: thread.id,
       widgets: { card: { description: "A host card" } },
       tools: { change_data: { description: "Change data", execute } },
       onRenderWidget,
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-      expect(onRenderWidget).not.toHaveBeenCalled()
-      savedMessages = savedWidget("card", "refresh")
-      savedCursor = "older-page"
-      await chat.refreshThread()
-      await vi.waitFor(() =>
-        expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 1),
-      )
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    expect(onRenderWidget).not.toHaveBeenCalled()
+    savedMessages = savedWidget("card", "refresh")
+    savedCursor = "older-page"
+    await chat.refreshThread()
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 1))
 
-      olderMessages = [
-        ...savedWidget("card", "older"),
-        {
-          id: "saved-business-call",
-          role: "assistant",
-          created_at: thread.created_at,
-          parts: [
-            {
-              id: "business-part",
-              type: "tool-call",
-              toolCallId: "reused-provider-id",
-              name: "change_data",
-              arguments: "{}",
-              input: {},
-              state: "input-complete",
-            },
-          ],
-        },
-      ]
-      await chat.loadOlderMessages()
-      await vi.waitFor(() =>
-        expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2),
-      )
-      expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual(
-        role === "viewer"
-          ? []
-          : ["saved:assistant-refresh:part-refresh", "saved:assistant-older:part-older"],
-      )
-      expect(chat.getState().error).toBeUndefined()
-      await chat.refreshThread()
-      await chat.loadOlderMessages()
-      expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
-      expect(execute).not.toHaveBeenCalled()
-      thread.role = "viewer"
-      await chat.refreshThread()
-      expect(cleanup).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
-      expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
-    } finally {
-      chat.dispose()
-    }
+    olderMessages = [
+      ...savedWidget("card", "older"),
+      {
+        id: "saved-business-call",
+        role: "assistant",
+        created_at: thread.created_at,
+        parts: [
+          {
+            id: "business-part",
+            type: "tool-call",
+            toolCallId: "reused-provider-id",
+            name: "change_data",
+            arguments: "{}",
+            input: {},
+            state: "input-complete",
+          },
+        ],
+      },
+    ]
+    await chat.loadOlderMessages()
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2))
+    expect(onRenderWidget.mock.calls.map(([request]) => request.toolCallId)).toEqual(
+      role === "viewer"
+        ? []
+        : ["saved:assistant-refresh:part-refresh", "saved:assistant-older:part-older"],
+    )
+    expect(chat.getState().error).toBeUndefined()
+    await chat.refreshThread()
+    await chat.loadOlderMessages()
+    expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+    expect(execute).not.toHaveBeenCalled()
+    thread.role = "viewer"
+    await chat.refreshThread()
+    expect(cleanup).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
+    expect(onRenderWidget).toHaveBeenCalledTimes(role === "viewer" ? 0 : 2)
   },
 )
 
@@ -224,8 +209,7 @@ test.each(["definition", "renderer", "failed-render"])(
     savedMessages = savedWidget("card", "late")
     const widgets = { card: { description: "A host card" } }
     const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
-    const chat = createAstralBeamChat({
-      fetchAstralBeamToken: chatAuthToken,
+    const chat = createTestSession({
       threadId: thread.id,
       widgets: missing === "definition" ? {} : widgets,
       onRenderWidget:
@@ -237,17 +221,13 @@ test.each(["definition", "renderer", "failed-render"])(
               }
             : onRenderWidget,
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
-      chat.updateOptions({ widgets, onRenderWidget })
-      await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
-      chat.updateOptions({ widgets: { ...widgets } })
-      await chat.refreshThread()
-      expect(onRenderWidget).toHaveBeenCalledTimes(1)
-      expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("saved:assistant-late:part-late")
-    } finally {
-      chat.dispose()
-    }
+    await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
+    chat.updateOptions({ widgets, onRenderWidget })
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+    chat.updateOptions({ widgets: { ...widgets } })
+    await chat.refreshThread()
+    expect(onRenderWidget).toHaveBeenCalledTimes(1)
+    expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("saved:assistant-late:part-late")
   },
 )
 
@@ -262,37 +242,32 @@ test.each(["saved", "live"])(
       description: "A host card",
       parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
     }
-    const chat = createAstralBeamChat({
-      fetchAstralBeamToken: chatAuthToken,
+    const chat = createTestSession({
       threadId: thread.id,
       widgets: { card },
       onRenderWidget,
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-      mocked.onCustomEvent?.("astralbeam_thread", {
-        threadId: thread.id,
-        version: 1,
-        saved: true,
-        executableToolCallIds: ["call"],
-      })
-      const execution =
-        mode === "live"
-          ? mocked.tools
-              .find((tool) => tool.name === RENDER_WIDGET_TOOL)
-              ?.execute?.({ widget: "card", props: {} }, { toolCallId: "call" })
-          : undefined
-      await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
-      chat.updateOptions({
-        widgets: { card: { description: "A card without parameter transforms" } },
-      })
-      validation.resolve({ value: { obsolete: true } })
-      await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
-      expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
-      await execution
-    } finally {
-      chat.dispose()
-    }
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    mocked.onCustomEvent?.("astralbeam_thread", {
+      threadId: thread.id,
+      version: 1,
+      saved: true,
+      executableToolCallIds: ["call"],
+    })
+    const execution =
+      mode === "live"
+        ? mocked.tools
+            .find((tool) => tool.name === RENDER_WIDGET_TOOL)
+            ?.execute?.({ widget: "card", props: {} }, { toolCallId: "call" })
+        : undefined
+    await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
+    chat.updateOptions({
+      widgets: { card: { description: "A card without parameter transforms" } },
+    })
+    validation.resolve({ value: { obsolete: true } })
+    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+    expect(onRenderWidget.mock.calls[0]?.[0].props).toEqual({})
+    await execution
   },
 )
 
@@ -300,8 +275,7 @@ test("an old async restoration cannot release a newly selected thread's pending 
   savedMessages = savedWidget("card", "late")
   const complete: Array<(result: { value: Record<string, unknown> }) => void> = []
   const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     threadId: thread.id,
     widgets: {
       card: {
@@ -317,20 +291,16 @@ test("an old async restoration cannot release a newly selected thread's pending 
     },
     onRenderWidget,
   })
-  try {
-    await vi.waitFor(() => expect(complete).toHaveLength(1))
-    await chat.openThread(thread.id)
-    expect(complete).toHaveLength(2)
-    complete[0]!({ value: {} })
-    await Promise.resolve()
-    chat.updateOptions({ onRenderWidget: (request) => onRenderWidget(request) })
-    await chat.refreshThread()
-    expect(complete).toHaveLength(2)
-    complete[1]!({ value: {} })
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(complete).toHaveLength(1))
+  await chat.openThread(thread.id)
+  expect(complete).toHaveLength(2)
+  complete[0]!({ value: {} })
+  await Promise.resolve()
+  chat.updateOptions({ onRenderWidget: (request) => onRenderWidget(request) })
+  await chat.refreshThread()
+  expect(complete).toHaveLength(2)
+  complete[1]!({ value: {} })
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
 })
 
 test("later stream snapshots preserve a live widget without rendering it again", async () => {
@@ -415,42 +385,37 @@ test("later stream snapshots preserve a live widget without rendering it again",
       }),
     )
   })
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     threadId: thread.id,
     widgets: { card: { description: "A host card" } },
     onRenderWidget,
   })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-    await chat.sendMessage("Show the card")
-    expect(sends).toBe(1)
-    expect(chat.getState().error).toBeUndefined()
-    await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
-    expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("reused-provider-id")
-    const renderIds: unknown[] = []
-    const unsubscribe = chat.subscribe(() => {
-      const part = chat.getState().messages.find((message) => message.id === "assistant-live")
-        ?.parts[0]
-      if (part?.type === "tool-call")
-        renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
-    })
-    await chat.sendMessage("Continue")
-    unsubscribe()
-    expect(chat.getState().error).toBeUndefined()
-    expect(renderedPartDuringSend).toMatchObject({
-      id: "saved:assistant-live:part-live",
-      widgetRenderId: "reused-provider-id",
-    })
-    expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
-      widgetRenderId: "reused-provider-id",
-    })
-    expect(onRenderWidget).toHaveBeenCalledTimes(1)
-    expect(renderIds.length).toBeGreaterThan(0)
-    expect(new Set(renderIds)).toEqual(new Set(["reused-provider-id"]))
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Show the card")
+  expect(sends).toBe(1)
+  expect(chat.getState().error).toBeUndefined()
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+  expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("reused-provider-id")
+  const renderIds: unknown[] = []
+  const unsubscribe = chat.subscribe(() => {
+    const part = chat.getState().messages.find((message) => message.id === "assistant-live")
+      ?.parts[0]
+    if (part?.type === "tool-call")
+      renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
+  })
+  await chat.sendMessage("Continue")
+  unsubscribe()
+  expect(chat.getState().error).toBeUndefined()
+  expect(renderedPartDuringSend).toMatchObject({
+    id: "saved:assistant-live:part-live",
+    widgetRenderId: "reused-provider-id",
+  })
+  expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
+    widgetRenderId: "reused-provider-id",
+  })
+  expect(onRenderWidget).toHaveBeenCalledTimes(1)
+  expect(renderIds.length).toBeGreaterThan(0)
+  expect(new Set(renderIds)).toEqual(new Set(["reused-provider-id"]))
 })
 
 // The chat widget caps its live renders and disposes the oldest itself. The session keeps a cleanup
@@ -458,8 +423,7 @@ test("later stream snapshots preserve a live widget without rendering it again",
 test("a released render leaves no cleanup behind in the session", async () => {
   const cleanupsRun: string[] = []
   const releases = new Map<string, () => void>()
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     threadId: thread.id,
     widgets: { card: { description: "A host card" } },
     onRenderWidget: ({ toolCallId, release }) => {
@@ -485,8 +449,6 @@ test("a released render leaves no cleanup behind in the session", async () => {
 
   expect(cleanupsRun).toHaveLength(20)
   expect(cleanupsRun).not.toContain("call-0")
-
-  chat.dispose()
 })
 
 // A repeat of the same call replaces its own render, and the replacement's cleanup must survive a
@@ -494,8 +456,7 @@ test("a released render leaves no cleanup behind in the session", async () => {
 test("a late release keeps the cleanup of the render that took over the tool call", async () => {
   const cleanupsRun: string[] = []
   const releases: Array<() => void> = []
-  const chat = createAstralBeamChat({
-    fetchAstralBeamToken: chatAuthToken,
+  const chat = createTestSession({
     threadId: thread.id,
     widgets: { card: { description: "A host card" } },
     onRenderWidget: ({ toolCallId, release }) => {
@@ -518,6 +479,4 @@ test("a late release keeps the cleanup of the render that took over the tool cal
   chat.reset()
 
   expect(cleanupsRun).toEqual(["call-1", "call-1"])
-
-  chat.dispose()
 })

@@ -40,6 +40,10 @@ const payload: ChatMessagePayload = {
 const targetA = "019a0700-0000-7000-8000-000000000001"
 const targetB = "019a0700-0000-7000-8000-000000000002"
 
+function chatTestToolPayload(part: ChatMessagePayload["parts"][number]): ChatMessagePayload {
+  return { version: 1, parts: [part] }
+}
+
 const runtime = ManagedRuntime.make(Layer.mergeAll(Database.layer, ChatThreads.layer))
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
@@ -424,40 +428,31 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         }),
       ),
     ).toEqual(scope)
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .resolveScope({
-              principal: {
-                organization: { id: scope.organizationId },
-                tenantUser: { id: "missing", tenant: { id: "same" } },
-              },
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatIdentityNotSynchronized")
+    await expect(
+      runtime.runPromise(
+        service.resolveScope({
+          principal: {
+            organization: { id: scope.organizationId },
+            tenantUser: { id: "missing", tenant: { id: "same" } },
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatIdentityNotSynchronized" })
     const thread = await create()
-    expect(
-      (await runtime.runPromise(service.get({ scope: other, id: thread.id }).pipe(Effect.flip)))
-        ._tag,
-    ).toBe("ChatThreadNotFound")
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .setParticipant({
-              scope,
-              id: thread.id,
-              lockVersion: 0,
-              tenantUserId: foreign.tenantUserId,
-              role: "member",
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadNotFound")
+    await expect(
+      runtime.runPromise(service.get({ scope: other, id: thread.id })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
+    await expect(
+      runtime.runPromise(
+        service.setParticipant({
+          scope,
+          id: thread.id,
+          lockVersion: 0,
+          tenantUserId: foreign.tenantUserId,
+          role: "member",
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     await runtime.runPromise(
       service.setParticipant({
         scope,
@@ -470,19 +465,15 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect((await runtime.runPromise(service.get({ scope: other, id: thread.id }))).role).toBe(
       "viewer",
     )
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .admit({
-              scope: other,
-              id: thread.id,
-              payload,
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadForbidden")
+    await expect(
+      runtime.runPromise(
+        service.admit({
+          scope: other,
+          id: thread.id,
+          payload,
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
   })
 
   test("preserves an execution through renaming and rejects finalized writes", async () => {
@@ -506,13 +497,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(history.map((message) => message.state)).toEqual(["complete", "complete"])
     expect(history[1]!.metadata.invocationId).toBe(claimed.invocationId)
     expect(history[1]!.payload.modelMessages).toEqual(answer.modelMessages)
-    expect(
-      (
-        await runtime.runPromise(
-          service.checkpoint({ claim: claimed, payload, state: "draft" }).pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadConflict")
+    await expect(
+      runtime.runPromise(service.checkpoint({ claim: claimed, payload, state: "draft" })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
   })
 
   test("orders admission activity by append time rather than transaction start", async () => {
@@ -748,9 +735,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             state,
           }),
         )
-      expect(
-        (await runtime.runPromise(service.finish({ claim: first.claim! }).pipe(Effect.flip)))._tag,
-      ).toBe("ChatThreadConflict")
+      await expect(
+        runtime.runPromise(service.finish({ claim: first.claim! })),
+      ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
       await runtime.runPromise(service.interrupt({ claim: first.claim! }))
       await runtime.runPromise(service.assertActive({ claim: next }))
     }
@@ -765,37 +752,27 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       service.checkpoint({
         claim: claim!,
         state: "complete",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: partId,
-              type: "tool-call",
-              toolCallId: "invalid-input",
-              name: "update_record",
-              arguments: "{",
-              executionLocation: "browser",
-              targets: [{ id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }],
-            },
-          ],
-        },
+        payload: chatTestToolPayload({
+          id: partId,
+          type: "tool-call",
+          toolCallId: "invalid-input",
+          name: "update_record",
+          arguments: "{",
+          executionLocation: "browser",
+          targets: [{ id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }],
+        }),
       }),
     )
     const result: ChatToolResolution = {
       assistantMessageId: claim!.assistantMessageId,
       toolPartId: partId,
       responseTargetId: targetA,
-      payload: {
-        version: 1,
-        parts: [
-          {
-            id: crypto.randomUUID(),
-            type: "tool-result",
-            outcome: "failed",
-            output: { error: "Invalid tool input" },
-          },
-        ],
-      },
+      payload: chatTestToolPayload({
+        id: crypto.randomUUID(),
+        type: "tool-result",
+        outcome: "failed",
+        output: { error: "Invalid tool input" },
+      }),
     }
     for (const outcome of ["succeeded", "unknown"]) {
       await expect(
@@ -886,10 +863,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         tenantUserId: scope.tenantUserId,
       }),
     )
-    expect(
-      (await runtime.runPromise(service.assertActive({ claim: next.claim! }).pipe(Effect.flip)))
-        ._tag,
-    ).toBe("ChatThreadNotFound")
+    await expect(
+      runtime.runPromise(service.assertActive({ claim: next.claim! })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     await runtime.runPromise(service.assertActive({ claim: survivor.claim! }))
     await runtime.runPromise(
       service.setParticipant({
@@ -900,25 +876,20 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         role: "member",
       }),
     )
-    expect(
-      (await runtime.runPromise(service.assertActive({ claim: next.claim! }).pipe(Effect.flip)))
-        ._tag,
-    ).toBe("ChatThreadConflict")
+    await expect(
+      runtime.runPromise(service.assertActive({ claim: next.claim! })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
 
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .removeParticipant({
-              scope: other,
-              id: thread.id,
-              lockVersion: 5,
-              tenantUserId: other.tenantUserId,
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadConflict")
+    await expect(
+      runtime.runPromise(
+        service.removeParticipant({
+          scope: other,
+          id: thread.id,
+          lockVersion: 5,
+          tenantUserId: other.tenantUserId,
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
     expect(
       (await runtime.runPromise(service.history({ scope: other, id: thread.id }))).find(
         (message) => message.id === next.assistantMessage!.id,
@@ -943,23 +914,18 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       service.checkpoint({
         claim,
         state: "complete",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "019a0800-0000-7000-8000-000000000003",
-              type: "tool-call",
-              toolCallId: "upstream",
-              name: "update_record",
-              arguments: "{}",
-              executionLocation: "browser",
-              targets: [
-                { id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA },
-                { id: targetB, tenantUserId: other.tenantUserId, clientId: targetB },
-              ],
-            },
+        payload: chatTestToolPayload({
+          id: "019a0800-0000-7000-8000-000000000003",
+          type: "tool-call",
+          toolCallId: "upstream",
+          name: "update_record",
+          arguments: "{}",
+          executionLocation: "browser",
+          targets: [
+            { id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA },
+            { id: targetB, tenantUserId: other.tenantUserId, clientId: targetB },
           ],
-        },
+        }),
       }),
     )
     await runtime.runPromise(service.finish({ claim }))
@@ -971,32 +937,23 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       assistantMessageId: claim.assistantMessageId,
       toolPartId: "019a0800-0000-7000-8000-000000000003",
       responseTargetId: targetA,
-      payload: {
-        version: 1,
-        parts: [
-          {
-            id: "019a0800-0000-7000-8000-000000000004",
-            type: "tool-result",
-            outcome: "succeeded",
-            output: { a: 1, b: 2 },
-          },
-        ],
-      },
+      payload: chatTestToolPayload({
+        id: "019a0800-0000-7000-8000-000000000004",
+        type: "tool-result",
+        outcome: "succeeded",
+        output: { a: 1, b: 2 },
+      }),
     }
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .resolveTools({
-              scope,
-              id: thread.id,
-              clientId: "wrong",
-              results: [result],
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadForbidden")
+    await expect(
+      runtime.runPromise(
+        service.resolveTools({
+          scope,
+          id: thread.id,
+          clientId: "wrong",
+          results: [result],
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
     const first = await runtime.runPromise(
       service.resolveTools({
         scope,
@@ -1020,9 +977,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(second.claim).not.toBeNull()
     expect(finalReplies.filter((reply) => reply.claim !== null)).toHaveLength(1)
     expect(second.claim!.inputMessageId).toBe(admitted.inputMessage.id)
-    expect((await runtime.runPromise(service.assertActive({ claim }).pipe(Effect.flip)))._tag).toBe(
-      "ChatThreadConflict",
-    )
+    await expect(runtime.runPromise(service.assertActive({ claim }))).rejects.toMatchObject({
+      _tag: "ChatThreadConflict",
+    })
     await runtime.runPromise(service.interrupt({ claim }))
     await runtime.runPromise(service.assertActive({ claim: second.claim! }))
     expect(second.claim!.invocationId).not.toBe(claim.invocationId)
@@ -1035,50 +992,36 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         results: [
           {
             ...result,
-            payload: {
-              version: 1,
-              parts: [
-                {
-                  id: "019a0800-0000-7000-8000-000000000005",
-                  type: "tool-result",
-                  outcome: "succeeded",
-                  output: { b: 2, a: 1 },
-                },
-              ],
-            },
+            payload: chatTestToolPayload({
+              id: "019a0800-0000-7000-8000-000000000005",
+              type: "tool-result",
+              outcome: "succeeded",
+              output: { b: 2, a: 1 },
+            }),
           },
         ],
       }),
     )
     expect(retry.claim).toBeNull()
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .resolveTools({
-              scope,
-              id: thread.id,
-              clientId: targetA,
-              results: [
-                {
-                  ...result,
-                  payload: {
-                    version: 1,
-                    parts: [
-                      {
-                        id: "019a0800-0000-7000-8000-000000000006",
-                        type: "tool-result",
-                        output: "changed",
-                      },
-                    ],
-                  },
-                },
-              ],
-            })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadConflict")
+    await expect(
+      runtime.runPromise(
+        service.resolveTools({
+          scope,
+          id: thread.id,
+          clientId: targetA,
+          results: [
+            {
+              ...result,
+              payload: chatTestToolPayload({
+                id: "019a0800-0000-7000-8000-000000000006",
+                type: "tool-result",
+                output: "changed",
+              }),
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
     expect(
       (await runtime.runPromise(service.history({ scope, id: thread.id }))).filter(
         (message) => message.role === "tool",
@@ -1094,10 +1037,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         role: "viewer",
       }),
     )
-    expect(
-      (await runtime.runPromise(service.assertActive({ claim: second.claim! }).pipe(Effect.flip)))
-        ._tag,
-    ).toBe("ChatThreadForbidden")
+    await expect(
+      runtime.runPromise(service.assertActive({ claim: second.claim! })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
     expect(
       (
         await runtime.runPromise(
@@ -1133,20 +1075,15 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         service.checkpoint({
           claim,
           state: "complete",
-          payload: {
-            version: 1,
-            parts: [
-              {
-                id: partId,
-                type: "tool-call",
-                toolCallId: target,
-                name: "read_value",
-                arguments: "{}",
-                executionLocation: "browser",
-                targets: [{ id: target, tenantUserId: scope.tenantUserId, clientId: targetA }],
-              },
-            ],
-          },
+          payload: chatTestToolPayload({
+            id: partId,
+            type: "tool-call",
+            toolCallId: target,
+            name: "read_value",
+            arguments: "{}",
+            executionLocation: "browser",
+            targets: [{ id: target, tenantUserId: scope.tenantUserId, clientId: targetA }],
+          }),
         }),
       )
       await runtime.runPromise(service.finish({ claim }))
@@ -1154,17 +1091,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         assistantMessageId: claim.assistantMessageId,
         toolPartId: partId,
         responseTargetId: target,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "019a0800-0000-7000-8000-000000000004",
-              type: "tool-result",
-              outcome: "succeeded",
-              output: target,
-            },
-          ],
-        },
+        payload: chatTestToolPayload({
+          id: "019a0800-0000-7000-8000-000000000004",
+          type: "tool-result",
+          outcome: "succeeded",
+          output: target,
+        }),
       }
     }
     const oldResult = await finishCall(first.claim!, targetA)
@@ -1201,71 +1133,52 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         service.checkpoint({
           claim,
           state: "complete",
-          payload: {
-            version: 1,
-            parts: [
-              {
-                id: "019a0800-0000-7000-8000-000000000007",
-                type: "tool-call",
-                toolCallId: "server",
-                name: "sandbox_run_command",
-                arguments: "{}",
-                executionLocation,
-                targets: [
-                  executionLocation === "browser"
-                    ? { id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }
-                    : { id: targetA },
-                ],
-              },
+          payload: chatTestToolPayload({
+            id: "019a0800-0000-7000-8000-000000000007",
+            type: "tool-call",
+            toolCallId: "server",
+            name: "sandbox_run_command",
+            arguments: "{}",
+            executionLocation,
+            targets: [
+              executionLocation === "browser"
+                ? { id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }
+                : { id: targetA },
             ],
-          },
+          }),
         }),
       )
       const result: ChatToolResolution = {
         assistantMessageId: claim.assistantMessageId,
         toolPartId: "019a0800-0000-7000-8000-000000000007",
         responseTargetId: targetA,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "019a0800-0000-7000-8000-000000000008",
-              type: "tool-result",
-              outcome: "unknown",
-              output: null,
-            },
-          ],
-        },
+        payload: chatTestToolPayload({
+          id: "019a0800-0000-7000-8000-000000000008",
+          type: "tool-result",
+          outcome: "unknown",
+          output: null,
+        }),
       }
-      expect(
-        (
-          await runtime.runPromise(
-            service
-              .resolveTools({
-                scope,
-                id: thread.id,
-                clientId: "new-tab",
-                results: [
-                  {
-                    ...result,
-                    payload: {
-                      version: 1,
-                      parts: [
-                        {
-                          id: "019a0800-0000-7000-8000-000000000008",
-                          type: "tool-result",
-                          outcome: "succeeded",
-                          output: "fabricated",
-                        },
-                      ],
-                    },
-                  },
-                ],
-              })
-              .pipe(Effect.flip),
-          )
-        )._tag,
-      ).toBe("ChatThreadForbidden")
+      await expect(
+        runtime.runPromise(
+          service.resolveTools({
+            scope,
+            id: thread.id,
+            clientId: "new-tab",
+            results: [
+              {
+                ...result,
+                payload: chatTestToolPayload({
+                  id: "019a0800-0000-7000-8000-000000000008",
+                  type: "tool-result",
+                  outcome: "succeeded",
+                  output: "fabricated",
+                }),
+              },
+            ],
+          }),
+        ),
+      ).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
       const accepted = await runtime.runPromise(
         service.resolveTools({
           scope,
@@ -1276,9 +1189,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       )
       expect(accepted.claim).not.toBeNull()
       expect(accepted.claim!.invocationId).not.toBe(claim.invocationId)
-      expect(
-        (await runtime.runPromise(service.assertActive({ claim }).pipe(Effect.flip)))._tag,
-      ).toBe("ChatThreadConflict")
+      await expect(runtime.runPromise(service.assertActive({ claim }))).rejects.toMatchObject({
+        _tag: "ChatThreadConflict",
+      })
       await runtime.runPromise(service.interrupt({ claim }))
       await runtime.runPromise(service.assertActive({ claim: accepted.claim! }))
       const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
@@ -1395,23 +1308,18 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(newer.items.map((message) => message.id)).toEqual(
       page.items.map((message) => message.id),
     )
-    expect(
-      (
-        await runtime.runPromise(
-          service
-            .snapshot({ scope, id: thread.id, position: { id: crypto.randomUUID() } })
-            .pipe(Effect.flip),
-        )
-      )._tag,
-    ).toBe("ChatThreadNotFound")
+    await expect(
+      runtime.runPromise(
+        service.snapshot({ scope, id: thread.id, position: { id: crypto.randomUUID() } }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
     await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 2 }))
     expect(await db.select().from(chatMessage).where(eq(chatMessage.threadId, thread.id))).toEqual(
       [],
     )
-    expect(
-      (await runtime.runPromise(service.assertActive({ claim: admitted.claim! }).pipe(Effect.flip)))
-        ._tag,
-    ).toBe("ChatThreadNotFound")
+    await expect(
+      runtime.runPromise(service.assertActive({ claim: admitted.claim! })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
   })
 
   test("thread activity cursors survive boundary updates and deletion", async () => {
@@ -1494,24 +1402,19 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const thread = await create()
     const accepted = await admit(thread.id)
     const partId = crypto.randomUUID()
-    const decision: ChatMessagePayload = {
-      version: 1,
-      parts: [
-        {
-          id: partId,
-          type: "tool-call",
-          toolCallId: "upstream",
-          name: "update_record",
-          arguments: "{}",
-          executionLocation: "browser",
-          targets: [targetA, targetB].map((clientId) => ({
-            id: clientId,
-            clientId,
-            tenantUserId: scope.tenantUserId,
-          })),
-        },
-      ],
-    }
+    const decision: ChatMessagePayload = chatTestToolPayload({
+      id: partId,
+      type: "tool-call",
+      toolCallId: "upstream",
+      name: "update_record",
+      arguments: "{}",
+      executionLocation: "browser",
+      targets: [targetA, targetB].map((clientId) => ({
+        id: clientId,
+        clientId,
+        tenantUserId: scope.tenantUserId,
+      })),
+    })
     await runtime.runPromise(
       service.checkpoint({ claim: accepted.claim!, payload: decision, state: "complete" }),
     )

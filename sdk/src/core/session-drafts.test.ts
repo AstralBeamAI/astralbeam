@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
-import { createAstralBeamChat } from "./session.ts"
+import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 const threadA = "00000000-0000-4000-8000-000000000001"
 const threadB = "00000000-0000-4000-8000-000000000002"
@@ -9,9 +9,6 @@ const currentUser = {
   tenant: { id: "tenant" },
   user: { id: "user" },
 }
-const token = () => ({
-  token: `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 300 }))}.signature`,
-})
 const thread = (id: string) => ({
   id,
   title: "Saved conversation",
@@ -31,7 +28,10 @@ const page = (id: string) => ({
 })
 
 beforeEach(() => vi.stubGlobal("sessionStorage", undefined))
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  disposeTestSessions()
+  vi.unstubAllGlobals()
+})
 
 test.each(["selection", "api", "identity"] as const)(
   "%s changes preserve uncertain submissions only within the same authenticated scope",
@@ -85,41 +85,36 @@ test.each(["selection", "api", "identity"] as const)(
       }
       return Promise.reject(new Error(`Unexpected request ${url}`))
     })
-    const chat = createAstralBeamChat({
+    const chat = createTestSession({
       threadId: threadA,
-      fetchAstralBeamToken: token,
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-      await chat.sendMessage("Keep my original intent", { onThreadReady, onAccepted })
-      expect(onThreadReady).toHaveBeenCalledWith(threadA)
-      expect(onAccepted).not.toHaveBeenCalled()
-      expect(chat.getState().unsentMessage).toBe("Keep my original intent")
-      await chat.openThread(threadB)
-      expect(chat.getState().unsentMessage).toBeUndefined()
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+    await chat.sendMessage("Keep my original intent", { onThreadReady, onAccepted })
+    expect(onThreadReady).toHaveBeenCalledWith(threadA)
+    expect(onAccepted).not.toHaveBeenCalled()
+    expect(chat.getState().unsentMessage).toBe("Keep my original intent")
+    await chat.openThread(threadB)
+    expect(chat.getState().unsentMessage).toBeUndefined()
 
-      if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
-      else if (change === "identity") {
-        user = { ...currentUser, user: { id: "another-user" } }
-        chat.retryAuthentication()
-      } else await chat.openThread(threadA)
+    if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+    else if (change === "identity") {
+      user = { ...currentUser, user: { id: "another-user" } }
+      chat.retryAuthentication()
+    } else await chat.openThread(threadA)
 
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-      expect(chat.getState().unsentMessage).toBe(
-        change === "selection" ? "Keep my original intent" : undefined,
-      )
-      await chat.reload()
-      expect(sent).toHaveLength(1)
-      await chat.sendMessage("Keep my original intent")
-      expect(sent).toHaveLength(2)
-      expect(sent[0]?.key).toBeTruthy()
-      expect(sent[1]?.key === sent[0]?.key).toBe(change === "selection")
-      expect(chat.getState().unsentMessage).toBeUndefined()
-      expect(chat.getState().error).toBeUndefined()
-      expect(onAccepted).toHaveBeenCalledTimes(change === "selection" ? 1 : 0)
-    } finally {
-      chat.dispose()
-    }
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+    expect(chat.getState().unsentMessage).toBe(
+      change === "selection" ? "Keep my original intent" : undefined,
+    )
+    await chat.reload()
+    expect(sent).toHaveLength(1)
+    await chat.sendMessage("Keep my original intent")
+    expect(sent).toHaveLength(2)
+    expect(sent[0]?.key).toBeTruthy()
+    expect(sent[1]?.key === sent[0]?.key).toBe(change === "selection")
+    expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().error).toBeUndefined()
+    expect(onAccepted).toHaveBeenCalledTimes(change === "selection" ? 1 : 0)
   },
 )
 
@@ -142,24 +137,19 @@ test("a send awaiting authentication cannot follow the user into a new conversat
       )
     return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
   })
-  const chat = createAstralBeamChat({
+  const chat = createTestSession({
     threadId: threadA,
-    fetchAstralBeamToken: token,
   })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    const send = chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
-    chat.reset()
-    await send
-    expect(mutations).toEqual([])
-    expect(chat.getState().thread).toBeUndefined()
-    expect(chat.getState().unsentMessage).toBeUndefined()
-    expect(chat.getState().error).toBeUndefined()
-    expect(onThreadReady).not.toHaveBeenCalled()
-    expect(onAccepted).not.toHaveBeenCalled()
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+  const send = chat.sendMessage("Only for conversation A", { onThreadReady, onAccepted })
+  chat.reset()
+  await send
+  expect(mutations).toEqual([])
+  expect(chat.getState().thread).toBeUndefined()
+  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().error).toBeUndefined()
+  expect(onThreadReady).not.toHaveBeenCalled()
+  expect(onAccepted).not.toHaveBeenCalled()
 })
 
 test("new-conversation callbacks identify the destination and acknowledge input before streaming ends", async () => {
@@ -189,16 +179,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
             : { items: [], page_after: null, page_before: null },
         ),
       )
-    if (url.pathname.endsWith("/messages"))
-      return Promise.resolve(
-        Response.json({
-          thread: thread(threadA),
-          messages: [],
-          pending_interactions: [],
-          page_after: null,
-          page_before: null,
-        }),
-      )
+    if (url.pathname.endsWith("/messages")) return Promise.resolve(Response.json(page(threadA)))
     if (url.pathname.endsWith("/chat")) {
       if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
       const body = JSON.parse(init.body) as { threadId: string }
@@ -209,7 +190,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     }
     return Promise.reject(new Error(`Unexpected request ${url}`))
   })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: token })
+  const chat = createTestSession()
   try {
     const sending = chat
       .sendMessage("Start a saved conversation", { onThreadReady, onAccepted })
@@ -243,6 +224,5 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     expect(chat.getState().unsentMessage).toBeUndefined()
   } finally {
     stream?.close()
-    chat.dispose()
   }
 })
