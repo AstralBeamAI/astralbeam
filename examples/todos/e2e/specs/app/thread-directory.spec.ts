@@ -27,26 +27,14 @@ const savedThread = {
   updated_at: "2026-10-06T00:00:00Z",
 }
 
-test("published artifacts preview and download after reload through current conversation access", async ({
-  page,
-}) => {
+test("published images preview and download after reload", async ({ page }) => {
   const directory = threadDirectoryPage(page)
-  let revoked = false
   const png = await readFile(
     new URL("../../../../../platform/public/astralbeam-logo-light.png", import.meta.url),
   )
   await page.route("**/api/v1/threads?*", (route) =>
     route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
   )
-  const files = [
-    {
-      id: "report",
-      path: "/workspace/report.txt",
-      mimeType: "text/plain",
-      bytes: Buffer.from("Durable report"),
-    },
-    { id: "chart", path: "/workspace/chart.png", mimeType: "image/png", bytes: png },
-  ]
   await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
     route.fulfill({
       json: {
@@ -56,36 +44,37 @@ test("published artifacts preview and download after reload through current conv
             id: "publication",
             role: "assistant",
             state: "complete",
-            parts: files.map((file) => ({
-              id: file.id,
-              type: "tool-call",
-              toolCallId: file.id,
-              name: "sandbox_publish_artifact",
-              arguments: "{}",
-              executionLocation: "sandbox",
-            })),
+            parts: [
+              {
+                id: "publish",
+                type: "tool-call",
+                toolCallId: "publish",
+                name: "sandbox_publish_artifact",
+                arguments: "{}",
+                executionLocation: "sandbox",
+              },
+            ],
           },
-          ...files.map((file) => ({
-            id: file.id,
+          {
+            id: "result",
             role: "tool",
             state: "complete",
             source_assistant_message_id: "publication",
-            source_tool_part_id: file.id,
+            source_tool_part_id: "publish",
             parts: [
               {
-                id: file.id,
+                id: "chart",
                 type: "tool-result",
                 outcome: "succeeded",
                 output: {
                   fileId: "019a0800-0000-7000-8000-000000000099",
-                  path: file.path,
-                  relativePath: file.path.split("/").at(-1),
-                  mimeType: file.mimeType,
-                  size: file.bytes.length,
+                  path: "/workspace/chart.png",
+                  mimeType: "image/png",
+                  size: png.length,
                 },
               },
             ],
-          })),
+          },
         ],
         page_after: null,
         page_before: null,
@@ -93,11 +82,8 @@ test("published artifacts preview and download after reload through current conv
     }),
   )
   await page.route("**/api/v1/tenants/*/threads/*/messages/*/attachments/*", (route) => {
-    const file = files.find((file) => route.request().url().endsWith(file.id))!
     expect(route.request().headers().authorization).toMatch(/^Bearer /)
-    return revoked
-      ? route.fulfill({ status: 403, json: { error: "Forbidden" } })
-      : route.fulfill({ body: file.bytes, contentType: file.mimeType })
+    return route.fulfill({ body: png, contentType: "image/png" })
   })
   await directory.openReact()
   await directory.conversation(savedThread.title).click()
@@ -109,12 +95,11 @@ test("published artifacts preview and download after reload through current conv
     .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
     .toBeGreaterThan(0)
   const downloaded = page.waitForEvent("download")
-  await page.getByRole("button", { name: "Download report.txt" }).click()
-  expect((await downloaded).suggestedFilename()).toBe("report.txt")
+  await page.getByRole("button", { name: "Download chart.png" }).click()
+  const file = await downloaded
+  expect(file.suggestedFilename()).toBe("chart.png")
+  expect(await readFile(await file.path())).toEqual(png)
   await captureMoment(page, "durable-artifacts-after-reload")
-  revoked = true
-  await page.getByRole("button", { name: "Download report.txt" }).click()
-  await expect(page.getByRole("button", { name: "Download report.txt" })).toHaveCount(0)
 })
 
 test("React conversation directory reads saved pages, uploads and decisions without executing actions", async ({

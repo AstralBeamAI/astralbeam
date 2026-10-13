@@ -28,8 +28,6 @@ import { SandboxCodeBlock } from "./sandbox-code.tsx"
 import { SandboxCommandLog } from "./sandbox-command-log.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 
-type ToolCallPart = ChatToolCallPart
-
 /**
  * A sandbox tool call in the transcript. These are the endpoint's own server-side tools, so unlike
  * a host tool the widget knows exactly what their input and output mean and can show the file it
@@ -40,7 +38,7 @@ export function SandboxPart({
   getFile,
   getAttachment,
 }: {
-  part: ToolCallPart
+  part: ChatToolCallPart
   getFile?: ((id: string) => Promise<Blob>) | undefined
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
 }) {
@@ -196,7 +194,7 @@ function readSandboxVerb(name: string, running: boolean): string {
 }
 
 /** A thrown sandbox tool stores its message as `{ error }`, the same shape a client failure uses. */
-function readSandboxToolError(part: ToolCallPart): string | undefined {
+function readSandboxToolError(part: ChatToolCallPart): string | undefined {
   const error = (part.output as { error?: unknown } | null | undefined)?.error
   return typeof error === "string" && error.length > 0 ? error : undefined
 }
@@ -205,7 +203,7 @@ function readSandboxToolError(part: ToolCallPart): string | undefined {
  * The body of a read or a listing. A file read shows its contents; a listing shows one entry per
  * line with directories marked, which is far easier to scan than the JSON array behind it.
  */
-function readSandboxOutputText(part: ToolCallPart): string {
+function readSandboxOutputText(part: ChatToolCallPart): string {
   const output = part.output as { content?: unknown; entries?: unknown } | null | undefined
   if (output == null) return ""
   if (typeof output.content === "string") return output.content
