@@ -1,11 +1,20 @@
-import { expect, type Page } from "@playwright/test"
-import { waitForHydration } from "../../../../platform/e2e/hydration.ts"
+import { expect, type Locator, type Page } from "@playwright/test"
 import {
   SEED_DOGFOOD,
   SEED_PASSWORD,
   SEED_TODOS_TARGET,
 } from "../../../../platform/scripts/seed/fixtures.ts"
 import { platformUrl } from "../worktree.ts"
+
+const waitForHydration = (control: Locator) =>
+  expect
+    .poll(
+      () => control.evaluate((node) => Object.keys(node).some((key) => key.startsWith("__react"))),
+      {
+        timeout: 60_000,
+      },
+    )
+    .toBe(true)
 
 export async function prepareMcpDefinition(page: Page, endpoint: string) {
   const dashboard = await page.context().newPage()
@@ -26,11 +35,9 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
   await dialog.getByLabel("Authentication", { exact: true }).selectOption("static_headers")
   await dialog.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
   await dialog.getByRole("button", { name: "Add server", exact: true }).click()
-  const server = dashboard
-    .locator("article")
-    .filter({
-      has: dashboard.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
-    })
+  const server = dashboard.locator("article").filter({
+    has: dashboard.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
+  })
   await expect(server).toBeVisible()
   return async () => {
     await server.getByRole("button", { name: "Remove server", exact: true }).click()

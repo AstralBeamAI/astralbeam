@@ -33,11 +33,9 @@ export function mcpPage(page: Page) {
       ).toBeVisible()
     },
     async removeServer(endpoint: string) {
-      const server = page
-        .locator("article")
-        .filter({
-          has: page.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
-        })
+      const server = page.locator("article").filter({
+        has: page.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
+      })
       await server.getByRole("button", { name: "Remove server", exact: true }).click()
       await openAlertDialog(page).getByRole("button", { name: "Cancel", exact: true }).click()
       await expect(server).toBeVisible()

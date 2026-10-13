@@ -134,8 +134,8 @@ export function McpServerForm({
           </>
         )}
         <p className="text-sm text-muted-foreground">
-          Settings are fixed after creation. Remove and add the server again to change its endpoint or
-          authentication.
+          Settings are fixed after creation. Remove and add the server again to change its endpoint
+          or authentication.
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={cancel}>

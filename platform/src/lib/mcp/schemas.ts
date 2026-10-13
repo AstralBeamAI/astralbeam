@@ -11,13 +11,13 @@ export const MCP_ATTEMPT_LIFETIME_MS = 600_000
 export const MCP_REFRESH_MARGIN_MS = 60_000
 export const MCP_REFRESH_LEASE_MS = 30_000
 
-export const McpActorSchema = Schema.Struct({
+const McpActorSchema = Schema.Struct({
   organizationId: UuidV7Schema,
   tenantId: UuidV7Schema,
   tenantUserId: UuidV7Schema,
 })
 export type McpActor = typeof McpActorSchema.Type
-export const McpReferenceSchema = Schema.Struct({
+const McpReferenceSchema = Schema.Struct({
   organizationId: UuidV7Schema,
   tenantId: UuidV7Schema,
   id: UuidV7Schema,
@@ -29,12 +29,12 @@ export const McpAttemptReferenceSchema = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
 })
 export type McpAttemptReference = typeof McpAttemptReferenceSchema.Type
-export const McpManualClientSchema = Schema.Struct({
+const McpManualClientSchema = Schema.Struct({
   clientId: NonEmptyStringSchema.check(Schema.isMaxLength(2048)),
   clientSecret: Schema.optionalKey(NonEmptyStringSchema.check(Schema.isMaxLength(8192))),
   tokenEndpointAuthMethod: Schema.Literals(["none", "client_secret_basic", "client_secret_post"]),
 })
-export const McpAuthConfigSchema = Schema.Union([
+const McpAuthConfigSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("none") }),
   Schema.Struct({
     kind: Schema.Literal("static_headers"),
