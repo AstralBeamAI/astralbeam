@@ -221,6 +221,10 @@ async function loadChatAuthToken(options: GetValidChatAuthTokenOptions): Promise
   } catch (cause) {
     signal.throwIfAborted()
     const error = cause instanceof Error ? cause : new Error("Authentication failed")
+    if (isAstralBeamApiError(error) && error.status === 401) {
+      error.message =
+        "AstralBeam rejected the chat token after renewal. Check that apiUrl matches the deployment that issued your API key. If the key was revoked or expired, create a replacement in API Keys and update your server's secret."
+    }
     session.cached = undefined
     publishAuthentication(options, { status: "error", error })
     throw error

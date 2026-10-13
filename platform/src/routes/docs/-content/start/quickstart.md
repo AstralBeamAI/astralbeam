@@ -13,9 +13,10 @@ Creating one makes you its owner and provisions a starter agent, already set as 
 Let's configure it before creating an API key:
 
 1. Open **Models**, add a provider with its API key and API URL, enable a model your provider account can access, and choose **Save provider**.
-2. Open **Agents**, choose the starter agent, select that model, and choose **Save changes**.
+2. Choose **Test model** and wait for a successful reply. If access fails, correct the provider settings, save, and test again. Your provider may charge for the request.
+3. Open **Agents**, choose the starter agent, select that model, and choose **Save changes**.
 
-Saving these settings does not verify provider access. We will check that by sending a message from your application in step 6. [Models](/docs/dashboard/models) and [Agents](/docs/dashboard/agents) cover the settings in detail.
+Saving settings does not verify provider access. A successful model test verifies that connection. In step 6, we'll verify your application's authentication and agent together. [Models](/docs/dashboard/models) and [Agents](/docs/dashboard/agents) cover the settings in detail.
 
 ## 2. Create an API key
 
@@ -45,8 +46,10 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 export async function POST(request: Request) {
   const session = await getApplicationSession(request)
   if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
+  const apiKey = process.env.ASTRALBEAM_API_KEY
+  if (!apiKey) return Response.json({ error: "Assistant unavailable" }, { status: 503 })
   const token = await createAstralBeamToken({
-    apiKey: process.env.ASTRALBEAM_API_KEY!,
+    apiKey,
     user: { id: session.user.id, name: session.user.name },
     tenant: { id: session.tenant.id, name: session.tenant.name },
   })
@@ -86,7 +89,7 @@ Mounting without React, updating options in place, and the layout rules are cove
 
 Sign in to your own application and open the sidebar. A streamed reply means the token round trip, the API key, and the agent all resolved.
 
-If the composer is disabled with an error, your token endpoint failed rather than the agent. Check that it returns `{ token }`, that the request carries your session, and that the API key is present on the server.
+If the composer is disabled with an authentication error, token acquisition or verification failed. Check that your endpoint returns `{ token }`, the request carries your session, and your server uses a valid API key from the deployment at `apiUrl`. For a revoked or expired key, create a replacement under **API Keys** and update your server's secret before retrying.
 
 ## Agents and agent IDs
 
@@ -100,7 +103,7 @@ The system prompt lives with the agent, so an embedding application cannot overr
 
 | Symptom | Cause |
 | --- | --- |
-| Composer disabled with a retry link | The token fetch failed or returned something other than `{ token }` |
+| Composer disabled with a retry link | Token acquisition or verification failed. See [authentication troubleshooting](/docs/sdk/authentication#troubleshooting) |
 | `401` from your own endpoint | No application session on the request |
 | `503` from your own endpoint | The API key is missing from the server environment |
 | The agent has no model configured | Add a provider in Models, enable a model, and assign it to the agent |
