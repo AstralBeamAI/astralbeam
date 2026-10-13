@@ -40,11 +40,11 @@ const makeMcpTools = Effect.gen(function* () {
     actor: McpActor
     reference: McpReference
   }) {
-    const { connection, server } = yield* connections.getConnection({ ...input, use: true })
+    const { connection, server } = yield* connections.getConnection(input)
     const dispatcher = yield* Effect.acquireRelease(Effect.sync(mcpCreateDispatcher), (agent) =>
       Effect.promise(() => agent.close()),
     )
-    const credentialInput = { ...input, expectedGeneration: connection.authGeneration }
+    const credentialInput = { ...input, expectedVersion: connection.lockVersion }
     const readCredential = (rejectedToken?: string) =>
       Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken })).then(
         Redacted.value,
@@ -129,107 +129,94 @@ const makeMcpTools = Effect.gen(function* () {
   })
   const acquire = Effect.fn("McpTools.acquire")(function* (actor: McpActor) {
     const catalog = yield* connections.catalog(actor)
-    const set: McpToolSet = { tools: [], presentation: [], unavailable: [] }
-    for (const connection of catalog.connections) {
-      if (
-        !connection.enabled ||
-        connection.authState !== "connected" ||
-        connection.availability !== "available"
-      )
-        continue
-      const input = {
-        actor,
-        reference: {
-          organizationId: connection.organizationId,
-          tenantId: connection.tenantId,
-          id: connection.id,
-        },
-      }
-      yield* openClient(input).pipe(
-        Effect.flatMap((opened) =>
-          Effect.try({
-            try: () =>
-              opened.tools.map(({ remote, name, inputSchema }) => {
-                const presentation = {
-                  name,
-                  title: `${connection.name}: ${remote.title ?? remote.name}`,
-                  serverId: opened.server.id,
-                  connectionId: connection.id,
-                  nativeToolName: remote.name,
-                }
-                const definition = toolDefinition({
-                  name,
-                  description: remote.description ?? presentation.title,
-                  inputSchema,
-                  metadata: {
-                    source: "mcp",
-                    ...presentation,
-                    originalInputSchema: remote.inputSchema,
-                  },
-                }).server(async (args, context) => {
-                  await Effect.runPromise(connections.getConnection({ ...input, use: true }))
-                  // HTTP rejection can be retried by the SDK. Ambiguous business outcomes propagate unchanged.
-                  // https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
-                  return Effect.runPromise(
-                    Effect.tryPromise({
-                      try: () =>
-                        opened.client.callTool(
-                          { name: remote.name, arguments: args as Record<string, unknown> },
-                          {
-                            timeout: MCP_TOOL_TIMEOUT_MS,
-                            ...(context?.abortSignal ? { signal: context.abortSignal } : {}),
-                          },
+    const pending = yield* Effect.forEach(
+      catalog.connections.filter((entry) => entry.authState === "connected"),
+      (connection) =>
+        Effect.gen(function* () {
+          const input = {
+            actor,
+            reference: {
+              organizationId: connection.organizationId,
+              tenantId: connection.tenantId,
+              id: connection.id,
+            },
+          }
+          return yield* openClient(input).pipe(
+            Effect.flatMap((opened) =>
+              Effect.try({
+                try: () =>
+                  opened.tools.map(({ remote, name, inputSchema }) => {
+                    const presentation = {
+                      name,
+                      title: `${new URL(opened.server.endpointUrl).hostname}: ${remote.title ?? remote.name}`,
+                      serverId: opened.server.id,
+                      connectionId: connection.id,
+                      nativeToolName: remote.name,
+                    }
+                    const definition = toolDefinition({
+                      name,
+                      description: remote.description ?? presentation.title,
+                      inputSchema,
+                      metadata: {
+                        source: "mcp",
+                        ...presentation,
+                        originalInputSchema: remote.inputSchema,
+                      },
+                    }).server(async (args, context) => {
+                      await Effect.runPromise(connections.getConnection(input))
+                      // HTTP rejection can be retried by the SDK. Ambiguous business outcomes propagate unchanged.
+                      // https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
+                      return Effect.runPromise(
+                        Effect.tryPromise({
+                          try: () =>
+                            opened.client.callTool(
+                              { name: remote.name, arguments: args as Record<string, unknown> },
+                              {
+                                timeout: MCP_TOOL_TIMEOUT_MS,
+                                ...(context?.abortSignal ? { signal: context.abortSignal } : {}),
+                              },
+                            ),
+                          catch: () => new McpUnavailable(),
+                        }).pipe(
+                          Effect.withSpan("McpTools.call", {
+                            attributes: { connectionId: connection.id, serverId: opened.server.id },
+                          }),
                         ),
-                      catch: () => new McpUnavailable(),
-                    }).pipe(
-                      Effect.withSpan("McpTools.call", {
-                        attributes: { connectionId: connection.id, serverId: opened.server.id },
-                      }),
-                    ),
-                  )
-                })
-                return { tool: definition, presentation }
+                      )
+                    })
+                    return { tool: definition, presentation }
+                  }),
+                catch: () => new McpUnavailable(),
               }),
-            catch: () => new McpUnavailable(),
-          }),
-        ),
-        Effect.match({
-          onFailure: () => {
-            set.unavailable.push(connection.id)
-          },
-          onSuccess: (pending) => {
-            for (const { tool, presentation } of pending) {
-              set.tools.push(tool)
-              set.presentation.push(presentation)
-            }
-          },
+            ),
+            Effect.match({
+              onFailure: (): McpToolSet => ({
+                tools: [],
+                presentation: [],
+                unavailable: [connection.id],
+              }),
+              onSuccess: (tools): McpToolSet => ({
+                tools: tools.map((entry) => entry.tool),
+                presentation: tools.map((entry) => entry.presentation),
+                unavailable: [],
+              }),
+            }),
+          )
         }),
-      )
+      { concurrency: 4 },
+    )
+    return {
+      tools: pending.flatMap((entry) => entry.tools),
+      presentation: pending.flatMap((entry) => entry.presentation),
+      unavailable: pending.flatMap((entry) => entry.unavailable),
     }
-    return set
   })
   const test = Effect.fn("McpTools.test")(function* (input: {
     actor: McpActor
     reference: McpReference
   }) {
-    const { connection } = yield* connections.getConnection(input)
     return yield* Effect.scoped(
       Effect.map(openClient(input), (opened) => ({ toolCount: opened.tools.length })),
-    ).pipe(
-      Effect.tap(() =>
-        connections.recordVerification({
-          ...input,
-          generation: connection.authGeneration,
-          result: "connected",
-        }),
-      ),
-      Effect.tapError(() =>
-        connections.recordVerification({
-          ...input,
-          generation: connection.authGeneration,
-          result: "unavailable",
-        }),
-      ),
     )
   })
   return { acquire, test }

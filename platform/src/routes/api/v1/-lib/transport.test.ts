@@ -434,15 +434,15 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
-  test.each([`/me/mcp/connections/${restOtherId}`, "/me/mcp/catalog"])(
-    "answers personal MCP API-key impersonation at %s with a safe forbidden problem",
+  test.each(["/me/mcp/catalog"])(
+    "answers personal MCP API-key impersonation at %s with a safe authentication problem",
     async (path) => {
       const response = await restRequest(path)
-      expect(response.status).toBe(403)
+      expect(response.status).toBe(401)
       expect(response.headers.get("content-type")).toContain("application/problem+json")
       expect(await response.json()).toMatchObject({
-        status: 403,
-        detail: "You cannot use or manage this MCP connection.",
+        status: 401,
+        detail: "Invalid credentials.",
       })
       expect(restTestState.logs).toHaveLength(0)
     },

@@ -4,7 +4,8 @@ import { McpTools } from "./tools/tools.ts"
 import type { McpActor } from "./schemas.ts"
 
 const liveOrganizationId = globalThis.process.env.MCP_LIVE_ORGANIZATION_ID
-const liveOrganizationUserId = globalThis.process.env.MCP_LIVE_ORGANIZATION_USER_ID
+const liveTenantId = globalThis.process.env.MCP_LIVE_TENANT_ID
+const liveTenantUserId = globalThis.process.env.MCP_LIVE_TENANT_USER_ID
 const liveConnections = globalThis.process.env.MCP_LIVE_CONNECTION_IDS?.split(",") ?? []
 const createLiveMcpRuntime = () => ManagedRuntime.make(McpTools.layer)
 let runtime: ReturnType<typeof createLiveMcpRuntime> | undefined
@@ -12,18 +13,14 @@ afterAll(async () => {
   await runtime?.dispose()
 })
 
-test.skipIf(!liveConnections.length || !liveOrganizationId || !liveOrganizationUserId)(
+test.skipIf(!liveConnections.length || !liveOrganizationId || !liveTenantId || !liveTenantUserId)(
   "lists and exposes tools from explicitly configured live accounts",
   async () => {
     const current = (runtime ??= createLiveMcpRuntime())
     const actor: McpActor = {
       organizationId: liveOrganizationId!,
-      organizationUserId: liveOrganizationUserId!,
-      tenantId: null,
-      tenantUserId: null,
-      admin: true,
-      apiKey: false,
-      interactive: true,
+      tenantId: liveTenantId!,
+      tenantUserId: liveTenantUserId!,
     }
     await current.runPromise(
       Effect.scoped(

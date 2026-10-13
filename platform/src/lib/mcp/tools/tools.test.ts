@@ -13,21 +13,15 @@ import { startMcpFixture } from "../testing/fixture.ts"
 import type { McpActor, McpAuthConfig, McpCredential, McpReference } from "../schemas.ts"
 const mcpToolTestActor: McpActor = {
   organizationId: "019a0000-0000-7000-8000-000000000001",
-  tenantId: null,
-  tenantUserId: null,
-  organizationUserId: "019a0000-0000-7000-8000-000000000002",
-  apiKey: false,
-  admin: true,
-  interactive: true,
+  tenantId: "019a0000-0000-7000-8000-000000000010",
+  tenantUserId: "019a0000-0000-7000-8000-000000000011",
 }
 const mcpToolTestConnection = {
   ...mcpToolTestActor,
   id: "019a0000-0000-7000-8000-000000000003",
   name: "Account",
-  enabled: true,
   authState: "connected",
-  availability: "available",
-  authGeneration: "019a0000-0000-7000-8000-000000000006",
+  lockVersion: 0,
 }
 const mcpToolTestServer = {
   ...mcpToolTestActor,
@@ -41,7 +35,7 @@ afterEach(async () => {
 })
 async function withMcpTools<A>(
   use: (tools: typeof McpTools.Service) => Effect.Effect<A, unknown, Scope.Scope>,
-  getCredential: (input: { expectedGeneration?: string }) => McpCredential | null = () => null,
+  getCredential: (input: { expectedVersion?: number }) => McpCredential | null = () => null,
   authConfig: McpAuthConfig = { kind: "none" },
   catalog = [mcpToolTestConnection],
 ) {
@@ -65,7 +59,7 @@ async function withMcpTools<A>(
                 }),
             } as unknown as typeof McpConnections.Service),
             Layer.succeed(McpAuthorization, {
-              getCredential: (input: { expectedGeneration?: string }) =>
+              getCredential: (input: { expectedVersion?: number }) =>
                 Effect.sync(() => Redacted.make(getCredential(input))),
             } as unknown as typeof McpAuthorization.Service),
           ]),
@@ -76,19 +70,19 @@ async function withMcpTools<A>(
 }
 describe("request-oriented MCP tools", () => {
   test("a discovered tool cannot dispatch with a replacement account's credentials", async () => {
-    let generation = mcpToolTestConnection.authGeneration
+    let generation = mcpToolTestConnection.lockVersion
     await withMcpTools(
       (tools) =>
         Effect.gen(function* () {
           const set = yield* tools.acquire(mcpToolTestActor)
-          generation = "019a0000-0000-7000-8000-000000000007"
+          generation = 1
           yield* Effect.promise(() =>
             expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow(),
           )
           expect(mcpToolFixture.state.calls).toBe(0)
         }),
-      ({ expectedGeneration }) => {
-        if (expectedGeneration !== undefined && expectedGeneration !== generation)
+      ({ expectedVersion }) => {
+        if (expectedVersion !== undefined && expectedVersion !== generation)
           throw new Error("Account replaced")
         return {
           kind: "static_headers",
@@ -96,32 +90,6 @@ describe("request-oriented MCP tools", () => {
         }
       },
       { kind: "static_headers", headerNames: ["Authorization"] },
-    )
-  })
-  test("omits a duplicate tool catalog without disrupting another connection", async () => {
-    const healthy = { ...mcpToolTestConnection, id: "019a0000-0000-7000-8000-000000000005" }
-    await withMcpTools(
-      (tools) =>
-        Effect.gen(function* () {
-          const fetch = mcpToolFixture.fetch
-          mcpFixtureFetch.fetch = (url, init) => {
-            mcpToolFixture.state.duplicateTools =
-              new URL(url instanceof Request ? url.url : url).searchParams.get("connection") ===
-              mcpToolTestConnection.id
-            return fetch(url, init)
-          }
-          const set = yield* tools.acquire(mcpToolTestActor)
-          expect(set.unavailable).toEqual([mcpToolTestConnection.id])
-          expect(set.tools.map((tool) => tool.name)).toEqual([mcpToolAlias(healthy.id, "lookup")])
-          expect(set.presentation.map((tool) => tool.connectionId)).toEqual([healthy.id])
-          yield* Effect.promise(() =>
-            Promise.resolve(set.tools[0]!.execute!({ region: "eu" }, undefined)),
-          )
-          expect(mcpToolFixture.state.calls).toBe(1)
-        }),
-      undefined,
-      undefined,
-      [mcpToolTestConnection, healthy],
     )
   })
   test("dispatch rereads credentials after the SDK token hook", async () => {
@@ -141,22 +109,15 @@ describe("request-oriented MCP tools", () => {
         }),
       () => ({
         kind: "oauth",
-        issuer: "https://fixture.example",
-        resource: mcpToolTestServer.endpointUrl,
-        clientRegistration: {
-          organizationId: mcpToolTestActor.organizationId,
-          tenantId: null,
-          id: mcpToolTestServer.id,
-        },
+        clientInformation: {},
         tokens: {
           access_token: ++reads <= 2 ? "old-token" : "replacement-token",
           token_type: "Bearer",
         },
         expiresAt: null,
-        grantedScopes: [],
         discovery: {},
       }),
-      { kind: "oauth", registration: "automatic", profile: "standard", requestedScopes: [] },
+      { kind: "oauth", profile: "standard", requestedScopes: [] },
     )
   })
   test.each([false, true])(

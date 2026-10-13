@@ -301,13 +301,7 @@ export class Chat extends Context.Service<
           Effect.gen(function* () {
             const mcp = unknownOutcome
               ? { tools: [], presentation: [], unavailable: [] }
-              : yield* mcpTools.acquire({
-                  ...input.managed.claim.scope,
-                  organizationUserId: null,
-                  admin: principal.tenantUser.admin === true,
-                  apiKey: false,
-                  interactive: true,
-                })
+              : yield* mcpTools.acquire(input.managed.claim.scope)
             const tools = unknownOutcome
               ? webTools
               : [

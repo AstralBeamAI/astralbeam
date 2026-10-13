@@ -8,7 +8,7 @@ import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
 import { currentUserApi } from "./current-user.server"
-import { organizationMcpApi, tenantMcpApi, personalMcpApi, mcpAuthorizationApi } from "./mcp.server"
+import { personalMcpApi } from "./mcp.server"
 import { organizationApi } from "./organization.server"
 
 export const ApiV1 = HttpApi.make("ApiV1")
@@ -28,10 +28,7 @@ export const ApiV1 = HttpApi.make("ApiV1")
     chatApi,
     chatThreadApi,
     currentUserApi,
-    organizationMcpApi,
-    tenantMcpApi,
     personalMcpApi,
-    mcpAuthorizationApi,
   )
   .prefix("/api/v1")
   .middleware(ApiBoundary)

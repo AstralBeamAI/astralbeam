@@ -14,7 +14,6 @@ import {
   type McpAttemptEnvelope,
   type McpAuthConfig,
   type McpCredential,
-  type McpReference,
 } from "../schemas.ts"
 import { mcpGuardedFetch, mcpUrlIsPublic } from "../network.server.ts"
 
@@ -60,28 +59,26 @@ export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState, serverUrl: s
 export function mcpOAuthCredential(input: {
   tokens: StoredOAuthTokens
   discovery: OAuthDiscoveryState
-  registration: McpReference
+  clientInformation: Schema.JsonObject
   serverUrl: string
   now: number
   previous?: Extract<McpCredential, { kind: "oauth" }> | undefined
 }): Extract<McpCredential, { kind: "oauth" }> {
-  const { issuer, resource } = mcpDiscoveryBinding(input.discovery, input.serverUrl)
+  const { issuer } = mcpDiscoveryBinding(input.discovery, input.serverUrl)
   if (input.tokens.issuer !== issuer || input.tokens.token_type.toLowerCase() !== "bearer")
     throw new TypeError("MCP OAuth token binding was refused")
   const refreshToken = input.tokens.refresh_token ?? input.previous?.tokens.refresh_token
+  const scope = input.tokens.scope ?? input.previous?.tokens.scope
   const tokens = Schema.decodeUnknownSync(McpOAuthTokensSchema)({
     ...input.tokens,
     ...(refreshToken ? { refresh_token: refreshToken } : {}),
+    ...(scope ? { scope } : {}),
   })
   return {
     kind: "oauth",
-    issuer,
-    resource,
-    clientRegistration: input.registration,
+    clientInformation: input.clientInformation,
     tokens,
     expiresAt: tokens.expires_in === undefined ? null : input.now + tokens.expires_in * 1000,
-    grantedScopes:
-      tokens.scope?.split(/\s+/).filter(Boolean) ?? input.previous?.grantedScopes ?? [],
     discovery: Schema.decodeUnknownSync(Schema.JsonObject)(input.discovery),
   }
 }
@@ -93,9 +90,6 @@ export function mcpAttemptProvider(input: {
   authConfig: Extract<McpAuthConfig, { kind: "oauth" }>
   now: () => Promise<number>
   persist: () => Promise<void>
-  saveClient: (
-    information: StoredOAuthClientInformation,
-  ) => Promise<{ reference: McpReference; information: StoredOAuthClientInformation }>
 }): OAuthClientProvider {
   const metadata = mcpClientMetadata(input.baseUrl)
   return {
@@ -112,21 +106,17 @@ export function mcpAttemptProvider(input: {
         : undefined
     },
     async saveClientInformation(information) {
-      const saved = await input.saveClient(information)
-      input.payload.registration = saved.reference
-      input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(
-        saved.information,
-      )
+      input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(information)
       await input.persist()
     },
     tokens: () => undefined,
     async saveTokens(tokens) {
-      if (!input.payload.discovery || !input.payload.registration)
+      if (!input.payload.discovery || !input.payload.clientInformation)
         throw new TypeError("MCP authorization is incomplete")
       input.payload.pendingCredential = mcpOAuthCredential({
         tokens,
         discovery: input.payload.discovery as unknown as OAuthDiscoveryState,
-        registration: input.payload.registration,
+        clientInformation: input.payload.clientInformation,
         serverUrl: input.serverUrl,
         now: await input.now(),
       })
@@ -162,7 +152,6 @@ export function mcpAttemptProvider(input: {
     async invalidateCredentials(scope) {
       if (scope === "client" || scope === "all") {
         input.payload.clientInformation = null
-        input.payload.registration = null
       }
       if (scope === "tokens" || scope === "all") input.payload.pendingCredential = null
       if (scope === "verifier" || scope === "all") input.payload.verifier = null

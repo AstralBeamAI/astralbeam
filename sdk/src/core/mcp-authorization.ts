@@ -1,6 +1,7 @@
 export interface McpAuthorizationAttempt {
   organizationId: string
-  tenantId: string | null
+  tenantId: string
+  connectionId: string
   id: string
 }
 
@@ -18,10 +19,11 @@ export async function runMcpAuthorization(options: {
     const url = new URL(started.popupUrl)
     url.searchParams.set("origin", window.location.origin)
     await new Promise<void>((resolve, reject) => {
-      let binding = false
-      let bound = false
+      let binding: Promise<void> | undefined
+      let finished = false
       let completing = false
       const cleanup = () => {
+        finished = true
         window.removeEventListener("message", receive)
         clearInterval(closed)
         clearTimeout(expiry)
@@ -44,7 +46,8 @@ export async function runMcpAuthorization(options: {
           !data?.attempt ||
           data.attempt.id !== started.attempt.id ||
           data.attempt.organizationId !== started.attempt.organizationId ||
-          data.attempt.tenantId !== started.attempt.tenantId
+          data.attempt.tenantId !== started.attempt.tenantId ||
+          data.attempt.connectionId !== started.attempt.connectionId
         )
           return
         if (data.type === "mcp-authorization-result" && data.status === "failed") {
@@ -56,22 +59,22 @@ export async function runMcpAuthorization(options: {
           !binding &&
           typeof data.challenge === "string"
         ) {
-          binding = true
-          void options.bind(started.attempt, data.challenge).then(() => {
-            bound = true
-          }, fail)
+          binding = options.bind(started.attempt, data.challenge)
+          void binding.catch(fail)
         }
         if (
           data.type === "mcp-authorization-result" &&
           data.status === "awaiting_completion" &&
-          bound &&
+          binding &&
           !completing
         ) {
           completing = true
-          void options.complete(started.attempt).then(() => {
-            cleanup()
-            resolve()
-          }, fail)
+          void binding
+            .then(() => (finished ? undefined : options.complete(started.attempt)))
+            .then(() => {
+              cleanup()
+              resolve()
+            }, fail)
         }
       }
       const closed = setInterval(() => {

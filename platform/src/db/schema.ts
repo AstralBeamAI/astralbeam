@@ -18,12 +18,3 @@ export {
 } from "./schema/usage-limits.ts"
 
 export const tables = databaseTables
-export {
-  mcpServerConnectionScopeEnum,
-  mcpConnectionAuthStateEnum,
-  tenantMcpConnectionAuthStateEnum,
-  mcpOAuthClientMechanismEnum,
-  tenantMcpOAuthClientMechanismEnum,
-  mcpOAuthAttemptStatusEnum,
-  tenantMcpOAuthAttemptStatusEnum,
-} from "./schema/mcp.ts"

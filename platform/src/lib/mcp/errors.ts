@@ -28,13 +28,6 @@ export class McpInvalidConfiguration extends Schema.TaggedError<McpInvalidConfig
 ) {
   override readonly message = "Use a public HTTPS endpoint and supported authentication settings."
 }
-export class McpNameTaken extends Schema.TaggedError<McpNameTaken>()(
-  "McpNameTaken",
-  {},
-  { httpApiStatus: 409 },
-) {
-  override readonly message = "An MCP connection or server with this name already exists."
-}
 export class McpAuthorizationRequired extends Schema.TaggedError<McpAuthorizationRequired>()(
   "McpAuthorizationRequired",
   {},
@@ -49,11 +42,3 @@ export class McpUnavailable extends Schema.TaggedError<McpUnavailable>()(
 ) {
   override readonly message = "The MCP server is unavailable. Check the connection and try again."
 }
-export type McpError =
-  | McpForbidden
-  | McpNotFound
-  | McpChanged
-  | McpInvalidConfiguration
-  | McpNameTaken
-  | McpAuthorizationRequired
-  | McpUnavailable

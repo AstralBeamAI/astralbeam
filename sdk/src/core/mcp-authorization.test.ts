@@ -4,10 +4,21 @@ import { runMcpAuthorization } from "./mcp-authorization.ts"
 afterEach(() => vi.unstubAllGlobals())
 
 test("binds only the intended popup, origin and owner before completing with fresh authentication", async () => {
-  const attempt = { organizationId: "organization", tenantId: "tenant", id: "attempt" }
+  const attempt = {
+    organizationId: "organization",
+    tenantId: "tenant",
+    connectionId: "connection",
+    id: "attempt",
+  }
   let receive!: (event: MessageEvent) => void
   const popup = { closed: false, close: vi.fn(), location: { replace: vi.fn() } }
-  const bind = vi.fn().mockResolvedValue(undefined)
+  let finishBinding!: () => void
+  const bind = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finishBinding = resolve
+      }),
+  )
   const complete = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal("window", {
     location: { origin: "https://customer.example" },
@@ -47,6 +58,8 @@ test("binds only the intended popup, origin and owner before completing with fre
     attempt,
     status: "awaiting_completion",
   })
+  expect(complete).not.toHaveBeenCalled()
+  finishBinding()
   await pending
   expect(complete).toHaveBeenCalledExactlyOnceWith(attempt)
   expect(popup.close).toHaveBeenCalledOnce()
@@ -56,7 +69,12 @@ test("binds only the intended popup, origin and owner before completing with fre
 })
 
 test("closes the popup and reports trusted authorization failures without waiting for expiry", async () => {
-  const attempt = { organizationId: "organization", tenantId: null, id: "attempt" }
+  const attempt = {
+    organizationId: "organization",
+    tenantId: "tenant",
+    connectionId: "connection",
+    id: "attempt",
+  }
   let receive!: (event: MessageEvent) => void
   const popup = { closed: false, close: vi.fn(), location: { replace: vi.fn() } }
   vi.stubGlobal("window", {

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1cb7a2f2-df12-4215-be63-797bc97c42b5",
+  "id": "89b6c9a0-9004-4ddb-8f31-ce0591e91720",
   "prevIds": [
     "97f5a334-d163-49be-b8a4-7905c954cc0b"
   ],
@@ -65,84 +65,6 @@
         "purging"
       ],
       "name": "file_object_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "disconnected",
-        "connected",
-        "reauthorization_required",
-        "refresh_uncertain"
-      ],
-      "name": "mcp_connection_auth_state",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "created",
-        "authorizing",
-        "exchanging",
-        "awaiting_completion",
-        "completed",
-        "failed"
-      ],
-      "name": "mcp_oauth_attempt_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "pre_registered",
-        "cimd",
-        "dcr"
-      ],
-      "name": "mcp_oauth_client_mechanism",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "organization",
-        "tenant",
-        "tenant_user"
-      ],
-      "name": "mcp_server_connection_scope",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "disconnected",
-        "connected",
-        "reauthorization_required",
-        "refresh_uncertain"
-      ],
-      "name": "tenant_mcp_connection_auth_state",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "created",
-        "authorizing",
-        "exchanging",
-        "awaiting_completion",
-        "completed",
-        "failed"
-      ],
-      "name": "tenant_mcp_oauth_attempt_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "pre_registered",
-        "cimd",
-        "dcr"
-      ],
-      "name": "tenant_mcp_oauth_client_mechanism",
       "entityType": "enums",
       "schema": "public"
     },
@@ -238,18 +160,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "mcp_oauth_attempt",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "mcp_oauth_client",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "mcp_server",
       "entityType": "tables",
       "schema": "public"
@@ -305,30 +215,6 @@
     {
       "isRlsEnabled": false,
       "name": "tenant",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "tenant_mcp_connection",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "tenant_mcp_oauth_attempt",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "tenant_mcp_oauth_client",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "tenant_mcp_server",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2188,6 +2074,32 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "mcp_connection"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "mcp_connection"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": "uuidv7()",
       "generated": null,
       "identity": null,
@@ -2204,59 +2116,20 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "organization_id",
+      "name": "tenant_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
     },
     {
-      "type": "citext",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "enabled",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "auth_error_code",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
+      "name": "server_id",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
@@ -2270,110 +2143,6 @@
       "generated": null,
       "identity": null,
       "name": "credentials",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "gen_random_uuid()",
-      "generated": null,
-      "identity": null,
-      "name": "auth_generation",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "token_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "refresh_claim_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "refresh_claim_expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_verified_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "verification_result",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'[]'",
-      "generated": null,
-      "identity": null,
-      "name": "granted_scopes",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
@@ -2394,6 +2163,19 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "refresh_started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "mcp_connection"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
@@ -2416,409 +2198,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "oauth_client_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "mcp_connection_auth_state",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'disconnected'",
-      "generated": null,
-      "identity": null,
-      "name": "auth_state",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "connection_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "state_hash",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "browser_binding_hash",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expected_generation",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "payload",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "failure_code",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "mcp_oauth_attempt_status",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'created'",
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "issuer",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "resource",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "redirect_uri",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "client_metadata",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "credentials",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "mcp_oauth_client_mechanism",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "mechanism",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_server"
     },
     {
       "type": "uuid",
@@ -2834,14 +2213,14 @@
       "table": "mcp_server"
     },
     {
-      "type": "citext",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "uuidv7()",
       "generated": null,
       "identity": null,
-      "name": "name",
+      "name": "id",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_server"
@@ -2860,20 +2239,7 @@
       "table": "mcp_server"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "enabled",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_server"
-    },
-    {
-      "type": "jsonb",
+      "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -2881,32 +2247,6 @@
       "generated": null,
       "identity": null,
       "name": "auth_config",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_server"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_server"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "lock_version",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_server"
@@ -2933,19 +2273,6 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_server"
-    },
-    {
-      "type": "mcp_server_connection_scope",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'tenant_user'",
-      "generated": null,
-      "identity": null,
-      "name": "default_connection_scope",
       "entityType": "columns",
       "schema": "public",
       "table": "mcp_server"
@@ -3310,32 +2637,6 @@
       "generated": null,
       "identity": null,
       "name": "default_agent_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_configuration"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "allow_tenant_mcp_servers",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "organization_configuration"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "allow_tenant_user_mcp_servers",
       "entityType": "columns",
       "schema": "public",
       "table": "organization_configuration"
@@ -3898,890 +3199,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "tenant"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "citext",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "enabled",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "auth_error_code",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "credentials",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "gen_random_uuid()",
-      "generated": null,
-      "identity": null,
-      "name": "auth_generation",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "token_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "refresh_claim_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "refresh_claim_expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "last_verified_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "verification_result",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'[]'",
-      "generated": null,
-      "identity": null,
-      "name": "granted_scopes",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "lock_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_o_auth_client_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_o_auth_client_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "tenant_mcp_connection_auth_state",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'disconnected'",
-      "generated": null,
-      "identity": null,
-      "name": "auth_state",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "connection_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "state_hash",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "browser_binding_hash",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expected_generation",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "payload",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "failure_code",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "tenant_mcp_oauth_attempt_status",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'created'",
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "server_auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "issuer",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "resource",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "redirect_uri",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "client_metadata",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "credentials",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_server_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "tenant_mcp_oauth_client_mechanism",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "mechanism",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "uuidv7()",
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "organization_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "citext",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "endpoint_url",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "enabled",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "auth_config",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "auth_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "lock_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "tenant_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_server"
     },
     {
       "type": "uuid",
@@ -5980,188 +4397,6 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
-        },
-        {
-          "value": "name",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_connection_name_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "server_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_connection_server_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "state_hash",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_oauth_attempt_state_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_oauth_attempt_expiry_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "server_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "server_auth_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "issuer",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "resource",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_oauth_client_binding_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "name",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "mcp_server_name_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "mcp_server"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
         }
       ],
       "isUnique": false,
@@ -6466,195 +4701,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "tenant"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "tenant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "tenant_server_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tenant_mcp_connection_server_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "organization_server_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tenant_mcp_connection_organization_server_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "tenant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "state_hash",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tenant_mcp_oauth_attempt_state_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tenant_mcp_oauth_attempt_expiry_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "organization_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "tenant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"tenant_user_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"organization_server_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"tenant_server_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "server_auth_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "issuer",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "resource",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "tenant_mcp_oauth_client_binding_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
     },
     {
       "nameExplicit": true,
@@ -7305,58 +5351,22 @@
       "nameExplicit": false,
       "columns": [
         "organization_id",
-        "server_id"
+        "tenant_id",
+        "tenant_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "mcp_server",
+      "tableTo": "tenant_user",
       "columnsTo": [
         "organization_id",
+        "tenant_id",
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "mcp_connection_FsiUkbB75BnC_fkey",
+      "name": "mcp_connection_1Th9UqXvL2Kh_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "oauth_client_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "mcp_oauth_client",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "mcp_connection_FyCtsHPgMwDq_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "connection_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "mcp_connection",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "mcp_oauth_attempt_vxva7LQYW3M5_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
     },
     {
       "nameExplicit": false,
@@ -7372,10 +5382,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "mcp_oauth_client_hWIM9jbMQLxx_fkey",
+      "name": "mcp_connection_FsiUkbB75BnC_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "mcp_oauth_client"
+      "table": "mcp_connection"
     },
     {
       "nameExplicit": false,
@@ -7607,267 +5617,6 @@
       "table": "tenant"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_connection_MBszXMHUzYJK_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_user",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_connection_yyXXzQReMoWC_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "organization_server_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "mcp_server",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_connection_gq3k4bsRWnvP_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_server_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_mcp_server",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_connection_ZrzR1sqb3zE5_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "organization_o_auth_client_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "mcp_oauth_client",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "tenant_mcp_connection_GEGXbIWrRI0I_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_o_auth_client_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_mcp_oauth_client",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "tenant_mcp_connection_Uc5KxcmYpFSY_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "connection_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_mcp_connection",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_oauth_attempt_eLmNXWprjSpj_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_oauth_client_NX1OzvtuMcPl_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_user",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_oauth_client_GXMGfxZHBzXT_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "organization_server_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "mcp_server",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_oauth_client_F7KAvaWWCHbS_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_server_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_mcp_server",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_oauth_client_zcDHYq01DpkM_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant",
-      "columnsTo": [
-        "organization_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_server_npiCNfFEQuKH_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "tenant_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenant_user",
-      "columnsTo": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "tenant_mcp_server_HKebNNoFNBPT_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "tenant_mcp_server"
-    },
-    {
       "nameExplicit": true,
       "columns": [
         "organization_id",
@@ -7996,6 +5745,7 @@
     {
       "columns": [
         "organization_id",
+        "tenant_id",
         "id"
       ],
       "nameExplicit": false,
@@ -8003,28 +5753,6 @@
       "entityType": "pks",
       "schema": "public",
       "table": "mcp_connection"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "mcp_oauth_attempt_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "mcp_oauth_attempt"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "mcp_oauth_client_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "mcp_oauth_client"
     },
     {
       "columns": [
@@ -8091,54 +5819,6 @@
       "entityType": "pks",
       "schema": "public",
       "table": "tenant"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "tenant_mcp_connection_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "tenant_mcp_oauth_attempt_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_attempt"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "tenant_mcp_oauth_client_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
-      "columns": [
-        "organization_id",
-        "tenant_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "tenant_mcp_server_pkey",
-      "entityType": "pks",
-      "schema": "public",
-      "table": "tenant_mcp_server"
     },
     {
       "columns": [
@@ -8268,27 +5948,25 @@
         "organization_id",
         "tenant_id",
         "tenant_user_id",
-        "name"
+        "server_id"
       ],
-      "nullsNotDistinct": true,
-      "name": "tenant_mcp_connection_name_uidx",
+      "nullsNotDistinct": false,
+      "name": "mcp_connection_owner_server_uidx",
       "entityType": "uniques",
       "schema": "public",
-      "table": "tenant_mcp_connection"
+      "table": "mcp_connection"
     },
     {
       "nameExplicit": true,
       "columns": [
         "organization_id",
-        "tenant_id",
-        "tenant_user_id",
-        "name"
+        "endpoint_url"
       ],
-      "nullsNotDistinct": true,
-      "name": "tenant_mcp_server_name_uidx",
+      "nullsNotDistinct": false,
+      "name": "mcp_server_endpoint_uidx",
       "entityType": "uniques",
       "schema": "public",
-      "table": "tenant_mcp_server"
+      "table": "mcp_server"
     },
     {
       "value": "char_length(\"system_prompt\") between 1 and 32768",
@@ -8359,27 +6037,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "tenant"
-    },
-    {
-      "value": "num_nonnulls(\"organization_server_id\", \"tenant_server_id\") = 1",
-      "name": "tenant_mcp_connection_server_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "value": "num_nonnulls(\"organization_o_auth_client_id\", \"tenant_o_auth_client_id\") <= 1",
-      "name": "tenant_mcp_connection_client_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tenant_mcp_connection"
-    },
-    {
-      "value": "num_nonnulls(\"organization_server_id\", \"tenant_server_id\") = 1",
-      "name": "tenant_mcp_oauth_client_server_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
     },
     {
       "value": "jsonb_typeof(\"metadata\") = 'object'",

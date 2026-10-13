@@ -32,17 +32,14 @@ const decodeRestCursorPayload = Schema.decodeUnknownEffect(
 export type RestCollection =
   | "directory_threads"
   | "directory_messages"
-  | "mcp_servers"
-  | "mcp_connections"
   | "tenants"
   | "tenant_users"
   | "chat_threads"
   | "chat_messages"
   | "chat_participants"
   | "chat_tenant_users"
-type RestPaginationScope = Omit<RestScope["Service"], "tenantId"> & {
-  readonly tenantId?: string | null | undefined
-  readonly tenantUserId?: string | null | undefined
+type RestPaginationScope = RestScope["Service"] & {
+  readonly tenantUserId?: string | undefined
   readonly threadId?: string | undefined
 }
 type RestCursorScope = RestPaginationScope & {
@@ -79,9 +76,7 @@ function restCursorBinding(collection: RestCollection, scope: RestCursorScope) {
         scope.externalId ?? null,
         scope.search ?? null,
         scope.admin ?? null,
-        ...(collection.startsWith("chat_") ||
-        collection.startsWith("directory_") ||
-        collection.startsWith("mcp_")
+        ...(collection.startsWith("chat_") || collection.startsWith("directory_")
           ? [scope.tenantId, scope.tenantUserId, scope.threadId ?? null]
           : []),
       ]),

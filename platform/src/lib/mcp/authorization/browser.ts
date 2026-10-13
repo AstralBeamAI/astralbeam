@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto"
 import { Effect, Schema } from "effect"
 import { Config } from "@/lib/config/config"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
-import { McpReferenceSchema, type McpReference } from "../schemas.ts"
+import { McpAttemptReferenceSchema, type McpAttemptReference } from "../schemas.ts"
 import { McpAuthorization, mcpAttemptLocator } from "./authorization.ts"
 import { mcpClientMetadata } from "./provider.ts"
 
@@ -25,7 +25,7 @@ function mcpPopupHtml(script: string, cookie?: string): Response {
 function mcpPopupJson(value: unknown): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c")
 }
-function mcpBrowserCookie(request: Request, reference: McpReference) {
+function mcpBrowserCookie(request: Request, reference: McpAttemptReference) {
   const value = request.headers
     .get("cookie")
     ?.split(";")
@@ -43,7 +43,7 @@ function mcpBrowserCookie(request: Request, reference: McpReference) {
 }
 function mcpPopupReference(url: URL) {
   try {
-    return Schema.decodeUnknownSync(McpReferenceSchema)(
+    return Schema.decodeUnknownSync(McpAttemptReferenceSchema)(
       JSON.parse(Buffer.from(url.searchParams.get("attempt") ?? "", "base64url").toString()),
     )
   } catch {

@@ -29,10 +29,6 @@ export default defineConfig({
           personalMcp: { mutator: mutator("astralBeamJwtFetch") },
         },
         operations: {
-          "mcpAuthorization.getCatalog": { mutator: mutator("astralBeamJwtFetch") },
-          "mcpAuthorization.authorizationStatus": { mutator: mutator("astralBeamJwtFetch") },
-          "mcpAuthorization.bindBrowser": { mutator: mutator("astralBeamJwtFetch") },
-          "mcpAuthorization.completeAuthorization": { mutator: mutator("astralBeamJwtFetch") },
           getCurrentUser: { mutator: mutator("astralBeamJwtFetch") },
           getChatConfig: { mutator: mutator("astralBeamJwtFetch") },
           uploadChatFile: { mutator: mutator("astralBeamJwtFetch") },

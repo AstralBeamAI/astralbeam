@@ -49,7 +49,7 @@ describe("MCP OAuth security binding", () => {
     expect(() =>
       mcpOAuthCredential({
         discovery: mcpTestDiscovery,
-        registration: { organizationId: "organization", tenantId: null, id: "registration" },
+        clientInformation: {},
         serverUrl: "https://resource.example/mcp",
         now: 0,
         tokens: { issuer: "https://other.example", access_token: "bad", token_type: "Bearer" },

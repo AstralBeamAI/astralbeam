@@ -26,7 +26,7 @@ import {
   RestScope,
 } from "./shared.server"
 import { currentUserHandlers } from "./current-user.server"
-import { mcpResourceHandlers, mcpAuthorizationHandlers } from "./mcp.server"
+import { personalMcpHandlers } from "./mcp.server"
 import { organizationHandlers } from "./organization.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { chatThreadHandlers } from "../chat/-lib/threads.server"
@@ -188,10 +188,7 @@ export const ApiV1Routes = Layer.mergeAll(
       threadDirectoryHandlers(ApiV1),
       currentUserHandlers(ApiV1),
       organizationHandlers(ApiV1),
-      mcpResourceHandlers(ApiV1, "organizationMcp", "organization"),
-      mcpResourceHandlers(ApiV1, "tenantMcp", "tenant"),
-      mcpResourceHandlers(ApiV1, "personalMcp", "personal"),
-      mcpAuthorizationHandlers(ApiV1),
+      personalMcpHandlers(ApiV1),
     ]),
     Layer.provide([ApiBoundaryLive, RestAuthorizationLive]),
   ),

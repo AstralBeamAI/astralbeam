@@ -9,7 +9,6 @@ export async function startMcpFixture() {
     cimd: false,
     sse: false,
     badOutput: false,
-    duplicateTools: false,
     lostToolResponse: false,
     toolGate: null as (() => Promise<void>) | null,
     protocol: "2026-07-28",
@@ -117,9 +116,7 @@ export async function startMcpFixture() {
         else if (body.method === "tools/list")
           result = body.params?.cursor
             ? {
-                tools: state.duplicateTools
-                  ? [{ name: "lookup", inputSchema: { type: "object" } }]
-                  : [],
+                tools: [],
               }
             : {
                 tools: [
