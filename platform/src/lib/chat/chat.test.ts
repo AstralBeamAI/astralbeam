@@ -96,6 +96,7 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "sk-chat-test-provider-key",
   modelId: "gpt-5.6-terra",
+  outputCap: 4096,
   fetch,
 }
 
@@ -421,6 +422,7 @@ describe("Chat.run", () => {
     Effect.gen(function* () {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
+        max_output_tokens: 4096,
         reasoning: { effort: "high" },
       })
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
@@ -431,7 +433,7 @@ describe("Chat.run", () => {
       const events = yield* runChat()
       yield* Stream.runCollect(Stream.take(events, 1))
       assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
-      assert.isUndefined(chatRunTest.options[0]!.modelOptions)
+      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, { max_tokens: 4096 })
       assert.strictEqual(chatRunTest.options[0]!.toolExecution, "sequential")
     }).pipe(
       Effect.provide(
@@ -445,6 +447,7 @@ describe("Chat.run", () => {
             baseUrl: "https://gateway.example/v1",
             apiKey: "gateway-key",
             modelId: "gateway-model",
+            outputCap: 4096,
             fetch,
           },
         }),

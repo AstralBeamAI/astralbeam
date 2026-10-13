@@ -30,6 +30,7 @@ describe("OpenAI Responses compatibility", () => {
       baseUrl: "https://openai.example/v1",
       apiKey: "configured-instance-key",
       modelId,
+      outputCap: 4096,
       fetch: responsesFetch,
     })
     for await (const _event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] })) {

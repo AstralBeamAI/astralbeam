@@ -144,9 +144,9 @@ export function ProviderModelConfigurationFields({
             ))}
           </div>
           <FieldDescription>
-            Set an input maximum or context window. Keep the output cap within the model output
-            maximum. Verify the default 4,096-token output maximum with your provider before
-            increasing it.
+            Set an input maximum or context window. The context window includes both input and
+            output tokens. Keep the output cap within the model output maximum. Verify the default
+            4,096-token output maximum with your provider before increasing it.
           </FieldDescription>
           <details>
             <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>

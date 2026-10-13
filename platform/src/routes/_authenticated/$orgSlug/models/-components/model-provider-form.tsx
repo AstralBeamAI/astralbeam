@@ -296,7 +296,8 @@ export function ModelProviderForm({
             />
             <FieldDescription>
               Catalog prices are provider list prices in USD per million tokens. Override them for
-              negotiated or gateway rates. Token limits are saved, but not enforced yet.
+              negotiated or gateway rates. The output cap limits each model call, including calls
+              after tools. Reasoning tokens count toward the cap.
             </FieldDescription>
             {models.map((model, index) => (
               <ProviderModelConfigurationFields

@@ -20,6 +20,7 @@ import {
   agentModel,
   configTable,
   modelProvider,
+  providerModel,
   organization,
   organizationConfiguration,
 } from "@/db/schema"
@@ -44,7 +45,7 @@ const modelTestConfiguration: ModelConfiguration = {
   maxInputTokens: 128_000,
   contextWindowTokens: null,
   maxOutputTokens: 8192,
-  outputCap: 4096,
+  outputCap: 3072,
 }
 
 const modelIntegrationKey = `sk-${"x".repeat(32)}`
@@ -129,6 +130,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       modelId: "same-model",
       providerId: gatewayId,
       api: "chat-completions",
+      outputCap: 3072,
     })
     const [source] = await db
       .select({ ciphertext: sql<string>`${modelProvider.credentials}::text` })
@@ -145,6 +147,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+    await db
+      .update(providerModel)
+      .set({ configuration: null })
+      .where(
+        and(
+          eq(providerModel.organizationId, organizationId),
+          eq(providerModel.id, gateway.models[0]!.id),
+        ),
+      )
+    expect(
+      await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.resolveForAgent({ organizationId, agentId }),
+        ),
+      ),
+    ).toBeNull()
   })
 
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {
