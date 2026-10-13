@@ -1,6 +1,5 @@
 import { Buffer } from "node:buffer"
-import { expect, test } from "../../fixtures.ts"
-import { savedUserMessage, savedDirectoryMessages } from "../../fixtures/threads.ts"
+import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
 import { openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"

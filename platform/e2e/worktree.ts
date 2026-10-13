@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { pinDockerHost, worktreeHash } from "../../scripts/e2e.mts"
+import { pinDockerHost, worktreeHash } from "./bootstrap.ts"
 
 const e2eDirectory = dirname(fileURLToPath(import.meta.url))
 const platformDirectory = join(e2eDirectory, "..")

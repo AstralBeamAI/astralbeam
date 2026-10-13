@@ -3,7 +3,7 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
-import { pinDockerHost, worktreeHash } from "../../../scripts/e2e.mts"
+import { pinDockerHost, worktreeHash } from "../../../platform/e2e/bootstrap.ts"
 import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
 
 /**

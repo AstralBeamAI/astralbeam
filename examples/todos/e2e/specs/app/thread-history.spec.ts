@@ -1,5 +1,4 @@
-import { expect, test } from "../../fixtures.ts"
-import { savedUserMessage } from "../../fixtures/threads.ts"
+import { expect, test, savedUserMessage } from "../../fixtures.ts"
 import { todosPage } from "../../pages/todos-page.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
