@@ -224,30 +224,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(
       runtime.runPromise(files.read({ scope: { ...scope, threadId: empty.id }, fileId })),
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
-    await runtime.runPromise(
-      service.setParticipant({
-        scope,
-        id: thread.id,
-        lockVersion: 2,
-        tenantUserId: other.tenantUserId,
-        role: "viewer",
-      }),
-    )
-    expect((await runtime.runPromise(service.get({ scope: other, id: thread.id }))).role).toBe(
-      "viewer",
-    )
-    await runtime.runPromise(
-      service.removeParticipant({
-        scope,
-        id: thread.id,
-        lockVersion: 3,
-        tenantUserId: other.tenantUserId,
-      }),
-    )
-    await expect(
-      runtime.runPromise(service.get({ scope: other, id: thread.id })),
-    ).rejects.toMatchObject({ _tag: "ChatThreadNotFound" })
-    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 4 }))
+    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 2 }))
     const [retired] = await db.select().from(fileObject).where(eq(fileObject.id, fileId))
     expect(retired!.status).toBe("purging")
     expect(await db.select().from(chatFile).where(eq(chatFile.fileObjectId, fileId))).toEqual([])

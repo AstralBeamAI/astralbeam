@@ -6,11 +6,10 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react"
 import type { ChatToolCallPart } from "../../core/threads.ts"
-import type { ReactNode } from "react"
+import { useCallback, type ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
 import {
   SANDBOX_LIST_FILES_TOOL,
-  SANDBOX_PUBLISH_ARTIFACT_TOOL,
   SANDBOX_READ_FILE_TOOL,
   SANDBOX_RUN_COMMAND_TOOL,
   SANDBOX_WRITE_FILE_TOOL,
@@ -19,11 +18,12 @@ import {
   describeSandboxCommandRun,
   readSandboxCommandRun,
   readSandboxFileWrite,
+  readSandboxArtifact,
   sandboxPathLabel,
   sandboxRefusal,
 } from "../../core/sandbox.ts"
 import { formatToolJson, isSettledToolCall } from "../lib/utils.ts"
-import { SandboxArtifactPart } from "./sandbox-artifact.tsx"
+import { SentAttachment } from "./user-message-body.tsx"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 import { SandboxCommandLog } from "./sandbox-command-log.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
@@ -44,10 +44,13 @@ export function SandboxPart({
   getFile?: ((id: string) => Promise<Blob>) | undefined
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
 }) {
-  // Published artifacts have their own rendering: inline image or download row.
-  if (part.name === SANDBOX_PUBLISH_ARTIFACT_TOOL) {
-    return <SandboxArtifactPart part={part} getFile={getFile} getAttachment={getAttachment} />
-  }
+  const readFile = useCallback(
+    (messageId: string, fileId: string) => {
+      if (messageId) return getAttachment(messageId, fileId)
+      return getFile ? getFile(fileId) : Promise.reject(new Error("File unavailable"))
+    },
+    [getAttachment, getFile],
+  )
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)
   const running = !failed && !isSettledToolCall(part)
@@ -64,6 +67,27 @@ export function SandboxPart({
         {refusal ?? readSandboxToolError(part) ?? "The sandbox step did not finish."}
       </span>
     ) : undefined
+
+  const artifact = readSandboxArtifact(part)
+  if (artifact?.published && !failed) {
+    return (
+      <SentAttachment
+        expanded
+        messageId={part.artifactMessageId ?? ""}
+        getAttachment={readFile}
+        part={{
+          type: artifact.mimeType?.startsWith("image/") ? "image" : "document",
+          source: {
+            type: "url",
+            value: "",
+            mimeType: artifact.mimeType ?? "application/octet-stream",
+          },
+          metadata: { filename: artifact.path.split("/").at(-1), size: artifact.size },
+          savedAttachmentId: part.artifactPartId ?? artifact.fileId,
+        }}
+      />
+    )
+  }
 
   const command = readSandboxCommandRun(part)
   if (command) {
@@ -123,7 +147,7 @@ export function SandboxPart({
     )
   }
 
-  // The remaining two tools are reads, so the useful body is their output rather than their input.
+  // Reads and unfinished publications share the standard tool disclosure.
   const path = sandboxPathLabel(part)
   return (
     <ToolDisclosure
@@ -131,7 +155,12 @@ export function SandboxPart({
       running={running}
       label={
         <>
-          {readSandboxVerb(part.name, running)} {path ? <Code>{path}</Code> : "the sandbox"}
+          {artifact
+            ? failed || refusal
+              ? "Could not share"
+              : "Sharing"
+            : readSandboxVerb(part.name, running)}{" "}
+          {path ? <Code>{path}</Code> : "the sandbox"}
         </>
       }
       detail={detail}

@@ -13,20 +13,24 @@ import { describeSentAttachment } from "../lib/attachments.ts"
 import { getMessageText, saveBlob } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
-type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "video" }>
+type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "video" }> & {
+  savedAttachmentId?: string | undefined
+}
 type GetAttachment = (messageId: string, partId: string) => Promise<Blob>
 
 export function SentAttachment({
   part,
   messageId,
   getAttachment,
+  expanded = false,
 }: {
   part: MediaPart
   messageId: string
   getAttachment: GetAttachment
+  expanded?: boolean
 }) {
   const { kind, title, description, href } = describeSentAttachment(part)
-  const attachmentId = (part as MediaPart & { savedAttachmentId?: string }).savedAttachmentId
+  const attachmentId = part.savedAttachmentId
   const element = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<string>()
   const [failed, setFailed] = useState(false)
@@ -73,9 +77,16 @@ export function SentAttachment({
   const thumbnail = kind === "image" ? (preview ?? href) : undefined
   return (
     <div ref={element} className="max-w-full">
+      {expanded && thumbnail && (
+        <img
+          src={thumbnail}
+          alt={title}
+          className="mb-1 max-h-80 max-w-full rounded-md border object-contain"
+        />
+      )}
       <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
-        <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-          {thumbnail ? (
+        <AttachmentMedia variant={thumbnail && !expanded ? "image" : "icon"}>
+          {thumbnail && !expanded ? (
             <img src={thumbnail} alt="" />
           ) : (
             <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />
