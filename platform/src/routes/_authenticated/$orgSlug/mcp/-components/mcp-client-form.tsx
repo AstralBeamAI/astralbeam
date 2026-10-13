@@ -40,7 +40,7 @@ export function McpClientForm({
             {server.authConfig.kind === "oauth" && server.authConfig.profile === "google"
               ? "Google"
               : "your provider"}
-            . Replacing the application requires affected accounts to reconnect.
+            . Create another server to use a different application.
           </p>
           <Label htmlFor={`redirect-${server.id}`}>Redirect URI</Label>
           <Input

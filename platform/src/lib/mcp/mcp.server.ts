@@ -270,11 +270,16 @@ const makeMcpConnections = Effect.gen(function* () {
     )
       return yield* new McpChanged()
     const { lockVersion: _version, defaultConnectionScope, ...fields } = input.fields
+    if (
+      existing &&
+      existing.tenantId === null &&
+      existing.defaultConnectionScope !== defaultConnectionScope
+    )
+      return yield* new McpInvalidConfiguration()
     const authChanged =
       existing &&
       (existing.endpointUrl !== fields.endpointUrl ||
-        JSON.stringify(existing.authConfig) !== JSON.stringify(fields.authConfig) ||
-        existing.defaultConnectionScope !== defaultConnectionScope)
+        JSON.stringify(existing.authConfig) !== JSON.stringify(fields.authConfig))
     const table = mcpServerTable(input.owner)
     const values = {
       ...fields,

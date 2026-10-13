@@ -52,7 +52,9 @@ export function McpServerForm({
         save({
           name: fields.get("name") as string,
           endpointUrl: fields.get("endpoint") as string,
-          defaultConnectionScope: fields.get("scope") as McpServerSummary["defaultConnectionScope"],
+          defaultConnectionScope:
+            server?.defaultConnectionScope ??
+            (fields.get("scope") as McpServerSummary["defaultConnectionScope"]),
           authConfig,
           enabled: fields.has("enabled"),
           ...(server ? { lockVersion: server.lockVersion } : {}),
@@ -75,12 +77,18 @@ export function McpServerForm({
           className="w-full"
           id="mcp-scope"
           name="scope"
+          disabled={server !== null}
           defaultValue={server?.defaultConnectionScope ?? "organization"}
         >
           <option value="organization">Organization shared account</option>
           <option value="tenant">Each Tenant connects an account</option>
           <option value="tenant_user">Each person connects their own account</option>
         </NativeSelect>
+        {server && (
+          <p className="text-sm text-muted-foreground">
+            Create another server to change who connects.
+          </p>
+        )}
         <Label htmlFor="mcp-auth">Authentication</Label>
         <NativeSelect
           className="w-full"

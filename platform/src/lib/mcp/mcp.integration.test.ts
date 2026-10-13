@@ -464,46 +464,20 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       ).rejects.toThrow()
       expect(fixture.state.tokenRequests).toBe(0)
     })
-    test("retiring an application invalidates existing accounts and a failed reconnect retains their credentials", async () => {
+    test("rejects replacing an OAuth application without disrupting connected accounts", async () => {
       const { reference, server } = await connectedOAuth()
-      await authority((service) =>
-        service.configureClient({
-          actor,
-          reference: server,
-          manualClient: { clientId: "replacement", tokenEndpointAuthMethod: "none" },
-        }),
-      )
-      await expect(
-        authority((service) => service.getCredential({ actor, reference })),
-      ).rejects.toThrow()
-      const [row] = await db.select().from(mcpConnection).where(eq(mcpConnection.id, reference.id))
-      expect(row!.authState).toBe("reauthorization_required")
-      expect(row!.credentials).not.toBeNull()
-      const flow = await authorize(reference)
-      await connections((service) => service.disconnect({ actor, reference }))
       await expect(
         authority((service) =>
-          service.callback({ params: flow.params, browserBinding: flow.challenge }),
+          service.configureClient({
+            actor,
+            reference: server,
+            manualClient: { clientId: "replacement", tokenEndpointAuthMethod: "none" },
+          }),
         ),
       ).rejects.toThrow()
       expect(
-        (
-          await db
-            .select()
-            .from(mcpOAuthAttempt)
-            .where(eq(mcpOAuthAttempt.id, flow.started.attempt.id))
-        )[0]!.payload,
-      ).toBeNull()
-    })
-    test("step-up authorization combines existing scopes with the requested permission", async () => {
-      const { reference } = await connectedOAuth()
-      await authority((service) => service.requireScopes({ actor, reference, scope: "write" }))
-      const flow = await authorize(reference)
-      const scope = new URL(flow.attempt.payload!.authorizationUrl!).searchParams
-        .get("scope")!
-        .split(" ")
-      expect(scope).toEqual(expect.arrayContaining(["read", "write"]))
-      expect(fixture.state.refreshes).toBe(0)
+        Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
+      ).toMatchObject({ kind: "oauth", tokens: { access_token: "access-0" } })
     })
     test("reconnection wins over token rotation already in flight", async () => {
       const { reference } = await connectedOAuth()
@@ -547,6 +521,16 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         }),
       )
       const defaults = await connections((service) => service.catalog(person))
+      await expect(
+        connections((service) =>
+          service.saveServer({
+            actor,
+            owner: actor,
+            id: publicServer.id,
+            fields: { ...publicServer, defaultConnectionScope: "tenant" },
+          }),
+        ),
+      ).rejects.toThrow()
       const publicAccount = defaults.connections.find(
         (entry) => entry.serverId === publicServer.id,
       )!

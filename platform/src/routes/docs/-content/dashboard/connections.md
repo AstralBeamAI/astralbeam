@@ -43,4 +43,6 @@ Organization defaults stay available when custom servers are disabled. **Custom 
 
 An account's ownership is fixed. Add another account for a different external identity or sharing scope. Sharing a server definition never shares someone's personal credentials. Tool results follow the conversation's existing visibility and retention rules.
 
+An Organization default's connection scope and its OAuth application are fixed after setup. Create another server definition to change them. Additional permissions require editing the requested scopes and reconnecting, without automatic scope escalation during tool execution.
+
 **Disconnect locally** clears stored credentials. It does not revoke the provider's broader authorization grant. Use the provider's access-management page for that. If an account needs reconnection, choose **Connect account** again. Changing the server endpoint or authentication settings also requires reconnection.

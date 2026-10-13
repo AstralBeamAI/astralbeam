@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "251c602b-8df8-42aa-a739-1ee08c1c09cd",
+  "id": "1cb7a2f2-df12-4215-be63-797bc97c42b5",
   "prevIds": [
     "97f5a334-d163-49be-b8a4-7905c954cc0b"
   ],
@@ -2756,19 +2756,6 @@
       "table": "mcp_oauth_client"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "active",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "mcp_oauth_client"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -4550,19 +4537,6 @@
       "table": "tenant_mcp_oauth_client"
     },
     {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "name": "active",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "tenant_mcp_oauth_client"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -6142,11 +6116,11 @@
         }
       ],
       "isUnique": true,
-      "where": "\"active\"",
+      "where": null,
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "mcp_oauth_client_active_uidx",
+      "name": "mcp_oauth_client_binding_uidx",
       "entityType": "indexes",
       "schema": "public",
       "table": "mcp_oauth_client"
@@ -6673,11 +6647,11 @@
         }
       ],
       "isUnique": true,
-      "where": "\"active\"",
+      "where": null,
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "tenant_mcp_oauth_client_active_uidx",
+      "name": "tenant_mcp_oauth_client_binding_uidx",
       "entityType": "indexes",
       "schema": "public",
       "table": "tenant_mcp_oauth_client"

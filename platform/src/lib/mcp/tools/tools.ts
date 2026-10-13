@@ -2,7 +2,6 @@ import { createHash } from "node:crypto"
 import {
   Client,
   StreamableHTTPClientTransport,
-  InsufficientScopeError,
   fromJsonSchema,
   type JsonSchemaType,
 } from "@modelcontextprotocol/client"
@@ -181,15 +180,8 @@ const makeMcpTools = Effect.gen(function* () {
                             ...(context?.abortSignal ? { signal: context.abortSignal } : {}),
                           },
                         ),
-                      catch: (error) => error,
+                      catch: () => new McpUnavailable(),
                     }).pipe(
-                      Effect.catch((error) => {
-                        if (error instanceof InsufficientScopeError && error.requiredScope)
-                          return authorization
-                            .requireScopes({ ...input, scope: error.requiredScope })
-                            .pipe(Effect.andThen(Effect.fail(new McpUnavailable())))
-                        return Effect.fail(new McpUnavailable())
-                      }),
                       Effect.withSpan("McpTools.call", {
                         attributes: { connectionId: connection.id, serverId: opened.server.id },
                       }),

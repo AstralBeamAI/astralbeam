@@ -134,7 +134,6 @@ function mcpClientColumns() {
     clientMetadata: schemaJsonb(Schema.JsonObject).notNull(),
     credentials: encryptedJson({ schema: McpClientEnvelopeSchema }).notNull(),
     expiresAt: timestampWithTimeZone(),
-    active: boolean().default(true).notNull(),
     ...timestamps(),
   }
 }
@@ -147,9 +146,13 @@ export const mcpOAuthClient = snakeCase.table(
   },
   (t) => [
     primaryKey({ columns: [t.organizationId, t.id] }),
-    uniqueIndex("mcp_oauth_client_active_uidx")
-      .on(t.organizationId, t.serverId, t.serverAuthRevision, t.issuer, t.resource)
-      .where(sql`${t.active}`),
+    uniqueIndex("mcp_oauth_client_binding_uidx").on(
+      t.organizationId,
+      t.serverId,
+      t.serverAuthRevision,
+      t.issuer,
+      t.resource,
+    ),
     deferrableForeignKey({
       columns: [t.organizationId, t.serverId],
       foreignColumns: [mcpServer.organizationId, mcpServer.id],
@@ -172,18 +175,16 @@ export const tenantMcpOAuthClient = snakeCase.table(
       "tenant_mcp_oauth_client_server_check",
       sql`num_nonnulls(${t.organizationServerId}, ${t.tenantServerId}) = 1`,
     ),
-    uniqueIndex("tenant_mcp_oauth_client_active_uidx")
-      .on(
-        t.organizationId,
-        t.tenantId,
-        sql`coalesce(${t.tenantUserId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
-        sql`coalesce(${t.organizationServerId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
-        sql`coalesce(${t.tenantServerId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
-        t.serverAuthRevision,
-        t.issuer,
-        t.resource,
-      )
-      .where(sql`${t.active}`),
+    uniqueIndex("tenant_mcp_oauth_client_binding_uidx").on(
+      t.organizationId,
+      t.tenantId,
+      sql`coalesce(${t.tenantUserId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.organizationServerId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      sql`coalesce(${t.tenantServerId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      t.serverAuthRevision,
+      t.issuer,
+      t.resource,
+    ),
     deferrableForeignKey({
       columns: [t.organizationId, t.tenantId],
       foreignColumns: [tenant.organizationId, tenant.id],

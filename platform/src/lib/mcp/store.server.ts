@@ -298,7 +298,6 @@ export const mcpReadClient = Effect.fnUntraced(function* (
       issuer: table.issuer,
       resource: table.resource,
       redirectUri: table.redirectUri,
-      active: table.active,
       expiresAt: table.expiresAt,
       storedCredentials: sql<string>`${table.credentials}::text`,
     })
@@ -315,7 +314,6 @@ export const mcpReadClient = Effect.fnUntraced(function* (
   if (Result.isFailure(decoded)) return yield* new McpAuthorizationRequired()
   const envelope = decoded.success.value
   if (
-    !row.active ||
     (row.expiresAt &&
       row.expiresAt.getTime() <= (yield* Effect.clockWith((clock) => clock.currentTimeMillis))) ||
     !mcpReferenceEquals(envelope.registration, row) ||
@@ -329,7 +327,7 @@ export const mcpReadClient = Effect.fnUntraced(function* (
     envelope.resource !== row.resource
   )
     return yield* new McpAuthorizationRequired()
-  return envelope
+  return { ...envelope, redirectUri: row.redirectUri }
 })
 
 export const mcpReadAttempt = Effect.fnUntraced(function* (

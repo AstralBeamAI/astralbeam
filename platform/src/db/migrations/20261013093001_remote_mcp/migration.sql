@@ -58,7 +58,6 @@ CREATE TABLE "mcp_oauth_client" (
 	"client_metadata" jsonb NOT NULL,
 	"credentials" text NOT NULL,
 	"expires_at" timestamp with time zone,
-	"active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"server_id" uuid NOT NULL,
@@ -142,7 +141,6 @@ CREATE TABLE "tenant_mcp_oauth_client" (
 	"client_metadata" jsonb NOT NULL,
 	"credentials" text NOT NULL,
 	"expires_at" timestamp with time zone,
-	"active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"tenant_id" uuid,
@@ -177,13 +175,13 @@ CREATE UNIQUE INDEX "mcp_connection_name_uidx" ON "mcp_connection" ("organizatio
 CREATE INDEX "mcp_connection_server_idx" ON "mcp_connection" ("organization_id","server_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "mcp_oauth_attempt_state_uidx" ON "mcp_oauth_attempt" ("organization_id","state_hash");--> statement-breakpoint
 CREATE INDEX "mcp_oauth_attempt_expiry_idx" ON "mcp_oauth_attempt" ("expires_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "mcp_oauth_client_active_uidx" ON "mcp_oauth_client" ("organization_id","server_id","server_auth_revision","issuer","resource") WHERE "active";--> statement-breakpoint
+CREATE UNIQUE INDEX "mcp_oauth_client_binding_uidx" ON "mcp_oauth_client" ("organization_id","server_id","server_auth_revision","issuer","resource");--> statement-breakpoint
 CREATE UNIQUE INDEX "mcp_server_name_uidx" ON "mcp_server" ("organization_id","name");--> statement-breakpoint
 CREATE INDEX "tenant_mcp_connection_server_idx" ON "tenant_mcp_connection" ("organization_id","tenant_id","tenant_server_id");--> statement-breakpoint
 CREATE INDEX "tenant_mcp_connection_organization_server_idx" ON "tenant_mcp_connection" ("organization_id","organization_server_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_mcp_oauth_attempt_state_uidx" ON "tenant_mcp_oauth_attempt" ("organization_id","tenant_id","state_hash");--> statement-breakpoint
 CREATE INDEX "tenant_mcp_oauth_attempt_expiry_idx" ON "tenant_mcp_oauth_attempt" ("expires_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "tenant_mcp_oauth_client_active_uidx" ON "tenant_mcp_oauth_client" ("organization_id","tenant_id",coalesce("tenant_user_id", '00000000-0000-0000-0000-000000000000'::uuid),coalesce("organization_server_id", '00000000-0000-0000-0000-000000000000'::uuid),coalesce("tenant_server_id", '00000000-0000-0000-0000-000000000000'::uuid),"server_auth_revision","issuer","resource") WHERE "active";--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_mcp_oauth_client_binding_uidx" ON "tenant_mcp_oauth_client" ("organization_id","tenant_id",coalesce("tenant_user_id", '00000000-0000-0000-0000-000000000000'::uuid),coalesce("organization_server_id", '00000000-0000-0000-0000-000000000000'::uuid),coalesce("tenant_server_id", '00000000-0000-0000-0000-000000000000'::uuid),"server_auth_revision","issuer","resource");--> statement-breakpoint
 ALTER TABLE "mcp_connection" ADD CONSTRAINT "mcp_connection_FsiUkbB75BnC_fkey" FOREIGN KEY ("organization_id","server_id") REFERENCES "mcp_server"("organization_id","id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;--> statement-breakpoint
 ALTER TABLE "mcp_connection" ADD CONSTRAINT "mcp_connection_FyCtsHPgMwDq_fkey" FOREIGN KEY ("organization_id","oauth_client_id") REFERENCES "mcp_oauth_client"("organization_id","id") DEFERRABLE INITIALLY DEFERRED;--> statement-breakpoint
 ALTER TABLE "mcp_oauth_attempt" ADD CONSTRAINT "mcp_oauth_attempt_vxva7LQYW3M5_fkey" FOREIGN KEY ("organization_id","connection_id") REFERENCES "mcp_connection"("organization_id","id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;--> statement-breakpoint

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto"
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, isNull, sql } from "drizzle-orm"
 import { Clock, Context, Effect, Layer, Redacted, Schema } from "effect"
 import {
   discoverOAuthServerInfo,
@@ -13,7 +13,6 @@ import {
 } from "@modelcontextprotocol/client"
 import { Database } from "@/db/database"
 import { Config } from "@/lib/config/config"
-import { mcpConnection, tenantMcpConnection } from "@/db/schema/mcp"
 import { mcpDefinitionAllowed, McpConnections } from "../mcp.server.ts"
 import {
   McpAuthorizationRequired,
@@ -150,7 +149,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     server: McpStoredServer
     discovery: OAuthDiscoveryState
     information: StoredOAuthClientInformation
-    replace?: boolean
+    manual?: boolean
   }) {
     const binding = mcpDiscoveryBinding(input.discovery, input.server.endpointUrl)
     if (input.information.issuer !== binding.issuer) return yield* new McpInvalidConfiguration()
@@ -161,7 +160,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
       eq(table.serverAuthRevision, input.server.authRevision),
       eq(table.issuer, binding.issuer),
       eq(table.resource, binding.resource),
-      eq(table.active, true),
     )
     const [identity] = yield* db
       .select({ id: sql<string>`uuidv7()` })
@@ -174,7 +172,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     }
     const information = Schema.decodeUnknownSync(Schema.JsonObject)(input.information)
     const metadata = mcpClientMetadata(yield* requireMcpBaseUrl)
-    const mechanism = input.replace
+    const mechanism = input.manual
       ? ("pre_registered" as const)
       : typeof information.client_id === "string" && information.client_id.startsWith("https://")
         ? ("cimd" as const)
@@ -212,44 +210,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
             .for("share")
           if (!definition || definition.revision !== input.server.authRevision)
             return yield* new McpChanged()
-          if (input.replace) {
-            const retired = yield* transaction
-              .update(table)
-              .set({ active: false })
-              .where(predicate)
-              .returning({ id: table.id })
-            if (retired.length) {
-              const targets =
-                reference.tenantId === null
-                  ? [mcpConnection, tenantMcpConnection]
-                  : [tenantMcpConnection]
-              for (const target of targets)
-                yield* transaction
-                  .update(target)
-                  .set({
-                    authState: "reauthorization_required",
-                    authErrorCode: "client_registration_changed",
-                    refreshClaimId: null,
-                    refreshClaimExpiresAt: null,
-                  })
-                  .where(
-                    and(
-                      eq(target.organizationId, reference.organizationId),
-                      "tenantId" in target && reference.tenantId !== null
-                        ? eq(target.tenantId, reference.tenantId)
-                        : undefined,
-                      inArray(
-                        "oauthClientId" in target
-                          ? target.oauthClientId
-                          : reference.tenantId === null
-                            ? target.organizationOAuthClientId
-                            : target.tenantOAuthClientId,
-                        retired.map(({ id }) => id),
-                      ),
-                    ),
-                  )
-            }
-          }
           yield* transaction
             .insert(table)
             .values({
@@ -269,6 +229,14 @@ const makeMcpAuthorization = Effect.gen(function* () {
       .pipe(Effect.orDie)
     if (!winner) return yield* new McpChanged()
     const selected = yield* mcpReadClient(db, { ...reference, id: winner.id })
+    if (
+      selected.redirectUri !== metadata.redirect_uris[0] ||
+      (input.manual &&
+        ["client_id", "client_secret", "token_endpoint_auth_method"].some(
+          (key) => selected.clientInformation[key] !== information[key],
+        ))
+    )
+      return yield* new McpInvalidConfiguration()
     return {
       reference: selected.registration,
       information: selected.clientInformation as StoredOAuthClientInformation,
@@ -311,7 +279,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       server,
       discovery,
       information: mcpManualClientInformation(input.manualClient, discovery.authorizationServerUrl),
-      replace: true,
+      manual: true,
     })
   })
   const start = Effect.fn("McpAuthorization.start")(function* (input: McpAuthorizeInput) {
@@ -381,7 +349,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
           input.manualClient,
           discovery.authorizationServerUrl,
         ),
-        replace: true,
+        manual: true,
       })
       payload.registration = saved.reference
       payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(saved.information)
@@ -396,7 +364,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
           current &&
           current.serverAuthRevision === server.authRevision &&
           current.issuer === discovery.authorizationServerUrl &&
-          current.resource === discovery.resourceMetadata!.resource
+          current.resource === discovery.resourceMetadata!.resource &&
+          current.redirectUri === mcpClientMetadata(baseUrl).redirect_uris[0]
         ) {
           payload.registration = current.registration
           payload.clientInformation = current.clientInformation
@@ -412,7 +381,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
               mcpOwnerPredicate(clientTable, server),
               mcpServerPredicate(clientTable, server),
               eq(clientTable.serverAuthRevision, server.authRevision),
-              eq(clientTable.active, true),
               eq(clientTable.issuer, discovery.authorizationServerUrl),
               eq(clientTable.resource, discovery.resourceMetadata!.resource),
             ),
@@ -425,6 +393,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
             tenantId: server.tenantId,
             id: registered.id,
           })
+          if (client.redirectUri !== mcpClientMetadata(baseUrl).redirect_uris[0])
+            return yield* new McpInvalidConfiguration()
           payload.registration = client.registration
           payload.clientInformation = client.clientInformation
         } else if (server.authConfig.registration === "pre_registered")
@@ -441,16 +411,12 @@ const makeMcpAuthorization = Effect.gen(function* () {
       saveClient: (information) =>
         Effect.runPromise(saveRegistration({ owner: connection, server, discovery, information })),
     })
-    const prior = mcpDecodeCredential(connection)?.credential
-    const previous = prior?.kind === "oauth" ? prior : undefined
     const scopes = [
       ...new Set([
         ...(discovery.challengedScope?.split(/\s+/).filter(Boolean) ??
           discovery.resourceMetadata?.scopes_supported ??
           []),
         ...server.authConfig.requestedScopes,
-        ...((previous?.discovery.requiredScopes as string[] | undefined) ?? []),
-        ...(previous?.grantedScopes ?? []),
       ]),
     ].join(" ")
     const result = yield* Effect.tryPromise({
@@ -936,42 +902,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     }
     return yield* new McpUnavailable()
   })
-  const requireScopes = Effect.fn("McpAuthorization.requireScopes")(function* (
-    input: McpRuntimeCredentialInput & { scope: string },
-  ) {
-    const { connection } = yield* connections.getConnection({ ...input, use: true })
-    const envelope = mcpDecodeCredential(connection)
-    if (!envelope || envelope.credential.kind !== "oauth" || input.scope.length > 4096)
-      return yield* new McpAuthorizationRequired()
-    const table = mcpConnectionTable(connection)
-    yield* db
-      .update(table)
-      .set({
-        authState: "reauthorization_required",
-        authErrorCode: "additional_scope_required",
-        credentials: {
-          ...envelope,
-          credential: {
-            ...envelope.credential,
-            discovery: {
-              ...envelope.credential.discovery,
-              requiredScopes: input.scope.split(/\s+/).filter(Boolean),
-            },
-          },
-        },
-      })
-      .where(
-        and(
-          mcpScopePredicate(table, connection),
-          eq(table.authGeneration, connection.authGeneration),
-          eq(table.tokenRevision, connection.tokenRevision),
-          isNull(table.refreshClaimId),
-        ),
-      )
-      .pipe(Effect.orDie)
-  })
   return {
-    requireScopes,
     start,
     bindBrowser,
     browserRedirect,
