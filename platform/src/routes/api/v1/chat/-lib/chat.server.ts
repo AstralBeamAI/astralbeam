@@ -102,7 +102,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       query: Schema.Struct({
         threadId: ApiUuidSchema,
         fileId: ApiUuidSchema,
-        filename: Schema.optional(Schema.String),
+        filename: Schema.optionalKey(Schema.String),
       }),
       success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
         "Content-Disposition": Schema.String,

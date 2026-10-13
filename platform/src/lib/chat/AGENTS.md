@@ -64,7 +64,7 @@
 ## Invariants
 
 - Every tenant-scoped key folds in all three of organization id, tenant id, and tenant-user id: the rate-limit key, the sandbox instance-store namespace, and stored-file ownership. `threadId` is browser-supplied and upstream's `computeSandboxKey` is a 64-bit hash, so that key alone is not a tenant boundary.
-- An attachment source must stay `data`-only. A URL source would have the model provider fetch a caller-chosen host on this deployment's API key.
+- Persist attachments as scoped file references and hydrate bytes only for execution. Accept inline data and uploaded file IDs at admission, and reject caller-chosen URLs so providers cannot fetch arbitrary hosts on deployment credentials.
 - Every attachment cap is enforced here regardless of what the SDK composer already checked, because the caller need not be the SDK.
 - Agent instructions and the attachment grant are agent configuration. `/api/v1/chat/config` exists so a client can narrow a grant for UX. It can never widen one, and a client-sent system prompt is refused rather than dropped.
 - Sandbox paths are contained against the provider's _real_ workspace root from `resolveHarnessCwd` before publication. Containment is not the security boundary, the sandbox is, but the agent's own files and the widget's file list depend on it.

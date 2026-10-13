@@ -659,7 +659,7 @@ export type UploadChatFileBody = {
 export type GetChatFileParams = {
   threadId: string
   fileId: string
-  filename?: string | null
+  filename?: string
 }
 
 export type GetChatConfigParams = {
