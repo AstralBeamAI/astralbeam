@@ -22,6 +22,8 @@ import { MarkdownMessage } from "./markdown-message.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { SentAttachment } from "./user-message-body.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
+import { WebActivity } from "./web-activity.tsx"
+import { citedWebText, webPartMetadata } from "../../core/web.ts"
 
 interface AssistantPartProps {
   readOnly?: boolean | undefined
@@ -225,13 +227,16 @@ export function AssistantPart({
       return (
         <Bubble variant="ghost">
           <BubbleContent>
-            <MarkdownMessage>{part.content}</MarkdownMessage>
+            <MarkdownMessage>
+              {citedWebText(part.content, webPartMetadata(part).web?.citations ?? [])}
+            </MarkdownMessage>
           </BubbleContent>
         </Bubble>
       )
     case "thinking":
       return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
     case "tool-call": {
+      if (webPartMetadata(part).providerExecuted) return <WebActivity part={part} />
       const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))

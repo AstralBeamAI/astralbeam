@@ -49,6 +49,7 @@ export interface ChatAgent {
   readonly id: string
   readonly systemPrompt: string
   readonly attachmentsEnabled: boolean
+  readonly webAccessEnabled: boolean
   readonly sandboxProviderId: string | null
 }
 
@@ -405,6 +406,7 @@ export class Agents extends Context.Service<
             id: agent.id,
             systemPrompt: agent.systemPrompt,
             attachmentsEnabled: agent.attachmentsEnabled,
+            webAccessEnabled: agent.webAccessEnabled,
             sandboxProviderId: agent.sandboxProviderId,
           })
           .from(agent)

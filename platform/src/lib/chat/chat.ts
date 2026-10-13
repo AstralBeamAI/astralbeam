@@ -10,7 +10,7 @@ import { Context, Effect, identity, Layer, Stream } from "effect"
 
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
-import { projectChatModelHistory } from "./threads/projection"
+import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
 import {
   managedChatDelivery,
   managedChatMiddleware,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
+import { chatWebTools, chatWebState } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
@@ -44,6 +45,7 @@ import {
   ChatModelMissing,
   ChatModelKeyUnreadable,
   ChatSystemPromptRefused,
+  ChatWebAccessUnavailable,
 } from "./errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
@@ -52,6 +54,8 @@ import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
+  web_access_unavailable:
+    "The provider rejected web access. Ask the site owner to check the model and provider web-tool permissions.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
   authentication_error:
     "The model provider rejected its credentials. Ask the site owner to check them.",
@@ -88,11 +92,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   sandbox,
   scope,
   files,
+  webAccessEnabled,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly files: typeof ChatFiles.Service
   readonly sandbox: boolean
+  readonly webAccessEnabled: boolean
   readonly scope: { organizationId: string; tenantId: string; threadId: string }
 }) {
   const stored = yield* Effect.try({
@@ -101,6 +107,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
         providerId: model.providerId,
         protocol: model.api,
         modelId: model.modelId,
+        webAccessEnabled,
       }),
     catch: () => new ChatThreadInvalid(),
   })
@@ -134,6 +141,7 @@ export class Chat extends Context.Service<
       | ChatModelMissing
       | ChatModelKeyUnreadable
       | ChatSystemPromptRefused
+      | ChatWebAccessUnavailable
       | ChatThreadError
     >
     /** The selected agent's attachment grant, which a client may narrow but never widen. */
@@ -182,6 +190,11 @@ export class Chat extends Context.Service<
             ),
           )
         if (!model) return yield* new ChatModelMissing()
+        const web = agent.webAccessEnabled ? chatWebState() : undefined
+        const webTools = yield* Effect.try({
+          try: () => chatWebTools(model, agent.webAccessEnabled, params.tools),
+          catch: () => new ChatWebAccessUnavailable(),
+        })
         const history = yield* threads.history({
           scope: input.managed.claim.scope,
           id: input.managed.claim.threadId,
@@ -197,6 +210,7 @@ export class Chat extends Context.Service<
           files: storedFiles,
           model,
           sandbox: agent.sandboxProviderId !== null,
+          webAccessEnabled: agent.webAccessEnabled,
           scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
         const unknownOutcome = history.some(
@@ -244,10 +258,10 @@ export class Chat extends Context.Service<
           yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
         }
         const tools = unknownOutcome
-          ? []
+          ? webTools
           : [
               ...mergeAgentTools(
-                [...sandboxTools, ...createChatAttachmentTools(files)],
+                [...webTools, ...sandboxTools, ...createChatAttachmentTools(files)],
                 params.tools,
               ),
             ]
@@ -271,6 +285,14 @@ export class Chat extends Context.Service<
           history: convertMessagesToModelMessages(messages),
           tools,
           model,
+          web,
+          publicHistory:
+            web ||
+            history.some((record) =>
+              record.payload.parts.some((part) => part.executionLocation === "provider"),
+            )
+              ? projectChatPublicHistory(history)
+              : undefined,
           agentId: `agent_${input.principal.organization.id}_${agent.id}`,
           execute: Effect.runPromiseWith(services),
           refreshContext: (claim) =>
@@ -286,6 +308,7 @@ export class Chat extends Context.Service<
                   scope: { ...claim.scope, threadId: claim.threadId },
                   model,
                   sandbox: agent.sandboxProviderId !== null,
+                  webAccessEnabled: agent.webAccessEnabled,
                 })
                 files.splice(0, files.length, ...normalized.files)
                 inputMessages.splice(0, inputMessages.length, ...normalized.projected)
@@ -295,7 +318,11 @@ export class Chat extends Context.Service<
                     0,
                     tools.length,
                     ...mergeAgentTools(
-                      [...sandboxTools, ...createChatAttachmentTools(files)],
+                      [
+                        ...chatWebTools(model, agent.webAccessEnabled, params.tools),
+                        ...sandboxTools,
+                        ...createChatAttachmentTools(files),
+                      ],
                       params.tools,
                     ),
                   )
@@ -303,6 +330,13 @@ export class Chat extends Context.Service<
                   systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                 return {
                   providerMessages: convertMessagesToModelMessages(normalized.messages),
+                  publicHistory:
+                    web ||
+                    saved.some((record) =>
+                      record.payload.parts.some((part) => part.executionLocation === "provider"),
+                    )
+                      ? projectChatPublicHistory(saved)
+                      : undefined,
                   tools,
                   systemPrompts,
                 }
@@ -318,7 +352,7 @@ export class Chat extends Context.Service<
             )
             return chatEventStream((abortController) => {
               const source = chat({
-                adapter: createChatAdapter(model),
+                adapter: createChatAdapter(model, web),
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`

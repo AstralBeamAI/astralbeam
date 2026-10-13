@@ -84,6 +84,7 @@ const sandboxedAgent: ChatAgent = {
   id: "01990a5d-ac96-774b-b942-6b13c85384cb",
   systemPrompt: "Help",
   attachmentsEnabled: false,
+  webAccessEnabled: false,
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 
@@ -340,6 +341,25 @@ describe("Chat.run", () => {
     }).pipe(Effect.provide(chatTestLayer({ model: undecryptable }))),
   )
 
+  it.effect("browser forwarded props cannot enable the agent's web grant", () =>
+    Effect.gen(function* () {
+      yield* Stream.runCollect(
+        Stream.take(yield* runChat({ forwardedProps: { webAccessEnabled: true } }), 1),
+      )
+      assert.strictEqual(
+        chatRunTest.options[0]!.tools.some((tool) => /web_search|web_fetch/.test(tool.name)),
+        false,
+      )
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: { ...sandboxedAgent, sandboxProviderId: null },
+          model: CHAT_TEST_MODEL,
+        }),
+      ),
+    ),
+  )
+
   it.effect("reports an unknown agent before an unreadable key", () =>
     Effect.gen(function* () {
       const chosen = yield* Effect.flip(runChat({ forwardedProps: { agentId: "agent_x" } }))
@@ -373,6 +393,11 @@ describe("Chat.run", () => {
       message: "The model provider rejected its API key. Ask the site owner to update it.",
     },
     { code: "constructor", message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
+    {
+      code: "web_access_unavailable",
+      message:
+        "The provider rejected web access. Ask the site owner to check the model and provider web-tool permissions.",
+    },
   ])("explains $code without exposing upstream provider details", ({ code, message }) =>
     Effect.gen(function* () {
       const upstream = "401 Incorrect API key provided: sk-inval****"

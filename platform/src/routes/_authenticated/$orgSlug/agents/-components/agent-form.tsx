@@ -1,6 +1,6 @@
 "use client"
 
-import { useNavigate, useRouter } from "@tanstack/react-router"
+import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
 
@@ -19,7 +19,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -61,28 +71,40 @@ export function AgentForm({
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
-  const [sandboxProviderId, setSandboxProviderId] = useState(
-    existing?.sandboxProviderId ?? NO_SANDBOX_PROVIDER,
+  const [webOverride, setWebOverride] = useState<boolean | null>(existing?.webAccessEnabled ?? null)
+  const [sandboxEnabled, setSandboxEnabled] = useState(
+    existing ? existing.sandboxProviderId !== null : sandboxProviders.length > 0,
   )
-  const [modelIds, setModelIds] = useState<string[]>([...(existing?.modelIds ?? [])])
+  const [sandboxProviderId, setSandboxProviderId] = useState(
+    existing?.sandboxProviderId ?? sandboxProviders[0]?.id ?? NO_SANDBOX_PROVIDER,
+  )
+  const initialModel = models.find((model) => model.webAccess === true) ?? models[0]
+  const [modelIds, setModelIds] = useState<string[]>([
+    ...(existing?.modelIds ?? (initialModel ? [initialModel.id] : [])),
+  ])
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
-  const sandboxProviderItems = [
-    { label: "None", value: NO_SANDBOX_PROVIDER },
-    ...sandboxProviders.map((provider) => ({
-      label: `${provider.name} (${provider.providerType})`,
-      value: provider.id,
-    })),
-  ]
+  const sandboxProviderItems = sandboxProviders.map((provider) => ({
+    label: `${provider.name} (${provider.providerType})`,
+    value: provider.id,
+  }))
   const selectedSandboxProviderId =
-    sandboxProviderId === NO_SANDBOX_PROVIDER ? null : sandboxProviderId
+    sandboxEnabled && sandboxProviderId !== NO_SANDBOX_PROVIDER ? sandboxProviderId : null
+  const selectedModels = models.filter((model) => modelIds.includes(model.id))
+  const webAvailable =
+    selectedModels.length > 0 && selectedModels.every((model) => model.webAccess !== false)
+  const webAccessEnabled =
+    webOverride ??
+    (selectedModels.length > 0 && selectedModels.every((model) => model.webAccess === true))
   const normalizedName = name.trim()
   const valid =
     Schema.is(AgentNameSchema)(normalizedName) &&
     Schema.is(AgentSystemPromptSchema)(systemPrompt) &&
-    modelIds.length > 0
+    modelIds.length > 0 &&
+    (!webAccessEnabled || webAvailable) &&
+    (!sandboxEnabled || selectedSandboxProviderId !== null)
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -93,6 +115,7 @@ export function AgentForm({
       name: normalizedName,
       systemPrompt,
       attachmentsEnabled,
+      webAccessEnabled,
       modelIds,
       sandboxProviderId: selectedSandboxProviderId,
     }
@@ -217,30 +240,80 @@ export function AgentForm({
               off.
             </FieldDescription>
 
-            <Field>
-              <FieldLabel htmlFor="agent-sandbox-provider">Sandbox provider</FieldLabel>
-              <Select
-                items={sandboxProviderItems}
-                value={sandboxProviderId}
-                onValueChange={(value) => setSandboxProviderId(value ?? NO_SANDBOX_PROVIDER)}
-                disabled={disabled}
-              >
-                <SelectTrigger id="agent-sandbox-provider" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_SANDBOX_PROVIDER}>None</SelectItem>
-                  {sandboxProviders.map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.providerType})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                Optional. An agent with a provider gets one isolated sandbox per conversation.
-              </FieldDescription>
-            </Field>
+            <FieldSet>
+              <FieldLegend>Tools</FieldLegend>
+              <FieldDescription>Choose what this agent can do.</FieldDescription>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="agent-web-access">Web access</FieldLabel>
+                  <FieldDescription id="agent-web-access-description">
+                    {!webAvailable
+                      ? "Select a supported model. OpenAI connections require Responses."
+                      : selectedModels.some((model) => model.webAccess === null)
+                        ? "For custom models and endpoints, enable only if native web tools are supported."
+                        : "Search the web and read public pages through the selected model."}
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id="agent-web-access"
+                  checked={webAccessEnabled}
+                  onCheckedChange={setWebOverride}
+                  disabled={disabled || (!webAvailable && !webAccessEnabled)}
+                  aria-describedby="agent-web-access-description"
+                />
+              </Field>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="agent-sandbox-enabled">Sandbox</FieldLabel>
+                  <FieldDescription id="agent-sandbox-description">
+                    {sandboxProviders.length ? (
+                      "Run code and work with files in an isolated environment."
+                    ) : (
+                      <>
+                        Add a connection in{" "}
+                        <Link
+                          to="/$orgSlug/sandboxes"
+                          params={{ orgSlug: organizationSlug }}
+                          className="underline"
+                        >
+                          Sandboxes
+                        </Link>{" "}
+                        to enable this tool.
+                      </>
+                    )}
+                  </FieldDescription>
+                </FieldContent>
+                <Switch
+                  id="agent-sandbox-enabled"
+                  checked={sandboxEnabled}
+                  onCheckedChange={setSandboxEnabled}
+                  disabled={disabled || sandboxProviders.length === 0}
+                  aria-describedby="agent-sandbox-description"
+                />
+              </Field>
+              {sandboxEnabled && (
+                <Field>
+                  <FieldLabel htmlFor="agent-sandbox-provider">Sandbox connection</FieldLabel>
+                  <Select
+                    items={sandboxProviderItems}
+                    value={sandboxProviderId}
+                    onValueChange={(value) => setSandboxProviderId(value ?? NO_SANDBOX_PROVIDER)}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger id="agent-sandbox-provider" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sandboxProviders.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.name} ({provider.providerType})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </FieldSet>
           </FieldGroup>
         </CardContent>
         {!readOnly && (

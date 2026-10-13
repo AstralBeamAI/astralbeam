@@ -153,6 +153,7 @@ export function projectThreadMessages(
           },
         ]
       if (part.type !== "tool-call") return [part]
+      if (part.executionLocation === "provider") return [part]
       const toolCallId = String(part.toolCallId)
       const targets = Array.isArray(part.targets)
         ? part.targets.flatMap((target: unknown) =>

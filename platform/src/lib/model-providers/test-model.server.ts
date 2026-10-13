@@ -51,7 +51,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
           failure = undefined
           let bytes = 0
           const decoder = new TextDecoder()
-          // The adapter synthesizes a terminal event on EOF, even when the upstream was truncated.
+          // Require a successful upstream finish, including when the token limit ends the stream.
           // https://github.com/TanStack/ai/blob/main/packages/openai-base/src/adapters/chat-completions-text.ts
           const parser = Sse.makeParser((event) => {
             if (event._tag === "Event" && Option.isSome(decodeCompletedChoice(event.data)))
@@ -89,7 +89,12 @@ export const testProviderModel = Effect.fn("testProviderModel")(
           abortController: controller,
         })) {
           if (chunk.type === EventType.RUN_ERROR)
-            throw failure ?? new ModelProviderTestFailed({ reason: "configuration" })
+            throw (
+              failure ??
+              new ModelProviderTestFailed({
+                reason: chunk.code === "incomplete-stream" ? "empty" : "configuration",
+              })
+            )
           if (chunk.type === EventType.TOOL_CALL_START)
             throw new ModelProviderTestFailed({ reason: "empty" })
           if (chunk.type === EventType.TEXT_MESSAGE_CONTENT && chunk.delta.trim()) hasText = true

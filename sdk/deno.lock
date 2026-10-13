@@ -5,8 +5,8 @@
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@shadcn/react@0.3": "0.3.0_@types+react@19.3.0_react@19.3.0",
     "npm:@tailwindcss/cli@^4.3.3": "4.3.3",
-    "npm:@tanstack/ai-client@~0.36.1": "0.36.1",
-    "npm:@tanstack/ai@0.64": "0.64.0",
+    "npm:@tanstack/ai-client@~0.39.2": "0.39.2",
+    "npm:@tanstack/ai@0.68": "0.68.0",
     "npm:@tanstack/eslint-plugin-query@^5.103.2": "5.103.2_eslint@10.11.0_typescript@6.0.3",
     "npm:@tanstack/markdown@1": "1.0.0_react@19.3.0",
     "npm:@tanstack/react-pacer@0.23": "0.23.0_react@19.3.0_react-dom@19.3.0",
@@ -1756,16 +1756,16 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tanstack/ai-client@0.36.1": {
-      "integrity": "sha512-IULs3+suIMXvXAbMVHV+HI0r0U2YsUdwiHIqfHyJEJv9ZWW1ZC/0q+yhByTJBW+Fps55dfGigu3Nn1LxNts6wA==",
+    "@tanstack/ai-client@0.39.2": {
+      "integrity": "sha512-AAAqgpou//LbucooWGTmkG+c7ZZYtBNC1bwxvwPwwDxe3+7KUIZg7/LKiO7MqpzMsuII3EIC9dKmmxuVEHEU2Q==",
       "dependencies": [
         "@tanstack/ai",
         "@tanstack/ai-event-client",
         "@tanstack/ai-utils"
       ]
     },
-    "@tanstack/ai-event-client@0.13.0": {
-      "integrity": "sha512-qGN7saScQHqDd06DE5CNG+wl1O9v6anwsGCCeP4N7zFbZd5k9/2C1u4cdJ2+Qxl2aA8drusLFZMhY/ljhBJqLQ==",
+    "@tanstack/ai-event-client@0.13.1": {
+      "integrity": "sha512-lCPcshu6Sd4tFNeMSr+HXgdqCGupYU2cpJZVUent4GkFx41dXzrBaKkwOgkji6olDBT99OBagWCce1NZ15XeJA==",
       "dependencies": [
         "@tanstack/devtools-event-client@0.4.4"
       ]
@@ -1773,13 +1773,14 @@
     "@tanstack/ai-utils@0.4.1": {
       "integrity": "sha512-B3PGn2WYiRtivZCt7MUN2iXeoK9fwZhgdbrPIz5hPqVR8r8sNDZMmMqtiOkp7sxzPvVlCBItFVHw7QpZ9g6e9w=="
     },
-    "@tanstack/ai@0.64.0": {
-      "integrity": "sha512-8/ambmqJIGgwTkNad5/y4R5s9kwAr4ylDVeQVLDxSvkzp9FydL/QkVKsQuLWbuG9wu66UQ0GkNWmlWwxQojObg==",
+    "@tanstack/ai@0.68.0": {
+      "integrity": "sha512-l++ORsrL5dAC/nNJ2ZyQiTkDmxNo2Xh0lsS4m0QbWzUVyvmSmFriDemqQmAiko+zMvVeeQ8QlTXUMOLLPfZyEQ==",
       "dependencies": [
         "@ag-ui/core",
         "@standard-schema/spec",
         "@tanstack/ai-event-client",
         "@tanstack/ai-utils",
+        "fast-json-patch",
         "partial-json"
       ]
     },
@@ -2805,6 +2806,9 @@
         "merge2",
         "micromatch"
       ]
+    },
+    "fast-json-patch@3.1.1": {
+      "integrity": "sha512-vf6IHUX2SBcA+5/+4883dsIjpBTqmfBjmYiWK1savxQmFk4JfBMLa7ynTYOs1Rolp/T1betJxHiGD3g1Mn8lUQ=="
     },
     "fast-json-stable-stringify@2.1.0": {
       "integrity": "sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw=="
@@ -4623,8 +4627,8 @@
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@shadcn/react@0.3",
         "npm:@tailwindcss/cli@^4.3.3",
-        "npm:@tanstack/ai-client@~0.36.1",
-        "npm:@tanstack/ai@0.64",
+        "npm:@tanstack/ai-client@~0.39.2",
+        "npm:@tanstack/ai@0.68",
         "npm:@tanstack/eslint-plugin-query@^5.103.2",
         "npm:@tanstack/markdown@1",
         "npm:@tanstack/react-pacer@0.23",
