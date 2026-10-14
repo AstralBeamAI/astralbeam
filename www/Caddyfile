@@ -1,0 +1,19 @@
+astralbeam.ai {
+	@redirectRecovery query _redirect_recovery=1
+	# Clear the old apex-to-www redirect without touching sessions or local storage.
+	# https://www.w3.org/TR/clear-site-data/#clear-cache
+	header @redirectRecovery {
+		>Clear-Site-Data "\"cache\""
+		>Cache-Control "no-store"
+	}
+	reverse_proxy localhost:3100
+}
+
+www.astralbeam.ai {
+	# The query must change before redir runs. https://caddyserver.com/docs/caddyfile/directives/route
+	route {
+		uri query _redirect_recovery 1
+		header Cache-Control "no-store"
+		redir https://astralbeam.ai{uri} temporary
+	}
+}

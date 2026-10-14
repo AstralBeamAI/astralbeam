@@ -37,6 +37,14 @@ Two caveats for the development server. Vite claims `.png` requests before Nitro
 
 All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono).
 
+## Hosted domain redirects
+
+[`Caddyfile`](Caddyfile) contains the production `astralbeam.ai` and `www.astralbeam.ai` site blocks and requires [Caddy 2.8 or newer](https://github.com/caddyserver/caddy/releases/tag/v2.8.0) for `uri query`. Replace those two blocks in the server's existing Caddy configuration, preserve its other hosts, validate the complete configuration with the installed Caddy, then reload it. The website's Cloudflare deploy does not apply this server configuration.
+
+The domain migration reversed a permanent `astralbeam.ai` to `www.astralbeam.ai` redirect. Browsers that cached the old redirect loop when `www` sends them back to the same apex URL. The replacement uses a non-cacheable temporary redirect with `_redirect_recovery=1`, preserving the path and other query parameters. On the apex response, [`Clear-Site-Data: "cache"`](https://www.w3.org/TR/clear-site-data/#clear-cache) removes the old cached redirect in supporting browsers while preserving cookies and local storage. Ordinary responses do not clear caches.
+
+If both directions are already cached, the browser cannot reach the changed server rule. After reloading Caddy, open [the recovery URL](https://astralbeam.ai/?_redirect_recovery=1) once, then try the bare homepage again. Browsers that do not support cache clearing through this header need their cached files cleared manually. Validate in a previously affected browser as well as a private window, since a fresh browser alone misses this regression.
+
 ## License
 
 Except for third-party material, files in this project are licensed under the [MIT License](../LICENSE-MIT). See [third-party notices](../docs/legal/THIRD_PARTY_NOTICES.md) for bundled fonts.
