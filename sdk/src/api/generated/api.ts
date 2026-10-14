@@ -21,6 +21,10 @@ export type AstralBeamApiErrorUsageLimit = {
 export interface AstralBeamApiError {
   type: string
   title: string
+  /**
+   * @minimum -9007199254740991
+   * @maximum 9007199254740991
+   */
   status: number
   detail: string
   issues?: AstralBeamApiErrorIssuesItem[]
@@ -98,7 +102,10 @@ export type ChatToolResultReceiptEncodedUsageLimit = {
 export interface ChatToolResultReceiptEncoded {
   thread_id: string
   accepted_message_id: string
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   thread_version: number
   usage_limit?: ChatToolResultReceiptEncodedUsageLimit
 }
@@ -169,7 +176,10 @@ export const SetChatParticipantInputEncodedRole = {
 
 export interface SetChatParticipantInputEncoded {
   role: SetChatParticipantInputEncodedRole
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   expected_version: number
 }
 
@@ -242,7 +252,10 @@ export type ChatHistoryPageEncodedThread = {
   id: string
   title: string | null
   agent_id: string | null
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   version: number
   current_leaf_message_id: string | null
   role: ChatHistoryPageEncodedThreadRole
@@ -293,7 +306,10 @@ export interface ChatThreadEncoded {
   id: string
   title: string | null
   agent_id: string | null
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   version: number
   current_leaf_message_id: string | null
   role: ChatThreadEncodedRole
@@ -308,7 +324,10 @@ export interface UpdateChatThreadInputEncoded {
    * @maxLength 200
    */
   title: string
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   expected_version: number
 }
 
@@ -372,7 +391,10 @@ export interface ChatConfiguration {
 export interface ChatSubmissionReceiptEncoded {
   thread_id: string
   accepted_message_id: string
-  /** @minimum 0 */
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
   thread_version: number
 }
 
@@ -404,6 +426,10 @@ export interface ChatRunInput {
 export interface UploadedChatFile {
   fileId: string
   mimeType: string
+  /**
+   * @minimum -9007199254740991
+   * @maximum 9007199254740991
+   */
   byteSize: number
 }
 

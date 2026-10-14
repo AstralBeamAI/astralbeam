@@ -5,8 +5,8 @@
   "tasks": {
     // Nested project configs would override the root ignore of subdirectories.
     // https://oxc.rs/docs/guide/usage/formatter/config.html
-    "format": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config",
-    "format:check": "deno run -A npm:oxfmt@0.70.0 --disable-nested-config --check",
+    "format": "deno run -A npm:oxfmt@0.73.0 --disable-nested-config",
+    "format:check": "deno run -A npm:oxfmt@0.73.0 --disable-nested-config --check",
 
     "install:platform": "cd platform && deno install",
     "install:www": "cd www && deno install",

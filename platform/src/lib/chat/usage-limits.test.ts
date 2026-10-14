@@ -15,7 +15,10 @@ import type { UsageLimit, UsageLimits } from "@/lib/usage-limits/usage-limits.se
 import { chatUsageLimitGuard } from "./usage-limits.ts"
 
 it("stops before the next model call and announces the limit once before the run finishes", async () => {
-  const adapter = fakeText()
+  // Narrows the field TextAdapter types without `| undefined`, as in createChatAdapter.
+  const adapter = Object.assign(fakeText(), {
+    midConversationChannels: { tools: false, systemPrompts: false },
+  })
   adapter.setResponses([{ toolCalls: [{ name: "lookup", input: {} }] }, { text: "unreachable" }])
   const recorded: number[] = []
   const usageLimits = {

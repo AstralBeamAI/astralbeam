@@ -1,6 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 
-import { getResponseStatus, requestHandler, setCookie } from "@tanstack/react-start/server"
+import {
+  createServerEntry,
+  getResponseHeaders,
+  getResponseStatus,
+  setCookie,
+} from "@tanstack/react-start/server"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
 import { Effect, Logger } from "effect"
 import { describe, expect, it } from "vitest"
@@ -18,13 +23,18 @@ const resumeOutsideRequest = Effect.callback<void>((resume) => {
 
 /** Answers one request through TanStack's event storage, as its server function handler does. */
 function serveServerFn(effect: Effect.Effect<unknown, unknown, ServerRequest>) {
-  return requestHandler(async () => {
-    const outcome = await runEffect(effect, "testServerFn").then(
-      () => "ok",
-      (error: Error) => error.message,
-    )
-    return new Response(outcome, { status: getResponseStatus() })
-  })(new Request("http://localhost/_serverFn/test"), undefined)
+  return createServerEntry({
+    fetch: async () => {
+      const outcome = await runEffect(effect, "testServerFn").then(
+        () => "ok",
+        (error: Error) => error.message,
+      )
+      return new Response(outcome, {
+        status: getResponseStatus(),
+        headers: [...getResponseHeaders()],
+      })
+    },
+  }).fetch(new Request("http://localhost/_serverFn/test"))
 }
 
 describe("runEffect", () => {
@@ -54,12 +64,14 @@ describe("runEffect", () => {
     let releaseOther: () => void = () => {}
     let insideOther: ((evaluate: () => void) => void) | undefined
     const otherStarted = Promise.withResolvers<void>()
-    const other = requestHandler(async () => {
-      insideOther = AsyncLocalStorage.snapshot()
-      otherStarted.resolve()
-      await new Promise<void>((resolve) => (releaseOther = resolve))
-      return new Response("other")
-    })(new Request("http://localhost/_serverFn/other"), undefined)
+    const other = createServerEntry({
+      fetch: async () => {
+        insideOther = AsyncLocalStorage.snapshot()
+        otherStarted.resolve()
+        await new Promise<void>((resolve) => (releaseOther = resolve))
+        return new Response("other", { headers: [...getResponseHeaders()] })
+      },
+    }).fetch(new Request("http://localhost/_serverFn/other"))
     await otherStarted.promise
     // The query's socket was opened by the other request, so its callback resumes there.
     const resumeInOther = Effect.callback<void>((resume) => {
