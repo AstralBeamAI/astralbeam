@@ -133,7 +133,7 @@ export function ChatTranscript({
           </div>
         )}
         <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
-          <MessageScrollerContent aria-busy={isBusy} className="gap-4 p-(--card-spacing)">
+          <MessageScrollerContent aria-busy={isBusy} className="gap-3 px-(--card-spacing) py-2">
             {messages.map((message) => {
               const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
               const active =

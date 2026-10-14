@@ -107,19 +107,19 @@ export function McpConnectionsPanel({
           aria-labelledby={`${fieldId}-title`}
           className="max-h-[75vh] w-[min(24rem,85vw)] gap-0 overflow-hidden p-0"
         >
-          <header className="shrink-0 space-y-1 border-b p-3">
+          <header className="shrink-0 border-b px-3 py-2">
             <h2 id={`${fieldId}-title`} className="font-semibold">
               MCP connections
             </h2>
           </header>
           <div className="min-h-0 divide-y overflow-y-auto">
             {catalog.isPending && (
-              <p role="status" className="p-3 text-xs">
+              <p role="status" className="px-3 py-2 text-xs">
                 Loading servers…
               </p>
             )}
             {catalog.isError && (
-              <div className="p-3">
+              <div className="px-3 py-2">
                 <p role="alert" className="text-xs text-destructive">
                   {catalog.error.message}
                 </p>
@@ -129,7 +129,9 @@ export function McpConnectionsPanel({
               </div>
             )}
             {servers?.length === 0 && (
-              <p className="p-3 text-xs text-muted-foreground">No MCP servers are available.</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                No MCP servers are available.
+              </p>
             )}
             {servers?.map((server) => {
               const connection = catalog.data?.connections.find(
@@ -160,7 +162,7 @@ export function McpConnectionsPanel({
                   render={<article />}
                   size="xs"
                   data-slot="mcp-connection"
-                  className="rounded-none border-0"
+                  className="rounded-none border-0 py-1.5"
                 >
                   <ItemMedia variant="icon" className="text-muted-foreground">
                     <StatusIcon

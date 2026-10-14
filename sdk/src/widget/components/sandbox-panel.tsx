@@ -146,7 +146,7 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
         <PopoverContent
           container={container}
           side="top"
-          sideOffset={8}
+          sideOffset={4}
           aria-label="Sandbox files and command history"
           className="max-h-[min(20rem,var(--available-height))] w-(--anchor-width) max-w-(--available-width) gap-0 overflow-hidden p-0"
         >
@@ -166,14 +166,14 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
                 {commands > 0 && <span className="text-muted-foreground">{commands}</span>}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="files" className="min-h-0 overflow-y-auto p-2">
+            <TabsContent value="files" className="min-h-0 overflow-y-auto px-2 py-1">
               {files === 0 ? (
                 <PanelEmpty>The agent has not written any files yet.</PanelEmpty>
               ) : (
                 activity.files.map((file) => <SandboxFileRow key={file.toolCallId} file={file} />)
               )}
             </TabsContent>
-            <TabsContent value="log" className="min-h-0 overflow-y-auto p-2">
+            <TabsContent value="log" className="min-h-0 overflow-y-auto px-2 py-1">
               {commands === 0 ? (
                 <PanelEmpty>The agent has not run any commands yet.</PanelEmpty>
               ) : (

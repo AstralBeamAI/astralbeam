@@ -1,5 +1,5 @@
 // Added with: deno task ui add trace
-// Local changes: exactOptionalPropertyTypes, inset focus inside paint containment, aligned detail rails and touch targets.
+// Local changes: exactOptionalPropertyTypes, inset focus inside paint containment, compact spacing, aligned detail rails and touch targets.
 import * as React from "react"
 import { cn } from "cn"
 
@@ -114,7 +114,7 @@ function TraceCollapsibleTrigger({
     <CollapsibleTrigger
       data-slot="trace-collapsible-trigger"
       className={cn(
-        "group/trace-collapsible-trigger flex min-h-7 w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 rounded-md px-1 py-1 text-start text-muted-foreground transition-colors outline-none hover:bg-muted/50 hover:text-foreground focus-visible:bg-muted/50 focus-visible:inset-ring-2 focus-visible:inset-ring-ring any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11 has-[[data-status=error]]:text-destructive",
+        "group/trace-collapsible-trigger flex min-h-6 w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-start text-muted-foreground transition-colors outline-none hover:bg-muted/50 hover:text-foreground focus-visible:bg-muted/50 focus-visible:inset-ring-2 focus-visible:inset-ring-ring any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11 has-[[data-status=error]]:text-destructive",
         className
       )}
       {...props}

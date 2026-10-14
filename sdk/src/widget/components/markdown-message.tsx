@@ -24,7 +24,7 @@ const CitationContext = createContext<readonly WebCitation[]>([])
 // Tailwind's preflight drops heading sizes, list markers, and block margins, so each element the
 // renderer emits is restyled here rather than through a typography plugin.
 const tagClasses: Record<string, string> = {
-  p: "my-2 first:mt-0 last:mb-0",
+  p: "my-1.5 first:mt-0 last:mb-0",
   h1: "mt-4 mb-2 font-heading text-base font-semibold first:mt-0",
   h2: "mt-4 mb-2 font-heading text-base font-medium first:mt-0",
   h3: "mt-3 mb-1.5 font-heading text-sm font-semibold first:mt-0",
@@ -88,7 +88,7 @@ function MarkdownCodeBlock({ children, ...props }: MarkdownComponentProps<"pre">
   const code = isValidElement<{ children: string }>(child) ? child.props.children : ""
   const language = (props as Record<string, unknown>)["data-lang"]
   return (
-    <div className="my-2">
+    <div className="my-1.5 first:mt-0 last:mb-0">
       <HighlightedCode language={typeof language === "string" ? language : undefined}>
         {code}
       </HighlightedCode>

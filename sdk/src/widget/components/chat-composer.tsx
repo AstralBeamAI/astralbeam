@@ -114,7 +114,7 @@ export function ChatComposer({
       {showError && (
         <Alert
           variant="destructive"
-          className="mb-2 flex items-start gap-2 border-destructive/30 bg-destructive/5 has-data-[slot=alert-action]:pe-2.5"
+          className="mb-1.5 flex items-center gap-2 border-destructive/30 bg-destructive/5 py-1 has-data-[slot=alert-action]:pe-2.5"
         >
           <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
             <div>{describeError(error)}</div>
@@ -142,7 +142,7 @@ export function ChatComposer({
       {authError && (
         <Alert
           variant="destructive"
-          className="mb-2 flex items-start gap-2 border-destructive/30 bg-destructive/5 has-data-[slot=alert-action]:pe-2.5"
+          className="mb-1.5 flex items-center gap-2 border-destructive/30 bg-destructive/5 py-1 has-data-[slot=alert-action]:pe-2.5"
         >
           <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
             {isAstralBeamApiError(authError) && authError.status === 401
@@ -181,13 +181,13 @@ export function ChatComposer({
       )}
       <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
-          <InputGroupAddon align="block-start">
+          <InputGroupAddon align="block-start" className="py-1">
             <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
           </InputGroupAddon>
         )}
         <InputGroupTextarea
           aria-label="Message"
-          className="max-h-24 min-h-9 any-pointer-coarse:text-base"
+          className="max-h-24 min-h-8 py-1.5 any-pointer-coarse:text-base"
           placeholder={
             authPending
               ? "Verifying your session…"
@@ -211,7 +211,7 @@ export function ChatComposer({
             }
           }}
         />
-        <InputGroupAddon align="block-end" className="pt-0">
+        <InputGroupAddon align="block-end" className="pt-0 pb-1">
           {attachmentLimits.enabled && (
             <TooltipButton
               type="button"

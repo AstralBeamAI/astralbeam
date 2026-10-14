@@ -60,7 +60,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
   }
   return (
     <section
-      className="grid grid-cols-1 gap-3 bg-background text-foreground any-pointer-coarse:[&_button]:min-h-11 any-pointer-coarse:[&_button]:min-w-11"
+      className="grid grid-cols-1 gap-2 bg-background text-foreground any-pointer-coarse:[&_button]:min-h-11 any-pointer-coarse:[&_button]:min-w-11"
       data-slot="mcp-servers"
     >
       <div className="flex items-center justify-between gap-2">
@@ -84,13 +84,18 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
         </p>
       )}
       {options.servers.length === 0 && (
-        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground">
           No MCP servers are available.
         </p>
       )}
       <div className="divide-y rounded-lg border bg-card text-card-foreground empty:hidden">
         {options.servers.map((server) => (
-          <Item key={server.id} render={<article />} size="xs" className="rounded-none border-0">
+          <Item
+            key={server.id}
+            render={<article />}
+            size="xs"
+            className="rounded-none border-0 py-1.5"
+          >
             <ItemMedia variant="icon" className="text-muted-foreground">
               <PlugIcon aria-hidden />
             </ItemMedia>
@@ -267,11 +272,11 @@ function McpServerForm({
       }}
     >
       <fieldset className="min-w-0" disabled={busy}>
-        <Card className="text-xs">
+        <Card size="sm" className="gap-2.5 text-xs">
           <CardHeader>
             <CardTitle className="text-sm">Add MCP server</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-3 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs any-pointer-coarse:[&_input]:min-h-11 any-pointer-coarse:[&_[data-slot=input]]:text-base any-pointer-coarse:[&_[data-slot=native-select]]:text-base any-pointer-coarse:[&_select]:min-h-11">
+          <CardContent className="grid grid-cols-1 gap-2.5 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs any-pointer-coarse:[&_input]:min-h-11 any-pointer-coarse:[&_[data-slot=input]]:text-base any-pointer-coarse:[&_[data-slot=native-select]]:text-base any-pointer-coarse:[&_select]:min-h-11">
             {field("endpointUrl", "Server URL", {
               type: "url",
               autoFocus: true,
@@ -351,7 +356,7 @@ function McpServerForm({
               </p>
             )}
           </CardContent>
-          <CardFooter className="justify-end gap-2 bg-card">
+          <CardFooter className="justify-end gap-2 bg-card py-2">
             <Button type="button" size="sm" variant="outline" onClick={close}>
               Cancel
             </Button>
