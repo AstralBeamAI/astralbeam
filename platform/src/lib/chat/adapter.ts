@@ -160,8 +160,8 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
   )
   const adapter = Object.assign(provider, {
     inputModalities: provider.inputModalities ?? (["text", "image", "document"] as const),
-    // TextAdapter omits `| undefined` here, as for inputModalities before, so chat() rejects every
-    // adapter under exactOptionalPropertyTypes. All-off equals absent. https://github.com/TanStack/ai/issues/1702
+    // TextAdapter omits `| undefined` here, so chat() rejects every adapter under
+    // exactOptionalPropertyTypes. All-off equals absent. https://github.com/TanStack/ai/issues/1777
     midConversationChannels: provider.midConversationChannels ?? {
       tools: false,
       systemPrompts: false,
