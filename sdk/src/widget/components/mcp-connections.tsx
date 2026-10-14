@@ -1,8 +1,8 @@
 import {
   ArrowClockwiseIcon,
   PlugIcon,
+  PulseIcon,
   SpinnerGapIcon,
-  WrenchIcon,
   XIcon,
 } from "@phosphor-icons/react"
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query"
@@ -108,10 +108,6 @@ export function McpConnectionsPanel({
             <h2 id={`${fieldId}-title`} className="font-semibold">
               MCP servers
             </h2>
-            <p className="text-xs text-muted-foreground">
-              Only you can use your connections. Tool results are saved and visible to everyone with
-              conversation access.
-            </p>
           </header>
           <div className="min-h-0 divide-y overflow-y-auto">
             {catalog.isPending && (
@@ -185,18 +181,6 @@ export function McpConnectionsPanel({
                     </div>
                     {headersFor !== server.id && (
                       <div className="flex shrink-0 items-center gap-0.5">
-                        {connected && account && (
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`Test connection: ${endpoint.hostname}`}
-                            title="Test connection"
-                            disabled={busy}
-                            onClick={() => mutation.mutate({ action: "test", id: account.id })}
-                          >
-                            <WrenchIcon />
-                          </Button>
-                        )}
                         {labels && !(publicServer && connected) && (
                           <Button
                             size={connected ? "icon-sm" : "sm"}
@@ -217,6 +201,18 @@ export function McpConnectionsPanel({
                             }
                           >
                             {connected ? <ArrowClockwiseIcon /> : labels[0]}
+                          </Button>
+                        )}
+                        {connected && account && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Test connection: ${endpoint.hostname}`}
+                            title="Test connection"
+                            disabled={busy}
+                            onClick={() => mutation.mutate({ action: "test", id: account.id })}
+                          >
+                            <PulseIcon />
                           </Button>
                         )}
                         {account && (
@@ -326,10 +322,6 @@ export function McpConnectionsPanel({
               )
             })}
           </div>
-          <p className="shrink-0 border-t p-3 text-xs text-muted-foreground">
-            Disconnect removes credentials from AstralBeam. Manage provider access in the connected
-            app.
-          </p>
         </PopoverContent>
       </Popover>
     </div>
