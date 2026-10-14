@@ -25,7 +25,7 @@ test("binds only the intended popup, origin and owner before polling with fresh 
   )
   const complete = vi
     .fn()
-    .mockRejectedValueOnce(new TypeError("Offline"))
+    .mockRejectedValueOnce(Object.assign(new Error("Host JWT endpoint busy"), { status: 429 }))
     .mockResolvedValueOnce(false)
     .mockResolvedValue(true)
   vi.stubGlobal("window", {

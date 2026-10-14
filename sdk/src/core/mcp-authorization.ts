@@ -1,5 +1,3 @@
-import { isAstralBeamApiError } from "../api/api.ts"
-
 export interface McpAuthorizationAttempt {
   organizationId: string
   tenantId: string
@@ -77,10 +75,9 @@ export async function runMcpAuthorization(options: {
             },
             (error: unknown) => {
               completing = false
-              if (
-                !(error instanceof TypeError) &&
-                !(isAstralBeamApiError(error) && (error.status === 429 || error.status >= 500))
-              )
+              const status =
+                error instanceof Error ? (error as Error & { status?: number }).status : undefined
+              if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500)
                 fail(error)
             },
           )
