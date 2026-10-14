@@ -13,6 +13,7 @@ test.each([
   (name, readOnly) => {
     const html = renderToStaticMarkup(
       <ChatTranscript
+        streaming
         messages={[
           {
             id: "saved-response",

@@ -128,7 +128,13 @@ export function ChatComposer({
             )}
           </div>
           {onRetry && (
-            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="any-pointer-coarse:min-h-11"
+              onClick={onRetry}
+            >
               {retryLabel}
             </Button>
           )}
@@ -145,7 +151,13 @@ export function ChatComposer({
               : "The assistant could not verify your session. Retry or contact this app's support team."}
           </div>
           {onAuthRetry && (
-            <Button type="button" variant="outline" size="sm" onClick={onAuthRetry}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="any-pointer-coarse:min-h-11"
+              onClick={onAuthRetry}
+            >
               Retry
             </Button>
           )}
@@ -174,7 +186,7 @@ export function ChatComposer({
         )}
         <InputGroupTextarea
           aria-label="Message"
-          className="max-h-24 min-h-9"
+          className="max-h-24 min-h-9 any-pointer-coarse:text-base"
           placeholder={
             authPending
               ? "Verifying your session…"
@@ -203,6 +215,7 @@ export function ChatComposer({
             <InputGroupButton
               type="button"
               size="icon-sm"
+              className="any-pointer-coarse:size-11"
               aria-label="Attach files"
               title={
                 attachmentsFull
@@ -223,7 +236,7 @@ export function ChatComposer({
               type="button"
               variant="default"
               size="icon-sm"
-              className="ml-auto"
+              className="ml-auto any-pointer-coarse:size-11"
               onClick={onStop}
             >
               <StopIcon />
@@ -234,7 +247,7 @@ export function ChatComposer({
               type="submit"
               variant="default"
               size="icon-sm"
-              className="ml-auto"
+              className="ml-auto any-pointer-coarse:size-11"
               disabled={sendDisabled}
             >
               <ArrowUpIcon />

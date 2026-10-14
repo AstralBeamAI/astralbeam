@@ -55,6 +55,7 @@ Chat and directories share the semantic CSS variables in `src/styles.css` and `a
 Generate shadcn components with `deno task ui add <component>` and allow only minimal typed fixups.
 
 - Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the platform.
+- Keep keyboard focus visible inside paint-contained transcript items. Use inset focus styling or internal spacing instead of removing focus indicators or `content-visibility`.
 - Registry-added files live under `src/widget/components/ui`. Hand-written chat components one per file under `src/widget/components`.
 - Use `SearchDropdown` with official shadcn Combobox primitives for resource pickers, with server search and pagination. Let Base UI manage selected labels and input reset, keep its live regions mounted, and reuse the widget's QueryClient so refresh reaches resource choices. Keep small fixed choices, such as admin status and page size, in native selects.
 - Preserve native dropdown scrollbars and load additional pages as the list scrolls. Keep loading and error-retry feedback without a separate Load more button.

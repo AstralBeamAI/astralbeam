@@ -1,20 +1,26 @@
-import { GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { ArrowUpRightIcon, GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import type { ChatToolCallPart } from "../../core/threads.ts"
 import { safeWebUrl, webPartMetadata } from "../../core/web.ts"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 import { Spinner } from "./ui/spinner.tsx"
+import { Trace, TraceDescription, TraceIcon, TraceLine, TraceTitle } from "./ui/trace.tsx"
 
 export function WebActivity({ part, active }: { part: ChatToolCallPart; active: boolean }) {
   const evidence = webPartMetadata(part).web
-  const sources = (evidence?.sources ?? []).flatMap((source) => {
-    const url = safeWebUrl(source.url)
-    return url ? [{ ...source, url }] : []
-  })
+  const sources = [
+    ...new Map(
+      (evidence?.sources ?? []).flatMap((source) => {
+        const url = safeWebUrl(source.url)
+        return url ? [[url, { ...source, url }] as const] : []
+      }),
+    ).values(),
+  ]
   const pending = part.state !== "complete" && part.state !== "error"
   const running = active && pending
   return (
     <ToolDisclosure
       running={running}
+      failed={part.state === "error"}
       icon={part.state === "error" ? <WarningCircleIcon /> : running ? <Spinner /> : <GlobeIcon />}
       label={
         part.state === "error"
@@ -28,21 +34,31 @@ export function WebActivity({ part, active }: { part: ChatToolCallPart; active: 
                 : "Web retrieval complete"
       }
     >
-      <ul className="space-y-1 text-xs">
+      <Trace>
         {sources.map((source) => (
-          <li key={source.url}>
-            <a
-              href={source.url}
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-              className="block break-words underline"
-            >
-              {source.title}
-            </a>
-            <span className="text-muted-foreground">{new URL(source.url).hostname}</span>
-          </li>
+          <a
+            key={source.url}
+            href={source.url}
+            target="_blank"
+            rel="nofollow noopener noreferrer"
+            referrerPolicy="no-referrer"
+            className="min-w-0 flex-col items-start"
+          >
+            <TraceLine>
+              <TraceTitle className="whitespace-normal wrap-anywhere">
+                {source.title || new URL(source.url).hostname}
+                <span className="sr-only"> (opens in a new tab)</span>
+              </TraceTitle>
+              <TraceIcon>
+                <ArrowUpRightIcon aria-hidden />
+              </TraceIcon>
+            </TraceLine>
+            <TraceDescription className="min-w-0 text-xs wrap-anywhere">
+              {new URL(source.url).hostname}
+            </TraceDescription>
+          </a>
         ))}
-      </ul>
+      </Trace>
       {sources.length === 0 && (
         <p className="text-xs text-muted-foreground">
           {running

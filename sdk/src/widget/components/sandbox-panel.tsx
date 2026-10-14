@@ -72,6 +72,7 @@ function SandboxFileRow({ file }: { file: SandboxFileWrite }) {
             <SandboxCodeBlock
               emptyLabel="Empty file"
               caption={file.label === file.path ? undefined : file.path}
+              language={file.path.split(".").at(-1)}
             >
               {file.content}
             </SandboxCodeBlock>
@@ -81,6 +82,7 @@ function SandboxFileRow({ file }: { file: SandboxFileWrite }) {
       <Button
         variant="ghost"
         size="icon-sm"
+        className="any-pointer-coarse:size-11"
         aria-label={`Download ${file.label}`}
         title="Download"
         onClick={() => downloadTextFile(basename(file.path), file.content)}
@@ -97,6 +99,7 @@ function SandboxCommandRow({ run }: { run: SandboxCommandRun }) {
     <ToolDisclosure
       icon={<TerminalWindowIcon />}
       running={!run.finished}
+      failed={failed}
       label={
         <>
           <span className="font-mono wrap-anywhere">{run.command}</span>

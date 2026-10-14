@@ -1,4 +1,3 @@
-import { describeSandboxCommandRun } from "../../core/sandbox.ts"
 import type { SandboxCommandRun } from "../../core/types.ts"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 
@@ -11,17 +10,24 @@ export function SandboxCommandLog({ run }: { run: SandboxCommandRun }) {
   if (!run.finished) {
     return (
       <div className="flex min-w-0 flex-col gap-1.5">
-        <SandboxCodeBlock>{`$ ${run.command}`}</SandboxCodeBlock>
+        <SandboxCodeBlock caption="Command" language="bash">{`$ ${run.command}`}</SandboxCodeBlock>
         <p className="text-xs text-muted-foreground italic">Still running…</p>
       </div>
     )
   }
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <SandboxCodeBlock>{`$ ${run.command}`}</SandboxCodeBlock>
-      {!run.timedOut && <SandboxCodeBlock emptyLabel="No output">{run.stdout}</SandboxCodeBlock>}
-      {run.stderr.length > 0 && <SandboxCodeBlock tone="error">{run.stderr}</SandboxCodeBlock>}
-      <p className="text-xs text-muted-foreground">{describeSandboxCommandRun(run)}</p>
+      <SandboxCodeBlock caption="Command" language="bash">{`$ ${run.command}`}</SandboxCodeBlock>
+      {!run.timedOut && (
+        <SandboxCodeBlock caption="Output" language="ansi" emptyLabel="No output">
+          {run.stdout}
+        </SandboxCodeBlock>
+      )}
+      {run.stderr.length > 0 && (
+        <SandboxCodeBlock caption="Error output" language="ansi" tone="error">
+          {run.stderr}
+        </SandboxCodeBlock>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { cn } from "cn"
+import { HighlightedCode } from "./highlighted-code.tsx"
 
 interface SandboxCodeBlockProps {
   children: string
@@ -6,20 +6,17 @@ interface SandboxCodeBlockProps {
   tone?: "default" | "error"
   /** Shown in place of the block when there is nothing to show. */
   emptyLabel?: string
-  /** One muted line above the block, for the detail a row's label had to leave out. */
+  /** The block title, for the detail a row's label had to leave out. */
   caption?: string | undefined
+  language?: string | undefined
 }
 
-/**
- * A file or a command's output, verbatim. `whitespace-pre` with horizontal scrolling rather than
- * wrapping: a wrapped line of code or of a stack trace is harder to read than a scrolled one, and
- * Tailwind's preflight does not preserve the browser's own `pre` white-space handling here.
- */
 export function SandboxCodeBlock({
   children,
   tone = "default",
   emptyLabel,
   caption,
+  language,
 }: SandboxCodeBlockProps) {
   const captionLine =
     caption === undefined ? null : (
@@ -34,16 +31,8 @@ export function SandboxCodeBlock({
     )
   }
   return (
-    <>
-      {captionLine}
-      <pre
-        className={cn(
-          "max-h-72 overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs leading-relaxed whitespace-pre",
-          tone === "error" && "text-destructive",
-        )}
-      >
-        <code>{children}</code>
-      </pre>
-    </>
+    <HighlightedCode title={caption} language={language} tone={tone}>
+      {children}
+    </HighlightedCode>
   )
 }

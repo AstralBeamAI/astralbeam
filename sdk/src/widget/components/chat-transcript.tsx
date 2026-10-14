@@ -34,6 +34,8 @@ interface ChatTranscriptProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
+  serverToolTitles?: Readonly<Record<string, string>> | undefined
+  streaming?: boolean | undefined
   activeSlots: ReadonlyMap<string, string>
   interactiveToolIds: ReadonlySet<string>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
@@ -57,6 +59,8 @@ export function ChatTranscript({
   emptyDescription,
   widgets,
   toolTitles,
+  serverToolTitles,
+  streaming = false,
   activeSlots,
   interactiveToolIds,
   getAttachment,
@@ -132,6 +136,12 @@ export function ChatTranscript({
           <MessageScrollerContent aria-busy={isBusy} className="p-(--card-spacing)">
             {messages.map((message) => {
               const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+              const active =
+                streaming &&
+                !readOnly &&
+                message.role === "assistant" &&
+                message === messages.at(-1) &&
+                saved?.state !== "interrupted"
               const anotherParticipant =
                 message.role === "user" &&
                 currentTenantUserId !== undefined &&
@@ -157,6 +167,11 @@ export function ChatTranscript({
                               getFile={getFile}
                               widgets={widgets}
                               toolTitles={toolTitles}
+                              serverToolTitles={serverToolTitles}
+                              streaming={
+                                active &&
+                                (part.type !== "thinking" || partIndex === message.parts.length - 1)
+                              }
                               activeSlots={activeSlots}
                               interactiveToolIds={interactiveToolIds}
                               interrupted={saved?.state === "interrupted"}
@@ -177,11 +192,11 @@ export function ChatTranscript({
                       )}
                       {message.role === "assistant" && saved?.state === "draft" && (
                         <Marker role="status">
-                          <MarkerIcon>{readOnly ? <WarningCircleIcon /> : <Spinner />}</MarkerIcon>
+                          <MarkerIcon>{active ? <Spinner /> : <WarningCircleIcon />}</MarkerIcon>
                           <MarkerContent>
-                            {readOnly
-                              ? "Saved partial response. Completion has not been recorded."
-                              : "Response in progress."}
+                            {active
+                              ? "Response in progress."
+                              : "Saved partial response. Completion has not been recorded."}
                           </MarkerContent>
                         </Marker>
                       )}

@@ -163,6 +163,8 @@ export default defineConfig({
     // Generated and registry-vendored sources, which regeneration would overwrite.
     "src/api/generated/**",
     "src/widget/components/ui/**",
+    "src/widget/hooks/use-highlighted-code.ts",
+    "src/widget/lib/highlighter.tsx",
     "src/widget/styles.generated.ts",
   ],
   // Aliases keep JS rules distinct from native implementations and make ownership explicit.

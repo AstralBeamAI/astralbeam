@@ -89,17 +89,24 @@ export function SandboxPart({
 
   const command = readSandboxCommandRun(part)
   if (command) {
+    const summary = describeSandboxCommandRun(command)
     return (
       <ToolDisclosure
         icon={icon}
         running={running}
+        failed={
+          failed ||
+          refusal !== undefined ||
+          command.timedOut ||
+          (command.exitCode !== undefined && command.exitCode !== 0)
+        }
         label={
           <>
             {running ? "Running" : "Ran"} <Code>{command.command}</Code>
-            {command.finished && refusal === undefined && !failed && (
+            {command.finished && summary && (
               <span className="text-muted-foreground">
                 {" · "}
-                {describeSandboxCommandRun(command)}
+                {summary}
               </span>
             )}
           </>
@@ -119,6 +126,7 @@ export function SandboxPart({
       <ToolDisclosure
         icon={icon}
         running={running}
+        failed={failed || refusal !== undefined}
         label={
           <>
             {running ? "Writing" : failed || refusal !== undefined ? "Could not write" : "Wrote"}{" "}
@@ -137,6 +145,7 @@ export function SandboxPart({
           <SandboxCodeBlock
             emptyLabel="Empty file"
             caption={write.label === write.path ? undefined : write.path}
+            language={write.path.split(".").at(-1)}
           >
             {write.content}
           </SandboxCodeBlock>
@@ -151,6 +160,7 @@ export function SandboxPart({
     <ToolDisclosure
       icon={icon}
       running={running}
+      failed={failed || refusal !== undefined}
       label={
         <>
           {artifact
@@ -164,7 +174,7 @@ export function SandboxPart({
       detail={detail}
     >
       <SandboxPanel>
-        <SandboxCodeBlock emptyLabel="Waiting for the result…">
+        <SandboxCodeBlock emptyLabel="Waiting for the result…" language={path?.split(".").at(-1)}>
           {readSandboxOutputText(part)}
         </SandboxCodeBlock>
       </SandboxPanel>
