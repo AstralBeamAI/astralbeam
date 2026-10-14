@@ -238,7 +238,9 @@ export function AssistantPart({
     case "tool-call": {
       if (webPartMetadata(part).providerExecuted)
         return <WebActivity part={part} active={!readOnly && !interrupted} />
-      const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+      const title =
+        (part as ChatToolCallPart).savedToolTitle ??
+        (Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined)
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
           return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />

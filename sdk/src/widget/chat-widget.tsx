@@ -1,4 +1,4 @@
-import { NotePencilIcon } from "@phosphor-icons/react"
+import { NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
   useEffect,
@@ -13,6 +13,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/c
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
+import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
@@ -60,6 +61,7 @@ export function ChatWidget({
   host: HTMLElement
   controller: RefObject<ChatController | null>
 }) {
+  const closable = !!options.onClose
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
@@ -136,10 +138,10 @@ export function ChatWidget({
     messages,
   ])
   const toolTitles = useMemo(() => {
-    const titles: Record<string, string> = {}
+    const titles: Record<string, string> = { ...chatState.serverToolTitles }
     for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
     return titles
-  }, [agentTools])
+  }, [agentTools, chatState.serverToolTitles])
   useEffect(() => {
     debug?.("mount", "tool set declared to the agent", {
       tools: [...toolNames],
@@ -551,14 +553,27 @@ export function ChatWidget({
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
-  // The Card frame with a bordered header, an unpadded content area, and a footer composer is
-  // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
-  // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
+  // The host sizes the desktop card. Closable chat fills the mobile viewport.
   const showHeader = options.showHeader !== false
+  const closeButton = options.onClose && (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Close chat"
+      title="Close chat"
+      onClick={options.onClose}
+    >
+      <XIcon />
+    </Button>
+  )
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
-    <Card className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0">
+    <Card
+      data-slot="chat"
+      data-closable={closable}
+      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0"
+    >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
           <div className="min-w-0 flex-1">
@@ -569,6 +584,11 @@ export function ChatWidget({
               <CardTitle className="truncate">{options.title ?? DEFAULT_TITLE}</CardTitle>
             )}
           </div>
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
           <ThreadHistory
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
@@ -590,7 +610,23 @@ export function ChatWidget({
             <NotePencilIcon />
           </Button>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
+          {closeButton}
         </CardHeader>
+      )}
+      {!showHeader && (
+        <div className="flex justify-end px-2">
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
+          {closeButton}
+        </div>
+      )}
+      {!!chatState.unavailableMcpConnections?.length && (
+        <p role="status" className="px-4 py-2 text-xs text-muted-foreground">
+          Some connected tools are unavailable. Open MCP connections to review them.
+        </p>
       )}
       {options.showConversationTitle === true && chatState.thread?.title && (
         <ConversationTitle
@@ -698,6 +734,7 @@ export function ChatWidget({
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
+          threadLoading={chatState.threadLoading}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}

@@ -95,6 +95,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
+| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
 | `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |
@@ -140,6 +141,12 @@ widgets: {
 - Return plain JSON values from tools, with no `undefined` fields. If a result cannot be sent, the action may still have happened.
 
 ## Documentation
+
+Remote tools appear under **MCP connections** in the authenticated Tenant widget. Organization admins configure the available MCP servers. Each TenantUser creates their own connection to a server. Public endpoints, static headers and OAuth are supported. Tool results follow the conversation's visibility and retention rules. Disconnect clears credentials locally.
+
+Headless consumers can use `chat.getMcpCatalog()`, `chat.manageMcpConnection(operation)` and `chat.authorizeMcpConnection({ mcpServerId, id? })`. Start OAuth from a user gesture to open its popup. Browser binding and completion use the authenticated session. Server tool titles arrive in `state.serverToolTitles`, independently of host tool execution.
+
+Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/react` or `mountAstralBeamMcpServers` from `/client`. Supply the server list and authorized write callbacks. See [MCP server management](https://astralbeam.ai/docs/sdk/configuration#mcp-server-management).
 
 | Guide | Covers |
 | --- | --- |

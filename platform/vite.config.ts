@@ -147,6 +147,7 @@ const viteConfig = defineConfig(({ mode }) => {
       ...(mode === "test"
         ? []
         : nitro({
+            minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
             alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },

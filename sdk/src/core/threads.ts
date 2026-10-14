@@ -38,6 +38,7 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
   widgetRenderId?: string
   artifactMessageId?: string
   artifactPartId?: string
+  savedToolTitle?: string
   resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
 }
 
@@ -181,6 +182,14 @@ export function projectThreadMessages(
         const savedId = savedToolCallId(message.id, String(part.id), responseTargetId)
         const call = {
           ...part,
+          savedToolTitle:
+            part.declaration &&
+            typeof part.declaration === "object" &&
+            !Array.isArray(part.declaration) &&
+            "title" in part.declaration &&
+            typeof part.declaration.title === "string"
+              ? part.declaration.title
+              : undefined,
           id: liveToolMessageIds.get(toolCallId) === message.id ? toolCallId : savedId,
           upstreamToolCallId: toolCallId,
           applicationPartId: part.id,

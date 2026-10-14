@@ -21,6 +21,7 @@ test("transport and authentication errors keep private diagnostics out of the UI
       error={new Error("HTTP error! status: 500: private server exception")}
       streamBusy={false}
       isBusy={false}
+      threadLoading={false}
       authPending={false}
       authError={authError}
       onAuthRetry={undefined}

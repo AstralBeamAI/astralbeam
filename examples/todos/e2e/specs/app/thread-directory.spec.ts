@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer"
 import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
+import { todosPage } from "../../pages/todos-page.ts"
 import { openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -189,6 +190,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
   await directory.search.fill("missing")
   await expect(directory.directory).toContainText("No conversations match your filters")
   await page.setViewportSize({ width: 320, height: 844 })
+  await todosPage(page).controls.closeAssistant.click()
   await directory.search.fill("")
   await expect(directory.conversation(savedThread.title)).toBeVisible()
   expect(

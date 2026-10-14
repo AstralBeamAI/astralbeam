@@ -52,3 +52,5 @@ export type {
   ToolDefinition,
 } from "../lib/types.ts"
 export type { WebSource, WebCitation, WebEvidence, WebPartMetadata } from "./web.ts"
+
+export type { McpCatalog, McpConnectionOperation } from "./mcp.ts"

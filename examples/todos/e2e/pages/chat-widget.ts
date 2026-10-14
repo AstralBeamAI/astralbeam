@@ -41,6 +41,7 @@ export function chatWidget(page: Page) {
 
   return {
     root,
+    frame: root.locator('[data-slot="chat"]'),
 
     composer(): Locator {
       return composer

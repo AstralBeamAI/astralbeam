@@ -1,5 +1,7 @@
 import { APP_HANDLE } from "@/lib/constants"
 
+export const CHAT_MCP_PRESENTATION_EVENT = `${APP_HANDLE}_mcp_tools`
+
 export const CHAT_SYSTEM_PROMPT =
   "You are an assistant embedded as a chat widget inside a host application. The host " +
   "application supplies your name, persona, and purpose in the instructions that follow; " +

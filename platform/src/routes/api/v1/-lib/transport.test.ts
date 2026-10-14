@@ -15,6 +15,9 @@ import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { type AppAuth, Auth } from "@/lib/auth/auth.server"
 import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config"
+import { McpConnections } from "@/lib/mcp/mcp.server"
+import { McpAuthorization } from "@/lib/mcp/authorization.server"
+import { McpTools } from "@/lib/mcp/tools.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat"
 import { Agents } from "@/lib/agents/agents.server"
@@ -239,6 +242,9 @@ const restTestServices = Layer.mergeAll(
     admit: (input: unknown) => restTestState.threadAdmission(input) as never,
     interrupt: (input: unknown) => restTestState.threadInterrupt(input) as never,
   } as unknown as typeof ChatThreads.Service),
+  Layer.succeed(McpConnections, {} as typeof McpConnections.Service),
+  Layer.succeed(McpAuthorization, {} as typeof McpAuthorization.Service),
+  Layer.succeed(McpTools, {} as typeof McpTools.Service),
   Organizations.layerNoDeps,
   Logger.layer([Logger.map(Logger.formatJson, (line) => restTestState.logs.push(line))]),
 ).pipe(
@@ -428,6 +434,10 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
+  test("rejects personal MCP API-key impersonation", async () => {
+    const response = await restRequest("/me/mcp/catalog")
+    expect(response.status).toBe(401)
+  })
   test("preserves safe 503 with CORS/no-store before setup", async () => {
     restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
     const response = await restRequest("/chat")

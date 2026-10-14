@@ -170,7 +170,16 @@ test("stale tabs preserve newer files and cannot restore accepted files", async 
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
+  const history = Promise.withResolvers<void>()
+  await context.route(
+    "**/api/v1/chat/threads/*/messages?*",
+    (route) => history.promise.then(() => route.fallback()),
+    { times: 1 },
+  )
   await chat.selectConversation(thread.title)
+  await expect(chat.composer()).toBeDisabled()
+  await expect(chat.root.getByRole("button", { name: "Attach files", exact: true })).toBeDisabled()
+  history.resolve()
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
 

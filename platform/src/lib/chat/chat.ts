@@ -8,6 +8,7 @@ import {
 } from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
+import { McpTools } from "@/lib/mcp/tools.server"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
@@ -35,6 +36,7 @@ import {
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
   CHAT_SANDBOX_SYSTEM_PROMPT,
   CHAT_MAX_MODEL_TURNS,
+  CHAT_MCP_PRESENTATION_EVENT,
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_SYSTEM_PROMPT,
 } from "./constants"
@@ -161,6 +163,7 @@ export class Chat extends Context.Service<
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
       const storedFiles = yield* ChatFiles
+      const mcpTools = yield* McpTools
       const usageLimits = yield* UsageLimits
 
       const run = Effect.fn("Chat.run")(function* (input: {
@@ -254,27 +257,6 @@ export class Chat extends Context.Service<
               })
               .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
           : undefined
-        const sandboxTools = session
-          ? createChatSandboxTools({
-              session,
-              services: yield* Effect.context<never>(),
-              publishArtifact: (bytes) =>
-                threads
-                  .publishArtifact({ claim: managed.state.claim, bytes })
-                  .pipe(Effect.catch(() => Effect.succeed(undefined))),
-            })
-          : []
-        if (log && sandboxTools.length > 0) {
-          yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
-        }
-        const tools = unknownOutcome
-          ? webTools
-          : [
-              ...mergeAgentTools(
-                [...webTools, ...sandboxTools, ...createChatAttachmentTools(files)],
-                params.tools,
-              ),
-            ]
         const systemPrompts = [
           CHAT_SYSTEM_PROMPT,
           ...(unknownOutcome
@@ -283,9 +265,7 @@ export class Chat extends Context.Service<
               ]
             : []),
           ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
-          ...(sandboxTools.length > 0
-            ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT]
-            : []),
+          ...(session ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT] : []),
           agent.systemPrompt,
         ]
         const services = yield* Effect.context<never>()
@@ -302,77 +282,111 @@ export class Chat extends Context.Service<
               execute: Effect.runPromiseWith(services),
             })
           : undefined
-        const managed = managedChatMiddleware({
-          managed: input.managed,
-          threads,
-          history: convertMessagesToModelMessages(messages),
-          tools,
-          model,
-          web,
-          publicHistory:
-            web ||
-            history.some((record) =>
-              record.payload.parts.some((part) => part.executionLocation === "provider"),
-            )
-              ? projectChatPublicHistory(history)
-              : undefined,
-          agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-          execute: Effect.runPromiseWith(services),
-          refreshContext: (claim) =>
-            Effect.runPromiseWith(services)(
-              Effect.gen(function* () {
-                const saved = yield* threads.history({
-                  scope: claim.scope,
-                  id: claim.threadId,
-                })
-                const normalized = yield* prepareChatHistory({
-                  history: saved,
-                  files: storedFiles,
-                  scope: { ...claim.scope, threadId: claim.threadId },
-                  model,
-                  sandbox: agent.sandboxProviderId !== null,
-                  webAccessEnabled: agent.webAccessEnabled,
-                })
-                files.splice(0, files.length, ...normalized.files)
-                inputMessages.splice(0, inputMessages.length, ...normalized.projected)
-                if (session) yield* session.prepareUploads(files)
-                if (!unknownOutcome)
-                  tools.splice(
-                    0,
-                    tools.length,
-                    ...mergeAgentTools(
-                      [
-                        ...chatWebTools(model, agent.webAccessEnabled, params.tools),
-                        ...sandboxTools,
-                        ...createChatAttachmentTools(files),
-                      ],
-                      params.tools,
-                    ),
-                  )
-                if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
-                  systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
-                return {
-                  providerMessages: convertMessagesToModelMessages(normalized.messages),
-                  publicHistory:
-                    web ||
-                    saved.some((record) =>
-                      record.payload.parts.some((part) => part.executionLocation === "provider"),
-                    )
-                      ? projectChatPublicHistory(saved)
-                      : undefined,
-                  tools,
-                  systemPrompts,
-                }
-              }),
-            ),
-        })
         const events = Stream.unwrap(
           Effect.gen(function* () {
+            let turn = { claim: input.managed.claim }
             yield* Effect.addFinalizer(() =>
               threads
-                .interrupt({ claim: managed.state.claim })
+                .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
+            const mcp = unknownOutcome
+              ? { tools: [], presentation: [], unavailable: [] }
+              : yield* mcpTools.acquire(input.managed.claim.scope)
+            const sandboxTools = session
+              ? createChatSandboxTools({
+                  session,
+                  services,
+                  publishArtifact: (bytes) =>
+                    threads
+                      .publishArtifact({ claim: turn.claim, bytes })
+                      .pipe(Effect.catch(() => Effect.succeed(undefined))),
+                })
+              : []
+            if (log && sandboxTools.length > 0) {
+              yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
+            }
+            const tools = unknownOutcome
+              ? webTools
+              : [
+                  ...mergeAgentTools(
+                    [
+                      ...webTools,
+                      ...mcp.tools,
+                      ...sandboxTools,
+                      ...createChatAttachmentTools(files),
+                    ],
+                    params.tools,
+                  ),
+                ]
+            const managed = managedChatMiddleware({
+              managed: input.managed,
+              threads,
+              history: convertMessagesToModelMessages(messages),
+              tools,
+              model,
+              web,
+              publicHistory:
+                web ||
+                history.some((record) =>
+                  record.payload.parts.some((part) => part.executionLocation === "provider"),
+                )
+                  ? projectChatPublicHistory(history)
+                  : undefined,
+              agentId: `agent_${input.principal.organization.id}_${agent.id}`,
+              execute: Effect.runPromiseWith(services),
+              refreshContext: (claim) =>
+                Effect.runPromiseWith(services)(
+                  Effect.gen(function* () {
+                    const saved = yield* threads.history({
+                      scope: claim.scope,
+                      id: claim.threadId,
+                    })
+                    const normalized = yield* prepareChatHistory({
+                      history: saved,
+                      files: storedFiles,
+                      scope: { ...claim.scope, threadId: claim.threadId },
+                      model,
+                      sandbox: agent.sandboxProviderId !== null,
+                      webAccessEnabled: agent.webAccessEnabled,
+                    })
+                    files.splice(0, files.length, ...normalized.files)
+                    inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                    if (session) yield* session.prepareUploads(files)
+                    if (!unknownOutcome)
+                      tools.splice(
+                        0,
+                        tools.length,
+                        ...mergeAgentTools(
+                          [
+                            ...chatWebTools(model, agent.webAccessEnabled, params.tools),
+                            ...mcp.tools,
+                            ...sandboxTools,
+                            ...createChatAttachmentTools(files),
+                          ],
+                          params.tools,
+                        ),
+                      )
+                    if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
+                      systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
+                    return {
+                      providerMessages: convertMessagesToModelMessages(normalized.messages),
+                      publicHistory:
+                        web ||
+                        saved.some((record) =>
+                          record.payload.parts.some(
+                            (part) => part.executionLocation === "provider",
+                          ),
+                        )
+                          ? projectChatPublicHistory(saved)
+                          : undefined,
+                      tools,
+                      systemPrompts,
+                    }
+                  }),
+                ),
+            })
+            turn = managed.state
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model, web),
@@ -389,6 +403,14 @@ export class Chat extends Context.Service<
                   createChatAttachmentSnapshotMiddleware(inputMessages, history),
                   ...managed.middleware,
                   ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
+                  {
+                    name: "mcp-presentation",
+                    onStart: (ctx) =>
+                      ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
+                        tools: mcp.presentation,
+                        unavailable: mcp.unavailable,
+                      }),
+                  },
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
                 threadId: params.threadId,
@@ -470,6 +492,7 @@ export class Chat extends Context.Service<
       ModelProviders.layer,
       ChatThreads.layer,
       ChatFiles.layer,
+      McpTools.layer,
       UsageLimits.layer,
     ]),
   )

@@ -343,6 +343,7 @@ test("opening saved tool calls restores their results without executing host too
       toolCallId: "provider-call",
       name: "change_data",
       input: {},
+      declaration: { source: "mcp", title: "Work account: Change data" },
     }),
     {
       id: "tool",
@@ -357,6 +358,7 @@ test("opening saved tool calls restores their results without executing host too
           toolCallId: "provider-call",
           outcome: "succeeded",
           output: { done: true },
+          savedToolTitle: "Work account: Change data",
         },
       ],
     },

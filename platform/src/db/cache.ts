@@ -157,12 +157,14 @@ export const makeDatabaseCache = Effect.fn("makeDatabaseCache")(function* <
 
 export const deleteExpiredDatabaseCacheBatch = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const deleted = yield* sql<{ id: string }>`delete from cache_entry where id in (
+  // Materialize once so a nested-loop plan cannot rescan the limited batch while deleting.
+  // https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION
+  const deleted = yield* sql<{ id: string }>`with expired as materialized (
     select id from cache_entry
     where expires_at <= statement_timestamp()
     order by expires_at, id
     limit 1000
     for update skip locked
-  ) returning id`
+  ) delete from cache_entry where id in (select id from expired) returning id`
   return deleted.length
 })

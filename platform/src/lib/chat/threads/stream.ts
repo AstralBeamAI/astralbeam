@@ -45,6 +45,7 @@ interface ManagedChatStreamOptions {
     inputSchema?: Tool["inputSchema"]
     outputSchema?: Tool["outputSchema"]
     execute?: Tool["execute"]
+    metadata?: Readonly<Record<string, unknown>> | undefined
   }>
   readonly model: ChatModelConfiguration
   readonly agentId: string
@@ -113,6 +114,16 @@ function managedToolPart(
       name: tool?.name ?? part.name,
       inputSchema: tool?.inputSchema ? convertSchemaToJsonSchema(tool.inputSchema) : undefined,
       outputSchema: tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined,
+      ...(tool?.execute && tool.metadata?.source === "mcp"
+        ? {
+            source: "mcp",
+            title: tool.metadata.title,
+            mcpServerId: tool.metadata.mcpServerId,
+            connectionId: tool.metadata.connectionId,
+            nativeToolName: tool.metadata.nativeToolName,
+            inputSchema: tool.metadata.originalInputSchema,
+          }
+        : {}),
     }),
     targets: [
       {

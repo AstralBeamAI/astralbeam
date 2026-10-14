@@ -21,6 +21,7 @@
     "npm:@fontsource-variable/manrope@^5.3.0": "5.3.0",
     "npm:@img/sharp-wasm32@0.35.5": "0.35.5",
     "npm:@marsidev/react-turnstile@^1.6.2": "1.6.2_react@19.3.0_react-dom@19.3.0",
+    "npm:@modelcontextprotocol/client@2.3.1": "2.3.1",
     "npm:@openrouter/sdk@0.13.20": "0.13.20",
     "npm:@phosphor-icons/react@^2.1.10": "2.1.10_react@19.3.0_react-dom@19.3.0",
     "npm:@playwright/test@^1.64.1": "1.64.1",
@@ -29,7 +30,8 @@
     "npm:@scalar/api-reference@^1.74.0": "1.74.0_tailwindcss@4.3.3_typescript@6.0.3_zod@4.6.7",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.3.4_esbuild@0.28.2",
     "npm:@tanstack/ai-anthropic@0.22": "0.22.0_@tanstack+ai@0.69.0_zod@4.6.7",
-    "npm:@tanstack/ai-openai@0.30": "0.30.0_@tanstack+ai@0.69.0_zod@4.6.7",
+    "npm:@tanstack/ai-mcp@0.8.3": "0.8.3",
+    "npm:@tanstack/ai-openai@0.30": "0.30.0_@tanstack+ai@0.69.0_undici@7.29.0",
     "npm:@tanstack/ai-openrouter@0.22": "0.22.0_@tanstack+ai@0.69.0_zod@4.6.7",
     "npm:@tanstack/ai-persistence@0.9.0": "0.9.0_@tanstack+ai@0.69.0_vitest@5.0.4_esbuild@0.28.2_vite@8.3.4_zod@4.6.7",
     "npm:@tanstack/ai-sandbox-daytona@~0.3.4": "0.3.4_@tanstack+ai-sandbox@0.5.23_@tanstack+ai@0.69.0_@tanstack+ai-persistence@0.9.0_esbuild@0.28.2_vite@8.3.4_vitest@5.0.4_zod@4.6.7",
@@ -99,6 +101,7 @@
     "npm:tanstack-router-theme-provider@~0.1.5": "0.1.5_@tanstack+react-router@1.170.44_react@19.3.0_react-dom@19.3.0",
     "npm:tslib@^2.8.1": "2.8.1",
     "npm:tw-animate-css@^1.4.0": "1.4.0",
+    "npm:undici@7.29.0": "7.29.0",
     "npm:vite@^8.3.4": "8.3.4_esbuild@0.28.2",
     "npm:vitest@^5.0.4": "5.0.4_vite@8.3.4_esbuild@0.28.2"
   },
@@ -1042,7 +1045,7 @@
         "open@8.4.2",
         "picomatch@4.0.7",
         "systeminformation",
-        "undici",
+        "undici@7.29.1",
         "which@4.0.0",
         "yocto-spinner"
       ],
@@ -2016,6 +2019,24 @@
     "@mikkelscheike/email-provider-links@6.0.2": {
       "integrity": "sha512-a67rg2YRxu9wmpG3ySvdZ2OtpxYFJpxr+6xcXZ6+ce/kf9+gKLAsRHPa+vDyCB2lT64413Xkqb3FKcZ5HV3fUQ=="
     },
+    "@modelcontextprotocol/client@2.3.1": {
+      "integrity": "sha512-mIGZXpHsjnZ6lD+gD/WCMpR5k8yVQQ8nNFH1N0Srf7AvnwTUMYD6pvTY8ng2+He5FfV7YMZLmrjL7cLa/cc3dQ==",
+      "dependencies": [
+        "@modelcontextprotocol/core",
+        "cross-spawn",
+        "eventsource",
+        "eventsource-parser",
+        "jose@6.2.12",
+        "pkce-challenge",
+        "zod@4.6.7"
+      ]
+    },
+    "@modelcontextprotocol/core@2.3.1": {
+      "integrity": "sha512-laVmIhPGpWi7rG9q+0UigblRN0Hws/Yjlb6qLFtVqryXVLkc4h+yN8z731POD2LnAGQlFe7/tXhUm7Bi0YB91g==",
+      "dependencies": [
+        "zod@4.6.7"
+      ]
+    },
     "@modelcontextprotocol/sdk@1.32.1_zod@4.6.7": {
       "integrity": "sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==",
       "dependencies": [
@@ -2036,6 +2057,13 @@
         "raw-body",
         "zod@4.6.7",
         "zod-to-json-schema@3.25.2_zod@4.6.7"
+      ]
+    },
+    "@modelcontextprotocol/server@2.3.1": {
+      "integrity": "sha512-e59MfWuSssj6DoQ96JCTqdW1AXT5/XtnTl0WWd6MU1Ka434fFUGGosCLJbGNySDhHGvxQWoRWK137FXYFkYNWw==",
+      "dependencies": [
+        "@modelcontextprotocol/core",
+        "zod@4.6.7"
       ]
     },
     "@napi-rs/wasm-runtime@1.2.5_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2": {
@@ -3391,7 +3419,7 @@
       "dependencies": [
         "@scalar/helpers",
         "pathe",
-        "undici",
+        "undici@7.29.1",
         "yaml"
       ]
     },
@@ -3581,7 +3609,7 @@
         "stringify-object",
         "tsconfig-paths",
         "type-fest@4.41.0",
-        "undici",
+        "undici@7.29.1",
         "zod@3.25.76"
       ]
     },
@@ -3811,7 +3839,7 @@
       "integrity": "sha512-4yEmtvtZoBKeUltuWg3DcbbHdOIFl1F/TyTCShHxReE4LplaC8ZAJGsIvE+4Wh7VOhOgx8N4Zm5qEIoYVu4MEA==",
       "dependencies": [
         "@anthropic-ai/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils"
       ]
     },
@@ -3821,10 +3849,20 @@
         "@tanstack/devtools-event-client@0.4.4"
       ]
     },
-    "@tanstack/ai-openai@0.30.0_@tanstack+ai@0.69.0_zod@4.6.7": {
+    "@tanstack/ai-mcp@0.8.3": {
+      "integrity": "sha512-PCAlwQs4yXU/qrcX6Mhc57Q+KWH38OXeKiA3A4vR15EQg8Lb+W5XUskntJTRXkQvED4qHxLeKlX3yi9ydFrsCQ==",
+      "dependencies": [
+        "@modelcontextprotocol/client",
+        "@modelcontextprotocol/server",
+        "@tanstack/ai@0.68.0",
+        "jose@6.2.12"
+      ],
+      "bin": true
+    },
+    "@tanstack/ai-openai@0.30.0_@tanstack+ai@0.69.0_undici@7.29.0": {
       "integrity": "sha512-LZPs6jmWh+nlvYdHTS4bOhA+0qGZpYatuEdTkIqF9W+p9C86spDUhoaEsSXimBbd+mL1RTqahUIHrsAwyNSeSA==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "@tanstack/openai-base",
         "openai"
@@ -3834,14 +3872,14 @@
       "integrity": "sha512-2mxpmeq3m42tzHvQ3OetUhezLtRcNvDq4b88zHIHAOudDZVnzmb7Eped7wr7RKRNrGcdAsQPKfNDgP/Md1FrOA==",
       "dependencies": [
         "@openrouter/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils"
       ]
     },
     "@tanstack/ai-persistence@0.9.0_@tanstack+ai@0.69.0_vitest@5.0.4_esbuild@0.28.2_vite@8.3.4_zod@4.6.7": {
       "integrity": "sha512-4uHrieFqLpLB6gWHSqx9Uwg6tQalyk5ZXzvh5U7V8GnL3YqvkK3Ma5RZaJ2DjBOJkx4NrLQ3WldZjpsQt1CusA==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "vitest"
       ],
@@ -3880,7 +3918,7 @@
       "integrity": "sha512-lxKYX0RC660KJbOtJ8PEFuYq48A00EBXSED8zYEskyU6Gxf5HsTGn6opHSsvPOf7T7CaYfLQnUhifLJbh3jQVQ==",
       "dependencies": [
         "@modelcontextprotocol/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-persistence",
         "@tanstack/ai-skills",
         "vitest"
@@ -3893,7 +3931,7 @@
     "@tanstack/ai-skills@0.1.19_@tanstack+ai@0.69.0_vitest@5.0.4_zod@4.6.7_esbuild@0.28.2_vite@8.3.4": {
       "integrity": "sha512-cMsbeDdY8NclfFiiN0ZEc8H1FS7NEo+LQzF4ANnA20gGCmnO71EMzjTkoesicKlKC3gHctbDw7D7vPCZOguO1Q==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "vitest",
         "zod@4.6.7"
       ],
@@ -3903,6 +3941,17 @@
     },
     "@tanstack/ai-utils@0.4.2": {
       "integrity": "sha512-ucSgSK9kLloInqr/7s0VZlp1IFtbpgPnskISvnLXti/hc8koqXc4Zv9pfTTc8V80WzIKYWMf+ZgSIDeFM50eCw=="
+    },
+    "@tanstack/ai@0.68.0": {
+      "integrity": "sha512-l++ORsrL5dAC/nNJ2ZyQiTkDmxNo2Xh0lsS4m0QbWzUVyvmSmFriDemqQmAiko+zMvVeeQ8QlTXUMOLLPfZyEQ==",
+      "dependencies": [
+        "@ag-ui/core",
+        "@standard-schema/spec",
+        "@tanstack/ai-event-client",
+        "@tanstack/ai-utils",
+        "fast-json-patch",
+        "partial-json"
+      ]
     },
     "@tanstack/ai@0.69.0_zod@4.6.7": {
       "integrity": "sha512-Y018M4Cg3LPr1meRoVG/ePDB1mdazL9cPBA7bnm8WJm2LT0cN2LoUEXRimKSZjyYY7G+9BtQeNiKlaLJkbqHKQ==",
@@ -4026,10 +4075,10 @@
         "react"
       ]
     },
-    "@tanstack/openai-base@0.14.0_@tanstack+ai@0.69.0_zod@4.6.7": {
+    "@tanstack/openai-base@0.14.0_@tanstack+ai@0.69.0_undici@7.29.0": {
       "integrity": "sha512-Uw6oo0COZJbCPKGKJB2RAEu+6X0B7CWLlEHo/fpYfSPEQ9dRDTB5c8yYkqqkiAa56uMj/9rJg0awfWNuw5O1bg==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "openai"
       ]
@@ -4522,7 +4571,7 @@
         "ms",
         "picocolors",
         "tar-stream@3.1.7",
-        "undici",
+        "undici@7.29.1",
         "xdg-app-paths",
         "zod@4.6.7"
       ]
@@ -7657,12 +7706,14 @@
         "is-wsl@2.2.0"
       ]
     },
-    "openai@7.33.0_zod@4.6.7": {
+    "openai@7.33.0_undici@7.29.0": {
       "integrity": "sha512-OtC8xefTzjyamDjagrVvuZzoB8YiT/xhg9QbBo8cFt+FtaL5wj2eX5CuQcAS2DqNEYqzXIhV3+q4GG2dweYgiw==",
       "dependencies": [
+        "undici@7.29.0",
         "zod@4.6.7"
       ],
       "optionalPeers": [
+        "undici@7.29.0",
         "zod@4.6.7"
       ]
     },
@@ -8563,7 +8614,7 @@
         "stringify-object",
         "ts-morph",
         "tsconfig-paths",
-        "undici",
+        "undici@7.29.1",
         "validate-npm-package-name",
         "zod@3.25.76",
         "zod-to-json-schema@3.25.2_zod@3.25.76"
@@ -9068,6 +9119,9 @@
     "undici-types@8.3.0": {
       "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="
     },
+    "undici@7.29.0": {
+      "integrity": "sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw=="
+    },
     "undici@7.29.1": {
       "integrity": "sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q=="
     },
@@ -9467,6 +9521,7 @@
         "npm:@fontsource-variable/manrope@^5.3.0",
         "npm:@img/sharp-wasm32@0.35.5",
         "npm:@marsidev/react-turnstile@^1.6.2",
+        "npm:@modelcontextprotocol/client@2.3.1",
         "npm:@openrouter/sdk@0.13.20",
         "npm:@phosphor-icons/react@^2.1.10",
         "npm:@playwright/test@^1.64.1",
@@ -9475,6 +9530,7 @@
         "npm:@scalar/api-reference@^1.74.0",
         "npm:@tailwindcss/vite@4",
         "npm:@tanstack/ai-anthropic@0.22",
+        "npm:@tanstack/ai-mcp@0.8.3",
         "npm:@tanstack/ai-openai@0.30",
         "npm:@tanstack/ai-openrouter@0.22",
         "npm:@tanstack/ai-persistence@0.9.0",
@@ -9538,6 +9594,7 @@
         "npm:tanstack-router-theme-provider@~0.1.5",
         "npm:tslib@^2.8.1",
         "npm:tw-animate-css@^1.4.0",
+        "npm:undici@7.29.0",
         "npm:vite@^8.3.4",
         "npm:vitest@^5.0.4"
       ]
