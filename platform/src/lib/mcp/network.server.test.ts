@@ -9,8 +9,6 @@ import {
   mcpCreateDispatcher,
   mcpGuardedFetch,
 } from "./network.server.ts"
-import { mcpDiscoveryBinding, mcpOAuthCredential } from "./provider.server.ts"
-import type { OAuthDiscoveryState } from "@modelcontextprotocol/client"
 
 describe("MCP outbound boundary", () => {
   test("refuses special and reserved addresses beyond the shared private-address policy", () => {
@@ -91,42 +89,8 @@ describe("MCP outbound boundary", () => {
         cancel,
       }),
     )
-    const bounded = await mcpBoundedResponse(response, 10)
+    const bounded = mcpBoundedResponse(response, 10)
     await expect(bounded.text()).rejects.toThrow("size limit")
     expect(cancel).toHaveBeenCalledOnce()
-    await expect(
-      mcpBoundedResponse(new Response("oversized", { headers: { "Content-Length": "100" } }), 10),
-    ).rejects.toThrow("size limit")
-  })
-  test("rejects substituted OAuth discovery and token issuers or resources", () => {
-    const issuer = "https://issuer.example"
-    const resource = "https://resource.example/mcp"
-    const discovery = {
-      authorizationServerUrl: issuer,
-      authorizationServerMetadata: {
-        issuer,
-        authorization_endpoint: `${issuer}/authorize`,
-        token_endpoint: `${issuer}/token`,
-        response_types_supported: ["code"],
-      },
-      resourceMetadata: { resource, authorization_servers: [issuer] },
-    } satisfies OAuthDiscoveryState
-    expect(mcpDiscoveryBinding(discovery, resource)).toEqual({ issuer, resource })
-    discovery.authorizationServerMetadata.issuer = "https://other.example"
-    expect(() => mcpDiscoveryBinding(discovery, resource)).toThrow()
-    discovery.authorizationServerMetadata.issuer = issuer
-    discovery.resourceMetadata.resource = "https://other.example/mcp"
-    expect(() => mcpDiscoveryBinding(discovery, resource)).toThrow()
-    discovery.resourceMetadata.resource = resource
-    expect(() => mcpDiscoveryBinding(discovery, "https://resource.example/different")).toThrow()
-    expect(() =>
-      mcpOAuthCredential({
-        discovery,
-        clientInformation: {},
-        serverUrl: resource,
-        now: 0,
-        tokens: { issuer: "https://other.example", access_token: "bad", token_type: "Bearer" },
-      }),
-    ).toThrow()
   })
 })

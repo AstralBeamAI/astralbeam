@@ -5,7 +5,6 @@ import {
   extractWWWAuthenticateParams,
   OAuthError,
   refreshAuthorization,
-  validateAuthorizationResponseIssuer,
   type OAuthDiscoveryState,
   type OAuthClientInformationMixed,
 } from "@modelcontextprotocol/client"
@@ -202,7 +201,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
         ? {
             client_id: client.clientId,
             ...(client.clientSecret ? { client_secret: client.clientSecret } : {}),
-            token_endpoint_auth_method: client.tokenEndpointAuthMethod,
           }
         : null,
       authorizationUrl: null,
@@ -285,18 +283,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
           !pending.discovery
         )
           return yield* new McpForbidden()
-        yield* Effect.try({
-          try: () =>
-            validateAuthorizationResponseIssuer({
-              iss: input.params.get("iss") ?? undefined,
-              expectedIssuer: (pending.discovery as unknown as OAuthDiscoveryState)
-                .authorizationServerMetadata?.issuer,
-              issParameterSupported:
-                (pending.discovery as unknown as OAuthDiscoveryState).authorizationServerMetadata
-                  ?.authorization_response_iss_parameter_supported === true,
-            }),
-          catch: () => new McpForbidden(),
-        })
         if (input.params.has("error") || !input.params.get("code")) {
           pending.status = "failed"
           yield* writeAttempt(pending)
@@ -378,7 +364,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
   const refresh = Effect.fnUntraced(function* (
     input: McpCredentialInput,
     connection: McpStoredConnection,
-    serverUrl: string,
     envelope: McpCredentialEnvelope,
   ) {
     if (envelope.credential.kind !== "oauth") return yield* new McpAuthorizationRequired()
@@ -411,7 +396,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     if (!claimed.length) return null
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
     const discovery = credential.discovery as unknown as OAuthDiscoveryState
-    const binding = mcpDiscoveryBinding(discovery, serverUrl)
+    const binding = mcpDiscoveryBinding(discovery)
     const tokens = yield* Effect.tryPromise({
       try: () =>
         refreshAuthorization(binding.issuer, {
@@ -465,7 +450,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
           tokens: { ...tokens, issuer: binding.issuer },
           discovery,
           clientInformation: credential.clientInformation,
-          serverUrl,
           now: started,
           previous: credential,
         }),
@@ -504,7 +488,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
             value.expiresAt > (yield* Clock.currentTimeMillis) + MCP_REFRESH_MARGIN_MS))
       )
         return Redacted.make(value)
-      const refreshed = yield* refresh(input, connection, server.endpointUrl, envelope)
+      const refreshed = yield* refresh(input, connection, envelope)
       if (refreshed) {
         const current = yield* connections.getConnection(input)
         if (current.connection.lockVersion !== connection.lockVersion)

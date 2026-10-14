@@ -13,10 +13,8 @@ import { McpConnections } from "./mcp.server.ts"
 import { McpAuthorization } from "./authorization.server.ts"
 import {
   MCP_AUTH_TIMEOUT_MS,
-  MCP_MAX_CATALOG_BYTES,
   MCP_MAX_CONNECTIONS,
   MCP_MAX_DISCOVERY_PAGES,
-  MCP_MAX_TOOLS,
   MCP_PROTOCOL_VERSION,
   MCP_TOOL_TIMEOUT_MS,
   type McpActor,
@@ -110,9 +108,6 @@ const makeMcpTools = Effect.gen(function* () {
         try: (signal) => callSignals.run(signal, () => client.tools()),
         catch: () => new McpUnavailable(),
       }).pipe(Effect.onError(() => Effect.promise(() => client.close())))
-      const catalogBytes = new TextEncoder().encode(JSON.stringify(tools)).byteLength
-      if (tools.length > MCP_MAX_TOOLS || catalogBytes > MCP_MAX_CATALOG_BYTES)
-        return yield* new McpUnavailable()
       const boundTools = yield* Effect.try({
         try: () =>
           tools.map((remote) => {
@@ -151,7 +146,7 @@ const makeMcpTools = Effect.gen(function* () {
           }),
         catch: () => new McpUnavailable(),
       })
-      return { catalogBytes, tools: boundTools }
+      return boundTools
     },
     Effect.timeoutOrElse({
       duration: MCP_AUTH_TIMEOUT_MS,
@@ -169,29 +164,14 @@ const makeMcpTools = Effect.gen(function* () {
         ),
       { concurrency: 4 },
     )
-    const result = {
-      tools: [] as Effect.Success<ReturnType<typeof openClient>>["tools"],
-      unavailable: catalog.connections
-        .filter((entry) => entry.authState === "reauthorization_required")
-        .map((entry) => entry.id),
-    }
-    result.unavailable.push(...active.slice(MCP_MAX_CONNECTIONS).map((entry) => entry.id))
-    let catalogBytes = 0
-    for (const [index, entry] of pending.entries()) {
-      if (
-        !entry ||
-        result.tools.length + entry.tools.length > MCP_MAX_TOOLS ||
-        catalogBytes + entry.catalogBytes > MCP_MAX_CATALOG_BYTES
-      ) {
-        result.unavailable.push(active[index]!.id)
-        continue
-      }
-      catalogBytes += entry.catalogBytes
-      result.tools.push(...entry.tools)
-    }
+    const tools = pending.flatMap((entry) => entry ?? [])
     return {
-      ...result,
-      presentation: result.tools.map(({ name, metadata }) => ({ name, title: metadata.title })),
+      tools,
+      presentation: tools.map(({ name, metadata }) => ({ name, title: metadata.title })),
+      unavailable: [
+        ...catalog.connections.filter((entry) => entry.authState === "reauthorization_required"),
+        ...active.filter((_entry, index) => !pending[index]),
+      ].map((entry) => entry.id),
     }
   })
   const test = Effect.fn("McpTools.test")(function* (input: {
@@ -199,7 +179,7 @@ const makeMcpTools = Effect.gen(function* () {
     reference: McpReference
   }) {
     return yield* Effect.scoped(
-      Effect.map(openClient(input), (opened) => ({ toolCount: opened.tools.length })),
+      Effect.map(openClient(input), (opened) => ({ toolCount: opened.length })),
     )
   })
   return { acquire, test }

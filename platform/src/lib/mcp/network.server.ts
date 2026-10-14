@@ -69,11 +69,7 @@ export function mcpCreateDispatcher() {
   })
 }
 
-export async function mcpBoundedResponse(response: Response, maximum: number): Promise<Response> {
-  if (Number(response.headers.get("content-length")) > maximum) {
-    await response.body?.cancel()
-    throw new TypeError("MCP response exceeds the size limit")
-  }
+export function mcpBoundedResponse(response: Response, maximum: number): Response {
   if (!response.body) return response
   let received = 0
   const body = response.body.pipeThrough(

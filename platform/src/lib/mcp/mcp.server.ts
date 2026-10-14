@@ -15,7 +15,6 @@ import {
 } from "./errors.ts"
 import {
   MCP_REFRESH_LEASE_MS,
-  McpApplicationOriginSchema,
   McpCredentialEnvelopeSchema,
   McpStoredAuthConfigSchema,
   McpClientEnvelopeSchema,
@@ -180,12 +179,6 @@ const makeMcpConnections = Effect.gen(function* () {
           )))
     )
       return yield* new McpInvalidConfiguration()
-    if (
-      fields.authConfig.kind === "oauth" &&
-      fields.authConfig.applicationOrigin &&
-      !Schema.is(McpApplicationOriginSchema)(fields.authConfig.applicationOrigin)
-    )
-      return yield* new McpInvalidConfiguration()
     const id = yield* mcpNewId(db)
     yield* db
       .insert(mcpServer)
@@ -260,10 +253,9 @@ const makeMcpConnections = Effect.gen(function* () {
     mcpServerId: string,
   ) {
     yield* getServer(actor.organizationId, mcpServerId)
-    const id = yield* mcpNewId(db)
     yield* db
       .insert(mcpConnection)
-      .values({ ...actor, id, mcpServerId })
+      .values({ ...actor, mcpServerId })
       .onConflictDoNothing()
       .pipe(Effect.orDie)
     return (yield* catalog(actor)).connections.find((entry) => entry.mcpServerId === mcpServerId)!

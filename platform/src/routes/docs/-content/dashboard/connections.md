@@ -7,7 +7,7 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 1. Open **Connections** in the Organization dashboard and choose **Add server**.
 2. Enter the public HTTPS endpoint and choose public, static-header or OAuth authentication.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
-4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Choose the registered token authentication method and register the exact redirect URI shown in the form with your provider.
+4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Register the exact redirect URI shown in the form with your provider. The OAuth client selects the token authentication method from the provider's metadata.
 5. Open **Connections** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
 6. Choose **Check tools** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
@@ -15,7 +15,7 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 
 **NOTE**: Tool input fields marked with `x-mcp-header` are sent as arguments, without copying them into HTTP headers. Structured results require the server to declare an output schema.
 
-Each run discovers at most 16 connected servers and exposes up to 256 tools within a 1 MiB catalog. Additional connections are reported as unavailable for that run.
+Each run discovers at most 16 connected servers and exposes their tools. Additional connections are reported as unavailable for that run.
 
 ## Hosted examples for SaaS teams
 

@@ -14,8 +14,6 @@ export async function startMcpFixture() {
     registrations: 0,
     refreshes: 0,
     calls: 0,
-    toolCount: 1,
-    catalogDescription: "",
     refreshError: "",
     gatewayError: false,
     authorizationError: "",
@@ -136,22 +134,23 @@ export async function startMcpFixture() {
                 nextCursor: "next-page",
               }
             : {
-                tools: Array.from({ length: state.toolCount }, (_, index) => ({
-                  name: index ? `lookup_${index}` : "lookup",
-                  title: "Look up",
-                  description: state.catalogDescription,
-                  inputSchema: {
-                    type: "object",
-                    properties: { region: { type: "string" } },
-                    required: ["region"],
-                    additionalProperties: false,
+                tools: [
+                  {
+                    name: "lookup",
+                    title: "Look up",
+                    inputSchema: {
+                      type: "object",
+                      properties: { region: { type: "string" } },
+                      required: ["region"],
+                      additionalProperties: false,
+                    },
+                    outputSchema: {
+                      type: "object",
+                      properties: { ok: { type: "boolean" } },
+                      required: ["ok"],
+                    },
                   },
-                  outputSchema: {
-                    type: "object",
-                    properties: { ok: { type: "boolean" } },
-                    required: ["ok"],
-                  },
-                })),
+                ],
               }
         else if (body.method === "tools/call") {
           state.calls++

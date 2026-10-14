@@ -28,7 +28,7 @@ async function withMcpTools(
     set: Effect.Success<ReturnType<typeof McpTools.Service.acquire>>,
   ) => void | Promise<void>,
   options: {
-    credential?: (input: { expectedVersion?: number }) => McpCredential
+    credential?: (input: { reference: McpReference; expectedVersion?: number }) => McpCredential
     authConfig?: McpAuthConfig
     catalog?: (typeof mcpToolTestConnection)[]
     state?: Partial<typeof mcpToolFixture.state>
@@ -63,7 +63,7 @@ async function withMcpTools(
                   }),
               } as unknown as typeof McpConnections.Service),
               Layer.succeed(McpAuthorization, {
-                getCredential: (input: { expectedVersion?: number }) =>
+                getCredential: (input: { reference: McpReference; expectedVersion?: number }) =>
                   Effect.sync(() => Redacted.make(options.credential?.(input) ?? { kind: "none" })),
               } as unknown as typeof McpAuthorization.Service),
             ]),
@@ -127,26 +127,25 @@ describe("request-oriented MCP tools", () => {
         { state: { sse } },
       )
   })
-  test("keeps healthy tools while omitting stale accounts and oversized combined catalogs", async () => {
+  test("keeps healthy tools while omitting stale and broken accounts", async () => {
     const catalog = [3, 5, 6, 7].map((suffix) => ({
       ...mcpToolTestConnection,
       id: `019a0000-0000-7000-8000-00000000000${suffix}`,
       authState: suffix === 7 ? "reauthorization_required" : "connected",
     }))
-    for (const state of [
-      { toolCount: 100, catalogDescription: "", exposed: 200 },
-      { toolCount: 1, catalogDescription: "x".repeat(400_000), exposed: 2 },
-    ])
-      await withMcpTools(
-        (set) => {
-          expect(set.tools).toHaveLength(state.exposed)
-          expect(set.unavailable).toEqual([catalog[3]!.id, catalog[2]!.id])
-          expect(
-            mcpToolFixture.state.requests.filter((entry) => entry.method === "server/discover"),
-          ).toHaveLength(3)
+    await withMcpTools(
+      (set) => {
+        expect(set.tools).toHaveLength(2)
+        expect(set.unavailable).toEqual([catalog[3]!.id, catalog[2]!.id])
+      },
+      {
+        catalog,
+        credential: ({ reference }) => {
+          if (reference.id === catalog[2]!.id) throw new Error("Account unavailable")
+          return { kind: "none" }
         },
-        { catalog, state },
-      )
+      },
+    )
   })
   test("rejects legacy protocol without initializing a session", async () => {
     await withMcpTools(

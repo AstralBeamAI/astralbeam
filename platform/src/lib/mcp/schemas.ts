@@ -5,9 +5,7 @@ export const MCP_PROTOCOL_VERSION = "2026-07-28"
 export const MCP_MAX_METADATA_BYTES = 1_048_576
 export const MCP_MAX_RESULT_BYTES = 5_242_880
 export const MCP_MAX_DISCOVERY_PAGES = 8
-export const MCP_MAX_TOOLS = 256
 export const MCP_MAX_CONNECTIONS = 16
-export const MCP_MAX_CATALOG_BYTES = 1_048_576
 export const MCP_AUTH_TIMEOUT_MS = 15_000
 export const MCP_TOOL_TIMEOUT_MS = 60_000
 export const MCP_ATTEMPT_LIFETIME_MS = 600_000
@@ -35,12 +33,7 @@ export type McpAttemptReference = typeof McpAttemptReferenceSchema.Type
 const McpManualClientSchema = Schema.Struct({
   clientId: NonEmptyStringSchema.check(Schema.isMaxLength(2048)),
   clientSecret: Schema.optionalKey(NonEmptyStringSchema.check(Schema.isMaxLength(8192))),
-  tokenEndpointAuthMethod: Schema.Literals(["none", "client_secret_basic", "client_secret_post"]),
-}).check(
-  Schema.makeFilter((client) =>
-    client.tokenEndpointAuthMethod === "none" ? !client.clientSecret : !!client.clientSecret,
-  ),
-)
+})
 export const McpApplicationOriginSchema = Schema.String.check(
   Schema.isMaxLength(2048),
   Schema.makeFilter((value) => {

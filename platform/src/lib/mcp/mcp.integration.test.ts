@@ -128,7 +128,6 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
                   client: {
                     clientId: "manual-client",
                     clientSecret: "manual-secret",
-                    tokenEndpointAuthMethod: "client_secret_post" as const,
                   },
                 }
               : {}),
@@ -266,16 +265,31 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(await db.select().from(mcpConnection)).toEqual([])
     })
 
-    test("rejects browser mismatch, issuer substitution, replay and a superseded attempt", async () => {
+    test("rejects substituted resources or issuers, browser mismatch, replay and superseded attempts", async () => {
       const { reference } = await createOAuth()
+      mcpIntegration.fetch = async (input, init) => {
+        const response = await fixture.fetch(input, init)
+        return (input instanceof Request ? input.url : input.toString()).endsWith(
+          "/metadata/resource",
+        )
+          ? Response.json({ ...(await response.json()), resource: "https://attacker.example/mcp" })
+          : response
+      }
+      await expect(authorize(reference)).rejects.toThrow()
+      expect(fixture.state.registrations).toBe(0)
+      mcpIntegration.fetch = fixture.fetch
       const old = await authorize(reference)
-      const flow = await authorize(reference)
+      let flow = await authorize(reference)
       await expect(callback(old)).rejects.toThrow()
       await expect(callback(flow, { browserBinding: "other-browser" })).rejects.toThrow()
       const substituted = new URLSearchParams(flow.params)
       substituted.set("iss", "https://attacker.example")
       await expect(callback(flow, { params: substituted })).rejects.toThrow()
       expect(fixture.state.tokenRequests).toBe(0)
+      await expect(
+        authority((service) => service.complete({ actor, reference: flow.started.attempt })),
+      ).rejects.toThrow()
+      flow = await authorize(reference)
       await callback(flow)
       await expect(callback(flow)).rejects.toThrow()
       await expect(

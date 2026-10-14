@@ -1,6 +1,5 @@
 import {
   auth,
-  checkResourceAllowed,
   OAuthErrorCode,
   type OAuthClientProvider,
   type OAuthDiscoveryState,
@@ -59,25 +58,10 @@ export function mcpClientMetadata(baseUrl: string) {
   }
 }
 
-export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState, serverUrl: string) {
+export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState) {
   const issuer = discovery.authorizationServerMetadata?.issuer
   const resource = discovery.resourceMetadata?.resource
-  if (
-    !issuer ||
-    issuer !== discovery.authorizationServerUrl ||
-    !resource ||
-    !discovery.resourceMetadata?.authorization_servers?.includes(issuer)
-  )
-    throw new TypeError("MCP OAuth discovery is incomplete")
-  const endpoint = new URL(serverUrl)
-  const resourceUrl = new URL(resource)
-  if (
-    !mcpUrlIsPublic(new URL(issuer)) ||
-    !mcpUrlIsPublic(resourceUrl) ||
-    !checkResourceAllowed({ requestedResource: endpoint, configuredResource: resourceUrl }) ||
-    resourceUrl.search !== endpoint.search
-  )
-    throw new TypeError("MCP OAuth resource binding was refused")
+  if (!issuer || !resource) throw new TypeError("MCP OAuth discovery is incomplete")
   return { issuer, resource }
 }
 
@@ -85,18 +69,15 @@ export function mcpOAuthCredential(input: {
   tokens: StoredOAuthTokens
   discovery: OAuthDiscoveryState
   clientInformation: Schema.JsonObject
-  serverUrl: string
   now: number
   previous?: Extract<McpCredential, { kind: "oauth" }> | undefined
 }): Extract<McpCredential, { kind: "oauth" }> {
-  const { issuer } = mcpDiscoveryBinding(input.discovery, input.serverUrl)
+  const { issuer } = mcpDiscoveryBinding(input.discovery)
   if (input.tokens.issuer !== issuer || input.tokens.token_type.toLowerCase() !== "bearer")
     throw new TypeError("MCP OAuth token binding was refused")
-  const refreshToken = input.tokens.refresh_token ?? input.previous?.tokens.refresh_token
   const scope = input.tokens.scope ?? input.previous?.tokens.scope
   const tokens = Schema.decodeUnknownSync(McpOAuthTokensSchema)({
     ...input.tokens,
-    ...(refreshToken ? { refresh_token: refreshToken } : {}),
     ...(scope ? { scope } : {}),
   })
   return {
@@ -136,7 +117,6 @@ function mcpAttemptProvider(input: {
         tokens,
         discovery: input.payload.discovery as unknown as OAuthDiscoveryState,
         clientInformation: input.payload.clientInformation,
-        serverUrl: input.serverUrl,
         now: await input.now(),
       })
     },
@@ -159,21 +139,11 @@ function mcpAttemptProvider(input: {
       return input.payload.verifier
     },
     saveDiscoveryState(discovery) {
-      mcpDiscoveryBinding(discovery, input.serverUrl)
+      mcpDiscoveryBinding(discovery)
       input.payload.discovery = Schema.decodeUnknownSync(Schema.JsonObject)(discovery)
     },
     discoveryState: () =>
       (input.payload.discovery as unknown as OAuthDiscoveryState | undefined) ?? undefined,
-    invalidateCredentials(scope) {
-      if (scope === "client" || scope === "all") {
-        if (input.authConfig.client)
-          throw new TypeError("MCP application credentials were rejected")
-        input.payload.clientInformation = null
-      }
-      if (scope === "tokens" || scope === "all") input.payload.pendingCredential = null
-      if (scope === "verifier" || scope === "all") input.payload.verifier = null
-      if (scope === "discovery" || scope === "all") input.payload.discovery = null
-    },
   }
 }
 
@@ -189,12 +159,10 @@ export async function mcpRunAuthorization(
     serverUrl: input.serverUrl,
     ...(input.scope ? { scope: input.scope } : {}),
     ...(input.resourceMetadataUrl ? { resourceMetadataUrl: input.resourceMetadataUrl } : {}),
-    ...(input.callback
-      ? {
-          ...(input.callback.get("code") ? { authorizationCode: input.callback.get("code")! } : {}),
-          ...(input.callback.has("iss") ? { iss: input.callback.get("iss")! } : {}),
-        }
-      : { forceReauthorization: true }),
+    ...(input.callback && {
+      ...(input.callback.get("code") ? { authorizationCode: input.callback.get("code")! } : {}),
+      ...(input.callback.has("iss") ? { iss: input.callback.get("iss")! } : {}),
+    }),
     fetchFn: (url, init) => mcpAuthorizationFetch(input.dispatcher, url, init),
   })
 }
