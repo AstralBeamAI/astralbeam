@@ -14,9 +14,10 @@ interface TodosAssistantProps {
   colorScheme: AstralBeamChatColorScheme
   customTheme: boolean
   debug: boolean
+  onClose: () => void
 }
 
-export function TodosAssistant({ colorScheme, customTheme, debug }: TodosAssistantProps) {
+export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: TodosAssistantProps) {
   const { todos, getTodos, setTodos, createTodo } = useTodos()
   const onToggleTodo = (id: number) =>
     setTodos((current) =>
@@ -56,6 +57,16 @@ export function TodosAssistant({ colorScheme, customTheme, debug }: TodosAssista
       <AstralBeamChat
         agentId={CHAT_AGENT_ID}
         title={CHAT_TITLE}
+        headerActions={
+          <button
+            className="chat-close"
+            type="button"
+            aria-label="Close assistant"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        }
         apiUrl={ASTRALBEAM_API_URL}
         tools={tools}
         colorScheme={colorScheme}

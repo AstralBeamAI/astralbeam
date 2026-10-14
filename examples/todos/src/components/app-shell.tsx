@@ -80,7 +80,12 @@ export function AppShell() {
           <Outlet />
         </main>
         {chatOpen && (
-          <TodosAssistant colorScheme={colorScheme} customTheme={customTheme} debug={debug} />
+          <TodosAssistant
+            colorScheme={colorScheme}
+            customTheme={customTheme}
+            debug={debug}
+            onClose={() => setChatOpen(false)}
+          />
         )}
       </div>
     </AppearanceContext>

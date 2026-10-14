@@ -230,6 +230,18 @@ body {
   border-left: 1px solid var(--border);
 }
 
+.chat-close {
+  display: none;
+  min-height: 2.5rem;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .directory-error {
   padding: 1rem;
   border: 1px solid var(--border);
@@ -237,21 +249,17 @@ body {
 }
 
 @media (max-width: 900px) {
-  .app {
-    height: auto;
-    min-height: 100dvh;
-    flex-direction: column;
-  }
-
-  .todos {
-    overflow: visible;
+  .app:has(.chat-sidebar) .todos {
+    display: none;
   }
 
   .chat-sidebar {
     width: 100%;
-    height: min(42rem, 80dvh);
     border-left: none;
-    border-top: 1px solid var(--border);
+  }
+
+  .chat-close {
+    display: block;
   }
 }
 

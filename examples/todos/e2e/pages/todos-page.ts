@@ -12,7 +12,8 @@ export function todosPage(page: Page) {
 
   const controls = {
     theme: page.getByRole("button", { name: /^Theme:/ }),
-    assistant: page.getByRole("button", { name: /assistant$/ }),
+    assistant: page.getByRole("button", { name: /^(Show|Hide) assistant$/ }),
+    closeAssistant: page.getByRole("button", { name: "Close assistant", exact: true }),
   }
 
   return {
