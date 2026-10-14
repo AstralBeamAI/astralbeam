@@ -62,26 +62,6 @@ export function ChatWidget({
   controller: RefObject<ChatController | null>
 }) {
   const closable = !!options.onClose
-  useEffect(() => {
-    if (!closable) return
-    const mobile = matchMedia("(max-width: 900px)")
-    let overflow: string | undefined
-    const update = () => {
-      if (mobile.matches) {
-        overflow ??= document.body.style.overflow
-        document.body.style.overflow = "hidden"
-      } else if (overflow !== undefined) {
-        document.body.style.overflow = overflow
-        overflow = undefined
-      }
-    }
-    update()
-    mobile.addEventListener("change", update)
-    return () => {
-      mobile.removeEventListener("change", update)
-      if (overflow !== undefined) document.body.style.overflow = overflow
-    }
-  }, [closable])
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)

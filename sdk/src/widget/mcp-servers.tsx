@@ -47,7 +47,10 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
     }
   }
   return (
-    <section className="grid grid-cols-1 gap-4 bg-background text-foreground" data-slot="mcp-servers">
+    <section
+      className="grid grid-cols-1 gap-4 bg-background text-foreground"
+      data-slot="mcp-servers"
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-heading text-sm font-medium">Configured MCP servers</h2>
         {options.onCreateServer && !adding && (

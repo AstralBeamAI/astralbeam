@@ -95,7 +95,7 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
-| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. Unmount chat in this callback |
+| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
 | `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |

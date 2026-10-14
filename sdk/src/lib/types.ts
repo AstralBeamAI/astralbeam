@@ -168,7 +168,7 @@ export interface MountAstralBeamChatOptions {
    * `false` hides it and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
-  /** Adds a close button and fullscreen layout at widths up to 900px. The host unmounts chat on close. */
+  /** Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback. */
   onClose?: (() => void) | undefined
   /**
    * Shows a bar under the header with the open conversation's title, once it has one, and a menu

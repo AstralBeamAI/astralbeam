@@ -21,13 +21,11 @@ test("the assistant and appearance persist across all example pages", async ({
   }
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await chat.frame.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 })
-  await expect(page.locator("body")).toHaveCSS("overflow", "hidden")
   await expect(chat.composer()).toBeInViewport()
   await expect(todos.controls.closeAssistant).toBeInViewport()
   await captureMoment(page, "shared-assistant-mobile")
   await todos.controls.closeAssistant.click()
   await expect(chat.root).toHaveCount(0)
-  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden")
   await todos.navigate("Conversations")
   await todos.toggleAssistant()
   await chat.waitForReady()

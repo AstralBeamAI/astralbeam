@@ -350,6 +350,17 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const fresh = await authorize(reference)
       await callback(fresh)
       await authority((service) => service.disconnect({ actor, reference }))
+      expect(
+        await db
+          .select({ key: cacheEntry.key })
+          .from(cacheEntry)
+          .where(
+            and(
+              eq(cacheEntry.namespace, "mcp-oauth"),
+              eq(cacheEntry.key, `${actor.organizationId}:${actor.tenantId}:${reference.id}`),
+            ),
+          ),
+      ).toEqual([])
       await expect(
         authority((service) => service.complete({ actor, reference: fresh.started.attempt })),
       ).rejects.toThrow()
