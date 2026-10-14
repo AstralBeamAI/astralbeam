@@ -10,7 +10,7 @@ import { APP_NAME } from "@/lib/constants"
 export function DashboardIntegrationGuide({
   organizationSlug,
   modelSetup,
-  apiKeyCount,
+  usableApiKeyCount,
   permissions,
 }: {
   organizationSlug: string
@@ -20,7 +20,7 @@ export function DashboardIntegrationGuide({
     defaultAgentModelCount: number
     defaultAgentId: string | null
   } | null
-  apiKeyCount: number | null
+  usableApiKeyCount: number | null
   permissions: Pick<
     OrganizationPermissions,
     "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
@@ -58,12 +58,13 @@ export function DashboardIntegrationGuide({
     },
     {
       title: "Prepare your server API key",
-      complete: apiKeyCount !== null && apiKeyCount > 0,
+      complete: usableApiKeyCount !== null && usableApiKeyCount > 0,
       description: permissions.createApiKey
         ? "Create an API key, or use one already saved in your app’s secrets. Keep it on your server, never in browser code."
         : "Ask an owner or developer to prepare an API key for your application server.",
       link: linkOptions({ to: "/$orgSlug/api-keys", params: { orgSlug: organizationSlug } }),
-      action: apiKeyCount === 0 && permissions.createApiKey ? "Create API key" : "Manage API keys",
+      action:
+        usableApiKeyCount === 0 && permissions.createApiKey ? "Create API key" : "Manage API keys",
       visible: permissions.readApiKey,
     },
     {
@@ -106,7 +107,7 @@ export function DashboardIntegrationGuide({
                   aria-expanded={activeStep === index}
                   aria-controls={`${titleId}-${index}`}
                   onClick={() => setExpanded(activeStep === index ? -1 : index)}
-                  className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                  className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
                 >
                   <span
                     className="flex size-6 shrink-0 items-center justify-center rounded-full border text-xs"

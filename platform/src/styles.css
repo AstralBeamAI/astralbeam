@@ -155,7 +155,7 @@
   }
 }
 
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   [data-slot="input-group-button"],
   [data-slot="attachment-action"],
   [data-slot="sidebar-menu-button"] {

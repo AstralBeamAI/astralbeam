@@ -12,7 +12,7 @@
 - Build shared components under `src/components` with shadcn/ui primitives.
 - Give every page, including fallback pages, a full-width navbar built on `Navbar` in `src/components/navbar.tsx`: `AppShell` for organization pages, the pathless `_authenticated/_user` layout without the sidebar, switcher, or Astro for user-level pages such as onboarding, organizations, and account settings, `DocsNavbar` for docs, and `PublicNavbar` elsewhere. Wrap a layout's outlet in `UnderNavbar` so its fallback pages skip a second navbar.
 - Give icon-only controls an accessible name and hover explanation, usually `aria-label` and `title`. Use a Tooltip when richer content is needed.
-- Apply Platform touch-target sizing to both buttons and button-styled links, including custom controls. Verify it with coarse-pointer emulation because viewport resizing alone does not activate touch styles.
+- Apply Platform touch-target sizing to buttons, button-styled links, and custom controls whenever any available pointer is coarse, including hybrid mouse and touchscreen devices. Verify coarse, hybrid, and fine-only pointer environments because viewport resizing alone does not activate touch styles.
 - Show a pointer cursor on buttons, menu items, and select items. The stylesheet covers buttons, and re-adding a registry menu or select must keep its local `cursor-pointer` item change.
 - Present form validation errors beside their fields, associate them with the inputs for accessibility, and use Effect's structured issues instead of displaying raw schema paths.
 - Keep single-use private states, skeletons, and rows in their consumer unless reuse or substantial complexity warrants extraction.

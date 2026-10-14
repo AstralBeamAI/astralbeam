@@ -1,9 +1,10 @@
-import { and, asc, count, eq } from "drizzle-orm"
+import { and, asc, count, eq, gt, isNull, or, sql, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { agent, apiKey, member, organization, sandboxProvider } from "@/db/schema/organizations"
 import { Auth } from "@/lib/auth/auth.server"
+import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import { UuidV7Schema } from "@/lib/schemas"
 import { SlugSchema } from "./slug.ts"
@@ -35,6 +36,7 @@ export interface OrganizationResourceCounts {
   readonly agents: number | null
   readonly sandboxProviders: number | null
   readonly apiKeys: number | null
+  readonly usableApiKeys: number | null
   readonly members: number
 }
 
@@ -156,24 +158,33 @@ export class Organizations extends Context.Service<
         organizationId: string
         permissions: OrganizationPermissions
       }) {
-        const countRows = (table: OrganizationOwnedTable) =>
+        const countRows = (table: OrganizationOwnedTable, filter?: SQL) =>
           db
             .select({ value: count() })
             .from(table)
-            .where(eq(table.organizationId, input.organizationId))
+            .where(and(eq(table.organizationId, input.organizationId), filter))
             .pipe(
               Effect.map((rows) => rows[0]?.value ?? 0),
               Effect.orDie,
             )
-        const countIf = (allowed: boolean, table: OrganizationOwnedTable) =>
-          allowed ? countRows(table) : Effect.succeed(null)
-        const [agents, sandboxProviders, apiKeys, members] = yield* Effect.all([
+        const countIf = (allowed: boolean, table: OrganizationOwnedTable, filter?: SQL) =>
+          allowed ? countRows(table, filter) : Effect.succeed(null)
+        const [agents, sandboxProviders, apiKeys, usableApiKeys, members] = yield* Effect.all([
           countIf(input.permissions.readConfiguration, agent),
           countIf(input.permissions.readConfiguration, sandboxProvider),
           countIf(input.permissions.readApiKey, apiKey),
+          countIf(
+            input.permissions.readApiKey,
+            apiKey,
+            and(
+              eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
+              eq(apiKey.enabled, true),
+              or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
+            ),
+          ),
           countRows(member),
         ])
-        return { agents, sandboxProviders, apiKeys, members }
+        return { agents, sandboxProviders, apiKeys, usableApiKeys, members }
       })
 
       return Organizations.of({

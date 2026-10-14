@@ -23,7 +23,7 @@ function DashboardPage() {
   const configured =
     data.modelSetup !== null &&
     data.modelSetup.defaultAgentModelCount > 0 &&
-    (data.counts.apiKeys ?? 0) > 0
+    (data.counts.usableApiKeys ?? 0) > 0
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -39,7 +39,7 @@ function DashboardPage() {
       <DashboardIntegrationGuide
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
-        apiKeyCount={data.counts.apiKeys}
+        usableApiKeyCount={data.counts.usableApiKeys}
         permissions={permissions}
       />
       {!configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}

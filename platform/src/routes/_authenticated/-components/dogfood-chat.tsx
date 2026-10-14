@@ -418,7 +418,7 @@ function IntegrationChecklistWidget() {
     <DashboardIntegrationGuide
       organizationSlug={organizationSlug}
       modelSetup={page.modelSetup}
-      apiKeyCount={page.counts.apiKeys}
+      usableApiKeyCount={page.counts.usableApiKeys}
       permissions={permissions}
     />
   )
