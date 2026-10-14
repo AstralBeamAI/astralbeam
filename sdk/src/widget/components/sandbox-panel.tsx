@@ -68,7 +68,7 @@ function SandboxFileRow({ file }: { file: SandboxFileWrite }) {
             </>
           }
         >
-          <div className="mt-1 flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-col">
             <SandboxCodeBlock
               emptyLabel="Empty file"
               caption={file.label === file.path ? undefined : file.path}
@@ -111,7 +111,7 @@ function SandboxCommandRow({ run }: { run: SandboxCommandRun }) {
         </>
       }
     >
-      <div className="mt-1 flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-col">
         <SandboxCommandLog run={run} />
       </div>
     </ToolDisclosure>

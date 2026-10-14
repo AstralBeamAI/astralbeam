@@ -195,7 +195,7 @@ function Code({ children }: { children: string }) {
 
 /** Indents the panel body under the row and keeps every sandbox disclosure the same width. */
 function SandboxPanel({ children }: { children: ReactNode }) {
-  return <div className="mt-1 flex min-w-0 flex-col">{children}</div>
+  return <div className="flex min-w-0 flex-col">{children}</div>
 }
 
 function readSandboxVerb(name: string, running: boolean): string {

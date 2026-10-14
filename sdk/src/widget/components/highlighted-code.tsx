@@ -30,7 +30,7 @@ export function HighlightedCode({
   const lines = useHighlightedCode(children, language)
   return (
     <CodeBlock size="sm" variant={tone === "error" ? "destructive" : "default"}>
-      <CodeBlockHeader>
+      <CodeBlockHeader className="group-data-[size=sm]/code-block:pt-2">
         <CodeBlockTitle title={title} className="text-muted-foreground">
           {title ?? language}
         </CodeBlockTitle>
@@ -38,7 +38,13 @@ export function HighlightedCode({
           <CodeBlockCopyButton value={children} className="any-pointer-coarse:size-11" />
         </CodeBlockActions>
       </CodeBlockHeader>
-      <CodeBlockContent wrap={wrap} className={cn("max-h-72 whitespace-pre", className)}>
+      <CodeBlockContent
+        wrap={wrap}
+        className={cn(
+          "max-h-72 whitespace-pre group-data-[size=sm]/code-block:py-2 group-data-[size=sm]/code-block:group-has-data-[slot=code-block-header]/code-block:pt-1",
+          className,
+        )}
+      >
         {lines.map((line, index) => (
           <CodeBlockLine key={index}>{line}</CodeBlockLine>
         ))}

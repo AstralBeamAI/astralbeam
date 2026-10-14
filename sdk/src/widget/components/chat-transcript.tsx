@@ -133,7 +133,7 @@ export function ChatTranscript({
           </div>
         )}
         <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
-          <MessageScrollerContent aria-busy={isBusy} className="p-(--card-spacing)">
+          <MessageScrollerContent aria-busy={isBusy} className="gap-4 p-(--card-spacing)">
             {messages.map((message) => {
               const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
               const active =
@@ -150,7 +150,7 @@ export function ChatTranscript({
               return (
                 <MessageScrollerItem key={message.id} messageId={message.id}>
                   <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
-                    <MessageContent>
+                    <MessageContent className="gap-1">
                       {anotherParticipant && (
                         <span className="text-xs text-muted-foreground">Participant</span>
                       )}

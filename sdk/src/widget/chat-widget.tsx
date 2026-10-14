@@ -572,7 +572,7 @@ export function ChatWidget({
     <Card
       data-slot="chat"
       data-closable={closable}
-      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0"
+      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 any-pointer-coarse:[&>button]:size-11 any-pointer-coarse:[&>div>button]:size-11 [.border-b]:pb-0">
@@ -664,7 +664,7 @@ export function ChatWidget({
       </CardContent>
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
-      <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+      <CardFooter className="flex-col gap-1.5 rounded-none border-t-0 bg-transparent pt-1">
         {chatState.threadLoading ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…

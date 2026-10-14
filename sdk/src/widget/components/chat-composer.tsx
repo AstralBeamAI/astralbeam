@@ -210,7 +210,7 @@ export function ChatComposer({
             }
           }}
         />
-        <InputGroupAddon align="block-end">
+        <InputGroupAddon align="block-end" className="pt-0">
           {attachmentLimits.enabled && (
             <InputGroupButton
               type="button"
