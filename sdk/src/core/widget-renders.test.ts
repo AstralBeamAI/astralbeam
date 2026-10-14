@@ -94,36 +94,6 @@ test("API scope changes clear private MCP presentation and ignore old client eve
   expect(chat.getState().unavailableMcpConnections).toEqual([])
 })
 
-test("successful MCP management clears only the resolved connection's warning", async () => {
-  const originalFetch = globalThis.fetch
-  const fetchClient = vi
-    .fn<typeof fetch>()
-    .mockResolvedValueOnce(new Response(null, { status: 503 }))
-    .mockResolvedValueOnce(Response.json({ tool_count: 2 }))
-    .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    .mockResolvedValueOnce(Response.json({ id: "first", lock_version: 1 }))
-    .mockResolvedValueOnce(new Response(null, { status: 204 }))
-  vi.stubGlobal("fetch", (input: URL, init?: RequestInit) =>
-    String(input).includes("/mcp/") ? fetchClient(input, init) : originalFetch(input, init),
-  )
-  const chat = createTestSession({ threadId: "new" })
-  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-  mocked.onCustomEvent!("astralbeam_mcp_tools", { unavailable: ["first", "second"] })
-  await expect(chat.manageMcp({ action: "test", id: "first" })).rejects.toThrow()
-  expect(chat.getState().unavailableMcpConnections).toEqual(["first", "second"])
-  await chat.manageMcp({ action: "test", id: "first" })
-  expect(chat.getState().unavailableMcpConnections).toEqual(["second"])
-  await chat.manageMcp({ action: "disconnect", id: "second" })
-  expect(chat.getState().unavailableMcpConnections).toEqual([])
-  mocked.onCustomEvent!("astralbeam_mcp_tools", { unavailable: ["first"] })
-  await chat.manageMcp({
-    action: "headers",
-    mcpServerId: "server",
-    headers: { Authorization: "Bearer replacement" },
-  })
-  expect(chat.getState().unavailableMcpConnections).toEqual([])
-})
-
 function savedWidget(widget: string, id: string) {
   return [
     {

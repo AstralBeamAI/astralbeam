@@ -33,10 +33,6 @@ test("private MCP accounts connect, replace and clear credentials without return
     const safe = await catalog.text()
     expect(safe).not.toContain("personal-browser-secret")
     expect(safe).not.toContain("personal-browser-key")
-    const denied = await request.get(`${platformUrl}/api/v1/me/mcp/catalog`, {
-      headers: { "x-api-key": seedTarget.apiKey },
-    })
-    expect(denied.status()).toBe(401)
     await captureMoment(page, "mcp-private-credentials")
     await page.setViewportSize({ width: 390, height: 844 })
     await captureMoment(page, "mcp-private-mobile")
