@@ -52,11 +52,11 @@ export function usageCountersWhere(
   )
 }
 
-/** Adds to a live window, or restarts one that ended at or before `staleAt` with only this usage. */
-export function usageCounterIncrement(staleAt: Date) {
-  const live = sql`${usageLimitCounter.windowStartsAt} > ${staleAt.toISOString()}::timestamptz`
+/** Adds to a window still open at `now`, or starts a new one holding only this usage. */
+export function usageCounterIncrement(now: Date) {
+  const live = sql`${usageLimitCounter.windowEndsAt} > ${now.toISOString()}::timestamptz`
   return {
-    windowStartsAt: sql`case when ${live} then ${usageLimitCounter.windowStartsAt} else excluded.window_starts_at end`,
+    windowEndsAt: sql`case when ${live} then ${usageLimitCounter.windowEndsAt} else excluded.window_ends_at end`,
     tokens: sql`case when ${live} then ${usageLimitCounter.tokens} + excluded.tokens else excluded.tokens end`,
     spend: sql`case when ${live} then ${usageLimitCounter.spend} + excluded.spend else excluded.spend end`,
     // Drizzle's `updatedAt` hook runs for update statements, not for a conflict clause.

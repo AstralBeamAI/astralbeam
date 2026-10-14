@@ -100,8 +100,8 @@ export const usageLimitCounter = snakeCase.table(
     tenantId: uuid(),
     tenantUserId: uuid(),
     threadId: uuid(),
-    // Recording usage after the window has ended restarts it with only the new usage.
-    windowStartsAt: timestampWithTimeZone().notNull(),
+    // Recording usage at or after this end starts a new window with only the new usage.
+    windowEndsAt: timestampWithTimeZone().notNull(),
     tokens: bigint({ mode: "number" }).notNull(),
     // US dollars at each model's configured price when the usage was recorded.
     spend: numeric({ mode: "string" }).notNull(),

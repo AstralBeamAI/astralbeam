@@ -5646,7 +5646,7 @@
             }
           }
         },
-        "description": "Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass threadId to include per-conversation limits.",
+        "description": "Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass the threadId of a conversation you participate in to include per-conversation limits.",
         "summary": "Get usage limits"
       }
     },
@@ -8901,7 +8901,7 @@
                   "anyOf": [
                     {},
                     {
-                      "$ref": "#/components/schemas/ChatSubmissionReceiptEncoded"
+                      "$ref": "#/components/schemas/ChatToolResultReceiptEncoded"
                     }
                   ]
                 }
@@ -10108,7 +10108,7 @@
           }
         ]
       },
-      "ChatSubmissionReceiptEncoded": {
+      "ChatToolResultReceiptEncoded": {
         "type": "object",
         "properties": {
           "thread_id": {
@@ -10122,6 +10122,22 @@
           "thread_version": {
             "type": "integer",
             "minimum": 0
+          },
+          "usage_limit": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "resets_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "resets_at"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -10887,6 +10903,29 @@
         },
         "required": [
           "capabilities"
+        ],
+        "additionalProperties": false
+      },
+      "ChatSubmissionReceiptEncoded": {
+        "type": "object",
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accepted_message_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thread_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "thread_id",
+          "accepted_message_id",
+          "thread_version"
         ],
         "additionalProperties": false
       },

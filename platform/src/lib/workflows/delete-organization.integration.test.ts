@@ -133,7 +133,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       usageLimitId: limit!.id,
       tenantId: owned!.id,
       tenantUserId: ownedUser!.id,
-      windowStartsAt: new Date(),
+      windowEndsAt: new Date(),
       tokens: 10,
       spend: "0.01",
     })

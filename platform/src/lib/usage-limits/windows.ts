@@ -46,26 +46,14 @@ function fixedWindowStartWall(limit: UsageLimitWindowFields, now: Date) {
 }
 
 /**
- * Where a subject's current window stands at `now`. A stored window that started at or before
- * `staleAt` has ended, and recording usage then starts a new one at `start`.
+ * When the window that usage at `now` opens would end. Counters store this end, so reads and the
+ * atomic upsert test liveness with one comparison instead of inverting clamped month arithmetic.
  */
-export function usageLimitWindowAt(limit: UsageLimitWindowFields, now: Date) {
-  if (limit.windowType === "rolling") {
-    const staleAt = DateTime.toDateUtc(
-      DateTime.subtract(DateTime.makeUnsafe(now), { [`${limit.windowUnit}s`]: limit.windowCount }),
-    )
-    return { start: now, staleAt }
-  }
-  const start = fromWallMillis(fixedWindowStartWall(limit, now), limit.timeZone!)
-  return { start, staleAt: new Date(start.getTime() - 1) }
-}
-
-/** When a window that started at `start` ends and its usage resets. */
-export function usageLimitResetsAt(limit: UsageLimitWindowFields, start: Date): Date {
+export function usageLimitWindowEnd(limit: UsageLimitWindowFields, now: Date): Date {
   if (limit.windowType === "rolling")
     return DateTime.toDateUtc(
-      DateTime.add(DateTime.makeUnsafe(start), { [`${limit.windowUnit}s`]: limit.windowCount }),
+      DateTime.add(DateTime.makeUnsafe(now), { [`${limit.windowUnit}s`]: limit.windowCount }),
     )
-  const wall = addWallUnits(wallMillis(start, limit.timeZone!), limit.windowUnit, limit.windowCount)
-  return fromWallMillis(wall, limit.timeZone!)
+  const start = fixedWindowStartWall(limit, now)
+  return fromWallMillis(addWallUnits(start, limit.windowUnit, limit.windowCount), limit.timeZone!)
 }

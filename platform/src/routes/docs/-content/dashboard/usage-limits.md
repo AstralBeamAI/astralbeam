@@ -66,9 +66,11 @@ A backend in another language adds the IDs to the token's `usage_limits` claim. 
 
 ## What tenant users see
 
-Chat checks every applicable limit before it accepts a message or a tool result. Once a limit is used up, the request fails with `429`, a `Retry-After` header, and a `usage_limit` member naming the limit and when it resets. The widget keeps the unsent message and shows, for example, "Weekly limit reached. You can chat again after Oct 19, 2026, 12:00 AM", in the reader's own time zone.
+Chat checks every applicable limit before it accepts a message. Once a limit is used up, the request fails with `429`, a `Retry-After` header, and a `usage_limit` member naming the limit and when it resets. The widget keeps the unsent message and shows, for example, "Weekly limit reached. You can chat again after Oct 19, 2026, 12:00 AM", in the reader's own time zone.
 
 A run can make several model calls while it uses tools, so chat checks again before each further call. When a limit runs out partway through, the run ends after the current step and the widget shows the same message.
+
+A browser tool may already have changed your application by the time its result arrives, so chat always saves a valid tool result. When no allowance is left for the model call that would follow, the response is a receipt with the same `usage_limit` member instead of a continuation, and the conversation resumes from the saved result once the limit resets.
 
 **NOTE**: usage is known only after a model call finishes, so the call that crosses a limit completes, and calls already running at the same time can each finish past it. A limit can therefore be exceeded by at most the calls in flight.
 
@@ -85,13 +87,13 @@ for (const limit of usageLimits) {
 }
 ```
 
-Pass the conversation's `threadId` to include per-conversation limits.
+Pass the `threadId` of a conversation the tenant user participates in to include per-conversation limits.
 
 ## What counts toward a limit
 
 Each limit counts the usage of the requests it applies to, starting when it is created or enabled. A new limit therefore starts every subject at zero, and a tenant user who moves to a plan with different limits starts those limits at zero too.
 
-Editing a limit's name, amount, or metric keeps the usage already counted, because every limit counts both tokens and spend. Changing a fixed window's duration or time zone moves its reset times, so the window containing the change starts afresh. Changing the scope restarts counting, because the old counts belong to different subjects. Deleting a limit discards its counts.
+Editing a limit's name, amount, or metric keeps the usage already counted, because every limit counts both tokens and spend. Changing its scope, duration, window, or time zone restarts counting, because the old counts belong to different subjects or a different reset time. Deleting a limit discards its counts.
 
 Usage belongs to the subject that made it. Deleting a tenant, tenant user, or conversation removes its counts for every limit, so the tenant user's history restarts if your application later recreates them.
 

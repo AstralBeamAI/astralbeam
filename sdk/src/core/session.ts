@@ -641,11 +641,21 @@ export function createAstralBeamChat(
       const receipt = (await response.json()) as {
         thread_version: number
         accepted_message_id: string
+        usage_limit?: { name: string; resets_at: string }
       }
       if (generation !== selectionGeneration)
         throw new DOMException("Conversation changed", "AbortError")
       update({
         thread: { ...state.thread!, version: receipt.thread_version },
+        // Saved tool results whose continuation a used-up limit skipped.
+        ...(receipt.usage_limit
+          ? {
+              usageLimitReached: {
+                name: receipt.usage_limit.name,
+                resetsAt: receipt.usage_limit.resets_at,
+              },
+            }
+          : {}),
       })
       if (submission) {
         const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)

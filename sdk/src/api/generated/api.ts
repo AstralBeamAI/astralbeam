@@ -90,11 +90,17 @@ export type CurrentUser =
       }
     }
 
-export interface ChatSubmissionReceiptEncoded {
+export type ChatToolResultReceiptEncodedUsageLimit = {
+  name: string
+  resets_at: string
+}
+
+export interface ChatToolResultReceiptEncoded {
   thread_id: string
   accepted_message_id: string
   /** @minimum 0 */
   thread_version: number
+  usage_limit?: ChatToolResultReceiptEncodedUsageLimit
 }
 
 export type ResolveChatToolResultInputEncodedResultsItemOutcome =
@@ -361,6 +367,13 @@ export type ChatConfigurationCapabilities = {
 
 export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
+}
+
+export interface ChatSubmissionReceiptEncoded {
+  thread_id: string
+  accepted_message_id: string
+  /** @minimum 0 */
+  thread_version: number
 }
 
 export type ChatRunInputForwardedProps = { [key: string]: unknown } & {
@@ -1318,7 +1331,7 @@ export const getGetChatUsageUrl = (params: GetChatUsageParams) => {
 }
 
 /**
- * Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass threadId to include per-conversation limits.
+ * Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass the threadId of a conversation you participate in to include per-conversation limits.
  * @summary Get usage limits
  */
 export const getChatUsage = (
@@ -1678,7 +1691,7 @@ export const resolveChatToolResult = (
     }
     return headers
   }
-  return astralBeamChatFetch<unknown | ChatSubmissionReceiptEncoded>(
+  return astralBeamChatFetch<unknown | ChatToolResultReceiptEncoded>(
     getResolveChatToolResultUrl(id),
     {
       ...options,

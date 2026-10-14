@@ -1,4 +1,4 @@
-import { and, asc, eq, exists, inArray, ne, or } from "drizzle-orm"
+import { and, asc, eq, exists, inArray, ne, or, sql } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
@@ -20,7 +20,7 @@ import {
   TimeZoneSchema,
   type UsageLimitFields,
 } from "./schemas.ts"
-import { usageLimitResetsAt, usageLimitWindowAt } from "./windows.ts"
+import { usageLimitWindowEnd } from "./windows.ts"
 
 const UsageLimitRowSchema = createSelectSchema(usageLimit, {
   id: UuidV7Schema,
@@ -160,7 +160,8 @@ export class UsageLimits extends Context.Service<
           const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
-              // Counters name the old scope's subjects, so a new scope starts counting afresh.
+              // Counters belong to the old scope's subjects and the old window's end, so changing
+              // either starts counting afresh. Name, amount, and metric edits keep the counts.
               yield* transaction.delete(usageLimitCounter).where(
                 and(
                   eq(usageLimitCounter.organizationId, input.organizationId),
@@ -173,7 +174,13 @@ export class UsageLimits extends Context.Service<
                         and(
                           eq(usageLimit.organizationId, input.organizationId),
                           eq(usageLimit.id, id),
-                          ne(usageLimit.scope, input.fields.scope),
+                          or(
+                            ne(usageLimit.scope, input.fields.scope),
+                            ne(usageLimit.windowType, input.fields.windowType),
+                            ne(usageLimit.windowCount, input.fields.windowCount),
+                            ne(usageLimit.windowUnit, input.fields.windowUnit),
+                            sql`${usageLimit.timeZone} is distinct from ${input.fields.timeZone}`,
+                          ),
                         ),
                       ),
                   ),
@@ -289,11 +296,11 @@ export class UsageLimits extends Context.Service<
               row.tenantUserId === key.tenantUserId &&
               row.threadId === key.threadId,
           )
-          const live = counter && counter.windowStartsAt > usageLimitWindowAt(limit, now).staleAt
+          const live = counter && counter.windowEndsAt > now
           return {
             limit: publicUsageLimit(limit),
             used: live ? (limit.metric === "tokens" ? String(counter.tokens) : counter.spend) : "0",
-            resetsAt: live ? usageLimitResetsAt(limit, counter.windowStartsAt) : null,
+            resetsAt: live ? counter.windowEndsAt : null,
           }
         })
       })
@@ -318,31 +325,54 @@ export class UsageLimits extends Context.Service<
         subject: UsageSubject
         usage: { readonly tokens: number; readonly spend: string }
       }) {
+        if (input.limits.length === 0) return
         const now = DateTime.toDateUtc(yield* DateTime.now)
-        for (const limit of input.limits) {
-          const key = usageCounterKey(limit.scope, input.subject)
-          if (!key) continue
-          const window = usageLimitWindowAt(limit, now)
-          yield* db
-            .insert(usageLimitCounter)
-            .values({
-              organizationId: input.subject.organizationId,
-              usageLimitId: limit.id,
-              ...key,
-              windowStartsAt: window.start,
-              ...input.usage,
-            })
-            .onConflictDoUpdate({
-              target: [
-                usageLimitCounter.organizationId,
-                usageLimitCounter.usageLimitId,
-                usageLimitCounter.tenantId,
-                usageLimitCounter.tenantUserId,
-                usageLimitCounter.threadId,
-              ],
-              set: usageCounterIncrement(window.staleAt),
-            })
-        }
+        yield* db.transaction((transaction) =>
+          Effect.gen(function* () {
+            // Reread under a share lock, so an edit that discards counters waits for this write or
+            // runs after it, and a run that began before the edit counts under the new definition.
+            const rows = yield* transaction
+              .select()
+              .from(usageLimit)
+              .where(
+                and(
+                  eq(usageLimit.organizationId, input.subject.organizationId),
+                  eq(usageLimit.enabled, true),
+                  inArray(
+                    usageLimit.id,
+                    input.limits.map((limit) => limit.id),
+                  ),
+                ),
+              )
+              .for("share")
+            for (const limit of rows) {
+              const key = usageCounterKey(limit.scope, input.subject)
+              if (!key) continue
+              yield* transaction
+                .insert(usageLimitCounter)
+                .values({
+                  organizationId: input.subject.organizationId,
+                  usageLimitId: limit.id,
+                  ...key,
+                  windowEndsAt: usageLimitWindowEnd(
+                    { ...limit, timeZone: limit.timeZone ?? null },
+                    now,
+                  ),
+                  ...input.usage,
+                })
+                .onConflictDoUpdate({
+                  target: [
+                    usageLimitCounter.organizationId,
+                    usageLimitCounter.usageLimitId,
+                    usageLimitCounter.tenantId,
+                    usageLimitCounter.tenantUserId,
+                    usageLimitCounter.threadId,
+                  ],
+                  set: usageCounterIncrement(now),
+                })
+            }
+          }),
+        )
       }, Effect.orDie)
 
       return UsageLimits.of({

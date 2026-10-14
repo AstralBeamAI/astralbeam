@@ -117,9 +117,7 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
         const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
         yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 990, spend: "0" } })
         yield* Effect.promise(() =>
-          db
-            .update(usageLimitCounter)
-            .set({ windowStartsAt: new Date(Date.now() - 8 * 86_400_000) }),
+          db.update(usageLimitCounter).set({ windowEndsAt: new Date(Date.now() - 1000) }),
         )
         const [ended] = yield* usageLimits.status({ limits, subject: ada })
         expect(ended).toMatchObject({ used: "0", resetsAt: null })
@@ -153,20 +151,37 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     expect(names).toEqual([["Weekly limit"], ["Pro weekly", "Weekly limit"]])
   })
 
-  test("a scope change discards counters that name the old scope's subjects", async () => {
+  test("window and scope edits restart counting, while name and amount edits keep it", async () => {
     const { organizationId, ada } = await createSubjects()
     const counts = await withLimits(organizationId, [weeklyTokens], (usageLimits, [id]) =>
       Effect.gen(function* () {
         const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
-        yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0" } })
-        const update = { organizationId, usageLimitId: id!, lockVersion: 0 }
-        yield* usageLimits.update({ ...update, fields: { ...weeklyTokens, amount: "2000" } })
-        const kept = (yield* Effect.promise(() => db.select().from(usageLimitCounter))).length
-        const fields = { ...weeklyTokens, scope: "tenant" } as const
-        yield* usageLimits.update({ ...update, lockVersion: 1, fields })
-        return [kept, (yield* Effect.promise(() => db.select().from(usageLimitCounter))).length]
+        const counted = Effect.promise(() => db.select().from(usageLimitCounter))
+        const update = (lockVersion: number, fields: Partial<UsageLimitFields>) =>
+          usageLimits.update({
+            organizationId,
+            usageLimitId: id!,
+            lockVersion,
+            fields: { ...weeklyTokens, ...fields },
+          })
+        const results: number[] = []
+        for (const [lockVersion, fields] of [
+          [0, { name: "Renamed", amount: "2000" }],
+          [1, { windowType: "fixed", timeZone: "UTC" }],
+          [2, { windowType: "fixed", timeZone: "Asia/Kolkata" }],
+          [3, { windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day" }],
+          [
+            4,
+            { windowType: "fixed", timeZone: "Asia/Kolkata", windowUnit: "day", scope: "tenant" },
+          ],
+        ] as const) {
+          yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 5, spend: "0" } })
+          yield* update(lockVersion, fields)
+          results.push((yield* counted).length)
+        }
+        return results
       }),
     )
-    expect(counts).toEqual([1, 0])
+    expect(counts).toEqual([1, 0, 0, 0, 0])
   })
 })

@@ -117,7 +117,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Get usage limits")
       .annotate(
         OpenApi.Description,
-        "Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass threadId to include per-conversation limits.",
+        "Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass the threadId of a conversation you participate in to include per-conversation limits.",
       ),
     HttpApiEndpoint.get("getChatFile", "/chat/files", {
       query: Schema.Struct({
@@ -262,6 +262,8 @@ export function chatHandlers(api: typeof ApiV1) {
           Effect.fn("getChatUsage")(function* ({ query, request }) {
             const principal = yield* authenticate(request)
             const scope = yield* threads.resolveScope({ principal })
+            // Per-conversation usage is visible only to the conversation's participants.
+            if (query.threadId) yield* threads.get({ scope, id: query.threadId })
             const limits = yield* usageLimits.applicable({
               organizationId: principal.organization.id,
               listedIds: principal.usageLimitIds ?? [],

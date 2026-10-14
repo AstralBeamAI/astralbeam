@@ -5,7 +5,7 @@ CREATE TABLE "usage_limit_counter" (
 	"tenant_id" uuid,
 	"tenant_user_id" uuid,
 	"thread_id" uuid,
-	"window_starts_at" timestamp with time zone NOT NULL,
+	"window_ends_at" timestamp with time zone NOT NULL,
 	"tokens" bigint NOT NULL,
 	"spend" numeric NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

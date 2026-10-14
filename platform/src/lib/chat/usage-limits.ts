@@ -15,17 +15,16 @@ const CHAT_USAGE_LIMIT_REACHED_EVENT = `${APP_HANDLE}.usage_limit.reached`
  * Counts each model call against the run's usage limits, and ends the agent loop before another
  * call once any limit is used up. Calls already in flight can finish past a limit.
  */
-export function chatUsageLimitMiddleware(options: {
+export function chatUsageLimitGuard(options: {
   readonly usageLimits: UsageLimits["Service"]
   readonly limits: readonly UsageLimit[]
   readonly subject: UsageSubject
   readonly pricing: ModelConfiguration | null
   readonly execute: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>
-}): ChatMiddleware {
+}) {
   const { usageLimits, limits, subject } = options
   let reached: UsageLimitReached | undefined
-  let announced = false
-  return {
+  const middleware: ChatMiddleware = {
     name: "usage-limits",
     async onUsage(_ctx, usage) {
       const spend = options.pricing ? modelUsageCost(options.pricing, usage) : "0"
@@ -45,15 +44,29 @@ export function chatUsageLimitMiddleware(options: {
       reached = failure.error
       return false
     },
-    onChunk(_ctx, chunk) {
-      if (!reached || announced || chunk.type !== EventType.RUN_FINISHED) return
-      announced = true
+  }
+
+  /**
+   * Announces the limit on the delivered stream. The engine reports a model call's finish before it
+   * consults `onShouldContinue`, and managed delivery holds the run's own finish until the end.
+   */
+  async function* announce(source: AsyncIterable<StreamChunk>): AsyncGenerator<StreamChunk> {
+    const notice = (): StreamChunk[] => {
+      if (!reached) return []
       const event: StreamChunk = {
         type: EventType.CUSTOM,
         name: CHAT_USAGE_LIMIT_REACHED_EVENT,
         value: reached.usageLimit,
       }
-      return [event, chunk]
-    },
+      reached = undefined
+      return [event]
+    }
+    for await (const chunk of source) {
+      if (chunk.type === EventType.RUN_FINISHED) yield* notice()
+      yield chunk
+    }
+    yield* notice()
   }
+
+  return { middleware, announce }
 }

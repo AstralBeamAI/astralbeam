@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ac92af70-45ac-4757-ac5b-95987abf8888",
+  "id": "e3dc4b07-c6da-45f2-b2e6-a0c5dbf15b87",
   "prevIds": [
     "0930324b-f630-4700-9e40-df98d5495168"
   ],
@@ -3431,7 +3431,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "window_starts_at",
+      "name": "window_ends_at",
       "entityType": "columns",
       "schema": "public",
       "table": "usage_limit_counter"
