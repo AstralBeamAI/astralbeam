@@ -57,16 +57,7 @@ export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: Tod
       <AstralBeamChat
         agentId={CHAT_AGENT_ID}
         title={CHAT_TITLE}
-        headerActions={
-          <button
-            className="chat-close"
-            type="button"
-            aria-label="Close assistant"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        }
+        onClose={onClose}
         apiUrl={ASTRALBEAM_API_URL}
         tools={tools}
         colorScheme={colorScheme}

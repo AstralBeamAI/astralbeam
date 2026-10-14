@@ -1,4 +1,4 @@
-import { NotePencilIcon } from "@phosphor-icons/react"
+import { NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
   useEffect,
@@ -61,6 +61,27 @@ export function ChatWidget({
   host: HTMLElement
   controller: RefObject<ChatController | null>
 }) {
+  const closable = !!options.onClose
+  useEffect(() => {
+    if (!closable) return
+    const mobile = matchMedia("(max-width: 900px)")
+    let overflow: string | undefined
+    const update = () => {
+      if (mobile.matches) {
+        overflow ??= document.body.style.overflow
+        document.body.style.overflow = "hidden"
+      } else if (overflow !== undefined) {
+        document.body.style.overflow = overflow
+        overflow = undefined
+      }
+    }
+    update()
+    mobile.addEventListener("change", update)
+    return () => {
+      mobile.removeEventListener("change", update)
+      if (overflow !== undefined) document.body.style.overflow = overflow
+    }
+  }, [closable])
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
@@ -552,14 +573,27 @@ export function ChatWidget({
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
-  // The Card frame with a bordered header, an unpadded content area, and a footer composer is
-  // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
-  // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
+  // The host sizes the desktop card. Closable chat fills the mobile viewport.
   const showHeader = options.showHeader !== false
+  const closeButton = options.onClose && (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Close chat"
+      title="Close chat"
+      onClick={options.onClose}
+    >
+      <XIcon />
+    </Button>
+  )
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
-    <Card className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0">
+    <Card
+      data-slot="chat"
+      data-closable={closable}
+      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0"
+    >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
           <div className="min-w-0 flex-1">
@@ -592,11 +626,13 @@ export function ChatWidget({
             <NotePencilIcon />
           </Button>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
+          {closeButton}
         </CardHeader>
       )}
       {!showHeader && (
         <div className="flex justify-end px-2">
           <McpConnectionsPanel key={`${apiUrl}:${draftIdentity}`} chat={chat} state={chatState} />
+          {closeButton}
         </div>
       )}
       {!!chatState.unavailableMcpConnections?.length && (

@@ -12,6 +12,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
+| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. Unmount chat in this callback |
 | `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
@@ -36,7 +37,7 @@ Replace parts of the widget's own chrome with host-rendered content, styled by t
 ```tsx
 <AstralBeamChat
   header={<MyChatTitle />}
-  headerActions={<MyCloseButton />}
+  onClose={() => setChatOpen(false)}
   empty={<MyWelcome />}
   composerActions={<MyVoiceButton />}
 />
