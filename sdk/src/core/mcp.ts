@@ -10,7 +10,7 @@ import {
   personalMcpCompleteAuthorization,
 } from "../api/generated/api.ts"
 
-export type McpManagementOperation =
+export type McpConnectionOperation =
   | { action: "connect"; mcpServerId: string }
   | { action: "headers"; mcpServerId: string; headers: Record<string, string> }
   | { action: "disconnect" | "test"; id: string }
@@ -18,7 +18,7 @@ export type McpCatalog = Awaited<ReturnType<typeof personalMcpGetCatalog>>
 export function loadMcpCatalog(options: JwtOptions): Promise<McpCatalog> {
   return personalMcpGetCatalog(options)
 }
-export async function manageMcp(operation: McpManagementOperation, options: JwtOptions) {
+export async function manageMcpConnection(operation: McpConnectionOperation, options: JwtOptions) {
   switch (operation.action) {
     case "connect":
       return personalMcpCreateConnection({ mcp_server_id: operation.mcpServerId }, options)
@@ -40,13 +40,13 @@ export async function manageMcp(operation: McpManagementOperation, options: JwtO
       return personalMcpTestConnection(operation.id, options)
   }
 }
-export async function connectMcpAccount(
+export async function authorizeMcpConnection(
   input: { mcpServerId: string; id?: string },
   requestOptions: () => Promise<JwtOptions>,
 ) {
   // Open before awaiting authentication so browsers retain the initiating user gesture.
   const popup = window.open("about:blank", "_blank", "popup,width=600,height=720")
-  if (!popup) throw new Error("Allow popups to connect your account.")
+  if (!popup) throw new Error("Allow popups to authorize this connection.")
   try {
     const id =
       input.id ??

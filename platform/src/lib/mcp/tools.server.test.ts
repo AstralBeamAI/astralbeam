@@ -81,7 +81,7 @@ async function withMcpTools(
   }
 }
 describe("request-oriented MCP tools", () => {
-  test("static and OAuth tools cannot dispatch a replacement account", async () => {
+  test("static and OAuth tools cannot dispatch using replaced credentials", async () => {
     for (const kind of ["static_headers", "oauth"] as const) {
       let generation = 0
       await withMcpTools(
@@ -92,7 +92,7 @@ describe("request-oriented MCP tools", () => {
         },
         {
           credential: ({ expectedVersion }) => {
-            if (expectedVersion !== generation) throw new Error("Account replaced")
+            if (expectedVersion !== generation) throw new Error("Credentials replaced")
             return kind === "static_headers"
               ? { kind, headers: { Authorization: `Bearer account-${generation}` } }
               : {
@@ -153,7 +153,7 @@ describe("request-oriented MCP tools", () => {
       )
     }
   })
-  test("keeps healthy tools while omitting stale and broken accounts", async () => {
+  test("keeps healthy tools while omitting stale and broken connections", async () => {
     const catalog = [3, 5, 6, 7].map((suffix) => ({
       ...mcpToolTestConnection,
       id: `019a0000-0000-7000-8000-00000000000${suffix}`,
@@ -167,7 +167,7 @@ describe("request-oriented MCP tools", () => {
       {
         catalog,
         credential: ({ reference }) => {
-          if (reference.id === catalog[2]!.id) throw new Error("Account unavailable")
+          if (reference.id === catalog[2]!.id) throw new Error("Connection unavailable")
           return { kind: "none" }
         },
       },

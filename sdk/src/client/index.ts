@@ -130,3 +130,12 @@ export function mountAstralBeamChat(
     },
   }
 }
+
+export { mountAstralBeamMcpServers } from "./mcp-servers.ts"
+export type {
+  AstralBeamMcpServersHandle,
+  MountAstralBeamMcpServersOptions,
+  McpServerInput,
+  McpServerItem,
+  McpServerFormError,
+} from "./mcp-servers.ts"

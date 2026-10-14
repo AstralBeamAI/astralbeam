@@ -8,7 +8,7 @@ import {
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query"
 import { useId, useRef, useState } from "react"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
-import type { McpManagementOperation } from "../../core/mcp.ts"
+import type { McpConnectionOperation } from "../../core/mcp.ts"
 import { Button } from "./ui/button.tsx"
 import { Input } from "./ui/input.tsx"
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx"
@@ -48,12 +48,12 @@ export function McpConnectionsPanel({
     {
       mutationFn: (
         operation:
-          | McpManagementOperation
+          | McpConnectionOperation
           | { action: "authorize"; mcpServerId: string; id?: string },
       ) =>
         operation.action === "authorize"
-          ? chat.connectMcpAccount(operation)
-          : chat.manageMcp(operation),
+          ? chat.authorizeMcpConnection(operation)
+          : chat.manageMcpConnection(operation),
       onMutate: (operation) => {
         setActiveServerId(
           "mcpServerId" in operation
@@ -93,7 +93,12 @@ export function McpConnectionsPanel({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <Button variant="ghost" size="icon-sm" aria-label="MCP servers" title="MCP servers" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="MCP connections"
+              title="MCP connections"
+            />
           }
         >
           <PlugIcon />
@@ -106,7 +111,7 @@ export function McpConnectionsPanel({
         >
           <header className="shrink-0 space-y-1 border-b p-3">
             <h2 id={`${fieldId}-title`} className="font-semibold">
-              MCP servers
+              MCP connections
             </h2>
           </header>
           <div className="min-h-0 divide-y overflow-y-auto">
@@ -126,33 +131,35 @@ export function McpConnectionsPanel({
               </div>
             )}
             {catalog.data?.servers.length === 0 && (
-              <p className="p-3 text-xs text-muted-foreground">
-                Your organization has not added any MCP servers yet.
-              </p>
+              <p className="p-3 text-xs text-muted-foreground">No MCP servers are available.</p>
             )}
             {catalog.data?.servers.map((server) => {
-              const account = catalog.data.connections.find(
+              const connection = catalog.data.connections.find(
                 (entry) => entry.mcp_server_id === server.id,
               )
-              const connected = account?.auth_state === "connected"
+              const connected = connection?.auth_state === "connected"
               const publicServer = server.auth_kind === "none"
               const active = activeServerId === server.id
               const StatusIcon = busy && active ? SpinnerGapIcon : PlugIcon
               const endpoint = new URL(server.endpoint_url)
               const disconnectLabel = publicServer
                 ? "Disable"
-                : account?.auth_state === "disconnected"
+                : connection?.auth_state === "disconnected"
                   ? "Remove connection"
                   : "Disconnect"
               const labels = server.auth_kind
                 ? {
                     none: ["Enable", "Enable"],
-                    oauth: ["Connect account", "Reconnect"],
-                    static_headers: ["Add credentials", "Replace credentials"],
+                    oauth: ["Connect", "Reconnect"],
+                    static_headers: ["Connect", "Replace credentials"],
                   }[server.auth_kind]
                 : null
               return (
-                <article key={server.id} data-slot="mcp-account" className="space-y-2 px-3 py-2.5">
+                <article
+                  key={server.id}
+                  data-slot="mcp-connection"
+                  className="space-y-2 px-3 py-2.5"
+                >
                   <div className="flex items-center gap-2">
                     <StatusIcon
                       aria-hidden="true"
@@ -169,7 +176,7 @@ export function McpConnectionsPanel({
                               ? publicServer
                                 ? "Enabled"
                                 : "Connected"
-                              : account?.auth_state === "reauthorization_required"
+                              : connection?.auth_state === "reauthorization_required"
                                 ? "Reconnect needed"
                                 : publicServer
                                   ? "Disabled"
@@ -183,7 +190,7 @@ export function McpConnectionsPanel({
                       <div className="flex shrink-0 items-center gap-0.5">
                         {labels && !(publicServer && connected) && (
                           <Button
-                            size={connected ? "icon-sm" : "sm"}
+                            size={connected ? "icon-sm" : "xs"}
                             variant={connected ? "ghost" : "outline"}
                             aria-label={`${labels[connected ? 1 : 0]}: ${endpoint.hostname}`}
                             title={labels[connected ? 1 : 0]}
@@ -193,7 +200,7 @@ export function McpConnectionsPanel({
                                 ? mutation.mutate({
                                     action: "authorize",
                                     mcpServerId: server.id,
-                                    ...(account ? { id: account.id } : {}),
+                                    ...(connection ? { id: connection.id } : {}),
                                   })
                                 : server.auth_kind === "static_headers"
                                   ? setHeadersFor(server.id)
@@ -203,19 +210,19 @@ export function McpConnectionsPanel({
                             {connected ? <ArrowsClockwiseIcon /> : labels[0]}
                           </Button>
                         )}
-                        {connected && account && (
+                        {connected && connection && (
                           <Button
                             size="icon-sm"
                             variant="ghost"
                             aria-label={`Test connection: ${endpoint.hostname}`}
                             title="Test connection"
                             disabled={busy}
-                            onClick={() => mutation.mutate({ action: "test", id: account.id })}
+                            onClick={() => mutation.mutate({ action: "test", id: connection.id })}
                           >
                             <PulseIcon />
                           </Button>
                         )}
-                        {account && (
+                        {connection && (
                           <Button
                             size="icon-sm"
                             variant="ghost"
@@ -223,7 +230,7 @@ export function McpConnectionsPanel({
                             title={disconnectLabel}
                             disabled={busy}
                             onClick={() =>
-                              mutation.mutate({ action: "disconnect", id: account.id })
+                              mutation.mutate({ action: "disconnect", id: connection.id })
                             }
                           >
                             <XIcon />
@@ -312,8 +319,8 @@ export function McpConnectionsPanel({
                     </p>
                   )}
                   {connected &&
-                    account &&
-                    state.unavailableMcpConnections?.includes(account.id) && (
+                    connection &&
+                    state.unavailableMcpConnections?.includes(connection.id) && (
                       <p className="text-xs text-muted-foreground">
                         Unavailable in the last chat. Test the connection or reconnect.
                       </p>

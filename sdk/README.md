@@ -142,9 +142,11 @@ widgets: {
 
 ## Documentation
 
-Remote MCP accounts appear under MCP servers in the authenticated Tenant widget. Organizations configure the available servers. Each TenantUser connects their own account. Public endpoints, static headers and OAuth are supported. Tool results follow the conversation's visibility and retention rules. Disconnect clears credentials locally.
+Remote tools appear under **MCP connections** in the authenticated Tenant widget. Organization admins configure the available MCP servers. Each TenantUser creates their own connection to a server. Public endpoints, static headers and OAuth are supported. Tool results follow the conversation's visibility and retention rules. Disconnect clears credentials locally.
 
-Headless consumers can use `chat.getMcpCatalog()`, `chat.manageMcp(operation)` and `chat.connectMcpAccount({ mcpServerId, id? })`. Start OAuth from a user gesture to open its popup. Browser binding and completion use fresh authentication. Server tool titles arrive in `state.serverToolTitles`, independently of host tool execution.
+Headless consumers can use `chat.getMcpCatalog()`, `chat.manageMcpConnection(operation)` and `chat.authorizeMcpConnection({ mcpServerId, id? })`. Start OAuth from a user gesture to open its popup. Browser binding and completion use fresh authentication. Server tool titles arrive in `state.serverToolTitles`, independently of host tool execution.
+
+Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/react` or `mountAstralBeamMcpServers` from `/client`. Supply the server list and authorized write callbacks. See [MCP server management](https://astralbeam.ai/docs/sdk/configuration#mcp-server-management).
 
 | Guide | Covers |
 | --- | --- |

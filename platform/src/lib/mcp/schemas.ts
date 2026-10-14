@@ -232,7 +232,7 @@ export class McpAuthorizationRequired extends Schema.TaggedError<McpAuthorizatio
   {},
   { httpApiStatus: 409 },
 ) {
-  override readonly message = "Connect this MCP account again to continue."
+  override readonly message = "Reconnect to continue using this MCP server."
 }
 export class McpUnavailable extends Schema.TaggedError<McpUnavailable>()(
   "McpUnavailable",

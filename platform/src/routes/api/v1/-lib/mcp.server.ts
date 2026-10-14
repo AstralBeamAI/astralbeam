@@ -28,7 +28,7 @@ const McpRestServer = McpServerSummarySchema.pipe(Schema.encodeKeys(mcpWireKeys)
 const McpRestConnection = McpConnectionSummarySchema.pipe(Schema.encodeKeys(mcpWireKeys)).annotate({
   identifier: "McpConnection",
 })
-const mcpPersonalParams = Schema.Struct({ id: ApiUuidSchema })
+const mcpConnectionParams = Schema.Struct({ id: ApiUuidSchema })
 const mcpAttemptBody = Schema.Struct({ attemptId: ApiUuidSchema }).pipe(
   Schema.encodeKeys({ attemptId: "attempt_id" }),
 )
@@ -45,33 +45,33 @@ export const personalMcpApi = HttpApiGroup.make("personalMcp")
       success: McpRestConnection,
     }),
     HttpApiEndpoint.post("setHeaders", "/me/mcp/connections/:id/headers", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
       payload: McpHeadersWriteSchema.pipe(Schema.encodeKeys(mcpWireKeys)),
     }),
     HttpApiEndpoint.delete("disconnectConnection", "/me/mcp/connections/:id", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
     }),
     HttpApiEndpoint.post("testConnection", "/me/mcp/connections/:id/test", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
       success: Schema.Struct({ toolCount: Schema.Int }).pipe(
         Schema.encodeKeys({ toolCount: "tool_count" }),
       ),
     }),
     HttpApiEndpoint.post("authorizeConnection", "/me/mcp/connections/:id/authorize", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
       success: Schema.Struct({
         attempt: McpAttemptReferenceSchema.pipe(Schema.encodeKeys(mcpWireKeys)),
         popupUrl: Schema.String,
       }).pipe(Schema.encodeKeys({ popupUrl: "popup_url" })),
     }),
     HttpApiEndpoint.post("bindBrowser", "/me/mcp/connections/:id/oauth/bind", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
       payload: Schema.Struct({ attemptId: ApiUuidSchema, challenge: Schema.String }).pipe(
         Schema.encodeKeys({ attemptId: "attempt_id" }),
       ),
     }),
     HttpApiEndpoint.post("completeAuthorization", "/me/mcp/connections/:id/oauth/complete", {
-      params: mcpPersonalParams,
+      params: mcpConnectionParams,
       payload: mcpAttemptBody,
       success: Schema.Boolean,
     }),

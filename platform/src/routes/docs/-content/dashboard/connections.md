@@ -1,14 +1,14 @@
 # MCP servers
 
-MCP connections give your agents tools from remote services. Let's connect a server, list its tools, and make them available to your agents.
+MCP servers provide tools from remote services. A server definition stores its endpoint and authentication settings. A connection stores the credentials used to access it. Let's add a server, connect to it, and make its tools available to your agents.
 
-## Connect a server
+## Add a server and connect
 
 1. Open **MCP servers** in the Organization dashboard and choose **Add MCP server**.
 2. Enter the public HTTPS endpoint and choose **No authentication**, **API key / headers** or **OAuth**.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
 4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Register the exact redirect URI shown in the form with your provider. The OAuth client selects the token authentication method from the provider's metadata.
-5. Open **MCP servers** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
+5. Open **MCP connections** in your application's embedded sidebar. Choose **Connect** for OAuth or static authentication, or **Enable** for a public server.
 6. Choose **Test connection** to discover and count the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
 **NOTE**: This client supports MCP 2026-07-28 over Streamable HTTP, including JSON and request-scoped SSE responses. Older protocol revisions, stdio and private-network endpoints are unsupported. A provider's OAuth setup succeeding does not prove that its MCP endpoint supports this revision.
@@ -41,10 +41,10 @@ For static authentication, declare header names on the server. Each person enter
 
 For Google providers, choose **Google** under **OAuth setup** and enter your pre-registered application. Signing in to another provider with your Google account still uses that provider's standard MCP OAuth flow. It does not require Google setup or forward your Google login token to the MCP endpoint.
 
-## Account ownership and recovery
+## Connection ownership and recovery
 
-Each connection belongs to one TenantUser. One account per server is supported. Shared accounts and user-added servers are deferred. Tool results follow the conversation's existing visibility and retention rules.
+Organization admins manage the available server definitions. Each TenantUser can create one private connection per server. Tenant-managed and user-added servers, and shared credentials, are not supported yet. Tool results follow the conversation's existing visibility and retention rules.
 
-Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Existing accounts must reconnect. Disconnect deletes the local connection and credentials without revoking provider-wide access. Connecting again creates a new connection.
+Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Users must then create new connections. Disconnect deletes the local connection and credentials without revoking provider-wide access. Connecting again creates a new connection.
 
 Configure the OAuth scopes your tools require before connecting. Incremental consent during tool execution is deferred. If a tool requires additional permissions, update the server definition and authorize again.

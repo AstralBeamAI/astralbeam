@@ -15,8 +15,8 @@ test("private MCP accounts connect, replace and clear credentials without return
   const connections = mcpConnections(page)
   try {
     await connections.open()
-    const account = connections.account(new URL(endpoint).hostname)
-    await account.getByRole("button", { name: /^Add credentials:/ }).click()
+    const account = connections.connection(new URL(endpoint).hostname)
+    await account.getByRole("button", { name: /^Connect:/ }).click()
     await account.getByLabel("Authorization value").fill("Bearer personal-browser-secret")
     await account.getByLabel("X-Api-Key value").fill("personal-browser-key")
     await account.getByRole("button", { name: "Save credentials", exact: true }).click()
@@ -42,7 +42,7 @@ test("private MCP accounts connect, replace and clear credentials without return
     await expect(account.getByRole("button", { name: /^Disconnect:/ })).toHaveCount(0)
     await connections.hideHeader()
     await connections.open()
-    await expect(account.getByRole("button", { name: /^Add credentials:/ })).toBeVisible()
+    await expect(account.getByRole("button", { name: /^Connect:/ })).toBeVisible()
   } finally {
     await cleanup()
   }

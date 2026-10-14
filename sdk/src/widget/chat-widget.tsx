@@ -637,7 +637,7 @@ export function ChatWidget({
       )}
       {!!chatState.unavailableMcpConnections?.length && (
         <p role="status" className="px-4 py-2 text-xs text-muted-foreground">
-          Some connected tools are unavailable. Open MCP servers to review them.
+          Some connected tools are unavailable. Open MCP connections to review them.
         </p>
       )}
       {options.showConversationTitle === true && chatState.thread?.title && (

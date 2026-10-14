@@ -45,10 +45,10 @@ import {
 import { startAuthentication } from "./auth-lifecycle.ts"
 import {
   loadMcpCatalog,
-  manageMcp,
-  connectMcpAccount,
+  manageMcpConnection,
+  authorizeMcpConnection,
   type McpCatalog,
-  type McpManagementOperation,
+  type McpConnectionOperation,
 } from "./mcp.ts"
 import { isSettledToolCall } from "./messages.ts"
 import { webPartMetadata } from "./web.ts"
@@ -228,8 +228,8 @@ export interface AstralBeamChatCore {
   }) => Promise<UploadedChatFile>
   getFile: (fileId: string) => Promise<Blob>
   getMcpCatalog: () => Promise<McpCatalog>
-  manageMcp: (operation: McpManagementOperation) => ReturnType<typeof manageMcp>
-  connectMcpAccount: (input: Parameters<typeof connectMcpAccount>[0]) => Promise<void>
+  manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
+  authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -1479,14 +1479,14 @@ export function createAstralBeamChat(
       return response.blob()
     },
     getMcpCatalog: async () => loadMcpCatalog(await requestOptions(false)),
-    manageMcp: async (operation) => {
-      const result = await manageMcp(operation, await requestOptions(false))
+    manageMcpConnection: async (operation) => {
+      const result = await manageMcpConnection(operation, await requestOptions(false))
       if ("id" in operation) clearUnavailableMcpConnection(operation.id)
       else if (result && "id" in result) clearUnavailableMcpConnection(result.id)
       return result
     },
-    connectMcpAccount: async (input) => {
-      const id = await connectMcpAccount(input, () => requestOptions(false, true))
+    authorizeMcpConnection: async (input) => {
+      const id = await authorizeMcpConnection(input, () => requestOptions(false, true))
       clearUnavailableMcpConnection(id)
     },
     abandonToolCall,

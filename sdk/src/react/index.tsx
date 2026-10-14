@@ -374,3 +374,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     )
   },
 )
+
+export { AstralBeamMcpServers } from "./mcp-servers.tsx"
+export type { AstralBeamMcpServersProps } from "./mcp-servers.tsx"

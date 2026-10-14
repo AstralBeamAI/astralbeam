@@ -128,6 +128,30 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     ])
   })
 
+  await test.step("the owner adds an MCP server with safe headers and removes it", async () => {
+    await shell.navigation.getByRole("link", { name: "MCP servers", exact: true }).click()
+    await page.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    const form = page.getByRole("form", { name: "Add MCP server" })
+    await form.getByLabel("Server URL").fill("https://mcp.example.com/mcp")
+    await form.getByLabel("Authentication", { exact: true }).selectOption("static_headers")
+    const headers = form.getByLabel("Header names, comma separated")
+    await headers.fill("Cookie")
+    await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    await expect(
+      form.getByText("Use unique HTTP header names. Cookies, routing and MCP headers are reserved"),
+    ).toBeVisible()
+    await headers.fill("Authorization")
+    await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    const server = page.getByRole("article").filter({ hasText: "https://mcp.example.com/mcp" })
+    await expect(server).toBeVisible()
+    await server.getByRole("button", { name: "Remove server: mcp.example.com" }).click()
+    await server
+      .getByRole("group", { name: "Remove server?" })
+      .getByRole("button", { name: "Remove server", exact: true })
+      .click()
+    await expect(server).toHaveCount(0)
+  })
+
   await test.step("the owner edits the starter agent and adds a second one", async () => {
     await shell.openSection("Agents", "Agents")
     const starterAgent = `${identity.organizationName} Assistant`

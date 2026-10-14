@@ -585,11 +585,11 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           authConfig: { kind: "static_headers", headerNames: ["Authorization"] },
         }),
       )
-      const account = await connections((service) => service.createConnection(actor, server.id))
+      const connection = await connections((service) => service.createConnection(actor, server.id))
       await connections((service) =>
         service.setHeaders({
           actor,
-          reference: account,
+          reference: connection,
           lockVersion: 0,
           headers: { Authorization: " \tBearer personal-secret \t" },
         }),
@@ -605,13 +605,13 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const other = { ...actor, tenantUserId: otherUser!.id }
       expect((await connections((service) => service.catalog(other))).connections).toEqual([])
       await expect(
-        authority((service) => service.getCredential({ actor: other, reference: account })),
+        authority((service) => service.getCredential({ actor: other, reference: connection })),
       ).rejects.toThrow()
       const second = await connections((service) => service.createConnection(other, server.id))
       const [cipher] = await db
         .select({ value: sql<string>`${mcpConnection.credentials}::text` })
         .from(mcpConnection)
-        .where(eq(mcpConnection.id, account.id))
+        .where(eq(mcpConnection.id, connection.id))
       await db.execute(
         sql`update mcp_connection set credentials = ${cipher!.value}, lock_version = 1 where id = ${second.id}`,
       )
@@ -625,7 +625,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         connections((service) =>
           service.setHeaders({
             actor,
-            reference: account,
+            reference: connection,
             lockVersion: 0,
             headers: { Authorization: "stale" },
           }),

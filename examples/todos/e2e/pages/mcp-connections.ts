@@ -77,12 +77,14 @@ export function mcpConnections(page: Page) {
         </script>`)
     },
     async open() {
-      await root.getByRole("button", { name: "MCP servers", exact: true }).click()
-      await expect(root.getByRole("heading", { name: "MCP servers", exact: true })).toBeVisible()
+      await root.getByRole("button", { name: "MCP connections", exact: true }).click()
+      await expect(
+        root.getByRole("heading", { name: "MCP connections", exact: true }),
+      ).toBeVisible()
     },
-    account(host: string) {
+    connection(host: string) {
       return root
-        .locator('[data-slot="mcp-account"]')
+        .locator('[data-slot="mcp-connection"]')
         .filter({ has: page.getByRole("heading", { name: host, exact: true }) })
     },
     notice: root.locator('[data-slot="mcp-notice"]'),

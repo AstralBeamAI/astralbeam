@@ -8,7 +8,7 @@ import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 
-export const getMcpDashboardData = createServerFn({ method: "GET" })
+export const getMcpServersData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(OrganizationRouteInputSchema))
   .handler(({ context, serverFnMeta }) =>
@@ -25,14 +25,14 @@ export const getMcpDashboardData = createServerFn({ method: "GET" })
       serverFnMeta.name,
     ),
   )
-export const mutateMcpDashboard = createServerFn({ method: "POST" })
+export const mutateMcpServer = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(
     toValidationSchema(
       Schema.Struct({
         ...OrganizationRouteInputSchema.fields,
         operation: Schema.Union([
-          Schema.Struct({ action: Schema.Literal("server"), fields: McpServerWriteSchema }),
+          Schema.Struct({ action: Schema.Literal("create_server"), fields: McpServerWriteSchema }),
           Schema.Struct({
             action: Schema.Literal("delete_server"),
             id: Schema.String.check(Schema.isUUID(7)),
@@ -45,7 +45,7 @@ export const mutateMcpDashboard = createServerFn({ method: "POST" })
     runEffect(
       Effect.gen(function* () {
         const service = yield* McpConnections
-        return data.operation.action === "server"
+        return data.operation.action === "create_server"
           ? yield* service.createServer(context.organizationId, data.operation.fields)
           : yield* service.removeServer(context.organizationId, data.operation.id)
       }).pipe(

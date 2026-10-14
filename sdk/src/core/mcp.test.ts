@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest"
-import { connectMcpAccount } from "./mcp.ts"
+import { authorizeMcpConnection } from "./mcp.ts"
 
 afterEach(() => {
   vi.useRealTimers()
@@ -54,7 +54,7 @@ test.each([true, false])("retries OAuth before popup completion (%s)", async (au
     },
     removeEventListener: vi.fn(),
   })
-  const pending = connectMcpAccount({ mcpServerId: "server" }, requestOptions).then(
+  const pending = authorizeMcpConnection({ mcpServerId: "server" }, requestOptions).then(
     (id) => id,
     (error: Error) => error.message,
   )

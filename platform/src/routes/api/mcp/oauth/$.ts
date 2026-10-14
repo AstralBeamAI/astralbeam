@@ -12,7 +12,7 @@ const mcpBrowserCookieSchema = Schema.Struct({ challenge: Schema.String, origin:
 function mcpPopupHtml(script: string, cookie?: string): Response {
   const nonce = randomBytes(24).toString("base64url")
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><title>Connect account</title></head><body><p id="status">Connecting your account…</p><script nonce="${nonce}">${script}</script></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><title>Authorize MCP connection</title></head><body><p id="status">Authorizing connection…</p><script nonce="${nonce}">${script}</script></body></html>`,
     {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
@@ -92,7 +92,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
       .pipe(
         Effect.map(() =>
           mcpPopupHtml(
-            `document.getElementById('status').textContent='Account authorized. Return to the application to finish connecting.';`,
+            `document.getElementById('status').textContent='Connection authorized. Return to the application to finish connecting.';`,
             `mcp_oauth_${reference.connectionId}=; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=0${new URL(baseUrl).protocol === "https:" ? "; Secure" : ""}`,
           ),
         ),
