@@ -1,5 +1,5 @@
 import { cn } from "cn"
-import { useHighlightedCode } from "../hooks/use-highlighted-code"
+import { useHighlightedCode } from "./ui/use-highlighted-code"
 import {
   CodeBlock,
   CodeBlockActions,

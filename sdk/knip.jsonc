@@ -7,7 +7,6 @@
   "entry": ["scripts/*.ts", "src/**/*.test.{ts,tsx}"],
   // The shadcn-generated components are vendored copy-paste code whose unused sub-exports are expected.
   "ignoreIssues": {
-    "src/widget/components/ui/**": ["exports", "types"],
-    "src/widget/lib/highlighter.tsx": ["exports"],
+    "src/widget/components/ui/!(highlighter|use-highlighted-code).*": ["exports", "types"],
   },
 }

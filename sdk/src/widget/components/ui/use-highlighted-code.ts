@@ -1,8 +1,8 @@
 // Added with: deno task ui add use-highlighted-code
-// Local changes: load the highlighter only when a code block mounts.
+// Local changes: lazy-load the highlighter and preserve ANSI state across lines.
 import * as React from "react"
 
-import type { loadHighlighter } from "@/widget/lib/highlighter"
+import type { loadHighlighter } from "@/widget/components/ui/highlighter"
 
 export function useHighlightedCode(value: string, language: string) {
   // A trailing newline would render as an extra empty line.
@@ -16,7 +16,7 @@ export function useHighlightedCode(value: string, language: string) {
   React.useEffect(() => {
     let cancelled = false
 
-    import("@/widget/lib/highlighter")
+    import("@/widget/components/ui/highlighter")
       .then(({ loadHighlighter }) => loadHighlighter(language))
       .then((next) => {
         if (!cancelled) {
@@ -45,7 +45,8 @@ export function useHighlightedCode(value: string, language: string) {
     next = { highlighter, text: "", lines: [] }
   }
 
-  const end = code.lastIndexOf("\n") + 1
+  // ANSI has no grammar state, so tokenize the whole block to retain its styles.
+  const end = language.toLowerCase() === "ansi" ? 0 : code.lastIndexOf("\n") + 1
 
   if (highlighter && end > next.text.length) {
     const result = highlighter.highlight(
@@ -65,7 +66,7 @@ export function useHighlightedCode(value: string, language: string) {
     setDone(next)
   }
 
-  // The last line is still being written, so it is tokenized on every render.
+  // Re-tokenize the unfinished last line, or the full block for ANSI output.
   const tail = code.slice(end)
 
   return React.useMemo(() => {
@@ -73,6 +74,6 @@ export function useHighlightedCode(value: string, language: string) {
       return code.split("\n")
     }
 
-    return [...next.lines, highlighter.highlight(tail, next.state).lines[0]]
+    return [...next.lines, ...highlighter.highlight(tail, next.state).lines]
   }, [code, highlighter, next, tail])
 }

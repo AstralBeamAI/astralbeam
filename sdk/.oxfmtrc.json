@@ -3,10 +3,5 @@
   "printWidth": 100,
   "semi": false,
   "proseWrap": "never",
-  "ignorePatterns": [
-    "src/widget/components/ui/**",
-    "src/widget/hooks/use-highlighted-code.ts",
-    "src/widget/lib/highlighter.tsx",
-    "src/widget/styles.generated.ts"
-  ]
+  "ignorePatterns": ["src/widget/components/ui/**", "src/widget/styles.generated.ts"]
 }
