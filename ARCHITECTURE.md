@@ -89,7 +89,7 @@ Refresh claims a timestamp inside the encrypted credential envelope against the 
 
 Deterministic fixtures cover protocol, ownership, OAuth and cross-process refresh. Live provider verification is separate. Legacy MCP revisions, stdio, protocol sessions, private networks, subscriptions, resources, prompts, sampling, elicitation and incremental scope authorization are outside this client. The package's modern tool path does not mirror `x-mcp-header` parameters and ignores `structuredContent` without a declared output schema. Organizations configure required OAuth scopes before connecting. Discovery has response-size, page, time and connection bounds. All discovered tools are exposed without a separate catalog allocator, so the model provider's own limits apply to the combined tool set.
 
-To verify live providers, connect private accounts through the embedded Connections panel. Set `MCP_LIVE_ORGANIZATION_ID`, `MCP_LIVE_TENANT_ID`, `MCP_LIVE_TENANT_USER_ID` and comma-separated `MCP_LIVE_CONNECTION_IDS` in the test process, then run `deno task --cwd platform test --project=integration src/lib/mcp/live-provider.integration.test.ts` against that database. The check lists tools and verifies TanStack exposure without invoking business tools. Without those inputs it skips. See [Connections](platform/src/routes/docs/-content/dashboard/connections.md) for hosted examples.
+To verify live providers, connect a private account under **MCP servers** in the embedded sidebar and choose **Test connection**. This lists tools without invoking business tools. See [MCP servers](platform/src/routes/docs/-content/dashboard/connections.md) for hosted examples.
 
 ### Conversation schema choices
 

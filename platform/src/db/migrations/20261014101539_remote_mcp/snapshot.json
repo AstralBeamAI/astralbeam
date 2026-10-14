@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "201667f7-9dec-45e9-9d77-d03ed42b4573",
+  "id": "c26b906a-23ff-4867-a540-d862f65d0aa3",
   "prevIds": [
-    "97f5a334-d163-49be-b8a4-7905c954cc0b"
+    "e3dc4b07-c6da-45f2-b2e6-a0c5dbf15b87"
   ],
   "ddl": [
     {
@@ -65,6 +65,47 @@
         "purging"
       ],
       "name": "file_object_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "tokens",
+        "spend"
+      ],
+      "name": "usage_limit_metric",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "global",
+        "tenant",
+        "tenant_user",
+        "thread"
+      ],
+      "name": "usage_limit_scope",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "fixed",
+        "rolling"
+      ],
+      "name": "usage_limit_window_type",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "minute",
+        "hour",
+        "day",
+        "week",
+        "month"
+      ],
+      "name": "usage_limit_window_unit",
       "entityType": "enums",
       "schema": "public"
     },
@@ -221,6 +262,18 @@
     {
       "isRlsEnabled": false,
       "name": "tenant_user",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "usage_limit",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "usage_limit_counter",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3309,6 +3362,344 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "applies_by_default",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "usage_limit_scope",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "scope",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "usage_limit_metric",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "metric",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "numeric",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "amount",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "usage_limit_window_type",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "window_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "window_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "usage_limit_window_unit",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "window_unit",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "time_zone",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "lock_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "usage_limit_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tenant_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "thread_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "window_ends_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tokens",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "numeric",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "spend",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": "uuidv7()",
       "generated": null,
       "identity": null,
@@ -5651,6 +6042,103 @@
       "table": "tenant_user"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organization",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "usage_limit_organization_id_organization_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "usage_limit_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "usage_limit",
+      "columnsTo": [
+        "organization_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "usage_limit_counter_usage_limit_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenant",
+      "columnsTo": [
+        "organization_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "usage_limit_counter_tenant_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "tenant_id",
+        "tenant_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenant_user",
+      "columnsTo": [
+        "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "usage_limit_counter_tenant_user_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "tenant_id",
+        "thread_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "chat_thread",
+      "columnsTo": [
+        "organization_id",
+        "tenant_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "usage_limit_counter_thread_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
       "columns": [
         "organization_id",
         "id"
@@ -5849,6 +6337,28 @@
     },
     {
       "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "usage_limit_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "columns": [
+        "organization_id",
+        "id"
+      ],
+      "nameExplicit": true,
+      "name": "usage_limit_counter_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -5984,6 +6494,21 @@
       "table": "mcp_server"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "organization_id",
+        "usage_limit_id",
+        "tenant_id",
+        "tenant_user_id",
+        "thread_id"
+      ],
+      "nullsNotDistinct": true,
+      "name": "usage_limit_counter_subject_key",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "usage_limit_counter"
+    },
+    {
       "value": "char_length(\"system_prompt\") between 1 and 32768",
       "name": "agent_system_prompt_length_check",
       "entityType": "checks",
@@ -6059,6 +6584,48 @@
       "entityType": "checks",
       "schema": "public",
       "table": "tenant_user"
+    },
+    {
+      "value": "char_length(\"name\") between 1 and 100",
+      "name": "usage_limit_name_length_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "value": "\"amount\" > 0 and (\"metric\" = 'spend' or \"amount\" = trunc(\"amount\"))",
+      "name": "usage_limit_amount_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "value": "\"window_count\" > 0",
+      "name": "usage_limit_window_count_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "value": "(\"window_type\" = 'fixed') = (\"time_zone\" is not null)",
+      "name": "usage_limit_time_zone_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "value": "\"scope\" <> 'global' or \"applies_by_default\"",
+      "name": "usage_limit_global_default_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit"
+    },
+    {
+      "value": "(\"tenant_id\" is not null or (\"tenant_user_id\" is null and \"thread_id\" is null)) and (\"tenant_user_id\" is null or \"thread_id\" is null)",
+      "name": "usage_limit_counter_subject_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_limit_counter"
     }
   ],
   "renames": []

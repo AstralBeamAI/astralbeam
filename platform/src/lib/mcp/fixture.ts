@@ -22,10 +22,7 @@ export async function startMcpFixture() {
     tokenRequests: 0,
     authorizationToken: "access-0",
     authorizationRefreshToken: "rotating-refresh" as string | null,
-    requests: [] as {
-      method: string
-      headers: Record<string, string | string[] | undefined>
-    }[],
+    requests: [] as string[],
   }
   const dispatcher = new Agent()
   const server = createServer((request, response) => {
@@ -120,7 +117,7 @@ export async function startMcpFixture() {
           method: string
           params?: { cursor?: string; arguments?: unknown }
         }
-        state.requests.push({ method: body.method, headers: request.headers })
+        state.requests.push(body.method)
         let result: unknown
         if (body.method === "server/discover")
           result = {

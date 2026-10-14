@@ -141,6 +141,7 @@ export function McpConnectionsPanel({
               const connected = account?.auth_state === "connected"
               const publicServer = server.auth_kind === "none"
               const active = activeServerId === server.id
+              const StatusIcon = busy && active ? SpinnerGapIcon : PlugIcon
               const endpoint = new URL(server.endpoint_url)
               const disconnectLabel = publicServer
                 ? "Disable"
@@ -157,14 +158,10 @@ export function McpConnectionsPanel({
               return (
                 <article key={server.id} data-slot="mcp-account" className="space-y-2 px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    {busy && active ? (
-                      <SpinnerGapIcon aria-hidden="true" className="size-4 shrink-0 animate-spin" />
-                    ) : (
-                      <PlugIcon
-                        aria-hidden="true"
-                        className="size-4 shrink-0 text-muted-foreground"
-                      />
-                    )}
+                    <StatusIcon
+                      aria-hidden="true"
+                      className={`size-4 shrink-0 text-muted-foreground${busy && active ? " animate-spin" : ""}`}
+                    />
                     <div className="min-w-0 flex-1" title={server.endpoint_url}>
                       <h3 className="truncate text-sm font-medium">{endpoint.hostname}</h3>
                       <p role="status" className="truncate text-xs text-muted-foreground">

@@ -12,6 +12,8 @@ import { Context, Effect, Layer, Redacted } from "effect"
 import { McpConnections } from "./mcp.server.ts"
 import { McpAuthorization } from "./authorization.server.ts"
 import {
+  McpUnavailable,
+  McpUnsupportedProtocol,
   MCP_AUTH_TIMEOUT_MS,
   MCP_MAX_CONNECTIONS,
   MCP_MAX_DISCOVERY_PAGES,
@@ -20,7 +22,6 @@ import {
   type McpActor,
   type McpReference,
 } from "./schemas.ts"
-import { McpUnavailable, McpUnsupportedProtocol } from "./errors.ts"
 import { mcpCreateDispatcher, mcpGuardedFetch } from "./network.server.ts"
 
 const mcpRuntimeMethods = new Set(["server/discover", "tools/list", "tools/call"])
@@ -112,7 +113,7 @@ const makeMcpTools = Effect.gen(function* () {
         try: (signal) => callSignals.run(signal, () => client.tools()),
         catch: () => new McpUnavailable(),
       }).pipe(Effect.onError(() => Effect.promise(() => client.close())))
-      const boundTools = yield* Effect.try({
+      return yield* Effect.try({
         try: () =>
           tools.map((remote) => {
             const nativeToolName = remote.metadata.mcp.serverToolName
@@ -150,7 +151,6 @@ const makeMcpTools = Effect.gen(function* () {
           }),
         catch: () => new McpUnavailable(),
       })
-      return boundTools
     },
     Effect.timeoutOrElse({
       duration: MCP_AUTH_TIMEOUT_MS,

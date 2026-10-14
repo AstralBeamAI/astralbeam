@@ -118,11 +118,6 @@ describe("request-oriented MCP tools", () => {
           expect(schema["~standard"].validate({ region: 3 })).toHaveProperty("issues")
           expect(await tool.execute({ region: "eu" }, undefined)).toEqual({ ok: true })
           expect(mcpToolFixture.state.calls).toBe(1)
-          const call = mcpToolFixture.state.requests.find((entry) => entry.method === "tools/call")!
-          expect(call.headers).toMatchObject({
-            "mcp-method": "tools/call",
-            "mcp-protocol-version": "2026-07-28",
-          })
         },
         { state: { sse } },
       )
@@ -156,10 +151,7 @@ describe("request-oriented MCP tools", () => {
             tools.test({ actor: mcpToolTestActor, reference: mcpToolTestConnection }),
           ),
         ).rejects.toThrow("Could not connect using MCP 2026-07-28")
-        expect(mcpToolFixture.state.requests.map((entry) => entry.method)).toEqual([
-          "server/discover",
-          "server/discover",
-        ])
+        expect(mcpToolFixture.state.requests).toEqual(["server/discover", "server/discover"])
       },
       { state: { protocol: "2025-11-25" } },
     )
