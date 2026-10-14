@@ -8,6 +8,8 @@ export async function startMcpFixture() {
     resourceMetadataChallenge: true,
     cimd: false,
     sse: false,
+    listPages: 2,
+    rejectedListToken: "",
     lostToolResponse: false,
     toolGate: null as (() => Promise<void>) | null,
     protocol: "2026-07-28",
@@ -118,6 +120,13 @@ export async function startMcpFixture() {
           params?: { cursor?: string; arguments?: unknown }
         }
         state.requests.push(body.method)
+        if (
+          body.method === "tools/list" &&
+          request.headers.authorization === `Bearer ${state.rejectedListToken}`
+        ) {
+          response.statusCode = 401
+          return response.end()
+        }
         let result: unknown
         if (body.method === "server/discover")
           result = {
@@ -125,32 +134,34 @@ export async function startMcpFixture() {
             serverInfo: { name: "Fixture", version: "1" },
             capabilities: { tools: {} },
           }
-        else if (body.method === "tools/list")
-          result = !body.params?.cursor
-            ? {
-                tools: [],
-                nextCursor: "next-page",
-              }
-            : {
-                tools: [
-                  {
-                    name: "lookup",
-                    title: "Look up",
-                    inputSchema: {
-                      type: "object",
-                      properties: { region: { type: "string" } },
-                      required: ["region"],
-                      additionalProperties: false,
+        else if (body.method === "tools/list") {
+          const page = Number(body.params?.cursor ?? 1)
+          result =
+            page < state.listPages
+              ? {
+                  tools: [],
+                  nextCursor: String(page + 1),
+                }
+              : {
+                  tools: [
+                    {
+                      name: "lookup",
+                      title: "Look up",
+                      inputSchema: {
+                        type: "object",
+                        properties: { region: { type: "string" } },
+                        required: ["region"],
+                        additionalProperties: false,
+                      },
+                      outputSchema: {
+                        type: "object",
+                        properties: { ok: { type: "boolean" } },
+                        required: ["ok"],
+                      },
                     },
-                    outputSchema: {
-                      type: "object",
-                      properties: { ok: { type: "boolean" } },
-                      required: ["ok"],
-                    },
-                  },
-                ],
-              }
-        else if (body.method === "tools/call") {
+                  ],
+                }
+        } else if (body.method === "tools/call") {
           state.calls++
           if (state.lostToolResponse) return response.destroy()
           await state.toolGate?.()

@@ -60,7 +60,7 @@ const makeMcpTools = Effect.gen(function* () {
             throw new McpUnsupportedProtocol()
           if (
             !mcpRuntimeMethods.has(method) ||
-            (method === "tools/list" && ++pages > MCP_MAX_DISCOVERY_PAGES)
+            (method === "tools/list" && pages >= MCP_MAX_DISCOVERY_PAGES)
           )
             throw new McpUnavailable()
           const credential = await readCredential()
@@ -70,7 +70,7 @@ const makeMcpTools = Effect.gen(function* () {
             lastToken = credential.tokens.access_token
             headers.set("Authorization", `Bearer ${lastToken}`)
           }
-          return mcpGuardedFetch(dispatcher, url, {
+          const response = await mcpGuardedFetch(dispatcher, url, {
             ...init,
             headers,
             signal: AbortSignal.any([
@@ -81,6 +81,8 @@ const makeMcpTools = Effect.gen(function* () {
               ...(init?.signal ? [init.signal] : []),
             ]),
           })
+          if (method === "tools/list" && response.ok) pages++
+          return response
         },
         ...(server.authConfig.kind === "oauth"
           ? {

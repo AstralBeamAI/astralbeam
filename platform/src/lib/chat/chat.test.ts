@@ -2,7 +2,7 @@ import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
-import { Effect, Layer, Stream } from "effect"
+import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
 
 const chatRunTest = vi.hoisted(() => ({
@@ -106,6 +106,7 @@ function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
+  readonly acquireMcp?: typeof McpTools.Service.acquire
 }) {
   const agents = {
     resolveForChat: () =>
@@ -127,7 +128,9 @@ function chatTestLayer(options: {
       }),
       Layer.succeed(Agents, agents),
       Layer.succeed(McpTools, {
-        acquire: () => Effect.succeed({ tools: [], presentation: [], unavailable: [] }),
+        acquire:
+          options.acquireMcp ??
+          (() => Effect.succeed({ tools: [], presentation: [], unavailable: [] })),
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
@@ -143,7 +146,7 @@ function chatTestLayer(options: {
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
         assertActive: () => Effect.void,
-        interrupt: () => Effect.void,
+        interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
     ]),
   )
@@ -542,6 +545,28 @@ describe("Chat.run", () => {
       }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
+  it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>
+    Effect.gen(function* () {
+      const discovering = yield* Deferred.make<void>()
+      const run = yield* runChat().pipe(
+        Effect.flatMap(Stream.runDrain),
+        Effect.provide(
+          chatTestLayer({
+            agent: sandboxedAgent,
+            model: CHAT_TEST_MODEL,
+            acquireMcp: () =>
+              Deferred.succeed(discovering, undefined).pipe(Effect.andThen(Effect.never)),
+          }),
+        ),
+        Effect.forkChild,
+      )
+      yield* Deferred.await(discovering)
+      yield* Fiber.interrupt(run)
+      assert.deepStrictEqual(chatRunTest.order, ["interrupted"])
+      assert.isEmpty(chatRunTest.options)
+    }),
+  )
+
   it.effect("aborts the provider request before closing the run when the client goes away", () =>
     Effect.gen(function* () {
       const iterable = yield* Stream.toAsyncIterableEffect(yield* runChat())
@@ -552,7 +577,7 @@ describe("Chat.run", () => {
       const pending = iterator.next()
       yield* Effect.promise(() => iterator.return!())
       yield* Effect.promise(() => pending)
-      assert.deepStrictEqual(chatRunTest.order, ["aborted", "closed"])
+      assert.deepStrictEqual(chatRunTest.order, ["aborted", "closed", "interrupted"])
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 })

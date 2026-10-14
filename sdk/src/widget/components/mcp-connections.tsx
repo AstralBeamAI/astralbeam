@@ -317,8 +317,7 @@ export function McpConnectionsPanel({
                   )}
                   {connected &&
                     account &&
-                    state.unavailableMcpConnections?.includes(account.id) &&
-                    !(active && mutation.isSuccess && mutation.variables.action === "test") && (
+                    state.unavailableMcpConnections?.includes(account.id) && (
                       <p className="text-xs text-muted-foreground">
                         Unavailable in the last chat. Test the connection or reconnect.
                       </p>

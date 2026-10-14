@@ -29,7 +29,11 @@ async function withMcpTools(
     tools: typeof McpTools.Service,
   ) => void | Promise<void>,
   options: {
-    credential?: (input: { reference: McpReference; expectedVersion?: number }) => McpCredential
+    credential?: (input: {
+      reference: McpReference
+      expectedVersion?: number
+      rejectedToken?: string
+    }) => McpCredential
     authConfig?: McpAuthConfig
     catalog?: (typeof mcpToolTestConnection)[]
     state?: Partial<typeof mcpToolFixture.state>
@@ -64,7 +68,7 @@ async function withMcpTools(
                   }),
               } as unknown as typeof McpConnections.Service),
               Layer.succeed(McpAuthorization, {
-                getCredential: (input: { reference: McpReference; expectedVersion?: number }) =>
+                getCredential: (input: Parameters<NonNullable<typeof options.credential>>[0]) =>
                   Effect.sync(() => Redacted.make(options.credential?.(input) ?? { kind: "none" })),
               } as unknown as typeof McpAuthorization.Service),
             ]),
@@ -121,6 +125,35 @@ describe("request-oriented MCP tools", () => {
         },
         { state: { sse } },
       )
+  })
+  test("counts catalog pages without counting an OAuth retry", async () => {
+    for (const listPages of [8, 9]) {
+      let refreshes = 0
+      await withMcpTools(
+        (set) => {
+          expect(refreshes).toBe(1)
+          expect(set.tools).toHaveLength(listPages === 8 ? 1 : 0)
+          expect(set.unavailable).toEqual(listPages === 8 ? [] : [mcpToolTestConnection.id])
+          expect(
+            mcpToolFixture.state.requests.filter((method) => method === "tools/list"),
+          ).toHaveLength(9)
+        },
+        {
+          authConfig: { kind: "oauth", profile: "standard", requestedScopes: [] },
+          state: { listPages, rejectedListToken: "access-0" },
+          credential: ({ rejectedToken }) => {
+            if (rejectedToken) refreshes++
+            return {
+              kind: "oauth",
+              clientInformation: {},
+              tokens: { access_token: `access-${refreshes}`, token_type: "Bearer" },
+              expiresAt: null,
+              discovery: {},
+            }
+          },
+        },
+      )
+    }
   })
   test("keeps healthy tools while omitting stale and broken accounts", async () => {
     const catalog = [3, 5, 6, 7].map((suffix) => ({

@@ -6,7 +6,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test("binds only the intended popup, origin and owner before polling with fresh authentication", async () => {
+test.each([true, false])("retries OAuth before popup completion (%s)", async (authorized) => {
   vi.useFakeTimers()
   const attempt = {
     organizationId: "organization",
@@ -31,13 +31,15 @@ test("binds only the intended popup, origin and owner before polling with fresh 
         },
       }),
     )
+    .mockRejectedValueOnce(new TypeError("Binding response lost"))
     .mockReturnValueOnce(
       new Promise<Response>((resolve) => {
         finishBinding = () => resolve(new Response(null, { status: 204 }))
       }),
     )
+    .mockResolvedValueOnce(new Response(null, { status: 503 }))
     .mockResolvedValueOnce(Response.json(false))
-    .mockResolvedValueOnce(Response.json(true))
+    .mockResolvedValueOnce(Response.json(authorized))
   let authCalls = 0
   const requestOptions = () => {
     if (++authCalls === 4)
@@ -52,7 +54,10 @@ test("binds only the intended popup, origin and owner before polling with fresh 
     },
     removeEventListener: vi.fn(),
   })
-  const pending = connectMcpAccount({ mcpServerId: "server" }, requestOptions)
+  const pending = connectMcpAccount({ mcpServerId: "server" }, requestOptions).then(
+    (id) => id,
+    (error: Error) => error.message,
+  )
   await vi.waitFor(() => expect(popup.location.replace).toHaveBeenCalled())
   const send = (origin: string, source: unknown, data: unknown) =>
     receive({ origin, source, data } as MessageEvent)
@@ -71,12 +76,17 @@ test("binds only the intended popup, origin and owner before polling with fresh 
   )
   await vi.advanceTimersByTimeAsync(5_000)
   expect(fetchClient).toHaveBeenCalledTimes(3)
+  await vi.advanceTimersByTimeAsync(10_000)
+  expect(fetchClient).toHaveBeenCalledTimes(4)
   finishBinding()
-  await vi.advanceTimersByTimeAsync(15_000)
-  await pending
-  expect(fetchClient).toHaveBeenCalledTimes(5)
+  await vi.waitFor(() => expect(fetchClient).toHaveBeenCalledTimes(5))
+  await vi.advanceTimersByTimeAsync(5_000)
+  popup.closed = true
+  await vi.advanceTimersByTimeAsync(5_000)
+  expect(await pending).toBe(authorized ? "connection" : "Authorization window closed.")
+  expect(fetchClient).toHaveBeenCalledTimes(7)
   expect(new Headers(fetchClient.mock.lastCall![1]!.headers).get("authorization")).toBe(
-    "Bearer token-6",
+    "Bearer token-8",
   )
   expect(popup.close).toHaveBeenCalledOnce()
   expect(popup.location.replace.mock.calls[0]![0]).toContain(

@@ -1,10 +1,10 @@
+import { mcpHeadersAreAllowed } from "./schemas.ts"
 import { describe, expect, test, vi } from "vitest"
 const mcpDns = vi.hoisted(() => ({ lookup: vi.fn() }))
 vi.mock("node:dns/promises", () => mcpDns)
 import {
   mcpAddressIsPublic,
   mcpBoundedResponse,
-  mcpHeadersAreAllowed,
   mcpUrlIsPublic,
   mcpCreateDispatcher,
   mcpGuardedFetch,

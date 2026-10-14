@@ -57,7 +57,10 @@ function McpDashboardPage() {
         type: "success",
       })
     },
-    onError: (failure) => setError(parseServerFnError(failure).message),
+    onError: (failure) => {
+      const parsed = parseServerFnError(failure)
+      if (parsed.tag !== "McpInvalidConfiguration") setError(parsed.message)
+    },
   })
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -149,7 +152,7 @@ function McpDashboardPage() {
           <McpServerForm
             busy={mutation.isPending}
             callbackUri={data.callbackUri}
-            save={(fields) => mutation.mutate({ action: "server", fields })}
+            save={(fields) => mutation.mutateAsync({ action: "server", fields })}
             cancel={() => setAdding(false)}
           />
         </DialogContent>

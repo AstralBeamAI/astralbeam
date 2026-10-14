@@ -30,21 +30,40 @@ export const McpAttemptReferenceSchema = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
 })
 export type McpAttemptReference = typeof McpAttemptReferenceSchema.Type
+export function mcpHeadersAreAllowed(headers: Readonly<Record<string, string>>): boolean {
+  if (
+    new Set(Object.keys(headers).map((name) => name.toLowerCase())).size !==
+    Object.keys(headers).length
+  )
+    return false
+  return Object.entries(headers).every(
+    ([name, value]) =>
+      /^[!#$%&'*+.^`|~\w-]+$/.test(name) &&
+      !/[\r\n\0]/.test(value) &&
+      !/^(?:host|cookie|set-cookie|origin|referer|connection|content-length|content-type|accept|transfer-encoding|upgrade|expect|te|trailer|via|forwarded|proxy-.*|sec-.*|x-forwarded-.*|mcp-.*|x-mcp-.*)$/i.test(
+        name,
+      ),
+  )
+}
+
 const McpManualClientSchema = Schema.Struct({
   clientId: NonEmptyStringSchema.check(Schema.isMaxLength(2048)),
   clientSecret: Schema.optionalKey(NonEmptyStringSchema.check(Schema.isMaxLength(8192))),
 })
 export const McpApplicationOriginSchema = Schema.String.check(
   Schema.isMaxLength(2048),
-  Schema.makeFilter((value) => {
-    if (!URL.canParse(value)) return false
-    const url = new URL(value)
-    return (
-      value === url.origin &&
-      (url.protocol === "https:" ||
-        (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
-    )
-  }),
+  Schema.makeFilter(
+    (value) => {
+      if (!URL.canParse(value)) return false
+      const url = new URL(value)
+      return (
+        value === url.origin &&
+        (url.protocol === "https:" ||
+          (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))
+      )
+    },
+    { message: "Enter an HTTPS origin without a path. Localhost HTTP is allowed for development" },
+  ),
 )
 const mcpAuthConfigSchema = <S extends Schema.Constraint>(clientSchema: S) =>
   Schema.Union([
@@ -54,6 +73,14 @@ const mcpAuthConfigSchema = <S extends Schema.Constraint>(clientSchema: S) =>
       headerNames: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(128))).check(
         Schema.isMinLength(1),
         Schema.isMaxLength(16),
+        Schema.makeFilter(
+          (names) =>
+            new Set(names).size === names.length &&
+            mcpHeadersAreAllowed(Object.fromEntries(names.map((name) => [name, ""]))),
+          {
+            message: "Use unique HTTP header names. Cookies, routing and MCP headers are reserved",
+          },
+        ),
       ),
     }),
     Schema.Struct({
@@ -67,8 +94,10 @@ const mcpAuthConfigSchema = <S extends Schema.Constraint>(clientSchema: S) =>
     }),
   ])
 const McpAuthConfigSchema = mcpAuthConfigSchema(McpManualClientSchema).check(
-  Schema.makeFilter(
-    (config) => config.kind !== "oauth" || config.profile !== "google" || !!config.client,
+  Schema.makeFilter((config) =>
+    config.kind !== "oauth" || config.profile !== "google" || config.client?.clientSecret
+      ? true
+      : { path: ["client", "clientSecret"], issue: "Enter the Google application client secret" },
   ),
 )
 export type McpAuthConfig = typeof McpAuthConfigSchema.Type

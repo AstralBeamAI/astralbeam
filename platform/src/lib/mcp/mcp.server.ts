@@ -18,13 +18,14 @@ import {
   McpClientEnvelopeSchema,
   McpServerWriteSchema,
   mcpActorEquals,
+  mcpHeadersAreAllowed,
   type McpActor,
   type McpAuthConfig,
   type McpReference,
   type McpServerSummary,
   type McpConnectionSummary,
 } from "./schemas.ts"
-import { mcpHeadersAreAllowed, mcpUrlIsPublic } from "./network.server.ts"
+import { mcpUrlIsPublic } from "./network.server.ts"
 
 export function mcpConnectionOwner(actor: McpActor) {
   return and(
@@ -166,12 +167,7 @@ const makeMcpConnections = Effect.gen(function* () {
     })
     if (
       !Schema.is(McpServerWriteSchema.fields.endpointUrl)(endpoint.href) ||
-      !mcpUrlIsPublic(endpoint) ||
-      (fields.authConfig.kind === "static_headers" &&
-        (new Set(fields.authConfig.headerNames).size !== fields.authConfig.headerNames.length ||
-          !mcpHeadersAreAllowed(
-            Object.fromEntries(fields.authConfig.headerNames.map((name) => [name, ""])),
-          )))
+      !mcpUrlIsPublic(endpoint)
     )
       return yield* new McpInvalidConfiguration()
     const id = yield* mcpNewId(db)

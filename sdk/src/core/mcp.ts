@@ -27,11 +27,12 @@ export async function manageMcp(operation: McpManagementOperation, options: JwtO
         { mcp_server_id: operation.mcpServerId },
         options,
       )
-      return personalMcpSetHeaders(
+      await personalMcpSetHeaders(
         connection.id,
         { lock_version: connection.lock_version, headers: operation.headers },
         options,
       )
+      return { id: connection.id }
     }
     case "disconnect":
       return personalMcpDisconnectConnection(operation.id, options)
@@ -65,7 +66,8 @@ export async function connectMcpAccount(
     const url = new URL(response.popup_url)
     url.searchParams.set("origin", window.location.origin)
     await new Promise<void>((resolve, reject) => {
-      let binding: Promise<void> | undefined
+      let challenge: string | undefined
+      let bound = false
       let finished = false
       let completing = false
       const cleanup = () => {
@@ -77,6 +79,41 @@ export async function connectMcpAccount(
       const fail = (error: unknown) => {
         cleanup()
         reject(error instanceof Error ? error : new Error("Authorization failed."))
+      }
+      const complete = async () => {
+        if (completing || finished) return
+        completing = true
+        try {
+          if (challenge) {
+            if (!bound) {
+              await personalMcpBindBrowser(
+                id,
+                { attempt_id: attempt.id, challenge },
+                await requestOptions(),
+              )
+              bound = true
+            }
+            if (finished) return
+            const connected = await personalMcpCompleteAuthorization(
+              id,
+              { attempt_id: attempt.id },
+              await requestOptions(),
+            )
+            if (finished) return
+            if (connected) {
+              cleanup()
+              resolve()
+              return
+            }
+          }
+          if (popup.closed) fail(new Error("Authorization window closed."))
+        } catch (error) {
+          const status =
+            error instanceof Error ? (error as Error & { status?: number }).status : undefined
+          if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500) fail(error)
+        } finally {
+          completing = false
+        }
       }
       const receive = (event: MessageEvent) => {
         if (event.source !== popup || event.origin !== url.origin) return
@@ -95,48 +132,14 @@ export async function connectMcpAccount(
           return
         if (
           data.type === "mcp-browser-challenge" &&
-          !binding &&
+          !challenge &&
           typeof data.challenge === "string"
         ) {
-          const challenge = data.challenge
-          binding = requestOptions().then((options) =>
-            personalMcpBindBrowser(id, { attempt_id: attempt.id, challenge }, options),
-          )
-          void binding.catch(fail)
+          challenge = data.challenge
+          void complete()
         }
       }
-      const poll = setInterval(() => {
-        if (completing || finished) return
-        if (popup.closed) return fail(new Error("Authorization window closed."))
-        if (!binding) return
-        completing = true
-        void binding
-          .then(async () =>
-            finished
-              ? false
-              : personalMcpCompleteAuthorization(
-                  id,
-                  { attempt_id: attempt.id },
-                  await requestOptions(),
-                ),
-          )
-          .then(
-            (connected) => {
-              completing = false
-              if (connected && !finished) {
-                cleanup()
-                resolve()
-              }
-            },
-            (error: unknown) => {
-              completing = false
-              const status =
-                error instanceof Error ? (error as Error & { status?: number }).status : undefined
-              if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500)
-                fail(error)
-            },
-          )
-      }, 5_000)
+      const poll = setInterval(() => void complete(), 5_000)
       const expiry = setTimeout(
         () => fail(new Error("Authorization expired. Try connecting again.")),
         600_000,
@@ -144,6 +147,7 @@ export async function connectMcpAccount(
       window.addEventListener("message", receive)
       popup.location.replace(url.href)
     })
+    return id
   } finally {
     popup.close()
   }

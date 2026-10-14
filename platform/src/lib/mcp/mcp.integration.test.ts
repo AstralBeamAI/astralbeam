@@ -290,6 +290,18 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       ).rejects.toThrow()
       flow = await authorize(reference)
       await callback(flow)
+      await authority((service) =>
+        service.bindBrowser({ actor, reference: flow.started.attempt, challenge: flow.challenge }),
+      )
+      await expect(
+        authority((service) =>
+          service.bindBrowser({
+            actor,
+            reference: flow.started.attempt,
+            challenge: "x".repeat(43),
+          }),
+        ),
+      ).rejects.toThrow()
       await expect(callback(flow)).rejects.toThrow()
       await expect(
         authority((service) =>
@@ -461,7 +473,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(await pending).toBe(true)
       expect(await db.select().from(mcpConnection)).toEqual([])
     })
-    test.each(["disconnectResponse", "gatewayError"] as const)(
+    test.each(["disconnectResponse", "gatewayError", "invalidTokenType"] as const)(
       "expired claims and %s require reconnecting without a second redemption",
       async (failure) => {
         const { reference } = await connectedOAuth()
@@ -482,7 +494,14 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           .update(mcpConnection)
           .set({ credentials: original!.credentials })
           .where(eq(mcpConnection.id, reference.id))
-        fixture.state[failure] = true
+        if (failure === "invalidTokenType") {
+          mcpIntegration.fetch = async (input, init) => {
+            const response = await fixture.fetch(input, init)
+            return (input instanceof Request ? input.url : input.toString()).endsWith("/token")
+              ? Response.json({ ...(await response.json()), token_type: "unsupported" })
+              : response
+          }
+        } else fixture.state[failure] = true
         await expect(
           authority((service) => service.getCredential({ actor, reference })),
         ).rejects.toThrow()

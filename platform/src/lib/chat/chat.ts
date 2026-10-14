@@ -284,6 +284,12 @@ export class Chat extends Context.Service<
           : undefined
         const events = Stream.unwrap(
           Effect.gen(function* () {
+            let turn = { claim: input.managed.claim }
+            yield* Effect.addFinalizer(() =>
+              threads
+                .interrupt({ claim: turn.claim })
+                .pipe(Effect.timeout("5 seconds"), Effect.ignore),
+            )
             const mcp = unknownOutcome
               ? { tools: [], presentation: [], unavailable: [] }
               : yield* mcpTools.acquire(input.managed.claim.scope)
@@ -380,11 +386,7 @@ export class Chat extends Context.Service<
                   }),
                 ),
             })
-            yield* Effect.addFinalizer(() =>
-              threads
-                .interrupt({ claim: managed.state.claim })
-                .pipe(Effect.timeout("5 seconds"), Effect.ignore),
-            )
+            turn = managed.state
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model, web),

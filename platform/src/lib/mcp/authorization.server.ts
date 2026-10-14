@@ -236,9 +236,11 @@ const makeMcpAuthorization = Effect.gen(function* () {
       Effect.gen(function* () {
         const payload = yield* readAttempt(input.reference)
         yield* attemptConnection(input.actor, payload)
+        const bindingHash = mcpHashSecret(input.challenge)
+        if (payload.browserBindingHash === bindingHash) return
         if (payload.status !== "authorizing" || payload.browserBindingHash !== null)
           return yield* new McpChanged()
-        payload.browserBindingHash = mcpHashSecret(input.challenge)
+        payload.browserBindingHash = bindingHash
         yield* writeAttempt(payload)
       }),
     )
@@ -395,7 +397,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
     const discovery = credential.discovery as unknown as OAuthDiscoveryState
     const binding = mcpDiscoveryBinding(discovery)
-    const tokens = yield* Effect.tryPromise({
+    const refreshed = yield* Effect.tryPromise({
       try: () =>
         refreshAuthorization(binding.issuer, {
           ...(discovery.authorizationServerMetadata
@@ -408,6 +410,19 @@ const makeMcpAuthorization = Effect.gen(function* () {
         }),
       catch: (error) => error,
     }).pipe(
+      Effect.flatMap((tokens) =>
+        Effect.try({
+          try: () =>
+            mcpOAuthCredential({
+              tokens: { ...tokens, issuer: binding.issuer },
+              discovery,
+              clientInformation: credential.clientInformation,
+              now: started,
+              previous: credential,
+            }),
+          catch: () => new McpAuthorizationRequired(),
+        }),
+      ),
       Effect.catch((error) => {
         const definite = error instanceof OAuthError
         const reauthorize =
@@ -442,17 +457,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
           )
       }),
     )
-    const refreshed = yield* Effect.try({
-      try: () =>
-        mcpOAuthCredential({
-          tokens: { ...tokens, issuer: binding.issuer },
-          discovery,
-          clientInformation: credential.clientInformation,
-          now: started,
-          previous: credential,
-        }),
-      catch: () => new McpAuthorizationRequired(),
-    })
     const updated = yield* db
       .update(mcpConnection)
       .set({ credentials: { ...envelope, credential: refreshed } })

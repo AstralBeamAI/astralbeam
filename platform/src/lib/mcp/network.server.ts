@@ -28,22 +28,6 @@ export function mcpUrlIsPublic(url: URL): boolean {
   )
 }
 
-export function mcpHeadersAreAllowed(headers: Readonly<Record<string, string>>): boolean {
-  if (
-    new Set(Object.keys(headers).map((name) => name.toLowerCase())).size !==
-    Object.keys(headers).length
-  )
-    return false
-  return Object.entries(headers).every(
-    ([name, value]) =>
-      /^[!#$%&'*+.^`|~\w-]+$/.test(name) &&
-      !/[\r\n\0]/.test(value) &&
-      !/^(?:host|cookie|set-cookie|origin|referer|connection|content-length|content-type|accept|transfer-encoding|upgrade|expect|te|trailer|via|forwarded|proxy-.*|sec-.*|x-forwarded-.*|mcp-.*|x-mcp-.*)$/i.test(
-        name,
-      ),
-  )
-}
-
 async function mcpPublicAddresses(hostname: string) {
   const addresses = await lookup(hostname.replace(/^\[|\]$/g, ""), { all: true })
   if (!addresses.length || addresses.some(({ address }) => !mcpAddressIsPublic(address)))

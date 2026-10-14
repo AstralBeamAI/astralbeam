@@ -350,6 +350,12 @@ export function createAstralBeamChat(
     if (state.auth.status !== "error" || state.auth.error !== failure)
       live.streamCallbacks?.onError?.(failure)
   }
+  const clearUnavailableMcpConnection = (id: string) => {
+    update({
+      unavailableMcpConnections:
+        state.unavailableMcpConnections?.filter((entry) => entry !== id) ?? [],
+    })
+  }
   const requestOptions = async (conversation = true, fresh = false): Promise<JwtOptions> => {
     const generation = selectionGeneration
     const authSignal = authentication.session.abortController.signal
@@ -1473,8 +1479,16 @@ export function createAstralBeamChat(
       return response.blob()
     },
     getMcpCatalog: async () => loadMcpCatalog(await requestOptions(false)),
-    manageMcp: async (operation) => manageMcp(operation, await requestOptions(false)),
-    connectMcpAccount: (input) => connectMcpAccount(input, () => requestOptions(false, true)),
+    manageMcp: async (operation) => {
+      const result = await manageMcp(operation, await requestOptions(false))
+      if ("id" in operation) clearUnavailableMcpConnection(operation.id)
+      else if (result && "id" in result) clearUnavailableMcpConnection(result.id)
+      return result
+    },
+    connectMcpAccount: async (input) => {
+      const id = await connectMcpAccount(input, () => requestOptions(false, true))
+      clearUnavailableMcpConnection(id)
+    },
     abandonToolCall,
     reset: () => {
       debug?.("status", "conversation reset")
