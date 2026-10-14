@@ -133,7 +133,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await page.getByRole("button", { name: "Add MCP server", exact: true }).click()
     const form = page.getByRole("form", { name: "Add MCP server" })
     await form.getByLabel("Server URL").fill("https://mcp.example.com/mcp")
-    await form.getByLabel("Authentication", { exact: true }).selectOption("static_headers")
+    await form
+      .getByRole("combobox", { name: "Authentication", exact: true })
+      .selectOption("static_headers")
     const headers = form.getByLabel("Header names, comma separated")
     await headers.fill("Cookie")
     await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
