@@ -4,16 +4,27 @@ import {
   type MarkdownComponentProps,
   type MarkdownComponents,
 } from "@tanstack/markdown/react"
-import { createElement, type ReactNode } from "react"
+import {
+  Children,
+  createContext,
+  createElement,
+  isValidElement,
+  useContext,
+  type ReactNode,
+} from "react"
+import { safeWebUrl, type WebCitation } from "../../core/web.ts"
+import { HighlightedCode } from "./highlighted-code.tsx"
+import { InlineCitation } from "./inline-citation.tsx"
 
 // The extension is stateless, so one instance serves every render; a fresh array would also
 // change the render options' identity on each chunk of a streamed reply.
 const extensions = [streamingMarkdownExtension()]
+const CitationContext = createContext<readonly WebCitation[]>([])
 
 // Tailwind's preflight drops heading sizes, list markers, and block margins, so each element the
 // renderer emits is restyled here rather than through a typography plugin.
 const tagClasses: Record<string, string> = {
-  p: "my-2 first:mt-0 last:mb-0",
+  p: "my-1.5 first:mt-0 last:mb-0",
   h1: "mt-4 mb-2 font-heading text-base font-semibold first:mt-0",
   h2: "mt-4 mb-2 font-heading text-base font-medium first:mt-0",
   h3: "mt-3 mb-1.5 font-heading text-sm font-semibold first:mt-0",
@@ -25,8 +36,6 @@ const tagClasses: Record<string, string> = {
   li: "marker:text-muted-foreground [&>ol]:my-1 [&>ul]:my-1",
   blockquote: "my-2 border-s-2 ps-3 text-muted-foreground italic",
   code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-xs",
-  // A fenced block nests a `code` element, whose chip styling is undone so only the block paints.
-  pre: "my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0",
   hr: "my-3",
   thead: "border-b",
   th: "px-2 py-1 text-start font-medium",
@@ -47,12 +56,23 @@ const styledTags = Object.fromEntries(
 
 // Executable protocols are stripped by the parser; an outbound link still opens away from the
 // host page and carries no referrer or ranking signal, since the agent chose it.
-function MarkdownLink({ href, children, ...props }: MarkdownComponentProps<"a">) {
+function MarkdownLink({ href, children, title, ...props }: MarkdownComponentProps<"a">) {
+  const citations = useContext(CitationContext)
+  const labels = Children.toArray(children)
+  const citation = citations.find(
+    (source) =>
+      labels.length === 1 &&
+      String(source.number) === labels[0] &&
+      source.title.replaceAll(/\s+/g, " ") === title &&
+      safeWebUrl(source.url) === href,
+  )
+  if (citation && href) return <InlineCitation citation={citation} href={href} />
   const external = /^https?:\/\//i.test(href ?? "")
   return (
     <a
       {...props}
       href={href}
+      title={title}
       className="font-medium underline underline-offset-2"
       {...(external
         ? { target: "_blank", rel: "nofollow noopener noreferrer", referrerPolicy: "no-referrer" }
@@ -60,6 +80,19 @@ function MarkdownLink({ href, children, ...props }: MarkdownComponentProps<"a">)
     >
       {children}
     </a>
+  )
+}
+
+function MarkdownCodeBlock({ children, ...props }: MarkdownComponentProps<"pre">) {
+  const child = Children.only(children)
+  const code = isValidElement<{ children: string }>(child) ? child.props.children : ""
+  const language = (props as Record<string, unknown>)["data-lang"]
+  return (
+    <div className="my-1.5 first:mt-0 last:mb-0">
+      <HighlightedCode language={typeof language === "string" ? language : undefined}>
+        {code}
+      </HighlightedCode>
+    </div>
   )
 }
 
@@ -89,23 +122,32 @@ const components: MarkdownComponents = {
   a: MarkdownLink,
   img: MarkdownImage,
   table: MarkdownTable,
+  pre: MarkdownCodeBlock,
 }
 
 /**
  * Renders an assistant reply's Markdown. Safe for a partial reply: the streaming profile reparses
  * the accumulated text on every chunk and holds back incomplete trailing blocks.
  */
-export function MarkdownMessage({ children }: { children: string }) {
+export function MarkdownMessage({
+  children,
+  citations = [],
+}: {
+  children: string
+  citations?: readonly WebCitation[] | undefined
+}) {
   // Frontmatter is off so a `---` completing mid-reply cannot reinterpret its opening as metadata,
   // and heading ids are off so a growing heading does not churn its id. Raw HTML stays escaped.
   return (
-    <Markdown
-      extensions={extensions}
-      components={components}
-      frontmatter={false}
-      headingIds={false}
-    >
-      {children}
-    </Markdown>
+    <CitationContext.Provider value={citations}>
+      <Markdown
+        extensions={extensions}
+        components={components}
+        frontmatter={false}
+        headingIds={false}
+      >
+        {children}
+      </Markdown>
+    </CitationContext.Provider>
   )
 }

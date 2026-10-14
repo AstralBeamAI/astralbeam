@@ -2,7 +2,6 @@ import { XIcon } from "@phosphor-icons/react"
 import { useEffect, useRef } from "react"
 import {
   Attachment,
-  AttachmentAction,
   AttachmentActions,
   AttachmentContent,
   AttachmentDescription,
@@ -15,6 +14,7 @@ import { attachmentDataUri } from "../lib/attachments.ts"
 import type { DraftAttachment } from "../lib/types.ts"
 import { formatByteSize } from "../lib/utils.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 
 // Reading and uploading share the chip's busy state until the server returns a file reference.
 const CHIP_STATE = {
@@ -74,14 +74,17 @@ export function ComposerAttachments({
               </AttachmentDescription>
             </AttachmentContent>
             <AttachmentActions>
-              <AttachmentAction
+              <TooltipButton
+                data-slot="attachment-action"
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={`Remove ${attachment.name}`}
-                title="Remove"
+                tooltip="Remove attachment"
                 onClick={() => onRemove(attachment.id)}
               >
                 <XIcon />
-              </AttachmentAction>
+              </TooltipButton>
             </AttachmentActions>
           </Attachment>
         )

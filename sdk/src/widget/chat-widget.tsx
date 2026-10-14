@@ -15,6 +15,7 @@ import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
+import { TooltipButton } from "./components/tooltip-button.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
 import {
@@ -556,15 +557,9 @@ export function ChatWidget({
   // The host sizes the desktop card. Closable chat fills the mobile viewport.
   const showHeader = options.showHeader !== false
   const closeButton = options.onClose && (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Close chat"
-      title="Close chat"
-      onClick={options.onClose}
-    >
+    <TooltipButton variant="ghost" size="icon-sm" tooltip="Close chat" onClick={options.onClose}>
       <XIcon />
-    </Button>
+    </TooltipButton>
   )
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
@@ -572,7 +567,7 @@ export function ChatWidget({
     <Card
       data-slot="chat"
       data-closable={closable}
-      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0"
+      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
@@ -596,11 +591,10 @@ export function ChatWidget({
             onDelete={forgetDraft}
             onSelect={focusComposer}
           />
-          <Button
+          <TooltipButton
             variant="ghost"
             size="icon-sm"
-            aria-label="New chat"
-            title="New chat"
+            tooltip="New chat"
             disabled={!chatState.thread && messages.length === 0}
             onClick={() => {
               resetThread()
@@ -608,7 +602,7 @@ export function ChatWidget({
             }}
           >
             <NotePencilIcon />
-          </Button>
+          </TooltipButton>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
           {closeButton}
         </CardHeader>
@@ -653,6 +647,8 @@ export function ChatWidget({
           emptyDescription={options.emptyDescription}
           widgets={widgets}
           toolTitles={toolTitles}
+          serverToolTitles={chatState.serverToolTitles}
+          streaming={status === "streaming"}
           activeSlots={activeSlots}
           interactiveToolIds={interactiveToolIds}
           isBusy={isBusy}
@@ -662,7 +658,7 @@ export function ChatWidget({
       </CardContent>
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
-      <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+      <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
         {chatState.threadLoading ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…

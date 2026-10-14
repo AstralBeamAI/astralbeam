@@ -159,7 +159,7 @@ export function UserMessageBody({
       )}
       {text.length > 0 && (
         <Bubble>
-          <BubbleContent>
+          <BubbleContent className="py-1.5">
             <span className="whitespace-pre-wrap">{text}</span>
           </BubbleContent>
         </Bubble>

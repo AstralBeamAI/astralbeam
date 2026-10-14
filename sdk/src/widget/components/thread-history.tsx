@@ -7,6 +7,7 @@ import { cn } from "cn"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
 import { Button } from "./ui/button.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 import {
   Combobox,
   ComboboxCollection,
@@ -136,9 +137,7 @@ export function ThreadHistory({
         }}
       >
         <ComboboxPrimitive.Trigger
-          aria-label="Show older chats"
-          title="Show older chats"
-          render={<Button variant="ghost" size="icon-sm" />}
+          render={<TooltipButton tooltip="Show older chats" variant="ghost" size="icon-sm" />}
         >
           <ClockCounterClockwiseIcon />
         </ComboboxPrimitive.Trigger>
@@ -183,13 +182,13 @@ export function ThreadHistory({
                       >
                         <span className="min-w-0 flex-1 truncate">{threadTitle(thread)}</span>
                         {thread.role === "manager" && (
-                          <Button
+                          <TooltipButton
                             variant="ghost"
                             size="icon-xs"
                             aria-label={`Delete ${threadTitle(thread)}`}
-                            title="Delete"
+                            tooltip="Delete chat"
                             disabled={current && writing}
-                            className="opacity-0 group-hover/thread:opacity-100 group-data-highlighted/thread:opacity-100 focus-visible:opacity-100"
+                            className="opacity-0 group-hover/thread:opacity-100 group-data-highlighted/thread:opacity-100 focus-visible:opacity-100 any-pointer-coarse:opacity-100"
                             onPointerDown={stopRowEvent}
                             onMouseDown={stopRowEvent}
                             onClick={(event) => {
@@ -198,7 +197,7 @@ export function ThreadHistory({
                             }}
                           >
                             <TrashIcon />
-                          </Button>
+                          </TooltipButton>
                         )}
                       </ComboboxItem>
                     )
