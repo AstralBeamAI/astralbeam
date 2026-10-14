@@ -56,71 +56,71 @@ const organizationNavigation = [
     label: "Agents",
     segment: "agents",
     icon: RobotIcon,
-    group: "Build",
+    group: "Setup",
     permission: "readConfiguration",
   },
   {
     label: "Models",
     segment: "models",
     icon: CpuIcon,
-    group: "Build",
+    group: "Setup",
     permission: "readConfiguration",
   },
   {
     label: "Sandboxes",
     segment: "sandboxes",
     icon: CubeIcon,
-    group: "Build",
+    group: "Setup",
     permission: "readConfiguration",
   },
   {
     label: "MCP servers",
     segment: "mcp",
     icon: PlugIcon,
-    group: "Build",
+    group: "Setup",
     permission: "readConfiguration",
   },
   {
     label: "Conversations",
     segment: "threads",
     icon: ChatCircleIcon,
-    group: "Activity",
+    group: "Customers",
     permission: "readTenants",
   },
   {
     label: "Tenants",
     segment: "tenants",
     icon: BriefcaseIcon,
-    group: "Activity",
+    group: "Customers",
     permission: "readTenants",
   },
   {
     label: "Tenant users",
     segment: "tenant-users",
     icon: UsersThreeIcon,
-    group: "Activity",
+    group: "Customers",
     permission: "readTenants",
   },
   {
     label: "Usage Limits",
     segment: "usage-limits",
     icon: GaugeIcon,
-    group: "Organization",
+    group: "Administration",
     permission: "readConfiguration",
   },
   {
     label: "API Keys",
     segment: "api-keys",
     icon: KeyIcon,
-    group: "Organization",
+    group: "Administration",
     permission: "readApiKey",
   },
-  { label: "Members", segment: "members", icon: IdentificationBadgeIcon, group: "Organization" },
+  { label: "Members", segment: "members", icon: IdentificationBadgeIcon, group: "Administration" },
   {
     label: "Settings",
     segment: "settings",
     icon: SlidersHorizontalIcon,
-    group: "Organization",
+    group: "Administration",
     permission: "updateOrganization",
   },
 ] satisfies readonly OrganizationNavigationEntry[]
@@ -200,7 +200,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
 
       <SidebarContent>
         <nav aria-label="Organization navigation">
-          {["", "Build", "Activity", "Organization"].map((group) => {
+          {["", "Setup", "Customers", "Administration"].map((group) => {
             const entries = organizationNavigation.filter(
               (item) =>
                 item.group === group &&
