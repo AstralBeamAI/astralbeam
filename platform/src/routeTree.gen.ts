@@ -40,6 +40,7 @@ import { Route as AuthenticatedOrgSlugSettingsIndexRouteImport } from './routes/
 import { Route as AuthenticatedOrgSlugTenantUsersIndexRouteImport } from './routes/_authenticated/$orgSlug/tenant-users/index'
 import { Route as AuthenticatedOrgSlugTenantsIndexRouteImport } from './routes/_authenticated/$orgSlug/tenants/index'
 import { Route as AuthenticatedOrgSlugThreadsIndexRouteImport } from './routes/_authenticated/$orgSlug/threads/index'
+import { Route as AuthenticatedOrgSlugUsageLimitsIndexRouteImport } from './routes/_authenticated/$orgSlug/usage-limits/index'
 import { Route as AuthenticatedUserOnboardingIndexRouteImport } from './routes/_authenticated/_user/onboarding/index'
 import { Route as AuthenticatedUserOrganizationsIndexRouteImport } from './routes/_authenticated/_user/organizations/index'
 import { Route as AuthenticatedUserSettingsIndexRouteImport } from './routes/_authenticated/_user/settings/index'
@@ -51,6 +52,8 @@ import { Route as AuthenticatedOrgSlugModelsModelProviderIdIndexRouteImport } fr
 import { Route as AuthenticatedOrgSlugModelsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/models/new/index'
 import { Route as AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/index'
 import { Route as AuthenticatedOrgSlugSandboxesNewIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/new/index'
+import { Route as AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRouteImport } from './routes/_authenticated/$orgSlug/usage-limits/$usageLimitId/index'
+import { Route as AuthenticatedOrgSlugUsageLimitsNewIndexRouteImport } from './routes/_authenticated/$orgSlug/usage-limits/new/index'
 import { Route as AuthenticatedUserSettingsAccountIndexRouteImport } from './routes/_authenticated/_user/settings/account/index'
 import { Route as AuthenticatedUserSettingsSecurityIndexRouteImport } from './routes/_authenticated/_user/settings/security/index'
 import { Route as ApiFilesOrganizationsOrganizationIdAvatarsFileIdRouteImport } from './routes/api/files/organizations/$organizationId/avatars/$fileId'
@@ -221,6 +224,12 @@ const AuthenticatedOrgSlugThreadsIndexRoute =
     path: '/threads/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugUsageLimitsIndexRoute =
+  AuthenticatedOrgSlugUsageLimitsIndexRouteImport.update({
+    id: '/usage-limits/',
+    path: '/usage-limits/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedUserOnboardingIndexRoute =
   AuthenticatedUserOnboardingIndexRouteImport.update({
     id: '/onboarding/',
@@ -286,6 +295,18 @@ const AuthenticatedOrgSlugSandboxesNewIndexRoute =
     path: '/sandboxes/new/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute =
+  AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRouteImport.update({
+    id: '/usage-limits/$usageLimitId/',
+    path: '/usage-limits/$usageLimitId/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
+const AuthenticatedOrgSlugUsageLimitsNewIndexRoute =
+  AuthenticatedOrgSlugUsageLimitsNewIndexRouteImport.update({
+    id: '/usage-limits/new/',
+    path: '/usage-limits/new/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedUserSettingsAccountIndexRoute =
   AuthenticatedUserSettingsAccountIndexRouteImport.update({
     id: '/settings/account/',
@@ -341,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/$orgSlug/threads/': typeof AuthenticatedOrgSlugThreadsIndexRoute
+  '/$orgSlug/usage-limits/': typeof AuthenticatedOrgSlugUsageLimitsIndexRoute
   '/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
   '/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
   '/settings/': typeof AuthenticatedUserSettingsIndexRoute
@@ -352,6 +374,8 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/models/new/': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/$orgSlug/usage-limits/$usageLimitId/': typeof AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute
+  '/$orgSlug/usage-limits/new/': typeof AuthenticatedOrgSlugUsageLimitsNewIndexRoute
   '/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
   '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
@@ -384,6 +408,7 @@ export interface FileRoutesByTo {
   '/$orgSlug/tenant-users': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/$orgSlug/tenants': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/$orgSlug/threads': typeof AuthenticatedOrgSlugThreadsIndexRoute
+  '/$orgSlug/usage-limits': typeof AuthenticatedOrgSlugUsageLimitsIndexRoute
   '/onboarding': typeof AuthenticatedUserOnboardingIndexRoute
   '/organizations': typeof AuthenticatedUserOrganizationsIndexRoute
   '/settings': typeof AuthenticatedUserSettingsIndexRoute
@@ -395,6 +420,8 @@ export interface FileRoutesByTo {
   '/$orgSlug/models/new': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/$orgSlug/sandboxes/$sandboxProviderId': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/$orgSlug/sandboxes/new': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/$orgSlug/usage-limits/$usageLimitId': typeof AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute
+  '/$orgSlug/usage-limits/new': typeof AuthenticatedOrgSlugUsageLimitsNewIndexRoute
   '/settings/account': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/settings/security': typeof AuthenticatedUserSettingsSecurityIndexRoute
   '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
@@ -433,6 +460,7 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/tenant-users/': typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   '/_authenticated/$orgSlug/tenants/': typeof AuthenticatedOrgSlugTenantsIndexRoute
   '/_authenticated/$orgSlug/threads/': typeof AuthenticatedOrgSlugThreadsIndexRoute
+  '/_authenticated/$orgSlug/usage-limits/': typeof AuthenticatedOrgSlugUsageLimitsIndexRoute
   '/_authenticated/_user/onboarding/': typeof AuthenticatedUserOnboardingIndexRoute
   '/_authenticated/_user/organizations/': typeof AuthenticatedUserOrganizationsIndexRoute
   '/_authenticated/_user/settings/': typeof AuthenticatedUserSettingsIndexRoute
@@ -444,6 +472,8 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/models/new/': typeof AuthenticatedOrgSlugModelsNewIndexRoute
   '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/': typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   '/_authenticated/$orgSlug/sandboxes/new/': typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  '/_authenticated/$orgSlug/usage-limits/$usageLimitId/': typeof AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute
+  '/_authenticated/$orgSlug/usage-limits/new/': typeof AuthenticatedOrgSlugUsageLimitsNewIndexRoute
   '/_authenticated/_user/settings/account/': typeof AuthenticatedUserSettingsAccountIndexRoute
   '/_authenticated/_user/settings/security/': typeof AuthenticatedUserSettingsSecurityIndexRoute
   '/api/files/organizations/$organizationId/avatars/$fileId': typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
@@ -481,6 +511,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/tenant-users/'
     | '/$orgSlug/tenants/'
     | '/$orgSlug/threads/'
+    | '/$orgSlug/usage-limits/'
     | '/onboarding/'
     | '/organizations/'
     | '/settings/'
@@ -492,6 +523,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/models/new/'
     | '/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/$orgSlug/sandboxes/new/'
+    | '/$orgSlug/usage-limits/$usageLimitId/'
+    | '/$orgSlug/usage-limits/new/'
     | '/settings/account/'
     | '/settings/security/'
     | '/api/files/organizations/$organizationId/avatars/$fileId'
@@ -524,6 +557,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/tenant-users'
     | '/$orgSlug/tenants'
     | '/$orgSlug/threads'
+    | '/$orgSlug/usage-limits'
     | '/onboarding'
     | '/organizations'
     | '/settings'
@@ -535,6 +569,8 @@ export interface FileRouteTypes {
     | '/$orgSlug/models/new'
     | '/$orgSlug/sandboxes/$sandboxProviderId'
     | '/$orgSlug/sandboxes/new'
+    | '/$orgSlug/usage-limits/$usageLimitId'
+    | '/$orgSlug/usage-limits/new'
     | '/settings/account'
     | '/settings/security'
     | '/api/files/organizations/$organizationId/avatars/$fileId'
@@ -572,6 +608,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/tenant-users/'
     | '/_authenticated/$orgSlug/tenants/'
     | '/_authenticated/$orgSlug/threads/'
+    | '/_authenticated/$orgSlug/usage-limits/'
     | '/_authenticated/_user/onboarding/'
     | '/_authenticated/_user/organizations/'
     | '/_authenticated/_user/settings/'
@@ -583,6 +620,8 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/models/new/'
     | '/_authenticated/$orgSlug/sandboxes/$sandboxProviderId/'
     | '/_authenticated/$orgSlug/sandboxes/new/'
+    | '/_authenticated/$orgSlug/usage-limits/$usageLimitId/'
+    | '/_authenticated/$orgSlug/usage-limits/new/'
     | '/_authenticated/_user/settings/account/'
     | '/_authenticated/_user/settings/security/'
     | '/api/files/organizations/$organizationId/avatars/$fileId'
@@ -825,6 +864,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugThreadsIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/usage-limits/': {
+      id: '/_authenticated/$orgSlug/usage-limits/'
+      path: '/usage-limits'
+      fullPath: '/$orgSlug/usage-limits/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugUsageLimitsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/_user/onboarding/': {
       id: '/_authenticated/_user/onboarding/'
       path: '/onboarding'
@@ -902,6 +948,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/usage-limits/$usageLimitId/': {
+      id: '/_authenticated/$orgSlug/usage-limits/$usageLimitId/'
+      path: '/usage-limits/$usageLimitId'
+      fullPath: '/$orgSlug/usage-limits/$usageLimitId/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
+    '/_authenticated/$orgSlug/usage-limits/new/': {
+      id: '/_authenticated/$orgSlug/usage-limits/new/'
+      path: '/usage-limits/new'
+      fullPath: '/$orgSlug/usage-limits/new/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugUsageLimitsNewIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/_user/settings/account/': {
       id: '/_authenticated/_user/settings/account/'
       path: '/settings/account'
@@ -944,12 +1004,15 @@ interface AuthenticatedOrgSlugRouteRouteChildren {
   AuthenticatedOrgSlugTenantUsersIndexRoute: typeof AuthenticatedOrgSlugTenantUsersIndexRoute
   AuthenticatedOrgSlugTenantsIndexRoute: typeof AuthenticatedOrgSlugTenantsIndexRoute
   AuthenticatedOrgSlugThreadsIndexRoute: typeof AuthenticatedOrgSlugThreadsIndexRoute
+  AuthenticatedOrgSlugUsageLimitsIndexRoute: typeof AuthenticatedOrgSlugUsageLimitsIndexRoute
   AuthenticatedOrgSlugAgentsAgentIdIndexRoute: typeof AuthenticatedOrgSlugAgentsAgentIdIndexRoute
   AuthenticatedOrgSlugAgentsNewIndexRoute: typeof AuthenticatedOrgSlugAgentsNewIndexRoute
   AuthenticatedOrgSlugModelsModelProviderIdIndexRoute: typeof AuthenticatedOrgSlugModelsModelProviderIdIndexRoute
   AuthenticatedOrgSlugModelsNewIndexRoute: typeof AuthenticatedOrgSlugModelsNewIndexRoute
   AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute: typeof AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute
   AuthenticatedOrgSlugSandboxesNewIndexRoute: typeof AuthenticatedOrgSlugSandboxesNewIndexRoute
+  AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute: typeof AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute
+  AuthenticatedOrgSlugUsageLimitsNewIndexRoute: typeof AuthenticatedOrgSlugUsageLimitsNewIndexRoute
 }
 
 const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChildren =
@@ -971,6 +1034,8 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugTenantsIndexRoute,
     AuthenticatedOrgSlugThreadsIndexRoute:
       AuthenticatedOrgSlugThreadsIndexRoute,
+    AuthenticatedOrgSlugUsageLimitsIndexRoute:
+      AuthenticatedOrgSlugUsageLimitsIndexRoute,
     AuthenticatedOrgSlugAgentsAgentIdIndexRoute:
       AuthenticatedOrgSlugAgentsAgentIdIndexRoute,
     AuthenticatedOrgSlugAgentsNewIndexRoute:
@@ -983,6 +1048,10 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
       AuthenticatedOrgSlugSandboxesSandboxProviderIdIndexRoute,
     AuthenticatedOrgSlugSandboxesNewIndexRoute:
       AuthenticatedOrgSlugSandboxesNewIndexRoute,
+    AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute:
+      AuthenticatedOrgSlugUsageLimitsUsageLimitIdIndexRoute,
+    AuthenticatedOrgSlugUsageLimitsNewIndexRoute:
+      AuthenticatedOrgSlugUsageLimitsNewIndexRoute,
   }
 
 const AuthenticatedOrgSlugRouteRouteWithChildren =

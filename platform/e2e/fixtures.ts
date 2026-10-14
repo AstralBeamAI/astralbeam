@@ -20,6 +20,7 @@ import {
   organizationSettingsPage,
 } from "./pages/organization-settings-page.ts"
 import { type SandboxesPage, sandboxesPage } from "./pages/sandboxes-page.ts"
+import { type UsageLimitsPage, usageLimitsPage } from "./pages/usage-limits-page.ts"
 import { type UserSettingsPage, userSettingsPage } from "./pages/user-settings-page.ts"
 
 type Fixtures = {
@@ -36,6 +37,7 @@ type Fixtures = {
   organizationSettings: OrganizationSettingsPage
   sandboxes: SandboxesPage
   shell: DashboardShell
+  usageLimits: UsageLimitsPage
   userSettings: UserSettingsPage
 }
 
@@ -70,6 +72,7 @@ export const test = base.extend<Fixtures>({
   organizationSettings: async ({ page }, provide) => await provide(organizationSettingsPage(page)),
   sandboxes: async ({ page }, provide) => await provide(sandboxesPage(page)),
   shell: async ({ page }, provide) => await provide(dashboardShell(page)),
+  usageLimits: async ({ page }, provide) => await provide(usageLimitsPage(page)),
   userSettings: async ({ page }, provide) => await provide(userSettingsPage(page)),
 })
 

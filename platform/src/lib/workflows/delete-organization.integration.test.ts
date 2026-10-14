@@ -48,6 +48,7 @@ import {
   tenant,
   tenantUser,
   tables,
+  usageLimit,
   user,
 } from "@/db/schema"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
@@ -108,6 +109,18 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .values({ organizationId, id: tenantId, externalId: "t" })
       .returning()
     await db.insert(tenantUser).values({ organizationId, tenantId: owned!.id, externalId: "u" })
+    await db.insert(usageLimit).values({
+      organizationId,
+      name: "Weekly limit",
+      enabled: true,
+      appliesByDefault: true,
+      scope: "tenant_user",
+      metric: "tokens",
+      amount: "1000",
+      windowType: "rolling",
+      windowCount: 1,
+      windowUnit: "week",
+    })
     return {
       organizationId,
       ownerId: owner!.id,
@@ -565,6 +578,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       modelProvider,
       providerModel,
       organizationConfiguration,
+      usageLimit,
     ]) {
       const rows = await db.select({ organizationId: table.organizationId }).from(table)
       expect(new Set(rows.map((row) => row.organizationId))).toEqual(new Set([kept.organizationId]))

@@ -7,6 +7,7 @@ export type OrganizationSection =
   | "Models"
   | "Agents"
   | "Sandboxes"
+  | "Usage Limits"
   | "API Keys"
   | "Members"
   | "Settings"

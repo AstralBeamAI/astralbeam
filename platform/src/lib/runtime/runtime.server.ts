@@ -23,6 +23,7 @@ import { Tenants } from "@/lib/tenants/tenants"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 
 const LoggerLayer = Logger.layer([
   IS_DEVELOPMENT_SERVER ? Logger.consolePretty() : Logger.consoleLogFmt,
@@ -51,6 +52,7 @@ function makeAppLayer() {
     SandboxProviders.layer,
     Tenants.layer,
     TenantUsers.layer,
+    UsageLimits.layer,
     LoggerLayer,
   )
 }

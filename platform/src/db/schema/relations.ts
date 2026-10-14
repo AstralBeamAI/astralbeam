@@ -76,6 +76,10 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       from: relations.organization.id,
       to: relations.tenant.organizationId,
     }),
+    usageLimits: relations.many.usageLimit({
+      from: relations.organization.id,
+      to: relations.usageLimit.organizationId,
+    }),
   },
   apiKey: {
     organization: relations.one.organization({
@@ -92,6 +96,12 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
   sandboxProvider: {
     organization: relations.one.organization({
       from: relations.sandboxProvider.organizationId,
+      to: relations.organization.id,
+    }),
+  },
+  usageLimit: {
+    organization: relations.one.organization({
+      from: relations.usageLimit.organizationId,
       to: relations.organization.id,
     }),
   },

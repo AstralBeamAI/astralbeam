@@ -10,5 +10,11 @@ export {
   chatMessageTurnStateEnum,
   chatMessagePartExecutionLocationEnum,
 } from "./schema/chat.ts"
+export {
+  usageLimitScopeEnum,
+  usageLimitMetricEnum,
+  usageLimitWindowTypeEnum,
+  usageLimitWindowUnitEnum,
+} from "./schema/usage-limits.ts"
 
 export const tables = databaseTables
