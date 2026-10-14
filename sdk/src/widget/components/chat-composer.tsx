@@ -33,6 +33,7 @@ interface ChatComposerProps {
   streamBusy: boolean
   /** `streamBusy` or host tools executing between runs; blocks sending. */
   isBusy: boolean
+  threadLoading: boolean
   /** Authentication is not ready, so the composer cannot start a run. */
   authPending: boolean
   authError: Error | undefined
@@ -57,6 +58,7 @@ export function ChatComposer({
   error,
   streamBusy,
   isBusy,
+  threadLoading,
   authPending,
   authError,
   onAuthRetry,
@@ -67,7 +69,7 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
-  const blocked = authPending || authError !== undefined
+  const blocked = authPending || authError !== undefined || threadLoading
   // A file still being read would be left out of the message, so the send waits for it.
   const reading = attachments.some((attachment) => attachment.status === "reading")
   const sendable = attachments.some((attachment) => attachment.status === "ready")

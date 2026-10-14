@@ -604,7 +604,11 @@ export function ChatWidget({
               <CardTitle className="truncate">{options.title ?? DEFAULT_TITLE}</CardTitle>
             )}
           </div>
-          <McpConnectionsPanel key={`${apiUrl}:${draftIdentity}`} chat={chat} state={chatState} />
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
           <ThreadHistory
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
@@ -631,7 +635,11 @@ export function ChatWidget({
       )}
       {!showHeader && (
         <div className="flex justify-end px-2">
-          <McpConnectionsPanel key={`${apiUrl}:${draftIdentity}`} chat={chat} state={chatState} />
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
           {closeButton}
         </div>
       )}
@@ -746,6 +754,7 @@ export function ChatWidget({
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
+          threadLoading={chatState.threadLoading}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}
