@@ -1,6 +1,6 @@
-import { SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
+import { SEED_ORGANIZATIONS } from "@scripts/seed/fixtures.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
 
 test("new agent tools default on when available and saved opt-outs survive reload", async ({
   page,

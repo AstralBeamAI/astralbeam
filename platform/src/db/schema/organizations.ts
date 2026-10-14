@@ -20,14 +20,14 @@ import {
   SandboxProviderIdSchema,
   SandboxProviderOptionsSchema,
   SandboxTestMetadataSchema,
-} from "../../lib/sandboxes/schemas.ts"
+} from "@/lib/sandboxes/schemas.ts"
 import {
   ModelProviderCredentialsPayloadSchema,
   ModelConfigurationSchema,
   type ModelProviderType,
   type ModelProviderApi,
-} from "../../lib/model-providers/schemas.ts"
-import { UuidV7Schema } from "../../lib/schemas.ts"
+} from "@/lib/model-providers/schemas.ts"
+import { UuidV7Schema } from "@/lib/schemas.ts"
 
 import {
   caseInsensitiveText,
@@ -43,7 +43,7 @@ import {
 import {
   ORGANIZATION_API_KEY_RATE_LIMIT_MAX_REQUESTS,
   ORGANIZATION_API_KEY_RATE_LIMIT_WINDOW_MS,
-} from "../../lib/api-keys/schemas.ts"
+} from "@/lib/api-keys/schemas.ts"
 import { fileObject } from "./files.ts"
 import { user } from "./authentication.ts"
 

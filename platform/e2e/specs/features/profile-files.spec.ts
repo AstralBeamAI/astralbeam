@@ -2,15 +2,15 @@ import { readFileSync } from "node:fs"
 import { hashPassword } from "better-auth/crypto"
 import { Pool } from "pg"
 
-import { SEED_PASSWORD } from "../../../scripts/seed/fixtures.ts"
-import { logoFileUrl } from "../../../src/lib/organizations/images.ts"
+import { SEED_PASSWORD } from "@scripts/seed/fixtures.ts"
+import { logoFileUrl } from "@/lib/organizations/images.ts"
 
-import { authPage } from "../../pages/auth-page.ts"
-import { membersPage } from "../../pages/members-page.ts"
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
-import { startBrowserStorageFixture, stopBrowserStorageFixture } from "../../object-storage.ts"
-import { e2eDatabaseUrl, operatorKey, platformUrl } from "../../worktree.ts"
+import { authPage } from "@e2e/pages/auth-page.ts"
+import { membersPage } from "@e2e/pages/members-page.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { startBrowserStorageFixture, stopBrowserStorageFixture } from "@e2e/object-storage.ts"
+import { e2eDatabaseUrl, operatorKey, platformUrl } from "@e2e/worktree.ts"
 
 test("avatars and existing logo APIs store files privately and enforce their ownership", async ({
   page,

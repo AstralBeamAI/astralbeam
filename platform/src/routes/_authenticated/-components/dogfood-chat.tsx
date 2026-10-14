@@ -37,7 +37,7 @@ const emptyToolParameters = { type: "object", properties: {}, additionalProperti
 const dogfoodChatRoute = getRouteApi("/_authenticated")
 
 // The index and its Markdown load on the first lookup, keeping them out of the dashboard bundle.
-const loadDocsSearch = () => import("../../docs/-lib/search")
+const loadDocsSearch = () => import("@/routes/docs/-lib/search")
 
 const docsTools: Record<string, ToolDefinition> = {
   search_docs: {

@@ -1,5 +1,5 @@
-import { SEED_CONVERSATIONS, SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
-import { expect, test } from "../../fixtures.ts"
+import { SEED_CONVERSATIONS, SEED_ORGANIZATIONS } from "@scripts/seed/fixtures.ts"
+import { expect, test } from "@e2e/fixtures.ts"
 
 test("Astro reopens a seeded conversation from its history", async ({ page, astro }) => {
   const [conversation] = SEED_CONVERSATIONS.astro

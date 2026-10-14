@@ -1,6 +1,6 @@
-import { expect, test } from "../../fixtures.ts"
-import { makeRunIdentity } from "../../identity.ts"
-import { dockerDaemonAvailable } from "../../worktree.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
+import { dockerDaemonAvailable } from "@e2e/worktree.ts"
 
 /**
  * Opt in with `E2E_SANDBOX=docker`. Saving a provider runs the product's own connection test,

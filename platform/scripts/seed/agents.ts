@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm"
 
-import { formatAgentId } from "../../src/lib/agents/schemas.ts"
+import { formatAgentId } from "@/lib/agents/schemas.ts"
 
-import { agent, organizationConfiguration, sandboxProvider } from "../../src/db/schema.ts"
+import { agent, organizationConfiguration, sandboxProvider } from "@/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"

@@ -18,7 +18,7 @@ import { getAuthDatabase } from "@/db/database"
 import { configTable } from "@/db/schema"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { Config } from "./config"
-import { seedConfig } from "../../../scripts/seed/config"
+import { seedConfig } from "@scripts/seed/config"
 
 const destinationSettings = {
   endpoint: "http://127.0.0.1:9000/storage/v1/s3",

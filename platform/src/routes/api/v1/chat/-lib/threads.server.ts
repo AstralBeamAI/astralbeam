@@ -9,9 +9,9 @@ import {
   OpenApi,
 } from "effect/http-api"
 
-import { APP_HANDLE } from "../../../../../lib/constants.ts"
-import { LockVersionSchema, NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
-import { ApiUuidSchema, tenantUserEmail } from "../../../../../lib/tenants/schemas.ts"
+import { APP_HANDLE } from "@/lib/constants.ts"
+import { LockVersionSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { ApiUuidSchema, tenantUserEmail } from "@/lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
 import {
   restPageFields,
@@ -19,13 +19,9 @@ import {
   restPageQuery,
   restPaginationQuery,
 } from "../../-lib/shared.server"
-import type {
-  ThreadRecord,
-  MessageRecord,
-  ParticipantRecord,
-} from "../../../../../lib/chat/threads/threads"
+import type { ThreadRecord, MessageRecord, ParticipantRecord } from "@/lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
-import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "../../../../../lib/chat/threads/schemas.ts"
+import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "@/lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
 const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser"])

@@ -3,7 +3,7 @@ import { Effect, Exit, Option, Schema } from "effect"
 import { SqlClient, SqlError } from "effect/sql"
 
 import { makeDatabaseCache, tryWithDatabaseCacheLock } from "../cache.ts"
-import { NonEmptyStringSchema, strictParseOptions } from "../../lib/schemas.ts"
+import { NonEmptyStringSchema, strictParseOptions } from "@/lib/schemas.ts"
 
 const databaseIdempotencyRecordSchema = Schema.Struct({
   operation: Schema.String,

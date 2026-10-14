@@ -15,14 +15,14 @@ import {
   restPaginationQuery,
   restResourceSecurity,
 } from "./shared.server"
-import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
-import { NonEmptyStringSchema } from "../../../../lib/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 import {
   chatMessageRecord,
   messageResource,
   savedChatAttachmentResponse,
 } from "../chat/-lib/threads.server"
-import type { DirectoryThreadRecord } from "../../../../lib/chat/threads/threads"
+import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
 
 const directoryThreadDate = Schema.DateFromString.pipe(
   Schema.annotateEncoded({ format: "date-time" }),

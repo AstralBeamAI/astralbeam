@@ -84,7 +84,7 @@ Three default Playwright projects run in a dependency chain, with a fourth opt-i
 
 Compose it from the page objects; a spec should read as the user's steps and nothing else.
 
-1. Add `specs/features/<feature>.spec.ts` and import `{ expect, test }` from `../../fixtures.ts`.
+1. Add `specs/features/<feature>.spec.ts` and import `{ expect, test }` from `@e2e/fixtures.ts`.
 2. Take the page objects you need from the fixture argument. Add a method to a page object rather than putting a raw selector in a spec.
 3. Take the organization to work in from the `baseline` fixture; the spec is already signed in as its owner. `test.use({ storageState: { cookies: [], origins: [] } })` gets a signed-out context instead, as `route-guards.spec.ts` does.
 4. Take unique names from `makeRunIdentity()` for anything the spec creates, so two runs never collide.

@@ -13,7 +13,7 @@ import {
   type PgTableExtraConfigValue,
 } from "drizzle-orm/pg-core"
 
-import { ApiUuidSchema } from "../../lib/tenants/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import {
   deferrableForeignKey,
   schemaJsonb,

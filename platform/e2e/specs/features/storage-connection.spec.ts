@@ -1,8 +1,8 @@
-import { startBrowserStorageFixture, stopBrowserStorageFixture } from "../../object-storage.ts"
+import { startBrowserStorageFixture, stopBrowserStorageFixture } from "@e2e/object-storage.ts"
 
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
-import { operatorKey } from "../../worktree.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { operatorKey } from "@e2e/worktree.ts"
 
 test("the operator tests unsaved storage settings and sees safe verification failures", async ({
   page,

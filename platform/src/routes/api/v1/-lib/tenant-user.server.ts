@@ -21,7 +21,7 @@ import {
   TenantUserPatchSchema,
   TenantUserRecordSchema as ManagementTenantUserRecordSchema,
   TenantUserWriteSchema,
-} from "../../../../lib/tenants/schemas.ts"
+} from "@/lib/tenants/schemas.ts"
 import { restExampleTenant, restMemberParams } from "./tenant.server"
 
 const restExampleUser = {
