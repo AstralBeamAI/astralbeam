@@ -28,6 +28,13 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
     await expect(page.getByText(/^limit_[0-9a-f-]{36}_[0-9a-f-]{36}$/)).toBeVisible()
   })
 
+  await test.step("a usage page past the end returns to the last page", async () => {
+    const limitPage = page.url()
+    await page.goto(`${limitPage}?page=3`)
+    await expect(page.getByText("No usage in the current window yet.")).toBeVisible()
+    expect(new URL(page.url()).searchParams.get("page")).toBeNull()
+  })
+
   await test.step("a rolling five-hour spend limit applies only when a token lists it", async () => {
     await shell.openSection("Usage Limits", "Usage Limits")
     await usageLimits.startCreate()

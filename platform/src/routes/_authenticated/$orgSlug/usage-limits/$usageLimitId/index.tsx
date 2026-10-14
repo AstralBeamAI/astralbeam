@@ -9,25 +9,44 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { UsageLimitIdSchema } from "@/lib/usage-limits/schemas"
 import { UsageLimitForm } from "../-components/usage-limit-form"
-import { copyUsageLimitId } from "../-lib/utils"
+import { copyUsageLimitId, lastUsageLimitSubjectsPage } from "../-lib/utils"
 import { UsageLimitActions } from "./-components/usage-limit-actions"
+import { UsageLimitSubjects } from "./-components/usage-limit-subjects"
 import { getUsageLimitPageData } from "./-functions/get-usage-limit-page-data"
 
 /** A hand-typed ID that cannot exist should 404 here rather than fail the loader's validator. */
 const isUsageLimitId = Schema.is(UsageLimitIdSchema)
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/usage-limits/$usageLimitId/")({
+  validateSearch: (search): { page?: number } => {
+    const page = Number(search["page"])
+    return Number.isInteger(page) && page > 1 ? { page } : {}
+  },
+  loaderDeps: ({ search }) => ({ page: search.page ?? 1 }),
   beforeLoad: ({ context, params }) => {
     if (!isUsageLimitId(params.usageLimitId)) throw notFound()
     if (!context.organization.permissions.readConfiguration) {
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
-  loader: async ({ params }) => {
+  loader: async ({ params, deps }) => {
     const page = await getUsageLimitPageData({
-      data: { organizationSlug: params.orgSlug, usageLimitId: params.usageLimitId },
+      data: {
+        organizationSlug: params.orgSlug,
+        usageLimitId: params.usageLimitId,
+        page: deps.page,
+      },
     })
     if (!page) throw notFound()
+    // Windows end and subjects are deleted between loads, so a page past the end moves to the last.
+    const lastPage = lastUsageLimitSubjectsPage(page.data.usage.total)
+    if (deps.page > lastPage)
+      throw redirect({
+        to: "/$orgSlug/usage-limits/$usageLimitId",
+        params,
+        search: lastPage > 1 ? { page: lastPage } : {},
+        replace: true,
+      })
     return page
   },
   component: UsageLimitPage,
@@ -38,6 +57,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/usage-limits/$usa
 function UsageLimitPage() {
   const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
+  const { page } = Route.useLoaderDeps()
   const { usageLimit } = data
 
   return (
@@ -78,7 +98,7 @@ function UsageLimitPage() {
               Add its ID to the <code>usageLimits</code> option when your server mints a chat token
               for a tenant user it should apply to:
             </p>
-            <pre className="mt-2 overflow-x-auto bg-muted p-2 font-mono text-xs text-foreground">
+            <pre className="mt-2 bg-muted p-2 font-mono text-xs break-all whitespace-pre-wrap text-foreground">
               {`usageLimits: ["${usageLimit.id}"]`}
             </pre>
           </AlertDescription>
@@ -96,6 +116,13 @@ function UsageLimitPage() {
         organizationSlug={orgSlug}
         usageLimit={usageLimit}
         readOnly={!permissions.updateConfiguration}
+      />
+
+      <UsageLimitSubjects
+        organizationSlug={orgSlug}
+        usageLimit={usageLimit}
+        usage={data.usage}
+        page={page}
       />
     </div>
   )
