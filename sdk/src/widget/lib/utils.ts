@@ -1,6 +1,7 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import type { WidgetDefinition } from "../../lib/types.ts"
 import { citedWebText, webPartMetadata } from "../../core/web.ts"
+import { isAstralBeamApiError } from "../../api/api.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../../core/messages.ts"
 import { INHERITED_PROPERTIES, WIDGET_SLOT_PREFIX, WIDGET_SLOT_SELECTOR } from "./style-bridge.ts"
 import type { QuestionnaireItemSpec } from "./types.ts"
@@ -110,7 +111,18 @@ export function formatToolJson(value: unknown): string {
 }
 
 // Transport errors read like "HTTP error! status: 500"; users need something actionable.
+/** Names the reached limit and when chat resumes, in the reader's own locale and time zone. */
+export function describeUsageLimit(limit: { name: string; resetsAt: string }): string {
+  const resetsAt = new Date(limit.resetsAt).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+  return `${limit.name} reached. You can chat again after ${resetsAt}.`
+}
+
 export function describeError(error: Error | undefined): string {
+  const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
+  if (limit) return describeUsageLimit({ name: limit.name, resetsAt: limit.resets_at })
   const message = error?.message ?? ""
   const httpStatus = message.match(/status: (\d{3})/)?.[1]
   if (httpStatus) return `The assistant service returned an error (HTTP ${httpStatus}).`

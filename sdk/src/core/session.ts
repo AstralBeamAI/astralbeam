@@ -45,7 +45,12 @@ import {
 import { startAuthentication } from "./auth-lifecycle.ts"
 import { isSettledToolCall } from "./messages.ts"
 import { webPartMetadata } from "./web.ts"
-import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL, SANDBOX_STATUS_EVENT } from "./protocol.ts"
+import {
+  ASK_QUESTIONNAIRE_TOOL,
+  RENDER_WIDGET_TOOL,
+  SANDBOX_STATUS_EVENT,
+  USAGE_LIMIT_REACHED_EVENT,
+} from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
 import { validateParameters } from "./schema.ts"
 import type { RenderWidgetInput, SandboxActivity, SandboxStatus } from "./types.ts"
@@ -153,6 +158,8 @@ export interface AstralBeamChatState {
   /** The tool set currently declared to the agent, in declaration order. */
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
+  /** The usage limit that ended the last run, by display name, until another run starts. */
+  usageLimitReached: { name: string; resetsAt: string } | undefined
   sandbox: SandboxActivity
   thread: ChatThread | undefined
   threadLoading: boolean
@@ -236,6 +243,7 @@ export function createAstralBeamChat(
     capabilities: { attachments: true },
     agentTools: [],
     sandboxStatus: undefined,
+    usageLimitReached: undefined,
     sandbox: { files: [], commands: [] },
     thread: undefined,
     threadLoading: false,
@@ -615,6 +623,9 @@ export function createAstralBeamChat(
       headers,
       body: JSON.stringify(payload),
     }).catch((error: unknown) => {
+      // The chat client rewraps failures, so the problem's limit is kept before it is lost.
+      const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
+      if (limit) update({ usageLimitReached: { name: limit.name, resetsAt: limit.resets_at } })
       if (
         submission &&
         !previouslyAttempted &&
@@ -826,7 +837,11 @@ export function createAstralBeamChat(
       },
       onStatusChange: (status) => {
         if (client === next && generation === selectionGeneration)
-          update({ status, error: next.getError() })
+          update({
+            status,
+            error: next.getError(),
+            ...(status === "submitted" ? { usageLimitReached: undefined } : {}),
+          })
       },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
@@ -857,6 +872,15 @@ export function createAstralBeamChat(
               ...(event.acceptedMessageId ? { unsentMessage: undefined } : {}),
             })
           }
+          return
+        }
+        const limit = data as { name?: unknown; resetsAt?: unknown } | undefined
+        if (
+          eventType === USAGE_LIMIT_REACHED_EVENT &&
+          typeof limit?.name === "string" &&
+          typeof limit.resetsAt === "string"
+        ) {
+          update({ usageLimitReached: { name: limit.name, resetsAt: limit.resetsAt } })
           return
         }
         const value = (data as { state?: unknown } | undefined)?.state
@@ -961,6 +985,7 @@ export function createAstralBeamChat(
       status: "ready",
       sandbox: { files: [], commands: [] },
       sandboxStatus: undefined,
+      usageLimitReached: undefined,
       pendingInteractions: [],
       threadLoadFailed: false,
       messagesCursor: undefined,

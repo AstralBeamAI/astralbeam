@@ -2,6 +2,7 @@ import { ArrowLeftIcon, CopyIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -68,6 +69,21 @@ function UsageLimitPage() {
           </Button>
         </div>
       </div>
+
+      {!usageLimit.appliesByDefault && (
+        <Alert className="max-w-2xl">
+          <AlertTitle>Applied when a chat token lists it</AlertTitle>
+          <AlertDescription>
+            <p>
+              Add its ID to the <code>usageLimits</code> option when your server mints a chat token
+              for a tenant user it should apply to:
+            </p>
+            <pre className="mt-2 overflow-x-auto bg-muted p-2 font-mono text-xs text-foreground">
+              {`usageLimits: ["${usageLimit.id}"]`}
+            </pre>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {permissions.deleteConfiguration && (
         <UsageLimitActions organizationSlug={orgSlug} usageLimit={usageLimit} />

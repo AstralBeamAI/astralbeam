@@ -49,6 +49,7 @@ import {
   tenantUser,
   tables,
   usageLimit,
+  usageLimitCounter,
   user,
 } from "@/db/schema"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
@@ -108,18 +109,33 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .insert(tenant)
       .values({ organizationId, id: tenantId, externalId: "t" })
       .returning()
-    await db.insert(tenantUser).values({ organizationId, tenantId: owned!.id, externalId: "u" })
-    await db.insert(usageLimit).values({
+    const [ownedUser] = await db
+      .insert(tenantUser)
+      .values({ organizationId, tenantId: owned!.id, externalId: "u" })
+      .returning({ id: tenantUser.id })
+    const [limit] = await db
+      .insert(usageLimit)
+      .values({
+        organizationId,
+        name: "Weekly limit",
+        enabled: true,
+        appliesByDefault: true,
+        scope: "tenant_user",
+        metric: "tokens",
+        amount: "1000",
+        windowType: "rolling",
+        windowCount: 1,
+        windowUnit: "week",
+      })
+      .returning({ id: usageLimit.id })
+    await db.insert(usageLimitCounter).values({
       organizationId,
-      name: "Weekly limit",
-      enabled: true,
-      appliesByDefault: true,
-      scope: "tenant_user",
-      metric: "tokens",
-      amount: "1000",
-      windowType: "rolling",
-      windowCount: 1,
-      windowUnit: "week",
+      usageLimitId: limit!.id,
+      tenantId: owned!.id,
+      tenantUserId: ownedUser!.id,
+      windowStartsAt: new Date(),
+      tokens: 10,
+      spend: "0.01",
     })
     return {
       organizationId,
@@ -579,6 +595,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       providerModel,
       organizationConfiguration,
       usageLimit,
+      usageLimitCounter,
     ]) {
       const rows = await db.select({ organizationId: table.organizationId }).from(table)
       expect(new Set(rows.map((row) => row.organizationId))).toEqual(new Set([kept.organizationId]))

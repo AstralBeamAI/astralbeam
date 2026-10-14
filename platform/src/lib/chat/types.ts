@@ -14,4 +14,6 @@ export type ChatTenantUser = ChatAuthTokenPayload["user"] & {
 export interface ChatPrincipal {
   readonly organization: { readonly id: string }
   readonly tenantUser: ChatTenantUser
+  /** Public IDs of the usage limits the token lists, applied beyond the default limits. */
+  readonly usageLimitIds?: readonly string[] | undefined
 }

@@ -18,3 +18,17 @@ export class UsageLimitChanged extends Schema.TaggedError<UsageLimitChanged>()(
 ) {
   override readonly message = "This usage limit changed since you opened it. Reload and try again"
 }
+
+/** A limit that applies to the request has no allowance left until `usageLimit.resetsAt`. */
+export class UsageLimitReached extends Schema.TaggedError<UsageLimitReached>()(
+  "UsageLimitReached",
+  {
+    usageLimit: Schema.Struct({ name: Schema.String, resetsAt: Schema.String }),
+    retryAfterSeconds: Schema.Int,
+  },
+  { httpApiStatus: 429 },
+) {
+  override get message() {
+    return `${this.usageLimit.name} reached. It resets at ${this.usageLimit.resetsAt}.`
+  }
+}

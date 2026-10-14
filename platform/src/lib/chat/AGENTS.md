@@ -20,6 +20,7 @@
 - Verification is read-only. It never touches `request_count`, `remaining`, the refill columns, or `last_request`, so a chat run does not consume Better Auth API-key quota.
 - The trusted context is a `ChatPrincipal`: `organization.id` from the loaded row, plus the token's `user` and `tenant` claims. No organization id ever comes from the request body.
 - Rate limiting (`consumeChatRateLimit` in `src/routes/api/v1/chat/-lib/run.server.ts`) uses three independent database-backed buckets per 60 seconds: 20 new turns, 200 tool-result continuations, and 200 uploads. Classify by the validated operation, never by a caller-supplied historical role. The key is a SHA-256 over the JSON tuple `[organizationId, tenantId, tenantUserId]` from the verified principal.
+- Usage limits apply the enabled default limits plus the enabled limits listed in the token's `usage_limits` claim. Check them before admitting a message or tool result, record each model call's tokens and spend in `usage-limits.ts`, and end the agent loop through `onShouldContinue` once one is used up, announcing the `usage_limit.reached` CUSTOM event that `sdk/src/core/protocol.ts` names `USAGE_LIMIT_REACHED_EVENT`. A refused request is a `429` whose problem carries a `usage_limit` member.
 - Chat resolves existing internal Tenant and TenantUser IDs without provisioning them. `/me` remains the sole synchronization boundary.
 
 ## Agent resolution

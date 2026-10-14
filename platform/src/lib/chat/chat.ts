@@ -51,6 +51,8 @@ import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
+import { chatUsageLimitMiddleware } from "./usage-limits"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
@@ -159,6 +161,7 @@ export class Chat extends Context.Service<
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
       const storedFiles = yield* ChatFiles
+      const usageLimits = yield* UsageLimits
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -286,6 +289,21 @@ export class Chat extends Context.Service<
           agent.systemPrompt,
         ]
         const services = yield* Effect.context<never>()
+        const limits = yield* usageLimits.applicable({
+          organizationId: principal.organization.id,
+          listedIds: principal.usageLimitIds ?? [],
+        })
+        const usageLimitMiddleware = limits.length
+          ? [
+              chatUsageLimitMiddleware({
+                usageLimits,
+                limits,
+                subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
+                pricing: yield* modelProviders.pricing(model),
+                execute: Effect.runPromiseWith(services),
+              }),
+            ]
+          : []
         const managed = managedChatMiddleware({
           managed: input.managed,
           threads,
@@ -372,6 +390,7 @@ export class Chat extends Context.Service<
                 middleware: [
                   createChatAttachmentSnapshotMiddleware(inputMessages, history),
                   ...managed.middleware,
+                  ...usageLimitMiddleware,
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
                 threadId: params.threadId,
@@ -448,6 +467,7 @@ export class Chat extends Context.Service<
       ModelProviders.layer,
       ChatThreads.layer,
       ChatFiles.layer,
+      UsageLimits.layer,
     ]),
   )
 }

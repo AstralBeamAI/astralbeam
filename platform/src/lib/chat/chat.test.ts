@@ -57,6 +57,7 @@ import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { Chat } from "./chat.ts"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./constants.ts"
@@ -131,6 +132,9 @@ function chatTestLayer(options: {
             : Effect.succeed(options.model ?? null),
       } as unknown as ModelProviders["Service"]),
       Layer.succeed(ChatSandboxes, sandboxes),
+      Layer.succeed(UsageLimits, {
+        applicable: () => Effect.succeed([]),
+      } as unknown as UsageLimits["Service"]),
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
         assertActive: () => Effect.void,

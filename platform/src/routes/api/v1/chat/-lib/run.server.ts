@@ -18,6 +18,8 @@ import {
   CHAT_RATE_LIMIT_WINDOW_MS,
 } from "@/lib/chat/constants"
 import type { ChatPrincipal } from "@/lib/chat/types"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
+import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { readRequestJson } from "@/routes/api/-lib/request-body.server"
 import { consumeRestRateLimit } from "../../-lib/auth.server"
@@ -41,6 +43,23 @@ export function consumeChatRateLimit(
     },
   )
 }
+
+/** Refuses a new turn or continuation before admission once an applicable usage limit is used up. */
+export const checkChatUsageLimits = Effect.fn("checkChatUsageLimits")(function* (input: {
+  readonly principal: ChatPrincipal
+  readonly scope: { organizationId: string; tenantId: string; tenantUserId: string }
+  readonly threadId: unknown
+}) {
+  const usageLimits = yield* UsageLimits
+  const limits = yield* usageLimits.applicable({
+    organizationId: input.principal.organization.id,
+    listedIds: input.principal.usageLimitIds ?? [],
+  })
+  if (limits.length === 0) return
+  // Admission rejects a malformed thread ID, so only per-conversation limits skip it here.
+  const threadId = Schema.is(ApiUuidSchema)(input.threadId) ? input.threadId : undefined
+  yield* usageLimits.check({ limits, subject: { ...input.scope, threadId } })
+})
 
 export const readChatRequestBody = Effect.fn("readChatRequestBody")((request: Request) =>
   readRequestJson(request, CHAT_MAX_REQUEST_BYTES).pipe(

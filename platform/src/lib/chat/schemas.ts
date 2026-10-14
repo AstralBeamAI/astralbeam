@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import { NonEmptyStringSchema, UuidV7Schema } from "@/lib/schemas"
+import { UsageLimitIdSchema } from "@/lib/usage-limits/schemas"
 
 const ChatExternalIdSchema = NonEmptyStringSchema.pipe(Schema.check(Schema.isMaxLength(255)))
 
@@ -26,6 +27,10 @@ export const ChatAuthTokenPayloadSchema = Schema.StructWithRest(
     aud: Schema.Literal("astralbeam"),
     user: ChatTenantUserSchema,
     tenant: ChatTenantSchema,
+    // Usage limits the host applies to this tenant user beyond the Organization's defaults.
+    usage_limits: Schema.optional(
+      Schema.Array(UsageLimitIdSchema).pipe(Schema.check(Schema.isMaxLength(20))),
+    ),
   }),
   [Schema.JsonObject],
 )

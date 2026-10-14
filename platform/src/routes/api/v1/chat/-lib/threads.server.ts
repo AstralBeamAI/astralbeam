@@ -382,14 +382,19 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("../../-lib/pagination.server"),
       )
-      const { chatAdmissionResponse, consumeChatRateLimit, readChatRequestBody } =
-        yield* Effect.promise(() => import("./run.server"))
+      const {
+        chatAdmissionResponse,
+        checkChatUsageLimits,
+        consumeChatRateLimit,
+        readChatRequestBody,
+      } = yield* Effect.promise(() => import("./run.server"))
       const { HttpServerResponse } = yield* Effect.promise(() => import("effect/http"))
       const threads = yield* ChatThreads
       const tenantUsers = yield* TenantUsers
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
+        | Effect.Services<ReturnType<typeof checkChatUsageLimits>>
         | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
       const authenticate = (request: HttpServerRequest.HttpServerRequest) =>
@@ -423,6 +428,9 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               onExcessProperty: "error",
             }).pipe(Effect.mapError(() => new ChatRunInputInvalid()))
             const scope = yield* threads.resolveScope({ principal })
+            yield* checkChatUsageLimits({ principal, scope, threadId: params.id }).pipe(
+              Effect.provideContext(services),
+            )
             const admission = yield* resolveManagedChatTools({
               scope,
               id: params.id,

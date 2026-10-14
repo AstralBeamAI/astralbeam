@@ -32,7 +32,7 @@ import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/se
 import { authenticationIdentity } from "../core/auth.ts"
 import { newUuid } from "../core/threads.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
-import { hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
+import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
@@ -103,8 +103,10 @@ export function ChatWidget({
     return () => chat.dispose()
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
-  const { messages, status, error, auth, capabilities, sandbox, sandboxStatus, agentTools } =
-    chatState
+  const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
+  // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
+  const usageLimit = chatState.usageLimitReached
+  const error = usageLimit ? new Error(describeUsageLimit(usageLimit)) : chatState.error
 
   const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
   const interactiveToolIds = useMemo(() => {
@@ -682,14 +684,16 @@ export function ChatWidget({
             chat.stop()
           }}
           onRetry={
-            chatState.unsentMessage !== undefined
-              ? () => void chat.sendMessage(chatState.unsentMessage!)
-              : messages.length > 0
-                ? () => void chat.reload()
-                : undefined
+            usageLimit
+              ? undefined
+              : chatState.unsentMessage !== undefined
+                ? () => void chat.sendMessage(chatState.unsentMessage!)
+                : messages.length > 0
+                  ? () => void chat.reload()
+                  : undefined
           }
           retryLabel={chatState.unsentMessage !== undefined ? "Retry" : "Refresh"}
-          showError={status === "error"}
+          showError={status === "error" || usageLimit !== undefined}
           error={error}
           streamBusy={streamBusy}
           isBusy={isBusy}

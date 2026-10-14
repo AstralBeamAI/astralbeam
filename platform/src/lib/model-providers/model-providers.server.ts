@@ -77,6 +77,8 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
+  /** The model's stored price and limit override, which `ModelProviders.pricing` completes. */
+  readonly configured?: ModelConfiguration | null | undefined
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: typeof fetch
 }
@@ -172,6 +174,10 @@ export class ModelProviders extends Context.Service<
       readonly organizationId: string
       readonly agentId: string
     }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
+    /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
+    readonly pricing: (
+      model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
+    ) => Effect.Effect<ModelConfiguration | null>
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
@@ -570,6 +576,7 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
+            configured: providerModel.configuration,
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -668,7 +675,21 @@ export class ModelProviders extends Context.Service<
         if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
       })
 
+      const pricing = Effect.fn("ModelProviders.pricing")(function* (
+        model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
+      ) {
+        if (model.configured?.pricingSource.kind === "manual") return model.configured
+        const { providerType, modelId, configured } = model
+        return effectiveModelConfiguration({
+          catalog: yield* readPricing,
+          providerType,
+          modelId,
+          configured,
+        })
+      })
+
       return ModelProviders.of({
+        pricing,
         list,
         get,
         choices,

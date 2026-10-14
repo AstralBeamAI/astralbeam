@@ -6,6 +6,23 @@ test("explains browser network failures", () => {
   expect(describeError(new TypeError("Failed to fetch"))).toContain("Check your connection")
 })
 
+test("names a reached usage limit and when chat resumes, instead of the raw problem detail", () => {
+  const body = {
+    type: "about:blank",
+    title: "Too Many Requests",
+    status: 429,
+    detail: "Weekly limit reached. It resets at 2026-10-19T00:00:00.000Z.",
+    usage_limit: { name: "Weekly limit", resets_at: "2026-10-19T00:00:00.000Z" },
+  }
+  const error = Object.assign(new Error(body.detail), {
+    name: "AstralBeamApiError",
+    status: 429,
+    headers: new Headers(),
+    body,
+  })
+  expect(describeError(error)).toMatch(/^Weekly limit reached\. You can chat again after .*2026/)
+})
+
 // A host tool may resolve with a cyclic or BigInt-bearing value; the panel must still render.
 test("falls back to a string for an unserializable tool payload", () => {
   const cyclic: Record<string, unknown> = {}

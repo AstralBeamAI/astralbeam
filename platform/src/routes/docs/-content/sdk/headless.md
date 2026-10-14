@@ -25,7 +25,7 @@ function MyChat() {
 }
 ```
 
-- State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`.
+- State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
 - Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
 - Retrying an unchanged unsent draft reuses its admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Nothing needs a remount.

@@ -159,8 +159,11 @@ export function ProviderModelConfigurationFields({
             {[
               ["Input price", `$${configuration.prices.inputPerMillion}`],
               ["Output price", `$${configuration.prices.outputPerMillion}`],
-              ["Available input tokens", modelInputAllowance(configuration).toLocaleString()],
-              ["Output cap (tokens)", configuration.outputCap.toLocaleString()],
+              [
+                "Available input tokens",
+                modelInputAllowance(configuration).toLocaleString("en-US"),
+              ],
+              ["Output cap (tokens)", configuration.outputCap.toLocaleString("en-US")],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>
