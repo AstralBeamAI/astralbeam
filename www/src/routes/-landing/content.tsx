@@ -34,14 +34,9 @@ export function Sidebar() {
     <AstralBeamChat
       title="Acme Assistant"
       theme={{
-        light: {
-          "--primary": "#4f46e5",
-          "--radius": "0.75rem",
-        },
-        dark: {
-          "--primary": "#818cf8",
-        }}}
-      attachments={{ maxFiles: 5 }}
+        light: { "--primary": "#4f46e5", "--radius": "0.75rem" },
+        dark: { "--primary": "#818cf8" },
+      }}
     />
   )
 }`,
