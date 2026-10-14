@@ -31,11 +31,13 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
   await dashboard.goto(`${platformUrl}/${SEED_TODOS_TARGET.organizationSlug}/mcp`)
   await waitForHydration(dashboard.getByRole("button", { name: "Add MCP server", exact: true }))
   await dashboard.getByRole("button", { name: "Add MCP server", exact: true }).click()
-  const dialog = dashboard.getByRole("dialog", { name: "Add MCP server", exact: true })
-  await dialog.getByLabel("Server URL").fill(endpoint)
-  await dialog.getByLabel("Authentication", { exact: true }).selectOption("static_headers")
-  await dialog.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
-  await dialog.getByRole("button", { name: "Add MCP server", exact: true }).click()
+  const form = dashboard.getByRole("form", { name: "Add MCP server", exact: true })
+  await form.getByLabel("Server URL").fill(endpoint)
+  await form
+    .getByRole("combobox", { name: "Authentication", exact: true })
+    .selectOption("static_headers")
+  await form.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
+  await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
   const server = dashboard.locator("article").filter({
     has: dashboard.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
   })
@@ -45,7 +47,7 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
       .getByRole("button", { name: `Remove server: ${new URL(endpoint).hostname}`, exact: true })
       .click()
     await dashboard
-      .getByRole("alertdialog")
+      .getByRole("group", { name: "Remove server?", exact: true })
       .getByRole("button", { name: "Remove server", exact: true })
       .click()
     await expect(server).toHaveCount(0)
