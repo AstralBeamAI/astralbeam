@@ -1,4 +1,4 @@
-import { and, eq, like, sql as drizzleSql } from "drizzle-orm"
+import { and, eq, inArray, like, sql as drizzleSql } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
@@ -31,7 +31,7 @@ export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {
         .delete(cacheEntry)
         .where(
           and(
-            eq(cacheEntry.namespace, "chat"),
+            inArray(cacheEntry.namespace, ["chat", "mcp-oauth"]),
             like(cacheEntry.key, `${input.organizationId}:${input.tenantId}:%`),
           ),
         )

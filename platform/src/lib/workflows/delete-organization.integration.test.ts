@@ -634,6 +634,15 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       const kept = await createOrganization("kept", scope.tenantId)
       await createDeletionChat(scope)
       await createDeletionChat(kept)
+      await db.insert(cacheEntry).values(
+        ["chat", "mcp-oauth"].flatMap((namespace) =>
+          [scope, kept].map(({ organizationId, tenantId }) => ({
+            namespace,
+            key: `${organizationId}:${tenantId}:pending`,
+            value: "test",
+          })),
+        ),
+      )
       await runAppEffect(
         Effect.gen(function* () {
           const sqlClient = yield* SqlClient.SqlClient
@@ -653,6 +662,17 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         .from(chatMessage)
       expect(new Set(messages.map((row) => row.organizationId))).toEqual(
         new Set([kept.organizationId]),
+      )
+      expect(
+        await db
+          .select({ namespace: cacheEntry.namespace, key: cacheEntry.key })
+          .from(cacheEntry)
+          .orderBy(cacheEntry.namespace),
+      ).toEqual(
+        ["chat", "mcp-oauth"].map((namespace) => ({
+          namespace,
+          key: `${kept.organizationId}:${kept.tenantId}:pending`,
+        })),
       )
     },
   )

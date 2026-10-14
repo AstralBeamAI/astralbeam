@@ -52,6 +52,7 @@ const mcpAuthConfigSchema = <S extends Schema.Constraint>(clientSchema: S) =>
     Schema.Struct({
       kind: Schema.Literal("static_headers"),
       headerNames: Schema.Array(NonEmptyStringSchema.check(Schema.isMaxLength(128))).check(
+        Schema.isMinLength(1),
         Schema.isMaxLength(16),
       ),
     }),

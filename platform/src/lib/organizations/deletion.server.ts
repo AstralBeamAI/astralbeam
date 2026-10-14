@@ -1,10 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, like } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
 // The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
 import { Database } from "../../db/database.ts"
 import { user } from "../../db/schema/authentication.ts"
+import { cacheEntry } from "../../db/schema/cache.ts"
 import { apiKey, invitation, member, organization } from "../../db/schema/organizations.ts"
 import { fileObject } from "../../db/schema/files.ts"
 import { ObjectStorage } from "../storage/object-storage.server.ts"
@@ -58,6 +59,14 @@ export const deleteOrganization = Effect.fn("deleteOrganization")(function* (
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       yield* sql`SET CONSTRAINTS ALL DEFERRED`
+      yield* db
+        .delete(cacheEntry)
+        .where(
+          and(
+            inArray(cacheEntry.namespace, ["chat", "mcp-oauth"]),
+            like(cacheEntry.key, `${organizationId}:%`),
+          ),
+        )
       return yield* db.delete(organization).where(eq(organization.id, organizationId))
     }),
   )

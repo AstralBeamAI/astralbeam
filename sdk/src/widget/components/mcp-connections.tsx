@@ -1,10 +1,9 @@
-import { PlugIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, PlugIcon, WrenchIcon, XIcon } from "@phosphor-icons/react"
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query"
 import { useId, useRef, useState } from "react"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { McpManagementOperation } from "../../core/mcp.ts"
 import { Button } from "./ui/button.tsx"
-import { Badge } from "./ui/badge.tsx"
 import { Input } from "./ui/input.tsx"
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx"
 
@@ -94,7 +93,7 @@ export function McpConnectionsPanel({
           aria-labelledby={`${fieldId}-title`}
           className="max-h-[75vh] w-[min(24rem,85vw)] gap-0 overflow-hidden p-0"
         >
-          <header className="shrink-0 space-y-1 border-b p-4">
+          <header className="shrink-0 space-y-1 border-b p-3">
             <h2 id={`${fieldId}-title`} className="font-semibold">
               Connections
             </h2>
@@ -103,10 +102,14 @@ export function McpConnectionsPanel({
               conversation access.
             </p>
           </header>
-          <div className="min-h-0 space-y-3 overflow-y-auto p-3">
-            {catalog.isPending && <p role="status">Loading connections…</p>}
+          <div className="min-h-0 divide-y overflow-y-auto">
+            {catalog.isPending && (
+              <p role="status" className="p-3 text-xs">
+                Loading connections…
+              </p>
+            )}
             {catalog.isError && (
-              <div>
+              <div className="p-3">
                 <p role="alert" className="text-xs text-destructive">
                   {catalog.error.message}
                 </p>
@@ -116,7 +119,7 @@ export function McpConnectionsPanel({
               </div>
             )}
             {catalog.data?.servers.length === 0 && (
-              <p className="text-xs text-muted-foreground">
+              <p className="p-3 text-xs text-muted-foreground">
                 Your organization has not added any integrations yet.
               </p>
             )}
@@ -130,9 +133,9 @@ export function McpConnectionsPanel({
               const endpoint = new URL(server.endpoint_url)
               const labels = server.auth_kind
                 ? {
-                    none: ["No sign-in required", "Enable", "Enable"],
-                    oauth: ["Account sign-in", "Connect account", "Reconnect"],
-                    static_headers: ["API credentials", "Add credentials", "Replace credentials"],
+                    none: ["Enable", "Enable"],
+                    oauth: ["Connect account", "Reconnect"],
+                    static_headers: ["Add credentials", "Replace credentials"],
                   }[server.auth_kind]
                 : null
               return (
@@ -140,35 +143,89 @@ export function McpConnectionsPanel({
                   key={server.id}
                   data-slot="mcp-account"
                   aria-busy={busy && active}
-                  className="space-y-2 rounded-lg border p-3"
+                  className="space-y-2 px-3 py-2.5"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="min-w-0 break-words font-medium" title={server.endpoint_url}>
-                      {endpoint.hostname}
-                    </h3>
-                    <Badge variant={connected ? "secondary" : "outline"}>
-                      {connected
-                        ? publicServer
-                          ? "Enabled"
-                          : "Connected"
-                        : account?.auth_state === "reauthorization_required"
-                          ? "Reconnect needed"
-                          : publicServer
-                            ? "Disabled"
-                            : "Not connected"}
-                    </Badge>
+                  <div className="flex items-center gap-2">
+                    <PlugIcon
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                    <div className="min-w-0 flex-1" title={server.endpoint_url}>
+                      <h3 className="truncate text-sm font-medium">{endpoint.hostname}</h3>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {connected
+                          ? publicServer
+                            ? "Enabled"
+                            : "Connected"
+                          : account?.auth_state === "reauthorization_required"
+                            ? "Reconnect needed"
+                            : publicServer
+                              ? "Disabled"
+                              : "Not connected"}
+                        {" · "}
+                        {endpoint.pathname}
+                        {endpoint.search}
+                      </p>
+                    </div>
+                    {headersFor !== server.id && (
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {connected && account && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label="Check tools"
+                            title="Check tools"
+                            disabled={busy}
+                            onClick={() => mutation.mutate({ action: "test", id: account.id })}
+                          >
+                            <WrenchIcon />
+                          </Button>
+                        )}
+                        {labels && !(publicServer && connected) && (
+                          <Button
+                            size={connected ? "icon-sm" : "sm"}
+                            variant={connected ? "ghost" : "outline"}
+                            aria-label={labels[connected ? 1 : 0]}
+                            title={labels[connected ? 1 : 0]}
+                            disabled={busy}
+                            onClick={() =>
+                              server.auth_kind === "oauth"
+                                ? mutation.mutate({
+                                    action: "authorize",
+                                    mcpServerId: server.id,
+                                    ...(account ? { id: account.id } : {}),
+                                  })
+                                : server.auth_kind === "static_headers"
+                                  ? setHeadersFor(server.id)
+                                  : mutation.mutate({ action: "connect", mcpServerId: server.id })
+                            }
+                          >
+                            {connected ? <ArrowClockwiseIcon /> : labels[0]}
+                          </Button>
+                        )}
+                        {account && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={publicServer ? "Disable" : "Disconnect locally"}
+                            title={publicServer ? "Disable" : "Disconnect locally"}
+                            disabled={busy}
+                            onClick={() =>
+                              mutation.mutate({ action: "disconnect", id: account.id })
+                            }
+                          >
+                            <XIcon />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground" title={server.endpoint_url}>
-                    {labels?.[0] ?? "Configuration unavailable"}
-                    {" · "}
-                    {endpoint.pathname}
-                  </p>
                   {!server.auth_kind && (
                     <p className="text-xs text-destructive">
                       Configuration unavailable. Contact your administrator.
                     </p>
                   )}
-                  {headersFor === server.id ? (
+                  {headersFor === server.id && (
                     <form
                       className="grid gap-2"
                       onSubmit={(event) => {
@@ -218,51 +275,6 @@ export function McpConnectionsPanel({
                         </div>
                       </fieldset>
                     </form>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {connected && account && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => mutation.mutate({ action: "test", id: account.id })}
-                        >
-                          Check tools
-                        </Button>
-                      )}
-                      {labels && !(publicServer && connected) && (
-                        <Button
-                          size="sm"
-                          variant={connected ? "ghost" : "default"}
-                          disabled={busy}
-                          onClick={() =>
-                            server.auth_kind === "oauth"
-                              ? mutation.mutate({
-                                  action: "authorize",
-                                  mcpServerId: server.id,
-                                  ...(account ? { id: account.id } : {}),
-                                })
-                              : server.auth_kind === "static_headers"
-                                ? setHeadersFor(server.id)
-                                : mutation.mutate({ action: "connect", mcpServerId: server.id })
-                          }
-                        >
-                          {labels[connected ? 2 : 1]}
-                        </Button>
-                      )}
-                      {account && (
-                        <Button
-                          size={publicServer ? "sm" : "icon-sm"}
-                          variant="ghost"
-                          aria-label={publicServer ? "Disable" : "Disconnect locally"}
-                          title={publicServer ? "Disable" : "Disconnect locally"}
-                          disabled={busy}
-                          onClick={() => mutation.mutate({ action: "disconnect", id: account.id })}
-                        >
-                          {publicServer ? "Disable" : <XIcon />}
-                        </Button>
-                      )}
-                    </div>
                   )}
                   {active && notice && (
                     <p

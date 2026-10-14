@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { useMutation } from "@tanstack/react-query"
-import { PlusIcon } from "@phosphor-icons/react"
+import { PlugIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/toast"
@@ -92,28 +92,43 @@ function McpDashboardPage() {
           embedded sidebar.
         </p>
       )}
-      {data.servers.map((server) => (
-        <article key={server.id} className="space-y-3 border p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="font-medium">{new URL(server.endpointUrl).hostname}</h3>
-            <Badge variant="secondary">
-              {server.authKind === "none"
-                ? "Public"
-                : server.authKind === "oauth"
-                  ? "OAuth"
-                  : server.authKind === "static_headers"
-                    ? "API key / headers"
-                    : "Configuration unavailable"}
-            </Badge>
-          </div>
-          <p className="break-all text-sm text-muted-foreground">{server.endpointUrl}</p>
-          {data.permissions.updateConfiguration && (
-            <Button variant="outline" size="sm" onClick={() => setRemoval(server)}>
-              Remove server
-            </Button>
-          )}
-        </article>
-      ))}
+      {data.servers.length > 0 && (
+        <div className="divide-y border">
+          {data.servers.map((server) => (
+            <article key={server.id} className="flex items-center gap-3 px-4 py-3">
+              <PlugIcon aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-medium">
+                  {new URL(server.endpointUrl).hostname}
+                </h3>
+                <p className="truncate text-xs text-muted-foreground" title={server.endpointUrl}>
+                  {server.endpointUrl}
+                </p>
+              </div>
+              <Badge variant="secondary">
+                {server.authKind === "none"
+                  ? "Public"
+                  : server.authKind === "oauth"
+                    ? "OAuth"
+                    : server.authKind === "static_headers"
+                      ? "API key / headers"
+                      : "Configuration unavailable"}
+              </Badge>
+              {data.permissions.updateConfiguration && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Remove server"
+                  title="Remove server"
+                  onClick={() => setRemoval(server)}
+                >
+                  <TrashIcon />
+                </Button>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
       <p className="text-sm text-muted-foreground">
         Credentials are private to each person. Connect and test an account in the application
         embedded sidebar.
