@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/mcp/")({
   },
   loader: ({ params }) => getMcpDashboardData({ data: { organizationSlug: params.orgSlug } }),
   component: McpDashboardPage,
-  head: () => ({ meta: [{ title: `Connections · ${APP_NAME}` }] }),
+  head: () => ({ meta: [{ title: `MCP servers · ${APP_NAME}` }] }),
 })
 function McpDashboardPage() {
   const { orgSlug } = Route.useParams()
@@ -62,9 +62,9 @@ function McpDashboardPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
-        <h1 className="text-2xl font-semibold">Connections</h1>
+        <h1 className="text-2xl font-semibold">MCP servers</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Add integrations for your embedded agents. Each person connects their own account.
+          Add remote tools for your embedded agents. Each person connects their own account.
         </p>
       </div>
       {error && (
@@ -82,13 +82,13 @@ function McpDashboardPage() {
             }}
           >
             <PlusIcon />
-            Add server
+            Add MCP server
           </Button>
         )}
       </div>
       {data.servers.length === 0 && (
         <p className="border border-dashed p-6 text-sm text-muted-foreground">
-          Add a public HTTPS MCP server to get started. People connect it from Connections in your
+          Add a public HTTPS MCP server to get started. People connect it from MCP servers in your
           embedded sidebar.
         </p>
       )}
@@ -107,7 +107,7 @@ function McpDashboardPage() {
               </div>
               <Badge variant="secondary">
                 {server.authKind === "none"
-                  ? "Public"
+                  ? "No authentication"
                   : server.authKind === "oauth"
                     ? "OAuth"
                     : server.authKind === "static_headers"
@@ -118,7 +118,7 @@ function McpDashboardPage() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Remove server"
+                  aria-label={`Remove server: ${new URL(server.endpointUrl).hostname}`}
                   title="Remove server"
                   onClick={() => setRemoval(server)}
                 >
@@ -130,13 +130,13 @@ function McpDashboardPage() {
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        Credentials are private to each person. Connect and test an account in the application
-        embedded sidebar.
+        Credentials are private to each person. Connect and test an account under MCP servers in
+        your application&apos;s embedded sidebar.
       </p>
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add server</DialogTitle>
+            <DialogTitle>Add MCP server</DialogTitle>
             <DialogDescription>
               Configure the endpoint. Each person authorizes their own account.
             </DialogDescription>

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NativeSelect } from "@/components/ui/native-select"
 import type { McpAuthConfig, McpServerWriteSchema } from "@/lib/mcp/schemas"
+import { MCP_PROTOCOL_VERSION } from "@/lib/mcp/schemas"
 
 export function McpServerForm({
   busy,
@@ -59,14 +60,18 @@ export function McpServerForm({
       }}
     >
       <fieldset disabled={busy} className="grid gap-3">
-        <Label htmlFor="mcp-endpoint">Public HTTPS endpoint</Label>
+        <Label htmlFor="mcp-endpoint">Server URL</Label>
         <Input
           id="mcp-endpoint"
           type="url"
           name="endpoint"
           required
           placeholder="https://mcp.example.com/mcp"
+          aria-describedby="mcp-endpoint-help"
         />
+        <p id="mcp-endpoint-help" className="text-sm text-muted-foreground">
+          Public HTTPS endpoint supporting MCP {MCP_PROTOCOL_VERSION} over Streamable HTTP.
+        </p>
         <Label htmlFor="mcp-auth">Authentication</Label>
         <NativeSelect
           id="mcp-auth"
@@ -75,8 +80,8 @@ export function McpServerForm({
             setAuthentication(event.currentTarget.value as McpAuthConfig["kind"])
           }
         >
-          <option value="none">Public</option>
-          <option value="static_headers">API key or static headers</option>
+          <option value="none">No authentication</option>
+          <option value="static_headers">API key / headers</option>
           <option value="oauth">OAuth</option>
         </NativeSelect>
         {authentication === "static_headers" && (
@@ -143,7 +148,7 @@ export function McpServerForm({
           <Button type="button" variant="outline" onClick={cancel}>
             Cancel
           </Button>
-          <Button type="submit">{busy ? "Saving…" : "Add server"}</Button>
+          <Button type="submit">{busy ? "Saving…" : "Add MCP server"}</Button>
         </div>
       </fieldset>
     </form>

@@ -1,15 +1,15 @@
-# Connections
+# MCP servers
 
 MCP connections give your agents tools from remote services. Let's connect a server, list its tools, and make them available to your agents.
 
 ## Connect a server
 
-1. Open **Connections** in the Organization dashboard and choose **Add server**.
-2. Enter the public HTTPS endpoint and choose public, static-header or OAuth authentication.
+1. Open **MCP servers** in the Organization dashboard and choose **Add MCP server**.
+2. Enter the public HTTPS endpoint and choose **No authentication**, **API key / headers** or **OAuth**.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
 4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Register the exact redirect URI shown in the form with your provider. The OAuth client selects the token authentication method from the provider's metadata.
-5. Open **Connections** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
-6. Choose **Check tools** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
+5. Open **MCP servers** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
+6. Choose **Test connection** to discover and count the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
 **NOTE**: This client supports MCP 2026-07-28 over Streamable HTTP, including JSON and request-scoped SSE responses. Older protocol revisions, stdio and private-network endpoints are unsupported. A provider's OAuth setup succeeding does not prove that its MCP endpoint supports this revision.
 

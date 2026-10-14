@@ -26,6 +26,7 @@ let mcpToolFixture: Awaited<ReturnType<typeof startMcpFixture>>
 async function withMcpTools(
   inspect: (
     set: Effect.Success<ReturnType<typeof McpTools.Service.acquire>>,
+    tools: typeof McpTools.Service,
   ) => void | Promise<void>,
   options: {
     credential?: (input: { reference: McpReference; expectedVersion?: number }) => McpCredential
@@ -44,7 +45,7 @@ async function withMcpTools(
         Effect.gen(function* () {
           const tools = yield* McpTools
           const set = yield* tools.acquire(mcpToolTestActor)
-          yield* Effect.promise(() => Promise.resolve(inspect(set)))
+          yield* Effect.promise(() => Promise.resolve(inspect(set, tools)))
         }),
       ).pipe(
         Effect.provide(
@@ -146,11 +147,17 @@ describe("request-oriented MCP tools", () => {
       },
     )
   })
-  test("rejects legacy protocol without initializing a session", async () => {
+  test("explains unsupported protocol without initializing a session", async () => {
     await withMcpTools(
-      (set) => {
+      async (set, tools) => {
         expect(set.unavailable).toEqual([mcpToolTestConnection.id])
+        await expect(
+          Effect.runPromise(
+            tools.test({ actor: mcpToolTestActor, reference: mcpToolTestConnection }),
+          ),
+        ).rejects.toThrow("Could not connect using MCP 2026-07-28")
         expect(mcpToolFixture.state.requests.map((entry) => entry.method)).toEqual([
+          "server/discover",
           "server/discover",
         ])
       },

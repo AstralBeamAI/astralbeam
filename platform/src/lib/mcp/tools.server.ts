@@ -6,7 +6,7 @@ import {
   type JsonSchemaType,
 } from "@modelcontextprotocol/client"
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/client/validators/ajv"
-import { createMCPClient } from "@tanstack/ai-mcp"
+import { createMCPClient, MCPConnectionError } from "@tanstack/ai-mcp"
 import type { AnyServerTool, ToolExecutionContext } from "@tanstack/ai"
 import { Context, Effect, Layer, Redacted } from "effect"
 import { McpConnections } from "./mcp.server.ts"
@@ -20,7 +20,7 @@ import {
   type McpActor,
   type McpReference,
 } from "./schemas.ts"
-import { McpUnavailable } from "./errors.ts"
+import { McpUnavailable, McpUnsupportedProtocol } from "./errors.ts"
 import { mcpCreateDispatcher, mcpGuardedFetch } from "./network.server.ts"
 
 const mcpRuntimeMethods = new Set(["server/discover", "tools/list", "tools/call"])
@@ -55,8 +55,9 @@ const makeMcpTools = Effect.gen(function* () {
           const headers = new Headers(init?.headers)
           const method = headers.get("Mcp-Method") ?? ""
           const signal = callSignals.getStore()
+          if (headers.get("MCP-Protocol-Version") !== MCP_PROTOCOL_VERSION || !method)
+            throw new McpUnsupportedProtocol()
           if (
-            headers.get("MCP-Protocol-Version") !== MCP_PROTOCOL_VERSION ||
             !mcpRuntimeMethods.has(method) ||
             (method === "tools/list" && ++pages > MCP_MAX_DISCOVERY_PAGES)
           )
@@ -100,7 +101,10 @@ const makeMcpTools = Effect.gen(function* () {
                 clientOptions: { capabilities: { elicitation: undefined, sampling: undefined } },
               }),
             ),
-          catch: () => new McpUnavailable(),
+          catch: (error) =>
+            error instanceof MCPConnectionError && error.cause instanceof McpUnsupportedProtocol
+              ? error.cause
+              : new McpUnavailable(),
         }),
         (opened) => Effect.promise(() => opened.close()),
       )

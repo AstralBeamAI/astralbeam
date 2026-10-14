@@ -29,19 +29,21 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
   await dashboard.getByRole("button", { name: /^sign in$/i }).click()
   await dashboard.waitForURL((url) => !url.pathname.startsWith("/auth/"))
   await dashboard.goto(`${platformUrl}/${SEED_TODOS_TARGET.organizationSlug}/mcp`)
-  await waitForHydration(dashboard.getByRole("button", { name: "Add server", exact: true }))
-  await dashboard.getByRole("button", { name: "Add server", exact: true }).click()
-  const dialog = dashboard.getByRole("dialog")
-  await dialog.getByLabel("Public HTTPS endpoint").fill(endpoint)
+  await waitForHydration(dashboard.getByRole("button", { name: "Add MCP server", exact: true }))
+  await dashboard.getByRole("button", { name: "Add MCP server", exact: true }).click()
+  const dialog = dashboard.getByRole("dialog", { name: "Add MCP server", exact: true })
+  await dialog.getByLabel("Server URL").fill(endpoint)
   await dialog.getByLabel("Authentication", { exact: true }).selectOption("static_headers")
   await dialog.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
-  await dialog.getByRole("button", { name: "Add server", exact: true }).click()
+  await dialog.getByRole("button", { name: "Add MCP server", exact: true }).click()
   const server = dashboard.locator("article").filter({
     has: dashboard.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
   })
   await expect(server).toBeVisible()
   return async () => {
-    await server.getByRole("button", { name: "Remove server", exact: true }).click()
+    await server
+      .getByRole("button", { name: `Remove server: ${new URL(endpoint).hostname}`, exact: true })
+      .click()
     await dashboard
       .getByRole("alertdialog")
       .getByRole("button", { name: "Remove server", exact: true })
@@ -75,8 +77,8 @@ export function mcpConnections(page: Page) {
         </script>`)
     },
     async open() {
-      await root.getByRole("button", { name: "Connections", exact: true }).click()
-      await expect(root.getByRole("heading", { name: "Connections", exact: true })).toBeVisible()
+      await root.getByRole("button", { name: "MCP servers", exact: true }).click()
+      await expect(root.getByRole("heading", { name: "MCP servers", exact: true })).toBeVisible()
     },
     account(host: string) {
       return root

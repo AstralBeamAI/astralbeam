@@ -1,4 +1,10 @@
-import { ArrowClockwiseIcon, PlugIcon, WrenchIcon, XIcon } from "@phosphor-icons/react"
+import {
+  ArrowClockwiseIcon,
+  PlugIcon,
+  SpinnerGapIcon,
+  WrenchIcon,
+  XIcon,
+} from "@phosphor-icons/react"
 import { QueryClient, useMutation, useQuery } from "@tanstack/react-query"
 import { useId, useRef, useState } from "react"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
@@ -64,25 +70,30 @@ export function McpConnectionsPanel({
   )
   if (!identity) return null
   const busy = mutation.isPending
+  const pendingLabel = busy
+    ? {
+        authorize: "Waiting for sign-in…",
+        test: "Testing connection…",
+        disconnect: "Disconnecting…",
+        connect: "Enabling…",
+        headers: "Saving credentials…",
+      }[mutation.variables.action]
+    : null
   const notice = mutation.isError
     ? mutation.error.message
-    : busy
-      ? mutation.variables.action === "authorize"
-        ? "Waiting for sign-in…"
-        : "Updating connection…"
-      : mutation.isSuccess
-        ? mutation.variables.action === "test" && mutation.data && "tool_count" in mutation.data
-          ? `${mutation.data.tool_count} tools available.`
-          : mutation.variables.action === "disconnect"
-            ? "Disconnected locally."
-            : "Connection saved."
-        : null
+    : mutation.isSuccess
+      ? mutation.variables.action === "test" && mutation.data && "tool_count" in mutation.data
+        ? `${mutation.data.tool_count} tools available.`
+        : mutation.variables.action === "disconnect"
+          ? "Disconnected locally."
+          : "Connection saved."
+      : null
   return (
     <div ref={container}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <Button variant="ghost" size="icon-sm" aria-label="Connections" title="Connections" />
+            <Button variant="ghost" size="icon-sm" aria-label="MCP servers" title="MCP servers" />
           }
         >
           <PlugIcon />
@@ -95,7 +106,7 @@ export function McpConnectionsPanel({
         >
           <header className="shrink-0 space-y-1 border-b p-3">
             <h2 id={`${fieldId}-title`} className="font-semibold">
-              Connections
+              MCP servers
             </h2>
             <p className="text-xs text-muted-foreground">
               Only you can use your connections. Tool results are saved and visible to everyone with
@@ -105,7 +116,7 @@ export function McpConnectionsPanel({
           <div className="min-h-0 divide-y overflow-y-auto">
             {catalog.isPending && (
               <p role="status" className="p-3 text-xs">
-                Loading connections…
+                Loading servers…
               </p>
             )}
             {catalog.isError && (
@@ -120,7 +131,7 @@ export function McpConnectionsPanel({
             )}
             {catalog.data?.servers.length === 0 && (
               <p className="p-3 text-xs text-muted-foreground">
-                Your organization has not added any integrations yet.
+                Your organization has not added any MCP servers yet.
               </p>
             )}
             {catalog.data?.servers.map((server) => {
@@ -131,6 +142,11 @@ export function McpConnectionsPanel({
               const publicServer = server.auth_kind === "none"
               const active = activeServerId === server.id
               const endpoint = new URL(server.endpoint_url)
+              const disconnectLabel = publicServer
+                ? "Disable"
+                : account?.auth_state === "disconnected"
+                  ? "Remove connection"
+                  : "Disconnect"
               const labels = server.auth_kind
                 ? {
                     none: ["Enable", "Enable"],
@@ -139,29 +155,32 @@ export function McpConnectionsPanel({
                   }[server.auth_kind]
                 : null
               return (
-                <article
-                  key={server.id}
-                  data-slot="mcp-account"
-                  aria-busy={busy && active}
-                  className="space-y-2 px-3 py-2.5"
-                >
+                <article key={server.id} data-slot="mcp-account" className="space-y-2 px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <PlugIcon
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-muted-foreground"
-                    />
+                    {busy && active ? (
+                      <SpinnerGapIcon aria-hidden="true" className="size-4 shrink-0 animate-spin" />
+                    ) : (
+                      <PlugIcon
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-muted-foreground"
+                      />
+                    )}
                     <div className="min-w-0 flex-1" title={server.endpoint_url}>
                       <h3 className="truncate text-sm font-medium">{endpoint.hostname}</h3>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {connected
-                          ? publicServer
-                            ? "Enabled"
-                            : "Connected"
-                          : account?.auth_state === "reauthorization_required"
-                            ? "Reconnect needed"
-                            : publicServer
-                              ? "Disabled"
-                              : "Not connected"}
+                      <p role="status" className="truncate text-xs text-muted-foreground">
+                        {active && pendingLabel
+                          ? pendingLabel
+                          : active && mutation.isError && mutation.variables.action === "test"
+                            ? "Connection failed"
+                            : connected
+                              ? publicServer
+                                ? "Enabled"
+                                : "Connected"
+                              : account?.auth_state === "reauthorization_required"
+                                ? "Reconnect needed"
+                                : publicServer
+                                  ? "Disabled"
+                                  : "Not connected"}
                         {" · "}
                         {endpoint.pathname}
                         {endpoint.search}
@@ -173,8 +192,8 @@ export function McpConnectionsPanel({
                           <Button
                             size="icon-sm"
                             variant="ghost"
-                            aria-label="Check tools"
-                            title="Check tools"
+                            aria-label={`Test connection: ${endpoint.hostname}`}
+                            title="Test connection"
                             disabled={busy}
                             onClick={() => mutation.mutate({ action: "test", id: account.id })}
                           >
@@ -185,7 +204,7 @@ export function McpConnectionsPanel({
                           <Button
                             size={connected ? "icon-sm" : "sm"}
                             variant={connected ? "ghost" : "outline"}
-                            aria-label={labels[connected ? 1 : 0]}
+                            aria-label={`${labels[connected ? 1 : 0]}: ${endpoint.hostname}`}
                             title={labels[connected ? 1 : 0]}
                             disabled={busy}
                             onClick={() =>
@@ -207,8 +226,8 @@ export function McpConnectionsPanel({
                           <Button
                             size="icon-sm"
                             variant="ghost"
-                            aria-label={publicServer ? "Disable" : "Disconnect locally"}
-                            title={publicServer ? "Disable" : "Disconnect locally"}
+                            aria-label={`${disconnectLabel}: ${endpoint.hostname}`}
+                            title={disconnectLabel}
                             disabled={busy}
                             onClick={() =>
                               mutation.mutate({ action: "disconnect", id: account.id })
@@ -242,20 +261,30 @@ export function McpConnectionsPanel({
                     >
                       <fieldset disabled={busy} className="grid gap-2">
                         {server.header_names.map((name) => (
-                          <label
-                            key={name}
-                            className="grid gap-1 text-xs"
-                            htmlFor={`${fieldId}-${server.id}-${name}`}
-                          >
-                            {name} value
+                          <div key={name} className="grid gap-1 text-xs">
+                            <label htmlFor={`${fieldId}-${server.id}-${name}`}>{name} value</label>
                             <Input
                               id={`${fieldId}-${server.id}-${name}`}
                               name={name}
                               type="password"
                               autoComplete="off"
                               required
+                              aria-describedby={
+                                name.toLowerCase() === "authorization"
+                                  ? `${fieldId}-authorization-help`
+                                  : undefined
+                              }
                             />
-                          </label>
+                            {name.toLowerCase() === "authorization" && (
+                              <span
+                                id={`${fieldId}-authorization-help`}
+                                className="text-muted-foreground"
+                              >
+                                Enter the full value, including Bearer before the token when
+                                required.
+                              </span>
+                            )}
+                          </div>
                         ))}
                         <p className="text-xs text-muted-foreground">
                           Saved secrets are never shown. Enter every value to replace them.
@@ -294,7 +323,7 @@ export function McpConnectionsPanel({
                     state.unavailableMcpConnections?.includes(account.id) &&
                     !(active && mutation.isSuccess && mutation.variables.action === "test") && (
                       <p className="text-xs text-muted-foreground">
-                        Unavailable in the last chat. Check tools or reconnect.
+                        Unavailable in the last chat. Test the connection or reconnect.
                       </p>
                     )}
                 </article>
