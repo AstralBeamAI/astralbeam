@@ -1,10 +1,12 @@
-import { and, asc, eq, inArray, or } from "drizzle-orm"
+import { and, asc, count, desc, eq, gt, inArray, or } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
+import { chatThread } from "@/db/schema/chat"
+import { tenant, tenantUser } from "@/db/schema/organizations"
 import { usageLimit, usageLimitCounter } from "@/db/schema/usage-limits"
 import { DisplayNameSchema, LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import {
@@ -18,6 +20,7 @@ import {
   formatUsageLimitId,
   parseUsageLimitId,
   TimeZoneSchema,
+  USAGE_LIMIT_SUBJECTS_PAGE_SIZE,
   type UsageLimitFields,
 } from "./schemas.ts"
 import { usageLimitWindowEnd } from "./windows.ts"
@@ -39,6 +42,16 @@ export interface UsageLimitStatus {
   readonly used: string
   /** Null until the subject's first usage opens a window. */
   readonly resetsAt: Date | null
+}
+
+/** One subject's usage in a limit's live window, named by its tenant, tenant user, or conversation. */
+export interface UsageLimitSubjectUsage {
+  readonly id: string
+  readonly tenant: { readonly name: string | null; readonly externalId: string } | null
+  readonly tenantUser: { readonly name: string | null; readonly externalId: string } | null
+  readonly threadTitle: string | null
+  readonly used: string
+  readonly resetsAt: Date
 }
 
 const decodeUsageLimitRows = Schema.decodeUnknownEffect(Schema.Array(UsageLimitRowSchema), {
@@ -102,6 +115,15 @@ export class UsageLimits extends Context.Service<
       readonly limits: readonly UsageLimit[]
       readonly subject: UsageSubject
     }) => Effect.Effect<void, UsageLimitReached>
+    /** Subjects with usage in their live window, most used first. Pages start at 1. */
+    readonly subjects: (input: {
+      readonly organizationId: string
+      readonly usageLimitId: string
+      readonly page: number
+    }) => Effect.Effect<
+      { readonly subjects: readonly UsageLimitSubjectUsage[]; readonly total: number },
+      UsageLimitNotFound
+    >
     readonly record: (input: {
       readonly limits: readonly UsageLimit[]
       readonly subject: UsageSubject
@@ -322,6 +344,84 @@ export class UsageLimits extends Context.Service<
         })
       })
 
+      const subjects = Effect.fn("UsageLimits.subjects")(function* (input: {
+        organizationId: string
+        usageLimitId: string
+        page: number
+      }) {
+        const limit = yield* get(input)
+        const now = DateTime.toDateUtc(yield* DateTime.now)
+        const live = and(
+          eq(usageLimitCounter.organizationId, input.organizationId),
+          eq(usageLimitCounter.usageLimitId, parseUsageLimitId(limit.id)!.id),
+          gt(usageLimitCounter.windowEndsAt, now),
+        )
+        const used = limit.metric === "tokens" ? usageLimitCounter.tokens : usageLimitCounter.spend
+        const [rows, [counted]] = yield* Effect.all(
+          [
+            db
+              .select({
+                id: usageLimitCounter.id,
+                windowEndsAt: usageLimitCounter.windowEndsAt,
+                tokens: usageLimitCounter.tokens,
+                spend: usageLimitCounter.spend,
+                tenantName: tenant.name,
+                tenantExternalId: tenant.externalId,
+                tenantUserName: tenantUser.name,
+                tenantUserExternalId: tenantUser.externalId,
+                threadTitle: chatThread.title,
+              })
+              .from(usageLimitCounter)
+              .leftJoin(
+                tenant,
+                and(
+                  eq(tenant.organizationId, usageLimitCounter.organizationId),
+                  eq(tenant.id, usageLimitCounter.tenantId),
+                ),
+              )
+              .leftJoin(
+                tenantUser,
+                and(
+                  eq(tenantUser.organizationId, usageLimitCounter.organizationId),
+                  eq(tenantUser.tenantId, usageLimitCounter.tenantId),
+                  eq(tenantUser.id, usageLimitCounter.tenantUserId),
+                ),
+              )
+              .leftJoin(
+                chatThread,
+                and(
+                  eq(chatThread.organizationId, usageLimitCounter.organizationId),
+                  eq(chatThread.tenantId, usageLimitCounter.tenantId),
+                  eq(chatThread.id, usageLimitCounter.threadId),
+                ),
+              )
+              .where(live)
+              .orderBy(desc(used), asc(usageLimitCounter.id))
+              .limit(USAGE_LIMIT_SUBJECTS_PAGE_SIZE)
+              .offset((input.page - 1) * USAGE_LIMIT_SUBJECTS_PAGE_SIZE),
+            db.select({ total: count() }).from(usageLimitCounter).where(live),
+          ],
+          { concurrency: "unbounded" },
+        ).pipe(Effect.orDie)
+        return {
+          total: counted?.total ?? 0,
+          subjects: rows.map((row) => ({
+            id: row.id,
+            tenant:
+              row.tenantExternalId === null
+                ? null
+                : { name: row.tenantName, externalId: row.tenantExternalId },
+            tenantUser:
+              row.tenantUserExternalId === null
+                ? null
+                : { name: row.tenantUserName, externalId: row.tenantUserExternalId },
+            threadTitle: row.threadTitle,
+            used: limit.metric === "tokens" ? String(row.tokens) : row.spend,
+            resetsAt: row.windowEndsAt,
+          })),
+        }
+      })
+
       const record = Effect.fn("UsageLimits.record")(function* (input: {
         limits: readonly UsageLimit[]
         subject: UsageSubject
@@ -387,6 +487,7 @@ export class UsageLimits extends Context.Service<
         applicable,
         status,
         check,
+        subjects,
         record,
       })
     }),

@@ -97,6 +97,10 @@ Editing a limit's name, amount, or metric keeps the usage already counted, becau
 
 Usage belongs to the subject that made it. Deleting a tenant, tenant user, or conversation removes its counts for every limit, so the tenant user's history restarts if your application later recreates them.
 
+## See who is close to a limit
+
+Each limit's page lists the tenants, tenant users, or conversations with usage in their current window, most used first, 20 to a page. Every row shows the usage so far, its share of the limit, and when that subject's window resets. A Global limit has one row for the whole Organization. Subjects whose windows have ended drop off the list until their next use.
+
 ## Example: plans like Claude Code
 
 Claude Code gives each Pro and Max subscriber a [five-hour session limit and a weekly limit](https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan). A session starts with the first message, and Max raises both allowances. Let's give an assistant the same shape.

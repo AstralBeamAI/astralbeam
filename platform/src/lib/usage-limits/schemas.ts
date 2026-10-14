@@ -17,6 +17,9 @@ const USAGE_LIMIT_MAX_WINDOW_COUNTS = {
   month: 12,
 } as const satisfies Record<(typeof USAGE_LIMIT_WINDOW_UNITS)[number], number>
 
+/** Rows per page of a limit's usage list. */
+export const USAGE_LIMIT_SUBJECTS_PAGE_SIZE = 20
+
 const USAGE_LIMIT_ID_PATTERN = new RegExp(`^limit_(${UUID_V7_PATTERN})_(${UUID_V7_PATTERN})$`)
 const TOKEN_AMOUNT_PATTERN = /^[1-9]\d{0,11}$/
 const SPEND_AMOUNT_PATTERN = /^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$/

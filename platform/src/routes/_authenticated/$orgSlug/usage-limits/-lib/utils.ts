@@ -1,4 +1,5 @@
 import { toast } from "@/components/ui/toast"
+import { USAGE_LIMIT_SUBJECTS_PAGE_SIZE } from "@/lib/usage-limits/schemas"
 import type { UsageLimit } from "@/lib/usage-limits/usage-limits.server"
 
 type UsageLimitWindow = Pick<UsageLimit, "windowCount" | "windowUnit" | "windowType" | "timeZone">
@@ -42,4 +43,9 @@ export async function copyUsageLimitId(id: string): Promise<void> {
   } catch {
     toast.add({ title: "The usage limit ID could not be copied", type: "error" })
   }
+}
+
+/** The last page of a limit's usage list, which is page 1 even when nothing is listed. */
+export function lastUsageLimitSubjectsPage(total: number): number {
+  return Math.max(1, Math.ceil(total / USAGE_LIMIT_SUBJECTS_PAGE_SIZE))
 }

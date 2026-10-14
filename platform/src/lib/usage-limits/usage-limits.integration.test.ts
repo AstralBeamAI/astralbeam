@@ -152,6 +152,44 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
     expect(names).toEqual([["Weekly limit"], ["Pro weekly", "Weekly limit"]])
   })
 
+  test("lists subjects in live windows by usage, most used first, a page at a time", async () => {
+    const { organizationId, ada, grace } = await createSubjects()
+    const pages = await withLimits(organizationId, [weeklyTokens], (usageLimits, [id]) =>
+      Effect.gen(function* () {
+        const limits = yield* usageLimits.applicable({ organizationId, listedIds: [] })
+        yield* usageLimits.record({ limits, subject: ada, usage: { tokens: 50, spend: "0" } })
+        yield* usageLimits.record({ limits, subject: grace, usage: { tokens: 900, spend: "0" } })
+        const input = { organizationId, usageLimitId: id! }
+        const live = yield* usageLimits.subjects({ ...input, page: 1 })
+        yield* Effect.promise(() =>
+          db
+            .update(usageLimitCounter)
+            .set({ windowEndsAt: new Date(Date.now() - 1000) })
+            .where(sql`${usageLimitCounter.tokens} = 50`),
+        )
+        const afterAdaEnded = yield* usageLimits.subjects({ ...input, page: 1 })
+        const beyond = yield* usageLimits.subjects({ ...input, page: 2 })
+        return [live, afterAdaEnded, beyond]
+      }),
+    )
+    expect(
+      pages.map(({ subjects, total }) => [
+        total,
+        subjects.map((subject) => [subject.tenantUser?.externalId, subject.used]),
+      ]),
+    ).toEqual([
+      [
+        2,
+        [
+          ["grace", "900"],
+          ["ada", "50"],
+        ],
+      ],
+      [1, [["grace", "900"]]],
+      [1, []],
+    ])
+  })
+
   test("a window edit discards a first write that read the old definition before it", async () => {
     const { organizationId, ada } = await createSubjects()
     const [id] = await withLimits(organizationId, [weeklyTokens], (_usageLimits, ids) =>

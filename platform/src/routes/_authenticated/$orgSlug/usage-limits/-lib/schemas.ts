@@ -29,7 +29,8 @@ export const SetUsageLimitEnabledInputSchema = Schema.Struct({
   enabled: Schema.Boolean,
 })
 
-export const UsageLimitIdInputSchema = Schema.Struct({
+export const UsageLimitPageInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
   usageLimitId: UsageLimitIdSchema,
+  page: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
 })
