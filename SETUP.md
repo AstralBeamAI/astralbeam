@@ -75,7 +75,7 @@ curl -fL -o /tmp/rustfs.zip https://github.com/rustfs/rustfs/releases/download/1
 unzip -o /tmp/rustfs.zip -d ~/.local/bin && chmod +x ~/.local/bin/rustfs
 ```
 
-When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs` (or `RUSTFS_DATA_DIR`) and its log beside them. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
+When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs/data` (or `RUSTFS_DATA_DIR`) and its log in `~/.local/share/rustfs/rustfs.log`. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
 
 Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files. The first application upload pins the destination, and subsequent seeds preserve it. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
 
