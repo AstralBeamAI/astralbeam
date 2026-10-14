@@ -86,6 +86,18 @@ test("createAstralBeamToken mints the documented short-lived tenant identity", a
   expect(payload.exp! - payload.iat!).toBe(300)
 })
 
+test("createAstralBeamToken lists usage limits once, and refuses IDs the server cannot match", async () => {
+  const pro = "limit_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384cb"
+  const user = { id: "user-1" }
+  const token = await createAstralBeamToken({ apiKey, user, tenant, usageLimits: [pro, pro] })
+  const { payload } = await jwtVerify(token, await signingKey(apiKeySecret))
+  expect(payload.usage_limits).toEqual([pro])
+  for (const usageLimits of [["pro-weekly"], Array.from({ length: 21 }, () => pro)])
+    await expect(createAstralBeamToken({ apiKey, user, tenant, usageLimits })).rejects.toThrow(
+      "usageLimits must list at most 20 IDs",
+    )
+})
+
 test("createAstralBeamToken validates the combined API key", async () => {
   await expect(
     createAstralBeamToken({

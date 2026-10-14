@@ -98,6 +98,27 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
         OpenApi.Description,
         "Read the selected agent's attachment grant using a tenant user JWT. Omit agentId to use the organization's default agent. Client settings may narrow this grant, never widen it.",
       ),
+    HttpApiEndpoint.get("getChatUsage", "/chat/usage", {
+      query: Schema.Struct({ threadId: Schema.optionalKey(ApiUuidSchema) }),
+      success: Schema.Struct({
+        usageLimits: Schema.Array(
+          Schema.Struct({
+            id: Schema.String,
+            name: Schema.String,
+            scope: Schema.Literals(["global", "tenant", "tenant_user", "thread"]),
+            metric: Schema.Literals(["tokens", "spend"]),
+            amount: Schema.String,
+            used: Schema.String,
+            resetsAt: Schema.NullOr(Schema.String),
+          }),
+        ),
+      }).annotate({ identifier: "ChatUsage" }),
+    })
+      .annotate(OpenApi.Summary, "Get usage limits")
+      .annotate(
+        OpenApi.Description,
+        "Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass the threadId of a conversation you participate in to include per-conversation limits.",
+      ),
     HttpApiEndpoint.get("getChatFile", "/chat/files", {
       query: Schema.Struct({
         threadId: ApiUuidSchema,
@@ -129,6 +150,7 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/threads/commands"),
       )
       const {
+        checkChatUsageLimits,
         consumeChatRateLimit,
         readChatRunParams,
         chatAdmissionResponse,
@@ -143,12 +165,17 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/threads/errors"),
       )
       const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
+      const { UsageLimits } = yield* Effect.promise(
+        () => import("@/lib/usage-limits/usage-limits.server"),
+      )
+      const usageLimits = yield* UsageLimits
       const files = yield* ChatFiles
       const chat = yield* Chat
       const threads = yield* ChatThreads
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
+        | Effect.Services<ReturnType<typeof checkChatUsageLimits>>
         | Effect.Services<ReturnType<typeof prepareManagedChat>>
         | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
@@ -206,6 +233,9 @@ export function chatHandlers(api: typeof ApiV1) {
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
             const scope = yield* threads.resolveScope({ principal })
+            yield* checkChatUsageLimits({ principal, scope, threadId: params.threadId }).pipe(
+              Effect.provideContext(services),
+            )
             const { admission, receipt, clientId } = yield* prepareManagedChat({
               scope,
               params,
@@ -225,6 +255,34 @@ export function chatHandlers(api: typeof ApiV1) {
           Effect.fn("getChatConfig")(function* ({ query, request }) {
             const principal = yield* authenticate(request)
             return { capabilities: yield* chat.capabilities({ principal, agentId: query.agentId }) }
+          }),
+        )
+        .handle(
+          "getChatUsage",
+          Effect.fn("getChatUsage")(function* ({ query, request }) {
+            const principal = yield* authenticate(request)
+            const scope = yield* threads.resolveScope({ principal })
+            // Per-conversation usage is visible only to the conversation's participants.
+            if (query.threadId) yield* threads.get({ scope, id: query.threadId })
+            const limits = yield* usageLimits.applicable({
+              organizationId: principal.organization.id,
+              listedIds: principal.usageLimitIds ?? [],
+            })
+            const statuses = yield* usageLimits.status({
+              limits,
+              subject: { ...scope, threadId: query.threadId },
+            })
+            return {
+              usageLimits: statuses.map(({ limit, used, resetsAt }) => ({
+                id: limit.id,
+                name: limit.name,
+                scope: limit.scope,
+                metric: limit.metric,
+                amount: limit.amount,
+                used,
+                resetsAt: resetsAt?.toISOString() ?? null,
+              })),
+            }
           }),
         )
         .handle(

@@ -144,6 +144,27 @@ export const ChatSubmissionReceiptSchema = StoredChatSubmissionReceiptSchema.pip
   }),
 )
 
+const ChatToolResultReceiptSchema = Schema.Struct({
+  ...StoredChatSubmissionReceiptSchema.fields,
+  usageLimit: Schema.optionalKey(
+    Schema.Struct({ name: Schema.String, resetsAt: Schema.String }).pipe(
+      Schema.encodeKeys({ resetsAt: "resets_at" }),
+    ),
+  ),
+}).pipe(
+  Schema.annotate({
+    identifier: "ChatToolResultReceipt",
+    description:
+      "Accepted tool results without a continuation stream. usage_limit names the usage limit that left no allowance for the model call that would have followed.",
+  }),
+  Schema.encodeKeys({
+    threadId: "thread_id",
+    acceptedMessageId: "accepted_message_id",
+    threadVersion: "thread_version",
+    usageLimit: "usage_limit",
+  }),
+)
+
 const chatHistoryPage = Schema.Struct({
   messages: Schema.Array(chatMessageRecord),
   thread: ChatThreadRecordSchema,
@@ -286,7 +307,7 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
       payload: resolveToolInput,
       success: Schema.Union([
         HttpApiSchema.StreamUint8Array({ contentType: "text/event-stream" }),
-        ChatSubmissionReceiptSchema,
+        ChatToolResultReceiptSchema,
       ]),
     }).annotate(OpenApi.Summary, "Submit a pending tool result"),
     HttpApiEndpoint.get(
@@ -382,14 +403,19 @@ export function chatThreadHandlers(api: typeof ApiV1) {
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("../../-lib/pagination.server"),
       )
-      const { chatAdmissionResponse, consumeChatRateLimit, readChatRequestBody } =
-        yield* Effect.promise(() => import("./run.server"))
+      const {
+        chatAdmissionResponse,
+        checkChatUsageLimits,
+        consumeChatRateLimit,
+        readChatRequestBody,
+      } = yield* Effect.promise(() => import("./run.server"))
       const { HttpServerResponse } = yield* Effect.promise(() => import("effect/http"))
       const threads = yield* ChatThreads
       const tenantUsers = yield* TenantUsers
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
+        | Effect.Services<ReturnType<typeof checkChatUsageLimits>>
         | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
       const authenticate = (request: HttpServerRequest.HttpServerRequest) =>
@@ -429,14 +455,32 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               clientId: payload.clientId,
               results: payload.results,
             }).pipe(Effect.provideService(ChatThreads, threads))
+            const receipt = {
+              threadId: admission.thread.id,
+              acceptedMessageId: admission.inputMessage.id,
+              threadVersion: admission.thread.lockVersion,
+            }
             if (!admission.claim)
               return HttpServerResponse.jsonUnsafe(
-                Schema.encodeSync(ChatSubmissionReceiptSchema)({
-                  threadId: admission.thread.id,
-                  acceptedMessageId: admission.inputMessage.id,
-                  threadVersion: admission.thread.lockVersion,
-                }),
+                Schema.encodeSync(ChatToolResultReceiptSchema)(receipt),
               )
+            // A browser tool may already have changed the host app, so its saved result is
+            // acknowledged even when no allowance is left for the model call that would follow.
+            const usageLimit = yield* checkChatUsageLimits({
+              principal,
+              scope,
+              threadId: params.id,
+            }).pipe(
+              Effect.provideContext(services),
+              Effect.as(undefined),
+              Effect.catchTag("UsageLimitReached", (error) => Effect.succeed(error.usageLimit)),
+            )
+            if (usageLimit) {
+              yield* threads.interrupt({ claim: admission.claim }).pipe(Effect.orDie)
+              return HttpServerResponse.jsonUnsafe(
+                Schema.encodeSync(ChatToolResultReceiptSchema)({ ...receipt, usageLimit }),
+              )
+            }
             return yield* chatAdmissionResponse({
               admission,
               params: payload,

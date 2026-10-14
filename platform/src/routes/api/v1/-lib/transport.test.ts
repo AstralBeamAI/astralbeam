@@ -32,6 +32,8 @@ import {
 } from "@/lib/chat/threads/errors"
 import { ChatSandboxes } from "@/lib/chat/sandbox/sandbox"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { UsageLimitReached } from "@/lib/usage-limits/errors"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { organization } from "@/db/schema/organizations"
@@ -75,6 +77,7 @@ const restTestState = vi.hoisted(() => ({
   threadResolveTools: vi.fn(),
   threadAdmission: vi.fn(),
   threadInterrupt: vi.fn(),
+  usageLimitReached: undefined as UsageLimitReached | undefined,
   appLayer: undefined as Layer.Layer<never> | undefined,
   appRuntime: undefined as ManagedRuntime.ManagedRuntime<never, never> | undefined,
 }))
@@ -210,6 +213,12 @@ const restTestServices = Layer.mergeAll(
   Layer.succeed(ChatSandboxes, {
     session: () => Effect.die("unused"),
   }),
+  Layer.succeed(UsageLimits, {
+    applicable: () => Effect.succeed(restTestState.usageLimitReached ? [{}] : []),
+    check: () =>
+      restTestState.usageLimitReached ? Effect.fail(restTestState.usageLimitReached) : Effect.void,
+    status: () => Effect.succeed([]),
+  } as unknown as typeof UsageLimits.Service),
   Layer.succeed(Agents, {
     resolveForChat: () =>
       Effect.succeed({ id: restOtherId, attachmentsEnabled: true, sandboxProviderId: null }),
@@ -959,6 +968,99 @@ describe("REST API through the Effect Fetch handler", () => {
       role: "member",
       lockVersion: 0,
     })
+  })
+
+  test("a used-up usage limit refuses a turn before admission, naming the limit and its reset", async () => {
+    restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
+    restTestState.usageLimitReached = new UsageLimitReached({
+      usageLimit: { name: "Weekly limit", resetsAt: "2026-10-19T00:00:00.000Z" },
+      retryAfterSeconds: 3600,
+    })
+    const response = await restRequest("/chat", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: restOtherId,
+        runId: "run",
+        messages: [{ id: "new", role: "user", content: "Hello" }],
+        tools: [],
+        context: [],
+        forwardedProps: { clientId: restUserId },
+      }),
+    })
+    restTestState.usageLimitReached = undefined
+    expect(response.status).toBe(429)
+    expect(response.headers.get("retry-after")).toBe("3600")
+    expect(await response.json()).toMatchObject({
+      detail: "Weekly limit reached. It resets at 2026-10-19T00:00:00.000Z.",
+      usage_limit: { name: "Weekly limit", resets_at: "2026-10-19T00:00:00.000Z" },
+    })
+    expect(restTestState.threadAdmission).not.toHaveBeenCalled()
+  })
+
+  test("a used-up limit still saves and acknowledges tool results, then skips the model call", async () => {
+    const claim = restWriterClaim()
+    restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
+    restTestState.threadMessage.mockReturnValue(
+      Effect.succeed({
+        ...restSavedMessage,
+        role: "assistant",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: "tool-part",
+              type: "tool-call",
+              toolCallId: "create-todo",
+              name: "create_todo",
+              arguments: "{}",
+            },
+          ],
+        },
+      }),
+    )
+    restTestState.threadResolveTools.mockReturnValue(Effect.succeed(restChatAdmission(claim)))
+    restTestState.threadInterrupt.mockReturnValue(Effect.void)
+    restTestState.usageLimitReached = new UsageLimitReached({
+      usageLimit: { name: "Session limit", resetsAt: "2026-10-14T15:00:00.000Z" },
+      retryAfterSeconds: 60,
+    })
+    const response = await restRequest(`/chat/threads/${restOtherId}/tool-results`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: restUserId,
+        run_id: "run",
+        results: [
+          {
+            source_message_id: restOtherId,
+            source_part_id: "tool-part",
+            response_target_id: restUserId,
+            outcome: "succeeded",
+            output: { created: true },
+          },
+        ],
+      }),
+    })
+    restTestState.usageLimitReached = undefined
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      accepted_message_id: restSavedMessage.id,
+      usage_limit: { name: "Session limit", resets_at: "2026-10-14T15:00:00.000Z" },
+    })
+    expect(restTestState.threadResolveTools).toHaveBeenCalledTimes(1)
+    expect(restTestState.threadInterrupt).toHaveBeenCalledWith({ claim })
+    expect(restTestState.run).not.toHaveBeenCalled()
+  })
+
+  test("per-conversation usage requires participation in that conversation", async () => {
+    restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    const response = await restRequest(`/chat/usage?threadId=${restOtherId}`, {
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+    })
+    expect(response.status).toBe(404)
+    expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
   })
 
   test("submissions reject stateless history and release claims when startup fails", async () => {

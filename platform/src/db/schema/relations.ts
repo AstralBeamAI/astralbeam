@@ -104,6 +104,10 @@ const authRelations = defineRelationsPart(schema, (relations) => ({
       from: relations.usageLimit.organizationId,
       to: relations.organization.id,
     }),
+    counters: relations.many.usageLimitCounter({
+      from: [relations.usageLimit.organizationId, relations.usageLimit.id],
+      to: [relations.usageLimitCounter.organizationId, relations.usageLimitCounter.usageLimitId],
+    }),
   },
   tenant: {
     organization: relations.one.organization({

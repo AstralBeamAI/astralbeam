@@ -24,7 +24,12 @@ export const RestApiErrorSchema = Schema.Struct({
   issues: Schema.optionalKey(
     Schema.Array(Schema.Struct({ path: Schema.String, message: Schema.String })),
   ),
-  // An RFC 9457 extension member. https://www.rfc-editor.org/rfc/rfc9457#section-3.2
+  // RFC 9457 extension members. https://www.rfc-editor.org/rfc/rfc9457#section-3.2
+  usage_limit: Schema.optionalKey(
+    Schema.Struct({ name: Schema.String, resets_at: Schema.String }).annotate({
+      description: "The usage limit a 429 reached, by its display name, and when it resets.",
+    }),
+  ),
   reference: Schema.optionalKey(
     Schema.String.annotate({
       description: "Identifies the server log entry of an internal error. Quote it for support.",
@@ -40,6 +45,7 @@ export interface RestError {
   readonly message: string
   readonly issues?: typeof RestApiErrorSchema.Type.issues
   readonly retryAfterSeconds?: number
+  readonly usageLimit?: { readonly name: string; readonly resetsAt: string }
   readonly reference?: string
 }
 
@@ -49,6 +55,7 @@ export class RestProblem extends Schema.TaggedError<RestProblem>()("RestProblem"
   message: Schema.String,
   issues: RestApiErrorSchema.fields.issues,
   retryAfterSeconds: Schema.optionalKey(Schema.Int),
+  usageLimit: Schema.optionalKey(Schema.Struct({ name: Schema.String, resetsAt: Schema.String })),
   reference: Schema.optionalKey(Schema.String),
 }) {}
 
@@ -84,6 +91,9 @@ function restProblem(error: RestError) {
     status,
     detail: error.message,
     ...(error.issues ? { issues: error.issues } : {}),
+    ...(error.usageLimit
+      ? { usage_limit: { name: error.usageLimit.name, resets_at: error.usageLimit.resetsAt } }
+      : {}),
     ...(error.reference ? { reference: error.reference } : {}),
   }
   const headers: { "Retry-After"?: string; "WWW-Authenticate"?: string } = {
@@ -130,6 +140,14 @@ const restErrorSchemas = [400, 401, 403, 404, 409, 413, 415, 422, 429, 500, 503]
             status: body.status,
             message: body.detail,
             ...(body.issues ? { issues: body.issues } : {}),
+            ...(body.usage_limit
+              ? {
+                  usageLimit: {
+                    name: body.usage_limit.name,
+                    resetsAt: body.usage_limit.resets_at,
+                  },
+                }
+              : {}),
             ...(body.reference ? { reference: body.reference } : {}),
             ...(headers["Retry-After"]
               ? { retryAfterSeconds: Number(headers["Retry-After"]) }

@@ -227,13 +227,16 @@ describe("organization API-key chat JWTs", () => {
   it.effect("does not require or interpret the optional JWT subject", () =>
     Effect.gen(function* () {
       const subjectToken = yield* signChatTestToken({ subject: "host-defined-subject" })
-      assert.deepStrictEqual(yield* verifyWithStoredKey(subjectToken), defaultTenantUser)
+      assert.deepStrictEqual(
+        (yield* verifyWithStoredKey(subjectToken)).tenantUser,
+        defaultTenantUser,
+      )
     }),
   )
 
   it.effect("accepts deeply nested metadata", () =>
     Effect.gen(function* () {
-      const nested = yield* verifyWithStoredKey(
+      const { tenantUser: nested } = yield* verifyWithStoredKey(
         yield* signChatTestToken({ user: deeplyNestedUser }),
       )
       assert.deepStrictEqual(nested, {

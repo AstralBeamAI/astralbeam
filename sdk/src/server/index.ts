@@ -13,6 +13,9 @@ const EXTERNAL_ID_MAX_LENGTH = 255
 // underscore, so the whole key parses by its separators.
 const API_KEY_PATTERN =
   /^key_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_abo_[A-Za-z]{64}$/
+const USAGE_LIMIT_ID_PATTERN =
+  /^limit_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const USAGE_LIMITS_MAX = 20
 const TENANT_FIELDS = ["id", "name", "metadata"]
 const TENANT_USER_FIELDS = ["id", "name", "admin", "metadata"]
 const textEncoder = new TextEncoder()
@@ -51,6 +54,11 @@ export interface CreateAstralBeamTokenOptions<
   readonly apiKey: string
   readonly user: TTenantUser
   readonly tenant: TTenant
+  /**
+   * IDs of usage limits to apply beyond the Organization's defaults, copied from the dashboard's
+   * Usage Limits page, such as the limits of the tenant's plan.
+   */
+  readonly usageLimits?: readonly string[] | undefined
   readonly expiresInSeconds?: number | undefined
 }
 
@@ -174,6 +182,7 @@ export async function createAstralBeamToken<
   apiKey,
   user,
   tenant,
+  usageLimits,
   expiresInSeconds = CHAT_AUTH_TOKEN_LIFETIME_SECONDS,
 }: CreateAstralBeamTokenOptions<TTenantUser, TTenant>): Promise<string> {
   if (
@@ -185,11 +194,22 @@ export async function createAstralBeamToken<
   }
   const { keyId, organizationId, keySecret } = parseApiKey(apiKey)
   const identity = validatedIdentity(user, tenant)
+  if (
+    usageLimits !== undefined &&
+    (!Array.isArray(usageLimits) ||
+      usageLimits.length > USAGE_LIMITS_MAX ||
+      !usageLimits.every((id) => typeof id === "string" && USAGE_LIMIT_ID_PATTERN.test(id)))
+  ) {
+    throw new Error(
+      `usageLimits must list at most ${USAGE_LIMITS_MAX} IDs of the form limit_<organizationId>_<id>`,
+    )
+  }
   const now = Math.floor(Date.now() / 1_000)
   const token = await new SignJWT({
     ver: CHAT_AUTH_TOKEN_VERSION,
     user: identity.user,
     tenant: identity.tenant,
+    ...(usageLimits?.length ? { usage_limits: [...new Set(usageLimits)] } : {}),
   })
     .setProtectedHeader({ alg: "HS256", typ: CHAT_AUTH_TOKEN_TYPE, kid: keyId })
     .setIssuer(organizationId)

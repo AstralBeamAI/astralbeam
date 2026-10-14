@@ -94,8 +94,10 @@ The following conventions apply across the API. Endpoint descriptions call out r
 | 413       | Chat request exceeds 32 MiB                         |
 | 415       | Unsupported media type or encoding                  |
 | 422       | Malformed JSON, invalid write fields or empty PATCH |
-| 429       | Rate limit reached, observe Retry-After             |
+| 429       | Rate or usage limit reached, observe Retry-After    |
 | 500 / 503 | Safe internal error / setup unavailable             |
+
+A chat request refused by a usage limit adds a `usage_limit` member with the limit's display `name` and its `resets_at` time. See [Usage limits](/docs/dashboard/usage-limits).
 
 Missing and out-of-scope records both return `404`. Resource POST/PATCH requests reject unknown fields, and PATCH must supply at least one mutable field. Invalid resource writes return `422`. Chat preserves AG-UI camelCase input and reports malformed input as `400`. Failures after streaming starts are AG-UI `RUN_ERROR` events, not HTTP error responses.
 

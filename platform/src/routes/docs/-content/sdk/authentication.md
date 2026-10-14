@@ -52,14 +52,15 @@ export async function POST(request: Request) {
 2. Hash the whole secret, including `abo_`, with SHA-256 and encode the digest as unpadded base64url. The bytes of that ASCII string are the HMAC key, because AstralBeam stores only this digest.
 3. Sign with the protected header `{ "alg": "HS256", "typ": "astralbeam+jwt", "kid": "<key ID>" }` and these claims.
 
-| Claim        | Value                                                    |
-| ------------ | -------------------------------------------------------- |
-| `iss`        | The organization UUID from the API key                   |
-| `aud`        | `"astralbeam"`                                           |
-| `iat`, `exp` | Seconds since the epoch, 60 to 600 seconds apart         |
-| `ver`        | `4`                                                      |
-| `user`       | `{ id, name?, admin?, metadata? }`, with no other fields |
-| `tenant`     | `{ id, name?, metadata? }`, with no other fields         |
+| Claim          | Value                                                             |
+| -------------- | ----------------------------------------------------------------- |
+| `iss`          | The organization UUID from the API key                            |
+| `aud`          | `"astralbeam"`                                                    |
+| `iat`, `exp`   | Seconds since the epoch, 60 to 600 seconds apart                  |
+| `ver`          | `4`                                                               |
+| `user`         | `{ id, name?, admin?, metadata? }`, with no other fields          |
+| `tenant`       | `{ id, name?, metadata? }`, with no other fields                  |
+| `usage_limits` | Optional. Up to 20 usage limit IDs, `limit_<organizationId>_<id>` |
 
 - The `user` and `tenant` objects together must serialize to at most 8 KB of JSON, and the token to at most 16 KB.
 - AstralBeam allows 30 seconds of clock skew, so keep your server's clock synchronized.
@@ -103,6 +104,14 @@ end
 ```
 
 `Current.user` comes from Rails' authentication generator, whose `Authentication` concern requires a signed-in session before this action runs. Substitute your own session and tenant lookup.
+
+## Usage limits
+
+Default usage limits apply to every token. Pass `usageLimits` with the IDs of any others that apply to this tenant user, such as their plan's limits, and they apply in addition. See [Usage limits](/docs/dashboard/usage-limits).
+
+```ts
+const token = await createAstralBeamToken({ apiKey, user, tenant, usageLimits: planLimits[plan] })
+```
 
 ## Directory access
 

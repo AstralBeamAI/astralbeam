@@ -41,7 +41,8 @@ export const authenticateChatRequest = Effect.fn("authenticateChatRequest")(func
   const result = yield* authenticateOrganizationIssuedToken(request, verifyChatAuthToken)
   const principal: ChatPrincipal = {
     organization: { id: result.organizationId },
-    tenantUser: result.identity,
+    tenantUser: result.identity.tenantUser,
+    ...(result.identity.usageLimitIds && { usageLimitIds: result.identity.usageLimitIds }),
   }
   return principal
 })
@@ -135,7 +136,7 @@ export const verifyChatAuthToken = Effect.fn("verifyChatAuthToken")(function* (
     return yield* new ChatAuthenticationError()
   }
   const tenantUser: ChatTenantUser = { ...claims.user, tenant: claims.tenant }
-  return tenantUser
+  return { tenantUser, usageLimitIds: claims.usage_limits }
 })
 
 function parseChatApiKeyId(apiKeyId: unknown) {

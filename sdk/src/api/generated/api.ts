@@ -10,12 +10,22 @@ export type AstralBeamApiErrorIssuesItem = {
   message: string
 }
 
+/**
+ * The usage limit a 429 reached, by its display name, and when it resets.
+ */
+export type AstralBeamApiErrorUsageLimit = {
+  name: string
+  resets_at: string
+}
+
 export interface AstralBeamApiError {
   type: string
   title: string
   status: number
   detail: string
   issues?: AstralBeamApiErrorIssuesItem[]
+  /** The usage limit a 429 reached, by its display name, and when it resets. */
+  usage_limit?: AstralBeamApiErrorUsageLimit
   /** Identifies the server log entry of an internal error. Quote it for support. */
   reference?: string
 }
@@ -80,11 +90,17 @@ export type CurrentUser =
       }
     }
 
-export interface ChatSubmissionReceiptEncoded {
+export type ChatToolResultReceiptEncodedUsageLimit = {
+  name: string
+  resets_at: string
+}
+
+export interface ChatToolResultReceiptEncoded {
   thread_id: string
   accepted_message_id: string
   /** @minimum 0 */
   thread_version: number
+  usage_limit?: ChatToolResultReceiptEncodedUsageLimit
 }
 
 export type ResolveChatToolResultInputEncodedResultsItemOutcome =
@@ -313,12 +329,51 @@ export interface CreateChatThreadInputEncoded {
   agent_id?: string
 }
 
+export type ChatUsageUsageLimitsItemScope =
+  (typeof ChatUsageUsageLimitsItemScope)[keyof typeof ChatUsageUsageLimitsItemScope]
+
+export const ChatUsageUsageLimitsItemScope = {
+  global: "global",
+  tenant: "tenant",
+  tenant_user: "tenant_user",
+  thread: "thread",
+} as const
+
+export type ChatUsageUsageLimitsItemMetric =
+  (typeof ChatUsageUsageLimitsItemMetric)[keyof typeof ChatUsageUsageLimitsItemMetric]
+
+export const ChatUsageUsageLimitsItemMetric = {
+  tokens: "tokens",
+  spend: "spend",
+} as const
+
+export type ChatUsageUsageLimitsItem = {
+  id: string
+  name: string
+  scope: ChatUsageUsageLimitsItemScope
+  metric: ChatUsageUsageLimitsItemMetric
+  amount: string
+  used: string
+  resetsAt: string | null
+}
+
+export interface ChatUsage {
+  usageLimits: ChatUsageUsageLimitsItem[]
+}
+
 export type ChatConfigurationCapabilities = {
   attachments: boolean
 }
 
 export interface ChatConfiguration {
   capabilities: ChatConfigurationCapabilities
+}
+
+export interface ChatSubmissionReceiptEncoded {
+  thread_id: string
+  accepted_message_id: string
+  /** @minimum 0 */
+  thread_version: number
 }
 
 export type ChatRunInputForwardedProps = { [key: string]: unknown } & {
@@ -664,6 +719,10 @@ export type GetChatFileParams = {
 
 export type GetChatConfigParams = {
   agentId?: string
+}
+
+export type GetChatUsageParams = {
+  threadId?: string
 }
 
 export type ListChatThreadsParams = {
@@ -1255,6 +1314,36 @@ export const getChatConfig = (
   })
 }
 
+export const getGetChatUsageUrl = (params: GetChatUsageParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/chat/usage?${stringifiedParams}`
+    : `/api/v1/chat/usage`
+}
+
+/**
+ * Read the usage limits that apply to the current tenant user and how much of each is used, using a tenant user JWT. Amounts and usage are decimal strings, in tokens or US dollars. resetsAt is null until usage opens a window. Pass the threadId of a conversation you participate in to include per-conversation limits.
+ * @summary Get usage limits
+ */
+export const getChatUsage = (
+  params: GetChatUsageParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<ChatUsage>(getGetChatUsageUrl(params), {
+    ...options,
+    method: "GET",
+  })
+}
+
 export const getCreateChatThreadUrl = () => {
   return `/api/v1/chat/threads`
 }
@@ -1602,7 +1691,7 @@ export const resolveChatToolResult = (
     }
     return headers
   }
-  return astralBeamChatFetch<unknown | ChatSubmissionReceiptEncoded>(
+  return astralBeamChatFetch<unknown | ChatToolResultReceiptEncoded>(
     getResolveChatToolResultUrl(id),
     {
       ...options,

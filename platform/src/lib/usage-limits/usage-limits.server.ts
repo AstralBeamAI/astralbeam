@@ -1,19 +1,26 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray, or } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { usageLimit } from "@/db/schema/usage-limits"
+import { usageLimit, usageLimitCounter } from "@/db/schema/usage-limits"
 import { DisplayNameSchema, LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
-import { UsageLimitChanged, UsageLimitNotFound } from "./errors.ts"
+import {
+  type UsageSubject,
+  usageCounterIncrement,
+  usageCounterKey,
+  usageCountersWhere,
+} from "./counters.ts"
+import { UsageLimitChanged, UsageLimitNotFound, UsageLimitReached } from "./errors.ts"
 import {
   formatUsageLimitId,
   parseUsageLimitId,
   TimeZoneSchema,
   type UsageLimitFields,
 } from "./schemas.ts"
+import { usageLimitWindowEnd } from "./windows.ts"
 
 const UsageLimitRowSchema = createSelectSchema(usageLimit, {
   id: UuidV7Schema,
@@ -23,8 +30,16 @@ const UsageLimitRowSchema = createSelectSchema(usageLimit, {
   lockVersion: LockVersionSchema,
 })
 
-/** A usage limit as the dashboard sees it, addressed by its public ID. */
+/** A usage limit row. The dashboard addresses it by public ID, and enforcement by row ID. */
 export type UsageLimit = typeof UsageLimitRowSchema.Type
+
+/** A limit's usage so far in a subject's live window, as a decimal string in its own metric. */
+export interface UsageLimitStatus {
+  readonly limit: UsageLimit
+  readonly used: string
+  /** Null until the subject's first usage opens a window. */
+  readonly resetsAt: Date | null
+}
 
 const decodeUsageLimitRows = Schema.decodeUnknownEffect(Schema.Array(UsageLimitRowSchema), {
   onExcessProperty: "error",
@@ -72,6 +87,26 @@ export class UsageLimits extends Context.Service<
       readonly usageLimitId: string
       readonly lockVersion: number
     }) => Effect.Effect<void, UsageLimitChanged>
+    /** Enabled default limits, plus enabled limits whose public IDs a chat token lists. */
+    readonly applicable: (input: {
+      readonly organizationId: string
+      readonly listedIds: readonly string[]
+    }) => Effect.Effect<readonly UsageLimit[]>
+    /** Each limit's usage in the subject's live window, and when that window resets. */
+    readonly status: (input: {
+      readonly limits: readonly UsageLimit[]
+      readonly subject: UsageSubject
+    }) => Effect.Effect<readonly UsageLimitStatus[]>
+    /** Fails when any limit is used up, naming the one that resets last. */
+    readonly check: (input: {
+      readonly limits: readonly UsageLimit[]
+      readonly subject: UsageSubject
+    }) => Effect.Effect<void, UsageLimitReached>
+    readonly record: (input: {
+      readonly limits: readonly UsageLimit[]
+      readonly subject: UsageSubject
+      readonly usage: { readonly tokens: number; readonly spend: string }
+    }) => Effect.Effect<void>
   }
 >()("astralbeam/usage-limits/UsageLimits") {
   static readonly layerNoDeps = Layer.effect(
@@ -122,14 +157,47 @@ export class UsageLimits extends Context.Service<
           lockVersion: number
           fields: UsageLimitFields
         }) {
-          yield* updateWithOptimisticLock({
-            executor: db,
-            table: usageLimit,
-            id: yield* ownUsageLimitId(input.organizationId, input.usageLimitId),
-            scope: eq(usageLimit.organizationId, input.organizationId),
-            expectedLockVersion: input.lockVersion,
-            set: input.fields,
-          })
+          const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
+          yield* db.transaction((transaction) =>
+            Effect.gen(function* () {
+              // Lock the limit before touching counters, as recording does, so a first write that
+              // already read the old definition commits before this decides what to discard.
+              const [current] = yield* transaction
+                .select()
+                .from(usageLimit)
+                .where(
+                  and(eq(usageLimit.organizationId, input.organizationId), eq(usageLimit.id, id)),
+                )
+                .for("update")
+              // Counters belong to the old scope's subjects and the old window's end, so changing
+              // either starts counting afresh. Name, amount, and metric edits keep the counts.
+              const fields = input.fields
+              if (
+                current &&
+                (current.scope !== fields.scope ||
+                  current.windowType !== fields.windowType ||
+                  current.windowCount !== fields.windowCount ||
+                  current.windowUnit !== fields.windowUnit ||
+                  current.timeZone !== fields.timeZone)
+              )
+                yield* transaction
+                  .delete(usageLimitCounter)
+                  .where(
+                    and(
+                      eq(usageLimitCounter.organizationId, input.organizationId),
+                      eq(usageLimitCounter.usageLimitId, id),
+                    ),
+                  )
+              yield* updateWithOptimisticLock({
+                executor: transaction,
+                table: usageLimit,
+                id,
+                scope: eq(usageLimit.organizationId, input.organizationId),
+                expectedLockVersion: input.lockVersion,
+                set: input.fields,
+              })
+            }),
+          )
         },
         mapDatabaseErrors(),
         Effect.catchTags({
@@ -178,7 +246,149 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
-      return UsageLimits.of({ list, get, create, update, setEnabled, remove })
+      const applicable = Effect.fn("UsageLimits.applicable")(function* (input: {
+        organizationId: string
+        listedIds: readonly string[]
+      }) {
+        const listed = input.listedIds.flatMap((publicId) => {
+          const parsed = parseUsageLimitId(publicId)
+          return parsed?.organizationId === input.organizationId ? [parsed.id] : []
+        })
+        const rows = yield* db
+          .select()
+          .from(usageLimit)
+          .where(
+            and(
+              eq(usageLimit.organizationId, input.organizationId),
+              eq(usageLimit.enabled, true),
+              listed.length
+                ? or(eq(usageLimit.appliesByDefault, true), inArray(usageLimit.id, listed))
+                : eq(usageLimit.appliesByDefault, true),
+            ),
+          )
+          .orderBy(asc(usageLimit.name), asc(usageLimit.id))
+        return yield* decodeUsageLimitRows(rows)
+      }, Effect.orDie)
+
+      const status = Effect.fn("UsageLimits.status")(function* (input: {
+        limits: readonly UsageLimit[]
+        subject: UsageSubject
+      }) {
+        const now = DateTime.toDateUtc(yield* DateTime.now)
+        const keyed = input.limits.flatMap((limit) => {
+          const key = usageCounterKey(limit.scope, input.subject)
+          return key ? [{ limit, key }] : []
+        })
+        if (keyed.length === 0) return []
+        const counters = yield* db
+          .select()
+          .from(usageLimitCounter)
+          .where(
+            usageCountersWhere(
+              input.subject.organizationId,
+              keyed.map(({ limit, key }) => ({ usageLimitId: limit.id, key })),
+            ),
+          )
+          .pipe(Effect.orDie)
+        return keyed.map(({ limit, key }) => {
+          const counter = counters.find(
+            (row) =>
+              row.usageLimitId === limit.id &&
+              row.tenantId === key.tenantId &&
+              row.tenantUserId === key.tenantUserId &&
+              row.threadId === key.threadId,
+          )
+          const live = counter && counter.windowEndsAt > now
+          return {
+            limit: publicUsageLimit(limit),
+            used: live ? (limit.metric === "tokens" ? String(counter.tokens) : counter.spend) : "0",
+            resetsAt: live ? counter.windowEndsAt : null,
+          }
+        })
+      })
+
+      const check = Effect.fn("UsageLimits.check")(function* (input: {
+        limits: readonly UsageLimit[]
+        subject: UsageSubject
+      }) {
+        const reached = (yield* status(input))
+          .filter(({ limit, used }) => Number(used) >= Number(limit.amount))
+          .toSorted((left, right) => right.resetsAt!.getTime() - left.resetsAt!.getTime())[0]
+        if (!reached) return
+        const now = yield* Clock.currentTimeMillis
+        return yield* new UsageLimitReached({
+          usageLimit: { name: reached.limit.name, resetsAt: reached.resetsAt!.toISOString() },
+          retryAfterSeconds: Math.max(1, Math.ceil((reached.resetsAt!.getTime() - now) / 1000)),
+        })
+      })
+
+      const record = Effect.fn("UsageLimits.record")(function* (input: {
+        limits: readonly UsageLimit[]
+        subject: UsageSubject
+        usage: { readonly tokens: number; readonly spend: string }
+      }) {
+        if (input.limits.length === 0) return
+        const now = DateTime.toDateUtc(yield* DateTime.now)
+        yield* db.transaction((transaction) =>
+          Effect.gen(function* () {
+            // Reread under a share lock, so an edit that discards counters waits for this write or
+            // runs after it, and a run that began before the edit counts under the new definition.
+            const rows = yield* transaction
+              .select()
+              .from(usageLimit)
+              .where(
+                and(
+                  eq(usageLimit.organizationId, input.subject.organizationId),
+                  eq(usageLimit.enabled, true),
+                  inArray(
+                    usageLimit.id,
+                    input.limits.map((limit) => limit.id),
+                  ),
+                ),
+              )
+              .for("share")
+            for (const limit of rows) {
+              const key = usageCounterKey(limit.scope, input.subject)
+              if (!key) continue
+              yield* transaction
+                .insert(usageLimitCounter)
+                .values({
+                  organizationId: input.subject.organizationId,
+                  usageLimitId: limit.id,
+                  ...key,
+                  windowEndsAt: usageLimitWindowEnd(
+                    { ...limit, timeZone: limit.timeZone ?? null },
+                    now,
+                  ),
+                  ...input.usage,
+                })
+                .onConflictDoUpdate({
+                  target: [
+                    usageLimitCounter.organizationId,
+                    usageLimitCounter.usageLimitId,
+                    usageLimitCounter.tenantId,
+                    usageLimitCounter.tenantUserId,
+                    usageLimitCounter.threadId,
+                  ],
+                  set: usageCounterIncrement(now),
+                })
+            }
+          }),
+        )
+      }, Effect.orDie)
+
+      return UsageLimits.of({
+        list,
+        get,
+        create,
+        update,
+        setEnabled,
+        remove,
+        applicable,
+        status,
+        check,
+        record,
+      })
     }),
   )
 

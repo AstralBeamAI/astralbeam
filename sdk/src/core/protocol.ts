@@ -16,3 +16,6 @@ export const SANDBOX_RUN_COMMAND_TOOL = "sandbox_run_command"
 
 /** CUSTOM stream event carrying sandbox provisioning progress, which no tool result can report. */
 export const SANDBOX_STATUS_EVENT = "astralbeam.sandbox.status"
+
+/** CUSTOM stream event naming the usage limit that ended a run between model calls. */
+export const USAGE_LIMIT_REACHED_EVENT = "astralbeam.usage_limit.reached"
