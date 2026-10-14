@@ -1,5 +1,5 @@
 import {
-  ArrowClockwiseIcon,
+  ArrowsClockwiseIcon,
   PlugIcon,
   PulseIcon,
   SpinnerGapIcon,
@@ -200,7 +200,7 @@ export function McpConnectionsPanel({
                                   : mutation.mutate({ action: "connect", mcpServerId: server.id })
                             }
                           >
-                            {connected ? <ArrowClockwiseIcon /> : labels[0]}
+                            {connected ? <ArrowsClockwiseIcon /> : labels[0]}
                           </Button>
                         )}
                         {connected && account && (
