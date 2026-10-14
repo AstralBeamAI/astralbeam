@@ -10737,7 +10737,8 @@
                 "properties": {
                   "lock_version": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "maximum": 9007199254740991
                   },
                   "headers": {
                     "type": "object",
@@ -11083,7 +11084,9 @@
                   "type": "object",
                   "properties": {
                     "tool_count": {
-                      "type": "integer"
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
@@ -12434,7 +12437,8 @@
           },
           "lock_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "auth_state": {
             "type": "string",
