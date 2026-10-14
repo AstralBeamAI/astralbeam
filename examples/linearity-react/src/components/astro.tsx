@@ -19,12 +19,14 @@ export function Astro({
   workspace,
   visitorId,
   onOpen,
+  onClose,
   navigation,
 }: {
   ref: RefObject<AstralBeamChatRef | null>
   workspace: Workspace
   visitorId: string
   onOpen: (issue: Issue) => void
+  onClose: () => void
   navigation: AppNavigation
 }) {
   const workspaceId = workspace.id
@@ -33,6 +35,21 @@ export function Astro({
     <AstralBeamChat
       ref={ref}
       title="Astro"
+      onClose={onClose}
+      showConversationTitle
+      header={
+        <div className="astro-header">
+          <span className="astro-avatar">
+            <StarFourIcon size={19} weight="fill" />
+          </span>
+          <div>
+            <strong>Astro</strong>
+            <span>
+              {workspace.name} · {workspace.issues.length} issues
+            </span>
+          </div>
+        </div>
+      }
       colorScheme="light"
       apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api"}
       agentId={import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined}
@@ -55,7 +72,6 @@ export function Astro({
           "--radius": "0.75rem",
         },
       }}
-      showHeader={false}
       empty={
         <div className="astro-welcome">
           <span className="astro-orbit">

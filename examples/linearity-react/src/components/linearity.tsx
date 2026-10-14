@@ -6,7 +6,6 @@ import {
   SidebarSimpleIcon,
   SparkleIcon,
   StarFourIcon,
-  XIcon,
 } from "@phosphor-icons/react"
 import { Button } from "./ui/button.tsx"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog.tsx"
@@ -156,37 +155,12 @@ function WorkspaceApp({
           aria-label="Astro assistant"
           inert={!chatOpen}
         >
-          <div className="astro-header">
-            <span className="astro-avatar">
-              <StarFourIcon size={19} weight="fill" />
-            </span>
-            <div>
-              <strong>Astro</strong>
-              <span>Connected to your workspace</span>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close Astro"
-              title="Close Astro"
-              onClick={() => setChatOpen(false)}
-            >
-              <XIcon />
-            </Button>
-          </div>
-          <div className="astro-context">
-            <span className="context-dot" />
-            <strong>{workspace.name}</strong>
-            <span>workspace</span>
-            <span className="spacer" />
-            <span>{workspace.issues.length} issues</span>
-          </div>
           <div className="astro-widget">
             <Astro
               ref={chat}
               workspace={workspace}
               visitorId={visitorId}
+              onClose={() => setChatOpen(false)}
               onOpen={(issue) =>
                 void route({ href: workspaceUrl(workspace.id, `issues/${issue.id}`) })
               }
