@@ -73,6 +73,7 @@ export const personalMcpApi = HttpApiGroup.make("personalMcp")
     HttpApiEndpoint.post("completeAuthorization", "/me/mcp/connections/:id/oauth/complete", {
       params: mcpPersonalParams,
       payload: mcpAttemptBody,
+      success: Schema.Boolean,
     }),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -83,9 +84,9 @@ export function personalMcpHandlers(api: typeof ApiV1) {
     Effect.fn("personalMcpHandlers")(function* (handlers) {
       const { McpConnections } = yield* Effect.promise(() => import("@/lib/mcp/mcp.server"))
       const { McpAuthorization } = yield* Effect.promise(
-        () => import("@/lib/mcp/authorization/authorization"),
+        () => import("@/lib/mcp/authorization.server"),
       )
-      const { McpTools } = yield* Effect.promise(() => import("@/lib/mcp/tools/tools"))
+      const { McpTools } = yield* Effect.promise(() => import("@/lib/mcp/tools.server"))
       const { authenticateMcpRequest } = yield* Effect.promise(() => import("./mcp-auth.server"))
       const connections = yield* McpConnections
       const authorization = yield* McpAuthorization
@@ -166,7 +167,7 @@ export function personalMcpHandlers(api: typeof ApiV1) {
           "completeAuthorization",
           Effect.fn("mcpCompleteAuthorization")(function* ({ request, params, payload }) {
             const access = yield* accessFor(request, params.id)
-            yield* authorization.complete({
+            return yield* authorization.complete({
               actor: access.actor,
               reference: { ...access.reference, id: payload.attemptId, connectionId: params.id },
             })

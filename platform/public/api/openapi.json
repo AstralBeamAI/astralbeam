@@ -12042,8 +12042,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "<No Content>"
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
           },
           "400": {
             "description": "AstralBeamApiError",

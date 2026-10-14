@@ -1,14 +1,13 @@
 import { fetch as fixtureFetch, Agent } from "undici"
 import { createServer } from "node:http"
 import { once } from "node:events"
-import { mcpBoundedResponse } from "../network.server.ts"
+import { mcpBoundedResponse } from "./network.server.ts"
 
 export async function startMcpFixture() {
   const state = {
     oauth: false,
     cimd: false,
     sse: false,
-    badOutput: false,
     lostToolResponse: false,
     toolGate: null as (() => Promise<void>) | null,
     protocol: "2026-07-28",
@@ -143,7 +142,7 @@ export async function startMcpFixture() {
                   description: state.catalogDescription,
                   inputSchema: {
                     type: "object",
-                    properties: { region: { type: "string", "x-mcp-header": "Region" } },
+                    properties: { region: { type: "string" } },
                     required: ["region"],
                     additionalProperties: false,
                   },
@@ -160,7 +159,7 @@ export async function startMcpFixture() {
           await state.toolGate?.()
           result = {
             content: [{ type: "text", text: "done" }],
-            structuredContent: { ok: state.badOutput ? "invalid" : true },
+            structuredContent: { ok: true },
           }
         } else {
           response.statusCode = 400

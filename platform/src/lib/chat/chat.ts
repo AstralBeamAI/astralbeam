@@ -8,8 +8,7 @@ import {
 } from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
-import { McpTools } from "@/lib/mcp/tools/tools"
-import { CHAT_MCP_PRESENTATION_EVENT } from "@/lib/mcp/events"
+import { McpTools } from "@/lib/mcp/tools.server"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
@@ -37,6 +36,7 @@ import {
   CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT,
   CHAT_SANDBOX_SYSTEM_PROMPT,
   CHAT_MAX_MODEL_TURNS,
+  CHAT_MCP_PRESENTATION_EVENT,
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_SYSTEM_PROMPT,
 } from "./constants"

@@ -9,7 +9,7 @@ export interface McpAuthorizationAttempt {
 export async function runMcpAuthorization(options: {
   start: () => Promise<{ attempt: McpAuthorizationAttempt; popupUrl: string }>
   bind: (attempt: McpAuthorizationAttempt, challenge: string) => Promise<void>
-  complete: (attempt: McpAuthorizationAttempt) => Promise<void>
+  complete: (attempt: McpAuthorizationAttempt) => Promise<boolean>
   signal?: AbortSignal | undefined
 }): Promise<void> {
   const popup = window.open("about:blank", "_blank", "popup,width=600,height=720")
@@ -25,7 +25,7 @@ export async function runMcpAuthorization(options: {
       const cleanup = () => {
         finished = true
         window.removeEventListener("message", receive)
-        clearInterval(closed)
+        clearInterval(poll)
         clearTimeout(expiry)
         options.signal?.removeEventListener("abort", abort)
       }
@@ -40,7 +40,6 @@ export async function runMcpAuthorization(options: {
           type?: string
           attempt?: McpAuthorizationAttempt
           challenge?: string
-          status?: string
         } | null
         if (
           !data?.attempt ||
@@ -50,10 +49,6 @@ export async function runMcpAuthorization(options: {
           data.attempt.connectionId !== started.attempt.connectionId
         )
           return
-        if (data.type === "mcp-authorization-result" && data.status === "failed") {
-          fail(new Error("Authorization failed. Try connecting again."))
-          return
-        }
         if (
           data.type === "mcp-browser-challenge" &&
           !binding &&
@@ -62,24 +57,22 @@ export async function runMcpAuthorization(options: {
           binding = options.bind(started.attempt, data.challenge)
           void binding.catch(fail)
         }
-        if (
-          data.type === "mcp-authorization-result" &&
-          data.status === "awaiting_completion" &&
-          binding &&
-          !completing
-        ) {
-          completing = true
-          void binding
-            .then(() => (finished ? undefined : options.complete(started.attempt)))
-            .then(() => {
+      }
+      const poll = setInterval(() => {
+        if (completing || finished) return
+        if (popup.closed) return fail(new Error("Authorization window closed."))
+        if (!binding) return
+        completing = true
+        void binding
+          .then(() => (finished ? false : options.complete(started.attempt)))
+          .then((connected) => {
+            completing = false
+            if (connected && !finished) {
               cleanup()
               resolve()
-            }, fail)
-        }
-      }
-      const closed = setInterval(() => {
-        if (popup.closed && !completing) fail(new Error("Authorization window closed."))
-      }, 500)
+            }
+          }, fail)
+      }, 5_000)
       const expiry = setTimeout(
         () => fail(new Error("Authorization expired. Try connecting again.")),
         600_000,

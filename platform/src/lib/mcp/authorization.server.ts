@@ -19,7 +19,12 @@ import { updateWithOptimisticLock } from "@/db/lib/optimistic-locking"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
-import { McpConnections } from "../mcp.server.ts"
+import {
+  McpConnections,
+  mcpConnectionOwner,
+  mcpDecodeCredential,
+  type McpStoredConnection,
+} from "./mcp.server.ts"
 import {
   McpAuthorizationRequired,
   McpChanged,
@@ -27,7 +32,7 @@ import {
   McpInvalidConfiguration,
   McpNotFound,
   McpUnavailable,
-} from "../errors.ts"
+} from "./errors.ts"
 import {
   MCP_ATTEMPT_LIFETIME_MS,
   MCP_REFRESH_LEASE_MS,
@@ -40,20 +45,15 @@ import {
   type McpAttemptReference,
   type McpCredentialEnvelope,
   type McpReference,
-} from "../schemas.ts"
-import {
-  mcpConnectionOwner,
-  mcpDecodeCredential,
-  type McpStoredConnection,
-} from "../store.server.ts"
-import { mcpCreateDispatcher } from "../network.server.ts"
+} from "./schemas.ts"
+import { mcpCreateDispatcher } from "./network.server.ts"
 import {
   mcpAuthorizationFetch,
   mcpClientMetadata,
   mcpDiscoveryBinding,
   mcpOAuthCredential,
   mcpRunAuthorization,
-} from "./provider.ts"
+} from "./provider.server.ts"
 
 export function mcpHashSecret(value: string): string {
   return createHash("sha256").update(value).digest("hex")
@@ -198,7 +198,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
       catch: () => new McpInvalidConfiguration(),
     })
     const metadata = mcpClientMetadata(origin)
-    const prior = mcpDecodeCredential(connection)?.credential
     const client = authConfig.client
     const attempt: McpAttemptReference = {
       organizationId: connection.organizationId,
@@ -225,12 +224,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
             issuer: binding.issuer,
             redirect_uris: metadata.redirect_uris,
           }
-        : prior?.kind === "oauth" &&
-            prior.clientInformation.issuer === binding.issuer &&
-            Array.isArray(prior.clientInformation.redirect_uris) &&
-            prior.clientInformation.redirect_uris.includes(metadata.redirect_uris[0]!)
-          ? prior.clientInformation
-          : null,
+        : null,
       authorizationUrl: null,
       pendingCredential: null,
     }
@@ -325,13 +319,17 @@ const makeMcpAuthorization = Effect.gen(function* () {
             }),
           catch: () => new McpForbidden(),
         })
-        if (input.params.has("error") || !input.params.get("code"))
-          return yield* new McpAuthorizationRequired()
+        if (input.params.has("error") || !input.params.get("code")) {
+          pending.status = "failed"
+          yield* writeAttempt(pending)
+          return pending
+        }
         pending.status = "exchanging"
         yield* writeAttempt(pending)
         return pending
       }),
     )
+    if (payload.status === "failed") return yield* new McpAuthorizationRequired()
     const { server } = yield* attemptConnection(payload.actor, payload)
     const authConfig = server.authConfig
     if (authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
@@ -348,8 +346,17 @@ const makeMcpAuthorization = Effect.gen(function* () {
           callback: input.params,
         }),
       catch: () => new McpAuthorizationRequired(),
-    })
-    if (!payload.pendingCredential) return yield* new McpAuthorizationRequired()
+    }).pipe(
+      Effect.catch((error) => {
+        payload.status = "failed"
+        return persistAttempt(payload, "exchanging").pipe(Effect.andThen(Effect.fail(error)))
+      }),
+    )
+    if (!payload.pendingCredential) {
+      payload.status = "failed"
+      yield* persistAttempt(payload, "exchanging")
+      return yield* new McpAuthorizationRequired()
+    }
     payload.status = "awaiting_completion"
     yield* persistAttempt(payload, "exchanging")
     return reference
@@ -358,11 +365,12 @@ const makeMcpAuthorization = Effect.gen(function* () {
     actor: McpActor
     reference: McpAttemptReference
   }) {
-    yield* attemptLock(
+    return yield* attemptLock(
       input.reference,
       Effect.gen(function* () {
         const payload = yield* readAttempt(input.reference)
         const { connection } = yield* attemptConnection(input.actor, payload)
+        if (payload.status === "authorizing" || payload.status === "exchanging") return false
         if (payload.status !== "awaiting_completion" || !payload.pendingCredential)
           return yield* new McpChanged()
         const envelope: McpCredentialEnvelope = {
@@ -385,6 +393,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
           Effect.catchTag("OptimisticLockError", () => Effect.fail(new McpChanged())),
         )
         yield* attempts.remove(mcpAttemptKey(input.reference)).pipe(Effect.orDie)
+        return true
       }),
     )
   })

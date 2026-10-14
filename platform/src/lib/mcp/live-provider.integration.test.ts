@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { expect, test } from "vitest"
-import { McpTools } from "./tools/tools.ts"
+import { McpTools } from "./tools.server.ts"
 import type { McpActor } from "./schemas.ts"
 
 const liveOrganizationId = globalThis.process.env.MCP_LIVE_ORGANIZATION_ID

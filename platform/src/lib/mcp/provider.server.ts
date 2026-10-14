@@ -16,8 +16,8 @@ import {
   type McpAttemptEnvelope,
   type McpAuthConfig,
   type McpCredential,
-} from "../schemas.ts"
-import { mcpGuardedFetch, mcpUrlIsPublic } from "../network.server.ts"
+} from "./schemas.ts"
+import { mcpGuardedFetch, mcpUrlIsPublic } from "./network.server.ts"
 
 export async function mcpAuthorizationFetch(
   dispatcher: Agent,

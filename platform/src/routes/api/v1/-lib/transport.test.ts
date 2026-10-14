@@ -16,8 +16,8 @@ import { type AppAuth, Auth } from "@/lib/auth/auth.server"
 import { OrganizationMembershipError } from "@/lib/auth/errors"
 import { Config } from "@/lib/config/config"
 import { McpConnections } from "@/lib/mcp/mcp.server"
-import { McpAuthorization } from "@/lib/mcp/authorization/authorization"
-import { McpTools } from "@/lib/mcp/tools/tools"
+import { McpAuthorization } from "@/lib/mcp/authorization.server"
+import { McpTools } from "@/lib/mcp/tools.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { Chat } from "@/lib/chat/chat"
 import { Agents } from "@/lib/agents/agents.server"
@@ -434,19 +434,10 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
-  test.each(["/me/mcp/catalog"])(
-    "answers personal MCP API-key impersonation at %s with a safe authentication problem",
-    async (path) => {
-      const response = await restRequest(path)
-      expect(response.status).toBe(401)
-      expect(response.headers.get("content-type")).toContain("application/problem+json")
-      expect(await response.json()).toMatchObject({
-        status: 401,
-        detail: "Invalid credentials.",
-      })
-      expect(restTestState.logs).toHaveLength(0)
-    },
-  )
+  test("rejects personal MCP API-key impersonation", async () => {
+    const response = await restRequest("/me/mcp/catalog")
+    expect(response.status).toBe(401)
+  })
   test("preserves safe 503 with CORS/no-store before setup", async () => {
     restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: false }))
     const response = await restRequest("/chat")

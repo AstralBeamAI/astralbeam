@@ -1,14 +1,14 @@
 import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
-import ipaddr from "ipaddr.js"
 import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici"
+import { isPrivateModelEndpointAddress } from "@/lib/model-providers/endpoints.server"
 import { MCP_MAX_METADATA_BYTES, MCP_MAX_RESULT_BYTES } from "./schemas.ts"
 
 export function mcpAddressIsPublic(address: string): boolean {
   return (
     isIP(address) !== 0 &&
     (!address.includes(":") || /^2[0-9a-f]{3}:/i.test(address)) &&
-    ipaddr.parse(address).range() === "unicast"
+    !isPrivateModelEndpointAddress(address)
   )
 }
 
@@ -44,7 +44,7 @@ export function mcpHeadersAreAllowed(headers: Readonly<Record<string, string>>):
   )
 }
 
-export async function mcpPublicAddresses(hostname: string) {
+async function mcpPublicAddresses(hostname: string) {
   const addresses = await lookup(hostname.replace(/^\[|\]$/g, ""), { all: true })
   if (!addresses.length || addresses.some(({ address }) => !mcpAddressIsPublic(address)))
     throw new TypeError("MCP endpoint must resolve only to public addresses")

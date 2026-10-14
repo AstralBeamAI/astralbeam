@@ -133,7 +133,7 @@ export const McpAttemptEnvelopeSchema = Schema.Struct({
   expectedVersion: LockVersionSchema,
   origin: Schema.String,
   expiresAt: Schema.Number,
-  status: Schema.Literals(["authorizing", "exchanging", "awaiting_completion"]),
+  status: Schema.Literals(["authorizing", "exchanging", "awaiting_completion", "failed"]),
   browserBindingHash: Schema.NullOr(Schema.String),
   state: Schema.String,
   verifier: Schema.NullOr(Schema.String),

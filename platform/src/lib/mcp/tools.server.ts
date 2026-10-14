@@ -1,16 +1,16 @@
 import { createHash } from "node:crypto"
+import { AsyncLocalStorage } from "node:async_hooks"
 import {
-  Client,
   StreamableHTTPClientTransport,
   fromJsonSchema,
   type JsonSchemaType,
 } from "@modelcontextprotocol/client"
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/client/validators/ajv"
-import { toolDefinition, type AnyServerTool } from "@tanstack/ai"
+import { createMCPClient } from "@tanstack/ai-mcp"
+import type { AnyServerTool, ToolExecutionContext } from "@tanstack/ai"
 import { Context, Effect, Layer, Redacted } from "effect"
-import { APP_NAME } from "@/lib/constants"
-import { McpConnections } from "../mcp.server.ts"
-import { McpAuthorization } from "../authorization/authorization.ts"
+import { McpConnections } from "./mcp.server.ts"
+import { McpAuthorization } from "./authorization.server.ts"
 import {
   MCP_AUTH_TIMEOUT_MS,
   MCP_MAX_CATALOG_BYTES,
@@ -21,19 +21,15 @@ import {
   type McpActor,
   type McpReference,
   type McpToolPresentationSchema,
-} from "../schemas.ts"
-import { McpUnavailable } from "../errors.ts"
-import { mcpCreateDispatcher, mcpGuardedFetch } from "../network.server.ts"
+} from "./schemas.ts"
+import { McpUnavailable } from "./errors.ts"
+import { mcpCreateDispatcher, mcpGuardedFetch } from "./network.server.ts"
 
+const mcpRuntimeMethods = new Set(["server/discover", "tools/list", "tools/call"])
 function mcpToolAlias(connectionId: string, nativeName: string): string {
   return `mcp_${connectionId.replaceAll("-", "")}_${createHash("sha256").update(nativeName).digest("hex").slice(0, 24)}`
 }
 type McpPresentation = typeof McpToolPresentationSchema.Type
-export interface McpToolSet {
-  readonly tools: AnyServerTool[]
-  readonly presentation: McpPresentation[]
-  readonly unavailable: string[]
-}
 
 const makeMcpTools = Effect.gen(function* () {
   const connections = yield* McpConnections
@@ -52,36 +48,42 @@ const makeMcpTools = Effect.gen(function* () {
         Redacted.value,
       )
     let lastToken: string | undefined
+    let pages = 0
+    // Modern ai-mcp calls omit the HTTP signal, so carry it through the scoped fetch.
+    // https://unpkg.com/@tanstack/ai-mcp@0.8.3/src/tools.ts
+    const callSignals = new AsyncLocalStorage<AbortSignal>()
     const validator = new AjvJsonSchemaValidator()
-    const client = new Client(
-      { name: APP_NAME, version: "1.0" },
-      {
-        capabilities: {},
-        listMaxPages: MCP_MAX_DISCOVERY_PAGES,
-        versionNegotiation: { mode: { pin: MCP_PROTOCOL_VERSION } },
-        jsonSchemaValidator: validator,
-      },
-    )
     const transport = new StreamableHTTPClientTransport(new URL(server.endpointUrl), {
       protocolVersion: MCP_PROTOCOL_VERSION,
-      reconnectionOptions: {
-        maxRetries: 0,
-        initialReconnectionDelay: 1000,
-        maxReconnectionDelay: 1000,
-        reconnectionDelayGrowFactor: 1,
-      },
-      requestInit: { redirect: "error" },
       onInsufficientScope: "throw",
       fetch: async (url, init) => {
-        const credential = await readCredential()
         const headers = new Headers(init?.headers)
+        const method = headers.get("Mcp-Method") ?? ""
+        const signal = callSignals.getStore()
+        if (
+          headers.get("MCP-Protocol-Version") !== MCP_PROTOCOL_VERSION ||
+          !mcpRuntimeMethods.has(method) ||
+          (method === "tools/list" && ++pages > MCP_MAX_DISCOVERY_PAGES)
+        )
+          throw new McpUnavailable()
+        const credential = await readCredential()
         if (credential.kind === "static_headers")
           for (const [name, value] of Object.entries(credential.headers)) headers.set(name, value)
         if (credential.kind === "oauth") {
           lastToken = credential.tokens.access_token
           headers.set("Authorization", `Bearer ${lastToken}`)
         }
-        return mcpGuardedFetch(dispatcher, url, { ...init, headers })
+        return mcpGuardedFetch(dispatcher, url, {
+          ...init,
+          headers,
+          signal: AbortSignal.any([
+            AbortSignal.timeout(
+              method === "tools/call" ? MCP_TOOL_TIMEOUT_MS : MCP_AUTH_TIMEOUT_MS,
+            ),
+            ...(signal ? [signal] : []),
+            ...(init?.signal ? [init.signal] : []),
+          ]),
+        })
       },
       ...(server.authConfig.kind === "oauth"
         ? {
@@ -94,73 +96,71 @@ const makeMcpTools = Effect.gen(function* () {
           }
         : {}),
     })
-    yield* Effect.addFinalizer(() => Effect.promise(() => client.close()))
-    const { tools } = yield* Effect.tryPromise({
-      try: async (signal) => {
-        await client.connect(transport, { signal, timeout: MCP_AUTH_TIMEOUT_MS })
-        return client.listTools({}, { signal, timeout: MCP_AUTH_TIMEOUT_MS })
-      },
+    const client = yield* Effect.acquireRelease(
+      Effect.tryPromise({
+        try: (signal) =>
+          callSignals.run(signal, () =>
+            createMCPClient({
+              transport,
+              clientOptions: { capabilities: { elicitation: undefined, sampling: undefined } },
+            }),
+          ),
+        catch: () => new McpUnavailable(),
+      }),
+      (opened) => Effect.promise(() => opened.close()),
+    )
+    const tools = yield* Effect.tryPromise({
+      try: (signal) => callSignals.run(signal, () => client.tools()),
       catch: () => new McpUnavailable(),
     })
     const catalogBytes = new TextEncoder().encode(JSON.stringify(tools)).byteLength
     if (tools.length > MCP_MAX_TOOLS || catalogBytes > MCP_MAX_CATALOG_BYTES)
       return yield* new McpUnavailable()
-    const catalog = yield* Effect.try({
-      try: () => {
-        const aliases = new Set<string>()
-        return tools.map((remote) => {
-          const name = mcpToolAlias(connection.id, remote.name)
-          if (aliases.has(name)) throw new Error("MCP tool alias collision")
-          aliases.add(name)
-          const presentation = {
+    const presentation: McpPresentation[] = []
+    const boundTools = yield* Effect.try({
+      try: () =>
+        tools.map((remote) => {
+          const nativeToolName = remote.metadata.mcp.serverToolName
+          const name = mcpToolAlias(connection.id, nativeToolName)
+          const details = {
             name,
-            title: `${new URL(server.endpointUrl).hostname}: ${remote.title ?? remote.name}`,
+            title: `${new URL(server.endpointUrl).hostname}: ${remote.metadata.mcp.title}`,
             mcpServerId: server.id,
             connectionId: connection.id,
-            nativeToolName: remote.name,
+            nativeToolName,
           }
-          const tool = toolDefinition({
+          const tool: AnyServerTool = {
+            ...remote,
             name,
-            description: remote.description ?? presentation.title,
             inputSchema: fromJsonSchema(remote.inputSchema as JsonSchemaType, validator),
+            ...(remote.outputSchema
+              ? { outputSchema: fromJsonSchema(remote.outputSchema as JsonSchemaType, validator) }
+              : {}),
             metadata: {
               source: "mcp",
-              ...presentation,
-              originalInputSchema: remote.inputSchema,
+              ...details,
+              originalInputSchema: remote.inputSchema as JsonSchemaType,
             },
-          }).server(async (args, context) => {
-            await Effect.runPromise(connections.getConnection(input))
-            // HTTP rejection can be retried by the SDK. Ambiguous business outcomes propagate unchanged.
-            // https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
-            return Effect.runPromise(
-              Effect.tryPromise({
-                try: () =>
-                  client.callTool(
-                    { name: remote.name, arguments: args as Record<string, unknown> },
-                    {
-                      timeout: MCP_TOOL_TIMEOUT_MS,
-                      ...(context?.abortSignal ? { signal: context.abortSignal } : {}),
-                    },
-                  ),
-                catch: () => new McpUnavailable(),
-              }).pipe(
-                Effect.withSpan("McpTools.call", {
-                  attributes: { connectionId: connection.id, mcpServerId: server.id },
+            execute: (args: unknown, context?: ToolExecutionContext) =>
+              Effect.runPromise(
+                Effect.tryPromise({
+                  try: (signal) =>
+                    callSignals.run(
+                      context?.abortSignal
+                        ? AbortSignal.any([signal, context.abortSignal])
+                        : signal,
+                      () => Promise.resolve(remote.execute!(args, context)),
+                    ),
+                  catch: () => new McpUnavailable(),
                 }),
               ),
-            )
-          })
-          return { tool, presentation }
-        })
-      },
+          }
+          presentation.push(details)
+          return tool
+        }),
       catch: () => new McpUnavailable(),
     })
-    return {
-      catalogBytes,
-      tools: catalog.map((entry) => entry.tool),
-      presentation: catalog.map((entry) => entry.presentation),
-      unavailable: [],
-    }
+    return { catalogBytes, tools: boundTools, presentation }
   })
   const acquire = Effect.fn("McpTools.acquire")(function* (actor: McpActor) {
     const catalog = yield* connections.catalog(actor)
@@ -169,20 +169,13 @@ const makeMcpTools = Effect.gen(function* () {
       active,
       (connection) =>
         openClient({ actor, reference: connection }).pipe(
-          Effect.catch(() =>
-            Effect.succeed({
-              catalogBytes: 0,
-              tools: [],
-              presentation: [],
-              unavailable: [connection.id],
-            }),
-          ),
+          Effect.catch(() => Effect.succeed(undefined)),
         ),
       { concurrency: 4 },
     )
-    const result: McpToolSet = {
-      tools: [],
-      presentation: [],
+    const result = {
+      tools: [] as AnyServerTool[],
+      presentation: [] as McpPresentation[],
       unavailable: catalog.connections
         .filter((entry) => entry.authState === "reauthorization_required")
         .map((entry) => entry.id),
@@ -190,6 +183,7 @@ const makeMcpTools = Effect.gen(function* () {
     let catalogBytes = 0
     for (const [index, entry] of pending.entries()) {
       if (
+        !entry ||
         result.tools.length + entry.tools.length > MCP_MAX_TOOLS ||
         catalogBytes + entry.catalogBytes > MCP_MAX_CATALOG_BYTES
       ) {
@@ -199,7 +193,6 @@ const makeMcpTools = Effect.gen(function* () {
       catalogBytes += entry.catalogBytes
       result.tools.push(...entry.tools)
       result.presentation.push(...entry.presentation)
-      result.unavailable.push(...entry.unavailable)
     }
     return result
   })

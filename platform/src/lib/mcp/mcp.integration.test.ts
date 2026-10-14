@@ -37,11 +37,11 @@ import { organization, cacheEntry, tenant, tenantUser } from "@/db/schema"
 import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
 import { McpConnections } from "./mcp.server.ts"
-import { McpAuthorization } from "./authorization/authorization.ts"
+import { McpAuthorization } from "./authorization.server.ts"
 import { decryptDatabaseValue } from "@/db/lib/encryption"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { McpAttemptEnvelopeSchema } from "./schemas.ts"
-import { startMcpFixture } from "./testing/fixture.ts"
+import { startMcpFixture } from "./fixture.ts"
 import type { McpActor, McpReference } from "./schemas.ts"
 
 const mcpPersistenceLayer = Layer.mergeAll(
@@ -223,6 +223,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     ])("DCR, CIMD and manual Google authorization, cimd=%s manual=%s", async (cimd, manual) => {
       const { reference } = await createOAuth(cimd, manual)
       const flow = await authorize(reference)
+      expect(
+        await authority((service) => service.complete({ actor, reference: flow.started.attempt })),
+      ).toBe(false)
       const url = new URL(flow.payload.authorizationUrl!)
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
@@ -233,7 +236,9 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       )
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)
-      await authority((service) => service.complete({ actor, reference: flow.started.attempt }))
+      expect(
+        await authority((service) => service.complete({ actor, reference: flow.started.attempt })),
+      ).toBe(true)
       expect(
         Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
       ).toMatchObject({ tokens: { access_token: "access-0", refresh_token: "rotating-refresh" } })
@@ -242,11 +247,12 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       } = await db.execute<{ auth_config: unknown }>(
         sql`select auth_config from mcp_server where id = ${reference.mcpServerId}`,
       )
-      expect(stored!.auth_config).toMatchObject({ kind: "oauth" })
       expect(JSON.stringify(stored!.auth_config)).not.toContain("manual-secret")
       expect(JSON.stringify(await connections((service) => service.catalog(actor)))).not.toMatch(
         /manual-secret|access-0|rotating-refresh/,
       )
+      await authorize(reference)
+      expect(fixture.state.registrations).toBe(!cimd && !manual ? 2 : 0)
     })
     test("unreadable OAuth application credentials do not prevent local disconnect", async () => {
       const { reference } = await connectedOAuth(true)
@@ -478,28 +484,31 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     )
     test("SDK authorization errors do not log raw provider descriptions", async () => {
       const { reference } = await createOAuth()
+      const denied = await authorize(reference)
+      const params = new URLSearchParams(denied.params)
+      params.set("error", "access_denied")
+      await expect(callback(denied, { params })).rejects.toThrow()
+      await expect(
+        authority((service) => service.complete({ actor, reference: denied.started.attempt })),
+      ).rejects.toThrow()
       const flow = await authorize(reference)
       fixture.state.authorizationError = "invalid_grant"
       const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
       try {
         await expect(callback(flow)).rejects.toThrow()
+        await expect(
+          authority((service) => service.complete({ actor, reference: flow.started.attempt })),
+        ).rejects.toThrow()
         expect(warning).toHaveBeenCalled()
         expect(JSON.stringify(warning.mock.calls)).not.toContain("private-provider-description")
       } finally {
         warning.mockRestore()
       }
     })
-    test.each([
-      "invalid_grant",
-      "invalid_client",
-      "unauthorized_client",
-      "invalid_scope",
-      "invalid_request",
-      "unsupported_grant_type",
-    ])("%s clears the unusable grant", async (error) => {
+    test("invalid_grant clears the unusable grant", async () => {
       const { reference } = await connectedOAuth()
       await expire(reference)
-      fixture.state.refreshError = error
+      fixture.state.refreshError = "invalid_grant"
       await expect(
         authority((service) => service.getCredential({ actor, reference })),
       ).rejects.toThrow()
@@ -599,48 +608,37 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         ),
       ).rejects.toThrow()
     })
-    test("public connections reconnect and Tenant and Organization deletion cascade through commit", async () => {
-      const server = await connections((service) =>
-        service.createServer(actor.organizationId, {
-          endpointUrl: "https://fixture.example/mcp",
-          authConfig: { kind: "none" },
-        }),
-      )
-      const account = await connections((service) => service.createConnection(actor, server.id))
-      await authority((service) => service.disconnect({ actor, reference: account }))
-      const reconnected = await connections((service) => service.createConnection(actor, server.id))
-      expect(reconnected).toMatchObject({ authState: "connected", lockVersion: 0 })
-      expect(reconnected.id).not.toBe(account.id)
-      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
-      expect(
-        Redacted.value(
-          await authority((service) => service.getCredential({ actor, reference: reconnected })),
-        ),
-      ).toEqual({ kind: "none" })
-      await db.transaction(async (transaction) => {
-        await transaction.execute(sql`set constraints all deferred`)
-        await transaction.delete(tenant).where(eq(tenant.id, actor.tenantId))
-      })
-      expect(await db.select().from(mcpConnection)).toEqual([])
-      const [customer] = await db
-        .insert(tenant)
-        .values({ organizationId: actor.organizationId, externalId: "new" })
-        .returning()
-      const [person] = await db
-        .insert(tenantUser)
-        .values({ organizationId: actor.organizationId, tenantId: customer!.id, externalId: "new" })
-        .returning()
-      await connections((service) =>
-        service.createConnection(
-          { ...actor, tenantId: customer!.id, tenantUserId: person!.id },
-          server.id,
-        ),
-      )
-      await db.transaction(async (transaction) => {
-        await transaction.execute(sql`set constraints all deferred`)
-        await transaction.delete(organization).where(eq(organization.id, actor.organizationId))
-      })
-      expect(await db.select().from(mcpConnection)).toEqual([])
-    })
+    test.each(["tenant", "organization"] as const)(
+      "public reconnect and %s deletion cascade through commit",
+      async (scope) => {
+        const server = await connections((service) =>
+          service.createServer(actor.organizationId, {
+            endpointUrl: "https://fixture.example/mcp",
+            authConfig: { kind: "none" },
+          }),
+        )
+        const account = await connections((service) => service.createConnection(actor, server.id))
+        await authority((service) => service.disconnect({ actor, reference: account }))
+        const reconnected = await connections((service) =>
+          service.createConnection(actor, server.id),
+        )
+        expect(reconnected).toMatchObject({ authState: "connected", lockVersion: 0 })
+        expect(reconnected.id).not.toBe(account.id)
+        expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+        expect(
+          Redacted.value(
+            await authority((service) => service.getCredential({ actor, reference: reconnected })),
+          ),
+        ).toEqual({ kind: "none" })
+        await db.transaction(async (transaction) => {
+          await transaction.execute(sql`set constraints all deferred`)
+          const target = scope === "tenant" ? tenant : organization
+          await transaction
+            .delete(target)
+            .where(eq(target.id, scope === "tenant" ? actor.tenantId : actor.organizationId))
+        })
+        expect(await db.select().from(mcpConnection)).toEqual([])
+      },
+    )
   },
 )

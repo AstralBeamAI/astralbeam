@@ -2043,7 +2043,7 @@ export const personalMcpCompleteAuthorization = (
     }
     return headers
   }
-  return astralBeamJwtFetch<void>(getPersonalMcpCompleteAuthorizationUrl(id), {
+  return astralBeamJwtFetch<boolean>(getPersonalMcpCompleteAuthorizationUrl(id), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

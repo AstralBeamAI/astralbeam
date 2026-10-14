@@ -5,61 +5,60 @@ import {
   mcpAddressIsPublic,
   mcpBoundedResponse,
   mcpHeadersAreAllowed,
-  mcpPublicAddresses,
   mcpUrlIsPublic,
   mcpCreateDispatcher,
   mcpGuardedFetch,
 } from "./network.server.ts"
+import { mcpDiscoveryBinding, mcpOAuthCredential } from "./provider.server.ts"
+import type { OAuthDiscoveryState } from "@modelcontextprotocol/client"
 
 describe("MCP outbound boundary", () => {
-  test.each([
-    "127.0.0.1",
-    "10.1.2.3",
-    "100.64.1.1",
-    "169.254.169.254",
-    "192.168.1.1",
-    "192.88.99.1",
-    "198.18.1.1",
-    "224.1.1.1",
-    "::1",
-    "::ffff:127.0.0.1",
-    "64:ff9b::7f00:1",
-    "2001:db8::1",
-    "fc00::1",
-    "fe80::1",
-    "ff02::1",
-    "4000::1",
-  ])("refuses reserved address %s", (address) => expect(mcpAddressIsPublic(address)).toBe(false))
-  test("pins only wholly public DNS answers and resolves anew at each new connection", async () => {
-    mcpDns.lookup.mockResolvedValueOnce([{ address: "8.8.8.8", family: 4 }]).mockResolvedValueOnce([
-      { address: "8.8.8.8", family: 4 },
-      { address: "127.0.0.1", family: 4 },
+  test("refuses special and reserved addresses beyond the shared private-address policy", () => {
+    for (const address of [
+      "192.88.99.1",
+      "198.18.1.1",
+      "224.1.1.1",
+      "64:ff9b::7f00:1",
+      "2001:db8::1",
+      "2d00::1",
+      "2e00::1",
+      "ff02::1",
+      "4000::1",
     ])
-    await expect(mcpPublicAddresses("server.example")).resolves.toEqual([
-      { address: "8.8.8.8", family: 4 },
-    ])
-    await expect(mcpPublicAddresses("server.example")).rejects.toThrow("public addresses")
-    expect(mcpAddressIsPublic("2001:4860:4860::8888")).toBe(true)
+      expect(mcpAddressIsPublic(address)).toBe(false)
   })
-  test.each([
-    "http://example.com",
-    "https://u:p@example.com",
-    "https://example.com/#token",
-    "https://localhost",
-    "https://2130706433",
-    "https://[::1]",
-  ])("refuses endpoint %s", (url) => expect(mcpUrlIsPublic(new URL(url))).toBe(false))
-  test("the actual dispatcher refuses private DNS at the socket boundary for OAuth endpoints", async () => {
-    mcpDns.lookup.mockResolvedValue([{ address: "127.0.0.1", family: 4 }])
+  test("refuses insecure endpoints, embedded credentials and loopback aliases", () => {
+    for (const url of [
+      "http://example.com",
+      "https://u:p@example.com",
+      "https://example.com/#token",
+      "https://localhost",
+      "https://2130706433",
+      "https://[::1]",
+    ])
+      expect(mcpUrlIsPublic(new URL(url))).toBe(false)
+  })
+  test("the socket boundary rechecks DNS and refuses private or mixed answers for OAuth endpoints", async () => {
+    mcpDns.lookup.mockReset()
     const dispatcher = mcpCreateDispatcher()
     try {
-      await expect(
-        mcpGuardedFetch(dispatcher, "https://authorization.example/token", {
-          method: "POST",
-          body: "grant_type=refresh_token",
-          signal: AbortSignal.timeout(2000),
-        }),
-      ).rejects.toThrow()
+      for (const addresses of [
+        [
+          { address: "8.8.8.8", family: 4 },
+          { address: "127.0.0.1", family: 4 },
+        ],
+        [{ address: "127.0.0.1", family: 4 }],
+      ]) {
+        mcpDns.lookup.mockResolvedValueOnce(addresses)
+        await expect(
+          mcpGuardedFetch(dispatcher, "https://authorization.example/token", {
+            method: "POST",
+            body: "grant_type=refresh_token",
+            signal: AbortSignal.timeout(2000),
+          }),
+        ).rejects.toThrow()
+      }
+      expect(mcpDns.lookup).toHaveBeenCalledTimes(2)
       expect(mcpDns.lookup).toHaveBeenCalledWith("authorization.example", { all: true })
     } finally {
       await dispatcher.close()
@@ -98,5 +97,36 @@ describe("MCP outbound boundary", () => {
     await expect(
       mcpBoundedResponse(new Response("oversized", { headers: { "Content-Length": "100" } }), 10),
     ).rejects.toThrow("size limit")
+  })
+  test("rejects substituted OAuth discovery and token issuers or resources", () => {
+    const issuer = "https://issuer.example"
+    const resource = "https://resource.example/mcp"
+    const discovery = {
+      authorizationServerUrl: issuer,
+      authorizationServerMetadata: {
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        response_types_supported: ["code"],
+      },
+      resourceMetadata: { resource, authorization_servers: [issuer] },
+    } satisfies OAuthDiscoveryState
+    expect(mcpDiscoveryBinding(discovery, resource)).toEqual({ issuer, resource })
+    discovery.authorizationServerMetadata.issuer = "https://other.example"
+    expect(() => mcpDiscoveryBinding(discovery, resource)).toThrow()
+    discovery.authorizationServerMetadata.issuer = issuer
+    discovery.resourceMetadata.resource = "https://other.example/mcp"
+    expect(() => mcpDiscoveryBinding(discovery, resource)).toThrow()
+    discovery.resourceMetadata.resource = resource
+    expect(() => mcpDiscoveryBinding(discovery, "https://resource.example/different")).toThrow()
+    expect(() =>
+      mcpOAuthCredential({
+        discovery,
+        clientInformation: {},
+        serverUrl: resource,
+        now: 0,
+        tokens: { issuer: "https://other.example", access_token: "bad", token_type: "Bearer" },
+      }),
+    ).toThrow()
   })
 })

@@ -30,6 +30,7 @@
     "npm:@scalar/api-reference@^1.74.0": "1.74.0_tailwindcss@4.3.3_typescript@6.0.3_zod@4.6.7",
     "npm:@tailwindcss/vite@4": "4.3.3_vite@8.3.4_esbuild@0.28.2",
     "npm:@tanstack/ai-anthropic@0.22": "0.22.0_@tanstack+ai@0.69.0_zod@4.6.7",
+    "npm:@tanstack/ai-mcp@0.8.3": "0.8.3",
     "npm:@tanstack/ai-openai@0.30": "0.30.0_@tanstack+ai@0.69.0_undici@7.29.0",
     "npm:@tanstack/ai-openrouter@0.22": "0.22.0_@tanstack+ai@0.69.0_zod@4.6.7",
     "npm:@tanstack/ai-persistence@0.9.0": "0.9.0_@tanstack+ai@0.69.0_vitest@5.0.4_esbuild@0.28.2_vite@8.3.4_zod@4.6.7",
@@ -79,7 +80,6 @@
     "npm:eslint-plugin-react-web-api@^5.26.5": "5.26.5_eslint@10.12.0_typescript@6.0.3_acorn@8.19.0",
     "npm:eslint-plugin-regexp@^3.3.1": "3.3.1_eslint@10.12.0_acorn@8.19.0",
     "npm:fflate@~0.8.3": "0.8.3",
-    "npm:ipaddr.js@2.5.0": "2.5.0",
     "npm:jose@^6.2.12": "6.2.12",
     "npm:knip@^6.41.0": "6.41.0",
     "npm:minisearch@^7.2.0": "7.2.0",
@@ -2059,6 +2059,13 @@
         "zod-to-json-schema@3.25.2_zod@4.6.7"
       ]
     },
+    "@modelcontextprotocol/server@2.3.1": {
+      "integrity": "sha512-e59MfWuSssj6DoQ96JCTqdW1AXT5/XtnTl0WWd6MU1Ka434fFUGGosCLJbGNySDhHGvxQWoRWK137FXYFkYNWw==",
+      "dependencies": [
+        "@modelcontextprotocol/core",
+        "zod@4.6.7"
+      ]
+    },
     "@napi-rs/wasm-runtime@1.2.5_@emnapi+core@1.11.2_@emnapi+runtime@1.11.2": {
       "integrity": "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA==",
       "dependencies": [
@@ -3832,7 +3839,7 @@
       "integrity": "sha512-4yEmtvtZoBKeUltuWg3DcbbHdOIFl1F/TyTCShHxReE4LplaC8ZAJGsIvE+4Wh7VOhOgx8N4Zm5qEIoYVu4MEA==",
       "dependencies": [
         "@anthropic-ai/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils"
       ]
     },
@@ -3842,10 +3849,20 @@
         "@tanstack/devtools-event-client@0.4.4"
       ]
     },
+    "@tanstack/ai-mcp@0.8.3": {
+      "integrity": "sha512-PCAlwQs4yXU/qrcX6Mhc57Q+KWH38OXeKiA3A4vR15EQg8Lb+W5XUskntJTRXkQvED4qHxLeKlX3yi9ydFrsCQ==",
+      "dependencies": [
+        "@modelcontextprotocol/client",
+        "@modelcontextprotocol/server",
+        "@tanstack/ai@0.68.0",
+        "jose@6.2.12"
+      ],
+      "bin": true
+    },
     "@tanstack/ai-openai@0.30.0_@tanstack+ai@0.69.0_undici@7.29.0": {
       "integrity": "sha512-LZPs6jmWh+nlvYdHTS4bOhA+0qGZpYatuEdTkIqF9W+p9C86spDUhoaEsSXimBbd+mL1RTqahUIHrsAwyNSeSA==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "@tanstack/openai-base",
         "openai"
@@ -3855,14 +3872,14 @@
       "integrity": "sha512-2mxpmeq3m42tzHvQ3OetUhezLtRcNvDq4b88zHIHAOudDZVnzmb7Eped7wr7RKRNrGcdAsQPKfNDgP/Md1FrOA==",
       "dependencies": [
         "@openrouter/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils"
       ]
     },
     "@tanstack/ai-persistence@0.9.0_@tanstack+ai@0.69.0_vitest@5.0.4_esbuild@0.28.2_vite@8.3.4_zod@4.6.7": {
       "integrity": "sha512-4uHrieFqLpLB6gWHSqx9Uwg6tQalyk5ZXzvh5U7V8GnL3YqvkK3Ma5RZaJ2DjBOJkx4NrLQ3WldZjpsQt1CusA==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "vitest"
       ],
@@ -3901,7 +3918,7 @@
       "integrity": "sha512-lxKYX0RC660KJbOtJ8PEFuYq48A00EBXSED8zYEskyU6Gxf5HsTGn6opHSsvPOf7T7CaYfLQnUhifLJbh3jQVQ==",
       "dependencies": [
         "@modelcontextprotocol/sdk",
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-persistence",
         "@tanstack/ai-skills",
         "vitest"
@@ -3914,7 +3931,7 @@
     "@tanstack/ai-skills@0.1.19_@tanstack+ai@0.69.0_vitest@5.0.4_zod@4.6.7_esbuild@0.28.2_vite@8.3.4": {
       "integrity": "sha512-cMsbeDdY8NclfFiiN0ZEc8H1FS7NEo+LQzF4ANnA20gGCmnO71EMzjTkoesicKlKC3gHctbDw7D7vPCZOguO1Q==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "vitest",
         "zod@4.6.7"
       ],
@@ -3924,6 +3941,17 @@
     },
     "@tanstack/ai-utils@0.4.2": {
       "integrity": "sha512-ucSgSK9kLloInqr/7s0VZlp1IFtbpgPnskISvnLXti/hc8koqXc4Zv9pfTTc8V80WzIKYWMf+ZgSIDeFM50eCw=="
+    },
+    "@tanstack/ai@0.68.0": {
+      "integrity": "sha512-l++ORsrL5dAC/nNJ2ZyQiTkDmxNo2Xh0lsS4m0QbWzUVyvmSmFriDemqQmAiko+zMvVeeQ8QlTXUMOLLPfZyEQ==",
+      "dependencies": [
+        "@ag-ui/core",
+        "@standard-schema/spec",
+        "@tanstack/ai-event-client",
+        "@tanstack/ai-utils",
+        "fast-json-patch",
+        "partial-json"
+      ]
     },
     "@tanstack/ai@0.69.0_zod@4.6.7": {
       "integrity": "sha512-Y018M4Cg3LPr1meRoVG/ePDB1mdazL9cPBA7bnm8WJm2LT0cN2LoUEXRimKSZjyYY7G+9BtQeNiKlaLJkbqHKQ==",
@@ -4050,7 +4078,7 @@
     "@tanstack/openai-base@0.14.0_@tanstack+ai@0.69.0_undici@7.29.0": {
       "integrity": "sha512-Uw6oo0COZJbCPKGKJB2RAEu+6X0B7CWLlEHo/fpYfSPEQ9dRDTB5c8yYkqqkiAa56uMj/9rJg0awfWNuw5O1bg==",
       "dependencies": [
-        "@tanstack/ai",
+        "@tanstack/ai@0.69.0_zod@4.6.7",
         "@tanstack/ai-utils",
         "openai"
       ]
@@ -6610,9 +6638,6 @@
     "ipaddr.js@1.9.1": {
       "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g=="
     },
-    "ipaddr.js@2.5.0": {
-      "integrity": "sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w=="
-    },
     "is-absolute-url@4.0.1": {
       "integrity": "sha512-/51/TKE88Lmm7Gc4/8btclNXWS+g50wXhYJq8HWIBAGUBnoAdRu1aXeh364t/O7wXDAcTJDP8PNuNKWUDWie+A=="
     },
@@ -8139,7 +8164,7 @@
       "integrity": "sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==",
       "dependencies": [
         "forwarded",
-        "ipaddr.js@1.9.1"
+        "ipaddr.js"
       ]
     },
     "proxy-from-env@2.1.0": {
@@ -9505,6 +9530,7 @@
         "npm:@scalar/api-reference@^1.74.0",
         "npm:@tailwindcss/vite@4",
         "npm:@tanstack/ai-anthropic@0.22",
+        "npm:@tanstack/ai-mcp@0.8.3",
         "npm:@tanstack/ai-openai@0.30",
         "npm:@tanstack/ai-openrouter@0.22",
         "npm:@tanstack/ai-persistence@0.9.0",
@@ -9548,7 +9574,6 @@
         "npm:eslint-plugin-react-web-api@^5.26.5",
         "npm:eslint-plugin-regexp@^3.3.1",
         "npm:fflate@~0.8.3",
-        "npm:ipaddr.js@2.5.0",
         "npm:jose@^6.2.12",
         "npm:knip@^6.41.0",
         "npm:minisearch@^7.2.0",

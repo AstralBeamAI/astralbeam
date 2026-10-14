@@ -73,7 +73,7 @@ export async function connectMcpAccount(
       )
     },
     complete: async (attempt) => {
-      await personalMcpCompleteAuthorization(
+      return personalMcpCompleteAuthorization(
         attempt.connectionId,
         { attempt_id: attempt.id },
         await requestOptions(),

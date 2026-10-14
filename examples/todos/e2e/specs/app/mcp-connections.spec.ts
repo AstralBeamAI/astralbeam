@@ -16,12 +16,12 @@ test("private MCP accounts connect, replace and clear credentials without return
   try {
     await connections.open()
     const account = connections.account(new URL(endpoint).hostname)
-    await account.getByRole("button", { name: "Connect account", exact: true }).click()
+    await account.getByRole("button", { name: "Add credentials", exact: true }).click()
     await account.getByLabel("Authorization value").fill("Bearer personal-browser-secret")
     await account.getByLabel("X-Api-Key value").fill("personal-browser-key")
     await account.getByRole("button", { name: "Save credentials", exact: true }).click()
     await expect(account).toContainText("Connected")
-    await account.getByRole("button", { name: "Reconnect account", exact: true }).click()
+    await account.getByRole("button", { name: "Replace credentials", exact: true }).click()
     await expect(account.getByLabel("Authorization value")).toHaveValue("")
     await expect(account.getByLabel("X-Api-Key value")).toHaveValue("")
     await account.getByRole("button", { name: "Cancel", exact: true }).click()
@@ -42,14 +42,14 @@ test("private MCP accounts connect, replace and clear credentials without return
     await captureMoment(page, "mcp-private-mobile")
     await account.getByRole("button", { name: "Disconnect locally" }).click()
     await expect(account).toContainText("Not connected")
-    await expect(connections.notice).toContainText("Account disconnected locally")
+    await expect(connections.notice).toContainText("Disconnected locally")
     await expect(
       account.getByRole("button", { name: "Disconnect locally", exact: true }),
     ).toHaveCount(0)
     await connections.hideHeader()
     await connections.open()
     await expect(
-      account.getByRole("button", { name: "Connect account", exact: true }),
+      account.getByRole("button", { name: "Add credentials", exact: true }),
     ).toBeVisible()
   } finally {
     await cleanup()

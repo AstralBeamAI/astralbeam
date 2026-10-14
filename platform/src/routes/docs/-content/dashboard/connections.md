@@ -8,10 +8,12 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 2. Enter the public HTTPS endpoint and choose public, static-header or OAuth authentication.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
 4. For providers without automatic registration, enable **Use a pre-registered OAuth application** and enter its client ID and secret. Choose the registered token authentication method and register the exact redirect URI shown in the form with your provider.
-5. Open **Connections** in your application's embedded sidebar. Each person chooses **Connect account** and authorizes their own account or enters their own header values.
-6. Choose **Test connection** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
+5. Open **Connections** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
+6. Choose **Check tools** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
 **NOTE**: This client supports MCP 2026-07-28 over Streamable HTTP, including JSON and request-scoped SSE responses. Older protocol revisions, stdio and private-network endpoints are unsupported. A provider's OAuth setup succeeding does not prove that its MCP endpoint supports this revision.
+
+**NOTE**: Tool input fields marked with `x-mcp-header` are sent as arguments, without copying them into HTTP headers. Structured results require the server to declare an output schema.
 
 ## Hosted examples for SaaS teams
 
