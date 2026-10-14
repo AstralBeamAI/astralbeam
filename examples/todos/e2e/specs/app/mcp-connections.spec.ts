@@ -33,16 +33,20 @@ test("private MCP connections connect, replace and clear credentials without ret
     const safe = await catalog.text()
     expect(safe).not.toContain("personal-browser-secret")
     expect(safe).not.toContain("personal-browser-key")
+    const refreshed = page.waitForResponse("**/api/v1/me/mcp/catalog")
+    await connection.getByRole("button", { name: /^Test connection:/ }).click()
+    await refreshed
+    await expect(connections.notice).toContainText("The MCP server is unavailable")
     await captureMoment(page, "mcp-private-credentials")
     await page.setViewportSize({ width: 390, height: 844 })
     await captureMoment(page, "mcp-private-mobile")
+    await page.route("**/api/v1/me/mcp/catalog", (route) => route.abort(), { times: 1 })
     await connection.getByRole("button", { name: /^Disconnect:/ }).click()
+    await expect(connection).toHaveCount(0)
+    await connections.panel.getByRole("button", { name: "Try again", exact: true }).click()
     await expect(connection).toContainText("Not connected")
     await expect(connections.notice).toContainText("Disconnected locally")
     await expect(connection.getByRole("button", { name: /^Disconnect:/ })).toHaveCount(0)
-    await connections.hideHeader()
-    await connections.open()
-    await expect(connection.getByRole("button", { name: /^Connect:/ })).toBeVisible()
   } finally {
     await cleanup()
   }

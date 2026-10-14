@@ -39,15 +39,15 @@ const makeMcpTools = Effect.gen(function* () {
         Effect.promise(() => agent.close()),
       )
       const credentialInput = { ...input, expectedVersion: connection.lockVersion }
-      const readCredential = (rejectedToken?: string) =>
-        Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken })).then(
-          Redacted.value,
-        )
-      let lastToken: string | undefined
-      let pages = 0
       // Modern ai-mcp calls omit the HTTP signal, so carry it through the scoped fetch.
       // https://unpkg.com/@tanstack/ai-mcp@0.8.3/src/tools.ts
       const callSignals = new AsyncLocalStorage<AbortSignal | undefined>()
+      const readCredential = (rejectedToken?: string) =>
+        Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken }), {
+          signal: callSignals.getStore(),
+        }).then(Redacted.value)
+      let lastToken: string | undefined
+      let pages = 0
       const validator = new AjvJsonSchemaValidator()
       const transport = new StreamableHTTPClientTransport(new URL(server.endpointUrl), {
         protocolVersion: MCP_PROTOCOL_VERSION,

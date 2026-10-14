@@ -299,7 +299,7 @@ export class Chat extends Context.Service<
                   services,
                   publishArtifact: (bytes) =>
                     threads
-                      .publishArtifact({ claim: managed.state.claim, bytes })
+                      .publishArtifact({ claim: turn.claim, bytes })
                       .pipe(Effect.catch(() => Effect.succeed(undefined))),
                 })
               : []

@@ -357,11 +357,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const { reference } = await connectedOAuth()
       await expire(reference)
       let ready = 0
-      let release!: () => void
-      const gate = new Promise<void>((resolve) => {
-        release = resolve
-      })
-      fixture.state.tokenGate = () => gate
+      const { promise, resolve: release } = Promise.withResolvers<void>()
+      fixture.state.tokenGate = () => promise
       const processes = [0, 1].map(() => {
         const child = spawn(
           globalThis.process.execPath,
@@ -426,11 +423,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const flow = await authorize(reference)
       await callback(flow)
       await expire(reference)
-      let release!: () => void
-      fixture.state.tokenGate = () =>
-        new Promise<void>((resolve) => {
-          release = resolve
-        })
+      const { promise, resolve: release } = Promise.withResolvers<void>()
+      fixture.state.tokenGate = () => promise
       const pending = authority((service) => service.getCredential({ actor, reference })).then(
         () => false,
         () => true,
@@ -455,11 +449,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     test("disconnect wins over an in-flight refresh", async () => {
       const { reference } = await connectedOAuth()
       await expire(reference)
-      let release!: () => void
-      fixture.state.tokenGate = () =>
-        new Promise<void>((resolve) => {
-          release = resolve
-        })
+      const { promise, resolve: release } = Promise.withResolvers<void>()
+      fixture.state.tokenGate = () => promise
       const pending = authority((service) => service.getCredential({ actor, reference })).then(
         () => false,
         () => true,
@@ -548,6 +539,23 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(
         (await connections((service) => service.catalog(actor))).connections[0]!.authState,
       ).toBe("reauthorization_required")
+    })
+    test("rate-limited refresh preserves the grant for a later retry", async () => {
+      const { reference } = await connectedOAuth()
+      await expire(reference)
+      const [original] = await db.select().from(mcpConnection)
+      fixture.state.refreshError = "too_many_requests"
+      await expect(
+        authority((service) => service.getCredential({ actor, reference })),
+      ).rejects.toThrow()
+      expect((await db.select().from(mcpConnection))[0]).toMatchObject({
+        credentials: original!.credentials,
+        lockVersion: original!.lockVersion,
+      })
+      fixture.state.refreshError = ""
+      expect(
+        Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
+      ).toMatchObject({ tokens: { access_token: "access-2", refresh_token: "rotating-refresh" } })
     })
     test.each(["expired", "rejected"])(
       "%s tokens without a refresh token require reconnecting without losing registration",

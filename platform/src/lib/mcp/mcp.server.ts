@@ -34,13 +34,6 @@ export function mcpConnectionOwner(actor: McpActor) {
     eq(mcpConnection.tenantUserId, actor.tenantUserId),
   )!
 }
-const mcpNewId = Effect.fnUntraced(function* (db: Pick<typeof Database.Service, "select">) {
-  const [row] = yield* db
-    .select({ id: sql<string>`uuidv7()` })
-    .from(sql`(values (1)) as generated(value)`)
-    .pipe(Effect.orDie)
-  return row!.id
-})
 const mcpReadServers = Effect.fnUntraced(function* (
   db: Pick<typeof Database.Service, "select">,
   organizationId: string,
@@ -170,7 +163,11 @@ const makeMcpConnections = Effect.gen(function* () {
       !mcpUrlIsPublic(endpoint)
     )
       return yield* new McpInvalidConfiguration()
-    const id = yield* mcpNewId(db)
+    const [generated] = yield* db
+      .select({ id: sql<string>`uuidv7()` })
+      .from(sql`(values (1)) as generated(value)`)
+      .pipe(Effect.orDie)
+    const id = generated!.id
     yield* db
       .insert(mcpServer)
       .values({

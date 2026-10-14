@@ -34,46 +34,39 @@ export async function startMcpFixture() {
       const text = Buffer.concat(chunks).toString()
       const path = new URL(request.url!, "http://fixture").pathname
       response.setHeader("Content-Type", "application/json")
+      const json = (body: unknown) => response.end(JSON.stringify(body))
       if (path === "/metadata/resource" || path.includes("oauth-protected-resource"))
-        return response.end(
-          JSON.stringify({
-            resource: "https://fixture.example/mcp",
-            authorization_servers: ["https://fixture.example"],
-            scopes_supported: ["read", "admin"],
-          }),
-        )
+        return json({
+          resource: "https://fixture.example/mcp",
+          authorization_servers: ["https://fixture.example"],
+          scopes_supported: ["read", "admin"],
+        })
       if (path.includes(".well-known"))
-        return response.end(
-          JSON.stringify({
-            issuer: "https://fixture.example",
-            authorization_endpoint: "https://fixture.example/authorize",
-            token_endpoint: "https://fixture.example/token",
-            registration_endpoint: "https://fixture.example/register",
-            response_types_supported: ["code"],
-            grant_types_supported: ["authorization_code", "refresh_token"],
-            code_challenge_methods_supported: ["S256"],
-            token_endpoint_auth_methods_supported: ["none", "client_secret_post"],
-            authorization_response_iss_parameter_supported: true,
-            client_id_metadata_document_supported: state.cimd,
-          }),
-        )
+        return json({
+          issuer: "https://fixture.example",
+          authorization_endpoint: "https://fixture.example/authorize",
+          token_endpoint: "https://fixture.example/token",
+          registration_endpoint: "https://fixture.example/register",
+          response_types_supported: ["code"],
+          grant_types_supported: ["authorization_code", "refresh_token"],
+          code_challenge_methods_supported: ["S256"],
+          token_endpoint_auth_methods_supported: ["none", "client_secret_post"],
+          authorization_response_iss_parameter_supported: true,
+          client_id_metadata_document_supported: state.cimd,
+        })
       if (path === "/register") {
         state.registrations++
-        return response.end(
-          JSON.stringify({ ...JSON.parse(text), client_id: `registered-${state.registrations}` }),
-        )
+        return json({ ...JSON.parse(text), client_id: `registered-${state.registrations}` })
       }
       if (path === "/token") {
         const fields = new URLSearchParams(text)
         state.tokenRequests++
         if (state.authorizationError && fields.get("grant_type") === "authorization_code") {
           response.statusCode = 400
-          return response.end(
-            JSON.stringify({
-              error: state.authorizationError,
-              error_description: "private-provider-description",
-            }),
-          )
+          return json({
+            error: state.authorizationError,
+            error_description: "private-provider-description",
+          })
         }
         if (fields.get("grant_type") === "refresh_token") {
           state.refreshes++
@@ -83,25 +76,23 @@ export async function startMcpFixture() {
           }
           if (state.disconnectResponse) return response.destroy()
           if (state.refreshError) {
-            response.statusCode = 400
-            return response.end(JSON.stringify({ error: state.refreshError }))
+            response.statusCode = state.refreshError === "too_many_requests" ? 429 : 400
+            return json({ error: state.refreshError })
           }
         }
         await state.tokenGate?.()
-        return response.end(
-          JSON.stringify({
-            access_token:
-              fields.get("grant_type") === "authorization_code"
-                ? state.authorizationToken
-                : `access-${state.refreshes}`,
-            token_type: "Bearer",
-            ...(fields.get("grant_type") === "authorization_code" && state.authorizationRefreshToken
-              ? { refresh_token: state.authorizationRefreshToken }
-              : {}),
-            expires_in: 3600,
-            scope: "read",
-          }),
-        )
+        return json({
+          access_token:
+            fields.get("grant_type") === "authorization_code"
+              ? state.authorizationToken
+              : `access-${state.refreshes}`,
+          token_type: "Bearer",
+          ...(fields.get("grant_type") === "authorization_code" && state.authorizationRefreshToken
+            ? { refresh_token: state.authorizationRefreshToken }
+            : {}),
+          expires_in: 3600,
+          scope: "read",
+        })
       }
       if (path === "/mcp") {
         if (state.oauth && !request.headers.authorization) {
@@ -171,13 +162,11 @@ export async function startMcpFixture() {
           }
         } else {
           response.statusCode = 400
-          return response.end(
-            JSON.stringify({
-              jsonrpc: "2.0",
-              id: body.id,
-              error: { code: -32601, message: "Unsupported" },
-            }),
-          )
+          return json({
+            jsonrpc: "2.0",
+            id: body.id,
+            error: { code: -32601, message: "Unsupported" },
+          })
         }
         const envelope = JSON.stringify({
           jsonrpc: "2.0",

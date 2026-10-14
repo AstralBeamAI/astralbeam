@@ -61,15 +61,14 @@ export function McpConnectionsPanel({
             : catalog.data?.connections.find((entry) => entry.id === operation.id)?.mcp_server_id,
         )
       },
-      onSuccess: async () => {
-        setHeadersFor(null)
-        await catalog.refetch()
-      },
+      onSuccess: () => setHeadersFor(null),
+      onSettled: () => catalog.refetch(),
     },
     client,
   )
   if (!identity) return null
   const busy = mutation.isPending
+  const servers = catalog.isError ? undefined : catalog.data?.servers
   const pendingLabel = busy
     ? {
         authorize: "Waiting for sign-in…",
@@ -130,11 +129,11 @@ export function McpConnectionsPanel({
                 </Button>
               </div>
             )}
-            {catalog.data?.servers.length === 0 && (
+            {servers?.length === 0 && (
               <p className="p-3 text-xs text-muted-foreground">No MCP servers are available.</p>
             )}
-            {catalog.data?.servers.map((server) => {
-              const connection = catalog.data.connections.find(
+            {servers?.map((server) => {
+              const connection = catalog.data?.connections.find(
                 (entry) => entry.mcp_server_id === server.id,
               )
               const connected = connection?.auth_state === "connected"

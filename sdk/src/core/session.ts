@@ -21,6 +21,7 @@ import {
   getRunChatUrl,
   listChatThreads,
   updateChatThread,
+  personalMcpGetCatalog,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -44,7 +45,6 @@ import {
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
 import {
-  loadMcpCatalog,
   manageMcpConnection,
   authorizeMcpConnection,
   type McpCatalog,
@@ -356,10 +356,10 @@ export function createAstralBeamChat(
         state.unavailableMcpConnections?.filter((entry) => entry !== id) ?? [],
     })
   }
-  const requestOptions = async (conversation = true, fresh = false): Promise<JwtOptions> => {
+  const requestOptions = async (conversation = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
     const authSignal = authentication.session.abortController.signal
-    const token = await getValidChatAuthToken({ ...authentication, force: fresh })
+    const token = await getValidChatAuthToken(authentication)
     authSignal.throwIfAborted()
     if (conversation && generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
@@ -1478,7 +1478,7 @@ export function createAstralBeamChat(
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
     },
-    getMcpCatalog: async () => loadMcpCatalog(await requestOptions(false)),
+    getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),
     manageMcpConnection: async (operation) => {
       const result = await manageMcpConnection(operation, await requestOptions(false))
       if ("id" in operation) clearUnavailableMcpConnection(operation.id)
@@ -1486,7 +1486,7 @@ export function createAstralBeamChat(
       return result
     },
     authorizeMcpConnection: async (input) => {
-      const id = await authorizeMcpConnection(input, () => requestOptions(false, true))
+      const id = await authorizeMcpConnection(input, () => requestOptions(false))
       clearUnavailableMcpConnection(id)
     },
     abandonToolCall,

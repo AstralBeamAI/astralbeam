@@ -1,6 +1,7 @@
 import { WIDGET_CONTAINER_CLASS } from "../lib/constants.ts"
 import { applyWidgetTheme } from "../lib/theme.ts"
 import type { AstralBeamChatColorScheme, AstralBeamChatTheme } from "../lib/types.ts"
+import type { renderMcpServers } from "../widget/mcp-servers.tsx"
 
 export interface McpServerInput {
   endpointUrl: string
@@ -57,7 +58,7 @@ export function mountAstralBeamMcpServers(
   const variables = new Set<string>()
   let live = options
   let disposed = false
-  let renderer: AstralBeamMcpServersHandle | undefined
+  let renderer: ReturnType<typeof renderMcpServers> | undefined
   const theme = () => applyWidgetTheme(container, variables, live, media.matches)
   theme()
   media.addEventListener("change", theme)
@@ -65,7 +66,7 @@ export function mountAstralBeamMcpServers(
     container.replaceChildren()
     try {
       const { renderMcpServers } = await import("../widget/mcp-servers.tsx")
-      if (!disposed) renderer = renderMcpServers(shadow, container, live)
+      if (!disposed) renderer = renderMcpServers(container, live)
     } catch {
       if (disposed) return
       const retry = document.createElement("button")

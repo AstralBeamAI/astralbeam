@@ -33,7 +33,7 @@ async function withMcpTools(
       reference: McpReference
       expectedVersion?: number
       rejectedToken?: string
-    }) => McpCredential
+    }) => McpCredential | Effect.Effect<McpCredential>
     authConfig?: McpAuthConfig
     catalog?: (typeof mcpToolTestConnection)[]
     state?: Partial<typeof mcpToolFixture.state>
@@ -69,7 +69,13 @@ async function withMcpTools(
               } as unknown as typeof McpConnections.Service),
               Layer.succeed(McpAuthorization, {
                 getCredential: (input: Parameters<NonNullable<typeof options.credential>>[0]) =>
-                  Effect.sync(() => Redacted.make(options.credential?.(input) ?? { kind: "none" })),
+                  Effect.suspend(() => {
+                    const value = options.credential?.(input) ?? { kind: "none" as const }
+                    return Effect.map(
+                      Effect.isEffect(value) ? value : Effect.succeed(value),
+                      Redacted.make,
+                    )
+                  }),
               } as unknown as typeof McpAuthorization.Service),
             ]),
           ),
@@ -223,5 +229,33 @@ describe("request-oriented MCP tools", () => {
       }
       expect(mcpToolFixture.state.calls).toBe(1)
     })
+  })
+  test("cancellation interrupts credential resolution before dispatch", async () => {
+    let waiting = false
+    const interrupted = vi.fn<() => void>()
+    const pending = vi.fn(() =>
+      Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(interrupted))),
+    )
+    await withMcpTools(
+      async (set) => {
+        waiting = true
+        const controller = new AbortController()
+        const failed = Promise.resolve(
+          set.tools[0]!.execute(
+            { region: "eu" },
+            { abortSignal: controller.signal, emitCustomEvent: vi.fn() },
+          ),
+        ).then(
+          () => false,
+          () => true,
+        )
+        await vi.waitFor(() => expect(pending).toHaveBeenCalledOnce())
+        controller.abort()
+        await vi.waitFor(() => expect(interrupted).toHaveBeenCalledOnce())
+        expect(await failed).toBe(true)
+        expect(mcpToolFixture.state.calls).toBe(0)
+      },
+      { credential: () => (waiting ? pending() : { kind: "none" }) },
+    )
   })
 })

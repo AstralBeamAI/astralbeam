@@ -15,9 +15,6 @@ export type McpConnectionOperation =
   | { action: "headers"; mcpServerId: string; headers: Record<string, string> }
   | { action: "disconnect" | "test"; id: string }
 export type McpCatalog = Awaited<ReturnType<typeof personalMcpGetCatalog>>
-export function loadMcpCatalog(options: JwtOptions): Promise<McpCatalog> {
-  return personalMcpGetCatalog(options)
-}
 export async function manageMcpConnection(operation: McpConnectionOperation, options: JwtOptions) {
   switch (operation.action) {
     case "connect":

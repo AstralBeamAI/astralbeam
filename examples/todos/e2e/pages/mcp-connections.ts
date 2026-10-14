@@ -1,5 +1,4 @@
 import { expect, type Locator, type Page } from "@playwright/test"
-import { fileURLToPath } from "node:url"
 import {
   SEED_DOGFOOD,
   SEED_PASSWORD,
@@ -57,27 +56,6 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
 export function mcpConnections(page: Page) {
   const root = page.locator("aside.chat-sidebar")
   return {
-    async hideHeader() {
-      await page.route("**/__mcp-sdk/*.js", (route) =>
-        route.fulfill({
-          path: fileURLToPath(
-            new URL(
-              `../../../../sdk/dist/${new URL(route.request().url()).pathname.split("/").pop()}`,
-              import.meta.url,
-            ),
-          ),
-          contentType: "text/javascript",
-        }),
-      )
-      await page.setContent(`<aside class="chat-sidebar" style="height:700px"></aside>
-        <script type="module">
-          import { mountAstralBeamChat } from '/__mcp-sdk/client.js';
-          mountAstralBeamChat(document.querySelector('aside'), {
-            apiUrl: ${JSON.stringify(`${platformUrl}/api`)}, showHeader: false,
-            fetchAstralBeamToken: { url: '/api/astralbeam/token' }
-          });
-        </script>`)
-    },
     async open() {
       await root.getByRole("button", { name: "MCP connections", exact: true }).click()
       await expect(

@@ -2,7 +2,6 @@ import { useId, useState, type ComponentProps, type SyntheticEvent } from "react
 import { createRoot } from "react-dom/client"
 import { PlugIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import type {
-  AstralBeamMcpServersHandle,
   McpServerFormError,
   McpServerInput,
   MountAstralBeamMcpServersOptions,
@@ -14,26 +13,19 @@ import { NativeSelect } from "./components/ui/native-select.tsx"
 import { chatStyles } from "./styles.generated.ts"
 
 export function renderMcpServers(
-  shadow: ShadowRoot,
   container: HTMLElement,
   options: MountAstralBeamMcpServersOptions,
-): AstralBeamMcpServersHandle {
-  const style = document.createElement("style")
-  style.textContent = chatStyles
-  shadow.append(style)
+) {
   const root = createRoot(container)
-  let live = options
-  root.render(<McpServers {...live} />)
-  return {
-    update(next) {
-      live = { ...live, ...next }
-      root.render(<McpServers {...live} />)
-    },
-    unmount() {
-      root.unmount()
-      style.remove()
-    },
-  }
+  const update = (next: MountAstralBeamMcpServersOptions) =>
+    root.render(
+      <>
+        <style>{chatStyles}</style>
+        <McpServers {...next} />
+      </>,
+    )
+  update(options)
+  return { update, unmount: () => root.unmount() }
 }
 
 function McpServers(options: MountAstralBeamMcpServersOptions) {
@@ -94,13 +86,9 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                 </p>
               </div>
               <Badge variant="secondary">
-                {server.authKind === "none"
-                  ? "Public"
-                  : server.authKind === "oauth"
-                    ? "OAuth"
-                    : server.authKind === "static_headers"
-                      ? "API key"
-                      : "Unavailable"}
+                {server.authKind
+                  ? { none: "Public", oauth: "OAuth", static_headers: "API key" }[server.authKind]
+                  : "Unavailable"}
               </Badge>
               {options.onRemoveServer && (
                 <Button

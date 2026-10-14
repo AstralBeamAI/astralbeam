@@ -426,7 +426,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
       Effect.catch((error) => {
         const definite = error instanceof OAuthError
         const reauthorize =
-          definite && !["server_error", "temporarily_unavailable"].includes(error.code)
+          definite &&
+          !["server_error", "temporarily_unavailable", "too_many_requests"].includes(error.code)
         return db
           .update(mcpConnection)
           .set(

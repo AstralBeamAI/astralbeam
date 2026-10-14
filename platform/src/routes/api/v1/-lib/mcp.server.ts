@@ -110,68 +110,49 @@ export function personalMcpHandlers(api: typeof ApiV1) {
         }
       })
       return handlers
-        .handle(
-          "getCatalog",
-          Effect.fn("mcpGetCatalog")(function* ({ request }) {
-            return yield* connections.catalog(yield* actorFor(request))
-          }),
+        .handle("getCatalog", ({ request }) =>
+          Effect.flatMap(actorFor(request), connections.catalog),
         )
-        .handle(
-          "createConnection",
-          Effect.fn("mcpCreateConnection")(function* ({ request, payload }) {
-            return yield* connections.createConnection(
-              yield* actorFor(request),
-              payload.mcpServerId,
-            )
-          }),
+        .handle("createConnection", ({ request, payload }) =>
+          Effect.flatMap(actorFor(request), (actor) =>
+            connections.createConnection(actor, payload.mcpServerId),
+          ),
         )
-        .handle(
-          "setHeaders",
-          Effect.fn("mcpSetHeaders")(function* ({ request, params, payload }) {
-            yield* connections.setHeaders({ ...(yield* accessFor(request, params.id)), ...payload })
-          }),
+        .handle("setHeaders", ({ request, params, payload }) =>
+          Effect.flatMap(accessFor(request, params.id), (access) =>
+            connections.setHeaders({ ...access, ...payload }),
+          ),
         )
-        .handle(
-          "disconnectConnection",
-          Effect.fn("mcpDisconnectConnection")(function* ({ request, params }) {
-            yield* authorization.disconnect(yield* accessFor(request, params.id))
-          }),
+        .handle("disconnectConnection", ({ request, params }) =>
+          Effect.flatMap(accessFor(request, params.id), authorization.disconnect),
         )
-        .handle(
-          "testConnection",
-          Effect.fn("mcpTestConnection")(function* ({ request, params }) {
-            return yield* tools.test(yield* accessFor(request, params.id))
-          }),
+        .handle("testConnection", ({ request, params }) =>
+          Effect.flatMap(accessFor(request, params.id), tools.test),
         )
-        .handle(
-          "authorizeConnection",
-          Effect.fn("mcpAuthorizeConnection")(function* ({ request, params }) {
-            return yield* authorization.start({
-              ...(yield* accessFor(request, params.id)),
+        .handle("authorizeConnection", ({ request, params }) =>
+          Effect.flatMap(accessFor(request, params.id), (access) =>
+            authorization.start({
+              ...access,
               origin: request.headers.origin ?? "",
-            })
-          }),
+            }),
+          ),
         )
-        .handle(
-          "bindBrowser",
-          Effect.fn("mcpBindBrowser")(function* ({ request, params, payload }) {
-            const access = yield* accessFor(request, params.id)
-            yield* authorization.bindBrowser({
-              actor: access.actor,
-              reference: { ...access.reference, id: payload.attemptId, connectionId: params.id },
+        .handle("bindBrowser", ({ request, params, payload }) =>
+          Effect.flatMap(accessFor(request, params.id), ({ actor, reference }) =>
+            authorization.bindBrowser({
+              actor,
+              reference: { ...reference, id: payload.attemptId, connectionId: params.id },
               challenge: payload.challenge,
-            })
-          }),
+            }),
+          ),
         )
-        .handle(
-          "completeAuthorization",
-          Effect.fn("mcpCompleteAuthorization")(function* ({ request, params, payload }) {
-            const access = yield* accessFor(request, params.id)
-            return yield* authorization.complete({
-              actor: access.actor,
-              reference: { ...access.reference, id: payload.attemptId, connectionId: params.id },
-            })
-          }),
+        .handle("completeAuthorization", ({ request, params, payload }) =>
+          Effect.flatMap(accessFor(request, params.id), ({ actor, reference }) =>
+            authorization.complete({
+              actor,
+              reference: { ...reference, id: payload.attemptId, connectionId: params.id },
+            }),
+          ),
         )
     }),
   )
