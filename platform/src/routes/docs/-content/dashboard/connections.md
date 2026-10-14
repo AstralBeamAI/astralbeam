@@ -15,6 +15,8 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 
 **NOTE**: Tool input fields marked with `x-mcp-header` are sent as arguments, without copying them into HTTP headers. Structured results require the server to declare an output schema.
 
+Each run discovers at most 16 connected servers and exposes up to 256 tools within a 1 MiB catalog. Additional connections are reported as unavailable for that run.
+
 ## Hosted examples for SaaS teams
 
 These are practical starting points across engineering, product, sales and operations, rather than a market-share ranking. Each link points to the provider's setup instructions. Provider availability, permissions and tool catalogs can change.

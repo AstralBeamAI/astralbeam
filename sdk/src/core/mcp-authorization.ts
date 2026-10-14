@@ -1,3 +1,5 @@
+import { isAstralBeamApiError } from "../api/api.ts"
+
 export interface McpAuthorizationAttempt {
   organizationId: string
   tenantId: string
@@ -65,13 +67,23 @@ export async function runMcpAuthorization(options: {
         completing = true
         void binding
           .then(() => (finished ? false : options.complete(started.attempt)))
-          .then((connected) => {
-            completing = false
-            if (connected && !finished) {
-              cleanup()
-              resolve()
-            }
-          }, fail)
+          .then(
+            (connected) => {
+              completing = false
+              if (connected && !finished) {
+                cleanup()
+                resolve()
+              }
+            },
+            (error: unknown) => {
+              completing = false
+              if (
+                !(error instanceof TypeError) &&
+                !(isAstralBeamApiError(error) && (error.status === 429 || error.status >= 500))
+              )
+                fail(error)
+            },
+          )
       }, 5_000)
       const expiry = setTimeout(
         () => fail(new Error("Authorization expired. Try connecting again.")),

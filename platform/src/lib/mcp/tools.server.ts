@@ -14,6 +14,7 @@ import { McpAuthorization } from "./authorization.server.ts"
 import {
   MCP_AUTH_TIMEOUT_MS,
   MCP_MAX_CATALOG_BYTES,
+  MCP_MAX_CONNECTIONS,
   MCP_MAX_DISCOVERY_PAGES,
   MCP_MAX_TOOLS,
   MCP_PROTOCOL_VERSION,
@@ -132,6 +133,7 @@ const makeMcpTools = Effect.gen(function* () {
           const tool: AnyServerTool = {
             ...remote,
             name,
+            description: `MCP server: ${server.endpointUrl}\n${remote.description}`,
             inputSchema: fromJsonSchema(remote.inputSchema as JsonSchemaType, validator),
             ...(remote.outputSchema
               ? { outputSchema: fromJsonSchema(remote.outputSchema as JsonSchemaType, validator) }
@@ -166,7 +168,7 @@ const makeMcpTools = Effect.gen(function* () {
     const catalog = yield* connections.catalog(actor)
     const active = catalog.connections.filter((entry) => entry.authState === "connected")
     const pending = yield* Effect.forEach(
-      active,
+      active.slice(0, MCP_MAX_CONNECTIONS),
       (connection) =>
         openClient({ actor, reference: connection }).pipe(
           Effect.catch(() => Effect.succeed(undefined)),
@@ -180,6 +182,7 @@ const makeMcpTools = Effect.gen(function* () {
         .filter((entry) => entry.authState === "reauthorization_required")
         .map((entry) => entry.id),
     }
+    result.unavailable.push(...active.slice(MCP_MAX_CONNECTIONS).map((entry) => entry.id))
     let catalogBytes = 0
     for (const [index, entry] of pending.entries()) {
       if (

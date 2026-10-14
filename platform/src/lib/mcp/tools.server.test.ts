@@ -113,6 +113,7 @@ describe("request-oriented MCP tools", () => {
           expect(set.unavailable).toEqual([])
           expect(set.tools).toHaveLength(1)
           const tool = set.tools[0]!
+          expect(tool.description).toContain("https://fixture.example/mcp?connection=")
           const schema = tool.inputSchema as { "~standard": { validate(input: unknown): unknown } }
           expect(schema["~standard"].validate({ region: 3 })).toHaveProperty("issues")
           expect(await tool.execute!({ region: "eu" }, undefined)).toEqual({ ok: true })

@@ -19,11 +19,11 @@ import {
   McpCredentialEnvelopeSchema,
   McpStoredAuthConfigSchema,
   McpClientEnvelopeSchema,
+  McpServerWriteSchema,
   mcpActorEquals,
   type McpActor,
   type McpAuthConfig,
   type McpReference,
-  type McpServerWriteSchema,
   type McpServerSummary,
   type McpConnectionSummary,
 } from "./schemas.ts"
@@ -166,17 +166,20 @@ const makeMcpConnections = Effect.gen(function* () {
     organizationId: string,
     fields: typeof McpServerWriteSchema.Type,
   ) {
-    const valid = yield* Effect.try({
-      try: () =>
-        mcpUrlIsPublic(new URL(fields.endpointUrl)) &&
-        (fields.authConfig.kind !== "static_headers" ||
-          (new Set(fields.authConfig.headerNames).size === fields.authConfig.headerNames.length &&
-            mcpHeadersAreAllowed(
-              Object.fromEntries(fields.authConfig.headerNames.map((name) => [name, ""])),
-            ))),
+    const endpoint = yield* Effect.try({
+      try: () => new URL(fields.endpointUrl),
       catch: () => new McpInvalidConfiguration(),
     })
-    if (!valid) return yield* new McpInvalidConfiguration()
+    if (
+      !Schema.is(McpServerWriteSchema.fields.endpointUrl)(endpoint.href) ||
+      !mcpUrlIsPublic(endpoint) ||
+      (fields.authConfig.kind === "static_headers" &&
+        (new Set(fields.authConfig.headerNames).size !== fields.authConfig.headerNames.length ||
+          !mcpHeadersAreAllowed(
+            Object.fromEntries(fields.authConfig.headerNames.map((name) => [name, ""])),
+          )))
+    )
+      return yield* new McpInvalidConfiguration()
     if (
       fields.authConfig.kind === "oauth" &&
       fields.authConfig.applicationOrigin &&
@@ -189,7 +192,7 @@ const makeMcpConnections = Effect.gen(function* () {
       .values({
         organizationId,
         id,
-        endpointUrl: new URL(fields.endpointUrl).href,
+        endpointUrl: endpoint.href,
         authConfig: mcpEncodeServer({ organizationId, id, authConfig: fields.authConfig }),
       })
       .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpChanged() }))

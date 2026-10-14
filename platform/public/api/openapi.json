@@ -10742,7 +10742,8 @@
                   "headers": {
                     "type": "object",
                     "additionalProperties": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 8192
                     }
                   }
                 },

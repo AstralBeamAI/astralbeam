@@ -14,7 +14,6 @@ import {
 import { type DashboardShell, dashboardShell } from "./pages/dashboard-shell.ts"
 import { type MembersPage, membersPage } from "./pages/members-page.ts"
 import { type ModelsPage, modelsPage } from "./pages/models-page.ts"
-import { type McpPage, mcpPage } from "./pages/mcp-page.ts"
 import { type OnboardingPage, onboardingPage } from "./pages/onboarding-page.ts"
 import {
   type OrganizationSettingsPage,
@@ -33,7 +32,6 @@ type Fixtures = {
   configure: ConfigurePage
   members: MembersPage
   models: ModelsPage
-  mcp: McpPage
   onboarding: OnboardingPage
   organizationDialog: CreateOrganizationDialog
   organizationSettings: OrganizationSettingsPage
@@ -69,7 +67,6 @@ export const test = base.extend<Fixtures>({
   configure: async ({ page }, provide) => await provide(configurePage(page)),
   members: async ({ page }, provide) => await provide(membersPage(page)),
   models: async ({ page }, provide) => await provide(modelsPage(page)),
-  mcp: async ({ page }, provide) => await provide(mcpPage(page)),
   onboarding: async ({ page }, provide) => await provide(onboardingPage(page)),
   organizationDialog: async ({ page }, provide) => await provide(createOrganizationDialog(page)),
   organizationSettings: async ({ page }, provide) => await provide(organizationSettingsPage(page)),

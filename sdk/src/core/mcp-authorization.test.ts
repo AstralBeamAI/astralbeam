@@ -23,7 +23,11 @@ test("binds only the intended popup, origin and owner before polling with fresh 
         finishBinding = resolve
       }),
   )
-  const complete = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true)
+  const complete = vi
+    .fn()
+    .mockRejectedValueOnce(new TypeError("Offline"))
+    .mockResolvedValueOnce(false)
+    .mockResolvedValue(true)
   vi.stubGlobal("window", {
     location: { origin: "https://customer.example" },
     open: () => popup,
@@ -54,9 +58,9 @@ test("binds only the intended popup, origin and owner before polling with fresh 
   await vi.waitFor(() => expect(bind).toHaveBeenCalledExactlyOnceWith(attempt, "nonce"))
   expect(complete).not.toHaveBeenCalled()
   finishBinding()
-  await vi.advanceTimersByTimeAsync(10_000)
+  await vi.advanceTimersByTimeAsync(15_000)
   await pending
-  expect(complete).toHaveBeenCalledTimes(2)
+  expect(complete).toHaveBeenCalledTimes(3)
   expect(complete).toHaveBeenLastCalledWith(attempt)
   expect(popup.close).toHaveBeenCalledOnce()
   expect(popup.location.replace.mock.calls[0]![0]).toContain(

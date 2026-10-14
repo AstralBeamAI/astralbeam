@@ -6,6 +6,7 @@ export const MCP_MAX_METADATA_BYTES = 1_048_576
 export const MCP_MAX_RESULT_BYTES = 5_242_880
 export const MCP_MAX_DISCOVERY_PAGES = 8
 export const MCP_MAX_TOOLS = 256
+export const MCP_MAX_CONNECTIONS = 16
 export const MCP_MAX_CATALOG_BYTES = 1_048_576
 export const MCP_AUTH_TIMEOUT_MS = 15_000
 export const MCP_TOOL_TIMEOUT_MS = 60_000
@@ -102,11 +103,19 @@ export const McpOAuthTokensSchema = Schema.Struct({
   expires_in: Schema.optionalKey(Schema.Number),
   scope: Schema.optionalKey(Schema.String),
 })
+const McpStaticHeadersSchema = Schema.Record(
+  Schema.String,
+  Schema.String.check(Schema.isMaxLength(8192)),
+).check(
+  Schema.makeFilter(
+    (headers) => new TextEncoder().encode(JSON.stringify(headers)).byteLength <= 16_384,
+  ),
+)
 const McpCredentialSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("none") }),
   Schema.Struct({
     kind: Schema.Literal("static_headers"),
-    headers: Schema.Record(Schema.String, Schema.String),
+    headers: McpStaticHeadersSchema,
   }),
   Schema.Struct({
     kind: Schema.Literal("oauth"),
@@ -150,7 +159,7 @@ export type McpAttemptEnvelope = {
 export const McpConnectionWriteSchema = Schema.Struct({ mcpServerId: UuidV7Schema })
 export const McpHeadersWriteSchema = Schema.Struct({
   lockVersion: LockVersionSchema,
-  headers: Schema.Record(Schema.String, Schema.String),
+  headers: McpStaticHeadersSchema,
 })
 export const McpConnectionSummarySchema = Schema.Struct({
   ...McpReferenceSchema.fields,

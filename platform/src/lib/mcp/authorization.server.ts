@@ -537,15 +537,15 @@ const makeMcpAuthorization = Effect.gen(function* () {
     }
     return yield* new McpUnavailable()
   })
-  const disconnect = Effect.fn("McpAuthorization.disconnect")(function* (
-    input: McpAuthorizationInput,
-  ) {
-    yield* connections.disconnect(input)
-    yield* attempts
-      .remove(mcpAttemptKey({ ...input.reference, connectionId: input.reference.id }))
-      .pipe(Effect.orDie)
-  })
-  return { start, bindBrowser, browserRedirect, callback, complete, getCredential, disconnect }
+  return {
+    start,
+    bindBrowser,
+    browserRedirect,
+    callback,
+    complete,
+    getCredential,
+    disconnect: connections.disconnect,
+  }
 })
 export class McpAuthorization extends Context.Service<
   McpAuthorization,
