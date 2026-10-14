@@ -125,11 +125,32 @@ databases_are_external() {
   return 0
 }
 
+# Starts an installed native RustFS with Compose's ports and credentials, so macOS file storage
+# needs no container. https://docs.rustfs.com/en/installation/macos
+start_native_storage() {
+  command -v rustfs >/dev/null 2>&1 || return 0
+  local port="${RUSTFS_HOST_PORT:-9000}" data_dir="${RUSTFS_DATA_DIR:-$HOME/.local/share/rustfs}"
+  if endpoint_is_reachable "http://127.0.0.1:$port"; then return 0; fi
+  mkdir -p "$data_dir"
+  RUSTFS_ACCESS_KEY="${RUSTFS_ACCESS_KEY:-development}" \
+    RUSTFS_SECRET_KEY="${RUSTFS_SECRET_KEY:-development-only-storage-key}" \
+    nohup rustfs server --address "127.0.0.1:$port" --console-enable true \
+    --console-address "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}" "$data_dir" \
+    >"$data_dir/rustfs.log" 2>&1 &
+  for _ in $(seq 30); do
+    if endpoint_is_reachable "http://127.0.0.1:$port"; then return 0; fi
+    sleep 1
+  done
+  echo "RustFS did not start. See $data_dir/rustfs.log." >&2
+  return 1
+}
+
 start_databases() {
   [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
   # macOS development runs the native checkout against a database the developer already runs, so
   # this script never starts Compose there. See AGENTS.md's macOS rule.
   if [ "$platform_name" = Darwin ]; then
+    start_native_storage
     echo "Skipped Docker Compose: start the macOS infrastructure as described in SETUP.md." >&2
     return 0
   fi
@@ -161,9 +182,9 @@ platform_database_url() {
 
 # A TCP connect separates "nothing is listening" from "the migration failed". `deno eval` rather
 # than `nc`, whose connect-scan flag differs by platform, and it needs no flags. https://docs.deno.com/go/eval
-database_is_reachable() {
-  DATABASE_PROBE_URL="$1" deno eval \
-    'const { hostname, port } = new URL(Deno.env.get("DATABASE_PROBE_URL")); (await Deno.connect({ hostname, port: Number(port) || 5432 })).close()' \
+endpoint_is_reachable() {
+  ENDPOINT_PROBE_URL="$1" deno eval \
+    'const { hostname, port } = new URL(Deno.env.get("ENDPOINT_PROBE_URL")); (await Deno.connect({ hostname, port: Number(port) || 5432 })).close()' \
     >/dev/null 2>&1
 }
 
@@ -182,7 +203,7 @@ bootstrap_workspace() {
   fi
   # Checked on every platform: a caller can reach here before its database is up — Cursor Cloud
   # installs before it starts Compose — and a named skip is more use than a `set -e` failure.
-  if ! database_is_reachable "$url"; then
+  if ! endpoint_is_reachable "$url"; then
     echo "Skipped the migrate, seed, and SDK build steps: nothing is listening at ${url##*@}. Start PostgreSQL, then rerun './scripts/setup.sh' to migrate, seed, and build the SDK." >&2
     set -x
     return 0

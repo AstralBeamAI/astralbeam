@@ -68,6 +68,15 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 
 [RustFS](https://docs.rustfs.com/en/installation/container/docker) serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Compose persists objects in `rustfs-data`. The devcontainer uses `http://rustfs:9000` internally.
 
+To run file storage without a container, install the native RustFS binary that matches Compose's version once, so setup can start it:
+
+```sh
+curl -fL -o /tmp/rustfs.zip https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-macos-aarch64-v1.0.1.zip
+unzip -o /tmp/rustfs.zip -d ~/.local/bin && chmod +x ~/.local/bin/rustfs
+```
+
+When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs` (or `RUSTFS_DATA_DIR`) and its log beside them. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
+
 Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files. The first application upload pins the destination, and subsequent seeds preserve it. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
 
 Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Reruns preserve all pinned storage settings. Manage credential changes in **File storage** at `/configure` or through `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` deployment overrides.
