@@ -65,19 +65,16 @@ function mcpEncodeServer(row: {
 }): typeof McpStoredAuthConfigSchema.Type {
   if (row.authConfig.kind !== "oauth") return row.authConfig
   const { client, ...authConfig } = row.authConfig
+  if (!client) return authConfig
   return {
     ...authConfig,
-    ...(client
-      ? {
-          client: Result.getOrThrow(
-            encryptDatabaseValue({
-              value: { organizationId: row.organizationId, id: row.id, client },
-              schema: McpClientEnvelopeSchema,
-              keyring: getDatabaseEncryptionKeyring(),
-            }),
-          ),
-        }
-      : {}),
+    client: Result.getOrThrow(
+      encryptDatabaseValue({
+        value: { organizationId: row.organizationId, id: row.id, client },
+        schema: McpClientEnvelopeSchema,
+        keyring: getDatabaseEncryptionKeyring(),
+      }),
+    ),
   }
 }
 function mcpDecodeServer(

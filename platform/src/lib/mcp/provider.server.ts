@@ -85,19 +85,25 @@ export function mcpOAuthCredential(input: {
     clientInformation: input.clientInformation,
     tokens,
     expiresAt: tokens.expires_in === undefined ? null : input.now + tokens.expires_in * 1000,
-    discovery: Schema.decodeUnknownSync(Schema.JsonObject)(input.discovery),
+    discovery: Schema.decodeUnknownSync(Schema.JsonObject)(
+      JSON.parse(JSON.stringify(input.discovery)),
+    ),
   }
 }
 
-function mcpAttemptProvider(input: {
+export async function mcpRunAuthorization(input: {
   payload: McpAttemptEnvelope
   baseUrl: string
   serverUrl: string
   authConfig: Extract<McpAuthConfig, { kind: "oauth" }>
   now: () => Promise<number>
-}): OAuthClientProvider {
+  dispatcher: Agent
+  scope?: string | undefined
+  resourceMetadataUrl?: URL | undefined
+  callback?: URLSearchParams | undefined
+}) {
   const metadata = mcpClientMetadata(input.baseUrl)
-  return {
+  const provider: OAuthClientProvider = {
     redirectUrl: metadata.redirect_uris[0],
     ...(new URL(input.baseUrl).protocol === "https:"
       ? { clientMetadataUrl: new URL("/api/mcp/oauth/client-metadata.json", input.baseUrl).href }
@@ -140,22 +146,14 @@ function mcpAttemptProvider(input: {
     },
     saveDiscoveryState(discovery) {
       mcpDiscoveryBinding(discovery)
-      input.payload.discovery = Schema.decodeUnknownSync(Schema.JsonObject)(discovery)
+      input.payload.discovery = Schema.decodeUnknownSync(Schema.JsonObject)(
+        JSON.parse(JSON.stringify(discovery)),
+      )
     },
     discoveryState: () =>
       (input.payload.discovery as unknown as OAuthDiscoveryState | undefined) ?? undefined,
   }
-}
-
-export async function mcpRunAuthorization(
-  input: Parameters<typeof mcpAttemptProvider>[0] & {
-    dispatcher: Agent
-    scope?: string | undefined
-    resourceMetadataUrl?: URL | undefined
-    callback?: URLSearchParams | undefined
-  },
-) {
-  return auth(mcpAttemptProvider(input), {
+  return auth(provider, {
     serverUrl: input.serverUrl,
     ...(input.scope ? { scope: input.scope } : {}),
     ...(input.resourceMetadataUrl ? { resourceMetadataUrl: input.resourceMetadataUrl } : {}),

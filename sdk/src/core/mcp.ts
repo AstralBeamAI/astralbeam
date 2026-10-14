@@ -9,7 +9,6 @@ import {
   personalMcpBindBrowser,
   personalMcpCompleteAuthorization,
 } from "../api/generated/api.ts"
-import { runMcpAuthorization } from "./mcp-authorization.ts"
 
 export type McpManagementOperation =
   | { action: "connect"; mcpServerId: string }
@@ -44,40 +43,108 @@ export async function connectMcpAccount(
   input: { mcpServerId: string; id?: string },
   requestOptions: () => Promise<JwtOptions>,
 ) {
-  await runMcpAuthorization({
-    start: async () => {
-      const id =
-        input.id ??
-        (
-          await personalMcpCreateConnection(
-            { mcp_server_id: input.mcpServerId },
-            await requestOptions(),
-          )
-        ).id
-      const response = await personalMcpAuthorizeConnection(id, await requestOptions())
-      return {
-        popupUrl: response.popup_url,
-        attempt: {
-          organizationId: response.attempt.organization_id,
-          tenantId: response.attempt.tenant_id,
-          connectionId: response.attempt.connection_id,
-          id: response.attempt.id,
-        },
+  // Open before awaiting authentication so browsers retain the initiating user gesture.
+  const popup = window.open("about:blank", "_blank", "popup,width=600,height=720")
+  if (!popup) throw new Error("Allow popups to connect your account.")
+  try {
+    const id =
+      input.id ??
+      (
+        await personalMcpCreateConnection(
+          { mcp_server_id: input.mcpServerId },
+          await requestOptions(),
+        )
+      ).id
+    const response = await personalMcpAuthorizeConnection(id, await requestOptions())
+    const attempt = {
+      organizationId: response.attempt.organization_id,
+      tenantId: response.attempt.tenant_id,
+      connectionId: response.attempt.connection_id,
+      id: response.attempt.id,
+    }
+    const url = new URL(response.popup_url)
+    url.searchParams.set("origin", window.location.origin)
+    await new Promise<void>((resolve, reject) => {
+      let binding: Promise<void> | undefined
+      let finished = false
+      let completing = false
+      const cleanup = () => {
+        finished = true
+        window.removeEventListener("message", receive)
+        clearInterval(poll)
+        clearTimeout(expiry)
       }
-    },
-    bind: async (attempt, challenge) => {
-      await personalMcpBindBrowser(
-        attempt.connectionId,
-        { attempt_id: attempt.id, challenge },
-        await requestOptions(),
+      const fail = (error: unknown) => {
+        cleanup()
+        reject(error instanceof Error ? error : new Error("Authorization failed."))
+      }
+      const receive = (event: MessageEvent) => {
+        if (event.source !== popup || event.origin !== url.origin) return
+        const data = event.data as {
+          type?: string
+          attempt?: typeof attempt
+          challenge?: string
+        } | null
+        if (
+          !data?.attempt ||
+          data.attempt.id !== attempt.id ||
+          data.attempt.organizationId !== attempt.organizationId ||
+          data.attempt.tenantId !== attempt.tenantId ||
+          data.attempt.connectionId !== attempt.connectionId
+        )
+          return
+        if (
+          data.type === "mcp-browser-challenge" &&
+          !binding &&
+          typeof data.challenge === "string"
+        ) {
+          const challenge = data.challenge
+          binding = requestOptions().then((options) =>
+            personalMcpBindBrowser(id, { attempt_id: attempt.id, challenge }, options),
+          )
+          void binding.catch(fail)
+        }
+      }
+      const poll = setInterval(() => {
+        if (completing || finished) return
+        if (popup.closed) return fail(new Error("Authorization window closed."))
+        if (!binding) return
+        completing = true
+        void binding
+          .then(async () =>
+            finished
+              ? false
+              : personalMcpCompleteAuthorization(
+                  id,
+                  { attempt_id: attempt.id },
+                  await requestOptions(),
+                ),
+          )
+          .then(
+            (connected) => {
+              completing = false
+              if (connected && !finished) {
+                cleanup()
+                resolve()
+              }
+            },
+            (error: unknown) => {
+              completing = false
+              const status =
+                error instanceof Error ? (error as Error & { status?: number }).status : undefined
+              if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500)
+                fail(error)
+            },
+          )
+      }, 5_000)
+      const expiry = setTimeout(
+        () => fail(new Error("Authorization expired. Try connecting again.")),
+        600_000,
       )
-    },
-    complete: async (attempt) => {
-      return personalMcpCompleteAuthorization(
-        attempt.connectionId,
-        { attempt_id: attempt.id },
-        await requestOptions(),
-      )
-    },
-  })
+      window.addEventListener("message", receive)
+      popup.location.replace(url.href)
+    })
+  } finally {
+    popup.close()
+  }
 }

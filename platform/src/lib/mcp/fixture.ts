@@ -1,11 +1,11 @@
 import { fetch as fixtureFetch, Agent } from "undici"
 import { createServer } from "node:http"
 import { once } from "node:events"
-import { mcpBoundedResponse } from "./network.server.ts"
 
 export async function startMcpFixture() {
   const state = {
     oauth: false,
+    resourceMetadataChallenge: true,
     cimd: false,
     sse: false,
     lostToolResponse: false,
@@ -25,7 +25,6 @@ export async function startMcpFixture() {
     requests: [] as {
       method: string
       headers: Record<string, string | string[] | undefined>
-      body: Record<string, unknown>
     }[],
   }
   const dispatcher = new Agent()
@@ -110,7 +109,9 @@ export async function startMcpFixture() {
           response.statusCode = 401
           response.setHeader(
             "WWW-Authenticate",
-            'Bearer resource_metadata="https://fixture.example/metadata/resource", scope="read admin"',
+            state.resourceMetadataChallenge
+              ? 'Bearer resource_metadata="https://fixture.example/metadata/resource", scope="read admin"'
+              : 'Bearer scope="read admin"',
           )
           return response.end()
         }
@@ -119,7 +120,7 @@ export async function startMcpFixture() {
           method: string
           params?: { cursor?: string; arguments?: unknown }
         }
-        state.requests.push({ method: body.method, headers: request.headers, body })
+        state.requests.push({ method: body.method, headers: request.headers })
         let result: unknown
         if (body.method === "server/discover")
           result = {
@@ -204,7 +205,7 @@ export async function startMcpFixture() {
       const response = await fixtureFetch(source, { ...init, dispatcher } as Parameters<
         typeof fixtureFetch
       >[1])
-      return mcpBoundedResponse(response as unknown as Response, 5 * 1024 * 1024)
+      return response as unknown as Response
     },
     close: async () => {
       await dispatcher.close()

@@ -52,6 +52,5 @@ export type {
   ToolDefinition,
 } from "../lib/types.ts"
 export type { WebSource, WebCitation, WebEvidence, WebPartMetadata } from "./web.ts"
-export { runMcpAuthorization, type McpAuthorizationAttempt } from "./mcp-authorization.ts"
 
 export type { McpCatalog, McpManagementOperation } from "./mcp.ts"

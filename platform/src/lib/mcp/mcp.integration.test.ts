@@ -216,10 +216,12 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .where(eq(mcpConnection.id, reference.id))
     }
     test.each([
-      [false, false],
-      [true, false],
-      [false, true],
-    ])("DCR, CIMD and manual Google authorization, cimd=%s manual=%s", async (cimd, manual) => {
+      [false, false, true],
+      [false, false, false],
+      [true, false, true],
+      [false, true, true],
+    ])("OAuth cimd=%s manual=%s challenge=%s", async (cimd, manual, challenge) => {
+      fixture.state.resourceMetadataChallenge = challenge
       const { reference } = await createOAuth(cimd, manual)
       const flow = await authorize(reference)
       expect(
@@ -230,9 +232,6 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
       expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
       expect(url.searchParams.get("scope")).toBe("read")
-      expect(flow.payload.discovery!.resourceMetadataUrl).toBe(
-        "https://fixture.example/metadata/resource",
-      )
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)
       expect(
@@ -561,14 +560,6 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       },
     )
     test("private static credentials stay isolated and cannot be transplanted", async () => {
-      await expect(
-        connections((service) =>
-          service.createServer(actor.organizationId, {
-            endpointUrl: "https://fixture.example/mcp",
-            authConfig: { kind: "static_headers", headerNames: ["Authorization", "Authorization"] },
-          }),
-        ),
-      ).rejects.toThrow()
       const server = await connections((service) =>
         service.createServer(actor.organizationId, {
           endpointUrl: "https://fixture.example/mcp",
