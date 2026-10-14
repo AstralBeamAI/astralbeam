@@ -896,15 +896,6 @@ export function createAstralBeamChat(
           }
           return
         }
-        const limit = data as { name?: unknown; resetsAt?: unknown } | undefined
-        if (
-          eventType === USAGE_LIMIT_REACHED_EVENT &&
-          typeof limit?.name === "string" &&
-          typeof limit.resetsAt === "string"
-        ) {
-          update({ usageLimitReached: { name: limit.name, resetsAt: limit.resetsAt } })
-          return
-        }
         if (eventType === "astralbeam_mcp_tools") {
           const event = data as {
             tools?: { name: string; title: string }[]
@@ -915,6 +906,15 @@ export function createAstralBeamChat(
             if (typeof tool.name === "string" && typeof tool.title === "string")
               titles[tool.name] = tool.title
           update({ serverToolTitles: titles, unavailableMcpConnections: event.unavailable ?? [] })
+          return
+        }
+        const limit = data as { name?: unknown; resetsAt?: unknown } | undefined
+        if (
+          eventType === USAGE_LIMIT_REACHED_EVENT &&
+          typeof limit?.name === "string" &&
+          typeof limit.resetsAt === "string"
+        ) {
+          update({ usageLimitReached: { name: limit.name, resetsAt: limit.resetsAt } })
           return
         }
         const value = (data as { state?: unknown } | undefined)?.state

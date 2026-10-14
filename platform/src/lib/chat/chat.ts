@@ -163,8 +163,8 @@ export class Chat extends Context.Service<
       const modelProviders = yield* ModelProviders
       const threads = yield* ChatThreads
       const storedFiles = yield* ChatFiles
-      const usageLimits = yield* UsageLimits
       const mcpTools = yield* McpTools
+      const usageLimits = yield* UsageLimits
 
       const run = Effect.fn("Chat.run")(function* (input: {
         params: ChatParams
@@ -490,8 +490,8 @@ export class Chat extends Context.Service<
       ModelProviders.layer,
       ChatThreads.layer,
       ChatFiles.layer,
-      UsageLimits.layer,
       McpTools.layer,
+      UsageLimits.layer,
     ]),
   )
 }
