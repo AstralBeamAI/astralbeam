@@ -1,5 +1,5 @@
 import { AstralBeamChat, type ToolDefinition, type WidgetDefinition } from "@astralbeam/sdk/react"
-import { SparkleIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, SparkleIcon, XIcon } from "@phosphor-icons/react"
 import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import {
   createContext,
@@ -15,6 +15,7 @@ import { cn } from "cn"
 import { getRouteApi, useMatches, useRouter } from "@tanstack/react-router"
 import { useTheme } from "tanstack-router-theme-provider"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useIsHydrated } from "@/components/auth/use-is-hydrated"
 import type { OrganizationAccess } from "@/lib/organizations/access"
 import { APP_NAME, ASSISTANT_NAME } from "@/lib/constants"
@@ -338,16 +339,22 @@ function DogfoodChatPanel({
             </div>
           }
           headerActions={
-            <Button
-              ref={closeButton}
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close chat"
-              title="Close chat"
-              onClick={() => setOpen(false)}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    ref={closeButton}
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Close chat"
+                    onClick={() => setOpen(false)}
+                  />
+                }
+              >
+                <XIcon aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>Close chat</TooltipContent>
+            </Tooltip>
           }
           emptyHeadline="What would you like to set up?"
           emptyDescription="Try asking how to connect your app, configure an agent, or find a conversation."
@@ -396,7 +403,14 @@ function IntegrationChecklistWidget() {
     return (
       <div role="status">
         <p>Could not load the integration checklist.</p>
-        <Button onClick={() => void query.refetch()}>Retry</Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={<Button size="icon" aria-label="Retry" onClick={() => void query.refetch()} />}
+          >
+            <ArrowClockwiseIcon aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent>Retry</TooltipContent>
+        </Tooltip>
       </div>
     )
   const { data: page, permissions } = query.data

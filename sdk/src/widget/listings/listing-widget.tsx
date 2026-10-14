@@ -1,7 +1,15 @@
 import { useId, useState } from "react"
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { ArrowClockwiseIcon, BuildingsIcon, UsersIcon, ChatsIcon } from "@phosphor-icons/react"
+import {
+  ArrowClockwiseIcon,
+  BuildingsIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  ChatsIcon,
+  FunnelXIcon,
+  UsersIcon,
+} from "@phosphor-icons/react"
 import {
   type TenantPage,
   type TenantRecordEncoded,
@@ -12,7 +20,7 @@ import type {
   MountAstralBeamTenantUserListOptions,
 } from "../../client/listings.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
-import { Button } from "../components/ui/button.tsx"
+import { TooltipButton } from "../components/tooltip-button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { SearchDropdown } from "../components/search-dropdown.tsx"
 import { NativeSelect, NativeSelectOption } from "../components/ui/native-select.tsx"
@@ -149,26 +157,26 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           </NativeSelect>
         )}
         {(search || adminFilter !== "all") && (
-          <Button
+          <TooltipButton
             variant="ghost"
-            size="sm"
+            size="icon-sm"
+            tooltip="Clear filters"
             onClick={() => {
               setSearch("")
               setAdmin("all")
             }}
           >
-            Clear filters
-          </Button>
+            <FunnelXIcon aria-hidden />
+          </TooltipButton>
         )}
         <div
           data-slot="directory-page-controls"
           className="ms-auto flex shrink-0 items-center gap-2"
         >
-          <Button
+          <TooltipButton
             variant="outline"
             size="icon"
-            aria-label="Refresh directory"
-            title="Refresh directory"
+            tooltip="Refresh directory"
             disabled={fetching > 0}
             onClick={() => void queryClient.refetchQueries({ type: "active" })}
           >
@@ -176,7 +184,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
               aria-hidden
               className={fetching > 0 ? "animate-spin motion-reduce:animate-none" : undefined}
             />
-          </Button>
+          </TooltipButton>
         </div>
       </div>
       {resolve && tenant.isError ? (
@@ -346,22 +354,24 @@ function PageNavigation({
           ))}
         </NativeSelect>
       </div>
-      <Button
+      <TooltipButton
         variant="outline"
-        size="sm"
+        size="icon-sm"
+        tooltip="Previous"
         disabled={busy || !page?.page_before}
         onClick={() => onPage({ page_before: page!.page_before! })}
       >
-        Previous
-      </Button>
-      <Button
+        <CaretLeftIcon aria-hidden className="rtl:rotate-180" />
+      </TooltipButton>
+      <TooltipButton
         variant="outline"
-        size="sm"
+        size="icon-sm"
+        tooltip="Next"
         disabled={busy || !page?.page_after}
         onClick={() => onPage({ page_after: page!.page_after! })}
       >
-        Next
-      </Button>
+        <CaretRightIcon aria-hidden className="rtl:rotate-180" />
+      </TooltipButton>
     </nav>
   )
 }
@@ -392,9 +402,9 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
       </AlertDescription>
-      <Button variant="outline" size="sm" onClick={retry}>
-        Retry
-      </Button>
+      <TooltipButton variant="outline" size="icon-sm" tooltip="Retry" onClick={retry}>
+        <ArrowClockwiseIcon aria-hidden />
+      </TooltipButton>
     </Alert>
   )
 }

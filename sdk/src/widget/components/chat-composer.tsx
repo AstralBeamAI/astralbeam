@@ -1,6 +1,5 @@
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
 import { useId, useRef, useState } from "react"
-import { Button } from "@/widget/components/ui/button"
 import { Alert, AlertAction, AlertDescription } from "@/widget/components/ui/alert"
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
@@ -127,15 +126,15 @@ export function ChatComposer({
           </AlertDescription>
           {onRetry && (
             <AlertAction className="static shrink-0">
-              <Button
+              <TooltipButton
                 type="button"
                 variant="outline"
-                size="sm"
-                className="any-pointer-coarse:min-h-9"
+                size="icon-sm"
+                tooltip={retryLabel}
                 onClick={onRetry}
               >
-                {retryLabel}
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </AlertAction>
           )}
         </Alert>
@@ -152,15 +151,15 @@ export function ChatComposer({
           </AlertDescription>
           {onAuthRetry && (
             <AlertAction className="static shrink-0">
-              <Button
+              <TooltipButton
                 type="button"
                 variant="outline"
-                size="sm"
-                className="any-pointer-coarse:min-h-9"
+                size="icon-sm"
+                tooltip="Retry"
                 onClick={onAuthRetry}
               >
-                Retry
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </AlertAction>
           )}
         </Alert>

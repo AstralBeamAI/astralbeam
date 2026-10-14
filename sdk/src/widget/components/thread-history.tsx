@@ -1,5 +1,5 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
 import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } from "react"
@@ -7,7 +7,6 @@ import { cn } from "cn"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
 import { DeleteConversationDialog } from "./delete-conversation-dialog.tsx"
-import { Button } from "./ui/button.tsx"
 import { TooltipButton } from "./tooltip-button.tsx"
 import {
   Combobox,
@@ -224,16 +223,17 @@ export function ThreadHistory({
           {!searching && query.isError && (
             <div className="p-2 text-xs" role="alert">
               Could not load chats.
-              <Button
+              <TooltipButton
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                tooltip="Retry"
                 disabled={query.isFetching}
                 onClick={() =>
                   void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
                 }
               >
-                Retry
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </div>
           )}
         </ComboboxContent>

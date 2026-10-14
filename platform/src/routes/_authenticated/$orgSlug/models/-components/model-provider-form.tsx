@@ -1,5 +1,6 @@
 "use client"
 
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useState } from "react"
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { OrganizationModelProvider } from "@/lib/model-providers/model-providers.server"
 import {
   ModelProviderFieldsSchema,
@@ -355,28 +357,37 @@ export function ModelProviderForm({
               </span>
             )}
             {existing && (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={disabled || !testDisabled}
-                onClick={() => {
-                  setName(existing.name)
-                  setApi(existing.api)
-                  setBaseUrl(existing.baseUrl)
-                  setApiKey("")
-                  setModels(
-                    existing.models.map(({ modelId, name: modelName, configuration }) => ({
-                      modelId,
-                      name: modelName,
-                      configuration,
-                    })),
-                  )
-                  setSubmitted(false)
-                  setServerFieldError(null)
-                }}
-              >
-                Discard changes
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Discard changes"
+                      disabled={disabled || !testDisabled}
+                      onClick={() => {
+                        setName(existing.name)
+                        setApi(existing.api)
+                        setBaseUrl(existing.baseUrl)
+                        setApiKey("")
+                        setModels(
+                          existing.models.map(({ modelId, name: modelName, configuration }) => ({
+                            modelId,
+                            name: modelName,
+                            configuration,
+                          })),
+                        )
+                        setSubmitted(false)
+                        setServerFieldError(null)
+                      }}
+                    />
+                  }
+                >
+                  <ArrowCounterClockwiseIcon aria-hidden="true" />
+                </TooltipTrigger>
+                <TooltipContent>Discard changes</TooltipContent>
+              </Tooltip>
             )}
             <Button type="submit" disabled={disabled}>
               {saving ? "Saving…" : "Save provider"}

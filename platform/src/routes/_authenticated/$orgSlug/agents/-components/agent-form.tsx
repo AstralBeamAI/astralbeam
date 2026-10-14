@@ -1,5 +1,6 @@
 "use client"
 
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
 import { AgentModelFields } from "./agent-model-fields"
@@ -327,14 +329,23 @@ export function AgentForm({
               </span>
             )}
             {existing && (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!dirty || saving}
-                onClick={discardChanges}
-              >
-                Discard changes
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Discard changes"
+                      disabled={!dirty || saving}
+                      onClick={discardChanges}
+                    />
+                  }
+                >
+                  <ArrowCounterClockwiseIcon aria-hidden="true" />
+                </TooltipTrigger>
+                <TooltipContent>Discard changes</TooltipContent>
+              </Tooltip>
             )}
             <Button type="submit" disabled={!valid || saving}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}

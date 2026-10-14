@@ -1,10 +1,17 @@
-import { CopyIcon, DotsThreeIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react"
+import {
+  CheckIcon,
+  CopyIcon,
+  DotsThreeIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+  XIcon,
+} from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
 import { transcriptMarkdown } from "../lib/utils.ts"
 import { DeleteConversationDialog } from "./delete-conversation-dialog.tsx"
-import { Button } from "./ui/button.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx"
 import { Input } from "./ui/input.tsx"
+import { Spinner } from "./ui/spinner.tsx"
 
 /** The open conversation's title, shown once it has one, with its rename, copy, and delete menu. */
 export function ConversationTitle({
@@ -96,21 +104,27 @@ export function ConversationTitle({
               }
             }}
           />
-          <Button
+          <TooltipButton
             type="button"
-            size="sm"
+            size="icon-sm"
             variant="ghost"
+            tooltip="Cancel"
             disabled={saving}
             onClick={() => {
               setRenaming(false)
               requestAnimationFrame(() => actions.current?.focus())
             }}
           >
-            Cancel
-          </Button>
-          <Button type="submit" size="sm" disabled={!title.trim() || saving}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
+            <XIcon />
+          </TooltipButton>
+          <TooltipButton
+            type="submit"
+            size="icon-sm"
+            tooltip={saving ? "Saving…" : "Save"}
+            disabled={!title.trim() || saving}
+          >
+            {saving ? <Spinner /> : <CheckIcon />}
+          </TooltipButton>
         </form>
       ) : (
         <>
@@ -125,9 +139,9 @@ export function ConversationTitle({
           <DropdownMenu>
             <DropdownMenuTrigger
               ref={actions}
-              aria-label="Conversation actions"
-              title="Conversation actions"
-              render={<Button variant="ghost" size="icon-sm" />}
+              render={
+                <TooltipButton tooltip="Conversation actions" variant="ghost" size="icon-sm" />
+              }
             >
               <DotsThreeIcon />
             </DropdownMenuTrigger>

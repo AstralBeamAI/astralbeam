@@ -10,7 +10,7 @@ import {
   type ListingSession,
 } from "../../core/listings.ts"
 import { projectThreadMessages } from "../../core/threads.ts"
-import { Button } from "../components/ui/button.tsx"
+import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
 
 export function ThreadViewer({
@@ -77,10 +77,14 @@ export function ThreadViewer({
       className="flex min-h-96 flex-col gap-4"
     >
       <header className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" size="sm" onClick={onClose}>
-          <ArrowLeftIcon aria-hidden />
-          Back to conversations
-        </Button>
+        <TooltipButton
+          variant="outline"
+          size="icon-sm"
+          tooltip="Back to conversations"
+          onClick={onClose}
+        >
+          <ArrowLeftIcon aria-hidden className="rtl:rotate-180" />
+        </TooltipButton>
         <div className="min-w-0">
           <h3 className="break-words font-semibold">{latest.title || "Untitled conversation"}</h3>
           <p className="text-sm text-muted-foreground">Saved conversation · Read only</p>

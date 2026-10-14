@@ -1,4 +1,4 @@
-import { XIcon } from "@phosphor-icons/react"
+import { EyeIcon, XIcon } from "@phosphor-icons/react"
 import { useEffect, useRef } from "react"
 import {
   Attachment,
@@ -47,18 +47,25 @@ export function ComposerAttachments({
   return (
     <div className="w-full min-w-0">
       {rejected.length > 0 && (
-        <button
-          type="button"
-          className="mb-2 text-sm text-destructive underline underline-offset-4"
-          onClick={() => {
-            const chip = group.current?.querySelector<HTMLElement>('[role="alert"]')
-            chip?.scrollIntoView({ block: "nearest", inline: "nearest" })
-            chip?.querySelector<HTMLButtonElement>("button")?.focus()
-          }}
-        >
-          {rejected.length} {rejected.length === 1 ? "file could" : "files could"} not be attached.
-          Review files
-        </button>
+        <div className="mb-2 flex items-center gap-2 text-sm text-destructive">
+          <span>
+            {rejected.length} {rejected.length === 1 ? "file could" : "files could"} not be
+            attached.
+          </span>
+          <TooltipButton
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            tooltip="Review files"
+            onClick={() => {
+              const chip = group.current?.querySelector<HTMLElement>('[role="alert"]')
+              chip?.scrollIntoView({ block: "nearest", inline: "nearest" })
+              chip?.querySelector<HTMLButtonElement>("button")?.focus()
+            }}
+          >
+            <EyeIcon />
+          </TooltipButton>
+        </div>
       )}
       <AttachmentGroup ref={group} className="w-full">
         {attachments.map((attachment) => {
