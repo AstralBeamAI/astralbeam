@@ -132,7 +132,7 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
             <Button
               variant="outline"
               size="sm"
-              className="group w-full justify-start rounded-full bg-muted/50 text-xs text-muted-foreground any-pointer-coarse:min-h-11"
+              className="group w-full justify-start rounded-full bg-muted/50 text-xs text-muted-foreground any-pointer-coarse:min-h-9"
             />
           }
         >
@@ -153,7 +153,7 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
           <Tabs defaultValue="files" className="flex min-h-0 flex-col gap-0">
             <TabsList
               variant="line"
-              className="w-full shrink-0 px-2 any-pointer-coarse:h-auto any-pointer-coarse:[&_[data-slot=tabs-trigger]]:min-h-11"
+              className="w-full shrink-0 px-2 any-pointer-coarse:h-auto any-pointer-coarse:[&_[data-slot=tabs-trigger]]:min-h-9"
             >
               <TabsTrigger value="files">
                 <FileTextIcon />

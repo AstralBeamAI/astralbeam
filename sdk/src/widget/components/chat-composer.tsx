@@ -130,7 +130,7 @@ export function ChatComposer({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="any-pointer-coarse:min-h-11"
+                className="any-pointer-coarse:min-h-9"
                 onClick={onRetry}
               >
                 {retryLabel}
@@ -155,7 +155,7 @@ export function ChatComposer({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="any-pointer-coarse:min-h-11"
+                className="any-pointer-coarse:min-h-9"
                 onClick={onAuthRetry}
               >
                 Retry

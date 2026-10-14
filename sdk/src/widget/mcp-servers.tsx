@@ -60,13 +60,13 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
   }
   return (
     <section
-      className="grid grid-cols-1 gap-2 bg-background text-foreground any-pointer-coarse:[&_button]:min-h-11 any-pointer-coarse:[&_button]:min-w-11"
+      className="grid grid-cols-1 gap-2 bg-background text-foreground"
       data-slot="mcp-servers"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-heading text-sm font-medium">Configured MCP servers</h2>
         {options.onCreateServer && !adding && (
-          <Button size="sm" onClick={() => setAdding(true)}>
+          <Button size="sm" className="any-pointer-coarse:min-h-9" onClick={() => setAdding(true)}>
             <PlusIcon /> Add MCP server
           </Button>
         )}
@@ -142,6 +142,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                 <div className="flex justify-end gap-2">
                   <Button
                     size="xs"
+                    className="any-pointer-coarse:min-h-9"
                     variant="outline"
                     disabled={busy}
                     onClick={() => setRemoval(null)}
@@ -150,6 +151,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                   </Button>
                   <Button
                     size="xs"
+                    className="any-pointer-coarse:min-h-9"
                     variant="destructive"
                     disabled={busy}
                     onClick={() => void remove(server.id)}
@@ -357,10 +359,16 @@ function McpServerForm({
             )}
           </CardContent>
           <CardFooter className="justify-end gap-2 bg-card py-2">
-            <Button type="button" size="sm" variant="outline" onClick={close}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="any-pointer-coarse:min-h-9"
+              onClick={close}
+            >
               Cancel
             </Button>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" className="any-pointer-coarse:min-h-9">
               {busy ? "Saving…" : "Add MCP server"}
             </Button>
           </CardFooter>
