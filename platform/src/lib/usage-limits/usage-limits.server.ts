@@ -1,4 +1,4 @@
-import { and, asc, eq, exists, inArray, ne, or, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, or } from "drizzle-orm"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect"
 
@@ -160,32 +160,34 @@ export class UsageLimits extends Context.Service<
           const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
+              // Lock the limit before touching counters, as recording does, so a first write that
+              // already read the old definition commits before this decides what to discard.
+              const [current] = yield* transaction
+                .select()
+                .from(usageLimit)
+                .where(
+                  and(eq(usageLimit.organizationId, input.organizationId), eq(usageLimit.id, id)),
+                )
+                .for("update")
               // Counters belong to the old scope's subjects and the old window's end, so changing
               // either starts counting afresh. Name, amount, and metric edits keep the counts.
-              yield* transaction.delete(usageLimitCounter).where(
-                and(
-                  eq(usageLimitCounter.organizationId, input.organizationId),
-                  eq(usageLimitCounter.usageLimitId, id),
-                  exists(
-                    transaction
-                      .select({ id: usageLimit.id })
-                      .from(usageLimit)
-                      .where(
-                        and(
-                          eq(usageLimit.organizationId, input.organizationId),
-                          eq(usageLimit.id, id),
-                          or(
-                            ne(usageLimit.scope, input.fields.scope),
-                            ne(usageLimit.windowType, input.fields.windowType),
-                            ne(usageLimit.windowCount, input.fields.windowCount),
-                            ne(usageLimit.windowUnit, input.fields.windowUnit),
-                            sql`${usageLimit.timeZone} is distinct from ${input.fields.timeZone}`,
-                          ),
-                        ),
-                      ),
-                  ),
-                ),
+              const fields = input.fields
+              if (
+                current &&
+                (current.scope !== fields.scope ||
+                  current.windowType !== fields.windowType ||
+                  current.windowCount !== fields.windowCount ||
+                  current.windowUnit !== fields.windowUnit ||
+                  current.timeZone !== fields.timeZone)
               )
+                yield* transaction
+                  .delete(usageLimitCounter)
+                  .where(
+                    and(
+                      eq(usageLimitCounter.organizationId, input.organizationId),
+                      eq(usageLimitCounter.usageLimitId, id),
+                    ),
+                  )
               yield* updateWithOptimisticLock({
                 executor: transaction,
                 table: usageLimit,

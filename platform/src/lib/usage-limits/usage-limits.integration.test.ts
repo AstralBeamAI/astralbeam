@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import { Effect } from "effect"
+import { Client } from "pg"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const usageLimitIntegration = vi.hoisted(() => {
@@ -17,7 +18,7 @@ import { getAuthDatabase } from "@/db/database"
 import { organization, tenant, tenantUser, usageLimitCounter } from "@/db/schema"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { UsageSubject } from "./counters.ts"
-import type { UsageLimitFields } from "./schemas.ts"
+import { parseUsageLimitId, type UsageLimitFields } from "./schemas.ts"
 import { UsageLimits } from "./usage-limits.server.ts"
 
 const weeklyTokens: UsageLimitFields = {
@@ -149,6 +150,50 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
         }),
     )
     expect(names).toEqual([["Weekly limit"], ["Pro weekly", "Weekly limit"]])
+  })
+
+  test("a window edit discards a first write that read the old definition before it", async () => {
+    const { organizationId, ada } = await createSubjects()
+    const [id] = await withLimits(organizationId, [weeklyTokens], (_usageLimits, ids) =>
+      Effect.succeed(ids),
+    )
+    const rowId = parseUsageLimitId(id)!.id
+    // A raw transaction replays recording's order: share-lock the limit, then write its counter.
+    const recording = new Client({ connectionString: usageLimitIntegration.url })
+    await recording.connect()
+    try {
+      await recording.query("begin")
+      await recording.query("select id from usage_limit where id = $1 for share", [rowId])
+      const edit = runAppEffect(
+        Effect.flatMap(UsageLimits, (usageLimits) =>
+          usageLimits.update({
+            organizationId,
+            usageLimitId: id!,
+            lockVersion: 0,
+            fields: { ...weeklyTokens, windowCount: 2 },
+          }),
+        ),
+      )
+      await expect
+        .poll(
+          async () =>
+            (
+              await recording.query<{ waiting: number }>(
+                "select count(*)::int as waiting from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()",
+              )
+            ).rows[0]?.waiting,
+        )
+        .toBe(1)
+      await recording.query(
+        "insert into usage_limit_counter (organization_id, usage_limit_id, tenant_id, tenant_user_id, window_ends_at, tokens, spend) values ($1, $2, $3, $4, now() + interval '1 day', 900, 0)",
+        [organizationId, rowId, ada.tenantId, ada.tenantUserId],
+      )
+      await recording.query("commit")
+      await edit
+    } finally {
+      await recording.end()
+    }
+    expect(await db.select().from(usageLimitCounter)).toEqual([])
   })
 
   test("window and scope edits restart counting, while name and amount edits keep it", async () => {
