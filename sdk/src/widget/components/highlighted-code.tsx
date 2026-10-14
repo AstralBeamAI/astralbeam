@@ -1,4 +1,5 @@
 import { cn } from "cn"
+import stripAnsi from "strip-ansi"
 import { useHighlightedCode } from "./ui/use-highlighted-code"
 import {
   CodeBlock,
@@ -35,7 +36,10 @@ export function HighlightedCode({
           {title ?? language}
         </CodeBlockTitle>
         <CodeBlockActions>
-          <CodeBlockCopyButton value={children} className="any-pointer-coarse:size-11" />
+          <CodeBlockCopyButton
+            value={language.toLowerCase() === "ansi" ? stripAnsi(children) : children}
+            className="any-pointer-coarse:size-11"
+          />
         </CodeBlockActions>
       </CodeBlockHeader>
       <CodeBlockContent
