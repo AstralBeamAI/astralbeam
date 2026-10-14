@@ -29,6 +29,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -44,36 +45,82 @@ type OrganizationNavigationEntry = {
   label: string
   segment: string
   icon: Icon
+  group: string
   permission?: keyof OrganizationPermissions
 }
 
 /** The sub-paths a switch carries over to the organization being switched to. */
 const organizationNavigation = [
-  { label: "Dashboard", segment: "", icon: HouseIcon },
-  { label: "Models", segment: "models", icon: CpuIcon, permission: "readConfiguration" },
-  { label: "Agents", segment: "agents", icon: RobotIcon, permission: "readConfiguration" },
-  { label: "Sandboxes", segment: "sandboxes", icon: CubeIcon, permission: "readConfiguration" },
+  { label: "Dashboard", segment: "", icon: HouseIcon, group: "" },
+  {
+    label: "Agents",
+    segment: "agents",
+    icon: RobotIcon,
+    group: "Build",
+    permission: "readConfiguration",
+  },
+  {
+    label: "Models",
+    segment: "models",
+    icon: CpuIcon,
+    group: "Build",
+    permission: "readConfiguration",
+  },
+  {
+    label: "Sandboxes",
+    segment: "sandboxes",
+    icon: CubeIcon,
+    group: "Build",
+    permission: "readConfiguration",
+  },
+  {
+    label: "MCP servers",
+    segment: "mcp",
+    icon: PlugIcon,
+    group: "Build",
+    permission: "readConfiguration",
+  },
+  {
+    label: "Conversations",
+    segment: "threads",
+    icon: ChatCircleIcon,
+    group: "Activity",
+    permission: "readTenants",
+  },
+  {
+    label: "Tenants",
+    segment: "tenants",
+    icon: BriefcaseIcon,
+    group: "Activity",
+    permission: "readTenants",
+  },
+  {
+    label: "Tenant users",
+    segment: "tenant-users",
+    icon: UsersThreeIcon,
+    group: "Activity",
+    permission: "readTenants",
+  },
   {
     label: "Usage Limits",
     segment: "usage-limits",
     icon: GaugeIcon,
+    group: "Organization",
     permission: "readConfiguration",
   },
-  { label: "MCP servers", segment: "mcp", icon: PlugIcon, permission: "readConfiguration" },
-  { label: "API Keys", segment: "api-keys", icon: KeyIcon, permission: "readApiKey" },
-  { label: "Conversations", segment: "threads", icon: ChatCircleIcon, permission: "readTenants" },
-  { label: "Tenants", segment: "tenants", icon: BriefcaseIcon, permission: "readTenants" },
   {
-    label: "Users",
-    segment: "tenant-users",
-    icon: UsersThreeIcon,
-    permission: "readTenants",
+    label: "API Keys",
+    segment: "api-keys",
+    icon: KeyIcon,
+    group: "Organization",
+    permission: "readApiKey",
   },
-  { label: "Members", segment: "members", icon: IdentificationBadgeIcon },
+  { label: "Members", segment: "members", icon: IdentificationBadgeIcon, group: "Organization" },
   {
     label: "Settings",
     segment: "settings",
     icon: SlidersHorizontalIcon,
+    group: "Organization",
     permission: "updateOrganization",
   },
 ] satisfies readonly OrganizationNavigationEntry[]
@@ -152,36 +199,46 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
       )}
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <nav aria-label="Organization navigation">
-              <SidebarMenu>
-                {organizationNavigation.map((item) => {
-                  if (item.permission && !organization.permissions[item.permission]) return null
-                  const href = organizationPath(organization.organizationSlug, item.segment)
-                  const isActive =
-                    item.segment === ""
-                      ? pathname === href
-                      : pathname === href || pathname.startsWith(`${href}/`)
+        <nav aria-label="Organization navigation">
+          {["", "Build", "Activity", "Organization"].map((group) => {
+            const entries = organizationNavigation.filter(
+              (item) =>
+                item.group === group &&
+                (!item.permission || organization.permissions[item.permission]),
+            )
+            if (entries.length === 0) return null
+            return (
+              <SidebarGroup key={group}>
+                {group && <SidebarGroupLabel>{group}</SidebarGroupLabel>}
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {entries.map((item) => {
+                      const href = organizationPath(organization.organizationSlug, item.segment)
+                      const isActive =
+                        item.segment === ""
+                          ? pathname === href
+                          : pathname === href || pathname.startsWith(`${href}/`)
 
-                  return (
-                    <SidebarMenuItem key={item.segment}>
-                      <SidebarMenuButton
-                        render={<Link href={href} onClick={() => setOpenMobile(false)} />}
-                        isActive={isActive}
-                        tooltip={item.label}
-                        {...(isActive ? { "aria-current": "page" } : {})}
-                      >
-                        <item.icon aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </nav>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                      return (
+                        <SidebarMenuItem key={item.segment}>
+                          <SidebarMenuButton
+                            render={<Link href={href} onClick={() => setOpenMobile(false)} />}
+                            isActive={isActive}
+                            tooltip={item.label}
+                            {...(isActive ? { "aria-current": "page" } : {})}
+                          >
+                            <item.icon aria-hidden="true" />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )
+          })}
+        </nav>
       </SidebarContent>
 
       <SidebarFooter>

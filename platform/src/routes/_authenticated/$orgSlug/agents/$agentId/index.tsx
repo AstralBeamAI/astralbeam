@@ -58,8 +58,10 @@ function AgentPage() {
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <code className="text-xs text-muted-foreground">{data.agent.id}</code>
+        <div className="flex items-center gap-2 max-w-2xl">
+          <code id="agent-public-id" className="min-w-0 break-all text-xs text-muted-foreground">
+            {data.agent.id}
+          </code>
           <Button
             type="button"
             size="icon-sm"

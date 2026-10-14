@@ -9,7 +9,7 @@ export const DEFAULT_EMPTY_HEADLINE = "Ask the assistant"
 
 /** Subtitle of the empty transcript when the mount options give none. */
 export const DEFAULT_EMPTY_DESCRIPTION =
-  "It can answer questions and act through this app's own tools and widgets."
+  "Ask a question or describe what you want to do in this app."
 
 /** Base URL of the AstralBeam API when the mount options give none; versioned routes hang off it. */
 export const DEFAULT_API_URL = "https://astralbeam.ai/api"

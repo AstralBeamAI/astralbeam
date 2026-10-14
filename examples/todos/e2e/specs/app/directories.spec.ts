@@ -34,6 +34,12 @@ test("example lists only its tenant's users and filters stored admin status", as
   await expect(directory.user(admin.name)).toBeVisible()
   await expect(directory.metadata).toContainText(admin.metadata.email)
   await captureMoment(page, "filtered-user-metadata")
+  await directory.users.getByRole("searchbox").fill("no matching user")
+  await expect(directory.users.getByText("No records match your filters.")).toBeVisible()
+  await directory.users.getByRole("button", { name: "Clear filters", exact: true }).click()
+  await expect(directory.users.getByRole("searchbox")).toHaveValue("")
+  await expect(directory.adminFilter).toHaveValue("all")
+  await expect(directory.user(admin.name)).toBeVisible()
   await directory.showAdmin.uncheck()
   await expect(directory.adminFilter).toHaveCount(0)
   await expect(directory.user(admin.name)).toBeVisible()
@@ -47,7 +53,7 @@ test("a missing tenant can be refreshed after provisioning without remounting", 
     route.fulfill({ json: { items: [], page_after: null, page_before: null } }),
   )
   await directory.open()
-  await expect(directory.users).toContainText("No persisted tenant found")
+  await expect(directory.users).toContainText("This tenant is not available.")
   await captureMoment(page, "missing-tenant-refresh")
   await page.unroute("**/api/v1/tenants?*")
   await directory.refresh.click()
@@ -258,6 +264,6 @@ test("external tenant IDs resolve exactly and missing tenants never show another
     scope: "organization",
     tenantExternalId: "missing-tenant-for-lookup",
   })
-  await expect(directory.users).toContainText("No persisted tenant found")
+  await expect(directory.users).toContainText("This tenant is not available.")
   await expect(directory.user(tenant.users[0].name)).toHaveCount(0)
 })

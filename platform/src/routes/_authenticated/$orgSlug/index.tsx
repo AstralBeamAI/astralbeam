@@ -20,6 +20,10 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/")({
 function DashboardPage() {
   const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
+  const configured =
+    data.modelSetup !== null &&
+    data.modelSetup.defaultAgentModelCount > 0 &&
+    (data.counts.apiKeys ?? 0) > 0
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -31,13 +35,14 @@ function DashboardPage() {
           Configure the agents this organization embeds with {APP_NAME}.
         </p>
       </div>
+      {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
       <DashboardIntegrationGuide
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
         apiKeyCount={data.counts.apiKeys}
         permissions={permissions}
       />
-      <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />
+      {!configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
     </div>
   )
 }

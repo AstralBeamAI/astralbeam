@@ -349,6 +349,8 @@ function DogfoodChatPanel({
               <XIcon aria-hidden="true" />
             </Button>
           }
+          emptyHeadline="What would you like to set up?"
+          emptyDescription="Try asking how to connect your app, configure an agent, or find a conversation."
           title={ASSISTANT_NAME}
           theme={widgetDashboardTheme}
           tools={tools}

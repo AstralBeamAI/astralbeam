@@ -6,6 +6,7 @@ import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } f
 import { cn } from "cn"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
+import { DeleteConversationDialog } from "./delete-conversation-dialog.tsx"
 import { Button } from "./ui/button.tsx"
 import { TooltipButton } from "./tooltip-button.tsx"
 import {
@@ -66,6 +67,8 @@ export function ThreadHistory({
   onSelect: () => void
   onDelete: (threadId: string) => void
 }) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null)
   const container = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
@@ -107,16 +110,26 @@ export function ThreadHistory({
     : groupThreads(query.data?.pages.flatMap((page) => page.items) ?? [])
   const currentId = state.thread?.id
   const writing = state.status === "submitted" || state.status === "streaming"
-  const deleteThread = (thread: ChatThread) => {
-    void chat.deleteThread(thread).then((deleted) => {
-      if (!deleted) return
-      onDelete(thread.id)
-      void query.refetch()
-    })
-  }
   return (
     <div ref={container} data-slot="thread-history">
+      {deletingThread && (
+        <DeleteConversationDialog
+          title={threadTitle(deletingThread)}
+          container={container}
+          finalFocus={trigger}
+          onClose={() => setDeletingThread(null)}
+          onDelete={async () => {
+            const deleted = await chat.deleteThread(deletingThread)
+            if (deleted) {
+              onDelete(deletingThread.id)
+              void query.refetch()
+            }
+            return deleted
+          }}
+        />
+      )}
       <Combobox
+        open={open}
         items={groups}
         filteredItems={groups}
         value={null}
@@ -137,6 +150,7 @@ export function ThreadHistory({
         }}
       >
         <ComboboxPrimitive.Trigger
+          ref={trigger}
           render={<TooltipButton tooltip="Show older chats" variant="ghost" size="icon-sm" />}
         >
           <ClockCounterClockwiseIcon />
@@ -193,7 +207,8 @@ export function ThreadHistory({
                             onMouseDown={stopRowEvent}
                             onClick={(event) => {
                               event.stopPropagation()
-                              deleteThread(thread)
+                              setOpen(false)
+                              setDeletingThread(thread)
                             }}
                           >
                             <TrashIcon />

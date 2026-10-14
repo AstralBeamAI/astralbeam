@@ -46,7 +46,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody
               count={counts.agents}
-              description="Named instructions each embedded chat runs with."
+              description="Configure how your assistants respond and what they can do."
               icon={RobotIcon}
               label="Agents"
             />
@@ -58,7 +58,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody
               count={counts.sandboxProviders}
-              description="Vendor backends that give an agent its sandbox tools."
+              description="Connect environments where agents can run code and work with files."
               icon={CubeIcon}
               label="Sandboxes"
             />
@@ -70,7 +70,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
           <Card className={CARD_CLASS_NAME}>
             <ResourceCardBody
               count={counts.apiKeys}
-              description="Server-side credentials that mint chat auth tokens."
+              description="Manage the credentials your server uses to connect your app."
               icon={KeyIcon}
               label="API keys"
             />
@@ -81,7 +81,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
         <Card className={CARD_CLASS_NAME}>
           <ResourceCardBody
             count={counts.members}
-            description="People who can sign in and configure this organization."
+            description="Manage your team’s access to this organization."
             icon={UsersThreeIcon}
             label="Members"
           />

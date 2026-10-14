@@ -150,6 +150,26 @@ export function AgentForm({
     }
   }
 
+  const dirty =
+    existing !== null &&
+    (name !== existing.name ||
+      systemPrompt !== existing.systemPrompt ||
+      attachmentsEnabled !== existing.attachmentsEnabled ||
+      webAccessEnabled !== (existing.webAccessEnabled ?? selectedModel?.webAccess === true) ||
+      selectedSandboxProviderId !== existing.sandboxProviderId ||
+      JSON.stringify(modelIds) !== JSON.stringify(existing.modelIds))
+  const discardChanges = () => {
+    if (!existing) return
+    setName(existing.name)
+    setSystemPrompt(existing.systemPrompt)
+    setAttachmentsEnabled(existing.attachmentsEnabled)
+    setWebOverride(existing.webAccessEnabled)
+    setModelIds([...existing.modelIds])
+    setSandboxEnabled(existing.sandboxProviderId !== null)
+    setSandboxProviderId(existing.sandboxProviderId ?? NO_SANDBOX_PROVIDER)
+    setNameError(null)
+  }
+
   const disabled = saving || readOnly
 
   return (
@@ -159,8 +179,8 @@ export function AgentForm({
           <CardTitle>{existing ? "Configuration" : "New agent"}</CardTitle>
           <CardDescription>
             {existing
-              ? "The agent ID can't change. You can update the other settings."
-              : "Name the agent and write its system prompt. Its ID is assigned on creation."}
+              ? "Update this agent’s instructions, models, and capabilities."
+              : "Give your agent a name, instructions, and a model."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -184,19 +204,6 @@ export function AgentForm({
               <FieldDescription>Unique within this organization.</FieldDescription>
             </Field>
 
-            {existing && (
-              <Field>
-                <FieldLabel htmlFor="agent-public-id">Agent ID</FieldLabel>
-                <Input
-                  id="agent-public-id"
-                  value={existing.id}
-                  readOnly
-                  className="font-mono text-xs"
-                />
-                <FieldDescription>This identifier cannot be changed.</FieldDescription>
-              </Field>
-            )}
-
             <Field>
               <FieldLabel htmlFor="agent-system-prompt">System prompt</FieldLabel>
               <Textarea
@@ -209,7 +216,7 @@ export function AgentForm({
                 onChange={(event) => setSystemPrompt(event.target.value)}
               />
               <FieldDescription>
-                The agent&apos;s instructions. They are owned here; the SDK cannot override them.
+                Describe the agent’s purpose, how it should respond, and what it should avoid.
               </FieldDescription>
             </Field>
 
@@ -233,12 +240,11 @@ export function AgentForm({
               </FieldLabel>
             </Field>
             <FieldDescription>
-              Enforced by the chat endpoint; the SDK hides the composer&apos;s attach button when
-              off.
+              Let people attach files when chatting with this agent.
             </FieldDescription>
 
             <FieldSet>
-              <FieldLegend>Tools</FieldLegend>
+              <FieldLegend>Capabilities</FieldLegend>
               <FieldDescription>Choose what this agent can do.</FieldDescription>
               <Field orientation="horizontal">
                 <FieldContent>
@@ -314,7 +320,22 @@ export function AgentForm({
           </FieldGroup>
         </CardContent>
         {!readOnly && (
-          <CardFooter className="justify-end gap-2">
+          <CardFooter className="flex-wrap justify-end gap-2">
+            {dirty && (
+              <span role="status" className="me-auto text-sm text-muted-foreground">
+                Unsaved changes
+              </span>
+            )}
+            {existing && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!dirty || saving}
+                onClick={discardChanges}
+              >
+                Discard changes
+              </Button>
+            )}
             <Button type="submit" disabled={!valid || saving}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}
             </Button>

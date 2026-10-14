@@ -42,53 +42,70 @@ export function ComposerAttachments({
     const element = group.current
     if (element) element.scrollLeft = element.scrollWidth
   }, [newest])
+  const rejected = attachments.filter((attachment) => attachment.status === "error")
   if (attachments.length === 0) return null
   return (
-    <AttachmentGroup ref={group} className="w-full">
-      {attachments.map((attachment) => {
-        const thumbnail =
-          attachment.kind === "image" && attachment.data !== undefined
-            ? attachmentDataUri(attachment.mimeType, attachment.data)
-            : undefined
-        return (
-          <Attachment
-            key={attachment.id}
-            size="sm"
-            state={CHIP_STATE[attachment.status]}
-            // The reason a file was refused lives only in this chip, so it has to be announced.
-            role={attachment.status === "error" ? "alert" : undefined}
-          >
-            <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-              {thumbnail ? (
-                <img src={thumbnail} alt="" />
-              ) : attachment.status === "reading" ? (
-                <Spinner />
-              ) : (
-                <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />
-              )}
-            </AttachmentMedia>
-            <AttachmentContent>
-              <AttachmentTitle>{attachment.name}</AttachmentTitle>
-              <AttachmentDescription>
-                {attachment.error ?? formatByteSize(attachment.size)}
-              </AttachmentDescription>
-            </AttachmentContent>
-            <AttachmentActions>
-              <TooltipButton
-                data-slot="attachment-action"
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Remove ${attachment.name}`}
-                tooltip="Remove attachment"
-                onClick={() => onRemove(attachment.id)}
-              >
-                <XIcon />
-              </TooltipButton>
-            </AttachmentActions>
-          </Attachment>
-        )
-      })}
-    </AttachmentGroup>
+    <div className="w-full min-w-0">
+      {rejected.length > 0 && (
+        <button
+          type="button"
+          className="mb-2 text-sm text-destructive underline underline-offset-4"
+          onClick={() => {
+            const chip = group.current?.querySelector<HTMLElement>('[role="alert"]')
+            chip?.scrollIntoView({ block: "nearest", inline: "nearest" })
+            chip?.querySelector<HTMLButtonElement>("button")?.focus()
+          }}
+        >
+          {rejected.length} {rejected.length === 1 ? "file could" : "files could"} not be attached.
+          Review files
+        </button>
+      )}
+      <AttachmentGroup ref={group} className="w-full">
+        {attachments.map((attachment) => {
+          const thumbnail =
+            attachment.kind === "image" && attachment.data !== undefined
+              ? attachmentDataUri(attachment.mimeType, attachment.data)
+              : undefined
+          return (
+            <Attachment
+              key={attachment.id}
+              size="sm"
+              state={CHIP_STATE[attachment.status]}
+              // The reason a file was refused lives only in this chip, so it has to be announced.
+              role={attachment.status === "error" ? "alert" : undefined}
+            >
+              <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
+                {thumbnail ? (
+                  <img src={thumbnail} alt="" />
+                ) : attachment.status === "reading" ? (
+                  <Spinner />
+                ) : (
+                  <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />
+                )}
+              </AttachmentMedia>
+              <AttachmentContent>
+                <AttachmentTitle>{attachment.name}</AttachmentTitle>
+                <AttachmentDescription>
+                  {attachment.error ?? formatByteSize(attachment.size)}
+                </AttachmentDescription>
+              </AttachmentContent>
+              <AttachmentActions>
+                <TooltipButton
+                  data-slot="attachment-action"
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove ${attachment.name}`}
+                  tooltip="Remove attachment"
+                  onClick={() => onRemove(attachment.id)}
+                >
+                  <XIcon />
+                </TooltipButton>
+              </AttachmentActions>
+            </Attachment>
+          )
+        })}
+      </AttachmentGroup>
+    </div>
   )
 }

@@ -52,7 +52,7 @@ import {
   usageLimitWindowTypeItems,
   usageLimitWindowUnitItems,
 } from "../-lib/constants"
-import { usageLimitDuration } from "../-lib/utils"
+import { summarizeUsageLimit, usageLimitDuration } from "../-lib/utils"
 
 const formatUsageLimitIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const decodeUsageLimitFields = Schema.decodeUnknownResult(
@@ -379,6 +379,14 @@ export function UsageLimitForm({
               <FieldError id="usage-limit-amount-error" errors={fieldErrors("amount")} />
             </Field>
           </FieldGroup>
+          <div className="mt-6 border-t pt-4 text-sm" role="status">
+            <p className="font-medium">Limit summary</p>
+            <p className="mt-1 text-muted-foreground">
+              {Result.isSuccess(input)
+                ? summarizeUsageLimit(input.success)
+                : "Complete the name, a valid amount, and the reset period to preview this limit."}
+            </p>
+          </div>
         </CardContent>
         {!readOnly && (
           <CardFooter className="justify-end gap-2">
