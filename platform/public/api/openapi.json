@@ -9831,7 +9831,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -10121,7 +10123,8 @@
           },
           "thread_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "usage_limit": {
             "type": "object",
@@ -10272,7 +10275,8 @@
           },
           "expected_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -10534,7 +10538,8 @@
               },
               "version": {
                 "type": "integer",
-                "minimum": 0
+                "minimum": 0,
+                "maximum": 9007199254740991
               },
               "current_leaf_message_id": {
                 "anyOf": [
@@ -10702,7 +10707,8 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "current_leaf_message_id": {
             "anyOf": [
@@ -10758,7 +10764,8 @@
           },
           "expected_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -10919,7 +10926,8 @@
           },
           "thread_version": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -11015,7 +11023,9 @@
             "type": "string"
           },
           "byteSize": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
