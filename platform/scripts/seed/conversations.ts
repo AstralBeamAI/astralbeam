@@ -9,7 +9,7 @@ import {
   organizationConfiguration,
   tenant,
   tenantUser,
-} from "../../src/db/schema.ts"
+} from "@/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import {

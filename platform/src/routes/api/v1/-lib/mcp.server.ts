@@ -2,14 +2,14 @@ import { Effect, Schema } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import {
   McpAttemptReferenceSchema,
   McpConnectionSummarySchema,
   McpConnectionWriteSchema,
   McpHeadersWriteSchema,
   McpServerSummarySchema,
-} from "../../../../lib/mcp/schemas.ts"
+} from "@/lib/mcp/schemas.ts"
 
 const mcpWireKeys = {
   organizationId: "organization_id",

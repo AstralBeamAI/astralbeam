@@ -2,8 +2,8 @@ import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule, Semaphore } f
 import { Sharding, ShardingConfig } from "effect/cluster"
 import { WorkflowEngine } from "effect/workflow"
 
-import { sqlState } from "../../db/lib/sqlstate.ts"
-import { closeDatabase } from "../../db/database.ts"
+import { sqlState } from "@/db/lib/sqlstate.ts"
+import { closeDatabase } from "@/db/database.ts"
 import { disposeAppRuntimes, getAppRuntime } from "../runtime/runtime.server.ts"
 import { registeredWorkflowLayers } from "../workflows/registry.ts"
 import { ClusterUnavailableError } from "./errors.ts"

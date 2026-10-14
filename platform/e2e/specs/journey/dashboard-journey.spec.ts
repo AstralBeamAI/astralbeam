@@ -1,9 +1,9 @@
-import { baselineStatePath, writeBaseline } from "../../baseline.ts"
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
-import { makeRunIdentity } from "../../identity.ts"
-import { emailLink, waitForEmail } from "../../mailbox.ts"
-import { mailboxSmtpPort, operatorKey, platformUrl } from "../../worktree.ts"
+import { baselineStatePath, writeBaseline } from "@e2e/baseline.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
+import { emailLink, waitForEmail } from "@e2e/mailbox.ts"
+import { mailboxSmtpPort, operatorKey, platformUrl } from "@e2e/worktree.ts"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its

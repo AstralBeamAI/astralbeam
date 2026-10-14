@@ -3,6 +3,12 @@
   // Nitro owns generated artifacts; Deno's source checks must not reinterpret bundled dependency JSDoc imports.
   "exclude": [".output"],
   "nodeModulesDir": "auto",
+  "imports": {
+    "@/": "./src/",
+    "@e2e/": "./e2e/",
+    "@scripts/": "./scripts/",
+    "@sdk/": "../sdk/src/",
+  },
   // msgpackr-extract is optional native acceleration; installs skip its Node-only probe under Deno. https://github.com/kriszyp/msgpackr#native-acceleration
   "allowScripts": ["npm:esbuild", "npm:msgpackr-extract"],
   "unstable": ["no-legacy-abort"],

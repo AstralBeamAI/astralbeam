@@ -2,11 +2,11 @@ import { createHash } from "node:crypto"
 
 import { eq, sql } from "drizzle-orm"
 
-import { apiKey } from "../../src/db/schema.ts"
+import { apiKey } from "@/db/schema.ts"
 import {
   ORGANIZATION_API_KEY_PREFIX,
   ORGANIZATION_API_KEY_STARTING_CHARACTERS_LENGTH,
-} from "../../src/lib/api-keys/schemas.ts"
+} from "@/lib/api-keys/schemas.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_ORGANIZATIONS } from "./fixtures.ts"

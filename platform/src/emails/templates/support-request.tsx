@@ -1,10 +1,10 @@
 // Adapted with: deno task ui add @emailcn/react-email/block-notification-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/notification-default.tsx
-// Local changes: Repurpose the notification block as a support request receipt that quotes the message, lists attachments and context, uses the shared shell, and co-locates typed preview props.
+// Local changes: Repurpose the notification block as a support request receipt that quotes the message, lists attachments and context, uses the shared shell, and co-locates typed preview props. Use @/ for deep source imports.
 
 import { Heading, Section, Text } from "react-email"
 
-import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "@/lib/constants.ts"
 import { EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 interface SupportRequestEmailProps {

@@ -1,7 +1,7 @@
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
-import { waitForHydration } from "../../hydration.ts"
-import { makeRunIdentity } from "../../identity.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { waitForHydration } from "@e2e/hydration.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
 
 test("the owner creates, reviews, edits, and deletes usage limits", async ({
   page,

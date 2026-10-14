@@ -48,7 +48,7 @@ import {
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
   updateTenant as sdkUpdateTenant,
-} from "../../../../../../sdk/src/api/index.ts"
+} from "@sdk/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
   rows: [] as (unknown[] | { fail: unknown })[],

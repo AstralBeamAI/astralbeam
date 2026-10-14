@@ -8,7 +8,7 @@ import {
   uuidV7,
 } from "../lib/columns.ts"
 import { organization, tenantUser } from "./organizations.ts"
-import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "../../lib/mcp/schemas.ts"
+import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mcp/schemas.ts"
 
 export const mcpServer = snakeCase.table(
   "mcp_server",

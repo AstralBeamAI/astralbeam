@@ -1,11 +1,11 @@
 // Previously added with: deno task ui add @better-auth-ui/reset-password-email
 // Adapted with: deno task ui add @emailcn/react-email/block-auth-password-reset-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-password-reset-default.tsx
-// Local changes: Retain the prior reset copy and required production props, use the shared shell and fallback URL, and co-locate typed preview props.
+// Local changes: Retain the prior reset copy and required production props, use the shared shell and fallback URL, and co-locate typed preview props. Use @/ for deep source imports.
 
 import { Heading, Text } from "react-email"
 
-import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "@/lib/constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 interface ResetPasswordEmailProps {

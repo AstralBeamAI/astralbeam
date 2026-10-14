@@ -19,7 +19,7 @@ const idempotencyIntegration = vi.hoisted(() => {
 import { makeDatabaseCache } from "../cache.ts"
 import { getAuthDatabase } from "../database.ts"
 import { cacheEntry } from "../schema.ts"
-import { runAppEffect } from "../../lib/runtime/app-effect.server.ts"
+import { runAppEffect } from "@/lib/runtime/app-effect.server.ts"
 import {
   IdempotencyInProgress,
   IdempotencyParametersMismatch,

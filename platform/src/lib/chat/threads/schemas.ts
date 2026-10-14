@@ -1,6 +1,6 @@
 import { Schema } from "effect"
-import { LockVersionSchema, NonEmptyStringSchema } from "../../schemas.ts"
-import { ApiUuidSchema } from "../../tenants/schemas.ts"
+import { LockVersionSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 
 export const ChatSubmissionReceiptSchema = Schema.Struct({
   threadId: ApiUuidSchema,

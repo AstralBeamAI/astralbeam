@@ -1,12 +1,12 @@
-import { NonEmptyStringSchema, enumSchema } from "../../../../lib/schemas.ts"
+import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas.ts"
 import { Context, Predicate, Schema, SchemaGetter } from "effect"
 import { HttpServerResponse } from "effect/http"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/http-api"
 import type { OrganizationCurrentUser } from "@/lib/auth/organization-token.server"
 import type { TenantScope } from "@/lib/tenants/tenants"
-import { APP_HANDLE } from "../../../../lib/constants.ts"
-import { declaredHttpApiStatus } from "../../../../lib/runtime/http-api-status.ts"
-import { TenantExternalIdSchema } from "../../../../lib/tenants/schemas.ts"
+import { APP_HANDLE } from "@/lib/constants.ts"
+import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status.ts"
+import { TenantExternalIdSchema } from "@/lib/tenants/schemas.ts"
 export const restEmptyPage = { items: [], page_after: null, page_before: null }
 export const restResourceSecurity = {
   security: [{ OrganizationApiKey: [] }, { astralBeamToken: [] }, { organizationToken: [] }],

@@ -1,6 +1,5 @@
 import { Schema } from "effect"
 
-// Relative, because seed modules import this under a plain `deno run` without the `@/` alias.
 import { DisplayNameSchema, enumSchema, UUID_V7_PATTERN } from "../schemas.ts"
 
 const USAGE_LIMIT_SCOPES = ["global", "tenant", "tenant_user", "thread"] as const

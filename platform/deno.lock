@@ -9598,6 +9598,22 @@
         "npm:vite@^8.3.4",
         "npm:vitest@^5.0.4"
       ]
+    },
+    "links": {
+      "npm:@astralbeam/sdk@0.17.0": {
+        "peerDependencies": [
+          "npm:react-dom@>=18.0.0",
+          "npm:react@>=18.0.0"
+        ],
+        "peerDependenciesMeta": {
+          "react": {
+            "optional": true
+          },
+          "react-dom": {
+            "optional": true
+          }
+        }
+      }
     }
   }
 }

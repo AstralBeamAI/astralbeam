@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
-import { ApiUuidSchema } from "../../../../lib/tenants/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import { TenantRecordSchema } from "./tenant.server"
 import { TenantUserRecordSchema } from "./tenant-user.server"
 

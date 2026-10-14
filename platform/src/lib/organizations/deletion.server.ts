@@ -2,12 +2,11 @@ import { and, eq, inArray, like } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { Database } from "../../db/database.ts"
-import { user } from "../../db/schema/authentication.ts"
-import { cacheEntry } from "../../db/schema/cache.ts"
-import { apiKey, invitation, member, organization } from "../../db/schema/organizations.ts"
-import { fileObject } from "../../db/schema/files.ts"
+import { Database } from "@/db/database.ts"
+import { user } from "@/db/schema/authentication.ts"
+import { cacheEntry } from "@/db/schema/cache.ts"
+import { apiKey, invitation, member, organization } from "@/db/schema/organizations.ts"
+import { fileObject } from "@/db/schema/files.ts"
 import { ObjectStorage } from "../storage/object-storage.server.ts"
 import { deleteTenant } from "../tenants/deletion.ts"
 

@@ -88,8 +88,8 @@ import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { getCurrentUser } from "@/routes/api/v1/-lib/current-user-auth.server"
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import type { OwnerOnboarding } from "./schemas.ts"
-import { seedModelProviders } from "../../../scripts/seed/models.ts"
-import { SEED_CONFIG_VALUES, SEED_ORGANIZATIONS } from "../../../scripts/seed/fixtures.ts"
+import { seedModelProviders } from "@scripts/seed/models.ts"
+import { SEED_CONFIG_VALUES, SEED_ORGANIZATIONS } from "@scripts/seed/fixtures.ts"
 
 const ownerOnboardingFixture = {
   email: "provisioning-owner@example.com",

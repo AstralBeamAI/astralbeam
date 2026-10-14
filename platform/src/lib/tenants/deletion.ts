@@ -2,11 +2,10 @@ import { and, eq, inArray, like, sql as drizzleSql } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The cluster runner loads this module through Nitro, which cannot resolve the `@/` alias.
-import { Database } from "../../db/database.ts"
-import { cacheEntry } from "../../db/schema/cache.ts"
-import { fileObject } from "../../db/schema/files.ts"
-import { tenant } from "../../db/schema/organizations.ts"
+import { Database } from "@/db/database.ts"
+import { cacheEntry } from "@/db/schema/cache.ts"
+import { fileObject } from "@/db/schema/files.ts"
+import { tenant } from "@/db/schema/organizations.ts"
 
 /** Cascades to the Tenant's users and chat rows in one transaction. */
 export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {

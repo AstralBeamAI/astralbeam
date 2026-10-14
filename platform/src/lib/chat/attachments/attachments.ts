@@ -2,11 +2,11 @@ import { type ChatMiddleware, type ModelMessage, EventType } from "@tanstack/ai"
 import { Context, Effect, Layer, Predicate, Result, Schema } from "effect"
 import { createHash } from "node:crypto"
 import { and, eq, isNull, or } from "drizzle-orm"
-import { mapDatabaseErrors } from "../../../db/lib/sqlstate.ts"
-import { Database } from "../../../db/database.ts"
-import { chatFile } from "../../../db/schema/chat.ts"
-import { fileObject } from "../../../db/schema/files.ts"
-import { StoredFiles } from "../../storage/stored-files.server.ts"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate.ts"
+import { Database } from "@/db/database.ts"
+import { chatFile } from "@/db/schema/chat.ts"
+import { fileObject } from "@/db/schema/files.ts"
+import { StoredFiles } from "@/lib/storage/stored-files.server.ts"
 import {
   ChatMessagePayloadSchema,
   type ChatMessagePayload,

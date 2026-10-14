@@ -3,7 +3,7 @@ import { Cause, Effect, Exit, Logger } from "effect"
 import { afterAll, beforeAll, vi } from "vitest"
 
 import type { EffectDatabase } from "@/db/database"
-import { configTable } from "../../db/schema/config.ts"
+import { configTable } from "@/db/schema/config.ts"
 import { readDatabaseConfig } from "./store.ts"
 
 beforeAll(() => {

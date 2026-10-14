@@ -137,6 +137,11 @@ const denoRecommendedRules: RuleMap = {
   "react/no-unescaped-entities": "error",
 }
 
+const projectPathImportPattern = {
+  regex: "^(?:\\./|(?:\\.\\./)+)(?:src|e2e|scripts|sdk/src)/",
+  message: "Use the @/, @e2e/, @scripts/, or @sdk/ alias for imports into these folders.",
+}
+
 const baseRules: RuleMap = {
   ...recommendedRules.query,
   ...recommendedRules.router,
@@ -149,6 +154,7 @@ const baseRules: RuleMap = {
   ...recommendedRules.regexp,
   ...typeAwareRules,
   ...denoRecommendedRules,
+  "no-restricted-imports": ["error", { patterns: [projectPathImportPattern] }],
   // regexp-js owns these specialized equivalents.
   // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
   "no-empty-character-class": "off",
@@ -179,6 +185,20 @@ const baseRules: RuleMap = {
   "tanstack-start-js/no-client-code-in-server-component": "off",
 }
 
+const deepImportPatterns = [
+  projectPathImportPattern,
+  {
+    // Keep two-parent route helpers and Scalar's unexported browser entry relative.
+    // https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-restricted-imports#group
+    group: [
+      "../../**",
+      "!../../-*/**",
+      "!../../../../node_modules/@scalar/api-reference/dist/browser/standalone.js[?]raw",
+    ],
+    message: "Use an import alias for deep imports, except ../../-folder/... helpers.",
+  },
+]
+
 export default defineConfig({
   plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
@@ -208,6 +228,12 @@ export default defineConfig({
   rules: baseRules,
   overrides: [
     {
+      files: ["src/**/*.{ts,tsx}", "e2e/**/*.{ts,tsx}", "scripts/**/*.{ts,tsx}"],
+      rules: {
+        "no-restricted-imports": ["error", { patterns: deepImportPatterns }],
+      },
+    },
+    {
       files: ["src/**/*.{ts,tsx}"],
       excludeFiles: ["src/db/lib/columns.ts"],
       rules: {
@@ -215,6 +241,7 @@ export default defineConfig({
           "error",
           {
             patterns: [
+              ...deepImportPatterns,
               {
                 regex: "^(?:npm:)?drizzle-orm(?:@[^/]+)?/pg-core(?:/|$)",
                 importNames: ["foreignKey"],

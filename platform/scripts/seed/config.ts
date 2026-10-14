@@ -5,10 +5,10 @@ import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk
 import { eq, like, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
-import { configTable } from "../../src/db/schema.ts"
-import { StorageEndpointSchema } from "../../src/lib/storage/schemas.ts"
-import { BooleanSettingSchema, parseEnvironmentConfigValue } from "../../src/lib/config/schemas.ts"
-import { NonEmptyStringSchema } from "../../src/lib/schemas.ts"
+import { configTable } from "@/db/schema.ts"
+import { StorageEndpointSchema } from "@/lib/storage/schemas.ts"
+import { BooleanSettingSchema, parseEnvironmentConfigValue } from "@/lib/config/schemas.ts"
+import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 
 import type { SeedDatabase, SeedTransaction } from "./database.ts"
 import { SEED_CONFIG_VALUES } from "./fixtures.ts"
