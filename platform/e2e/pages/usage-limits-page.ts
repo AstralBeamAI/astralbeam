@@ -28,6 +28,10 @@ export function usageLimitsPage(page: Page) {
       return this.table.getByRole("row").filter({ hasText: name })
     },
 
+    enabledSwitch(name: string): Locator {
+      return this.row(name).getByRole("switch", { name: `Enable ${name}` })
+    },
+
     async startCreate(): Promise<void> {
       await page.getByRole("link", { name: "Add limit" }).first().click()
       await expect(page.getByRole("heading", { level: 1, name: "Add usage limit" })).toBeVisible()

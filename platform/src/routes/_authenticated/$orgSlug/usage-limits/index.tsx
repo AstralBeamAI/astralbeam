@@ -1,7 +1,6 @@
 import { CopyIcon, GaugeIcon, PlusIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 
-import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
@@ -22,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { APP_NAME } from "@/lib/constants"
+import { UsageLimitEnabledSwitch } from "./-components/usage-limit-enabled-switch"
 import { getUsageLimitsPageData } from "./-functions/get-usage-limits-page-data"
 import { usageLimitScopeItems } from "./-lib/constants"
 import { copyUsageLimitId, describeUsageLimitWindow, formatUsageLimitAmount } from "./-lib/utils"
@@ -94,7 +94,7 @@ function UsageLimitsPage() {
                 <TableHead>Window</TableHead>
                 <TableHead className="text-end">Limit</TableHead>
                 <TableHead>Applies to</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Enabled</TableHead>
                 <TableHead className="w-0">
                   <span className="sr-only">ID</span>
                 </TableHead>
@@ -121,9 +121,11 @@ function UsageLimitsPage() {
                   </TableCell>
                   <TableCell>{limit.appliesByDefault ? "Everyone" : "Listed in token"}</TableCell>
                   <TableCell>
-                    <Badge variant={limit.enabled ? "secondary" : "outline"}>
-                      {limit.enabled ? "Enabled" : "Disabled"}
-                    </Badge>
+                    <UsageLimitEnabledSwitch
+                      organizationSlug={orgSlug}
+                      usageLimit={limit}
+                      readOnly={!permissions.updateConfiguration}
+                    />
                   </TableCell>
                   <TableCell>
                     <Button

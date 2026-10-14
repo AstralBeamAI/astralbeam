@@ -22,6 +22,13 @@ export const UsageLimitVersionInputSchema = Schema.Struct({
   lockVersion: LockVersionSchema,
 })
 
+export const SetUsageLimitEnabledInputSchema = Schema.Struct({
+  organizationSlug: SlugSchema,
+  usageLimitId: UsageLimitIdSchema,
+  lockVersion: LockVersionSchema,
+  enabled: Schema.Boolean,
+})
+
 export const UsageLimitIdInputSchema = Schema.Struct({
   organizationSlug: SlugSchema,
   usageLimitId: UsageLimitIdSchema,

@@ -59,7 +59,7 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
     await usageLimits.submitCreate(conversation)
     await shell.openSection("Usage Limits", "Usage Limits")
     await expect(usageLimits.row(weekly)).toContainText(
-      /Per tenant user.*Weekly, fixed in America\/New York.*2,000,000 tokens.*Everyone.*Enabled/,
+      /Per tenant user.*Weekly, fixed in America\/New York.*2,000,000 tokens.*Everyone/,
     )
     await expect(usageLimits.row(session)).toContainText(
       /Every 5 hours, rolling.*\$2\.50.*Listed in token/,
@@ -74,11 +74,21 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
     await usageLimits.fillForm({ name: session, scope: "Global", amount: "3" })
     await expect(page.getByRole("checkbox", { name: "Apply to every tenant user" })).toBeChecked()
     await expect(page.getByRole("checkbox", { name: "Apply to every tenant user" })).toBeDisabled()
-    await page.getByRole("switch", { name: "Enabled" }).click()
     await usageLimits.saveChanges()
     await captureMilestone(page, "03-edited-limit")
     await shell.openSection("Usage Limits", "Usage Limits")
-    await expect(usageLimits.row(session)).toContainText(/Global.*\$3\.00.*Everyone.*Disabled/)
+    await expect(usageLimits.row(session)).toContainText(/Global.*\$3\.00.*Everyone/)
+  })
+
+  await test.step("the list's switch disables a limit in place", async () => {
+    const enabled = usageLimits.enabledSwitch(session)
+    await expect(enabled).toBeChecked()
+    await enabled.click()
+    await expect(page.getByText(`${session} disabled`)).toBeVisible()
+    await expect(enabled).not.toBeChecked()
+    await page.reload()
+    await expect(usageLimits.enabledSwitch(session)).not.toBeChecked()
+    await captureMilestone(page, "04-disabled-from-list")
   })
 
   await test.step("deleting a limit removes it from the table", async () => {

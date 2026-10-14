@@ -38,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/toast"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
@@ -134,7 +133,6 @@ export function UsageLimitForm({
   const [timeZoneChoice, setTimeZone] = useState(existing?.timeZone ?? null)
   const [metric, setMetric] = useState<UsageLimitFields["metric"]>(existing?.metric ?? "tokens")
   const [amount, setAmount] = useState(existing?.amount ?? "")
-  const [enabled, setEnabled] = useState(existing?.enabled ?? true)
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -148,7 +146,7 @@ export function UsageLimitForm({
   const global = scope === "global"
   const input = decodeUsageLimitFields({
     name: name.trim(),
-    enabled,
+    enabled: existing?.enabled ?? true,
     appliesByDefault: global || appliesByDefault,
     scope,
     metric,
@@ -379,22 +377,6 @@ export function UsageLimitForm({
                 )}
               </InputGroup>
               <FieldError id="usage-limit-amount-error" errors={fieldErrors("amount")} />
-            </Field>
-
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel htmlFor="usage-limit-enabled">Enabled</FieldLabel>
-                <FieldDescription id="usage-limit-enabled-description">
-                  A disabled limit is neither counted nor enforced.
-                </FieldDescription>
-              </FieldContent>
-              <Switch
-                id="usage-limit-enabled"
-                checked={enabled}
-                onCheckedChange={setEnabled}
-                disabled={disabled}
-                aria-describedby="usage-limit-enabled-description"
-              />
             </Field>
           </FieldGroup>
         </CardContent>

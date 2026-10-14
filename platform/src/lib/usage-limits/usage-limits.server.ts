@@ -60,6 +60,13 @@ export class UsageLimits extends Context.Service<
       readonly lockVersion: number
       readonly fields: UsageLimitFields
     }) => Effect.Effect<void, UsageLimitChanged>
+    /** The list page's kill switch, which leaves every other field as it is. */
+    readonly setEnabled: (input: {
+      readonly organizationId: string
+      readonly usageLimitId: string
+      readonly lockVersion: number
+      readonly enabled: boolean
+    }) => Effect.Effect<void, UsageLimitChanged>
     readonly remove: (input: {
       readonly organizationId: string
       readonly usageLimitId: string
@@ -131,6 +138,29 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
+      const setEnabled = Effect.fn("UsageLimits.setEnabled")(
+        function* (input: {
+          organizationId: string
+          usageLimitId: string
+          lockVersion: number
+          enabled: boolean
+        }) {
+          yield* updateWithOptimisticLock({
+            executor: db,
+            table: usageLimit,
+            id: yield* ownUsageLimitId(input.organizationId, input.usageLimitId),
+            scope: eq(usageLimit.organizationId, input.organizationId),
+            expectedLockVersion: input.lockVersion,
+            set: { enabled: input.enabled },
+          })
+        },
+        mapDatabaseErrors(),
+        Effect.catchTags({
+          UsageLimitNotFound: () => Effect.fail(new UsageLimitChanged()),
+          OptimisticLockError: () => Effect.fail(new UsageLimitChanged()),
+        }),
+      )
+
       const remove = Effect.fn("UsageLimits.remove")(
         function* (input: { organizationId: string; usageLimitId: string; lockVersion: number }) {
           yield* deleteWithOptimisticLock({
@@ -148,7 +178,7 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
-      return UsageLimits.of({ list, get, create, update, remove })
+      return UsageLimits.of({ list, get, create, update, setEnabled, remove })
     }),
   )
 
