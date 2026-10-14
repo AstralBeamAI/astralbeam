@@ -117,6 +117,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       "Models",
       "Agents",
       "Sandboxes",
+      "Usage Limits",
       "API Keys",
       "Conversations",
       "Tenants",

@@ -9,6 +9,7 @@ const ORGANIZATION_SECTIONS = [
   ["models", "Models"],
   ["agents", "Agents"],
   ["sandboxes", "Sandboxes"],
+  ["usage-limits", "Usage Limits"],
   ["api-keys", "API keys"],
   ["members", "Members"],
   ["settings", "Organization settings"],
