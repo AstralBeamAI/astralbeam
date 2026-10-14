@@ -6,11 +6,21 @@ import type {
   McpServerInput,
   MountAstralBeamMcpServersOptions,
 } from "../client/mcp-servers.ts"
+import { TooltipButton } from "./components/tooltip-button.tsx"
 import { Button } from "./components/ui/button.tsx"
 import { Badge } from "./components/ui/badge.tsx"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./components/ui/card.tsx"
+import { Field, FieldDescription, FieldError, FieldLabel } from "./components/ui/field.tsx"
 import { Input } from "./components/ui/input.tsx"
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+} from "./components/ui/item.tsx"
 import { NativeSelect } from "./components/ui/native-select.tsx"
+import { TooltipProvider } from "./components/ui/tooltip.tsx"
 import { chatStyles } from "./styles.generated.ts"
 
 export function renderMcpServers(
@@ -22,7 +32,9 @@ export function renderMcpServers(
     root.render(
       <>
         <style>{chatStyles}</style>
-        <McpServers {...next} />
+        <TooltipProvider delay={400}>
+          <McpServers {...next} />
+        </TooltipProvider>
       </>,
     )
   update(options)
@@ -48,7 +60,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
   }
   return (
     <section
-      className="grid grid-cols-1 gap-4 bg-background text-foreground"
+      className="grid grid-cols-1 gap-3 bg-background text-foreground any-pointer-coarse:[&_button]:min-h-11 any-pointer-coarse:[&_button]:min-w-11"
       data-slot="mcp-servers"
     >
       <div className="flex items-center justify-between gap-2">
@@ -78,40 +90,46 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
       )}
       <div className="divide-y rounded-lg border bg-card text-card-foreground empty:hidden">
         {options.servers.map((server) => (
-          <article key={server.id} className="px-3 py-2.5">
-            <div className="flex items-center gap-3">
-              <PlugIcon aria-hidden className="size-5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-medium">
-                  {new URL(server.endpointUrl).hostname}
-                </h3>
-                <p className="truncate text-xs text-muted-foreground" title={server.endpointUrl}>
-                  {server.endpointUrl}
-                </p>
-              </div>
+          <Item key={server.id} render={<article />} size="xs" className="rounded-none border-0">
+            <ItemMedia variant="icon" className="text-muted-foreground">
+              <PlugIcon aria-hidden />
+            </ItemMedia>
+            <ItemContent className="min-w-0">
+              <h3 className="truncate text-sm font-medium">
+                {new URL(server.endpointUrl).hostname}
+              </h3>
+              <ItemDescription className="line-clamp-none truncate" title={server.endpointUrl}>
+                {server.endpointUrl}
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
               <Badge variant="secondary">
                 {server.authKind
                   ? { none: "Public", oauth: "OAuth", static_headers: "API key" }[server.authKind]
                   : "Unavailable"}
               </Badge>
               {options.onRemoveServer && (
-                <Button
+                <TooltipButton
                   variant="ghost"
                   size="icon-sm"
                   disabled={busy}
                   aria-label={`Remove server: ${new URL(server.endpointUrl).hostname}`}
-                  title="Remove server"
+                  tooltip="Remove server"
                   onClick={() => {
                     setError("")
                     setRemoval(server.id)
                   }}
                 >
                   <TrashIcon />
-                </Button>
+                </TooltipButton>
               )}
-            </div>
+            </ItemActions>
             {removal === server.id && options.onRemoveServer && (
-              <div className="mt-3 grid gap-2 text-sm" role="group" aria-label="Remove server?">
+              <div
+                className="grid basis-full gap-2 text-sm"
+                role="group"
+                aria-label="Remove server?"
+              >
                 <p>
                   Remove this server and its connections? People will need to connect again if it is
                   added later.
@@ -136,7 +154,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
                 </div>
               </div>
             )}
-          </article>
+          </Item>
         ))}
       </div>
     </section>
@@ -165,8 +183,10 @@ function McpServerForm({
   ) => {
     const errors = issues.filter((issue) => issue.field === name)
     return (
-      <div className="grid gap-2">
-        <label htmlFor={`${id}-${name}`}>{label}</label>
+      <Field className="gap-1" data-invalid={errors.length > 0}>
+        <FieldLabel htmlFor={`${id}-${name}`} className="text-xs">
+          {label}
+        </FieldLabel>
         <Input
           id={`${id}-${name}`}
           name={name}
@@ -179,16 +199,16 @@ function McpServerForm({
           {...props}
         />
         {description && (
-          <p id={`${id}-${name}-help`} className="text-muted-foreground">
+          <FieldDescription id={`${id}-${name}-help`} className="text-xs nth-last-2:mt-0">
             {description}
-          </p>
+          </FieldDescription>
         )}
         {errors.length > 0 && (
-          <span id={`${id}-${name}-error`} className="text-destructive">
+          <FieldError id={`${id}-${name}-error`} className="text-xs">
             {errors.map((issue) => issue.message).join(". ")}
-          </span>
+          </FieldError>
         )}
-      </div>
+      </Field>
     )
   }
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
@@ -251,7 +271,7 @@ function McpServerForm({
           <CardHeader>
             <CardTitle className="text-sm">Add MCP server</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-5 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs">
+          <CardContent className="grid grid-cols-1 gap-3 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs any-pointer-coarse:[&_input]:min-h-11 any-pointer-coarse:[&_[data-slot=input]]:text-base any-pointer-coarse:[&_[data-slot=native-select]]:text-base any-pointer-coarse:[&_select]:min-h-11">
             {field("endpointUrl", "Server URL", {
               type: "url",
               autoFocus: true,
@@ -260,8 +280,10 @@ function McpServerForm({
               placeholder: "https://mcp.example.com/mcp",
               description: "Public HTTPS endpoint using Streamable HTTP.",
             })}
-            <label className="grid gap-2" htmlFor={`${id}-authentication`}>
-              Authentication
+            <Field className="gap-1">
+              <FieldLabel className="text-xs" htmlFor={`${id}-authentication`}>
+                Authentication
+              </FieldLabel>
               <NativeSelect
                 id={`${id}-authentication`}
                 value={authentication}
@@ -273,7 +295,7 @@ function McpServerForm({
                 <option value="static_headers">API key / headers</option>
                 <option value="oauth">OAuth</option>
               </NativeSelect>
-            </label>
+            </Field>
             {authentication === "static_headers" &&
               field("headerNames", "Header names, comma separated", {
                 required: true,
@@ -282,8 +304,10 @@ function McpServerForm({
               })}
             {authentication === "oauth" && (
               <>
-                <label className="grid gap-2" htmlFor={`${id}-oauth-setup`}>
-                  OAuth setup
+                <Field className="gap-1">
+                  <FieldLabel className="text-xs" htmlFor={`${id}-oauth-setup`}>
+                    OAuth setup
+                  </FieldLabel>
                   <NativeSelect
                     id={`${id}-oauth-setup`}
                     value={oauthSetup}
@@ -292,7 +316,7 @@ function McpServerForm({
                     <option value="automatic">Automatic discovery</option>
                     <option value="manual">Pre-registered application</option>
                   </NativeSelect>
-                </label>
+                </Field>
                 {field("applicationOrigin", "Application origin, optional", {
                   type: "url",
                   maxLength: 2048,

@@ -15,6 +15,7 @@ import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
+import { TooltipButton } from "./components/tooltip-button.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
 import {
@@ -556,15 +557,9 @@ export function ChatWidget({
   // The host sizes the desktop card. Closable chat fills the mobile viewport.
   const showHeader = options.showHeader !== false
   const closeButton = options.onClose && (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Close chat"
-      title="Close chat"
-      onClick={options.onClose}
-    >
+    <TooltipButton variant="ghost" size="icon-sm" tooltip="Close chat" onClick={options.onClose}>
       <XIcon />
-    </Button>
+    </TooltipButton>
   )
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
@@ -596,11 +591,10 @@ export function ChatWidget({
             onDelete={forgetDraft}
             onSelect={focusComposer}
           />
-          <Button
+          <TooltipButton
             variant="ghost"
             size="icon-sm"
-            aria-label="New chat"
-            title="New chat"
+            tooltip="New chat"
             disabled={!chatState.thread && messages.length === 0}
             onClick={() => {
               resetThread()
@@ -608,7 +602,7 @@ export function ChatWidget({
             }}
           >
             <NotePencilIcon />
-          </Button>
+          </TooltipButton>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
           {closeButton}
         </CardHeader>

@@ -7,8 +7,9 @@ import {
   FileTextIcon,
   TerminalWindowIcon,
 } from "@phosphor-icons/react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useRef } from "react"
 import { Button } from "@/widget/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/widget/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/widget/components/ui/tabs"
 import { describeSandboxCommandRun } from "../../core/sandbox.ts"
 import type { SandboxActivity, SandboxCommandRun, SandboxFileWrite } from "../../core/types.ts"
@@ -17,6 +18,7 @@ import { downloadTextFile } from "../lib/utils.ts"
 import { SandboxCodeBlock } from "./sandbox-code.tsx"
 import { SandboxCommandLog } from "./sandbox-command-log.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 
 const CODE_EXTENSIONS = new Set([
   "c",
@@ -79,16 +81,15 @@ function SandboxFileRow({ file }: { file: SandboxFileWrite }) {
           </div>
         </ToolDisclosure>
       </div>
-      <Button
+      <TooltipButton
         variant="ghost"
         size="icon-sm"
-        className="any-pointer-coarse:size-11"
         aria-label={`Download ${file.label}`}
-        title="Download"
+        tooltip="Download file"
         onClick={() => downloadTextFile(basename(file.path), file.content)}
       >
         <DownloadSimpleIcon />
-      </Button>
+      </TooltipButton>
     </div>
   )
 }
@@ -118,21 +119,42 @@ function SandboxCommandRow({ run }: { run: SandboxCommandRun }) {
   )
 }
 
-/**
- * Opt-in overview of the conversation's sandbox (`sandboxPanel: true`): what is in it now, and
- * what every command printed. The panel opens above the trigger as an anchored sheet instead of
- * expanding in place, so the composer never moves and a streaming reply stays readable.
- */
+// Keep the sandbox above its trigger so the composer and streaming transcript do not move.
 export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
-  const [open, setOpen] = useState(false)
+  const container = useRef<HTMLDivElement>(null)
   const files = activity.files.length
   const commands = activity.commands.length
   return (
-    <div className="relative w-full">
-      {open && (
-        <div className="absolute inset-x-0 bottom-full z-10 mb-2 flex max-h-80 flex-col overflow-hidden rounded-lg border bg-background shadow-lg">
+    <div ref={container} className="w-full">
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              className="group w-full justify-start rounded-full bg-muted/50 text-xs text-muted-foreground any-pointer-coarse:min-h-11"
+            />
+          }
+        >
+          <CubeIcon />
+          <span className="flex-1 text-start">
+            Sandbox · {files} {files === 1 ? "file" : "files"} · {commands}{" "}
+            {commands === 1 ? "command" : "commands"}
+          </span>
+          <CaretUpIcon className="transition-transform group-aria-expanded:rotate-180" />
+        </PopoverTrigger>
+        <PopoverContent
+          container={container}
+          side="top"
+          sideOffset={8}
+          aria-label="Sandbox files and command history"
+          className="max-h-[min(20rem,var(--available-height))] w-(--anchor-width) max-w-(--available-width) gap-0 overflow-hidden p-0"
+        >
           <Tabs defaultValue="files" className="flex min-h-0 flex-col gap-0">
-            <TabsList variant="line" className="w-full shrink-0 px-2">
+            <TabsList
+              variant="line"
+              className="w-full shrink-0 px-2 any-pointer-coarse:h-auto any-pointer-coarse:[&_[data-slot=tabs-trigger]]:min-h-11"
+            >
               <TabsTrigger value="files">
                 <FileTextIcon />
                 Files
@@ -159,21 +181,8 @@ export function SandboxPanel({ activity }: { activity: SandboxActivity }) {
               )}
             </TabsContent>
           </Tabs>
-        </div>
-      )}
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="flex w-full cursor-pointer items-center gap-2 rounded-full border bg-muted/50 px-3 py-1.5 text-start text-xs text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-4"
-      >
-        <CubeIcon />
-        <span className="flex-1">
-          Sandbox · {files} {files === 1 ? "file" : "files"} · {commands}{" "}
-          {commands === 1 ? "command" : "commands"}
-        </span>
-        <CaretUpIcon className={cn("shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

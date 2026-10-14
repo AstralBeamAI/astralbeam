@@ -1,18 +1,15 @@
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
 import { useRef, useState } from "react"
 import { Button } from "@/widget/components/ui/button"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/widget/components/ui/input-group"
+import { Alert, AlertAction, AlertDescription } from "@/widget/components/ui/alert"
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
 import { cn } from "cn"
 import { describeError } from "../lib/utils.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 
 interface ChatComposerProps {
   /** Widget title, used in the input's placeholder ("Message <title>…"). */
@@ -115,53 +112,57 @@ export function ChatComposer({
       }}
     >
       {showError && (
-        <div
-          role="alert"
-          className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
+        <Alert
+          variant="destructive"
+          className="mb-2 flex items-start gap-2 border-destructive/30 bg-destructive/5 has-data-[slot=alert-action]:pe-2.5"
         >
-          <div className="min-w-0 flex-1">
-            <div className="break-words">{describeError(error)}</div>
+          <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
+            <div>{describeError(error)}</div>
             {isAstralBeamApiError(error) && error.body?.reference && (
               <div className="mt-0.5 text-muted-foreground">
                 Support reference: {error.body.reference}
               </div>
             )}
-          </div>
+          </AlertDescription>
           {onRetry && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="any-pointer-coarse:min-h-11"
-              onClick={onRetry}
-            >
-              {retryLabel}
-            </Button>
+            <AlertAction className="static shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="any-pointer-coarse:min-h-11"
+                onClick={onRetry}
+              >
+                {retryLabel}
+              </Button>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
       {authError && (
-        <div
-          role="alert"
-          className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
+        <Alert
+          variant="destructive"
+          className="mb-2 flex items-start gap-2 border-destructive/30 bg-destructive/5 has-data-[slot=alert-action]:pe-2.5"
         >
-          <div className="min-w-0 flex-1">
+          <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
             {isAstralBeamApiError(authError) && authError.status === 401
               ? "The assistant's connection was rejected. Contact this app's support team."
               : "The assistant could not verify your session. Retry or contact this app's support team."}
-          </div>
+          </AlertDescription>
           {onAuthRetry && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="any-pointer-coarse:min-h-11"
-              onClick={onAuthRetry}
-            >
-              Retry
-            </Button>
+            <AlertAction className="static shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="any-pointer-coarse:min-h-11"
+                onClick={onAuthRetry}
+              >
+                Retry
+              </Button>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
       {attachmentLimits.enabled && (
         <input
@@ -212,47 +213,47 @@ export function ChatComposer({
         />
         <InputGroupAddon align="block-end" className="pt-0">
           {attachmentLimits.enabled && (
-            <InputGroupButton
+            <TooltipButton
               type="button"
-              size="icon-sm"
-              className="any-pointer-coarse:size-11"
+              variant="ghost"
+              size="icon"
               aria-label="Attach files"
-              title={
+              tooltip={
                 attachmentsFull
                   ? `Up to ${attachmentLimits.maxFiles} files per message`
-                  : "Attach images, PDFs, documents, spreadsheets, data, or text files"
+                  : "Attach files"
               }
               disabled={blocked || attachmentsFull}
               onClick={() => fileInput.current?.click()}
             >
               <PaperclipIcon />
-            </InputGroupButton>
+            </TooltipButton>
           )}
           {/* Host controls project here in the host page's own style; the slot lays out as
             display: contents, so each projected child is a flex item of this row. */}
           {actionsSlot && <slot name={actionsSlot} />}
           {streamBusy ? (
-            <InputGroupButton
+            <TooltipButton
               type="button"
               variant="default"
-              size="icon-sm"
-              className="ml-auto any-pointer-coarse:size-11"
+              size="icon"
+              className="ml-auto"
+              tooltip="Stop"
               onClick={onStop}
             >
               <StopIcon />
-              <span className="sr-only">Stop</span>
-            </InputGroupButton>
+            </TooltipButton>
           ) : (
-            <InputGroupButton
+            <TooltipButton
               type="submit"
               variant="default"
-              size="icon-sm"
-              className="ml-auto any-pointer-coarse:size-11"
+              size="icon"
+              className="ml-auto"
+              tooltip="Send"
               disabled={sendDisabled}
             >
               <ArrowUpIcon />
-              <span className="sr-only">Send</span>
-            </InputGroupButton>
+            </TooltipButton>
           )}
         </InputGroupAddon>
       </InputGroup>
