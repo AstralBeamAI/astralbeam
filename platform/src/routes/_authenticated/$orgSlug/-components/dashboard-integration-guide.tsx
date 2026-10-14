@@ -106,7 +106,7 @@ export function DashboardIntegrationGuide({
                   aria-expanded={activeStep === index}
                   aria-controls={`${titleId}-${index}`}
                   onClick={() => setExpanded(activeStep === index ? -1 : index)}
-                  className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
                   <span
                     className="flex size-6 shrink-0 items-center justify-center rounded-full border text-xs"
