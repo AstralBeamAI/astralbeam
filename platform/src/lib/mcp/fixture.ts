@@ -5,6 +5,7 @@ import { once } from "node:events"
 export async function startMcpFixture() {
   const state = {
     oauth: false,
+    issuer: "https://fixture.example",
     resourceMetadataChallenge: true,
     cimd: false,
     sse: false,
@@ -38,12 +39,12 @@ export async function startMcpFixture() {
       if (path === "/metadata/resource" || path.includes("oauth-protected-resource"))
         return json({
           resource: "https://fixture.example/mcp",
-          authorization_servers: ["https://fixture.example"],
+          authorization_servers: [state.issuer],
           scopes_supported: ["read", "admin"],
         })
       if (path.includes(".well-known"))
         return json({
-          issuer: "https://fixture.example",
+          issuer: state.issuer,
           authorization_endpoint: "https://fixture.example/authorize",
           token_endpoint: "https://fixture.example/token",
           registration_endpoint: "https://fixture.example/register",

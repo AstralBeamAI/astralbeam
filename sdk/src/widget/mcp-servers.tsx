@@ -8,6 +8,7 @@ import type {
 } from "../client/mcp-servers.ts"
 import { Button } from "./components/ui/button.tsx"
 import { Badge } from "./components/ui/badge.tsx"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./components/ui/card.tsx"
 import { Input } from "./components/ui/input.tsx"
 import { NativeSelect } from "./components/ui/native-select.tsx"
 import { chatStyles } from "./styles.generated.ts"
@@ -46,9 +47,9 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
     }
   }
   return (
-    <section className="grid gap-4 bg-background text-foreground" data-slot="mcp-servers">
+    <section className="grid grid-cols-1 gap-4 bg-background text-foreground" data-slot="mcp-servers">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">Available servers</h2>
+        <h2 className="font-heading text-sm font-medium">Configured MCP servers</h2>
         {options.onCreateServer && !adding && (
           <Button size="sm" onClick={() => setAdding(true)}>
             <PlusIcon /> Add MCP server
@@ -72,7 +73,7 @@ function McpServers(options: MountAstralBeamMcpServersOptions) {
           No MCP servers are available.
         </p>
       )}
-      <div className="divide-y rounded-lg border empty:hidden">
+      <div className="divide-y rounded-lg border bg-card text-card-foreground empty:hidden">
         {options.servers.map((server) => (
           <article key={server.id} className="px-3 py-2.5">
             <div className="flex items-center gap-3">
@@ -154,18 +155,31 @@ function McpServerForm({
   const [issues, setIssues] = useState<readonly McpServerFormError[]>([])
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
-  const field = (name: string, label: string, props: ComponentProps<typeof Input> = {}) => {
+  const field = (
+    name: string,
+    label: string,
+    { description, ...props }: ComponentProps<typeof Input> & { description?: string } = {},
+  ) => {
     const errors = issues.filter((issue) => issue.field === name)
     return (
-      <div className="grid gap-1.5 text-sm">
+      <div className="grid gap-2">
         <label htmlFor={`${id}-${name}`}>{label}</label>
         <Input
           id={`${id}-${name}`}
           name={name}
           aria-invalid={errors.length > 0}
-          aria-describedby={errors.length ? `${id}-${name}-error` : undefined}
+          aria-describedby={
+            [description && `${id}-${name}-help`, errors.length > 0 && `${id}-${name}-error`]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
           {...props}
         />
+        {description && (
+          <p id={`${id}-${name}-help`} className="text-muted-foreground">
+            {description}
+          </p>
+        )}
         {errors.length > 0 && (
           <span id={`${id}-${name}-error`} className="text-destructive">
             {errors.map((issue) => issue.message).join(". ")}
@@ -191,7 +205,7 @@ function McpServerForm({
             }
           : {
               kind: "oauth",
-              profile: oauthSetup === "google" ? "google" : "standard",
+              profile: "standard",
               requestedScopes: value("requestedScopes").split(/\s+/).filter(Boolean),
               ...(value("applicationOrigin")
                 ? { applicationOrigin: value("applicationOrigin") }
@@ -222,7 +236,6 @@ function McpServerForm({
   }
   return (
     <form
-      className="grid gap-3 rounded-lg border p-4"
       aria-label="Add MCP server"
       onSubmit={(event) => void submit(event)}
       onChange={() => {
@@ -230,104 +243,96 @@ function McpServerForm({
         setError("")
       }}
     >
-      <fieldset className="grid gap-3" disabled={busy}>
-        {field("endpointUrl", "Server URL", {
-          type: "url",
-          autoFocus: true,
-          required: true,
-          maxLength: 2048,
-          placeholder: "https://mcp.example.com/mcp",
-        })}
-        <p className="text-xs text-muted-foreground">
-          Public HTTPS endpoint using Streamable HTTP.
-        </p>
-        <label className="grid gap-1.5 text-sm" htmlFor={`${id}-authentication`}>
-          Authentication
-          <NativeSelect
-            id={`${id}-authentication`}
-            value={authentication}
-            onChange={(event) =>
-              setAuthentication(event.currentTarget.value as typeof authentication)
-            }
-          >
-            <option value="none">No authentication</option>
-            <option value="static_headers">API key / headers</option>
-            <option value="oauth">OAuth</option>
-          </NativeSelect>
-        </label>
-        {authentication === "static_headers" && (
-          <>
-            {field("headerNames", "Header names, comma separated", {
+      <fieldset className="min-w-0" disabled={busy}>
+        <Card className="text-xs">
+          <CardHeader>
+            <CardTitle className="text-sm">Add MCP server</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-5 [&_[data-slot=input]]:text-xs [&_[data-slot=native-select]]:text-xs">
+            {field("endpointUrl", "Server URL", {
+              type: "url",
+              autoFocus: true,
               required: true,
-              placeholder: "Authorization, X-Api-Key",
+              maxLength: 2048,
+              placeholder: "https://mcp.example.com/mcp",
+              description: "Public HTTPS endpoint using Streamable HTTP.",
             })}
-            <p className="text-xs text-muted-foreground">
-              Values are entered when creating a connection.
-            </p>
-          </>
-        )}
-        {authentication === "oauth" && (
-          <>
-            <label className="grid gap-1.5 text-sm" htmlFor={`${id}-oauth-setup`}>
-              OAuth setup
+            <label className="grid gap-2" htmlFor={`${id}-authentication`}>
+              Authentication
               <NativeSelect
-                id={`${id}-oauth-setup`}
-                value={oauthSetup}
-                onChange={(event) => setOauthSetup(event.currentTarget.value)}
+                id={`${id}-authentication`}
+                value={authentication}
+                onChange={(event) =>
+                  setAuthentication(event.currentTarget.value as typeof authentication)
+                }
               >
-                <option value="automatic">Automatic discovery</option>
-                <option value="manual">Pre-registered application</option>
-                <option value="google">Google</option>
+                <option value="none">No authentication</option>
+                <option value="static_headers">API key / headers</option>
+                <option value="oauth">OAuth</option>
               </NativeSelect>
             </label>
-            {field("applicationOrigin", "Application origin, optional", {
-              type: "url",
-              maxLength: 2048,
-              placeholder: "https://app.example.com",
-            })}
-            <p className="text-xs text-muted-foreground">
-              Allow OAuth from this embedded application&apos;s origin. The dashboard origin is
-              always allowed.
-            </p>
-            {field("requestedScopes", "Requested scopes, optional")}
-            {oauthSetup !== "automatic" && (
+            {authentication === "static_headers" &&
+              field("headerNames", "Header names, comma separated", {
+                required: true,
+                placeholder: "Authorization, X-Api-Key",
+                description: "Values are entered when creating a connection.",
+              })}
+            {authentication === "oauth" && (
               <>
-                {field("redirectUri", "Redirect URI", {
-                  value: oauthRedirectUri ?? "Configure the application URL first",
-                  readOnly: true,
-                  onFocus: (event) => event.currentTarget.select(),
+                <label className="grid gap-2" htmlFor={`${id}-oauth-setup`}>
+                  OAuth setup
+                  <NativeSelect
+                    id={`${id}-oauth-setup`}
+                    value={oauthSetup}
+                    onChange={(event) => setOauthSetup(event.currentTarget.value)}
+                  >
+                    <option value="automatic">Automatic discovery</option>
+                    <option value="manual">Pre-registered application</option>
+                  </NativeSelect>
+                </label>
+                {field("applicationOrigin", "Application origin, optional", {
+                  type: "url",
+                  maxLength: 2048,
+                  placeholder: "https://app.example.com",
+                  description:
+                    "Allow OAuth from this embedded application's origin. The dashboard origin is always allowed.",
                 })}
-                {field("clientId", "Client ID", { required: true, maxLength: 2048 })}
-                {field(
-                  "clientSecret",
-                  oauthSetup === "google" ? "Client secret" : "Client secret, if required",
-                  {
-                    type: "password",
-                    autoComplete: "off",
-                    required: oauthSetup === "google",
-                    maxLength: 8192,
-                  },
+                {field("requestedScopes", "Requested scopes, optional")}
+                {oauthSetup !== "automatic" && (
+                  <>
+                    {field("redirectUri", "Redirect URI", {
+                      value: oauthRedirectUri ?? "Configure the application URL first",
+                      readOnly: true,
+                      onFocus: (event) => event.currentTarget.select(),
+                    })}
+                    {field("clientId", "Client ID", { required: true, maxLength: 2048 })}
+                    {field("clientSecret", "Client secret", {
+                      type: "password",
+                      autoComplete: "off",
+                      maxLength: 8192,
+                    })}
+                  </>
                 )}
               </>
             )}
-          </>
-        )}
-        <p className="text-xs text-muted-foreground">
-          To change the endpoint or authentication later, remove and add the server again.
-        </p>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={close}>
-            Cancel
-          </Button>
-          <Button type="submit" size="sm">
-            {busy ? "Saving…" : "Add MCP server"}
-          </Button>
-        </div>
+            <p className="text-xs text-muted-foreground">
+              To change the endpoint or authentication later, remove and add the server again.
+            </p>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+          </CardContent>
+          <CardFooter className="justify-end gap-2 bg-card">
+            <Button type="button" size="sm" variant="outline" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm">
+              {busy ? "Saving…" : "Add MCP server"}
+            </Button>
+          </CardFooter>
+        </Card>
       </fieldset>
     </form>
   )

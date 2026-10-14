@@ -60,6 +60,7 @@ function McpDashboardPage() {
         </p>
       </div>
       <AstralBeamMcpServers
+        className="max-w-2xl"
         key={`${access.userId}:${organization.organizationId}`}
         servers={data.servers}
         oauthRedirectUri={data.callbackUri}

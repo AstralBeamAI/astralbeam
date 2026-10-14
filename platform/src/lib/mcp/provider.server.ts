@@ -128,7 +128,11 @@ export async function mcpRunAuthorization(input: {
     },
     redirectToAuthorization(url) {
       if (!mcpUrlIsPublic(url)) throw new TypeError("MCP authorization endpoint was refused")
-      if (input.authConfig.profile === "google") {
+      if (
+        input.authConfig.profile === "google" ||
+        mcpDiscoveryBinding(input.payload.discovery as unknown as OAuthDiscoveryState).issuer ===
+          "https://accounts.google.com"
+      ) {
         url.searchParams.set("access_type", "offline")
         url.searchParams.set("include_granted_scopes", "true")
         // Fresh consent may select another account, so obtain its own offline grant.

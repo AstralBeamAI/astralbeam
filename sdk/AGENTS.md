@@ -106,7 +106,7 @@ Verify embedded directories through the existing consumer examples and their bro
 - Base directory layouts on container width so they work on mobile and inside chat. Stack records with names first and labeled fields at narrow widths, wrapping identifiers and metadata without horizontal scrolling, with ellipsis allowed for unusually long content. Keep search inputs and tenant pickers within that same container.
 - Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.
 
-- Use MCP server for endpoint configuration and MCP connection for credential access. Keep server-management UI in the SDK with authorized host callbacks, so presentation does not prescribe Organization, Tenant, or personal ownership.
+- Use MCP server for endpoint configuration and MCP connection for credential access. Include MCP in standalone labels, such as Configured MCP servers, and reserve Allowed MCP servers for agent permissions. Keep server-management UI in the SDK with authorized host callbacks, so presentation does not prescribe Organization, Tenant, or personal ownership.
 
 ## Testing
 

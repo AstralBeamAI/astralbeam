@@ -116,12 +116,13 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     async function createOAuth(cimd = false, manual = false) {
       fixture.state.oauth = true
       fixture.state.cimd = cimd
+      fixture.state.issuer = manual ? "https://accounts.google.com" : "https://fixture.example"
       const server = await connections((service) =>
         service.createServer(actor.organizationId, {
           endpointUrl: "https://fixture.example/mcp",
           authConfig: {
             kind: "oauth",
-            profile: manual ? "google" : "standard",
+            profile: "standard",
             requestedScopes: ["read"],
             ...(manual
               ? {
@@ -182,7 +183,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         params: new URLSearchParams({
           state: payload.state,
           code: "authorization-code",
-          iss: "https://fixture.example",
+          iss: fixture.state.issuer,
         }),
       }
     }
@@ -231,6 +232,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
       expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
+      expect(url.searchParams.get("prompt")).toBe(manual ? "consent" : null)
       expect(url.searchParams.get("scope")).toBe("read")
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)

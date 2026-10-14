@@ -39,7 +39,7 @@ These are practical starting points across engineering, product, sales and opera
 
 For static authentication, declare header names on the server. Each person enters every value when connecting or replacing credentials. Secret values are never returned by the management API.
 
-For Google providers, choose **Google** under **OAuth setup** and enter your pre-registered application. Signing in to another provider with your Google account still uses that provider's standard MCP OAuth flow. It does not require Google setup or forward your Google login token to the MCP endpoint.
+For Google providers, choose **Pre-registered application** and enter both the client ID and secret. Google is detected during authorization and requests offline access for token refresh. Signing in to another provider with your Google account uses that provider's OAuth flow and does not forward your Google login token to the MCP endpoint.
 
 ## Connection ownership and recovery
 
