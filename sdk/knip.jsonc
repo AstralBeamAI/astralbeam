@@ -6,7 +6,5 @@
   // Deno-run generator scripts are explicit extension points, like platform's.
   "entry": ["scripts/*.ts", "src/**/*.test.{ts,tsx}"],
   // The shadcn-generated components are vendored copy-paste code whose unused sub-exports are expected.
-  "ignoreIssues": {
-    "src/widget/components/ui/!(highlighter|use-highlighted-code).*": ["exports", "types"],
-  },
+  "ignore": ["src/widget/components/ui/**"],
 }

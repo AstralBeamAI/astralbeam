@@ -1,6 +1,6 @@
 import { cn } from "cn"
 import stripAnsi from "strip-ansi"
-import { useHighlightedCode } from "./ui/use-highlighted-code"
+import { useHighlightedCode } from "../hooks/use-highlighted-code"
 import {
   CodeBlock,
   CodeBlockActions,

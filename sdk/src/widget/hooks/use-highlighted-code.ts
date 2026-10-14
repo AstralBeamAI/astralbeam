@@ -2,7 +2,7 @@
 // Local changes: lazy-load the highlighter and preserve ANSI state across lines.
 import * as React from "react"
 
-import type { loadHighlighter } from "@/widget/components/ui/highlighter"
+import type { loadHighlighter } from "@/widget/lib/highlighter"
 
 export function useHighlightedCode(value: string, language: string) {
   // A trailing newline would render as an extra empty line.
@@ -16,7 +16,7 @@ export function useHighlightedCode(value: string, language: string) {
   React.useEffect(() => {
     let cancelled = false
 
-    import("@/widget/components/ui/highlighter")
+    import("@/widget/lib/highlighter")
       .then(({ loadHighlighter }) => loadHighlighter(language))
       .then((next) => {
         if (!cancelled) {
@@ -49,10 +49,7 @@ export function useHighlightedCode(value: string, language: string) {
   const end = language.toLowerCase() === "ansi" ? 0 : code.lastIndexOf("\n") + 1
 
   if (highlighter && end > next.text.length) {
-    const result = highlighter.highlight(
-      code.slice(next.text.length, end - 1),
-      next.state
-    )
+    const result = highlighter.highlight(code.slice(next.text.length, end - 1), next.state)
 
     next = {
       highlighter,

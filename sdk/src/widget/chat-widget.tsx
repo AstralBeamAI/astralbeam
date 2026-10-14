@@ -570,7 +570,7 @@ export function ChatWidget({
       className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
       {showHeader && (
-        <CardHeader className="flex h-12 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
+        <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
           <div className="min-w-0 flex-1">
             {hostSlots.has("header") ? (
               // The host's own title content, projected in the host page's style.
