@@ -567,7 +567,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           actor,
           reference: account,
           lockVersion: 0,
-          headers: { Authorization: "Bearer personal-secret" },
+          headers: { Authorization: " \tBearer personal-secret \t" },
         }),
       )
       const [otherUser] = await db
@@ -608,37 +608,24 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         ),
       ).rejects.toThrow()
     })
-    test.each(["tenant", "organization"] as const)(
-      "public reconnect and %s deletion cascade through commit",
-      async (scope) => {
-        const server = await connections((service) =>
-          service.createServer(actor.organizationId, {
-            endpointUrl: "https://fixture.example/mcp",
-            authConfig: { kind: "none" },
-          }),
-        )
-        const account = await connections((service) => service.createConnection(actor, server.id))
-        await authority((service) => service.disconnect({ actor, reference: account }))
-        const reconnected = await connections((service) =>
-          service.createConnection(actor, server.id),
-        )
-        expect(reconnected).toMatchObject({ authState: "connected", lockVersion: 0 })
-        expect(reconnected.id).not.toBe(account.id)
-        expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
-        expect(
-          Redacted.value(
-            await authority((service) => service.getCredential({ actor, reference: reconnected })),
-          ),
-        ).toEqual({ kind: "none" })
-        await db.transaction(async (transaction) => {
-          await transaction.execute(sql`set constraints all deferred`)
-          const target = scope === "tenant" ? tenant : organization
-          await transaction
-            .delete(target)
-            .where(eq(target.id, scope === "tenant" ? actor.tenantId : actor.organizationId))
-        })
-        expect(await db.select().from(mcpConnection)).toEqual([])
-      },
-    )
+    test("public reconnect creates a fresh identity without credentials", async () => {
+      const server = await connections((service) =>
+        service.createServer(actor.organizationId, {
+          endpointUrl: "https://fixture.example/mcp",
+          authConfig: { kind: "none" },
+        }),
+      )
+      const account = await connections((service) => service.createConnection(actor, server.id))
+      await authority((service) => service.disconnect({ actor, reference: account }))
+      const reconnected = await connections((service) => service.createConnection(actor, server.id))
+      expect(reconnected).toMatchObject({ authState: "connected", lockVersion: 0 })
+      expect(reconnected.id).not.toBe(account.id)
+      expect((await db.select().from(mcpConnection))[0]!.credentials).toBeNull()
+      expect(
+        Redacted.value(
+          await authority((service) => service.getCredential({ actor, reference: reconnected })),
+        ),
+      ).toEqual({ kind: "none" })
+    })
   },
 )

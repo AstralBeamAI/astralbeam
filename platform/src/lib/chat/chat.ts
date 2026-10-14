@@ -401,6 +401,14 @@ export class Chat extends Context.Service<
                   createChatAttachmentSnapshotMiddleware(inputMessages, history),
                   ...managed.middleware,
                   ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
+                  {
+                    name: "mcp-presentation",
+                    onStart: (ctx) =>
+                      ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
+                        tools: mcp.presentation,
+                        unavailable: mcp.unavailable,
+                      }),
+                  },
                 ],
                 agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
                 threadId: params.threadId,
@@ -417,7 +425,7 @@ export class Chat extends Context.Service<
                 abortController,
               })
               const delivered = managedChatDelivery({
-                source: mcpChatPresentation(source, mcp.presentation, mcp.unavailable),
+                source,
                 managed: input.managed,
                 state: managed.state,
               })
@@ -486,20 +494,4 @@ export class Chat extends Context.Service<
       McpTools.layer,
     ]),
   )
-}
-
-async function* mcpChatPresentation(
-  source: AsyncIterable<StreamChunk>,
-  tools: readonly unknown[],
-  unavailable: readonly string[],
-): AsyncGenerator<StreamChunk> {
-  for await (const chunk of source) {
-    yield chunk
-    if (chunk.type === EventType.RUN_STARTED && (tools.length > 0 || unavailable.length > 0))
-      yield {
-        type: EventType.CUSTOM,
-        name: CHAT_MCP_PRESENTATION_EVENT,
-        value: { tools, unavailable },
-      }
-  }
 }

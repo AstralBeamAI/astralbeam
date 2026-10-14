@@ -7,7 +7,7 @@ MCP connections give your agents tools from remote services. Let's connect a ser
 1. Open **Connections** in the Organization dashboard and choose **Add server**.
 2. Enter the public HTTPS endpoint and choose public, static-header or OAuth authentication.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
-4. For providers without automatic registration, enable **Use a pre-registered OAuth application** and enter its client ID and secret. Choose the registered token authentication method and register the exact redirect URI shown in the form with your provider.
+4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Choose the registered token authentication method and register the exact redirect URI shown in the form with your provider.
 5. Open **Connections** in your application's embedded sidebar. Choose **Connect account** for OAuth, **Add credentials** for static authentication or **Enable** for a public server.
 6. Choose **Check tools** to list the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
@@ -39,7 +39,7 @@ These are practical starting points across engineering, product, sales and opera
 
 For static authentication, declare header names on the server. Each person enters every value when connecting or replacing credentials. Secret values are never returned by the management API.
 
-For Google providers, choose the **Google** OAuth profile and a pre-registered application. Signing in to another provider with your Google account still uses that provider's standard MCP OAuth flow. It does not require the Google profile or forward your Google login token to the MCP endpoint.
+For Google providers, choose **Google** under **OAuth setup** and enter your pre-registered application. Signing in to another provider with your Google account still uses that provider's standard MCP OAuth flow. It does not require Google setup or forward your Google login token to the MCP endpoint.
 
 ## Account ownership and recovery
 

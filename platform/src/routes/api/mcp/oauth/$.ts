@@ -55,7 +55,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
       return new Response("Invalid authorization request", { status: 400 })
     const challenge = randomBytes(32).toString("base64url")
     const secure = new URL(baseUrl).protocol === "https:" ? "; Secure" : ""
-    const cookie = `mcp_oauth_${reference.id}=${Buffer.from(JSON.stringify({ challenge, origin })).toString("base64url")}; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=600${secure}`
+    const cookie = `mcp_oauth_${reference.connectionId}=${Buffer.from(JSON.stringify({ challenge, origin })).toString("base64url")}; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=600${secure}`
     const next = new URL("/api/mcp/oauth/continue", baseUrl)
     next.searchParams.set("attempt", url.searchParams.get("attempt")!)
     return mcpPopupHtml(
@@ -65,7 +65,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
   }
   if (url.pathname.endsWith("/continue")) {
     const reference = mcpAttemptLocator(url.searchParams.get("attempt") ?? "")
-    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.id}`))
+    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.connectionId}`))
     if (!reference || !cookie) return new Response("Authorization required", { status: 403 })
     return yield* authority
       .browserRedirect({ reference, browserBinding: cookie.challenge, origin: cookie.origin })
@@ -80,7 +80,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
   }
   if (url.pathname.endsWith("/callback")) {
     const reference = mcpAttemptLocator(url.searchParams.get("state") ?? "")
-    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.id}`))
+    const cookie = reference && mcpBrowserCookie(getCookie(`mcp_oauth_${reference.connectionId}`))
     if (!reference || !cookie)
       return new Response("Authorization browser did not match", { status: 403 })
     return yield* authority
@@ -93,7 +93,7 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
         Effect.map(() =>
           mcpPopupHtml(
             `document.getElementById('status').textContent='Account authorized. Return to the application to finish connecting.';`,
-            `mcp_oauth_${reference.id}=; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=0${new URL(baseUrl).protocol === "https:" ? "; Secure" : ""}`,
+            `mcp_oauth_${reference.connectionId}=; Path=/api/mcp/oauth; HttpOnly; SameSite=Lax; Max-Age=0${new URL(baseUrl).protocol === "https:" ? "; Secure" : ""}`,
           ),
         ),
         Effect.catch(() =>

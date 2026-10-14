@@ -82,7 +82,7 @@ describe("request-oriented MCP tools", () => {
       await withMcpTools(
         async (set) => {
           generation++
-          await expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow()
+          await expect(set.tools[0]!.execute({ region: "eu" }, undefined)).rejects.toThrow()
           expect(mcpToolFixture.state.calls).toBe(0)
         },
         {
@@ -116,7 +116,7 @@ describe("request-oriented MCP tools", () => {
           expect(tool.description).toContain("https://fixture.example/mcp?connection=")
           const schema = tool.inputSchema as { "~standard": { validate(input: unknown): unknown } }
           expect(schema["~standard"].validate({ region: 3 })).toHaveProperty("issues")
-          expect(await tool.execute!({ region: "eu" }, undefined)).toEqual({ ok: true })
+          expect(await tool.execute({ region: "eu" }, undefined)).toEqual({ ok: true })
           expect(mcpToolFixture.state.calls).toBe(1)
           const call = mcpToolFixture.state.requests.find((entry) => entry.method === "tools/call")!
           expect(call.headers).toMatchObject({
@@ -162,7 +162,7 @@ describe("request-oriented MCP tools", () => {
   test("does not replay a tool call when its response is lost", async () => {
     await withMcpTools(async (set) => {
       mcpToolFixture.state.lostToolResponse = true
-      await expect(set.tools[0]!.execute!({ region: "eu" }, undefined)).rejects.toThrow()
+      await expect(set.tools[0]!.execute({ region: "eu" }, undefined)).rejects.toThrow()
       expect(mcpToolFixture.state.calls).toBe(1)
     })
   })
@@ -177,7 +177,10 @@ describe("request-oriented MCP tools", () => {
           release = resolve
         })
       const failed = Promise.resolve(
-        set.tools[0]!.execute!({ region: "eu" }, { abortSignal: controller.signal }),
+        set.tools[0]!.execute(
+          { region: "eu" },
+          { abortSignal: controller.signal, emitCustomEvent: vi.fn() },
+        ),
       ).then(
         () => false,
         () => true,

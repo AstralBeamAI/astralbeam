@@ -2,7 +2,6 @@ import { createHash, randomBytes } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
 import { Clock, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
 import {
-  discoverOAuthServerInfo,
   extractWWWAuthenticateParams,
   OAuthError,
   refreshAuthorization,
@@ -49,7 +48,6 @@ import {
 import { mcpCreateDispatcher } from "./network.server.ts"
 import {
   mcpAuthorizationFetch,
-  mcpClientMetadata,
   mcpDiscoveryBinding,
   mcpOAuthCredential,
   mcpRunAuthorization,
@@ -172,32 +170,16 @@ const makeMcpAuthorization = Effect.gen(function* () {
     if (authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
     if (input.origin !== new URL(origin).origin && input.origin !== authConfig.applicationOrigin)
       return yield* new McpForbidden()
-    const { discovery, challengedScope } = yield* Effect.tryPromise({
+    const challenge = yield* Effect.tryPromise({
       try: async () => {
         const response = await guardedAuthFetch(server.endpointUrl)
         const challenge =
           response.status === 401 ? extractWWWAuthenticateParams(response) : undefined
         await response.body?.cancel()
-        const resourceMetadataUrl = challenge?.resourceMetadataUrl
-        const metadata = await discoverOAuthServerInfo(server.endpointUrl, {
-          fetchFn: guardedAuthFetch,
-          ...(resourceMetadataUrl ? { resourceMetadataUrl } : {}),
-        })
-        return {
-          discovery: {
-            ...metadata,
-            ...(resourceMetadataUrl ? { resourceMetadataUrl: resourceMetadataUrl.href } : {}),
-          },
-          challengedScope: challenge?.scope,
-        }
+        return challenge
       },
       catch: () => new McpUnavailable(),
     })
-    const binding = yield* Effect.try({
-      try: () => mcpDiscoveryBinding(discovery, server.endpointUrl),
-      catch: () => new McpInvalidConfiguration(),
-    })
-    const metadata = mcpClientMetadata(origin)
     const client = authConfig.client
     const attempt: McpAttemptReference = {
       organizationId: connection.organizationId,
@@ -215,23 +197,18 @@ const makeMcpAuthorization = Effect.gen(function* () {
       browserBindingHash: null,
       state: `${Buffer.from(JSON.stringify(attempt)).toString("base64url")}.${randomBytes(32).toString("base64url")}`,
       verifier: null,
-      discovery: Schema.decodeUnknownSync(Schema.JsonObject)(discovery),
+      discovery: null,
       clientInformation: client
         ? {
             client_id: client.clientId,
             ...(client.clientSecret ? { client_secret: client.clientSecret } : {}),
             token_endpoint_auth_method: client.tokenEndpointAuthMethod,
-            issuer: binding.issuer,
-            redirect_uris: metadata.redirect_uris,
           }
         : null,
       authorizationUrl: null,
       pendingCredential: null,
     }
     yield* attemptLock(attempt, writeAttempt(payload))
-    const scope = authConfig.requestedScopes.length
-      ? authConfig.requestedScopes.join(" ")
-      : (challengedScope ?? discovery.resourceMetadata?.scopes_supported?.join(" "))
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({
@@ -241,7 +218,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
           now: () => Effect.runPromise(Clock.currentTimeMillis),
           dispatcher,
           serverUrl: server.endpointUrl,
-          scope: scope || undefined,
+          scope: authConfig.requestedScopes.join(" ") || challenge?.scope,
+          resourceMetadataUrl: challenge?.resourceMetadataUrl,
         }),
       catch: () => new McpAuthorizationRequired(),
     })

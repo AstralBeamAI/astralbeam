@@ -17,8 +17,7 @@ export function McpServerForm({
   cancel: () => void
 }) {
   const [authentication, setAuthentication] = useState<McpAuthConfig["kind"]>("none")
-  const [profile, setProfile] = useState("standard")
-  const [manual, setManual] = useState(false)
+  const [oauthSetup, setOauthSetup] = useState("automatic")
   return (
     <form
       className="grid gap-3"
@@ -41,11 +40,11 @@ export function McpServerForm({
                   ...(fields.get("applicationOrigin")
                     ? { applicationOrigin: fields.get("applicationOrigin") as string }
                     : {}),
-                  profile: profile === "google" ? "google" : "standard",
+                  profile: oauthSetup === "google" ? "google" : "standard",
                   requestedScopes: ((fields.get("scopes") as string | null) ?? "")
                     .split(/\s+/)
                     .filter(Boolean),
-                  ...(manual || profile === "google"
+                  ...(oauthSetup !== "automatic"
                     ? {
                         client: {
                           clientId: fields.get("clientId") as string,
@@ -100,13 +99,14 @@ export function McpServerForm({
         )}
         {authentication === "oauth" && (
           <>
-            <Label htmlFor="mcp-profile">OAuth provider</Label>
+            <Label htmlFor="mcp-oauth-setup">OAuth setup</Label>
             <NativeSelect
-              id="mcp-profile"
-              value={profile}
-              onChange={(event) => setProfile(event.currentTarget.value)}
+              id="mcp-oauth-setup"
+              value={oauthSetup}
+              onChange={(event) => setOauthSetup(event.currentTarget.value)}
             >
-              <option value="standard">Standard</option>
+              <option value="automatic">Automatic discovery</option>
+              <option value="manual">Pre-registered application</option>
               <option value="google">Google</option>
             </NativeSelect>
             <Label htmlFor="mcp-application-origin">Application origin, optional</Label>
@@ -122,16 +122,7 @@ export function McpServerForm({
             </p>
             <Label htmlFor="mcp-scopes">Requested scopes, optional</Label>
             <Input id="mcp-scopes" name="scopes" />
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={manual || profile === "google"}
-                disabled={profile === "google"}
-                onChange={(event) => setManual(event.currentTarget.checked)}
-              />
-              Use a pre-registered OAuth application
-            </label>
-            {(manual || profile === "google") && (
+            {oauthSetup !== "automatic" && (
               <>
                 <Label htmlFor="mcp-redirect">Redirect URI</Label>
                 <Input

@@ -275,11 +275,15 @@ const makeMcpConnections = Effect.gen(function* () {
     headers: Record<string, string>
   }) {
     const { connection, server } = yield* getConnection(input)
+    const headers = yield* Effect.try({
+      try: () => Object.fromEntries(new Headers(input.headers)),
+      catch: () => new McpInvalidConfiguration(),
+    })
     if (
       server.authConfig.kind !== "static_headers" ||
       !mcpHeadersAreAllowed(input.headers) ||
       server.authConfig.headerNames.length !== Object.keys(input.headers).length ||
-      server.authConfig.headerNames.some((name) => !input.headers[name])
+      server.authConfig.headerNames.some((name) => !headers[name.toLowerCase()])
     )
       return yield* new McpInvalidConfiguration()
     yield* updateWithOptimisticLock({
@@ -295,7 +299,7 @@ const makeMcpConnections = Effect.gen(function* () {
           id: connection.id,
           mcpServerId: connection.mcpServerId,
           lockVersion: input.lockVersion + 1,
-          credential: { kind: "static_headers", headers: input.headers },
+          credential: { kind: "static_headers", headers },
         },
       },
     }).pipe(

@@ -39,6 +39,8 @@ import {
   chatThread,
   chatToolResponse,
   fileObject,
+  mcpServer,
+  mcpConnection,
   modelProvider,
   providerModel,
   member,
@@ -162,6 +164,20 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       )
       .limit(1)
     const [thread] = await db.insert(chatThread).values(scope).returning()
+    const [server] = await db
+      .insert(mcpServer)
+      .values({
+        organizationId: scope.organizationId,
+        endpointUrl: `https://mcp.example/${thread!.id}`,
+        authConfig: { kind: "none" },
+      })
+      .returning()
+    await db.insert(mcpConnection).values({
+      organizationId: scope.organizationId,
+      tenantId: scope.tenantId,
+      tenantUserId: author!.id,
+      mcpServerId: server!.id,
+    })
     const chatScope = {
       organizationId: scope.organizationId,
       tenantId: scope.tenantId,
@@ -552,6 +568,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
     for (const table of [
       tenantUser,
+      mcpConnection,
       chatThread,
       chatParticipant,
       chatMessage,
@@ -583,6 +600,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     for (const table of [
       tenant,
       tenantUser,
+      mcpServer,
+      mcpConnection,
       chatThread,
       chatParticipant,
       chatMessage,
@@ -775,7 +794,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     expect(await db.select({ organizationId: chatThread.organizationId }).from(chatThread)).toEqual(
       [{ organizationId: keptId }],
     )
-    for (const table of [modelProvider, providerModel, agentModel]) {
+    for (const table of [modelProvider, providerModel, agentModel, mcpServer, mcpConnection]) {
       expect(await db.select({ organizationId: table.organizationId }).from(table)).toEqual([
         { organizationId: keptId },
       ])

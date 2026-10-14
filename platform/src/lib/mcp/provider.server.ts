@@ -181,12 +181,14 @@ export async function mcpRunAuthorization(
   input: Parameters<typeof mcpAttemptProvider>[0] & {
     dispatcher: Agent
     scope?: string | undefined
+    resourceMetadataUrl?: URL | undefined
     callback?: URLSearchParams | undefined
   },
 ) {
   return auth(mcpAttemptProvider(input), {
     serverUrl: input.serverUrl,
     ...(input.scope ? { scope: input.scope } : {}),
+    ...(input.resourceMetadataUrl ? { resourceMetadataUrl: input.resourceMetadataUrl } : {}),
     ...(input.callback
       ? {
           ...(input.callback.get("code") ? { authorizationCode: input.callback.get("code")! } : {}),

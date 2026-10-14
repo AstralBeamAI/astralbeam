@@ -20,16 +20,13 @@ test.skipIf(!liveConnections.length || !liveOrganizationId || !liveTenantId || !
         Effect.gen(function* () {
           const result = yield* (yield* McpTools).acquire(actor)
           for (const id of liveConnections) {
-            const exposed = result.presentation.filter((tool) => tool.connectionId === id)
+            const exposed = result.tools.filter((tool) => tool.metadata.connectionId === id)
             expect(exposed.length, `Tools for connection ${id}`).toBeGreaterThan(0)
             expect(result.unavailable).not.toContain(id)
-            console.info({ connectionId: id, tools: exposed.map((tool) => tool.nativeToolName) })
-            for (const tool of exposed)
-              expect(
-                result.tools.find((definition) => definition.name === tool.name),
-              ).toMatchObject({
-                metadata: { source: "mcp", connectionId: id, nativeToolName: tool.nativeToolName },
-              })
+            console.info({
+              connectionId: id,
+              tools: exposed.map((tool) => tool.metadata.nativeToolName),
+            })
           }
         }),
       ).pipe(Effect.provide(McpTools.layer)),

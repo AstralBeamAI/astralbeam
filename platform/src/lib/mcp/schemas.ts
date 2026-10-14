@@ -168,13 +168,6 @@ export const McpConnectionSummarySchema = Schema.Struct({
   authState: Schema.Literals(["disconnected", "connected", "reauthorization_required"]),
 })
 export type McpConnectionSummary = typeof McpConnectionSummarySchema.Type
-export const McpToolPresentationSchema = Schema.Struct({
-  name: Schema.String,
-  title: Schema.String,
-  mcpServerId: UuidV7Schema,
-  connectionId: UuidV7Schema,
-  nativeToolName: Schema.String,
-})
 export function mcpActorEquals(left: McpActor, right: McpActor): boolean {
   return (
     left.organizationId === right.organizationId &&
