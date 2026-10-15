@@ -1,7 +1,5 @@
-// Resolved sRGB values for the AstralBeam brand theme (docs/brand.md, pre-Deno-migration
-// apps/webapp/src/brand/theme.json), computed once via platform/scripts/theme/theme.ts's color
-// engine. www only needs static hex values for meta tags and generated images, so the
-// resolution engine itself is not duplicated here.
+// Static sRGB values from platform/scripts/theme/brand.json, resolved by its theme compiler.
+// See ../../../docs/brand.md for the shared brand.
 export const palette = {
   dark: {
     background: { srgbHex: "#061014" },

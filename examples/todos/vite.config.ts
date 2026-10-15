@@ -16,5 +16,5 @@ export default defineConfig({
     // https://vite.dev/config/server-options.html#server-fs-allow
     fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../../sdk/dist"] },
   },
-  plugins: [nitro(), tanstackStart(), react()],
+  plugins: [nitro({ preset: "bun" }), tanstackStart(), react()],
 })

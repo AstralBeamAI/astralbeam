@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: use Phosphor/Base Toast, semantic shadcn status colors, and hover titles for icon-only actions. Take invitation permissions as props from the page loader. Retain resend/cancel with static roles and omit invitation model fields. Render dates after hydration.
 
 "use client"

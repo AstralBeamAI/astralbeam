@@ -10,16 +10,16 @@ Use the todos agent prompt from [`platform/scripts/seed/fixtures.ts`](../../plat
 
 ## Run
 
-The quickest path is `deno task --cwd platform db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then writes `examples/todos/.env` for this example when that file does not exist yet, leaving an existing one alone. The numbered steps below are the same setup done by hand.
+The quickest path is `bun run --cwd platform db-seed`, which creates the `acme` organization with a `todos` agent already carrying the prompt above, a Docker sandbox provider, and an API key, then writes `examples/todos/.env` for this example when that file does not exist yet, leaving an existing one alone. The numbered steps below are the same setup done by hand.
 
 1. In the platform, use the organization's starter agent (already the default) or create one on the agents page, and set its system prompt to the demo prompt above. Prompts are agent configuration. The SDK cannot override them.
 2. Optionally configure and test a sandbox provider on the **Sandboxes** page, then select it on the agent. The endpoint gives that agent sandbox tools, and the demo prompt asks it to use them.
 3. Create an organization API key and copy the one-time `key_<organizationId>_<id>_abo_<secret>` value.
 4. Copy `.env.example` to `.env.local` and configure the confidential API key on the server. Leave `VITE_ASTRALBEAM_AGENT_ID` empty to use the organization's default agent, or set the browser-safe agent ID shown on the agents page. The API key and agent must belong to the same organization. Never commit `.env.local`.
-5. Start the platform on port 4500 with `deno task --cwd platform dev` from the repository root. For chat, the agent needs a model. With `OPENAI_API_KEY` in `platform/.env.local`, the seed already created a **Development OpenAI** connection and assigned its model. Otherwise, add a connection under **Models**, enable a model, and select it on the agent. The tenant-user listing does not need a model or sandbox provider.
-6. Build the SDK with `deno task build` from `sdk`.
+5. Start the platform on port 4500 with `bun run --cwd platform dev` from the repository root. For chat, the agent needs a model. With `OPENAI_API_KEY` in `platform/.env.local`, the seed already created a **Development OpenAI** connection and assigned its model. Otherwise, add a connection under **Models**, enable a model, and select it on the agent. The tenant-user listing does not need a model or sandbox provider.
+6. Build the SDK with `bun run build` from `sdk`.
 7. For the listing, provision a Tenant with `external_id: "todos-tenant-1"` and a TenantUser with `external_id: "todos-user-1"` under it in the API key's Organization. The seed already creates these records. For manual setup, use the [directory provisioning example](https://astralbeam.ai/docs/sdk/listings) with these IDs, which match [`src/lib/constants.server.ts`](src/lib/constants.server.ts).
-8. From this directory, run `deno install` and `deno task dev`, then open <http://localhost:4700>.
+8. Install the workspace from the repository root with `bun install --frozen-lockfile`, then from this directory run `bun run dev`, then open <http://localhost:4700>.
 
 ## Try it
 
@@ -34,6 +34,6 @@ The demo token route grants a fixed identity and returns `503` in production. Be
 
 ## Automated checks
 
-`deno task e2e` drives this example in a browser against a seeded database: the host UI, the token round-trip, the chat endpoint's authorization boundary, the agent's tools and widgets, attachments, and the sandbox. See [`e2e/README.md`](e2e/README.md) for how to run it, what each folder owns, and what to update when the SDK or this app changes.
+`bun run e2e` drives this example in a browser against a seeded database: the host UI, the token round-trip, the chat endpoint's authorization boundary, the agent's tools and widgets, attachments, and the sandbox. See [`e2e/README.md`](e2e/README.md) for how to run it, what each folder owns, and what to update when the SDK or this app changes.
 
 After changing SDK sources, rebuild from `sdk` and reload the page.

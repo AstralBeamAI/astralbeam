@@ -23,12 +23,12 @@
   "terminals": [
     {
       "name": "Product application",
-      "command": "cd platform && deno task dev",
+      "command": "bun run --cwd platform dev",
       "description": "Runs the TanStack Start application on port 4500."
     },
     {
       "name": "Public website",
-      "command": "cd www && deno task dev",
+      "command": "bun run --cwd www dev",
       "description": "Runs the public website on port 4600."
     }
   ]

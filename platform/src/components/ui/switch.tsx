@@ -1,4 +1,4 @@
-// Added with: deno task ui add switch
+// Added with: bun run ui add switch
 // Local changes: none.
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 import { cn } from "cn"

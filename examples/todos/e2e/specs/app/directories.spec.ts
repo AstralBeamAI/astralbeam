@@ -3,11 +3,7 @@ import { directoriesPage, openVanillaDirectories } from "../../pages/directories
 import { captureMoment } from "../../capture.ts"
 import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
 import type { TenantPage } from "../../../../../sdk/dist/api.js"
-// @deno-types="../../../../../sdk/dist/server.d.ts"
-import {
-  createAstralBeamOrganizationToken,
-  createAstralBeamToken,
-} from "../../../../../sdk/dist/server.js"
+import { createAstralBeamOrganizationToken, createAstralBeamToken } from "@astralbeam/sdk/server"
 import { seedTarget } from "../../worktree.ts"
 
 test("example lists only its tenant's users and filters stored admin status", async ({ page }) => {

@@ -1,4 +1,4 @@
-// Added with: deno task ui add hover-card
+// Added with: bun run ui add hover-card
 // Local changes: shadow-root portal container and configurable collision avoidance.
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card"
 import { cn } from "cn"

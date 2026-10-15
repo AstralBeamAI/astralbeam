@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
+import { waitForHydration } from "../hydration.ts"
+
 /** `/onboarding`, the only page a signed-in user without an organization can reach. */
 export function onboardingPage(page: Page) {
   return {
@@ -15,7 +17,9 @@ export function onboardingPage(page: Page) {
     },
 
     async openCreateOrganization(): Promise<void> {
-      await page.getByRole("button", { name: "Create a new organization" }).click()
+      const button = page.getByRole("button", { name: "Create a new organization" })
+      await waitForHydration(button)
+      await button.click()
     },
   }
 }

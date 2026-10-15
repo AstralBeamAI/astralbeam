@@ -1,11 +1,11 @@
-// Adapted with: deno task ui add @emailcn/react-email/theme-default
+// Adapted with: bun run ui add @emailcn/react-email/theme-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/themes/email-theme.ts
 // Local changes: Inline the app's light brand palette as static sRGB email tokens, use system fonts, and expose matching class names only.
 
 import { pixelBasedPreset, type TailwindConfig } from "react-email"
 
 // Email clients need static sRGB, so these are the light `scripts/theme/brand.json` roles resolved to
-// hex and `--radius` in pixels. Refresh them from what `deno task generate:theme` prints.
+// hex and `--radius` in pixels. Refresh them from what `bun run generate:theme` prints.
 const emailTheme = {
   colors: {
     background: "#f7fcfb",

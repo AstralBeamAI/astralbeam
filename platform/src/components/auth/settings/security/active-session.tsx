@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: Use Phosphor icons and Base UI Toast; correct the generated session-field documentation.
 
 import { useAuth, useRevokeSession, useSession } from "@better-auth-ui/react"

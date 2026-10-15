@@ -1,6 +1,8 @@
 import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
-import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici"
+// Bun's built-in undici ignores the dispatcher that enforces our DNS boundary.
+// https://github.com/oven-sh/bun/issues/38840
+import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici/index.js"
 import { isPrivateModelEndpointAddress } from "@/lib/model-providers/endpoints.server"
 import { MCP_MAX_METADATA_BYTES, MCP_MAX_RESULT_BYTES } from "./schemas.ts"
 

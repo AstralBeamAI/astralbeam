@@ -53,7 +53,10 @@ describe("chat provider request routing", () => {
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "unused-environment-anthropic-token")
       vi.stubEnv("OPENAI_ORG_ID", "unused-environment-openai-organization")
-      const configuredFetch: typeof fetch = (input, init) => {
+      const configuredFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
+        input,
+        init,
+      ) => {
         if (typeof init?.body !== "string") throw new Error("Expected a JSON request body")
         requests.push({
           url: new URL(input instanceof Request ? input.url : input),

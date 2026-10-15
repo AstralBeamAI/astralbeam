@@ -1,4 +1,4 @@
-// Added with: deno task ui add input
+// Added with: bun run ui add input
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 

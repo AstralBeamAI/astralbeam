@@ -1,4 +1,4 @@
-// Added with: deno task ui add questionnaire
+// Added with: bun run ui add questionnaire
 // Local changes: compact pointer-aware actions while retaining touch-sized text inputs.
 "use client"
 

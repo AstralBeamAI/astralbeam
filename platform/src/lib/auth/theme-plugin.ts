@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/theme
+// Added with: bun run ui add @better-auth-ui/theme
 // Local changes: Register the ejected UI slots while preserving Better Auth UI's static theme API.
 
 import { createAuthPlugin } from "@better-auth-ui/core"

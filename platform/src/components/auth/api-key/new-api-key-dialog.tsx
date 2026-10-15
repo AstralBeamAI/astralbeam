@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/api-key
+// Added with: bun run ui add @better-auth-ui/api-key
 // Local changes: Use Phosphor icons, show one key with manual copy recovery, and require explicit dismissal of the secret.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"

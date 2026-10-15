@@ -1,5 +1,5 @@
 /**
- * Deterministic sample data shared by `deno task db-seed` and the todos end-to-end suite.
+ * Deterministic sample data shared by `bun run db-seed` and the todos end-to-end suite.
  *
  * `examples/todos/e2e` imports this module across a project boundary, so it must stay free of
  * imports and runtime dependencies: it is plain data only. Every credential-shaped value here is

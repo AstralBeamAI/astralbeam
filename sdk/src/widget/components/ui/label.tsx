@@ -1,4 +1,4 @@
-// Added with: deno task ui add label
+// Added with: bun run ui add label
 "use client"
 
 import * as React from "react"

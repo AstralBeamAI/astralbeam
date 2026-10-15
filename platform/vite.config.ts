@@ -79,25 +79,6 @@ const viteConfig = defineConfig(({ mode }) => {
         },
       },
       {
-        name: "react-dom-deno-server",
-        apply: "build",
-        enforce: "pre",
-        // React maps Deno to its browser server build, whose referenced MessageChannel prevents
-        // process shutdown after the first request. Use the full Node server API in the SSR bundle.
-        // https://github.com/denoland/deno/issues/28919
-        resolveId: {
-          // Matched natively, so other imports skip the JavaScript call. https://vite.dev/guide/api-plugin#hook-filters
-          filter: { id: /^react-dom\/server$/ },
-          handler(_source, importer, options) {
-            if (!options.ssr) return null
-            return this.resolve("react-dom/server.node", importer, {
-              ...options,
-              skipSelf: true,
-            })
-          },
-        },
-      },
-      {
         name: "cluster-development-close",
         apply: "serve",
         configureServer(server) {
@@ -121,8 +102,8 @@ const viteConfig = defineConfig(({ mode }) => {
               environment.hot.on("astralbeam:closed", closed)
               environment.hot.send("astralbeam:close")
             }))
-          // Vite closes itself only on SIGTERM, so Ctrl-C would skip the cleanup above. `deno task`
-          // forwards a second SIGINT, which must not kill the process mid-cleanup either.
+          // Vite closes itself only on SIGTERM, so Ctrl-C must request the same worker cleanup.
+          // https://vite.dev/guide/api-javascript#vitedevserver
           let interrupted: Promise<void> | undefined
           const closeOnInterrupt = () =>
             void (interrupted ??= server.close().finally(() => process.exit()))
@@ -147,6 +128,10 @@ const viteConfig = defineConfig(({ mode }) => {
       ...(mode === "test"
         ? []
         : nitro({
+            preset: "bun",
+            // Trace Daytona's dynamic busboy import and every installed native Sharp package.
+            // https://nitro.build/config#tracedeps
+            traceDeps: ["busboy", "@img", "@img/sharp-win32-x64*"],
             minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
@@ -180,7 +165,6 @@ const viteConfig = defineConfig(({ mode }) => {
               },
             },
             plugins: [
-              "./src/lib/runtime/request-context.server.ts",
               "./src/lib/runtime/response-headers.server.ts",
               "./src/lib/cluster/plugin.ts",
             ],
@@ -210,7 +194,7 @@ const viteConfig = defineConfig(({ mode }) => {
       env: {
         DATABASE_URL: process.env.DATABASE_URL ?? "postgres://test:test@127.0.0.1:5432/test",
       },
-      // `e2e` holds Playwright specs, which `deno task e2e` runs in its own runner.
+      // `e2e` holds Playwright specs, which `bun run e2e` runs in its own runner.
       exclude: [...configDefaults.exclude, "e2e/**"],
       // Integration suites share one disposable database, so run their files one at a time.
       // https://vitest.dev/guide/projects

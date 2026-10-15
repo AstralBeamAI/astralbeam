@@ -1,4 +1,4 @@
-// Added with: deno task ui add separator
+// Added with: bun run ui add separator
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 import { cn } from "cn"
 

@@ -6,8 +6,13 @@ import { fileURLToPath } from "node:url"
 import { globalOptions } from "./config.ts"
 import { printResult } from "./output.ts"
 
-// Resolves from both src/ and dist/, and inside `deno compile --include skills` binaries.
-const SKILL_URL = new URL("../skills/astralbeam/SKILL.md", import.meta.url)
+// Bun embeds assets beside the executable entry. https://bun.sh/docs/bundler/executables
+const SKILL_URL = new URL(
+  typeof Bun !== "undefined" && Bun.isStandaloneExecutable
+    ? "./skills/astralbeam/SKILL.md"
+    : "../skills/astralbeam/SKILL.md",
+  import.meta.url,
+)
 
 export function registerSkillCommands(program: Command): void {
   const skill = program

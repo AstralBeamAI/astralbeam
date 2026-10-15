@@ -11,9 +11,6 @@ import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
  * servers use, and which environment values to hand them. Update this file when project layout,
  * ports, or required server environment change; the specs themselves never read the environment.
  *
- * Keep this module's imports to `node:*` and plain data. Playwright loads the config in its own
- * process, and importing `vite` here drags in rolldown's native binding, which fails to resolve
- * under Deno's node_modules layout.
  */
 
 const e2eDirectory = dirname(fileURLToPath(import.meta.url))
@@ -87,7 +84,7 @@ export const captureEverything = process.env.E2E_CAPTURE === "all"
 export function assertSdkIsBuilt(): void {
   if (existsSync(sdkDistDirectory)) return
   throw new Error(
-    "The SDK is not built: examples/todos consumes sdk/dist. Run `deno task build` from `sdk`.",
+    "The SDK is not built: examples/todos consumes sdk/dist. Run `bun run build` from `sdk`.",
   )
 }
 
@@ -112,9 +109,10 @@ export function e2eWebServers() {
       ? []
       : [
           {
-            command: "deno task dev",
+            command: "bun run dev",
             cwd: platformDirectory,
-            url: `${platformUrl}/api/status`,
+            // Poll a static asset so the short readiness probe cannot abort Vite’s first SSR build.
+            url: `${platformUrl}/api/openapi.json`,
             env: forwardedPlatformEnv(),
             reuseExistingServer: false,
             timeout: 180_000,
@@ -127,7 +125,7 @@ export function e2eWebServers() {
       ? []
       : [
           {
-            command: "deno task dev",
+            command: "bun run dev",
             cwd: todosDirectory,
             url: todosUrl,
             env: {

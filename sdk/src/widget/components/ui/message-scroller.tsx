@@ -1,4 +1,4 @@
-// Added with: deno task ui add message-scroller
+// Added with: bun run ui add message-scroller
 import * as React from "react"
 import {
   MessageScroller as MessageScrollerPrimitive,

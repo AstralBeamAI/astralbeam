@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: Use Phosphor icons, Base UI Toast, safer OAuth callback/error URLs, strict typing without redundant or unnecessary type constituents and assertions, and skip account-info requests for unlinked providers.
 
 import {

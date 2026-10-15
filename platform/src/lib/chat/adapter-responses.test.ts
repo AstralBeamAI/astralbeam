@@ -15,7 +15,10 @@ describe("OpenAI Responses compatibility", () => {
     { modelId: "custom-deployment", include: undefined },
   ])("preserves native request semantics for $modelId", async ({ modelId, include }) => {
     const requests: (typeof responsesRequestSchema.Type)[] = []
-    const responsesFetch: typeof fetch = (_input, init) => {
+    const responsesFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
+      _input,
+      init,
+    ) => {
       if (typeof init?.body !== "string") throw new Error("Expected a JSON request body")
       requests.push(Schema.decodeUnknownSync(responsesRequestSchema)(JSON.parse(init.body)))
       return Promise.resolve(

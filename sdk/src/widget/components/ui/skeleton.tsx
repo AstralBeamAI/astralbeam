@@ -1,4 +1,4 @@
-// Added with: deno task ui add skeleton
+// Added with: bun run ui add skeleton
 import { cn } from "cn"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {

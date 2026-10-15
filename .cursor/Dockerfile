@@ -9,9 +9,10 @@ LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbea
 # Set locale so Unicode characters render correctly in locale-aware tools (e.g. tmux).
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-ENV DENO_INSTALL=${HOME}/.deno
-ENV PATH="${DENO_INSTALL}/bin:${PATH}"
+ENV BUN_INSTALL=${HOME}/.bun
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 COPY scripts/ /tmp/
+COPY .bun-version /tmp/.bun-version
 RUN INSTALL_EXTRA="cursor-dnd" /tmp/setup.sh \
   && apt-get autoremove -yq \
   && apt-get clean -yq \

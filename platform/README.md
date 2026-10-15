@@ -14,15 +14,15 @@ See [authentication setup](../SETUP.md#authentication-and-transactional-email) b
 
 ## Development tools
 
-Run `deno task --cwd platform dev` from the repository root, then open http://localhost:4500/dev. Email previews at http://localhost:4500/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
+Run `bun run --cwd platform dev` from the repository root, then open http://localhost:4500/dev. Email previews at http://localhost:4500/dev/emails use synthetic props and do not send email. Development routes return `404` in production.
 
 ## Theme
 
 Choose system, light, or dark mode in the app. The selection is saved locally. Follow the root [theme instructions](../AGENTS.md#theme-and-brand) when changing theme inputs or logo masters:
 
 ```sh
-deno task --cwd platform generate:theme
-deno task --cwd platform generate:png
+bun run --cwd platform generate:theme
+bun run --cwd platform generate:png
 ```
 
 ## Database
@@ -32,9 +32,9 @@ See the [database guide](src/db/README.md) for migration, reset, and sample-data
 From the repository root:
 
 ```sh
-deno task --cwd platform db generate --name=add-projects
-deno task --cwd platform db check
-deno task --cwd platform db migrate
+bun run --cwd platform db generate --name=add-projects
+bun run --cwd platform db check
+bun run --cwd platform db migrate
 ```
 
 ## Upgrade

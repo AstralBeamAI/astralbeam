@@ -34,10 +34,10 @@ For authorized updates to an existing PR, follow the relevant steps without repe
 
 CI skips the browser suites to stay fast, so run them locally right after creating the PR and again after every later push.
 
-1. Prepare the worktree: migrate and seed its database with `deno task --cwd platform db migrate` and `deno task --cwd platform db-seed`, build `sdk/dist` with `deno task --cwd sdk build`, and install Chromium once with each suite's `e2e:install` task.
+1. Prepare the worktree: migrate and seed its database with `bun run --cwd platform db migrate` and `bun run --cwd platform db-seed`, build `sdk/dist` with `bun run --cwd sdk build`, and install Chromium once with each suite's `e2e:install` task.
 2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide.
-   - `deno task --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
-   - `deno task --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
+   - `bun run --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
+   - `bun run --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
 3. Maintain one validation-results comment per PR. Update the first existing validation-results comment posted by the current account, or create it once if none exists. Reuse its comment ID after later pushes, mark the new head's checks pending until they finish, then replace the results with each suite's status, test count, duration, and head SHA. If a comment write fails or its outcome is uncertain, read back the comments before retrying. Do not edit an unrelated last comment or post another validation comment.
 4. Fix a failure the change caused and push again. Report an environmental failure with its error and the suite's `e2e/.output/report` path instead of retrying blindly.
 

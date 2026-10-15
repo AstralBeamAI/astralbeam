@@ -23,9 +23,9 @@ if (!databaseName.endsWith("_e2e")) {
 }
 
 for (const task of [["db-reset"], ["db", "migrate"]]) {
-  const result = spawnSync("deno", ["task", ...task], { stdio: "inherit" })
+  const result = spawnSync(process.execPath, ["run", ...task], { stdio: "inherit" })
   if (result.status !== 0) {
-    throw new Error(`\`deno task ${task.join(" ")}\` failed for database '${databaseName}'`)
+    throw new Error(`\`bun run ${task.join(" ")}\` failed for database '${databaseName}'`)
   }
 }
 

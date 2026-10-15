@@ -4,7 +4,6 @@
 platform/src/routeTree.gen.ts linguist-generated
 platform/public/api/openapi.json linguist-generated
 platform/src/db/migrations/**/snapshot.json linguist-generated
-platform/deno.lock linguist-generated
-www/deno.lock linguist-generated
 sdk/src/api/generated/** linguist-generated
-sdk/deno.lock linguist-generated
+
+bun.lock linguist-generated

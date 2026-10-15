@@ -1,6 +1,7 @@
 import http, { createServer } from "node:http"
 import { createHash } from "node:crypto"
 import type { Socket } from "node:net"
+import process from "node:process"
 
 import { Context, Effect, Fiber } from "effect"
 import type { SqlClient, SqlConnection } from "effect/sql"
@@ -123,4 +124,22 @@ test("blocks sends through an already-open WebSocket", async () => {
     connection?.destroy()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
+})
+
+test("blocks Bun network entry points inside transactions", async () => {
+  await Effect.runPromise(
+    withGuardedSqlTransaction(
+      guardTestSql,
+      Effect.sync(() => {
+        expect(() =>
+          Bun.connect({ hostname: "127.0.0.1", port: 1, socket: { data() {} } }),
+        ).toThrow("Bun.connect is forbidden")
+        expect(() => Bun.udpSocket({ socket: { data() {} } })).toThrow("Bun.udpSocket is forbidden")
+        expect(() => Bun.spawn([process.execPath, "--version"])).toThrow("Bun.spawn is forbidden")
+        expect(() => Bun.spawnSync([process.execPath, "--version"])).toThrow(
+          "Bun.spawnSync is forbidden",
+        )
+      }),
+    ),
+  )
 })

@@ -34,7 +34,7 @@ export interface ChatAuthenticationOptions {
   apiUrl?: string | undefined
   scope?: "tenant" | "organization" | undefined
   session: ChatAuthenticationSession
-  fetchClient: typeof globalThis.fetch
+  fetchClient: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   debug: DebugLogger | undefined
 }
 

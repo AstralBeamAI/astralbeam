@@ -1,4 +1,4 @@
-// Added with: deno task ui add use-highlighted-code
+// Added with: bun run ui add use-highlighted-code
 // Local changes: lazy-load the highlighter and preserve ANSI state across lines.
 import * as React from "react"
 

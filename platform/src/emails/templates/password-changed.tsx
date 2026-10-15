@@ -1,5 +1,5 @@
-// Previously added with: deno task ui add @better-auth-ui/password-changed-email
-// Adapted with: deno task ui add @emailcn/react-email/block-notification-default
+// Previously added with: bun run ui add @better-auth-ui/password-changed-email
+// Adapted with: bun run ui add @emailcn/react-email/block-notification-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/notification-default.tsx
 // Local changes: Repurpose the notification block as a password security notice, retain the prior production copy and required props, use the shared shell and recovery URL, and co-locate typed preview props. Use @/ for deep source imports.
 

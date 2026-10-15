@@ -1,4 +1,4 @@
-// Added with: deno task ui add dropdown-menu
+// Added with: bun run ui add dropdown-menu
 // Local changes: shadow-root portal container.
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"

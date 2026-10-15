@@ -1,4 +1,4 @@
-// Added with: deno task ui add input-group
+// Added with: bun run ui add input-group
 // Local changes: focus textareas from group clicks. Scope disabled styling to the text control
 // so disabled actions do not dim an enabled composer: https://ui.shadcn.com/docs/components/input-group.
 import * as React from "react"

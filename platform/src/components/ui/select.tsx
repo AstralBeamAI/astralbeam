@@ -1,4 +1,4 @@
-// Added with: deno task ui add select
+// Added with: bun run ui add select
 // Local changes: Show a pointer cursor on items, matching the project's `--pointer` button cursor.
 
 import * as React from "react"

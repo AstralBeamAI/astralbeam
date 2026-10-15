@@ -1,4 +1,4 @@
-// Added with: deno task ui add popover
+// Added with: bun run ui add popover
 // Local changes: accept a shadow-root portal container and omit unused subcomponents.
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "cn"

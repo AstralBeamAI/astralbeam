@@ -1,4 +1,4 @@
-// Added with: deno task ui add field
+// Added with: bun run ui add field
 "use client"
 
 import { useMemo } from "react"

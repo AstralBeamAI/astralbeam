@@ -366,7 +366,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       ).rejects.toThrow()
       expect(await db.select().from(mcpConnection)).toEqual([])
     })
-    test("two Deno application processes redeem one refresh token", async () => {
+    test("two application processes redeem one refresh token", async () => {
       const { reference } = await connectedOAuth()
       await expire(reference)
       let ready = 0
@@ -376,7 +376,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         const child = spawn(
           globalThis.process.execPath,
           [
-            "task",
+            "run",
             "test",
             "--project=integration",
             "--maxWorkers=1",

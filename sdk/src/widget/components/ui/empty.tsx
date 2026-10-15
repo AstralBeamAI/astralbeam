@@ -1,4 +1,4 @@
-// Added with: deno task ui add empty
+// Added with: bun run ui add empty
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "cn"

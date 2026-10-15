@@ -35,7 +35,7 @@ test("the platform accepts a seeded chat auth token and resolves the seeded agen
   )
   expect(
     response.status(),
-    `The platform rejected the seeded API key or agent. Run \`deno task db-seed\` from \`platform\` against the database this server uses (${response.status()} ${await response.text()}).`,
+    `The platform rejected the seeded API key or agent. Run \`bun run db-seed\` from \`platform\` against the database this server uses (${response.status()} ${await response.text()}).`,
   ).toBe(200)
   expect(await response.json()).toEqual({ capabilities: { attachments: true } })
 })

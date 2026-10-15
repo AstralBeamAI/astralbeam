@@ -3,14 +3,16 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs"
-import { homedir } from "node:os"
+import { homedir, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
+import { pathToFileURL } from "node:url"
 
 import { Command } from "commander"
 
@@ -79,40 +81,6 @@ function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
   }
 }
 
-// The `Deno.serve(options, handler)` form srvx calls. https://docs.deno.com/api/deno/~/Deno.serve
-type DenoServe = (
-  options: object,
-  handler: (request: Request, info: { completed: Promise<void> }) => Response | Promise<Response>,
-) => unknown
-
-// Compiled binaries ignore `no-legacy-abort`, so their request signals also abort once a response
-// is delivered. https://github.com/denoland/deno/blob/v2.9.7/cli/rt/run.rs#L1786
-function restoreRequestAbortSemantics(): void {
-  const { Deno: deno } = globalThis as unknown as { Deno: { serve: DenoServe } }
-  const serve = deno.serve
-  deno.serve = (options, handler) =>
-    serve(options, (request, info) => {
-      const abort = new AbortController()
-      let delivered = false
-      void info.completed.then(
-        () => (delivered = true),
-        () => abort.abort(),
-      )
-      // A delivered response resolves `completed` just before the legacy abort fires.
-      request.signal.addEventListener("abort", () =>
-        queueMicrotask(() => {
-          if (!delivered) abort.abort()
-        }),
-      )
-      return handler(new Request(request, { signal: abort.signal }), info)
-    })
-  // Reading the legacy signal above triggers Deno's notice, which the replacement signal makes false.
-  const { warn } = console
-  console.warn = (...data: unknown[]) => {
-    if (!String(data[0]).startsWith("Deno.serve: request.signal aborts")) warn(...data)
-  }
-}
-
 function pluralMigrations(count: number): string {
   return `${count} migration${count === 1 ? "" : "s"}`
 }
@@ -127,9 +95,22 @@ program
   .description("start the server (the default command)")
   .action(async () => {
     loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
-    restoreRequestAbortSemantics()
-    // Computed so typechecking needs no build output; `deno compile --include` embeds the module.
-    await import(new URL("../.output/server/index.mjs", import.meta.url).href)
+    // Keep server initialization lazy so version and migration commands need no running server.
+    let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
+    if (Bun.isStandaloneExecutable) {
+      // Nitro's traced packages need real paths for package exports and native libraries.
+      // https://bun.sh/docs/bundler/executables#listing-embedded-files
+      const directory = mkdtempSync(join(tmpdir(), "astralbeam-platform-"))
+      process.once("exit", () => rmSync(directory, { recursive: true, force: true }))
+      for (const file of Bun.embeddedFiles) {
+        const { name } = file as Blob & { name: string }
+        if (name.startsWith("server/") || name.startsWith("public/")) {
+          await Bun.write(join(directory, name), file)
+        }
+      }
+      serverUrl = pathToFileURL(join(directory, "server/index.mjs"))
+    }
+    await import(serverUrl.href)
   })
 
 program
@@ -162,9 +143,8 @@ program
   .action(async (requested: string | undefined, options: { yes?: boolean }) => {
     const binaryPath = process.execPath
     try {
-      // Under `deno run`, `execPath` is Deno itself. https://docs.deno.com/api/deno/~/Deno.build
-      const { Deno: deno } = globalThis as unknown as { Deno: { build: { standalone: boolean } } }
-      if (!deno.build.standalone) {
+      // Never replace the runtime when invoked from a checkout. https://bun.sh/docs/bundler/executables
+      if (!Bun.isStandaloneExecutable) {
         throw new Error(
           "upgrade replaces a compiled binary, so pull and rebuild a checkout instead",
         )

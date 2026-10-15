@@ -1,4 +1,4 @@
-// Added with: deno task ui add use-highlighted-code
+// Added with: bun run ui add use-highlighted-code
 // Local changes: omit absent grammarState and the unused helper, tokenize ANSI as a full block.
 import * as React from "react"
 import { createHighlighterCore, type GrammarState, type HighlighterCore } from "shiki/core"

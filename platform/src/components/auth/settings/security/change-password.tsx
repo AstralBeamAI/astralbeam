@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: use Phosphor icons, Base UI Toast, configured CAPTCHA, domain-specific function names, and hover titles for password visibility controls; apply strict optional typing. Share password visibility controls. Use @/ for deep source imports.
 
 import { getViewURL, isPasswordCompromisedError } from "@better-auth-ui/core"

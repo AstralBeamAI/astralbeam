@@ -6,7 +6,7 @@ The Platform owns its server-only PostgreSQL client, Drizzle schema, and generat
 
 - `database.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
 - `schema/config.ts` defines the global `config` table. Each row holds an encrypted `value`. The `Config` service in `src/lib/config` validates stored settings, recovers unreadable rows for `/configure`, and adds environment precedence and process-local caching. The shared model pricing catalog stores schema-validated JSON text in that same column and uses dedicated uncached reads so replicas see refreshed prices without restarting.
-- `migration-runner.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.ts` serves the compiled CLI and `deno task db migrate`.
+- `migration-runner.ts` reads and applies the bundled Drizzle migrations approved through `/configure`. `migrate-command.ts` serves the compiled CLI and `bun run db migrate`.
 - `lib/` contains reusable database primitives such as credentials and encryption, PostgreSQL types and errors, optimistic locking, and rate limiting.
 - `schema.ts` is the schema entrypoint and re-exports every table and relation Drizzle Kit must discover.
 - `schema/` contains responsibility-named domain table and relation modules.
@@ -40,7 +40,7 @@ JSONB columns use `schemaJsonb(schema)` from `lib/columns.ts`. Its synchronous E
 
 ## Local services
 
-On macOS, run Deno natively and use Docker Compose or Podman Compose for database services. PgBouncer is the only host-published database endpoint. From the repository root, choose one:
+On macOS, run Bun natively and use Docker Compose or Podman Compose for database services. PgBouncer is the only host-published database endpoint. From the repository root, choose one:
 
 ```sh
 docker compose up --detach --wait
@@ -60,36 +60,36 @@ Worktree setup copies the primary checkout's ignored `platform/.env.development.
 Run these commands from the repository root. Apply every checked-in migration that has not yet run against the configured database:
 
 ```sh
-deno task --cwd platform db migrate
+bun run --cwd platform db migrate
 ```
 
 After changing the TypeScript schema, generate a named migration, inspect its SQL and snapshot, verify migration-history consistency, then apply it:
 
 ```sh
-deno task --cwd platform db generate --name=add-projects
-deno task --cwd platform db check
-deno task --cwd platform db migrate
+bun run --cwd platform db generate --name=add-projects
+bun run --cwd platform db check
+bun run --cwd platform db migrate
 ```
 
 From the repository root, drop and recreate only the confirmed-disposable database selected by Drizzle for the current worktree:
 
 ```sh
-deno task --cwd platform db-reset
-deno task --cwd platform db migrate
+bun run --cwd platform db-reset
+bun run --cwd platform db migrate
 ```
 
-`db migrate` uses the application runner, as do `scripts/setup.sh`, the compiled binary's `migrate` command, and `/configure`. The wrapper forwards only `generate`, `check`, `up`, and `export` to the installed Drizzle Kit version, and rejects all other commands, including `push` and `pull --init`. Run `deno task --cwd platform db --help` for the supported commands. Do not run `drizzle-kit migrate` directly, because it skips TypeScript steps while recording the SQL as applied.
+`db migrate` uses the application runner, as do `scripts/setup.sh`, the compiled binary's `migrate` command, and `/configure`. The wrapper forwards only `generate`, `check`, `up`, and `export` to the installed Drizzle Kit version, and rejects all other commands, including `push` and `pull --init`. Run `bun run --cwd platform db --help` for the supported commands. Do not run `drizzle-kit migrate` directly, because it skips TypeScript steps while recording the SQL as applied.
 
 `db-reset` only recreates the selected disposable database. Apply migrations separately and never reset shared Compose volumes. Drizzle `check` validates migration-history consistency, not the live database's applied migrations.
 
 ## Seed sample data
 
-`deno task --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, a Docker sandbox provider, and saved conversations for the todos tenant user and for `owner@example.com` in Astro on `acme`. It skips `/configure`, signup, email verification, and API-key creation entirely.
+`bun run --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, a Docker sandbox provider, and saved conversations for the todos tenant user and for `owner@example.com` in Astro on `acme`. It skips `/configure`, signup, email verification, and API-key creation entirely.
 
 ```sh
-deno task --cwd platform db-reset
-deno task --cwd platform db migrate
-deno task --cwd platform db-seed
+bun run --cwd platform db-reset
+bun run --cwd platform db migrate
+bun run --cwd platform db-seed
 ```
 
 The seed runs in one transaction and can be rerun to restore fixture values. It identifies organizations by UUID and preserves edited URL slugs. It accepts only loopback database hosts because it writes fixed development credentials.
@@ -112,14 +112,14 @@ Review the SQL and any TypeScript step, then commit the migration folder with it
 
 - Reverse applied changes with a forward migration. There is no automatic rollback command, and migration history that may have reached a shared environment must never be rewritten.
 - Resolve rename prompts carefully to avoid accidental drop-and-create SQL.
-- Schema diffs cannot infer data backfills or transformations. Use `deno task --cwd platform db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
+- Schema diffs cannot infer data backfills or transformations. Use `bun run --cwd platform db generate --custom --name=backfill-projects` for data migrations or unsupported DDL.
 - Apply application schema changes only through reviewed, checked-in migration files with `migrate`. Effect initializes and migrates its own `effect_cluster_*` tables at runner startup, outside Drizzle schema management. See [cluster storage ownership](../lib/cluster/README.md#storage-and-deployment) for privileges and upgrade requirements. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes.
 - This repository uses colocated migration folders, not root SQL files and `meta/_journal.json`.
 - `up` upgrades metadata on disk. `migrate` applies pending migrations to PostgreSQL.
 
 ### TypeScript data migrations
 
-Add `migration.ts` to a new, unapplied migration folder. For a data-only change, run `deno task --cwd platform db generate --custom --name=normalize-names` and keep the comment-only SQL file.
+Add `migration.ts` to a new, unapplied migration folder. For a data-only change, run `bun run --cwd platform db generate --custom --name=normalize-names` and keep the comment-only SQL file.
 
 For example, normalize Organization names with JavaScript:
 
@@ -163,7 +163,7 @@ Each source table must be owned by exactly one relation part. Two parts defining
 
 ## PostgreSQL cache
 
-`cache.ts` provides schema-typed JSON reads, writes, deletes, and transaction-scoped key locking through the existing Effect SQL client. `makeDatabaseCache` builds one Effect v4 `KeyValueStore.SchemaStore` per namespace and time to live, so build it once and reuse it. The global `cache_entry` table isolates keys by namespace, and `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Deno worker and CLI without importing the web server's database runtime.
+`cache.ts` provides schema-typed JSON reads, writes, deletes, and transaction-scoped key locking through the existing Effect SQL client. `makeDatabaseCache` builds one Effect v4 `KeyValueStore.SchemaStore` per namespace and time to live, so build it once and reuse it. The global `cache_entry` table isolates keys by namespace, and `KeyValueStore.toSchemaStore` handles serialization. Direct SQL keeps the adapter usable from the native Bun worker and CLI without importing the web server's database runtime.
 
 ```ts
 import { Effect, Schema } from "effect"

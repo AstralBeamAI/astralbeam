@@ -15,6 +15,6 @@
       "@scripts/*": ["./scripts/*"],
       "@sdk/*": ["../sdk/src/*"]
     },
-    "types": ["vite/client", "@tanstack/react-start"]
+    "types": ["bun", "vite/client", "@tanstack/react-start"]
   }
 }

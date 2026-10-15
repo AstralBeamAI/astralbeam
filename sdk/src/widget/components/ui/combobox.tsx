@@ -1,4 +1,4 @@
-// Added with: deno task ui add combobox
+// Added with: bun run ui add combobox
 // Local changes: shadow-root portal, accessible labels, persistent empty live region, async status export, native scrollbars, React 18 list ref.
 "use client"
 

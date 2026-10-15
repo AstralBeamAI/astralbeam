@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: Use Phosphor icons, Base UI Toast, domain-specific function names, and a single-role select with last-owner protection, and reset the selection during render when the dialog opens.
 
 "use client"

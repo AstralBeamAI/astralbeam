@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url"
 
 import { loadEnv } from "vite"
 
-import packageJson from "../package.json" with { type: "json" }
 import { migrateDatabase } from "@/db/migrate-command.ts"
 
 const databaseArguments = process.argv.slice(2)
@@ -14,11 +13,11 @@ if (
   (databaseArguments.length === 1 && ["--help", "-h"].includes(databaseArguments[0]!))
 ) {
   console.log(
-    `Usage: deno task db <command>\n\nCommands: migrate [--dry-run], ${kitCommands.join(", ")}\nUse migrate to apply SQL and TypeScript together. Other commands are not supported.`,
+    `Usage: bun run db <command>\n\nCommands: migrate [--dry-run], ${kitCommands.join(", ")}\nUse migrate to apply SQL and TypeScript together. Other commands are not supported.`,
   )
 } else if (databaseArguments[0] === "migrate") {
   if (databaseArguments.slice(1).some((argument) => argument !== "--dry-run")) {
-    throw new Error("Use 'deno task db migrate [--dry-run]' with DATABASE_URL from the environment")
+    throw new Error("Use 'bun run db migrate [--dry-run]' with DATABASE_URL from the environment")
   }
   const environment = loadEnv("development", fileURLToPath(new URL("../", import.meta.url)), "")
   for (const [name, value] of Object.entries(environment)) {
@@ -35,20 +34,12 @@ if (
 } else {
   if (!kitCommands.includes(databaseArguments[0]!)) {
     throw new Error(
-      `Unsupported database command '${databaseArguments[0]}'. Use 'deno task db migrate' to apply migrations. Allowed Drizzle Kit commands: ${kitCommands.join(", ")}.`,
+      `Unsupported database command '${databaseArguments[0]}'. Use 'bun run db migrate' to apply migrations. Allowed Drizzle Kit commands: ${kitCommands.join(", ")}.`,
     )
   }
-  const kit = spawn(
-    process.execPath,
-    [
-      "run",
-      "--frozen",
-      "-P=tooling",
-      `npm:drizzle-kit@${packageJson.devDependencies["drizzle-kit"]}`,
-      ...databaseArguments,
-    ],
-    { stdio: "inherit" },
-  )
+  const kit = spawn(process.execPath, ["run", "--bun", "drizzle-kit", ...databaseArguments], {
+    stdio: "inherit",
+  })
   process.exitCode = await new Promise<number>((resolve, reject) => {
     kit.once("error", reject)
     kit.once("exit", (code) => resolve(code ?? 1))

@@ -1,4 +1,4 @@
-// Added with: deno task ui add tabs
+// Added with: bun run ui add tabs
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 

@@ -1,4 +1,4 @@
-// Added with: deno task ui add bubble
+// Added with: bun run ui add bubble
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"

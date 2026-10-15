@@ -29,11 +29,8 @@ if [ -z "${WORKSPACE_PATH:-}" ]; then
   WORKSPACE_PATH=${WORKSPACE_PATH:-/workspaces/astralbeam}
 fi
 export WORKSPACE_PATH
-export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
-export PATH="$DENO_INSTALL/bin:$PATH"
-
-# Each application is an independent Deno project with its own package.json, deno.lock, and node_modules.
-WORKSPACE_APPS=(platform www sdk cli examples/todos examples/linearity-react)
+export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+export PATH="$BUN_INSTALL/bin:$PATH"
 
 install_ubuntu_packages() {
   [ "$platform_name" = Linux ] || return 0
@@ -64,25 +61,25 @@ fi
 EOF
 }
 
-install_deno() {
-  local deno_stable_version installed_deno_version
-  # Resolve the rolling stable channel, then install outside package-manager-owned paths. https://docs.deno.com/runtime/fundamentals/stability_and_releases/
-  deno_stable_version=$(curl -fsSL https://dl.deno.land/release-latest.txt)
-  installed_deno_version=$(deno eval 'console.log(`v${Deno.version.deno}`)' 2>/dev/null || true)
-  if [ "$installed_deno_version" != "$deno_stable_version" ]; then
-    curl -fsSL https://deno.land/install.sh | sh -s -- "$deno_stable_version" -y
+install_bun() {
+  local bun_version installer
+  if [ -f "$WORKSPACE_PATH/.bun-version" ]; then
+    bun_version=$(cat "$WORKSPACE_PATH/.bun-version")
+  else
+    bun_version=$(cat "$SETUP_SCRIPT_DIR/.bun-version")
   fi
-  deno --version
+  if [ "$(bun --version 2>/dev/null || true)" != "$bun_version" ]; then
+    installer=$(mktemp)
+    curl -fsSL https://bun.sh/install -o "$installer"
+    bash "$installer" "bun-v$bun_version"
+    rm -f "$installer"
+  fi
+  bun --version
 }
 
 install_workspace_packages() {
-  local app
-  for app in "${WORKSPACE_APPS[@]}"; do
-    if [ -f "$WORKSPACE_PATH/$app/package.json" ]; then
-      cd "$WORKSPACE_PATH/$app"
-      deno install --frozen --quiet
-    fi
-  done
+  [ -f "$WORKSPACE_PATH/package.json" ] || return 0
+  bun install --cwd "$WORKSPACE_PATH" --frozen-lockfile
 }
 
 configure_workspace_git() {
@@ -183,11 +180,10 @@ platform_database_url() {
   return 1
 }
 
-# A TCP connect separates "nothing is listening" from "the migration failed". `deno eval` rather
-# than `nc`, whose connect-scan flag differs by platform, and it needs no flags. https://docs.deno.com/go/eval
+# Probe connectivity without platform-specific nc flags. https://bun.sh/docs/api/tcp
 endpoint_is_reachable() {
-  ENDPOINT_PROBE_URL="$1" deno eval \
-    'const { hostname, port } = new URL(Deno.env.get("ENDPOINT_PROBE_URL")); (await Deno.connect({ hostname, port: Number(port) || 5432 })).close()' \
+  ENDPOINT_PROBE_URL="$1" bun --no-env-file -e \
+    'const { hostname, port } = new URL(process.env.ENDPOINT_PROBE_URL); const socket = await Bun.connect({ hostname, port: Number(port) || 5432, socket: { data() {} } }); socket.end()' \
     >/dev/null 2>&1
 }
 
@@ -212,14 +208,14 @@ bootstrap_workspace() {
     return 0
   fi
   set -x
-  (cd "$WORKSPACE_PATH/platform" && deno task db migrate)
-  (cd "$WORKSPACE_PATH/platform" && deno task db-seed)
-  (cd "$WORKSPACE_PATH/sdk" && deno task build)
+  (cd "$WORKSPACE_PATH/platform" && bun run db migrate)
+  (cd "$WORKSPACE_PATH/platform" && bun run db-seed)
+  (cd "$WORKSPACE_PATH/sdk" && bun run build)
 }
 
 install_ubuntu_packages
 configure_workspace_git
-install_deno
+install_bun
 install_workspace_packages
 run_install_extras
 start_databases

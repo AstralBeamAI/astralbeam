@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: none.
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"

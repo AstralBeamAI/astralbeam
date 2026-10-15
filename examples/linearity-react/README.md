@@ -6,12 +6,12 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
 
 ## Run locally
 
-1. From the repository root, build the SDK and install this example's frozen dependencies:
+1. From the repository root, install the workspace's frozen dependencies and build the SDK:
 
    ```sh
-   deno task --cwd sdk build
+   bun install --frozen-lockfile
+   bun run --cwd sdk build
    cd examples/linearity-react
-   deno install --frozen
    cp .env.example .env.local
    ```
 
@@ -22,7 +22,7 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
 6. From `examples/linearity-react`, start the app:
 
    ```sh
-   deno task dev
+   bun run dev
    ```
 
 7. Open [localhost:4900](http://localhost:4900), enter your Basic Auth credentials, and try a prompt in Astro. You can use the rest of the app without configuring AstralBeam, but the assistant will show a connection error until its credentials are ready.
@@ -71,7 +71,7 @@ The token route accepts only the two known demo workspaces and a valid visitor U
 
 ## Deploy to play.astralbeam.ai
 
-Linearity needs a server for Basic Auth and token minting. Build it from the repository checkout, with Deno available and the SDK built first. A static-site host cannot run the token route.
+Linearity needs a server for Basic Auth and token minting. Build it from the repository checkout, with Bun available and the SDK built first. A static-site host cannot run the token route.
 
 | Variable | Read when | Purpose |
 | --- | --- | --- |
@@ -86,19 +86,15 @@ Linearity needs a server for Basic Auth and token minting. Build it from the rep
 From the repository root, install and build the application:
 
 ```sh
-cd sdk
-deno install --frozen
-deno task build
-cd ..
-cd examples/linearity-react
-deno install --frozen
-deno task build
+bun install --frozen-lockfile
+bun run --cwd sdk build
+bun run --cwd examples/linearity-react build
 ```
 
-From `examples/linearity-react`, start the generated Deno server with the server variables supplied by your host:
+From `examples/linearity-react`, start the generated Bun server with the server variables supplied by your host:
 
 ```sh
-deno task start
+bun run start
 ```
 
 `start` optionally reads `.env.local`, and existing environment variables take precedence. Set `APP_ORIGIN` to the public HTTPS origin and terminate TLS at your hosting provider or reverse proxy. Keep the `Authorization` header intact. Point health checks at `/` with Basic Auth, or treat its unauthenticated `401` as a healthy response. Missing credentials produce `503`. HTML and token responses are never cached. Static JS, CSS, and the favicon contain public sample data and can be served by the host's asset layer.
@@ -108,21 +104,21 @@ deno task start
 From `examples/linearity-react`, run the project gate once before publishing:
 
 ```sh
-deno task ready
+bun run ready
 ```
 
 The deterministic browser suite starts its own server on port 4818 and requires no model key:
 
 ```sh
-deno task e2e
+bun run e2e
 ```
 
 To record the real assistant, enable **Allow file attachments** and **Web access** on Astro with a model that supports Web access. Confirm the local platform's file storage is configured, then run against the already running local demo:
 
 ```sh
-E2E_BASE_URL=http://127.0.0.1:4900 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR="$(mktemp -d /tmp/linearity-recording.XXXXXX)" deno task e2e walkthrough.spec.ts
+E2E_BASE_URL=http://127.0.0.1:4900 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR="$(mktemp -d /tmp/linearity-recording.XXXXXX)" bun run e2e walkthrough.spec.ts
 ```
 
 The walkthrough follows the Atlas enterprise pilot. Astro finds the launch blocker and shows a live card, opens the issue with an owner picker, then raises its priority and starts the work after the user chooses Maya. It then reviews an attached security brief, researches official SAML guidance with citations, and reopens the named conversation from history. The recording verifies that the saved brief downloads unchanged. It records at 140% zoom with pauses for reading each result, and saves screenshots and `story.json` timestamps for editing the film. Keep the README video under one minute by cutting typing and model wait time, with captions readable without sound. Keep short previews to 20–25 seconds. Reset, refresh, and tenant-isolation checks stay in the deterministic suite.
 
-The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `deno task e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.
+The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `bun run e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.

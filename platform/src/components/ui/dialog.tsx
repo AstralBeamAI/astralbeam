@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: Add a hover title to the icon-only close action.
 "use client"
 

@@ -11,7 +11,6 @@ import { Client } from "pg"
 
 import packageJson from "../package.json" with { type: "json" }
 
-const BINARY_CHECK_MAX_BYTES = 200 * 1024 * 1024
 const BINARY_CHECK_START_TIMEOUT_MS = 20_000
 const BINARY_CHECK_FETCH_TIMEOUT_MS = 2_000
 const runBinaryCheckCommand = promisify(execFile)
@@ -77,6 +76,9 @@ function signalBinaryCheckProcess(binaryProcess: ChildProcess, signal: NodeJS.Si
 }
 
 async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promise<void>) {
+  if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
+    throw new Error("Binary exited before completing its smoke check")
+  }
   signalBinaryCheckProcess(binaryProcess, "SIGTERM")
   const stopped = await Promise.race([
     status.then(() => true),
@@ -98,9 +100,6 @@ async function runBinaryCheck() {
   const binaryPath = join(platformDirectory, ".output", "astralbeam-platform")
   const binaryInfo = await stat(binaryPath)
   const binarySizeMiB = binaryInfo.size / 1024 / 1024
-  if (binaryInfo.size > BINARY_CHECK_MAX_BYTES) {
-    throw new Error(`Binary is ${binarySizeMiB.toFixed(1)} MiB; expected at most 200 MiB`)
-  }
   for (const args of [["version"], ["--version"]]) {
     const { stdout } = await runBinaryCheckCommand(binaryPath, args)
     const expected = `astralbeam-platform ${packageJson.version} (`

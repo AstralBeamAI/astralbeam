@@ -6,11 +6,7 @@ import { openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { seedTarget } from "../../worktree.ts"
 import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
-// @deno-types="../../../../../sdk/dist/server.d.ts"
-import {
-  createAstralBeamOrganizationToken,
-  createAstralBeamToken,
-} from "../../../../../sdk/dist/server.js"
+import { createAstralBeamOrganizationToken, createAstralBeamToken } from "@astralbeam/sdk/server"
 
 const savedThread = {
   id: "019a0800-0000-7000-8000-000000000001",

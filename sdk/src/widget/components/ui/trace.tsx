@@ -1,4 +1,4 @@
-// Added with: deno task ui add trace
+// Added with: bun run ui add trace
 // Local changes: exactOptionalPropertyTypes, inset focus inside paint containment, compact spacing, aligned detail rails and touch targets.
 import * as React from "react"
 import { cn } from "cn"

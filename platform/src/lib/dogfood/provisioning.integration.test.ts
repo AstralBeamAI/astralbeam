@@ -699,7 +699,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       const origin = `http://localhost:${port}`
       const server = spawn(
         process.execPath,
-        ["task", "dev", "--port", String(port), "--strictPort"],
+        ["run", "dev", "--port", String(port), "--strictPort"],
         {
           cwd: process.cwd(),
           env: {

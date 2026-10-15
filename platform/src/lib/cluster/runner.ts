@@ -1,6 +1,6 @@
-import * as DenoCrypto from "@effect/platform-deno/DenoCrypto"
-import * as DenoHttpClient from "@effect/platform-deno/DenoHttpClient"
-import * as DenoHttpServer from "@effect/platform-deno/DenoHttpServer"
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
+import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
+import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
 import { Config, Effect, Layer, Option, Result } from "effect"
 import {
   ClusterWorkflowEngine,
@@ -40,10 +40,9 @@ export const clusterRunnerSettings = Effect.gen(function* () {
 export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunnerSettings>) {
   return Layer.unwrap(
     Effect.gen(function* () {
-      const server = yield* DenoHttpServer.make({
+      const server = yield* BunHttpServer.make({
         hostname: settings.listenHost,
         port: settings.port,
-        onListen: () => {},
       })
       if (server.address._tag === "UnixPathAddress") {
         return yield* Effect.die(new Error("Cluster runner requires a TCP listener"))
@@ -61,13 +60,13 @@ export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunner
         ),
         Layer.provide([
           Layer.succeed(HttpServer.HttpServer, server),
-          DenoHttpClient.layer,
+          BunHttpClient.layer,
           RpcSerialization.layerNdjson,
         ]),
         Layer.provideMerge(SqlMessageStorage.layerWith({ prefix: "effect_cluster" })),
         Layer.provide(SqlRunnerStorage.layerWith({ prefix: "effect_cluster" })),
         Layer.provideMerge(config),
-        Layer.provideMerge(DenoCrypto.layer),
+        Layer.provideMerge(BunCrypto.layer),
       )
       return ClusterWorkflowEngine.layer.pipe(Layer.provideMerge(transport))
     }),

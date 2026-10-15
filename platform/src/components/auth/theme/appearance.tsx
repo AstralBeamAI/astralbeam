@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/theme
+// Added with: bun run ui add @better-auth-ui/theme
 // Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, label the theme radio group, and gate hydration with useIsHydrated.
 
 import {

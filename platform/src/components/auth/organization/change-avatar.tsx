@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: use Phosphor icons and Base UI Toast, keep upload/cleanup errors non-sensitive, attach uploads immediately to the current membership, label the avatar action, and apply strict lint compatibility, including explicitly voided async handlers.
 
 import { useAuth } from "@better-auth-ui/react"

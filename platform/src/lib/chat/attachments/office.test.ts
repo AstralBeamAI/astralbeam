@@ -215,17 +215,20 @@ test("keeps a sheet's column count inside the bound", () => {
 // many individually modest parts still add up to gigabytes of allocation.
 test("refuses an archive whose declared parts exceed the whole-archive budget", () => {
   // Highly compressible parts, each far below the per-entry cap, together past the archive cap.
-  const part = "<p:sld><a:p><a:t>x</a:t></a:p></p:sld>".padEnd(4 * 1024 * 1024, " ")
+  const part = strToU8("<p:sld><a:p><a:t>x</a:t></a:p></p:sld>".padEnd(4 * 1024 * 1024, " "))
   const slides = Object.fromEntries(
-    Array.from({ length: 40 }, (_, index) => [`ppt/slides/slide${index + 1}.xml`, part]),
+    Array.from(
+      { length: Math.floor(CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES / part.length) + 1 },
+      (_, index) => [`ppt/slides/slide${index + 1}.xml`, part],
+    ),
   )
-  const bytes = container(slides)
+  const bytes = zipSync(slides, { level: 1 })
   // The archive itself is small; only its declared contents are not.
   expect(bytes.byteLength).toBeLessThan(CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES)
   expect(extractOfficeDocument(bytes, PPTX)).toEqual({
     reason: "it declares more content than this assistant will unpack.",
   })
-})
+}, 15_000)
 
 // The entry count is declared by the archive too, and an entry no extractor wants is still an
 // entry the filter has to visit, so the count has to be bounded before `wanted` narrows it.

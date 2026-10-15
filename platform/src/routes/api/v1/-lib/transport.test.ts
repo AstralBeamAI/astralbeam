@@ -278,7 +278,10 @@ const restOrgId = "019a0000-0000-7000-8000-000000000001"
 const restTenantId = "019a0000-0000-7000-8000-000000000002"
 const restUserId = "019a0000-0000-7000-8000-000000000003"
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
-const restSdkFetch: typeof fetch = (input, init) => restWebHandler.handler(new Request(input, init))
+const restSdkFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
+  input,
+  init,
+) => restWebHandler.handler(new Request(input, init))
 const restTenantJwt = `${btoa(JSON.stringify({ typ: "astralbeam+jwt" }))}.e30.c2ln`
 const restTestApiKey = `key_${restOrgId}_${restOtherId}_abo_${"A".repeat(64)}`
 // Repositories project public columns, so queued rows carry no organization ID.

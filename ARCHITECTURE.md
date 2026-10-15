@@ -8,15 +8,15 @@ Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific cou
 
 | Project | Responsibility | Output |
 | --- | --- | --- |
-| `platform` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Deno binary |
+| `platform` | Dashboard, `/configure`, `/docs`, management APIs, and chat execution | Bun binary |
 | `sdk` | Widget, headless session, React bindings, and token minting | `@astralbeam/sdk` npm package |
-| `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Deno binaries |
+| `cli` | Organization admin commands over the public API, built on the SDK | `@astralbeam/cli` npm package and Bun binaries |
 | `www` | Prerendered TanStack Start website | Cloudflare assets |
 | `examples/todos` | Standalone SDK consumer and browser tests | Demo application |
-| `examples/linearity-react` | Project-tracking playground with browser state, Astro tools, and Basic Auth | Deno server and browser assets |
-| `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Deno toolchain | Demo application |
+| `examples/linearity-react` | Project-tracking playground with browser state, Astro tools, and Basic Auth | Bun server and browser assets |
+| `examples/todos-rails` | Rails consumer of the SDK from jsDelivr, outside the Bun toolchain | Demo application |
 
-Each project owns its dependencies, lockfile, and tooling because they ship independently. The root shares compiler defaults in `tsconfig.base.json` and launches `install`, `dev`, and `build` tasks.
+Each project owns its dependencies and tooling because they ship independently. Bun installs the six projects as one workspace with a root lockfile and local SDK links. The root shares compiler defaults in `tsconfig.base.json` and launches `dev` and `build` tasks.
 
 ```text
 Tenant user's browser
@@ -143,7 +143,7 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 ## Build and deployment
 
-The platform compiles to a Deno binary with an out-of-tree startup, asset, shutdown, and size check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Deno binaries. `www` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
+The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Bun binaries. `www` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
 
 Commands and build constraints belong to each project's instructions and manifests. The [local development guide](CONTRIBUTING.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 

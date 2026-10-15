@@ -2,7 +2,7 @@
 
 ## One-time macOS setup
 
-Run application code [natively on macOS](#option-2-run-directly-on-macos) with Deno. Use Docker Compose or Podman Compose for database services in both native and devcontainer workflows. The devcontainer is optional.
+Run application code [natively on macOS](#option-2-run-directly-on-macos) with Bun. Use Docker Compose or Podman Compose for database services in both native and devcontainer workflows. The devcontainer is optional.
 
 ### Install a container runtime
 
@@ -29,7 +29,7 @@ Use Docker Desktop with Docker Compose, or set up Podman below.
 
 ### Option 1: Use the devcontainer
 
-- Open the repository root in Cursor or VS Code and choose **Reopen in Container**. Once PostgreSQL and Valkey are healthy the devcontainer runs `./scripts/setup.sh`, which installs every project's dependencies and then applies the migrations, seeds the database, and builds the SDK.
+- Open the repository root in Cursor or VS Code and choose **Reopen in Container**. Once PostgreSQL and Valkey are healthy the devcontainer runs `./scripts/setup.sh`, which installs the workspace dependencies and then applies the migrations, seeds the database, and builds the SDK.
 
 #### Optional: Match the devcontainer workspace path
 
@@ -85,10 +85,10 @@ Local defaults are region `us-east-1`, path-style addressing, access key `develo
 ./scripts/setup.sh
 ```
 
-Setup installs the Deno toolchain and frozen dependencies for all six projects, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Deno on `PATH`. Configure model connections under **Models**, enable models, then assign them to agents. Put `OPENAI_API_KEY` in `platform/.env.local` to seed a **Development OpenAI** connection and agent model assignments for sample organizations and dogfood that have no provider. Seeds preserve existing providers and model choices.
+Setup installs the Bun version pinned in `.bun-version` and the root lockfile’s frozen dependencies for all six workspace projects, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Bun on `PATH`. Configure model connections under **Models**, enable models, then assign them to agents. Put `OPENAI_API_KEY` in `platform/.env.local` to seed a **Development OpenAI** connection and agent model assignments for sample organizations and dogfood that have no provider. Seeds preserve existing providers and model choices.
 
 ```sh
-deno task dev                      # all apps and the SDK watcher
+bun run dev                      # all apps and the SDK watcher
 ```
 
 Linearity runs on port 4900 alongside the existing examples. Set its Basic Auth credentials and Astro connection in `examples/linearity-react/.env.local` before opening it. Follow [Linearity setup](examples/linearity-react/README.md) for the local and hosted paths. The example stores its issue data in the browser and needs no application database.
@@ -208,7 +208,7 @@ Choose one email provider per environment and do not configure credentials or pe
 After configuration, run from `platform`:
 
 ```sh
-deno task dev
+bun run dev
 ```
 
 Open `http://localhost:4500/auth/sign-up`. When legal URLs are configured, confirm signup controls remain disabled until acceptance. Confirm email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.

@@ -1,4 +1,4 @@
-// Added with: deno task ui add code-block
+// Added with: bun run ui add code-block
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"

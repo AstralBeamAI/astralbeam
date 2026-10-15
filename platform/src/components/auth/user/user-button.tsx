@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/user-button
+// Added with: bun run ui add @better-auth-ui/user-button
 // Local changes: Remove multi-session support, use Phosphor icons, retain typed plugin items, add a stable trigger label, title the trigger with the user's name, show a vertical dots trigger icon, wrap the open menu's name and email, apply strict typing, and keep internal link and visibility types module-private.
 
 import { useAuth, useSession } from "@better-auth-ui/react"

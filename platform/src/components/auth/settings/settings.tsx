@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: use Phosphor icons and activate typed application plugin settings tabs, and type joined settings paths as unknown values.
 
 import type { SettingsView } from "@better-auth-ui/core"

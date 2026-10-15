@@ -112,9 +112,9 @@ const typeAwareRules: RuleMap = {
   "typescript/restrict-plus-operands": "error",
 }
 
-// Deno lint's former recommended and jsx rules without a JS preset or correctness-category owner.
-// https://docs.deno.com/lint/
-const denoRecommendedRules: RuleMap = {
+// Additional correctness and JSX rules without an imported preset owner.
+// https://oxc.rs/docs/guide/usage/linter/rules.html
+const additionalRules: RuleMap = {
   "no-array-constructor": "error",
   "no-case-declarations": "error",
   "no-empty": "error",
@@ -153,7 +153,7 @@ const baseRules: RuleMap = {
   ...recommendedRules.reactWebApi,
   ...recommendedRules.regexp,
   ...typeAwareRules,
-  ...denoRecommendedRules,
+  ...additionalRules,
   "no-restricted-imports": ["error", { patterns: [projectPathImportPattern] }],
   // regexp-js owns these specialized equivalents.
   // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
@@ -202,7 +202,7 @@ const deepImportPatterns = [
 export default defineConfig({
   plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
-  // Keeps Deno's ban-unused-ignore gate, so a stale disable directive fails lint.
+  // A stale disable directive fails lint.
   options: { typeAware: true, denyWarnings: true, reportUnusedDisableDirectives: "error" },
   ignorePatterns: [
     // Generated and registry-vendored sources, which regeneration would overwrite.
@@ -243,7 +243,7 @@ export default defineConfig({
             patterns: [
               ...deepImportPatterns,
               {
-                regex: "^(?:npm:)?drizzle-orm(?:@[^/]+)?/pg-core(?:/|$)",
+                regex: "^drizzle-orm/pg-core(?:/|$)",
                 importNames: ["foreignKey"],
                 message: "Use deferrableForeignKey from src/db/lib/columns.ts.",
               },

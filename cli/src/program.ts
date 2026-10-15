@@ -75,7 +75,7 @@ export async function run(argv: readonly string[]): Promise<number> {
  * cannot be sent, and with --debug log each request's method, URL, status, and duration.
  */
 function tracedFetch(fetch: typeof globalThis.fetch, debug: boolean): typeof globalThis.fetch {
-  return async (input, init) => {
+  const traced = async (...[input, init]: Parameters<typeof fetch>) => {
     const method = init?.method ?? (input instanceof Request ? input.method : "GET")
     const url = input instanceof Request ? input.url : String(input)
     const started = performance.now()
@@ -85,7 +85,7 @@ function tracedFetch(fetch: typeof globalThis.fetch, debug: boolean): typeof glo
       response = await fetch(input, init)
     } catch (error) {
       if (!(error instanceof TypeError)) throw error
-      // Node and Deno put the network reason, such as ECONNREFUSED, in the cause.
+      // Node and Bun put the network reason, such as ECONNREFUSED, in the cause.
       const reason = error.cause instanceof Error ? error.cause.message : error.message
       throw new Error(`Could not reach ${url}: ${reason}`, { cause: error })
     }
@@ -94,4 +94,5 @@ function tracedFetch(fetch: typeof globalThis.fetch, debug: boolean): typeof glo
     if (!response.ok) runState.failedRequest = `${method} ${url}`
     return response
   }
+  return Object.assign(traced, fetch)
 }

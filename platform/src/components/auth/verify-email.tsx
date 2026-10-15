@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and read the stored email during render once hydrated.
 
 "use client"

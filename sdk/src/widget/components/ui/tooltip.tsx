@@ -1,4 +1,4 @@
-// Added with: deno task ui add tooltip
+// Added with: bun run ui add tooltip
 // Local changes: shadow-root portal container.
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 import { cn } from "cn"

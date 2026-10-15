@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/api-key
+// Added with: bun run ui add @better-auth-ui/api-key
 // Local changes: Surface a sanitized inline rename error because this mutation intentionally bypasses the shared toaster.
 
 "use client"

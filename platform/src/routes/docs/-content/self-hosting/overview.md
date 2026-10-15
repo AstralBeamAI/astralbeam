@@ -2,16 +2,16 @@
 
 AstralBeam runs as a single web application process with one PostgreSQL database and a private S3-compatible bucket. Basic knowledge of Linux, PostgreSQL, and reverse proxies is assumed here.
 
-Every command below runs from the repository root in the `deno task --cwd platform <task>` form.
+Every command below runs from the repository root in the `bun run --cwd platform <task>` form.
 
 ## What you run
 
 One process serves the dashboard, the operator page at `/configure`, the public API under `/api`, and these docs. It ships as two artifacts, both of which come out of the same build.
 
-Run this command to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Deno executable with the server bundle and its assets embedded:
+Run this command to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Bun executable with the server bundle and its assets embedded:
 
 ```sh
-deno task --cwd platform build
+bun run --cwd platform build
 ```
 
 Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.

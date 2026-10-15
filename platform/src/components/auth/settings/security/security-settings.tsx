@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: omit unconfigured plugin-contributed security cards.
 
 import { useAuth } from "@better-auth-ui/react"

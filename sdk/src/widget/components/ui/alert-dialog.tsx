@@ -1,4 +1,4 @@
-// Added with: deno task ui add alert-dialog
+// Added with: bun run ui add alert-dialog
 // Local changes: portal container for shadow-root themes, viewport-bounded popup.
 import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"

@@ -47,9 +47,7 @@
       "www": true,
     },
     // NOTE: Keep in sync with .vscode/settings.json
-    "deno.enable": true,
-    "deno.lint": false,
-    "vitest.runtime": "deno",
+    "vitest.runtime": "bun",
     "gitlens.blame.ignoreWhitespace": true,
     "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true,

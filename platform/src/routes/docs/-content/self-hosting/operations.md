@@ -2,7 +2,7 @@
 
 A running deployment needs migrations applied, backups taken, and a handful of limits and log lines understood. [Deploy](./deploy.md) covers the install itself.
 
-Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary and can also read it from [the saved file](./deploy.md#3-set-the-bootstrap-environment), and `deno task` commands run from the repository root, in a checkout of the deployed version.
+Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary and can also read it from [the saved file](./deploy.md#3-set-the-bootstrap-environment), and `bun run` commands run from the repository root, in a checkout of the deployed version.
 
 ## Applying migrations
 
@@ -26,7 +26,7 @@ Migration state is cached per process. After a CLI migration or history repair, 
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and `deno task --cwd platform db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Repository setup uses the same runner. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
+The operator page, the binary's `migrate` command, and `bun run --cwd platform db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Repository setup uses the same runner. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
 
 Run this command with the new binary to list the migrations it would apply, without changing the database:
 
@@ -43,13 +43,13 @@ astralbeam-platform migrate
 Run this command to apply every checked-in migration that has not run yet from a checkout instead:
 
 ```sh
-deno task --cwd platform db migrate
+bun run --cwd platform db migrate
 ```
 
 Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
 
 ```sh
-deno task --cwd platform db check
+bun run --cwd platform db check
 ```
 
 The repository's `db` wrapper forwards only `generate`, `check`, `up`, and `export` to Drizzle Kit. It handles `migrate` itself and rejects every other command, including `push`, `pull`, and legacy aliases. `up` upgrades migration metadata on disk, not the database schema.
@@ -149,9 +149,9 @@ Exceeding a limit returns `429` with a `Retry-After` header. Before the first mi
 Run these commands to recreate the local database, migrate it, and seed it:
 
 ```sh
-deno task --cwd platform db-reset
-deno task --cwd platform db migrate
-deno task --cwd platform db-seed
+bun run --cwd platform db-reset
+bun run --cwd platform db migrate
+bun run --cwd platform db-seed
 ```
 
 The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override. When `OPENAI_API_KEY` is set, it creates a **Development OpenAI** connection, enables its default model, and assigns that model to agents in seeded organizations and dogfood that have no provider. Existing provider settings and model assignments are preserved.

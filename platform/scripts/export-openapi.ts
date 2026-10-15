@@ -16,7 +16,7 @@ document.info.description = (
 const apiJson = JSON.stringify(document, null, 2) + "\n"
 if (argv.includes("--check")) {
   if ((await readFile(apiSnapshot, "utf8")) !== apiJson) {
-    throw new Error("OpenAPI snapshot is stale. Run deno task generate:openapi.")
+    throw new Error("OpenAPI snapshot is stale. Run bun run generate:openapi.")
   }
 } else {
   await mkdir(new URL(".", apiSnapshot), { recursive: true })

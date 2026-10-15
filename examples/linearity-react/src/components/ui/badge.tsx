@@ -1,4 +1,4 @@
-// Added with: deno task ui add badge
+// Added with: bun run ui add badge
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"

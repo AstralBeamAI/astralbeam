@@ -2,19 +2,21 @@
 
 Cinematic "mission console" landing page for astralbeam.ai, translated into AstralBeam's own starship-bridge identity (deep space, neon-teal beam, scanlines, mono readouts).
 
-TanStack Start + hand-rolled CSS + vanilla TypeScript, managed and run by Deno. Every route is prerendered at build time, so `.output/public/` is plain static assets and the server bundle beside it goes unused. No Tailwind and no dependency on another AstralBeam project.
+TanStack Start + hand-rolled CSS + vanilla TypeScript, managed and run by Bun. Every route is prerendered at build time, so `.output/public/` is plain static assets and the server bundle beside it goes unused. No Tailwind and no dependency on another AstralBeam project.
 
 Run common commands from the repository root:
 
 ```sh
-deno task --cwd www dev      # development server on 4600
-deno task --cwd www build    # static output in .output/public/
-deno task --cwd www preview  # production preview on 4001
-deno task --cwd www ready    # check, build, then test
-deno task --cwd www deploy   # ready, then deploy to Cloudflare
+bun run --cwd www dev      # development server on 4600
+bun run --cwd www build    # static output in .output/public/
+bun run --cwd www preview  # production preview on 4001
+bun run --cwd www ready    # check, build, then test
+bun run --cwd www deploy   # ready, then deploy to Cloudflare
 ```
 
 `ready` builds before testing because the tests inspect `.output/public/`. Use `deploy` only when publishing the website is intended.
+
+For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `www`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
 
 Structure:
 
