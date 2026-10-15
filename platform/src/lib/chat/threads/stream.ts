@@ -123,7 +123,9 @@ function managedToolPart(
     declaration: chatStoredJson({
       name: tool?.name ?? part.name,
       inputSchema: tool?.inputSchema ? convertSchemaToJsonSchema(tool.inputSchema) : undefined,
-      outputSchema: native?.outputSchema ?? (tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined),
+      outputSchema:
+        native?.outputSchema ??
+        (tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined),
       ...(native ? { ...native, title } : {}),
       ...(tool?.execute && tool.metadata?.source === "mcp"
         ? {
