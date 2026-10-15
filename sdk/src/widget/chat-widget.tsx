@@ -1,10 +1,10 @@
 import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react"
@@ -25,7 +25,6 @@ import {
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
-import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -37,21 +36,13 @@ import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
+import { useComposerDraft } from "./use-composer-draft.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Shared fallback so `widgets` keeps its identity across renders when the host registers none;
 // a fresh `{}` would rebuild the memoized session options (and push them through the session).
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
-const EMPTY_DRAFT = {
-  text: "",
-  attachments: EMPTY_ATTACHMENTS,
-  // A failed write settles the UI but keeps the successful baseline for the next edit.
-  settledAttachments: EMPTY_ATTACHMENTS,
-  savedAttachments: EMPTY_ATTACHMENTS,
-  attachmentsLoaded: false,
-  storageError: false,
-}
 
 export function ChatWidget({
   options,
@@ -112,7 +103,8 @@ export function ChatWidget({
   const error = usageLimit ? new Error(describeUsageLimit(usageLimit)) : chatState.error
 
   const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
-  const interactiveToolIds = useMemo(() => {
+  // Joined into a key so the set keeps its identity across chunks and memoized messages skip them.
+  const interactiveToolIdsKey = useMemo(() => {
     const ids = new Set(chatState.activeToolCallIds)
     if (auth.status === "ready" && chatState.thread?.role !== "viewer") {
       for (const pending of chatState.pendingInteractions) {
@@ -130,7 +122,7 @@ export function ChatWidget({
           ids.add(pending.toolCallId)
       }
     }
-    return ids
+    return [...ids].join("\n")
   }, [
     chatState.activeToolCallIds,
     chatState.pendingInteractions,
@@ -138,6 +130,10 @@ export function ChatWidget({
     auth,
     messages,
   ])
+  const interactiveToolIds = useMemo(
+    () => new Set(interactiveToolIdsKey ? interactiveToolIdsKey.split("\n") : []),
+    [interactiveToolIdsKey],
+  )
   const toolTitles = useMemo(() => {
     const titles: Record<string, string> = { ...chatState.serverToolTitles }
     for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
@@ -154,140 +150,15 @@ export function ChatWidget({
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
   }, [debug, status])
-  const [drafts, setDrafts] = useState({
+  const composer = useComposerDraft({
     apiUrl,
-    identity: "",
-    threads: new Map<string, typeof EMPTY_DRAFT>(),
+    verifiedIdentity:
+      auth.status === "ready" ? authenticationIdentity(auth.currentUser) : undefined,
+    threadId: chatState.thread?.id ?? "",
+    canLoad: auth.status === "ready" && !chatState.threadLoading && !chatState.threadRefreshing,
+    debug,
   })
-  const draftIdentity =
-    auth.status === "ready" ? authenticationIdentity(auth.currentUser) : drafts.identity
-  if (drafts.apiUrl !== apiUrl || drafts.identity !== draftIdentity) {
-    setDrafts({
-      apiUrl,
-      identity: draftIdentity,
-      threads: new Map(),
-    })
-  }
-  const draftKey = chatState.thread?.id ?? ""
-  const composer = drafts.threads.get(draftKey) ?? {
-    ...EMPTY_DRAFT,
-    text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
-  }
-  // The transcript shows a send at once, so its draft hides until the server accepts or refuses it.
-  const [submitted, setSubmitted] = useState<{ text: string; fileIds: Set<string> }>()
-  const draft = composer.text === submitted?.text ? "" : composer.text
-  const pendingAttachmentWrites = useRef(new Set<string>())
-  useEffect(() => {
-    if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
-    let cancelled = false
-    void storedThreadAttachments({ apiUrl, identity: draftIdentity, threadId: draftKey })
-      .then(
-        (attachments) => ({ attachments, storageError: false }),
-        () => ({ attachments: EMPTY_ATTACHMENTS, storageError: true }),
-      )
-      .then(({ attachments, storageError }) => {
-        if (cancelled) return
-        setDrafts((current) => {
-          if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-          const value = current.threads.get(draftKey) ?? {
-            ...EMPTY_DRAFT,
-            text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
-          }
-          if (value.attachmentsLoaded) return current
-          return {
-            ...current,
-            threads: new Map(current.threads).set(draftKey, {
-              ...value,
-              attachments,
-              settledAttachments: attachments,
-              savedAttachments: attachments,
-              attachmentsLoaded: true,
-              storageError,
-            }),
-          }
-        })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
-    apiUrl,
-    draftIdentity,
-    draftKey,
-    auth.status,
-    chatState.threadLoading,
-    composer.attachmentsLoaded,
-  ])
-  useEffect(() => {
-    for (const [key, value] of drafts.threads) {
-      if (!value.attachmentsLoaded || value.attachments === value.settledAttachments) continue
-      const scope = JSON.stringify([drafts.apiUrl, drafts.identity, key])
-      if (pendingAttachmentWrites.current.has(scope)) continue
-      pendingAttachmentWrites.current.add(scope)
-      const finish = (storageError: boolean) => {
-        pendingAttachmentWrites.current.delete(scope)
-        setDrafts((current) => {
-          if (current.apiUrl !== drafts.apiUrl || current.identity !== drafts.identity)
-            return current
-          const latest = current.threads.get(key)
-          if (!latest) return current
-          return {
-            ...current,
-            threads: new Map(current.threads).set(key, {
-              ...latest,
-              settledAttachments: value.attachments,
-              savedAttachments: storageError ? latest.savedAttachments : value.attachments,
-              storageError,
-            }),
-          }
-        })
-      }
-      void storedThreadAttachments({
-        apiUrl: drafts.apiUrl,
-        identity: drafts.identity,
-        threadId: key,
-        update: (files) => {
-          const stored = new Map(files.map((file) => [file.id, file]))
-          for (const file of value.savedAttachments) {
-            if (!value.attachments.some((current) => current.id === file.id)) stored.delete(file.id)
-          }
-          for (const file of value.attachments) {
-            if (
-              file.status === "ready" &&
-              !value.savedAttachments.some(
-                (saved) => saved.id === file.id && saved.status === "ready",
-              )
-            )
-              stored.set(file.id, file)
-          }
-          return [...stored.values()]
-        },
-      }).then(
-        () => finish(false),
-        () => finish(true),
-      )
-    }
-  }, [drafts])
-  const updateDraft = (transform: (current: typeof EMPTY_DRAFT) => typeof EMPTY_DRAFT) =>
-    setDrafts((current) => {
-      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-      return {
-        ...current,
-        threads: new Map(current.threads).set(
-          draftKey,
-          transform(current.threads.get(draftKey) ?? composer),
-        ),
-      }
-    })
-  const setDraft = (text: string) => {
-    storedThreadDraft(apiUrl, draftIdentity, draftKey, text)
-    updateDraft((current) => ({ ...current, text }))
-  }
-  const setAttachments = (update: (attachments: DraftAttachment[]) => DraftAttachment[]) =>
-    updateDraft((current) => ({
-      ...current,
-      attachments: update(current.attachments),
-    }))
+  const draftIdentity = composer.identity
   // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
     () =>
@@ -299,7 +170,6 @@ export function ChatWidget({
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
   for (const file of attachmentLimits.enabled ? composer.attachments : EMPTY_ATTACHMENTS) {
-    if (submitted?.fileIds.has(file.id)) continue
     if (file.status === "error") {
       attachments.push(file)
       continue
@@ -313,9 +183,6 @@ export function ChatWidget({
     attachments.push(picked!.draft.status === "error" ? picked!.draft : file)
   }
   const streamBusy = status === "submitted" || status === "streaming"
-  // Only a saved conversation with nothing shown yet presents loading, not refreshes around a send.
-  const loadingConversation =
-    chatState.threadLoading && messages.length === 0 && chatState.thread?.hasMessages !== false
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
@@ -324,8 +191,9 @@ export function ChatWidget({
     authError !== undefined ||
     streamBusy ||
     !composer.attachmentsLoaded ||
-    composer.attachments !== composer.settledAttachments ||
+    composer.saving ||
     chatState.threadLoading ||
+    chatState.threadRefreshing ||
     chatState.threadLoadFailed ||
     chatState.thread?.role === "viewer" ||
     chatState.thread?.agentId === null ||
@@ -348,24 +216,7 @@ export function ChatWidget({
       limits: attachmentLimits,
       createId: newUuid,
     })
-    setAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
-    const settle = (id: string, update: Partial<DraftAttachment>) =>
-      setDrafts((current) => {
-        if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-        for (const [key, value] of current.threads) {
-          if (!value.attachments.some((file) => file.id === id)) continue
-          return {
-            ...current,
-            threads: new Map(current.threads).set(key, {
-              ...value,
-              attachments: value.attachments.map((file) =>
-                file.id === id ? { ...file, ...update } : file,
-              ),
-            }),
-          }
-        }
-        return current
-      })
+    composer.updateAttachments((current) => [...current, ...picked.map(({ draft: pick }) => pick)])
     for (const { draft: pick, file } of picked) {
       if (pick.status === "error") {
         debug?.("attachment", `rejected "${pick.name}"`, {
@@ -384,7 +235,7 @@ export function ChatWidget({
       void chat
         .uploadAttachment({ data, filename: pick.name, mimeType: pick.mimeType })
         .then(async (uploaded) => {
-          settle(pick.id, {
+          composer.settleAttachment(pick.id, {
             status: "ready",
             fileId: uploaded.fileId,
             mimeType: uploaded.mimeType,
@@ -394,18 +245,21 @@ export function ChatWidget({
         })
         .catch((error: unknown) => {
           debug?.("error", `attachment "${pick.name}" could not be uploaded`, error)
-          settle(pick.id, { status: "error", error: "The file could not be uploaded" })
+          composer.settleAttachment(pick.id, {
+            status: "error",
+            error: "The file could not be uploaded",
+          })
         })
     }
   }
 
   const removeAttachment = (id: string) => {
     debug?.("attachment", "attachment removed", { id })
-    setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    composer.updateAttachments((current) => current.filter((attachment) => attachment.id !== id))
   }
 
   const sendDraft = () => {
-    const text = draft.trim()
+    const text = composer.text.trim()
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
@@ -426,12 +280,9 @@ export function ChatWidget({
               })),
           },
     )
-    const sentDraft = draft
-    const sentAttachmentIds = new Set(
-      attachments.filter((file) => file.status === "ready").map((file) => file.id),
+    const { refused, ...callbacks } = composer.submit(
+      new Set(attachments.filter((file) => file.status === "ready").map((file) => file.id)),
     )
-    let submissionDraftKey = draftKey
-    setSubmitted({ text: sentDraft, fileIds: sentAttachmentIds })
     const sent = chat.sendMessage(
       parts.length === 0
         ? text
@@ -441,123 +292,30 @@ export function ChatWidget({
               ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
             ],
           },
-      {
-        onThreadReady: (id) => {
-          if (submissionDraftKey !== "") return
-          submissionDraftKey = id
-          const text = storedThreadDraft(apiUrl, draftIdentity, "")
-          if (text) storedThreadDraft(apiUrl, draftIdentity, id, text)
-          storedThreadDraft(apiUrl, draftIdentity, "", "")
-          void storedThreadAttachments({
-            apiUrl,
-            identity: draftIdentity,
-            threadId: "",
-            moveTo: id,
-          }).catch((error: unknown) => debug?.("error", "Draft files could not be moved", error))
-          setDrafts((cached) => {
-            if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
-            const value = cached.threads.get("")
-            if (!value) return cached
-            const destination = cached.threads.get(id)
-            const threads = new Map(cached.threads)
-            threads.set(id, {
-              ...value,
-              text: value.text || destination?.text || "",
-              attachments: [
-                ...new Map(
-                  [...(destination?.attachments ?? []), ...value.attachments].map((file) => [
-                    file.id,
-                    file,
-                  ]),
-                ).values(),
-              ],
-              settledAttachments: EMPTY_ATTACHMENTS,
-              savedAttachments: [
-                ...(destination?.savedAttachments ?? []),
-                ...value.savedAttachments,
-              ],
-            })
-            threads.delete("")
-            return { ...cached, threads }
-          })
-        },
-        onAccepted: () => {
-          if (storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey) === sentDraft)
-            storedThreadDraft(apiUrl, draftIdentity, submissionDraftKey, "")
-          void storedThreadAttachments({
-            apiUrl,
-            identity: draftIdentity,
-            threadId: submissionDraftKey,
-            update: (files) => files.filter((file) => !sentAttachmentIds.has(file.id)),
-          }).catch((error: unknown) =>
-            debug?.("error", "Accepted draft files could not be cleared", error),
-          )
-          setDrafts((cached) => {
-            if (cached.apiUrl !== apiUrl || cached.identity !== draftIdentity) return cached
-            const value = cached.threads.get(submissionDraftKey)
-            if (!value) return cached
-            return {
-              ...cached,
-              threads: new Map(cached.threads).set(submissionDraftKey, {
-                ...value,
-                text: value.text === sentDraft ? "" : value.text,
-                attachments: value.attachments.filter((file) => !sentAttachmentIds.has(file.id)),
-              }),
-            }
-          })
-        },
-      },
+      callbacks,
     )
-    void sent.finally(() => setSubmitted(undefined))
-  }
-
-  const submitQuestionnaireAnswers = (toolCallId: string, answers: QuestionnaireAnswer[]) => {
-    debug?.("questionnaire", "answers submitted", { toolCallId, answers })
-    void chat.addToolResult({
-      toolCallId,
-      tool: ASK_QUESTIONNAIRE_TOOL,
-      output: { answers },
+    void sent.then((taken) => {
+      if (!taken) refused()
     })
   }
+
+  const submitQuestionnaireAnswers = useCallback(
+    (toolCallId: string, answers: QuestionnaireAnswer[]) => {
+      debug?.("questionnaire", "answers submitted", { toolCallId, answers })
+      void chat.addToolResult({ toolCallId, tool: ASK_QUESTIONNAIRE_TOOL, output: { answers } })
+    },
+    [chat, debug],
+  )
 
   const resetThread = () => {
     // The session's reset is the client's own: it aborts an active stream, drops queued sends,
     // resets resume state, and disposes the live widget renders.
     chat.reset()
-    storedThreadDraft(apiUrl, draftIdentity, "", "")
-    void storedThreadAttachments({
-      apiUrl,
-      identity: draftIdentity,
-      threadId: "",
-      update: () => [],
-    }).catch((error: unknown) => debug?.("error", "Draft files could not be cleared", error))
-    setDrafts((current) => {
-      const threads = new Map(current.threads)
-      threads.set("", { ...EMPTY_DRAFT, attachmentsLoaded: true })
-      return { ...current, threads }
-    })
+    composer.reset()
   }
 
   const focusComposer = () =>
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
-
-  const forgetDraft = (id: string) => {
-    storedThreadDraft(apiUrl, draftIdentity, id, "")
-    void storedThreadAttachments({
-      apiUrl,
-      identity: draftIdentity,
-      threadId: id,
-      update: () => [],
-    }).catch((error: unknown) =>
-      debug?.("error", "Deleted conversation's draft files could not be cleared", error),
-    )
-    setDrafts((current) => {
-      if (current.apiUrl !== apiUrl || current.identity !== draftIdentity) return current
-      const threads = new Map(current.threads)
-      threads.delete(id)
-      return { ...current, threads }
-    })
-  }
 
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
@@ -596,7 +354,7 @@ export function ChatWidget({
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
             state={chatState}
-            onDelete={forgetDraft}
+            onDelete={composer.forget}
             onSelect={focusComposer}
           />
           <TooltipButton
@@ -637,7 +395,7 @@ export function ChatWidget({
           state={chatState}
           thread={chatState.thread}
           onDelete={(threadId) => {
-            forgetDraft(threadId)
+            composer.forget(threadId)
             focusComposer()
           }}
         />
@@ -649,7 +407,7 @@ export function ChatWidget({
           getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
-          loadingHistory={loadingConversation}
+          loadingHistory={chatState.threadLoading}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
           getFile={chat.getFile}
@@ -670,7 +428,7 @@ export function ChatWidget({
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
       <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
-        {loadingConversation ? (
+        {chatState.threadLoading ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…
           </span>
@@ -733,8 +491,8 @@ export function ChatWidget({
           actionsSlot={
             hostSlots.has("composerActions") ? hostSlotName("composerActions") : undefined
           }
-          draft={draft}
-          onDraftChange={setDraft}
+          draft={composer.text}
+          onDraftChange={composer.setText}
           onSend={sendDraft}
           onStop={() => {
             debug?.("status", "generation stopped by user")
@@ -744,7 +502,7 @@ export function ChatWidget({
             usageLimit
               ? undefined
               : chatState.unsentMessage !== undefined
-                ? () => void chat.sendMessage(chatState.unsentMessage!)
+                ? () => void chat.sendMessage(chatState.unsentMessage!, composer.retry())
                 : messages.length > 0
                   ? () => void chat.reload()
                   : undefined
@@ -755,7 +513,7 @@ export function ChatWidget({
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
-          threadLoading={loadingConversation}
+          threadLoading={chatState.threadLoading}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}

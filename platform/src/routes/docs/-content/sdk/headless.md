@@ -26,7 +26,7 @@ function MyChat() {
 ```
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
-- Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
+- Actions: `sendMessage`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input. `sendMessage` resolves `false` when the session refused the input without keeping it for Retry, so keep it in your composer.
 - Retrying an unchanged unsent draft reuses its admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.
@@ -72,7 +72,7 @@ await chat.openThread(threadId)
 await chat.sendMessage("Continue from here")
 ```
 
-- `searchThreads(query?, cursor?, signal?)` returns a page of conversations. Read `thread` and `threadLoading` from session state. Wait for hydration before enabling your composer.
+- `searchThreads(query?, cursor?, signal?)` returns a page of conversations. Read `thread`, `threadLoading`, and `threadRefreshing` from session state. Show loading only for `threadLoading`, which means nothing is shown yet, and disable sending during either.
 - Use `reset()` for a fresh conversation. Managers can rename the selected thread with `renameThread(title)` and delete any listed thread with `deleteThread(thread)`.
 - Keep tool responses associated with their stored call and target across browser clients.
 - You can reopen saved state from another client. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.

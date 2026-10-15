@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { memo, useEffect, useRef } from "react"
 import type { UIMessage } from "@tanstack/ai-client"
 import { WarningCircleIcon } from "@phosphor-icons/react"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/widget/components/ui/empty"
@@ -50,6 +50,101 @@ interface ChatTranscriptProps {
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
+// The latest turn is always on screen, so it skips the deferred 10rem placeholder that makes new
+// items blink for a frame. History keeps `content-visibility: auto`.
+const LATEST_TURN = "[content-visibility:visible]"
+
+// Memoized so a streamed chunk re-renders only the message it changed.
+const TranscriptMessage = memo(function TranscriptMessage({
+  message,
+  streaming,
+  readOnly,
+  latestTurn,
+  currentTenantUserId,
+  getAttachment,
+  getFile,
+  widgets,
+  toolTitles,
+  serverToolTitles,
+  activeSlots,
+  interactiveToolIds,
+  onQuestionnaireAnswers,
+}: Pick<
+  ChatTranscriptProps,
+  | "currentTenantUserId"
+  | "getAttachment"
+  | "getFile"
+  | "widgets"
+  | "toolTitles"
+  | "serverToolTitles"
+  | "activeSlots"
+  | "interactiveToolIds"
+  | "onQuestionnaireAnswers"
+> & { message: UIMessage; streaming: boolean; readOnly: boolean; latestTurn: boolean }) {
+  const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+  const active =
+    streaming && !readOnly && message.role === "assistant" && saved?.state !== "interrupted"
+  const anotherParticipant =
+    message.role === "user" &&
+    currentTenantUserId !== undefined &&
+    saved?.authorTenantUserId != null &&
+    saved.authorTenantUserId !== currentTenantUserId
+  return (
+    <MessageScrollerItem messageId={message.id} className={latestTurn ? LATEST_TURN : undefined}>
+      <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
+        <MessageContent className="gap-1">
+          {anotherParticipant && <span className="text-xs text-muted-foreground">Participant</span>}
+          {message.role === "user" ? (
+            <UserMessageBody message={message} getAttachment={getAttachment} />
+          ) : (
+            message.parts.map((part, partIndex) => (
+              <PartErrorBoundary key={part.type === "tool-call" ? part.id : partIndex}>
+                <AssistantPart
+                  readOnly={readOnly}
+                  part={part}
+                  messageId={message.id}
+                  getAttachment={getAttachment}
+                  getFile={getFile}
+                  widgets={widgets}
+                  toolTitles={toolTitles}
+                  serverToolTitles={serverToolTitles}
+                  streaming={
+                    active && (part.type !== "thinking" || partIndex === message.parts.length - 1)
+                  }
+                  activeSlots={activeSlots}
+                  interactiveToolIds={interactiveToolIds}
+                  interrupted={saved?.state === "interrupted"}
+                  onQuestionnaireAnswers={onQuestionnaireAnswers}
+                />
+              </PartErrorBoundary>
+            ))
+          )}
+          {message.role === "assistant" && saved?.state === "interrupted" && (
+            <Marker>
+              <MarkerIcon>
+                <WarningCircleIcon />
+              </MarkerIcon>
+              <MarkerContent>
+                Response interrupted. The saved content may be incomplete.
+              </MarkerContent>
+            </Marker>
+          )}
+          {message.role === "assistant" && saved?.state === "draft" && (
+            <Marker role="status">
+              <MarkerIcon>{active ? <Spinner /> : <WarningCircleIcon />}</MarkerIcon>
+              <MarkerContent>
+                {active
+                  ? "Response in progress."
+                  : "Saved partial response. Completion has not been recorded."}
+              </MarkerContent>
+            </Marker>
+          )}
+        </MessageContent>
+      </Message>
+    </MessageScrollerItem>
+  )
+})
+
 export function ChatTranscript({
   readOnly = false,
   messages,
@@ -96,6 +191,15 @@ export function ChatTranscript({
       element.removeEventListener("scroll", loadEarlier)
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
+  // A reply with nothing visible yet stays behind the Thinking marker, so its gap cannot shift it.
+  const last = messages.at(-1)
+  const turnStart = messages.findLastIndex((message) => message.role === "user")
+  const emptyReply =
+    awaitingReply &&
+    last?.role === "assistant" &&
+    last.parts.every(
+      (part) => (part.type === "text" || part.type === "thinking") && part.content.length === 0,
+    )
   if (loadingHistory && messages.length === 0) {
     return (
       <div
@@ -144,79 +248,26 @@ export function ChatTranscript({
         )}
         <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
           <MessageScrollerContent aria-busy={isBusy} className="gap-3 px-(--card-spacing) py-2">
-            {messages.map((message) => {
-              const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
-              const active =
-                streaming &&
-                !readOnly &&
-                message.role === "assistant" &&
-                message === messages.at(-1) &&
-                saved?.state !== "interrupted"
-              const anotherParticipant =
-                message.role === "user" &&
-                currentTenantUserId !== undefined &&
-                saved?.authorTenantUserId != null &&
-                saved.authorTenantUserId !== currentTenantUserId
-              return (
-                <MessageScrollerItem key={message.id} messageId={message.id}>
-                  <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
-                    <MessageContent className="gap-1">
-                      {anotherParticipant && (
-                        <span className="text-xs text-muted-foreground">Participant</span>
-                      )}
-                      {message.role === "user" ? (
-                        <UserMessageBody message={message} getAttachment={getAttachment} />
-                      ) : (
-                        message.parts.map((part, partIndex) => (
-                          <PartErrorBoundary key={part.type === "tool-call" ? part.id : partIndex}>
-                            <AssistantPart
-                              readOnly={readOnly}
-                              part={part}
-                              messageId={message.id}
-                              getAttachment={getAttachment}
-                              getFile={getFile}
-                              widgets={widgets}
-                              toolTitles={toolTitles}
-                              serverToolTitles={serverToolTitles}
-                              streaming={
-                                active &&
-                                (part.type !== "thinking" || partIndex === message.parts.length - 1)
-                              }
-                              activeSlots={activeSlots}
-                              interactiveToolIds={interactiveToolIds}
-                              interrupted={saved?.state === "interrupted"}
-                              onQuestionnaireAnswers={onQuestionnaireAnswers}
-                            />
-                          </PartErrorBoundary>
-                        ))
-                      )}
-                      {message.role === "assistant" && saved?.state === "interrupted" && (
-                        <Marker>
-                          <MarkerIcon>
-                            <WarningCircleIcon />
-                          </MarkerIcon>
-                          <MarkerContent>
-                            Response interrupted. The saved content may be incomplete.
-                          </MarkerContent>
-                        </Marker>
-                      )}
-                      {message.role === "assistant" && saved?.state === "draft" && (
-                        <Marker role="status">
-                          <MarkerIcon>{active ? <Spinner /> : <WarningCircleIcon />}</MarkerIcon>
-                          <MarkerContent>
-                            {active
-                              ? "Response in progress."
-                              : "Saved partial response. Completion has not been recorded."}
-                          </MarkerContent>
-                        </Marker>
-                      )}
-                    </MessageContent>
-                  </Message>
-                </MessageScrollerItem>
-              )
-            })}
+            {(emptyReply ? messages.slice(0, -1) : messages).map((message, index) => (
+              <TranscriptMessage
+                key={message.id}
+                message={message}
+                latestTurn={index >= turnStart}
+                streaming={streaming && message === messages.at(-1)}
+                readOnly={readOnly}
+                currentTenantUserId={currentTenantUserId}
+                getAttachment={getAttachment}
+                getFile={getFile}
+                widgets={widgets}
+                toolTitles={toolTitles}
+                serverToolTitles={serverToolTitles}
+                activeSlots={activeSlots}
+                interactiveToolIds={interactiveToolIds}
+                onQuestionnaireAnswers={onQuestionnaireAnswers}
+              />
+            ))}
             {awaitingReply && (
-              <MessageScrollerItem messageId="astralbeam-thinking">
+              <MessageScrollerItem messageId="astralbeam-thinking" className={LATEST_TURN}>
                 <Marker role="status">
                   <MarkerIcon>
                     <Spinner />

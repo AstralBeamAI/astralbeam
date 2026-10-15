@@ -1263,6 +1263,117 @@ test("a late hydration response cannot replace a newly selected conversation", a
   expect(chat.getState().error).toBeUndefined()
 })
 
+test("a refresh during a first send's conversation creation leaves the session ready", async () => {
+  let release: ((response: Response) => void) | undefined
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST")
+      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+    if (path.endsWith("/messages") && !release)
+      return new Promise<Response>((resolve) => {
+        release = resolve
+      })
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  chat.reset()
+  const sent = chat.sendMessage("First message")
+  await vi.waitFor(() => expect(release).toBeDefined())
+  expect(chat.getState().status).toBe("submitted")
+  await chat.refreshThread()
+  release!(Response.json(page()))
+  expect(await sent).toBe(true)
+  expect(chat.getState()).toMatchObject({
+    status: "ready",
+    threadLoading: false,
+    threadRefreshing: false,
+  })
+})
+
+test("opening a conversation during a background refresh reports only loading", async () => {
+  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
+  let reads = 0
+  stubSessionFetch((input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (!path.endsWith("/messages"))
+      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+    const response = Response.json({
+      ...page([
+        {
+          id: "saved",
+          role: "user",
+          created_at: thread.created_at,
+          parts: [{ id: "text", type: "text", content: "Saved" }],
+        },
+      ]),
+      thread: path.includes(next.id) ? next : thread,
+    })
+    if (reads++ === 0) return Promise.resolve(response)
+    return new Promise<Response>((resolve) => setTimeout(() => resolve(response), 20))
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
+  const refresh = chat.refreshThread()
+  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: true })
+  const opened = chat.openThread(next.id)
+  expect(chat.getState()).toMatchObject({ threadLoading: true, threadRefreshing: false })
+  await Promise.all([refresh, opened])
+  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: false })
+})
+
+test("a failed send keeps its Retry after leaving and reopening its conversation", async () => {
+  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
+  const keys: Array<string | null> = []
+  let accepted = false
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      if (keys.length === 1) return Promise.resolve(new Response("Unavailable", { status: 503 }))
+      accepted = true
+      return Promise.resolve(
+        Response.json({ thread_id: thread.id, accepted_message_id: "accepted", thread_version: 2 }),
+      )
+    }
+    if (path.endsWith("/messages"))
+      return Promise.resolve(
+        Response.json({
+          ...page(
+            accepted && path.includes(thread.id)
+              ? [
+                  {
+                    id: "accepted",
+                    role: "user",
+                    created_at: thread.created_at,
+                    parts: [{ id: "part", type: "text", content: "Keep this" }],
+                  },
+                ]
+              : [],
+          ),
+          thread: path.includes(next.id) ? next : thread,
+        }),
+      )
+    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Keep this")
+  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
+  await chat.openThread(next.id)
+  expect(chat.getState()).toMatchObject({ status: "ready", unsentMessage: undefined })
+  await chat.openThread(thread.id)
+  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
+  await chat.sendMessage(chat.getState().unsentMessage!)
+  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1)
+  expect(keys).toHaveLength(2)
+  expect(keys[1]).toBe(keys[0])
+})
+
 test("failed native hydration blocks sends until a successful reload", async () => {
   let failed = true
   const sends = vi.fn()

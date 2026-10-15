@@ -59,7 +59,13 @@ function seededProjects() {
       name: "seeded",
       testDir: "./specs/seeded",
       dependencies: ["sign-in"],
-      use: { storageState: seededStatePath },
+      // Video matches the viewport, because Playwright otherwise scales it down to fit 800px.
+      // Screenshots use 2× pixels. Screencast video stays at CSS pixels regardless.
+      use: {
+        storageState: seededStatePath,
+        deviceScaleFactor: 2,
+        video: { mode: "on" as const, size: { width: 1440, height: 900 } },
+      },
     },
   ]
 }
