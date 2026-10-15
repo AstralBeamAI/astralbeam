@@ -173,7 +173,9 @@ export function ChatWidget({
     ...EMPTY_DRAFT,
     text: storedThreadDraft(apiUrl, draftIdentity, draftKey),
   }
-  const draft = composer.text
+  // The transcript shows a send at once, so its draft hides until the server accepts or refuses it.
+  const [submitted, setSubmitted] = useState<{ text: string; fileIds: Set<string> }>()
+  const draft = composer.text === submitted?.text ? "" : composer.text
   const pendingAttachmentWrites = useRef(new Set<string>())
   useEffect(() => {
     if (auth.status !== "ready" || chatState.threadLoading || composer.attachmentsLoaded) return
@@ -297,6 +299,7 @@ export function ChatWidget({
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
   for (const file of attachmentLimits.enabled ? composer.attachments : EMPTY_ATTACHMENTS) {
+    if (submitted?.fileIds.has(file.id)) continue
     if (file.status === "error") {
       attachments.push(file)
       continue
@@ -310,6 +313,9 @@ export function ChatWidget({
     attachments.push(picked!.draft.status === "error" ? picked!.draft : file)
   }
   const streamBusy = status === "submitted" || status === "streaming"
+  // Only a saved conversation with nothing shown yet presents loading, not refreshes around a send.
+  const loadingConversation =
+    chatState.threadLoading && messages.length === 0 && chatState.thread?.hasMessages !== false
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
@@ -425,7 +431,8 @@ export function ChatWidget({
       attachments.filter((file) => file.status === "ready").map((file) => file.id),
     )
     let submissionDraftKey = draftKey
-    void chat.sendMessage(
+    setSubmitted({ text: sentDraft, fileIds: sentAttachmentIds })
+    const sent = chat.sendMessage(
       parts.length === 0
         ? text
         : {
@@ -501,6 +508,7 @@ export function ChatWidget({
         },
       },
     )
+    void sent.finally(() => setSubmitted(undefined))
   }
 
   const submitQuestionnaireAnswers = (toolCallId: string, answers: QuestionnaireAnswer[]) => {
@@ -638,7 +646,7 @@ export function ChatWidget({
           getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
-          loadingHistory={chatState.threadLoading}
+          loadingHistory={loadingConversation}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
           getFile={chat.getFile}
@@ -659,7 +667,7 @@ export function ChatWidget({
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
       <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
-        {chatState.threadLoading ? (
+        {loadingConversation ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…
           </span>
@@ -738,7 +746,7 @@ export function ChatWidget({
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
-          threadLoading={chatState.threadLoading}
+          threadLoading={loadingConversation}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}

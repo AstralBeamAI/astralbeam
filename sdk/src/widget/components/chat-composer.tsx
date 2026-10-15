@@ -261,8 +261,9 @@ export function ChatComposer({
           )}
         </InputGroupAddon>
       </InputGroup>
-      <p id={shortcutId} className="mt-1 text-xs text-muted-foreground">
-        Enter to send, Shift+Enter for a new line
+      <p className="mt-1 text-xs text-muted-foreground">
+        <span id={shortcutId}>Enter to send, Shift+Enter for a new line.</span> AI can make
+        mistakes.
       </p>
     </form>
   )
