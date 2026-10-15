@@ -259,7 +259,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "File storage",
     label: "CloudFront private key",
     description:
-      "RSA 2048-bit or ECDSA P-256 PEM private key matching the trusted public key. Stored encrypted in the database.",
+      "RSA 2048-bit PEM private key matching the trusted public key. Stored encrypted in the database.",
     kind: "secret",
     multiline: true,
     required: false,
@@ -269,15 +269,11 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
           const parsed = Result.try(() => createPrivateKey(value))
           if (Result.isFailure(parsed)) return false
           const key = parsed.success
-          // CloudFront trusted key groups accept RSA 2048 and ECDSA prime256v1 keys.
-          // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html
-          return (
-            (key.asymmetricKeyType === "rsa" && key.asymmetricKeyDetails?.modulusLength === 2048) ||
-            (key.asymmetricKeyType === "ec" &&
-              key.asymmetricKeyDetails?.namedCurve === "prime256v1")
-          )
+          // The SDK signer does not support CloudFront's ECDSA keys yet.
+          // https://github.com/aws/aws-sdk-js-v3/issues/7851
+          return key.asymmetricKeyType === "rsa" && key.asymmetricKeyDetails?.modulusLength === 2048
         },
-        { message: "Enter an unencrypted RSA 2048-bit or ECDSA P-256 PEM private key" },
+        { message: "Enter an unencrypted RSA 2048-bit PEM private key" },
       ),
     ),
   },

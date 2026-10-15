@@ -211,12 +211,6 @@ describe("configuration registry", () => {
 
   it("validates CloudFront key material and supported algorithms without exposing rejected keys", () => {
     const definition = findConfigDefinition("cloudfront_private_key")!
-    const ecKey = generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey
-    assert.isTrue(
-      Result.isSuccess(
-        decodeConfigValue(definition, ecKey.export({ type: "sec1", format: "pem" }).toString()),
-      ),
-    )
     for (const value of [
       "-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n",
       cloudfrontConfigKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString(),
@@ -231,7 +225,7 @@ describe("configuration registry", () => {
       generateKeyPairSync("rsa", { modulusLength: 1024 })
         .privateKey.export({ type: "pkcs8", format: "pem" })
         .toString(),
-      generateKeyPairSync("ec", { namedCurve: "secp384r1" })
+      generateKeyPairSync("ec", { namedCurve: "prime256v1" })
         .privateKey.export({ type: "pkcs8", format: "pem" })
         .toString(),
     ]) {
