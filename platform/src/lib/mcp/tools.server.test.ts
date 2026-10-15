@@ -1,6 +1,8 @@
 import { Effect, Layer, Redacted } from "effect"
 import { describe, expect, test, vi } from "vitest"
-const mcpFixtureFetch = vi.hoisted(() => ({ fetch: globalThis.fetch }))
+const mcpFixtureFetch = vi.hoisted<{
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+}>(() => ({ fetch: globalThis.fetch }))
 vi.mock("./network.server.ts", async (original) => ({
   ...(await original<typeof import("./network.server.ts")>()),
   mcpGuardedFetch: (_dispatcher: unknown, input: string | URL | Request, init?: RequestInit) =>

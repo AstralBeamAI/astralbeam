@@ -1,4 +1,4 @@
-import { fetch as fixtureFetch, Agent } from "undici"
+import { fetch as fixtureFetch, Agent } from "undici/index.js"
 import { createServer } from "node:http"
 import { once } from "node:events"
 
