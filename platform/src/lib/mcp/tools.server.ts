@@ -54,9 +54,14 @@ function mcpHeaderPaths(
   for (const [keyword, value] of Object.entries(node)) {
     if (!value || typeof value !== "object") continue
     if (
-      ["properties", "patternProperties", "dependentSchemas", "$defs", "definitions"].includes(
-        keyword,
-      )
+      [
+        "properties",
+        "patternProperties",
+        "dependentSchemas",
+        "dependencies",
+        "$defs",
+        "definitions",
+      ].includes(keyword)
     ) {
       for (const [key, child] of Object.entries(value))
         if (
@@ -66,6 +71,7 @@ function mcpHeaderPaths(
     } else if (
       [
         "items",
+        "additionalItems",
         "prefixItems",
         "contains",
         "additionalProperties",
@@ -94,7 +100,7 @@ function mcpInputHeaders(paths: Map<string, string[]>, args: unknown): Headers {
   for (const [name, path] of paths) {
     const value = path.reduce<unknown>(
       (current, key) =>
-        current && typeof current === "object"
+        current && typeof current === "object" && Object.hasOwn(current, key)
           ? (current as Record<string, unknown>)[key]
           : undefined,
       args,

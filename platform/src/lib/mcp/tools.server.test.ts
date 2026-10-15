@@ -151,6 +151,7 @@ describe("request-oriented MCP tools", () => {
       type: "object",
       properties: {
         nested: { type: "object", properties: { region: { ...header, type: "integer" } } },
+        toString: { ...header, "x-mcp-header": "Method" },
         data: { type: "object", const: literal, enum: [literal], default: literal },
       },
     }
@@ -172,7 +173,9 @@ describe("request-oriented MCP tools", () => {
       { oneOf: [{ properties: { region: header } }] },
       { "x-mcp-header": "Root" },
       { $defs: { region: header } },
+      { dependencies: { region: { properties: { region: header } } } },
       { properties: { regions: { type: "array", items: header } } },
+      { properties: { regions: { type: "array", additionalItems: header } } },
     ]
     await withMcpTools(
       async (set) => {
@@ -186,6 +189,9 @@ describe("request-oriented MCP tools", () => {
           set.tools[1]!.execute({ nested: { region: 2 ** 53 } }, undefined),
         ).rejects.toThrow()
         expect(mcpToolFixture.state.calls).toBe(1)
+        await set.tools[1]!.execute(Object.create({ nested: { region: 42 } }), undefined)
+        expect(mcpToolFixture.state.regionHeader).toBeUndefined()
+        expect(mcpToolFixture.state.calls).toBe(2)
       },
       {
         state: {
