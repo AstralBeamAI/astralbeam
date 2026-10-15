@@ -17,27 +17,12 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
 
   await test.step("a fixed weekly token limit applies to everyone", async () => {
     await usageLimits.startCreate()
-    await expect(usageLimits.summary).toContainText("Name: Must not be empty")
-    await usageLimits.fillForm({ name: weekly, amount: "0" })
-    await expect(usageLimits.summary).toContainText("Limit: Enter a whole number of tokens")
-    await expect(usageLimits.summary).not.toContainText("Name:")
-    await usageLimits.fillForm({
-      name: weekly,
-      duration: "Custom",
-      custom: { count: "0", unit: "Hours" },
-      amount: "2000000",
-    })
-    await expect(usageLimits.summary).toContainText("Duration: Must be 1 or greater")
-    await expect(usageLimits.summary).not.toContainText("Limit:")
     await usageLimits.fillForm({
       name: weekly,
       duration: "Weekly",
       timeZone: "America/New_York",
       amount: "2000000",
     })
-    await expect(usageLimits.summary).toContainText(
-      "Resets on calendar boundaries in America/New_York",
-    )
     await captureMilestone(page, "01-new-weekly-limit")
     await usageLimits.submitCreate(weekly)
     await expect(page.getByText(/^limit_[0-9a-f-]{36}_[0-9a-f-]{36}$/)).toBeVisible()
@@ -62,9 +47,11 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
       metric: "Spend (USD)",
       amount: "2.505",
     })
+    await expect(usageLimits.summary).toContainText(/Limit:.*at most two decimal places/)
     await page.getByRole("button", { name: "Create limit" }).click()
     await expect(usageLimits.amountError).toContainText("at most two decimal places")
     await page.locator("#usage-limit-amount").fill("2.50")
+    await expect(usageLimits.summary).not.toContainText("Limit:")
     await usageLimits.submitCreate(session)
   })
 

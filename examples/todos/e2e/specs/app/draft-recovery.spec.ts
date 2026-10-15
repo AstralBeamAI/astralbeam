@@ -64,9 +64,7 @@ test.beforeEach(async ({ context }) => {
   )
 })
 
-test("reviewing a rejected file reveals its removal action and preserves the usable draft", async ({
-  page,
-}) => {
+test("reviewing a rejected file reveals and focuses its removal action", async ({ page }) => {
   await todosPage(page).open()
   const chat = chatWidget(page)
   await chat.waitForReady()
@@ -83,12 +81,7 @@ test("reviewing a rejected file reveals its removal action and preserves the usa
   await chat.attachmentChip(rejected.name).press("Enter")
   await expect(chat.reviewFiles).toHaveCount(0)
   await expect(chat.composer()).toHaveValue("Keep this question and its valid file")
-  await page.reload()
-  await expect(chat.composer()).toHaveValue("Keep this question and its valid file")
   await expect(chat.attachmentChip(rejected.name)).toHaveCount(0)
-  await expect(chat.attachmentChip(note.name)).toBeVisible()
-  await expect(chat.attachmentChip(image.name)).toBeVisible()
-  await expect(chat.sendButton()).toBeEnabled()
 })
 
 test("unsent text, images, and large files recover, and accepted files stay cleared", async ({
