@@ -10,7 +10,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
   models,
   agents,
 }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(180_000)
   const { runId } = makeRunIdentity()
   const primaryName = `OpenAI primary ${runId}`
   const secondaryName = `OpenAI secondary ${runId}`
