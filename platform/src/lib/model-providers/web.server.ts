@@ -3,6 +3,7 @@ import {
   ANTHROPIC_MODELS,
   type AnthropicChatModelToolCapabilitiesByName,
 } from "@tanstack/ai-anthropic"
+import { GROK_CHAT_MODELS } from "@tanstack/ai-grok"
 import { OPENROUTER_CHAT_MODELS } from "@tanstack/ai-openrouter/model-meta"
 import type { ChatModelConfiguration } from "./model-providers.server"
 
@@ -49,7 +50,11 @@ export function modelWebAccess(
         ? { endpoint: "https://api.anthropic.com", models: ANTHROPIC_MODELS }
         : model.providerType === "openai" && model.api === "responses"
           ? { endpoint: "https://api.openai.com/v1", models: OPENAI_CHAT_MODELS }
-          : null
+          : model.providerType === "xai"
+            ? // The adapter lists no tools for Grok 4.5 and later, but xAI's web search guide uses grok-4.7.
+              // https://docs.x.ai/docs/guides/tools/search-tools
+              { endpoint: "https://api.x.ai/v1", models: GROK_CHAT_MODELS }
+            : null
   if (!vendor) return false
   if (model.baseUrl.replace(/\/+$/, "") !== vendor.endpoint) return null
   if (model.providerType !== "openrouter" && Object.hasOwn(modelsWithoutWeb, model.modelId))

@@ -135,6 +135,7 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
       fetch: configuration.fetch,
       organization: null,
       project: null,
+      maxRetries: nativeWeb ? 0 : 2,
     })
   }
   if (configuration.providerType === "openrouter" && nativeWeb) {

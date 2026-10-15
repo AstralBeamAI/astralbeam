@@ -253,7 +253,7 @@ export function AgentForm({
                   <FieldLabel htmlFor="agent-web-access">Web access</FieldLabel>
                   <FieldDescription id="agent-web-access-description">
                     {!webAvailable
-                      ? "Select an OpenAI Responses, Anthropic, or OpenRouter default model."
+                      ? "Select an OpenAI Responses, Anthropic, xAI Grok, or OpenRouter default model."
                       : selectedModel?.webAccess === null
                         ? "For custom models and endpoints, enable only if native web tools are supported."
                         : "Search the web and read public pages through the default model."}

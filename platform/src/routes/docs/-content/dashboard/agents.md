@@ -54,7 +54,7 @@ While attachments are on, the accepted types, per-file sizes, and per-message co
 
 ## Web access
 
-Web access lets the agent search and read public pages through its model connection. It supports OpenAI Responses, Anthropic Messages, and OpenRouter's managed server tools. OpenAI Chat Completions requires switching the connection to Responses. Google Gemini and xAI Grok connections do not offer web access yet. Custom models and endpoints require explicit opt-in, and an unsupported configuration reports an error.
+Web access lets the agent search and read public pages through its model connection. It supports OpenAI Responses, Anthropic Messages, xAI Grok web search, and OpenRouter's managed server tools. OpenAI Chat Completions requires switching the connection to Responses. Google Gemini connections do not offer web access yet. Custom models and endpoints require explicit opt-in, and an unsupported configuration reports an error.
 
 Answers show clickable citations and consulted sources, which remain available in saved conversations. Tenant users cannot enable this grant from the embedded chat. Model-provider charges may include web-tool fees.
 
