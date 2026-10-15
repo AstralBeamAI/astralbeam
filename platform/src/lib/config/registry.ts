@@ -1,3 +1,4 @@
+import { createPrivateKey } from "node:crypto"
 import { Result, Schema, SchemaGetter, SchemaTransformation } from "effect"
 
 import {
@@ -238,8 +239,8 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     required: false,
     isPublic: true,
     schema: ServerOriginSchema.check(
-      Schema.makeFilter((value) => value.startsWith("https://"), {
-        message: "Use an HTTPS origin without credentials, path, query, or fragment",
+      Schema.makeFilter((value) => value.startsWith("https://") && !new URL(value).port, {
+        message: "Use an HTTPS origin on port 443 without credentials, path, query, or fragment",
       }),
     ),
   },
@@ -258,14 +259,25 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "File storage",
     label: "CloudFront private key",
     description:
-      "PEM private key matching the trusted public key. Stored encrypted in the database.",
+      "RSA 2048-bit or ECDSA P-256 PEM private key matching the trusted public key. Stored encrypted in the database.",
     kind: "secret",
     multiline: true,
     required: false,
     schema: Schema.String.check(
-      Schema.isPattern(
-        /^-----BEGIN ((?:RSA |EC )?PRIVATE KEY)-----\r?\n(?:[A-Za-z0-9+/=]+\r?\n)+-----END \1-----\s*$/,
-        { message: "Enter an unencrypted PEM private key" },
+      Schema.makeFilter(
+        (value) => {
+          const parsed = Result.try(() => createPrivateKey(value))
+          if (Result.isFailure(parsed)) return false
+          const key = parsed.success
+          // CloudFront trusted key groups accept RSA 2048 and ECDSA prime256v1 keys.
+          // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html
+          return (
+            (key.asymmetricKeyType === "rsa" && key.asymmetricKeyDetails?.modulusLength === 2048) ||
+            (key.asymmetricKeyType === "ec" &&
+              key.asymmetricKeyDetails?.namedCurve === "prime256v1")
+          )
+        },
+        { message: "Enter an unencrypted RSA 2048-bit or ECDSA P-256 PEM private key" },
       ),
     ),
   },
@@ -622,9 +634,15 @@ export function validateConfigCompleteness(
     "cloudfront_key_pair_id",
     "cloudfront_private_key",
   ] as const
-  if (cloudfrontKeys.some((key) => values[key])) {
+  const hasCloudfrontEnvironmentOverride = cloudfrontKeys.some((key) => environmentKeys.has(key))
+  if (hasCloudfrontEnvironmentOverride || cloudfrontKeys.some((key) => values[key])) {
     for (const key of cloudfrontKeys) {
-      if (!values[key]) {
+      if (hasCloudfrontEnvironmentOverride && !environmentKeys.has(key)) {
+        issues.push({
+          key,
+          message: `${configEnvironmentVariable(key)} is required when CloudFront settings are supplied through the environment`,
+        })
+      } else if (!values[key]) {
         issues.push({
           key,
           message: `${findConfigDefinition(key)?.label} is required to enable CloudFront downloads`,
