@@ -58,6 +58,7 @@ test("a 320px host keeps custom slots, chat history, and confirmations usable by
   await expect(chat.historySearch).toBeFocused()
   await expect(chat.conversationOption(thread.title)).toBeVisible()
   await chat.expectWithinFrame(chat.historyPopup)
+  await expect(chat.frame).toHaveJSProperty("scrollLeft", 0)
   expect(
     await chat.historyPopup.evaluate((element) =>
       parseFloat(getComputedStyle(element).animationDuration),
@@ -66,6 +67,7 @@ test("a 320px host keeps custom slots, chat history, and confirmations usable by
   await captureMoment(page, "320px-embedded-history-and-host-slots")
   await chat.historySearch.press("Escape")
   await expect(chat.history).toBeFocused()
+  await expect(chat.frame).toHaveJSProperty("scrollLeft", 0)
   await chat.history.press("Enter")
   await expect(chat.conversationOption(thread.title)).toBeVisible()
   await chat.historySearch.press("ArrowDown")

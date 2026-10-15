@@ -575,7 +575,7 @@ export function ChatWidget({
     <Card
       data-slot="chat"
       data-closable={closable}
-      className="relative h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
+      className="relative h-full w-full gap-0 overflow-clip rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">

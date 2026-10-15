@@ -68,12 +68,18 @@ export function chatWidget(page: Page) {
 
     async expectWithinFrame(element: Locator): Promise<void> {
       await expect(element).toBeVisible()
-      const frame = (await this.frame.boundingBox())!
-      const bounds = (await element.boundingBox())!
-      expect.soft(bounds.x).toBeGreaterThanOrEqual(frame.x)
-      expect.soft(bounds.y).toBeGreaterThanOrEqual(frame.y)
-      expect.soft(bounds.x + bounds.width).toBeLessThanOrEqual(frame.x + frame.width)
-      expect.soft(bounds.y + bounds.height).toBeLessThanOrEqual(frame.y + frame.height)
+      await expect
+        .poll(async () => {
+          const frame = (await this.frame.boundingBox())!
+          const bounds = (await element.boundingBox())!
+          return Math.max(
+            frame.x - bounds.x,
+            frame.y - bounds.y,
+            bounds.x + bounds.width - frame.x - frame.width,
+            bounds.y + bounds.height - frame.y - frame.height,
+          )
+        })
+        .toBeLessThanOrEqual(0)
     },
 
     composer(): Locator {
