@@ -9,7 +9,7 @@ import { type TodosPage, todosPage } from "./pages/todos-page.ts"
  * setup; keep one-off setup in the spec, and read fixed values such as URLs and seeded identities
  * straight from `worktree.ts`.
  *
- * Playwright's second argument is positional, so it is named `provide` rather than `use`: Deno's
+ * Playwright's second argument is positional, so it is named `provide` rather than `use`: the
  * React lint rules read a bare `use(...)` call as React's own hook.
  */
 export const test = base.extend<{ todos: TodosPage; chat: ChatWidget }>({

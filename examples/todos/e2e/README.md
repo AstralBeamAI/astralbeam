@@ -2,23 +2,23 @@
 
 Browser tests cover the example, SDK, and chat endpoint against a seeded platform. Deterministic specs run without a model, while agent specs use real model calls.
 
-The suite reads its identities from `platform/scripts/seed/fixtures.ts`, which `deno task --cwd platform db-seed` also uses, so there is nothing to copy between the two.
+The suite reads its identities from `platform/scripts/seed/fixtures.ts`, which `bun run --cwd platform db-seed` also uses, so there is nothing to copy between the two.
 
 ## Run it
 
 ```sh
-deno task --cwd platform db-reset          # optional: start from an empty database
-deno task --cwd platform db migrate
-deno task --cwd platform db-seed
-deno task --cwd sdk build                # the example consumes sdk/dist
-deno task --cwd examples/todos e2e:install
-deno task --cwd examples/todos e2e
+bun run --cwd platform db-reset          # optional: start from an empty database
+bun run --cwd platform db migrate
+bun run --cwd platform db-seed
+bun run --cwd sdk build                # the example consumes sdk/dist
+bun run --cwd examples/todos e2e:install
+bun run --cwd examples/todos e2e
 ```
 
-- `deno task --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
-- `deno task --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
+- `bun run --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
+- `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
 - Without `OPENAI_API_KEY` in `platform/.env.local`, from which the seed creates the **Development OpenAI** connection the agent uses, the `agent` project is omitted. Report it as not run, not as passed.
-- `deno task --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
+- `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
 The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
 
@@ -29,7 +29,7 @@ The `list` reporter narrates every `test.step` as it starts and finishes, with i
 Failure videos, traces, and screenshots land in gitignored `e2e/.output`. The HTML report is `e2e/.output/report/index.html`, with traces under `test-results/<test>/trace.zip`.
 
 ```sh
-deno task --cwd examples/todos e2e:capture      # record video, trace, and screenshots for passing specs too
+bun run --cwd examples/todos e2e:capture      # record video, trace, and screenshots for passing specs too
 ```
 
 Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `captureMoment(page, name)` from `capture.ts` attaches a labelled screenshot to the report, for a moment worth showing on its own.
@@ -67,5 +67,4 @@ Compose it from the page objects. A spec should read as the user's steps and not
 - **Do not wait on `role="status"` generally.** The sandbox status pill uses it and stays as long as the conversation has a sandbox.
 - **The widget renders a sandbox file write from the tool call, not its result**, so a row and a download appear even when the sandbox never started. Assert on `Wrote` versus `Could not write`, and on a command's `exit 0`.
 - **`/api/v1/chat` allows 20 new turns a minute per tenant user**, and host-tool continuations count against a separate 200-a-minute bucket. The example mints one fixed tenant user, so every spec shares those windows. `chat.sendAndWait` waits the window out and presses Retry rather than failing.
-- **Keep `vite` out of this folder's import graph.** Playwright loads the config in its own process, where importing `vite` pulls in rolldown's native binding and fails to resolve under Deno.
-- **`@astralbeam/sdk` cannot be imported here.** It reaches the example through a `file:` dependency, which Deno refuses to import as an npm package unless the whole project switches to a manual `node_modules` directory. That is why `tokens.ts` signs tokens itself.
+- **Use the SDK’s server helpers.** `tokens.ts` mints tokens through `createAstralBeamToken`, and preflight verifies that the platform accepts them.

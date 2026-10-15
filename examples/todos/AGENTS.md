@@ -1,6 +1,6 @@
 # Todos example development
 
-- Use Deno for every command and keep this app a standalone consumer of the built SDK through its `file:../../sdk` dependency.
+- Use Bun for every command and keep this app a standalone consumer of the built SDK through its `link:../../sdk` dependency.
 - Keep the host app on plain CSS with no Tailwind or shadcn/ui so it continues to demonstrate the SDK shadow-root boundary.
 - Keep Todos, Users, and Conversations in one shared layout with a persistent assistant and appearance controls. Keep TodosPage, UsersPage, and ConversationsPage separate. Customize SDK styling through existing props in this app, and change the SDK only when an additional prop is needed.
 - Use plain data and helper functions with explicit options objects for application logic. Do not use classes or closure-based state factories.
@@ -11,9 +11,9 @@
 - Keep server-only code in `*.server.ts` files and never import server configuration into client-rendered modules.
 - Do not hardcode AstralBeam brand text outside `src/lib/config.ts` or `src/lib/config.server.ts`. Import centralized labels and identifiers instead.
 - Colocate unit tests under `src`. Keep `vitest.config.ts` scoped to them so it does not collect Playwright specs under `e2e`.
-- Run `deno task ready` before publishing changes to this example.
-- Browser tests live in `e2e`, run with Playwright through `deno task e2e`, as permitted by the root test policy. Read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `platform/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
+- Run `bun run ready` before publishing changes to this example.
+- Browser tests live in `e2e`, run with Playwright through `bun run e2e`, as permitted by the root test policy. Read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `platform/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
 - Keep deterministic specs in `e2e/specs/app` and specs that drive a real agent in `e2e/specs/agent`, because the latter spend model credits on every run.
 - Keep `mintSeedChatAuthToken(apiKey: string)` fixed to the default seed identity. Tests needing another user must select an existing seeded identity and use the built server SDK, without adding identity or permission overrides to this helper.
 - Keep the example's user listing tenant-scoped and reuse its chat token endpoint. Exercise organization scope in browser fixtures, without adding an organization-token endpoint or tenant directory page to this app.
-- Keep `vite` and `@astralbeam/sdk` out of the `e2e` import graph: Playwright loads its config in a separate process where the former's native binding fails to resolve, and Deno refuses to import the latter through its `file:` dependency.
+- Browser tests use the built SDK’s server helpers for token minting. Keep configuration loading independent of application startup.

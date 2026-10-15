@@ -1,7 +1,6 @@
 import { expect, test } from "../../fixtures.ts"
 import { seedTarget } from "../../worktree.ts"
-// @deno-types="../../../../../sdk/dist/server.d.ts"
-import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
+import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import type { Page } from "@playwright/test"
 
 async function openAuthentication(page: Page) {
