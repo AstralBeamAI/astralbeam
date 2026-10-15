@@ -13,7 +13,7 @@ MCP servers provide tools from remote services. A server definition stores its e
 
 **NOTE**: This client supports MCP 2026-07-28 over Streamable HTTP, including JSON and request-scoped SSE responses. Older protocol revisions, stdio and private-network endpoints are unsupported. A provider's OAuth setup succeeding does not prove that its MCP endpoint supports this revision.
 
-**NOTE**: Tool input fields marked with `x-mcp-header` are sent as arguments, without copying them into HTTP headers. Structured results require the server to declare an output schema.
+**NOTE**: Tool input fields marked with `x-mcp-header` are sent as arguments and copied into their declared `Mcp-Param-*` HTTP headers. Structured results require the server to declare an output schema.
 
 Each run discovers at most 16 connected servers and exposes their tools. Additional connections are reported as unavailable for that run.
 

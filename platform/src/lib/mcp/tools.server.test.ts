@@ -119,15 +119,27 @@ describe("request-oriented MCP tools", () => {
       )
     }
   })
-  test("discovers paginated tools and executes JSON and SSE responses", async () => {
+  test("discovers paginated tools and mirrors input headers for JSON and SSE responses", async () => {
     for (const sse of [false, true])
       await withMcpTools(
         async (set) => {
           expect(set.unavailable).toEqual([])
           expect(set.tools).toHaveLength(1)
           const tool = set.tools[0]!
-          expect(await tool.execute({ region: "eu" }, undefined)).toEqual({ ok: true })
-          expect(mcpToolFixture.state.calls).toBe(1)
+          const regions = [
+            ["eu", "eu"],
+            ["", "=?base64??="],
+            ["é", "=?base64?w6k=?="],
+            [" eu ", "=?base64?IGV1IA==?="],
+            ["a\r\nb", "=?base64?YQ0KYg==?="],
+            ["a\tb", "a\tb"],
+            ["=?base64?YQ==?=", "=?base64?PT9iYXNlNjQ/WVE9PT89?="],
+          ]
+          for (const [region, header] of regions) {
+            expect(await tool.execute({ region }, undefined)).toEqual({ ok: true })
+            expect(mcpToolFixture.state.regionHeader).toBe(header)
+          }
+          expect(mcpToolFixture.state.calls).toBe(regions.length)
         },
         { state: { sse } },
       )

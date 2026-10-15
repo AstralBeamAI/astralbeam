@@ -17,6 +17,7 @@ export async function startMcpFixture() {
     registrations: 0,
     refreshes: 0,
     calls: 0,
+    regionHeader: undefined as string | string[] | undefined,
     refreshError: "",
     gatewayError: false,
     authorizationError: "",
@@ -141,7 +142,7 @@ export async function startMcpFixture() {
                       title: "Look up",
                       inputSchema: {
                         type: "object",
-                        properties: { region: { type: "string" } },
+                        properties: { region: { type: "string", "x-mcp-header": "Region" } },
                         required: ["region"],
                         additionalProperties: false,
                       },
@@ -155,6 +156,7 @@ export async function startMcpFixture() {
                 }
         } else if (body.method === "tools/call") {
           state.calls++
+          state.regionHeader = request.headers["mcp-param-region"]
           if (state.lostToolResponse) return response.destroy()
           await state.toolGate?.()
           result = {

@@ -29,6 +29,37 @@ function mcpToolAlias(connectionId: string, nativeName: string): string {
   return `mcp_${connectionId.replaceAll("-", "")}_${createHash("sha256").update(nativeName).digest("hex").slice(0, 24)}`
 }
 
+// Work around ai-mcp bypassing SDK tool headers and cancellation.
+// https://github.com/TanStack/ai/issues/1794
+function mcpInputHeaders(schema: JsonSchemaType, args: unknown, headers = new Headers()): Headers {
+  if (!args || typeof args !== "object") return headers
+  for (const [key, property] of Object.entries(schema.properties ?? {})) {
+    if (!property || typeof property !== "object") continue
+    const value = (args as Record<string, unknown>)[key]
+    const name = (property as Record<string, unknown>)["x-mcp-header"]
+    if (name !== undefined && value != null) {
+      if (
+        typeof name !== "string" ||
+        !name ||
+        headers.has(`Mcp-Param-${name}`) ||
+        (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean")
+      )
+        throw new McpUnavailable()
+      const text = String(value)
+      headers.set(
+        `Mcp-Param-${name}`,
+        /^[\t\u0020-\u007e]+$/.test(text) &&
+          text === text.trim() &&
+          !/^=\?base64\?.*\?=$/.test(text)
+          ? text
+          : `=?base64?${Buffer.from(text).toString("base64")}?=`,
+      )
+    }
+    mcpInputHeaders(property, value, headers)
+  }
+  return headers
+}
+
 const makeMcpTools = Effect.gen(function* () {
   const connections = yield* McpConnections
   const authorization = yield* McpAuthorization
@@ -39,12 +70,13 @@ const makeMcpTools = Effect.gen(function* () {
         Effect.promise(() => agent.close()),
       )
       const credentialInput = { ...input, expectedVersion: connection.lockVersion }
-      // Modern ai-mcp calls omit the HTTP signal, so carry it through the scoped fetch.
-      // https://unpkg.com/@tanstack/ai-mcp@0.8.3/src/tools.ts
-      const callSignals = new AsyncLocalStorage<AbortSignal | undefined>()
+      const callSignals = new AsyncLocalStorage<{
+        signal: AbortSignal | undefined
+        headers?: Headers
+      }>()
       const readCredential = (rejectedToken?: string) =>
         Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken }), {
-          signal: callSignals.getStore(),
+          signal: callSignals.getStore()?.signal,
         }).then(Redacted.value)
       let lastToken: string | undefined
       let pages = 0
@@ -55,7 +87,7 @@ const makeMcpTools = Effect.gen(function* () {
         fetch: async (url, init) => {
           const headers = new Headers(init?.headers)
           const method = headers.get("Mcp-Method") ?? ""
-          const signal = callSignals.getStore()
+          const signal = callSignals.getStore()?.signal
           if (headers.get("MCP-Protocol-Version") !== MCP_PROTOCOL_VERSION || !method)
             throw new McpUnsupportedProtocol()
           if (
@@ -63,6 +95,9 @@ const makeMcpTools = Effect.gen(function* () {
             (method === "tools/list" && pages >= MCP_MAX_DISCOVERY_PAGES)
           )
             throw new McpUnavailable()
+          if (method === "tools/call")
+            for (const [name, value] of callSignals.getStore()?.headers ?? [])
+              headers.set(name, value)
           const credential = await readCredential()
           if (credential.kind === "static_headers")
             for (const [name, value] of Object.entries(credential.headers)) headers.set(name, value)
@@ -98,7 +133,7 @@ const makeMcpTools = Effect.gen(function* () {
       const client = yield* Effect.acquireRelease(
         Effect.tryPromise({
           try: (signal) =>
-            callSignals.run(signal, () =>
+            callSignals.run({ signal }, () =>
               createMCPClient({
                 transport,
                 clientOptions: { capabilities: { elicitation: undefined, sampling: undefined } },
@@ -112,7 +147,7 @@ const makeMcpTools = Effect.gen(function* () {
         (opened) => Effect.promise(() => opened.close()),
       )
       const tools = yield* Effect.tryPromise({
-        try: (signal) => callSignals.run(signal, () => client.tools()),
+        try: (signal) => callSignals.run({ signal }, () => client.tools()),
         catch: () => new McpUnavailable(),
       }).pipe(Effect.onError(() => Effect.promise(() => client.close())))
       return yield* Effect.try({
@@ -142,8 +177,12 @@ const makeMcpTools = Effect.gen(function* () {
               },
               execute: async (args: unknown, context?: ToolExecutionContext) => {
                 try {
-                  return await callSignals.run(context?.abortSignal, () =>
-                    remote.execute!(args, context),
+                  return await callSignals.run(
+                    {
+                      signal: context?.abortSignal,
+                      headers: mcpInputHeaders(remote.inputSchema as JsonSchemaType, args),
+                    },
+                    () => remote.execute!(args, context),
                   )
                 } catch {
                   throw new McpUnavailable()
