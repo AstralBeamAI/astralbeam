@@ -1525,8 +1525,8 @@ test("refresh after membership removal leaves a fresh conversation without an er
   expect(chat.getState().error).toBeUndefined()
 })
 
-function acceptedStream(id: string) {
-  const run = { threadId: thread.id, runId: `run-${id}` }
+function acceptedStream(id: string, threadId = thread.id) {
+  const run = { threadId, runId: `run-${id}` }
   const text = { messageId: `reply-${id}` }
   return new Response(
     [
@@ -1534,7 +1534,7 @@ function acceptedStream(id: string) {
       {
         type: "CUSTOM",
         name: "astralbeam_thread",
-        value: { threadId: thread.id, version: 2, acceptedMessageId: `user-${id}` },
+        value: { threadId, version: 2, acceptedMessageId: `user-${id}` },
       },
       { type: "TEXT_MESSAGE_START", ...text, role: "assistant" },
       { type: "TEXT_MESSAGE_CONTENT", ...text, delta: "Reply" },
@@ -1742,4 +1742,93 @@ test("an older page adds its messages without replacing the latest thread state"
   await chat.loadOlderMessages()
   expect(chat.getState().messages.map((message) => message.id)).toEqual(["older", "latest"])
   expect(chat.getState().thread).toMatchObject({ title: "Current title", version: 4 })
+})
+
+test.each(["account", "api", "dispose"] as const)(
+  "a send waiting when its %s scope ends is refused and never reaches the next scope",
+  async (change) => {
+    let user = currentUser
+    let holding = false
+    const held: Array<() => void> = []
+    const posted: unknown[] = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
+      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (path.endsWith("/chat")) {
+        if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
+        posted.push(
+          (JSON.parse(init.body) as { messages: Array<{ content: unknown }> }).messages.at(-1)
+            ?.content,
+        )
+        return Promise.resolve(acceptedStream(String(posted.length)))
+      }
+      const response = Response.json(page())
+      if (!holding) return Promise.resolve(response)
+      return new Promise<Response>((resolve) => held.push(() => resolve(response)))
+    })
+    const chat = createTestSession({ threadId: thread.id })
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    holding = true
+    void chat.refreshThread()
+    await vi.waitUntil(() => held.length > 0)
+    const outcome = chat.sendMessage("Private to the first scope")
+    // Lets the send pass its token check and wait on the held history read.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    if (change === "account") {
+      user = { ...currentUser, user: { id: "another-user" } }
+      chat.retryAuthentication()
+    } else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+    else chat.dispose()
+    holding = false
+    for (const release of held) release()
+    expect(await outcome).toMatchObject({ phase: "refused", content: "Private to the first scope" })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first scope")
+    const next =
+      change === "dispose"
+        ? undefined
+        : await vi
+            .waitUntil(() => chat.getState().thread && chat.getState().history === "idle")
+            .then(() => chat.sendMessage("Next scope"))
+    expect(next?.phase).toBe(change === "dispose" ? undefined : "accepted")
+    expect(posted).toEqual(change === "dispose" ? [] : ["Next scope"])
+  },
+)
+
+test("a send after Stop keeps its own conversation when the cancelled creation finishes", async () => {
+  const second = { ...thread, id: "00000000-0000-4000-8000-000000000002", title: "" }
+  let creations = 0
+  let release: (() => void) | undefined
+  const targets: string[] = []
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST") {
+      if (++creations === 2) return Promise.resolve(Response.json(second))
+      return new Promise<Response>((resolve) => {
+        release = () => resolve(Response.json({ ...thread, title: "", version: 0 }))
+      })
+    }
+    if (path.endsWith("/chat")) {
+      if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
+      const { threadId } = JSON.parse(init.body) as { threadId: string }
+      targets.push(threadId)
+      return Promise.resolve(acceptedStream(String(targets.length), threadId))
+    }
+    const id = path.split("/").at(-2)!
+    return Promise.resolve(Response.json({ ...page(), thread: id === second.id ? second : thread }))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const cancelled = chat.sendMessage("Cancelled")
+  await vi.waitUntil(() => release)
+  chat.stop()
+  expect(await cancelled).toMatchObject({ phase: "refused", content: "Cancelled" })
+  expect(await chat.sendMessage("Kept")).toMatchObject({ phase: "accepted" })
+  release!()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(chat.getState().thread?.id).toBe(second.id)
+  expect(await chat.sendMessage("Next")).toMatchObject({ phase: "accepted" })
+  expect(targets).toEqual([second.id, second.id])
 })

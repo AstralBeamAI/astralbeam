@@ -89,7 +89,8 @@ Generate shadcn components with `bun run ui add <component>` and allow only mini
 - Label history-only recovery as Refresh. Retry submits unacknowledged input, and an empty server hydration must clear rejected optimistic messages.
 - Keep three owners separate: `submission` for one input's identity, acceptance, and retry, `status` for the response run, and `history` for loading and reconciling saved data. Accepted does not mean the response finished.
 - Admit an attempt only while no submission is active. A declined attempt resolves `refused` to its caller and never replaces `state.submission`. Change phases only through the session's transition table.
-- Stop and navigation settle a send. Before dispatch it is `refused` back to its sender, and after dispatch it is `failed` with Retry. A send waits for a full history read in flight.
+- Every owner change, whether Stop, navigation, an account or API change, or disposal, settles the send before dropping it. Before dispatch it is `refused` back to its sender at once, and after dispatch it is `failed` with Retry.
+- A send's pending work, thread creation included, continues or publishes only while it is still the session's submitting send. A send waits for a full history read in flight.
 - Guard delayed client work by client identity and session work by selection. The latest full history read owns thread-wide state, and older pages only add messages.
 - Recover refused input from the submission's content and the files handed to the send. Local storage is only the reload backup.
 - Build a future queue on these contracts. Each queued input is a submission with its own ID in a `queued` phase that moves to `submitting` at a turn boundary, including pending tool runs, and keeps its content, callbacks, and key. Persist queued input per submission rather than in the composer. Steering a running response needs a server contract that names its target turn.
