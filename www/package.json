@@ -10,18 +10,18 @@
     "generate-routes": "tsr generate",
     "build": "NODE_ENV=production vite build",
     "preview": "vite preview",
-    "check": "deno task format:check && deno task lint && deno task typecheck && deno task knip",
-    "check:fix": "deno task lint:fix && deno task format",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
+    "check:fix": "bun run lint:fix && bun run format",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "knip": "knip",
-    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && deno install --frozen",
+    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && bun install --frozen-lockfile",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "ready": "deno run --allow-env=CI --allow-run=deno ../scripts/ready.ts check build test",
+    "ready": "bun run ../scripts/ready.ts check build test",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "deploy": "deno task ready && wrangler deploy"
+    "deploy": "bun run ready && wrangler deploy"
   },
   "dependencies": {
     "@fontsource-variable/space-grotesk": "^5.2.8",
@@ -57,5 +57,6 @@
     "vite": "^8.3.4",
     "vitest": "^5.0.4",
     "wrangler": "^4.151.0"
-  }
+  },
+  "packageManager": "bun@1.4.3"
 }

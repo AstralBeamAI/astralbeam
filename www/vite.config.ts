@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => ({
             // a top-level fallthrough asset root, and reading from it throws in dev, so pointing it
             // inside the project breaks `dev` for every path that the last build wrote a file for.
             // https://github.com/nitrojs/nitro/blob/v3/src/vite.ts
-            preset: "node-server",
+            preset: "bun",
             prerender: {
               routes: prerenderRoutes,
               crawlLinks: false,

@@ -9,8 +9,6 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    // `tsc` runs the typecheck, so unlike the Deno-checked projects this one declares Node's
-    // types itself for the build config, the prerendered resource routes, and the suite.
     "types": ["node", "vite/client", "@tanstack/react-start"]
   }
 }
