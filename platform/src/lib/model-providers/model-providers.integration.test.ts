@@ -29,6 +29,7 @@ import { formatAgentId } from "@/lib/agents/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import {
   catalogModelConfiguration,
+  modelPriceCatalogProviderIds,
   readModelPriceCatalog,
   writeModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
@@ -164,7 +165,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     )
     expect(untrusted._tag).toBe("ModelConfigurationMissing")
     const previous = await runAppEffect(readModelPriceCatalog)
-    const providers = ["openai", "anthropic", "openrouter"].map((id) => ({
+    const providers = Object.values(modelPriceCatalogProviderIds).map((id) => ({
       id,
       api_pattern: `${id}.com`,
       models: [
