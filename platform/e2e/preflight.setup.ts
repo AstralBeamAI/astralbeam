@@ -8,7 +8,9 @@ import { e2eDatabaseUrl, mailboxUrl, platformUrl } from "./worktree.ts"
  */
 
 test("the platform and the mail sink are both answering", async ({ request }) => {
-  expect((await request.get(`${platformUrl}/api/status`)).status()).toBe(200)
+  // This first server request compiles the SSR graph while the parallel todos suite also starts.
+  test.setTimeout(90_000)
+  expect((await request.get(`${platformUrl}/api/status`, { timeout: 60_000 })).status()).toBe(200)
   const mailbox = await request.get(`${mailboxUrl}/health`)
   expect(mailbox.status(), "The mail sink did not start").toBe(200)
   expect(await mailbox.json()).toMatchObject({ ok: true })
