@@ -273,6 +273,10 @@ test.each([
   "a rejection $status permits editing only without earlier uncertainty=$uncertain",
   async ({ status, uncertain }) => {
     const keys: Array<string | null> = []
+    const bodies: {
+      tools: { name: string }[]
+      forwardedProps: { toolMetadata: Record<string, unknown> }
+    }[] = []
     stubSessionFetch((input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
       if (path.endsWith("/config"))
@@ -296,13 +300,20 @@ test.each([
         ),
       )
     })
-    const chat = createTestSession({ threadId: thread.id })
+    const chat = createTestSession({
+      threadId: thread.id,
+      tools: { old_tool: { description: "Old", execute: () => null } },
+    })
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     await chat.sendMessage("Original input")
     if (uncertain) await chat.retry()
+    chat.updateOptions({ tools: { new_tool: { description: "New", execute: () => null } } })
     const corrected = await chat.sendMessage("Corrected input")
     expect(keys).toHaveLength(2)
     expect(keys[1] === keys[0]).toBe(uncertain)
+    const name = uncertain ? "old_tool" : "new_tool"
+    expect(bodies[1]!.tools.map((tool) => tool.name)).toContain(name)
+    expect(bodies[1]!.forwardedProps.toolMetadata).toHaveProperty(name)
     expect(chat.getState().submission).toMatchObject({
       phase: uncertain ? "failed" : "refused",
       content: uncertain ? "Original input" : "Corrected input",
@@ -761,7 +772,12 @@ test.each<
           source_part_id: "application-part",
           response_target_id: "target",
           outcome: throwsAfterCommit ? "unknown" : "succeeded",
-          output: throwsAfterCommit ? { error: "Response lost after mutation" } : { content: [{ type: "text", text: '{"changed":true}' }], structuredContent: { changed: true } },
+          output: throwsAfterCommit
+            ? { error: "Response lost after mutation" }
+            : {
+                content: [{ type: "text", text: '{"changed":true}' }],
+                structuredContent: { changed: true },
+              },
         },
       ],
     })
@@ -1075,14 +1091,20 @@ test("a browser tool and widget can continue through consecutive committed turns
   expect(outputs).toEqual([
     expect.objectContaining({
       results: [
-        expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
+        expect.objectContaining({
+          source_message_id: "assistant-1",
+          output: {
+            content: [{ type: "text", text: '{"done":true}' }],
+            structuredContent: { done: true },
+          },
+        }),
       ],
     }),
     expect.objectContaining({
       results: [
         expect.objectContaining({
           source_message_id: "assistant-2",
-          output: { widget: "card", rendered: true },
+          output: { content: [{ type: "text", text: "Displayed card" }] },
         }),
       ],
     }),
@@ -1647,7 +1669,7 @@ test("a session restarted like React Strict Mode keeps loading history and sendi
     if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
     return Promise.resolve(Response.json(page()))
   })
-  const chat = createTestSession({ fetchAstralBeamToken: chatTestToken, threadId: "new" }, true)
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatTestToken, threadId: "new" }, true)
   try {
     chat.start()
     chat.dispose()
@@ -1951,69 +1973,117 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   expect(sends).not.toHaveBeenCalled()
 })
 
-test("a host update during send keeps metadata paired with the captured tools", async () => {
-  let body:
-    | {
-        tools: { name: string }[]
-        forwardedProps: { toolMetadata: Record<string, unknown> }
+test.each([false, true])(
+  "a host update keeps captured tool metadata through delayed continuation=%s",
+  async (delayed) => {
+    let admitted = false
+    let continued = false
+    let body:
+      | {
+          tools: { name: string }[]
+          forwardedProps: { toolMetadata: Record<string, unknown> }
+        }
+      | undefined
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+      if (path.endsWith("/config"))
+        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      if (path.endsWith("/messages"))
+        return Promise.resolve(
+          Response.json(
+            admitted && !continued
+              ? {
+                  ...page([
+                    savedAssistantMessage({
+                      id: "question-part",
+                      toolCallId: "question",
+                      name: "ask_questionnaire",
+                      input: { items: [] },
+                    }),
+                  ]),
+                  pending_interactions: [
+                    {
+                      source_message_id: "assistant",
+                      source_part_id: "question-part",
+                      response_target_id: "target",
+                      tool_call_id: "question",
+                      target_tenant_user_id: "user",
+                      target_client_id: null,
+                      execution_location: "browser",
+                    },
+                  ],
+                }
+              : page(),
+          ),
+        )
+      if (path.endsWith("/threads"))
+        return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+      if (path.endsWith("/chat")) {
+        body = JSON.parse(init!.body as string) as typeof body
+        if (delayed) {
+          admitted = true
+          return Promise.resolve(acceptedStream("initial"))
+        }
       }
-    | undefined
-  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-    const path = new URL(input).pathname
-    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-    if (path.endsWith("/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
-    if (path.endsWith("/threads"))
-      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
-    body = JSON.parse(init!.body as string) as typeof body
-    const run = { threadId: thread.id, runId: "run" }
-    const events = [
-      { type: "RUN_STARTED", ...run },
-      {
-        type: "TOOL_CALL_START",
-        parentMessageId: "assistant",
-        toolCallId: "call",
-        toolCallName: "old_tool",
-      },
-      { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
-      { type: "TOOL_CALL_END", toolCallId: "call" },
-      { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
-    ]
-    return Promise.resolve(
-      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
-        headers: { "content-type": "text/event-stream" },
-      }),
-    )
-  })
-  const chat = createTestSession({
-    threadId: thread.id,
-    tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
-    widgets: { card: { description: "Card" } },
-    streamCallbacks: {
-      onResponse: () =>
-        chat.updateOptions({
-          tools: { new_tool: { description: "New", execute: () => ({}) } },
+      continued = true
+      const run = { threadId: thread.id, runId: "run" }
+      const events = [
+        { type: "RUN_STARTED", ...run },
+        {
+          type: "TOOL_CALL_START",
+          parentMessageId: "assistant",
+          toolCallId: "call",
+          toolCallName: "old_tool",
+        },
+        { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+        { type: "TOOL_CALL_END", toolCallId: "call" },
+        { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
+      ]
+      return Promise.resolve(
+        new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+          headers: { "content-type": "text/event-stream" },
         }),
-    },
-  })
-  let streamedPart: unknown
-  const unsubscribe = chat.subscribe(() => {
-    const part = chat
-      .getState()
-      .messages.flatMap((message) => message.parts)
-      .find((part) => part.type === "tool-call")
-    if (part) streamedPart = { ...part }
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-    await chat.sendMessage("Check snapshot")
-    expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
-    expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
-    expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
-    expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
-  } finally {
-    unsubscribe()
-    chat.dispose()
-  }
-})
+      )
+    })
+    const chat = createTestSession({
+      threadId: thread.id,
+      tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
+      widgets: { card: { description: "Card" } },
+      streamCallbacks: {
+        onResponse: () =>
+          chat.updateOptions({
+            tools: { new_tool: { description: "New", execute: () => ({}) } },
+          }),
+      },
+    })
+    let streamedPart: unknown
+    const unsubscribe = chat.subscribe(() => {
+      const part = chat
+        .getState()
+        .messages.flatMap((message) => message.parts)
+        .find((part) => part.type === "tool-call" && part.name === "old_tool")
+      if (part) streamedPart = { ...part }
+    })
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+      await chat.sendMessage("Check snapshot")
+      if (delayed) {
+        await chat.refreshThread()
+        await chat.addToolResult({
+          tool: "ask_questionnaire",
+          toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+          output: { answers: [] },
+          state: "output-available",
+        })
+      }
+      expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+      expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+      expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+      expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
+    } finally {
+      unsubscribe()
+      chat.dispose()
+    }
+  },
+)

@@ -93,7 +93,10 @@ for (const name of ["show_todoCard", "update_todo"]) {
                               toolCallId: "widget-call",
                               outcome: "succeeded",
                               resultVersion: 1,
-                              output: result,
+                              output: {
+                                ...result,
+                                uiData: { privateLabel: "widget-private-sentinel" },
+                              },
                             },
                           ],
                         },
@@ -238,5 +241,12 @@ for (const name of ["show_todoCard", "update_todo"]) {
     expect(sends).toBe(1)
     expect(deliveries).toBe(1)
     await captureMoment(page, `${name}-restored-without-execution`)
+    thread.role = "viewer"
+    await page.reload()
+    await chat.savedTool.click()
+    await expect(chat.root).toContainText(result.content[0]!.text)
+    await expect(chat.root).not.toContainText("widget-private-sentinel")
+    expect(sends).toBe(1)
+    expect(deliveries).toBe(1)
   })
 }

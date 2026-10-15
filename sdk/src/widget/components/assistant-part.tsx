@@ -95,6 +95,11 @@ function ToolCallDisclosure({
   )
   // Failed client executions store the thrown message as `{ error }` in the output.
   const detail = failed ? (part.output as { error?: string } | null | undefined)?.error : undefined
+  let output: unknown = part.output
+  if (part.resultVersion === 1 && output) {
+    const { content, structuredContent, isError } = output as ToolResult
+    output = { content, structuredContent, isError }
+  }
   return (
     <ToolDisclosure
       icon={failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
@@ -121,7 +126,7 @@ function ToolCallDisclosure({
         </HighlightedCode>
         <HighlightedCode title="Output" language="json" wrap>
           {settled
-            ? formatToolJson(part.output) || "\u2014"
+            ? formatToolJson(output) || "\u2014"
             : readOnly
               ? "No saved result."
               : "Waiting for the result\u2026"}
@@ -249,13 +254,14 @@ export function AssistantPart({
       const title =
         (part as ChatToolCallPart).savedToolTitle ??
         (Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined)
-      const failed = part.state === "error" || ((part as ChatToolCallPart).resultVersion === 1 && (part.output as ToolResult | undefined)?.isError === true)
+      const failed =
+        part.state === "error" ||
+        ((part as ChatToolCallPart).resultVersion === 1 &&
+          (part.output as ToolResult | undefined)?.isError === true)
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
           return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
-        return (
-          <ToolCallDisclosure part={part} title={title} failed={failed} readOnly />
-        )
+        return <ToolCallDisclosure part={part} title={title} failed={failed} readOnly />
       }
       if (interrupted && !isSettledToolCall(part))
         return <FailureMarker>This action request was interrupted.</FailureMarker>

@@ -514,63 +514,67 @@ test("a late release keeps the cleanup of the render that took over the tool cal
   expect(cleanupsRun).toEqual(["call-1", "call-1"])
 })
 
-test("attached widgets share app controls and dispose a failed update without remounting", async () => {
-  const result = {
-    content: [{ type: "text", text: "Updated" }],
-    structuredContent: { updated: true },
-    uiData: { label: "For the widget" },
-  }
-  const pending = Promise.withResolvers<ReturnType<typeof toolResult>>()
-  const action = vi.fn(() => Promise.resolve({ updated: true }))
-  const updates = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
-  const dispose = vi.fn()
-  const render = vi.fn((_request: WidgetRenderRequest) => ({ update: updates, dispose }))
-  const chat = createTestSession({
-    threadId: thread.id,
-    widgets: { card: { description: "Card" } },
-    tools: {
-      change: { description: "Change", widget: "card", execute: () => pending.promise },
-      action: { description: "Widget action", visibility: ["app"], execute: action },
-      model_only: { description: "Model action", visibility: ["model"], execute: action },
-    },
-    onRenderWidget: render,
-  })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
-    mocked.onCustomEvent?.("astralbeam_thread", {
+test.each(["update", "definition", "renderer"])(
+  "attached widgets share app controls and dispose unavailable %s without remounting",
+  async (unavailable) => {
+    const result = {
+      content: [{ type: "text", text: "Updated" }],
+      structuredContent: { updated: true },
+      uiData: { label: "For the widget" },
+    }
+    const pending = Promise.withResolvers<ReturnType<typeof toolResult>>()
+    const action = vi.fn(() => Promise.resolve({ updated: true }))
+    const updates = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
+    const dispose = vi.fn()
+    const render = vi.fn((_request: WidgetRenderRequest) => ({ update: updates, dispose }))
+    const chat = createTestSession({
       threadId: thread.id,
-      version: 1,
-      saved: true,
-      executableToolCallIds: ["attached-call"],
+      widgets: { card: { description: "Card" } },
+      tools: {
+        change: { description: "Change", widget: "card", execute: () => pending.promise },
+        action: { description: "Widget action", visibility: ["app"], execute: action },
+        model_only: { description: "Model action", visibility: ["model"], execute: action },
+      },
+      onRenderWidget: render,
     })
-    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
-      {},
-      { toolCallId: "attached-call" },
-    )
-    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
-    const context = render.mock.calls[0]![0].context
-    expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
-    await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
-    await expect(context.callTool("toString")).rejects.toThrow("unavailable")
-    await expect(context.callTool("action")).resolves.toEqual({ updated: true })
-    expect(action).toHaveBeenCalledTimes(1)
-    updates.mockImplementationOnce(() => {
-      throw new Error("Update failed")
-    })
-    pending.resolve(toolResult(result))
-    await execution
-    expect(updates).toHaveBeenLastCalledWith(
-      expect.objectContaining({ status: "complete", result }),
-    )
-    expect(render).toHaveBeenCalledTimes(1)
-    expect(dispose).toHaveBeenCalledTimes(1)
-    chat.reset()
-    await expect(context.callTool("action", {})).rejects.toThrow()
-    expect(action).toHaveBeenCalledTimes(1)
-  } finally {
-    chat.dispose()
-  }
-})
+    try {
+      await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+      mocked.onCustomEvent?.("astralbeam_thread", {
+        threadId: thread.id,
+        version: 1,
+        saved: true,
+        executableToolCallIds: ["attached-call"],
+      })
+      const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+        {},
+        { toolCallId: "attached-call" },
+      )
+      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+      const context = render.mock.calls[0]![0].context
+      expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
+      await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
+      await expect(context.callTool("toString")).rejects.toThrow("unavailable")
+      await expect(context.callTool("action")).resolves.toEqual({ updated: true })
+      expect(action).toHaveBeenCalledTimes(1)
+      if (unavailable === "definition") chat.updateOptions({ widgets: {}, tools: {} })
+      else if (unavailable === "renderer") chat.updateOptions({ onRenderWidget: undefined })
+      else
+        updates.mockImplementationOnce(() => {
+          throw new Error("Update failed")
+        })
+      pending.resolve(toolResult(result))
+      await execution
+      expect(updates).toHaveBeenCalledTimes(unavailable === "update" ? 1 : 0)
+      expect(render).toHaveBeenCalledTimes(1)
+      expect(dispose).toHaveBeenCalledTimes(1)
+      chat.reset()
+      await expect(context.callTool("action", {})).rejects.toThrow()
+      expect(action).toHaveBeenCalledTimes(1)
+    } finally {
+      chat.dispose()
+    }
+  },
+)
 
 test("saved attached widgets hydrate UI data without replaying their business action", async () => {
   const result = {

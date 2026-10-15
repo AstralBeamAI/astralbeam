@@ -1,4 +1,10 @@
-import { AstralBeamChat, type ToolDefinition, type ToolRegistry, type WidgetDefinition, type WidgetRegistry } from "@astralbeam/sdk/react"
+import {
+  AstralBeamChat,
+  type ToolDefinition,
+  type ToolRegistry,
+  type WidgetDefinition,
+  type WidgetRegistry,
+} from "@astralbeam/sdk/react"
 import { ArrowClockwiseIcon, SparkleIcon, XIcon } from "@phosphor-icons/react"
 import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import {

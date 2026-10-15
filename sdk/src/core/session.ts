@@ -514,6 +514,7 @@ export function createAstralBeamChat(
         ? live.widgets[input.widget]
         : undefined
     if (!declaration) {
+      renders.get(toolCallId)?.dispose()
       throw new Error(`Unknown widget "${input.widget}"`)
     }
     const validated = declaration.parameters
@@ -527,7 +528,10 @@ export function createAstralBeamChat(
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
     const onRenderWidget = live.onRenderWidget
-    if (!onRenderWidget) return { widget: input.widget, rendered: false }
+    if (!onRenderWidget) {
+      renders.get(toolCallId)?.dispose()
+      return { widget: input.widget, rendered: false }
+    }
     const previous = renders.get(toolCallId)
     if (previous?.controller.signal.aborted) status = "cancelled"
     if (!previous?.update) previous?.dispose()
@@ -853,8 +857,10 @@ export function createAstralBeamChat(
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
         (error.status === 400 || error.status === 413 || error.status === 429)
-      )
-        { delete sent.tools; delete sent.toolMetadata }
+      ) {
+        delete sent.tools
+        delete sent.toolMetadata
+      }
       throw error
     })
     if (generation !== selectionGeneration)
@@ -1164,8 +1170,11 @@ export function createAstralBeamChat(
         if (client !== next) return
         // Capture tool metadata before host callbacks can update the captured definitions.
         // https://github.com/TanStack/ai/blob/main/packages/ai-client/src/chat-client.ts
-        if (submission) submission.toolMetadata ??= declaredToolMetadata
-        runToolMetadata = submission?.toolMetadata ?? declaredToolMetadata
+        if (submission?.phase === "submitting") {
+          submission.toolMetadata ??= declaredToolMetadata
+          runToolMetadata = submission.toolMetadata
+        }
+        runToolMetadata ??= declaredToolMetadata
         live.streamCallbacks?.onResponse?.(response)
       },
       onFinish: (message) => {
