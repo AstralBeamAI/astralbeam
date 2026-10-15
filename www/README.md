@@ -10,6 +10,7 @@ Run common commands from the repository root:
 bun run --cwd www dev      # development server on 4600
 bun run --cwd www build    # static output in .output/public/
 bun run --cwd www preview  # production preview on 4001
+bun run --cwd www generate:blog-images # refresh optimized PNGs from blog SVGs
 bun run --cwd www ready    # check, build, then test
 bun run --cwd www deploy   # ready, then deploy to Cloudflare
 ```
@@ -33,11 +34,15 @@ Structure:
 - `src/scripts/main.ts`, canvas starfield, scramble-in headlines, scroll reveals, per-snippet terminal typing, and the hardcoded agent-sidebar prototype replay in the hero. The landing route starts it from an effect, and it owns that DOM outright afterwards
 - `scripts/verify-build.test.ts`, Vitest contract tests for page metadata and every generated discovery asset
 
-`vite.config.ts` lists every prerendered route. Add a route there when adding a page, otherwise the build will not emit it. The platform serves this website under its own origin through the rewrites in `platform/src/routes/-lib/website-rewrite.server.ts`, so add the page there too, and keep build assets under `/website-assets/`, the prefix it proxies.
+`vite.config.ts` lists fixed prerendered routes and discovers blog routes from Markdown filenames. Add other new routes there, otherwise the build will not emit them. The platform serves this website under its own origin through the rewrites in `platform/src/routes/-lib/website-rewrite.server.ts`, so add other new public paths there too, and keep build assets under `/website-assets/`, the prefix it proxies. The `/blog/` prefix includes posts, the feed, and blog images.
+
+Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
+
+Fenced blocks with the language `demo` embed the interactive example named inside, such as `retry`. The available examples are in `src/routes/blog/-components/failure-demo.tsx`. Normal Markdown handles the rest of the article. These examples run entirely in the browser with synthetic data and no model calls. Keep each example's explanation in the Markdown so the article remains useful without JavaScript.
 
 Two caveats for the development server. Vite claims `.png` requests before Nitro sees them, so `/favicon.png` and `/og-image.png` answer 404 under `dev` while building them correctly. Nitro also registers its public output directory as a top-level asset root, so do not point `output.publicDir` back inside the project: every path the last build wrote a file for would then fail under `dev`.
 
-All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono).
+All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono / Source Serif 4).
 
 ## Hosted domain redirects
 

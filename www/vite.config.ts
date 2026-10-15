@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
@@ -7,12 +8,19 @@ import { defineConfig } from "vite"
 
 const workspaceDirectory = fileURLToPath(new URL("../", import.meta.url))
 
-// Every route the build must emit. The website has no dynamic routes, so nothing is crawled.
+// Discover Markdown filenames so new posts are published without a second route list.
+const blogRoutes = readdirSync(new URL("./src/content/blog/", import.meta.url))
+  .filter((name) => name.endsWith(".md"))
+  .map((name) => `/blog/${name.slice(0, -3)}`)
+
 const prerenderRoutes = [
   "/",
   "/home",
   "/terms",
   "/privacy",
+  "/blog",
+  "/blog/feed.xml",
+  ...blogRoutes,
   "/404",
   "/favicon.png",
   "/og-image.png",

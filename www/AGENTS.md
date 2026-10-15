@@ -4,3 +4,5 @@
 - Keep numbered landing-page step headings focused on the integration action the reader should take.
 - Verify feature availability claims against implemented code on current main before changing roadmap labels.
 - After each website copy or UI change, show both desktop and mobile screenshots in the response.
+- Keep blog prose editable in Markdown and demonstrate interface failures with interactive, clearly labeled simulations.
+- Reuse the same header and footer components on the home page and blog, including their styling and mobile navigation.

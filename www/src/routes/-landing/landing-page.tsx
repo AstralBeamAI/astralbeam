@@ -1,8 +1,8 @@
 import { useEffect } from "react"
 
-import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
-import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
 import { DiscordIcon, GithubIcon } from "@/components/icons"
+import { SiteHeader } from "@/components/site-header"
+import { SiteFooter } from "@/components/site-footer"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
@@ -15,7 +15,6 @@ import { Pricing } from "./pricing"
 
 const {
   signUp: signUpUrl,
-  logIn: logInUrl,
   docs: docsUrl,
   discord: discordUrl,
   github: githubUrl,
@@ -43,70 +42,7 @@ export function LandingPage() {
       <div className="fx-scanlines" aria-hidden="true"></div>
       <div className="fx-vignette" aria-hidden="true"></div>
 
-      <header className="hud-top">
-        <div className="hud-inner">
-          <a className="hud-brand" href="/" aria-label="AstralBeam home">
-            <img
-              className="hud-brand-wordmark"
-              src={astralbeamDarkWordmarkUrl}
-              alt=""
-              width="1241"
-              height="136"
-            />
-            <img
-              className="hud-brand-mark"
-              src={astralbeamDarkLogoUrl}
-              alt=""
-              width="270"
-              height="270"
-            />
-          </a>
-          <nav className="hud-nav" id="hud-nav" aria-label="Primary">
-            <span className="hud-nav-socials">
-              <a
-                className="hud-nav-social"
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="AstralBeam on GitHub"
-                title="GitHub"
-              >
-                <GithubIcon />
-              </a>
-              <a
-                className="hud-nav-social"
-                href={discordUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="AstralBeam on Discord"
-                title="Discord"
-              >
-                <DiscordIcon />
-              </a>
-            </span>
-            <a href={docsUrl}>DOCS</a>
-            <a href="#pricing">PRICING</a>
-            <a href={logInUrl}>SIGN IN</a>
-          </nav>
-          <a className="btn btn-primary hud-cta" href={signUpUrl}>
-            GET STARTED
-          </a>
-          <button
-            className="hud-menu"
-            type="button"
-            aria-controls="hud-nav"
-            aria-expanded="false"
-            aria-label="Open menu"
-            data-menu=""
-          >
-            <svg className="icon-menu" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M2 4h12"></path>
-              <path d="M2 8h12"></path>
-              <path d="M2 12h12"></path>
-            </svg>
-          </button>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* ============ HERO ============ */}
@@ -334,24 +270,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="site-footer mono">
-        <span>© 2026 ASTRALBEAM</span>
-        <a href="#pricing">PRICING</a>
-        <a href={docsUrl}>DOCS</a>
-        <a href={githubUrl} target="_blank" rel="noopener noreferrer">
-          GITHUB
-        </a>
-        <a href={discordUrl} target="_blank" rel="noopener noreferrer">
-          DISCORD
-        </a>
-        <a href="mailto:hello@astralbeam.ai">
-          <span className="mail-full">HELLO@ASTRALBEAM.AI</span>
-          <span className="mail-short">CONTACT</span>
-        </a>
-        <a href="/terms">TERMS</a>
-        <a href="/privacy">PRIVACY</a>
-        <a href="/licenses.txt">LICENSES</a>
-      </footer>
+      <SiteFooter />
     </>
   )
 }
