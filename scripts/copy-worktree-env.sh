@@ -31,4 +31,4 @@ database_url=$(sed -n 's/^DATABASE_URL=//p' "$source_database_env_file")
 worktree_database=$(basename "${worktree_root%/$(basename "$source_root")}")
 printf 'DATABASE_URL=%s/%s\n' "${database_url%/*}" "$worktree_database" >>"$database_env_file"
 
-deno task --cwd platform db-reset
+bun run --cwd platform db-reset

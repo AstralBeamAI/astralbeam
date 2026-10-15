@@ -1,6 +1,6 @@
 # Cursor Cloud Agents
 
-The checked-in [environment](environment.json) installs dependencies, starts Docker and the root Compose stack, exposes ports `4500`, `4600`, and `4700`, and opens both application terminals. Port `4700` is the todos example, which `deno task dev:todos` or the root `deno task dev` serves.
+The checked-in [environment](environment.json) installs dependencies, starts Docker and the root Compose stack, exposes ports `4500`, `4600`, and `4700`, and opens both application terminals. Port `4700` is the todos example, which `bun run dev:todos` or the root `bun run dev` serves.
 
 The `install` step runs before Docker exists, so it can only install dependencies. The `start` step therefore reruns `./scripts/setup.sh` after Compose is healthy so every machine start migrates, seeds, and builds the SDK.
 

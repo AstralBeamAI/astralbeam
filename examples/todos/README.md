@@ -19,7 +19,7 @@ The quickest path is `bun run --cwd platform db-seed`, which creates the `acme` 
 5. Start the platform on port 4500 with `bun run --cwd platform dev` from the repository root. For chat, the agent needs a model. With `OPENAI_API_KEY` in `platform/.env.local`, the seed already created a **Development OpenAI** connection and assigned its model. Otherwise, add a connection under **Models**, enable a model, and select it on the agent. The tenant-user listing does not need a model or sandbox provider.
 6. Build the SDK with `bun run build` from `sdk`.
 7. For the listing, provision a Tenant with `external_id: "todos-tenant-1"` and a TenantUser with `external_id: "todos-user-1"` under it in the API key's Organization. The seed already creates these records. For manual setup, use the [directory provisioning example](https://astralbeam.ai/docs/sdk/listings) with these IDs, which match [`src/lib/constants.server.ts`](src/lib/constants.server.ts).
-8. From this directory, run `bun install` and `bun run dev`, then open <http://localhost:4700>.
+8. Install the workspace from the repository root with `bun install --frozen-lockfile`, then from this directory run `bun run dev`, then open <http://localhost:4700>.
 
 ## Try it
 

@@ -1,0 +1,39 @@
+{
+  "name": "astralbeam-repository",
+  "private": true,
+  "workspaces": [
+    "platform",
+    "www",
+    "sdk",
+    "cli",
+    "examples/todos",
+    "examples/linearity-react"
+  ],
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt --disable-nested-config",
+    "format:check": "oxfmt --disable-nested-config --check",
+    "dev:platform": "bun run --cwd platform dev",
+    "build:platform": "bun run --cwd platform build",
+    "dev:www": "bun run --cwd www dev",
+    "build:www": "bun run --cwd www build",
+    "dev:sdk": "bun run --cwd sdk dev",
+    "build:sdk": "bun run --cwd sdk build",
+    "build:cli": "bun run --cwd cli build",
+    "dev:todos": "bun run --cwd examples/todos dev",
+    "build:todos": "bun run --cwd examples/todos build",
+    "dev:linearity": "bun run --cwd examples/linearity-react dev",
+    "build:linearity": "bun run --cwd examples/linearity-react build",
+    "dev": "bun run --parallel dev:platform dev:www dev:sdk dev:todos dev:linearity",
+    "build": "bun run build:sdk && bun run build:platform && bun run build:www && bun run build:cli && bun run build:todos && bun run build:linearity",
+    "release": "scripts/release.sh"
+  },
+  "devDependencies": {
+    "oxfmt": "0.73.0"
+  },
+  "packageManager": "bun@1.4.3",
+  "trustedDependencies": [
+    "esbuild",
+    "msgpackr-extract"
+  ]
+}

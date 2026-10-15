@@ -6,12 +6,12 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
 
 ## Run locally
 
-1. From the repository root, build the SDK and install this example's frozen dependencies:
+1. From the repository root, install the workspace's frozen dependencies and build the SDK:
 
    ```sh
+   bun install --frozen-lockfile
    bun run --cwd sdk build
    cd examples/linearity-react
-   bun install --frozen-lockfile
    cp .env.example .env.local
    ```
 
@@ -80,13 +80,9 @@ Linearity needs a server for Basic Auth and token minting. Build it from the rep
 From the repository root, install and build the application:
 
 ```sh
-cd sdk
 bun install --frozen-lockfile
-bun run build
-cd ..
-cd examples/linearity-react
-bun install --frozen-lockfile
-bun run build
+bun run --cwd sdk build
+bun run --cwd examples/linearity-react build
 ```
 
 From `examples/linearity-react`, start the generated Bun server with the server variables supplied by your host:

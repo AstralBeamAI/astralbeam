@@ -9,14 +9,14 @@ script = "bash scripts/copy-worktree-env.sh && bash scripts/setup.sh"
 [[actions]]
 name = "Product application"
 icon = "run"
-command = "cd platform && deno task dev"
+command = "bun run --cwd platform dev"
 
 [[actions]]
 name = "Public website"
 icon = "run"
-command = "cd www && deno task dev"
+command = "bun run --cwd www dev"
 
 [[actions]]
 name = "Ready"
 icon = "tool"
-command = "deno task --cwd sdk ready && deno task --cwd platform ready && deno task --cwd www ready && deno task --cwd examples/todos ready"
+command = "bun run --cwd sdk ready && bun run --cwd platform ready && bun run --cwd www ready && bun run --cwd examples/todos ready && bun run --cwd cli ready && bun run --cwd examples/linearity-react ready"

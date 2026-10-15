@@ -24,7 +24,7 @@ export default defineConfig({
   webServer: external
     ? []
     : {
-        command: "bun run dev",
+        command: "bun run dev --host 127.0.0.1",
         url: "http://127.0.0.1:4818",
         reuseExistingServer: false,
         env: {

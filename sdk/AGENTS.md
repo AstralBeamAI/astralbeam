@@ -124,4 +124,4 @@ Verify embedded directories through the existing consumer examples and their bro
 
 - Leave version bumps and release tags to maintainers, following [`CONTRIBUTING.md`](../CONTRIBUTING.md). The package version must match the release tag before publishing.
 - Build with `bun run build` before an authorized npm release. The package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
-- Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `file:` dependencies, with independent host styling. The todos examples stay free of Tailwind and shadcn, while `linearity-react` owns its shadcn components and demonstrates coexistence with the SDK shadow root.
+- Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `workspace:*` dependencies, with independent host styling. The todos examples stay free of Tailwind and shadcn, while `linearity-react` owns its shadcn components and demonstrates coexistence with the SDK shadow root.

@@ -14,12 +14,15 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - .:/workspaces/astralbeam
-      # Keep Linux-native dependencies and Deno's cache isolated from the macOS checkout. https://docs.deno.com/runtime/reference/deno_json/#node-modules-directory
+      # Keep Linux-native dependencies and Bun's cache isolated from the macOS checkout. https://bun.sh/docs/install/cache
+      - root-node-modules:/workspaces/astralbeam/node_modules
       - platform-node-modules:/workspaces/astralbeam/platform/node_modules
       - www-node-modules:/workspaces/astralbeam/www/node_modules
       - sdk-node-modules:/workspaces/astralbeam/sdk/node_modules
+      - cli-node-modules:/workspaces/astralbeam/cli/node_modules
+      - linearity-node-modules:/workspaces/astralbeam/examples/linearity-react/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
-      - deno-cache:/root/.cache/deno
+      - bun-cache:/root/.bun/install/cache
       # Persist Cursor/VS Code server + extensions across rebuilds
       - ./tmp/.cursor-server:/root/.cursor-server:cached
       - ./tmp/.vscode-server:/root/.vscode-server:cached
@@ -40,8 +43,11 @@ services:
         condition: service_healthy
 
 volumes:
+  root-node-modules:
   platform-node-modules:
   www-node-modules:
   sdk-node-modules:
+  cli-node-modules:
+  linearity-node-modules:
   todos-node-modules:
-  deno-cache:
+  bun-cache:

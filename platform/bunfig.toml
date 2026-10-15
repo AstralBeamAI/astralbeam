@@ -4,7 +4,3 @@ env = false
 [run]
 # Run package executables and their child processes with Bun.
 bun = true
-
-[install]
-# Keep incompatible peer dependencies separate. https://bun.sh/docs/install/isolated-installs
-linker = "isolated"

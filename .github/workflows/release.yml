@@ -75,71 +75,57 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          deno-version: latest
-          cache: true
+          bun-version-file: .bun-version
 
-      - name: Install SDK dependencies
-        working-directory: sdk
-        run: deno install --frozen
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build the SDK
         working-directory: sdk
-        run: deno task build
-
-      - name: Install Platform dependencies
-        working-directory: platform
-        run: deno install --frozen
+        run: bun run build
 
       - name: Build the Platform
         # Builds `.output` once and compiles the host binary from it.
         working-directory: platform
-        run: deno task build
+        run: bun run build
 
       - name: Smoke-test the Platform binary
         working-directory: platform
-        run: deno task binary:check
+        run: bun run binary:check
 
       - name: Cross-compile the other Platform binaries
-        # Ships the smoke-tested host binary as linux-x86_64 and repeats the `build` task's compile
-        # flags for the other targets. https://docs.deno.com/runtime/reference/cli/compile/
         working-directory: platform
         shell: bash
         run: |
           mkdir ../platform-binaries
           mv .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
-          for pair in aarch64-unknown-linux-gnu:linux-arm64 x86_64-apple-darwin:macos-x86_64 \
-            aarch64-apple-darwin:macos-arm64 x86_64-pc-windows-msvc:windows-x86_64.exe; do
-            deno compile --no-check --node-modules-dir=none --exclude-unused-npm --unstable-detect-cjs \
-              --include npm:busboy --include npm:sharp --include npm:@img/sharp-wasm32 --no-prompt \
-              --include .output --include src/db/migrations --config deno.jsonc \
-              -P=runtime --target "${pair%%:*}" \
-              --output "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}" src/main.ts
+          for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
+            bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
+            bun run compile --target "${pair%%:*}" \
+              --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
           done
-
-      - name: Install CLI dependencies
-        working-directory: cli
-        run: deno install --frozen
 
       - name: Build the CLI
         working-directory: cli
-        run: deno task build
+        run: bun run build
 
       - name: Compile and smoke-test the CLI binaries
-        # deno compile cross-compiles from one runner, and the experimental QuickJS engine makes each
-        # binary 40-46% smaller than V8. https://docs.deno.com/runtime/reference/cli/compile/
+        # Bun cross-compiles the same bundled npm entry for every release target.
+        # https://bun.sh/docs/bundler/executables
+        working-directory: cli
         shell: bash
         run: |
-          mkdir cli-binaries
-          for pair in x86_64-unknown-linux-gnu:linux-x86_64 aarch64-unknown-linux-gnu:linux-arm64 \
-            x86_64-apple-darwin:macos-x86_64 aarch64-apple-darwin:macos-arm64 \
-            x86_64-pc-windows-msvc:windows-x86_64.exe; do
-            (cd cli && deno compile --no-check --engine quickjs --config deno.jsonc -P=runtime --include skills \
-              --target "${pair%%:*}" --output "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js)
+          mkdir ../cli-binaries
+          for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
+            bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
+            bun-windows-x64:windows-x86_64.exe; do
+            bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+              --asset skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
           done
-          binary="cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+          binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
           test "$("$binary" --version)" = "${{ needs.verify.outputs.version }}"
           "$binary" skill | grep -q '^name: astralbeam$'
 
@@ -228,6 +214,11 @@ jobs:
           name: cli-dist
           path: cli/dist
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -252,7 +243,8 @@ jobs:
         run: |
           set -o pipefail
           for project in sdk cli; do
-            (cd "$project" && npm stage publish) | tee -a "$RUNNER_TEMP/npm-stage.log"
+            bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
+            npm stage publish "$RUNNER_TEMP/$project.tgz" | tee -a "$RUNNER_TEMP/npm-stage.log"
           done
 
       - name: Report the staged packages

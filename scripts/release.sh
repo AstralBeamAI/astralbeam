@@ -17,7 +17,7 @@ yes=false
 case "${1:-}" in
   -y | --yes) yes=true ;;
   "") ;;
-  *) fail "usage: deno task release [-y]" ;;
+  *) fail "usage: bun run release [-y]" ;;
 esac
 
 [ "$(git branch --show-current)" = "main" ] || fail "run this from the main branch"

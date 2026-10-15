@@ -8,9 +8,7 @@
   "files.readonlyInclude": {
     "**/routeTree.gen.ts": true
   },
-  "deno.enable": true,
-  "deno.lint": false,
-  "vitest.runtime": "deno",
+  "vitest.runtime": "bun",
   "gitlens.blame.ignoreWhitespace": true,
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,

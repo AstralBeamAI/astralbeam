@@ -8,30 +8,30 @@ Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vul
 
 Follow [SETUP.md](SETUP.md) for one-time prerequisites, then [Local development](#local-development) for starting the services, installing dependencies, seeding the database, and running the dev servers.
 
-Deno is the only supported runtime and package manager for this repository. Vite and npm tooling run through Deno's compatibility layer.
+Bun is the only supported runtime and package manager for this repository. Vite and npm tooling run through Bun's compatibility layer.
 
 ## Codebase structure
 
-The repository holds six independent Deno projects that do not form a package-manager workspace:
+The repository holds six Bun projects in one workspace:
 
 - `platform`, the TanStack Start product application, database, theme, and dashboard UI with app-local shadcn/ui components.
 - `www`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
-- `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Deno binaries.
+- `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Bun binaries.
 - `examples/linearity-react`, [Linearity](examples/linearity-react), a multi-workspace project tracker with an embedded Astro assistant that consumes the built SDK.
 - `examples/todos`, a minimal standalone application that consumes the built SDK.
 
-`examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Deno toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
+`examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Bun toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
 
-Each owns its dependencies, lockfile, and tooling. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
+Each owns its dependencies and tooling, with one shared Bun lockfile. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
 
 ## Local development
 
-Run the applications natively with Deno and the database services through Docker Compose or Podman Compose.
+Run the applications natively with Bun and the database services through Docker Compose or Podman Compose.
 
 ### Start PostgreSQL and Mailpit
 
-Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`platform/.env.development`](platform/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Deno natively and use Compose for these services.
+Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`platform/.env.development`](platform/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Bun natively and use Compose for these services.
 
 From the repository root, start the services with Docker:
 
@@ -69,7 +69,7 @@ OPENAI_API_KEY=sk-...
 ### Run everything
 
 ```sh
-deno task dev
+bun run dev
 ```
 
 This starts the four dev servers and the SDK watcher together:
@@ -88,12 +88,12 @@ Reload the page after changing SDK sources: the watcher rewrites the `sdk/dist` 
 Run from the repository root:
 
 ```sh
-deno task install  # all project dependencies
-deno task dev      # all apps and the SDK watcher
-deno task build    # all projects, SDK first
+bun install --frozen-lockfile # all workspace dependencies
+bun run dev      # all apps and the SDK watcher
+bun run build    # all projects, SDK first
 ```
 
-Per-project aliases include `deno task dev:platform`, `deno task build:sdk`, and `deno task install:todos`. Other tasks use `deno task --cwd <project> <task>`. Run `deno task` to list root commands.
+Per-project aliases include `bun run dev:platform`, `bun run build:sdk`. Other tasks use `bun run --cwd <project> <task>`. Run `bun run` to list root commands.
 
 For account creation and email delivery, follow [Authentication setup](SETUP.md#authentication-and-transactional-email).
 
@@ -102,17 +102,17 @@ For account creation and email delivery, follow [Authentication setup](SETUP.md#
 Every project defines the same tasks, where `check` covers formatting, linting, and typechecking, and `ready` means `check`, `test`, and `build` together. Run `ready` once for each project you touched before opening a pull request, rather than running `check` and `test` separately:
 
 ```sh
-deno task --cwd platform ready
-deno task --cwd www ready
-deno task --cwd sdk ready
-deno task --cwd cli ready
-deno task --cwd examples/todos ready
-deno task --cwd examples/linearity-react ready
+bun run --cwd platform ready
+bun run --cwd www ready
+bun run --cwd sdk ready
+bun run --cwd cli ready
+bun run --cwd examples/todos ready
+bun run --cwd examples/linearity-react ready
 ```
 
 Documentation-only changes need source review and `git diff --check`, not a full `ready`.
 
-The browser suites run through their own `e2e` tasks, for example `deno task --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
+The browser suites run through their own `e2e` tasks, for example `bun run --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
 
 CI runs checks, tests, and builds for all six projects and compiles and smoke-tests the platform and CLI binaries.
 
@@ -138,7 +138,7 @@ Agreement is collected when a contribution is proposed, by ticking the CLA ackno
 Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
 1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if any version disagrees.
-2. Push the tag by running `deno task release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
+2. Push the tag by running `bun run release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
 3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets and smoke-tests their Linux x86_64 builds, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 
