@@ -1,6 +1,7 @@
 import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -102,7 +103,8 @@ export function ChatWidget({
   const error = usageLimit ? new Error(describeUsageLimit(usageLimit)) : chatState.error
 
   const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
-  const interactiveToolIds = useMemo(() => {
+  // Joined into a key so the set keeps its identity across chunks and memoized messages skip them.
+  const interactiveToolIdsKey = useMemo(() => {
     const ids = new Set(chatState.activeToolCallIds)
     if (auth.status === "ready" && chatState.thread?.role !== "viewer") {
       for (const pending of chatState.pendingInteractions) {
@@ -120,7 +122,7 @@ export function ChatWidget({
           ids.add(pending.toolCallId)
       }
     }
-    return ids
+    return [...ids].join("\n")
   }, [
     chatState.activeToolCallIds,
     chatState.pendingInteractions,
@@ -128,6 +130,10 @@ export function ChatWidget({
     auth,
     messages,
   ])
+  const interactiveToolIds = useMemo(
+    () => new Set(interactiveToolIdsKey ? interactiveToolIdsKey.split("\n") : []),
+    [interactiveToolIdsKey],
+  )
   const toolTitles = useMemo(() => {
     const titles: Record<string, string> = { ...chatState.serverToolTitles }
     for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
@@ -291,14 +297,13 @@ export function ChatWidget({
     void sent.finally(settle)
   }
 
-  const submitQuestionnaireAnswers = (toolCallId: string, answers: QuestionnaireAnswer[]) => {
-    debug?.("questionnaire", "answers submitted", { toolCallId, answers })
-    void chat.addToolResult({
-      toolCallId,
-      tool: ASK_QUESTIONNAIRE_TOOL,
-      output: { answers },
-    })
-  }
+  const submitQuestionnaireAnswers = useCallback(
+    (toolCallId: string, answers: QuestionnaireAnswer[]) => {
+      debug?.("questionnaire", "answers submitted", { toolCallId, answers })
+      void chat.addToolResult({ toolCallId, tool: ASK_QUESTIONNAIRE_TOOL, output: { answers } })
+    },
+    [chat, debug],
+  )
 
   const resetThread = () => {
     // The session's reset is the client's own: it aborts an active stream, drops queued sends,
