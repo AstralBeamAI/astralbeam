@@ -50,6 +50,12 @@ export const Route = createRootRoute({
       { rel: "manifest", href: "/site.webmanifest" },
       { rel: "license", href: "/licenses.txt" },
       { rel: "sitemap", href: "/sitemap.xml" },
+      {
+        rel: "alternate",
+        type: "application/rss+xml",
+        title: "AstralBeam Blog",
+        href: "/blog/feed.xml",
+      },
       { rel: "stylesheet", href: appCss },
     ],
     scripts: [{ type: "application/ld+json", children: JSON.stringify(structuredData) }],

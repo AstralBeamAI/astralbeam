@@ -4,6 +4,7 @@ import sharp from "sharp"
 import { describe, expect, test } from "vitest"
 
 import { palette } from "../src/brand/palette"
+import { blogPosts } from "../src/lib/blog"
 import { siteMetadata } from "../src/lib/site"
 
 const origin = "https://astralbeam.ai"
@@ -144,5 +145,34 @@ describe("production website build", () => {
     const metadata = await sharp(await readFile(new URL("og-image.png", distUrl))).metadata()
 
     expect(metadata).toMatchObject({ width: 1200, height: 630 })
+  })
+
+  test("publishes every Markdown post with its discovery metadata and artwork", async () => {
+    const [home, index, sitemap, feed, llms] = await Promise.all([
+      readText("index.html"),
+      readText("blog.html"),
+      readText("sitemap.xml"),
+      readText("blog/feed.xml"),
+      readText("llms.txt"),
+    ])
+    expect(home).toContain('href="/blog"')
+    expect(index).toContain(`<link rel="canonical" href="${origin}/blog"/>`)
+    for (const post of blogPosts) {
+      const html = await readText(`${post.path.slice(1)}.html`)
+      expect(index).toContain(`href="${post.path}"`)
+      expect(sitemap).toContain(`<loc>${origin}${post.path}</loc>`)
+      expect(feed).toContain(`<link>${origin}${post.path}</link>`)
+      expect(llms).toContain(`${origin}${post.path}`)
+      expect(html).toContain(`<link rel="canonical" href="${origin}${post.path}"/>`)
+      expect(html).toContain('property="og:type" content="article"')
+      expect(html).toContain(`property="og:image" content="${origin}${post.image}"`)
+      expect(html).toContain('"@type":"BlogPosting"')
+      expect(html).not.toContain('class="language-demo"')
+      expect(await sharp(new URL(post.image.slice(1), distUrl).pathname).metadata()).toMatchObject({
+        width: 1200,
+        height: 630,
+      })
+      expect(await readText(post.image.slice(1).replace(/\.png$/u, ".svg"))).toContain("<svg")
+    }
   })
 })

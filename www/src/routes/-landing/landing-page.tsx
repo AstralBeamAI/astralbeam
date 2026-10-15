@@ -85,6 +85,7 @@ export function LandingPage() {
               </a>
             </span>
             <a href={docsUrl}>DOCS</a>
+            <a href="/blog">BLOG</a>
             <a href="#pricing">PRICING</a>
             <a href={logInUrl}>SIGN IN</a>
           </nav>
@@ -338,6 +339,7 @@ export function LandingPage() {
         <span>© 2026 ASTRALBEAM</span>
         <a href="#pricing">PRICING</a>
         <a href={docsUrl}>DOCS</a>
+        <a href="/blog">BLOG</a>
         <a href={githubUrl} target="_blank" rel="noopener noreferrer">
           GITHUB
         </a>
