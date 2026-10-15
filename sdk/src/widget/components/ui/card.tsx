@@ -1,4 +1,4 @@
-// Added with: bun run ui add card
+// Added from @shadcn/card
 import * as React from "react"
 
 import { cn } from "cn"

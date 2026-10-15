@@ -1,4 +1,4 @@
-// Added with: bun run ui add tabs
+// Added from @shadcn/tabs
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 

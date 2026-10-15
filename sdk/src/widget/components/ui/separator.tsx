@@ -1,4 +1,4 @@
-// Added with: bun run ui add separator
+// Added from @shadcn/separator
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 import { cn } from "cn"
 

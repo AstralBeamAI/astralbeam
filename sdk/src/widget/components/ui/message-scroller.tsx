@@ -1,4 +1,4 @@
-// Added with: bun run ui add message-scroller
+// Added from @shadcn/message-scroller
 import * as React from "react"
 import {
   MessageScroller as MessageScrollerPrimitive,

@@ -1,4 +1,4 @@
-// Added with: bun run ui add collapsible
+// Added from @shadcn/collapsible
 
 "use client"
 

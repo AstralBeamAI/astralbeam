@@ -1,4 +1,4 @@
-// Added with: bun run ui add switch
+// Added from @shadcn/switch
 // Local changes: none.
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 import { cn } from "cn"

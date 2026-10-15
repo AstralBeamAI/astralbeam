@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated.
 
 "use client"

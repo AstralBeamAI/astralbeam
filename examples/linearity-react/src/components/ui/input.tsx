@@ -1,4 +1,4 @@
-// Added with: bun run ui add input
+// Added from @shadcn/input
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 import { cn } from "cn"

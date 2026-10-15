@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: use the app's semantic shadcn status colors.
 import { evaluatePasswordStrength, type PasswordStrengthLevel } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"

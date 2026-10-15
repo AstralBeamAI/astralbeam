@@ -1,4 +1,4 @@
-// Added with: bun run ui add button
+// Added from @shadcn/button
 // Local changes: shared variants give buttons and button-styled links 44px targets when any pointer is coarse.
 
 import { Button as ButtonPrimitive } from "@base-ui/react/button"

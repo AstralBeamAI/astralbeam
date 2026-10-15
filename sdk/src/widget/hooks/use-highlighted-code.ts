@@ -1,4 +1,4 @@
-// Added with: bun run ui add use-highlighted-code
+// Added from @shadcn/use-highlighted-code
 // Local changes: lazy-load the highlighter and preserve ANSI state across lines.
 import * as React from "react"
 

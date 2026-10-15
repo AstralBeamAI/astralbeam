@@ -1,4 +1,4 @@
-// Added with: bun run ui add bubble
+// Added from @shadcn/bubble
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"

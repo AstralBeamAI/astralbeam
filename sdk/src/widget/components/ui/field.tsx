@@ -1,4 +1,4 @@
-// Added with: bun run ui add field
+// Added from @shadcn/field
 "use client"
 
 import { useMemo } from "react"

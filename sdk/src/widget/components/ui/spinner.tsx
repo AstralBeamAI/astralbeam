@@ -1,4 +1,4 @@
-// Added with: bun run ui add spinner
+// Added from @shadcn/spinner
 import { cn } from "cn"
 import { SpinnerIcon } from "@phosphor-icons/react"
 

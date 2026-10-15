@@ -1,4 +1,4 @@
-// Added with: bun run ui add popover
+// Added from @shadcn/popover
 // Local changes: accept a shadow-root portal container and omit unused subcomponents.
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "cn"

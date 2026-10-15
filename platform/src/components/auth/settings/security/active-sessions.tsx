@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/settings
+// Added from @better-auth-ui/settings
 // Local changes: Keep the current session first with a stable comparator and correct the generated session-field documentation.
 
 "use client"

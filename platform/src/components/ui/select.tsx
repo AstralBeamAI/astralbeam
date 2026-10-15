@@ -1,4 +1,4 @@
-// Added with: bun run ui add select
+// Added from @shadcn/select
 // Local changes: Show a pointer cursor on items, matching the project's `--pointer` button cursor.
 
 import * as React from "react"

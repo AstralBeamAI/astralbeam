@@ -1,4 +1,4 @@
-// Added with: bun run ui add alert
+// Added from @shadcn/alert
 // Local changes: none.
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"

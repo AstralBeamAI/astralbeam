@@ -1,4 +1,4 @@
-// Added with: bun run ui add empty
+// Added from @shadcn/empty
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "cn"

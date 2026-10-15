@@ -1,4 +1,4 @@
-// Added with: bun run ui add textarea
+// Added from @shadcn/textarea
 import * as React from "react"
 
 import { cn } from "cn"

@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Use Phosphor icons, the contextual Base UI Toast manager, standard browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading. Share password visibility controls.
 
 "use client"

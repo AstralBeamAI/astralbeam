@@ -1,4 +1,4 @@
-// Added with: bun run ui add sidebar
+// Added from @shadcn/sidebar
 // Local changes: Add a hover title to the icon-only trigger.
 
 "use client"

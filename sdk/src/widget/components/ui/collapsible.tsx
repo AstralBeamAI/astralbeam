@@ -1,4 +1,4 @@
-// Added with: bun run ui add collapsible
+// Added from @shadcn/collapsible
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible"
 
 function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {

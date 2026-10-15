@@ -1,4 +1,4 @@
-// Added with: bun run ui add code-block
+// Added from @shadcn/code-block
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"

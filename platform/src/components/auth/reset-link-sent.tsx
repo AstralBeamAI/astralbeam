@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated.
 
 import { getAuthLinkURL } from "@better-auth-ui/core"

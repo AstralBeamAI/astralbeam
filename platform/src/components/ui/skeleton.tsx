@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/settings
+// Added from @better-auth-ui/settings
 // Local changes: none.
 import { cn } from "cn"
 

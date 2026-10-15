@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls.
 
 "use client"
