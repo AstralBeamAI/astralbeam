@@ -142,7 +142,7 @@ describe("configuration registry", () => {
     )
   })
 
-  it("enables CloudFront only with all three settings", () => {
+  it("requires all three CloudFront settings only when that signing strategy is selected", () => {
     const cloudfront = {
       cloudfront_download_origin: "https://files.example.com",
       cloudfront_key_pair_id: "KTESTPUBLICKEY",
@@ -151,14 +151,20 @@ describe("configuration registry", () => {
         .toString(),
     } satisfies ConfigValues
     const keys = Object.keys(cloudfront) as (keyof typeof cloudfront)[]
+    const selected = {
+      ...COMPLETE_VALUES,
+      ...cloudfront,
+      download_signing_strategy: "cloudfront",
+    }
     assert.isEmpty(validateConfigCompleteness(COMPLETE_VALUES))
-    assert.isEmpty(validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront }))
-    assert.isEmpty(validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront }, new Set(keys)))
+    assert.isEmpty(validateConfigCompleteness(selected))
+    assert.isEmpty(validateConfigCompleteness(selected, new Set(keys)))
     for (const key of keys) {
+      assert.isEmpty(
+        validateConfigCompleteness({ ...COMPLETE_VALUES, [key]: cloudfront[key] }, new Set([key])),
+      )
       assert.deepStrictEqual(
-        validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront, [key]: undefined }).map(
-          (issue) => issue.key,
-        ),
+        validateConfigCompleteness({ ...selected, [key]: undefined }).map((issue) => issue.key),
         [key],
       )
       assert.isTrue(
@@ -166,21 +172,17 @@ describe("configuration registry", () => {
       )
       for (const overridden of [[key], keys.filter((candidate) => candidate !== key)]) {
         assert.deepStrictEqual(
-          validateConfigCompleteness(
-            { ...COMPLETE_VALUES, ...cloudfront },
-            new Set(overridden),
-          ).map((issue) => issue.key),
+          validateConfigCompleteness(selected, new Set(overridden)).map((issue) => issue.key),
           keys.filter((candidate) => !overridden.includes(candidate)),
         )
       }
     }
-    assert.deepStrictEqual(
-      decodeConfigValue(
-        findConfigDefinition("cloudfront_download_origin")!,
-        "https://files.example.com:443/",
-      ),
-      Result.succeed("https://files.example.com"),
-    )
+    for (const origin of ["https://files.example.com", "https://d123example.cloudfront.net"]) {
+      assert.deepStrictEqual(
+        decodeConfigValue(findConfigDefinition("cloudfront_download_origin")!, `${origin}:443/`),
+        Result.succeed(origin),
+      )
+    }
   })
 
   it("validates CloudFront key material and supported algorithms without exposing rejected keys", () => {
@@ -363,23 +365,69 @@ describe("Config", () => {
     }).pipe(Effect.provide(configLayer(state)))
   })
 
-  it.effect(
-    "does not silently disable CloudFront when its stored configuration is unreadable",
-    () => {
-      const state = {
-        rows: [
-          ...encryptedRows(COMPLETE_VALUES),
-          { key: "cloudfront_private_key", storedValue: "not-a-compact-jwe" },
-        ],
-        reads: 0,
-      }
-      return Effect.gen(function* () {
-        const { snapshot, setupComplete } = yield* (yield* Config).setupState
+  it.effect("gates unreadable signing settings only when needed, preserving S3 recovery", () => {
+    const rows = [
+      ...encryptedRows(COMPLETE_VALUES),
+      { key: "cloudfront_private_key", storedValue: "not-a-compact-jwe" },
+    ]
+    const state = { rows, reads: 0 }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      assert.isTrue((yield* config.setupState).setupComplete)
+      assert.strictEqual(yield* config.get("download_signing_strategy"), "s3")
+
+      for (const strategy of ["cloudfront", "invalid"]) {
+        state.rows = [...rows, ...encryptedRows({ download_signing_strategy: strategy })]
+        yield* config.invalidate
+        const { snapshot, setupComplete } = yield* config.setupState
         assert.isFalse(setupComplete)
         assert.include(
           snapshot.issues.map((issue) => issue.key),
+          strategy === "cloudfront" ? "cloudfront_private_key" : "download_signing_strategy",
+        )
+      }
+
+      state.rows = rows
+      yield* config.invalidate
+      assert.isTrue((yield* config.setupState).setupComplete)
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
+  it.effect(
+    "ignores inactive invalid CloudFront overrides without relaxing other validation",
+    () => {
+      const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+      const secret = "invalid-private-key"
+      stubEnvironment({ CLOUDFRONT_PRIVATE_KEY: secret })
+      return Effect.gen(function* () {
+        const config = yield* Config
+        const { snapshot, setupComplete } = yield* config.setupState
+        assert.isTrue(setupComplete)
+        assert.isTrue(snapshot.environmentKeys.has("cloudfront_private_key"))
+        assert.isUndefined(snapshot.values.cloudfront_private_key)
+        assert.strictEqual(
+          (yield* Effect.flip(config.update([{ key: "cloudfront_private_key", value: null }])))
+            ._tag,
+          "ConfigUpdateInvalid",
+        )
+
+        vi.stubEnv("DOWNLOAD_SIGNING_STRATEGY", "cloudfront")
+        yield* config.invalidate
+        const active = yield* config.setupState
+        assert.isFalse(active.setupComplete)
+        assert.include(
+          active.snapshot.issues.map((issue) => issue.key),
           "cloudfront_private_key",
         )
+        assert.notInclude(JSON.stringify(active.snapshot.issues), secret)
+
+        vi.stubEnv("DOWNLOAD_SIGNING_STRATEGY", "s3")
+        yield* config.invalidate
+        assert.isTrue((yield* config.setupState).setupComplete)
+
+        vi.stubEnv("DOWNLOAD_SIGNING_STRATEGY", "invalid")
+        yield* config.invalidate
+        assert.isTrue(Exit.isFailure(yield* Effect.exit(config.snapshot)))
       }).pipe(Effect.provide(configLayer(state)))
     },
   )

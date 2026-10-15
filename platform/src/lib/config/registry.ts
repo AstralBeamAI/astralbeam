@@ -12,6 +12,7 @@ import { generateSecret } from "@/lib/utils.server"
 import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
+  enumSchema,
   NonEmptyStringSchema,
   strictParseOptions,
   UuidV7Schema,
@@ -138,11 +139,25 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: BooleanSettingSchema,
   },
   {
+    key: "download_signing_strategy",
+    group: "File storage",
+    label: "Download signing strategy",
+    description: "Choose how private avatar and logo downloads are signed. Uploads always use S3.",
+    kind: "enum",
+    required: false,
+    defaultValue: "s3",
+    options: [
+      { value: "s3", label: "Native S3" },
+      { value: "cloudfront", label: "CloudFront" },
+    ],
+    schema: enumSchema(["s3", "cloudfront"]),
+  },
+  {
     key: "cloudfront_download_origin",
     group: "File storage",
     label: "CloudFront download origin",
     description:
-      "Optional HTTPS origin for private avatar and logo downloads. Keep the S3 endpoint unchanged.",
+      "The distribution's HTTPS origin, using its assigned cloudfront.net hostname or a custom hostname. Keep the S3 endpoint unchanged.",
     kind: "url",
     required: false,
     isPublic: true,
@@ -539,7 +554,7 @@ export function validateConfigCompleteness(
     "cloudfront_private_key",
   ] as const
   const hasCloudfrontEnvironmentOverride = cloudfrontKeys.some((key) => environmentKeys.has(key))
-  if (hasCloudfrontEnvironmentOverride || cloudfrontKeys.some((key) => values[key])) {
+  if (values.download_signing_strategy === "cloudfront") {
     for (const key of cloudfrontKeys) {
       if (hasCloudfrontEnvironmentOverride && !environmentKeys.has(key)) {
         issues.push({

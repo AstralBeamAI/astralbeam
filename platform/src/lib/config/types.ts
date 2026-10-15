@@ -44,6 +44,7 @@ export type ConfigKey =
   | "s3_access_key_id"
   | "s3_secret_access_key"
   | "s3_path_style"
+  | "download_signing_strategy"
   | "cloudfront_download_origin"
   | "cloudfront_key_pair_id"
   | "cloudfront_private_key"
