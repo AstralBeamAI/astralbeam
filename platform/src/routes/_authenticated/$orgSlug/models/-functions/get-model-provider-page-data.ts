@@ -1,4 +1,6 @@
 import type { ANTHROPIC_MODELS } from "@tanstack/ai-anthropic"
+import type { GEMINI_MODELS } from "@tanstack/ai-gemini"
+import type { GROK_CHAT_MODELS } from "@tanstack/ai-grok"
 import type { OPENAI_CHAT_MODELS } from "@tanstack/ai-openai"
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
@@ -15,7 +17,7 @@ import { toValidationSchema } from "@/lib/schemas"
 import { ModelProviderPageInputSchema } from "../-lib/schemas"
 
 // Current provider lineups. GPT-6 tool restrictions keep it out of OpenRouter's Chat Completions suggestions.
-// https://developers.openai.com/api/docs/guides/latest-model | https://platform.claude.com/docs/en/models/overview | https://ai.google.dev/gemini-api/docs/models
+// https://developers.openai.com/api/docs/guides/latest-model | https://platform.claude.com/docs/en/models/overview | https://ai.google.dev/gemini-api/docs/models | https://docs.x.ai/docs/models
 const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
   openai: [
     "gpt-6.1-sol",
@@ -32,6 +34,17 @@ const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
     "claude-haiku-4-5",
     "claude-fable-5-1",
   ] satisfies readonly (typeof ANTHROPIC_MODELS)[number][],
+  google: [
+    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+  ] satisfies readonly (typeof GEMINI_MODELS)[number][],
+  xai: [
+    "grok-4.7",
+    "grok-4.3",
+    "grok-build-0.1",
+  ] satisfies readonly (typeof GROK_CHAT_MODELS)[number][],
   openrouter: [
     "openai/gpt-5.6-sol",
     "openai/gpt-5.6-terra",
@@ -87,6 +100,8 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
         const catalog = {
           openai: pricedModels("openai"),
           anthropic: pricedModels("anthropic"),
+          google: pricedModels("google"),
+          xai: pricedModels("xai"),
           openrouter: pricedModels("openrouter"),
         }
         return {

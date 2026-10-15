@@ -17,7 +17,7 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 
 ## Works with your stack
 
-- LLM providers and gateways: OpenAI, Anthropic, and OpenRouter. Google and Vercel AI Gateway are in progress.
+- LLM providers and gateways: OpenAI, Anthropic, Google Gemini, xAI Grok, and OpenRouter. Vercel AI Gateway is in progress.
 - Observability: Langfuse, Braintrust, LangSmith, and OpenTelemetry, in progress.
 - Coding sandboxes: Docker, Daytona, Vercel Sandbox, and Sprites.
 - Identity and billing: any auth provider for identity, with Stripe billing in progress.

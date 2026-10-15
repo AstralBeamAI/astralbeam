@@ -45,11 +45,9 @@ import { ProviderModelConfigurationFields } from "./provider-model-configuration
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
-const modelProviderTypeItems = [
-  { label: "OpenAI", value: "openai" },
-  { label: "Anthropic", value: "anthropic" },
-  { label: "OpenRouter", value: "openrouter" },
-]
+const modelProviderTypeItems = Object.entries(modelProviderDescriptors).map(
+  ([value, { label }]) => ({ label, value: value as ModelProviderType }),
+)
 
 export function ModelProviderForm({
   organizationSlug,
@@ -274,8 +272,8 @@ export function ModelProviderForm({
                   errors={fieldErrors("baseUrl")}
                   disabled={disabled}
                   description={
-                    providerType === "anthropic"
-                      ? "The Anthropic API base URL. The Messages endpoint is added automatically."
+                    providerType === "anthropic" || providerType === "google"
+                      ? `The ${modelProviderDescriptors[providerType].label} API base URL. The client adds the API version and endpoint.`
                       : "The API base URL, including /v1 when required by your provider."
                   }
                 />

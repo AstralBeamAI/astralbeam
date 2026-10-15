@@ -10,7 +10,7 @@ export function modelsPage(page: Page) {
       modelId: string
       apiKey: string
       baseUrl?: string
-      provider?: "OpenAI" | "Anthropic" | "OpenRouter"
+      provider?: "OpenAI" | "Anthropic" | "Google Gemini" | "xAI Grok" | "OpenRouter"
     }): Promise<void> {
       await page.getByRole("link", { name: "Add provider", exact: true }).first().click()
       await waitForHydration(page.locator("#model-provider-name"))

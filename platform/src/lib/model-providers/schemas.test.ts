@@ -66,5 +66,28 @@ describe("model provider protocols", () => {
         baseUrl: "https://api.anthropic.com/v1",
       }),
     ).toBe(false)
+    for (const [baseUrl, valid] of [
+      ["https://generativelanguage.googleapis.com", true],
+      ["https://generativelanguage.googleapis.com/v1beta/", false],
+    ] as const)
+      expect(
+        Schema.is(ModelProviderFieldsSchema)({
+          ...modelProviderSchemaFixture,
+          providerType: "google",
+          api: "gemini-generate-content",
+          baseUrl,
+        }),
+      ).toBe(valid)
+    for (const [api, valid] of [
+      ["responses", true],
+      ["chat-completions", false],
+    ] as const)
+      expect(
+        Schema.is(ModelProviderFieldsSchema)({
+          ...modelProviderSchemaFixture,
+          providerType: "xai",
+          api,
+        }),
+      ).toBe(valid)
   })
 })

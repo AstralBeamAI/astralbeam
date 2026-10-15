@@ -86,9 +86,12 @@ export const testProviderModel = Effect.fn("testProviderModel")(
           modelOptions:
             configuration.api === "responses"
               ? { max_output_tokens: 1024 }
-              : configuration.api === "chat-completions" && configuration.providerType === "openai"
-                ? { max_completion_tokens: 1024 }
-                : { max_tokens: 1024 },
+              : configuration.api === "gemini-generate-content"
+                ? { maxOutputTokens: 1024 }
+                : configuration.api === "chat-completions" &&
+                    configuration.providerType === "openai"
+                  ? { max_completion_tokens: 1024 }
+                  : { max_tokens: 1024 },
           abortController: controller,
         })) {
           if (chunk.type === EventType.RUN_ERROR)

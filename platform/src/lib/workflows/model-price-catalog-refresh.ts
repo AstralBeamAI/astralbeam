@@ -3,7 +3,10 @@ import { Effect, Schedule, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
 import { ModelPriceCatalogProvidersSchema } from "../model-providers/pricing-catalog-schemas.ts"
-import { writeModelPriceCatalog } from "../model-providers/pricing-catalog.server.ts"
+import {
+  modelPriceCatalogProviderIds,
+  writeModelPriceCatalog,
+} from "../model-providers/pricing-catalog.server.ts"
 
 const modelPriceCatalogRefresh = Effect.gen(function* () {
   const body = yield* Effect.tryPromise(async (signal) => {
@@ -24,8 +27,8 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
   const providers = yield* Schema.decodeUnknownEffect(
     Schema.fromJsonString(ModelPriceCatalogProvidersSchema),
   )(body)
-  for (const providerType of ["openai", "anthropic", "openrouter"]) {
-    const provider = providers.find((item) => item.id === providerType)
+  for (const id of Object.values(modelPriceCatalogProviderIds)) {
+    const provider = providers.find((item) => item.id === id)
     if (!provider || provider.models.length === 0)
       return yield* Effect.fail(new Error("Pricing catalog is missing a supported provider"))
     for (const model of provider.models) {

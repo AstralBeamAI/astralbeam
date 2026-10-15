@@ -56,6 +56,8 @@
     "@scalar/api-reference": "^1.74.0",
     "@tanstack/ai": "^0.69.0",
     "@tanstack/ai-anthropic": "^0.22.0",
+    "@tanstack/ai-gemini": "^0.38.0",
+    "@tanstack/ai-grok": "^0.22.0",
     "@tanstack/ai-mcp": "0.8.3",
     "@tanstack/ai-openai": "^0.30.0",
     "@tanstack/ai-openrouter": "^0.22.0",
