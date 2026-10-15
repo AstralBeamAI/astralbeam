@@ -531,6 +531,7 @@ test.each(["update", "definition", "renderer"])(
       },
       onRenderWidget: render,
     })
+    expect(mocked.tools.map((tool) => tool.name)).not.toContain("action")
     await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
     mocked.onCustomEvent?.("astralbeam_thread", {
       threadId: thread.id,
@@ -607,6 +608,57 @@ test("saved attached widgets hydrate UI data without replaying their business ac
   expect(render).toHaveBeenCalledTimes(1)
   expect(execute).not.toHaveBeenCalled()
 })
+
+test.each(["removed", "replaced", "hidden"])(
+  "app calls recheck their %s registration after async validation",
+  async (change) => {
+    savedMessages = savedWidget("card", "app")
+    const validation = Promise.withResolvers<{ value: object }>()
+    const execute = vi.fn()
+    const replacement = vi.fn(() => ({ updated: true }))
+    const render = vi.fn<(request: WidgetRenderRequest) => void>()
+    const chat = createTestSession({
+      threadId: thread.id,
+      widgets: { card: { description: "Card" } },
+      tools: {
+        action: {
+          description: "Action",
+          parameters: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              jsonSchema: { input: () => ({ type: "object" }) },
+              validate: () => validation.promise,
+            },
+          },
+          execute,
+        },
+      },
+      onRenderWidget: render,
+    })
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const call = render.mock.calls[0]![0].context.callTool("action")
+    chat.updateOptions({
+      tools:
+        change === "removed"
+          ? {}
+          : {
+              action: {
+                description: "Current",
+                visibility: change === "hidden" ? ["model"] : ["app"],
+                execute: replacement,
+              },
+            },
+    })
+    const outcome = call.catch((error: Error) => error.message)
+    validation.resolve({ value: {} })
+    await expect(outcome).resolves.toEqual(
+      change === "replaced" ? { updated: true } : 'Tool "action" is unavailable to widgets',
+    )
+    expect(execute).not.toHaveBeenCalled()
+    expect(replacement).toHaveBeenCalledTimes(change === "replaced" ? 1 : 0)
+  },
+)
 
 test("stopping a pending tool cancels its widget and blocks local actions", async () => {
   const pending = Promise.withResolvers<object>()

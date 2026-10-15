@@ -548,15 +548,19 @@ export function createAstralBeamChat(
         authentication.session.abortController.signal,
       ]),
       callTool: async (name, args) => {
-        context.signal.throwIfAborted()
-        const tool = live.tools && Object.hasOwn(live.tools, name) ? live.tools[name] : undefined
-        if (!tool || (tool.visibility && !tool.visibility.includes("app")))
-          throw new Error(`Tool "${name}" is unavailable to widgets`)
-        if (state.thread?.role === "viewer") throw new Error("This conversation is read-only")
-        const { value } = await executeHostTool({ ...tool, name }, args ?? {}, {
-          signal: context.signal,
-          invocationId: newUuid(),
-        })
+        const currentTool = () => {
+          context.signal.throwIfAborted()
+          const tool = live.tools && Object.hasOwn(live.tools, name) ? live.tools[name] : undefined
+          if (!tool || (tool.visibility && !tool.visibility.includes("app")))
+            throw new Error(`Tool "${name}" is unavailable to widgets`)
+          if (state.thread?.role === "viewer") throw new Error("This conversation is read-only")
+          return tool
+        }
+        const { value } = await executeHostTool(
+          { ...currentTool(), name, execute: (input, ctx) => currentTool().execute(input, ctx) },
+          args ?? {},
+          { signal: context.signal, invocationId: newUuid() },
+        )
         return value
       },
     }
