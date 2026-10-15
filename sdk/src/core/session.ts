@@ -309,6 +309,8 @@ export function createAstralBeamChat(
         key: string
         tools?: Array<Record<string, unknown>>
         callbacks?: ChatSubmissionCallbacks | undefined
+        /** The failure shown when its conversation was left, restored with its Retry on return. */
+        error?: Error | undefined
       }
     | undefined
   let sending = false
@@ -1021,7 +1023,8 @@ export function createAstralBeamChat(
   const changeSelection = (threadId?: string) => {
     const previousId = state.thread?.id
     if (previousId) {
-      if (pendingSend && !pendingSend.accepted) pendingSends.set(previousId, pendingSend)
+      if (pendingSend && !pendingSend.accepted)
+        pendingSends.set(previousId, { ...pendingSend, error: state.error })
       else pendingSends.delete(previousId)
       threadToolResults.set(previousId, toolResults)
     }
@@ -1062,7 +1065,16 @@ export function createAstralBeamChat(
     update(historyLoading())
     try {
       pendingSend = pendingSends.get(id)
-      update({ unsentMessage: pendingSend?.content })
+      // A retained send stays recoverable after navigation, so its failure and Retry return with it.
+      update(
+        pendingSend
+          ? {
+              unsentMessage: pendingSend.content,
+              status: "error",
+              error: pendingSend.error ?? new Error("This message was not sent. Retry to send it."),
+            }
+          : { unsentMessage: undefined },
+      )
       if (!started) client.attach()
       await hydration
       if (generation !== selectionGeneration) return
