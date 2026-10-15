@@ -1,4 +1,4 @@
-// Added with: deno task ui add table
+// Added with: bun run ui add table
 import * as React from "react"
 import { cn } from "cn"
 

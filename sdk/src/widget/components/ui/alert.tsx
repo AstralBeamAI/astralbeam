@@ -1,4 +1,4 @@
-// Added with: deno task ui add alert
+// Added with: bun run ui add alert
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"

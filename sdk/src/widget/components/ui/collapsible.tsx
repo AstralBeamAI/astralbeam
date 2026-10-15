@@ -1,4 +1,4 @@
-// Added with: deno task ui add collapsible
+// Added with: bun run ui add collapsible
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible"
 
 function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {

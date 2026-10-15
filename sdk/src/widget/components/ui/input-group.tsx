@@ -1,4 +1,4 @@
-// Added with: deno task ui add input-group
+// Added with: bun run ui add input-group
 // Local change: a click anywhere in the group focuses its control, a textarea included. The
 // registry focused only from the addons and queried `input`, so taps beside a textarea did nothing.
 import * as React from "react"

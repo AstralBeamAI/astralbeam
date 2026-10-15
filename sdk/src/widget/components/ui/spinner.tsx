@@ -1,4 +1,4 @@
-// Added with: deno task ui add spinner
+// Added with: bun run ui add spinner
 import { cn } from "cn"
 import { SpinnerIcon } from "@phosphor-icons/react"
 

@@ -1,4 +1,4 @@
-// Added with: deno task ui add questionnaire
+// Added with: bun run ui add questionnaire
 "use client"
 
 import * as React from "react"

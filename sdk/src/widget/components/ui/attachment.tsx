@@ -1,4 +1,4 @@
-// Added with: deno task ui add attachment
+// Added with: bun run ui add attachment
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"

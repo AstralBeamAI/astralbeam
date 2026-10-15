@@ -1,4 +1,4 @@
-// Added with: deno task ui add card
+// Added with: bun run ui add card
 import * as React from "react"
 
 import { cn } from "cn"
