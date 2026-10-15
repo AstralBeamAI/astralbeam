@@ -54,6 +54,39 @@ export function ServerIcon() {
   )
 }
 
+export function ChartIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 2v12h12M5 11V8m4 3V5m4 6V2"></path>
+    </svg>
+  )
+}
+
+export function ShieldIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="m8 1.5 5.5 2v4c0 3-2 5-5.5 7-3.5-2-5.5-4-5.5-7v-4zM5.5 8l1.5 1.5 3.5-3.5"></path>
+    </svg>
+  )
+}
+
+export function WidgetIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="12" rx="1"></rect>
+      <path d="M2 6h12M7 6v8"></path>
+    </svg>
+  )
+}
+
+export function PlugIcon() {
+  return (
+    <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 1.5V5m6-3.5V5M3 5h10M4 5v3a4 4 0 0 0 8 0V5M8 12v2.5"></path>
+    </svg>
+  )
+}
+
 export function CopyIcon() {
   return (
     <svg className="icon-stroke" viewBox="0 0 16 16" aria-hidden="true">

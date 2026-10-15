@@ -189,11 +189,6 @@ export function LandingPage() {
                     {benefit.icon && <span className="benefit-icon">{benefit.icon}</span>}
                     <h3 className="benefit-name">{benefit.name}</h3>
                     <p className="benefit-desc">{benefit.desc}</p>
-                    {benefit.soon && (
-                      <p className="benefit-status">
-                        <span className="tag mono">IN PROGRESS</span>
-                      </p>
-                    )}
                     <i className="panel-corner" aria-hidden="true"></i>
                   </li>
                 ))}

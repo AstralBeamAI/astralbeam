@@ -837,11 +837,6 @@ main {
   transition: filter 0.25s;
 }
 
-.benefit-status {
-  margin-top: auto;
-  padding-top: 0.8rem;
-}
-
 .benefit:hover {
   background: var(--beam-soft);
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--primary) 16%, transparent));
@@ -869,17 +864,6 @@ main {
   font-size: 0.86rem;
   line-height: 1.5;
   color: var(--text-muted);
-}
-
-/* Roadmap marker. Same treatment wherever something is not shipped yet. */
-.tag {
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  padding: 0.14rem 0.4rem;
-  color: var(--warning);
-  border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent);
-  white-space: nowrap;
 }
 
 .panel-corner {
@@ -1533,8 +1517,6 @@ main {
   background: color-mix(in srgb, var(--card) 80%, transparent);
 }
 
-/* The same dashed warning outline as the `IN PROGRESS` tag, so the chip carries
-   its own meaning without a legend under the grid. */
 .chip.is-soon {
   color: var(--text-chrome);
   border-style: dashed;

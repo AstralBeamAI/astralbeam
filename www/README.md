@@ -21,7 +21,7 @@ Structure:
 - `src/routes/__root.tsx`, shared document shell, search/social metadata, icons, manifest, and Organization structured data
 - `src/routes/index.tsx` and `src/routes/home.tsx`, the landing page at `/` and the copy the platform serves signed-in visitors at `/home`, both rendering `-landing/landing-page.tsx`
 - `src/routes/-landing/landing-page.tsx`, the whole page (hero with the agent-sidebar prototype, three integration step sections with code and benefit tiles, integrations, open source, launch) plus HUD chrome
-- `src/routes/-landing/`, the landing page's step and integration copy, its TSX token highlighter, and the scripted agent-sidebar transcript. Benefits and integrations marked `soon` render an "IN PROGRESS" tag or a dashed chip
+- `src/routes/-landing/`, the landing page's step and integration copy, its TSX token highlighter, and the scripted agent-sidebar transcript. Integrations marked `soon` render a dashed chip with an "In progress" tooltip
 - `public/demo/`, the sample CSV and spreadsheet the hero prototype's attachment and artifact chips download
 - `src/routes/404.tsx`, "SIGNAL LOST" error page, prerendered to `404.html` for wrangler `404-page` handling and reused as the router's `notFoundComponent`
 - `src/routes/*[.]*.ts`, prerendered metadata resources, sitemap, icons, social image, `robots.txt`, and `llms.txt`. The `[.]` escapes keep the dot in the URL instead of nesting a route
