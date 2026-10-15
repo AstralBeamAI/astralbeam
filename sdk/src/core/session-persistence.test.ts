@@ -1263,6 +1263,67 @@ test("a late hydration response cannot replace a newly selected conversation", a
   expect(chat.getState().error).toBeUndefined()
 })
 
+test("a refresh during a first send's conversation creation leaves the session ready", async () => {
+  let release: ((response: Response) => void) | undefined
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST")
+      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+    if (path.endsWith("/messages") && !release)
+      return new Promise<Response>((resolve) => {
+        release = resolve
+      })
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  chat.reset()
+  const sent = chat.sendMessage("First message")
+  await vi.waitFor(() => expect(release).toBeDefined())
+  expect(chat.getState().status).toBe("submitted")
+  await chat.refreshThread()
+  release!(Response.json(page()))
+  expect(await sent).toBe(true)
+  expect(chat.getState()).toMatchObject({
+    status: "ready",
+    threadLoading: false,
+    threadRefreshing: false,
+  })
+})
+
+test("opening a conversation during a background refresh reports only loading", async () => {
+  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
+  let reads = 0
+  stubSessionFetch((input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (!path.endsWith("/messages"))
+      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+    const response = Response.json({
+      ...page([
+        {
+          id: "saved",
+          role: "user",
+          created_at: thread.created_at,
+          parts: [{ id: "text", type: "text", content: "Saved" }],
+        },
+      ]),
+      thread: path.includes(next.id) ? next : thread,
+    })
+    if (reads++ === 0) return Promise.resolve(response)
+    return new Promise<Response>((resolve) => setTimeout(() => resolve(response), 20))
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
+  const refresh = chat.refreshThread()
+  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: true })
+  const opened = chat.openThread(next.id)
+  expect(chat.getState()).toMatchObject({ threadLoading: true, threadRefreshing: false })
+  await Promise.all([refresh, opened])
+  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: false })
+})
+
 test("failed native hydration blocks sends until a successful reload", async () => {
   let failed = true
   const sends = vi.fn()

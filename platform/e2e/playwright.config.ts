@@ -64,7 +64,7 @@ function seededProjects() {
       use: {
         storageState: seededStatePath,
         deviceScaleFactor: 2,
-        video: { mode: "on", size: { width: 1440, height: 900 } },
+        video: { mode: "on" as const, size: { width: 1440, height: 900 } },
       },
     },
   ]

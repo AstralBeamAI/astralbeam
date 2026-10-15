@@ -280,7 +280,7 @@ export function ChatWidget({
               })),
           },
     )
-    const { callbacks, settle } = composer.submit(
+    const { refused, ...callbacks } = composer.submit(
       new Set(attachments.filter((file) => file.status === "ready").map((file) => file.id)),
     )
     const sent = chat.sendMessage(
@@ -294,7 +294,9 @@ export function ChatWidget({
           },
       callbacks,
     )
-    void sent.finally(settle)
+    void sent.then((taken) => {
+      if (!taken) refused()
+    })
   }
 
   const submitQuestionnaireAnswers = useCallback(
@@ -500,7 +502,7 @@ export function ChatWidget({
             usageLimit
               ? undefined
               : chatState.unsentMessage !== undefined
-                ? () => void chat.sendMessage(chatState.unsentMessage!)
+                ? () => void chat.sendMessage(chatState.unsentMessage!, composer.retry())
                 : messages.length > 0
                   ? () => void chat.reload()
                   : undefined
