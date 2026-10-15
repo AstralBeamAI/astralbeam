@@ -32,6 +32,9 @@
     "oxfmt": "0.73.0"
   },
   "packageManager": "bun@1.4.3",
+  "patchedDependencies": {
+    "nitro@3.0.260903-beta": "patches/nitro@3.0.260903-beta.patch"
+  },
   "trustedDependencies": [
     "esbuild",
     "msgpackr-extract"

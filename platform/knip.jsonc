@@ -22,9 +22,7 @@
   // declares tslib only to make that specifier resolvable. https://www.typescriptlang.org/tsconfig/#importHelpers
   // @daytona/sdk also `createRequire`s busboy at download time, which the built server bundle keeps
   // as a runtime specifier; platform declares busboy only so that require resolves.
-  // Sharp dynamically loads its WASM fallback when native FFI is unavailable.
-  // https://sharp.pixelplumbing.com/install/#webassembly
-  "ignoreDependencies": ["@img/sharp-wasm32", "busboy", "tslib"],
+  "ignoreDependencies": ["busboy", "tslib"],
   // The suite's config lives under `e2e/`, so Knip's Playwright plugin is pointed at it
   // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
   "playwright": {

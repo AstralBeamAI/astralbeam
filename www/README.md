@@ -16,6 +16,8 @@ bun run --cwd www deploy   # ready, then deploy to Cloudflare
 
 `ready` builds before testing because the tests inspect `.output/public/`. Use `deploy` only when publishing the website is intended.
 
+For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `www`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
+
 Structure:
 
 - `src/routes/__root.tsx`, shared document shell, search/social metadata, icons, manifest, and Organization structured data

@@ -111,7 +111,8 @@ export function e2eWebServers() {
           {
             command: "bun run dev",
             cwd: platformDirectory,
-            url: `${platformUrl}/api/status`,
+            // Poll a static asset so the short readiness probe cannot abort Vite’s first SSR build.
+            url: `${platformUrl}/api/openapi.json`,
             env: forwardedPlatformEnv(),
             reuseExistingServer: false,
             timeout: 180_000,
