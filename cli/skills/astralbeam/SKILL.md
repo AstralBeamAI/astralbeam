@@ -7,7 +7,7 @@ description: Manage an AstralBeam organization from the terminal with the `astra
 
 `astralbeam` calls an AstralBeam organization's public API with an organization API key. Tenants are the organization's customers, and TenantUsers are those customers' users who talk to the embedded agent.
 
-If `astralbeam` is not on the PATH, run it as `deno run -A npm:@astralbeam/cli` or `npx -y @astralbeam/cli`, as allowed by the current project's runtime policy.
+If `astralbeam` is not on the PATH, run it as `bunx --bun @astralbeam/cli` or `npx -y @astralbeam/cli`, as allowed by the current project's runtime policy.
 
 ## Rules
 
