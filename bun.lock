@@ -136,7 +136,7 @@
         "@tanstack/ai-anthropic": "^0.22.0",
         "@tanstack/ai-gemini": "^0.38.0",
         "@tanstack/ai-grok": "^0.22.0",
-        "@tanstack/ai-mcp": "latest",
+        "@tanstack/ai-mcp": "0.9.0",
         "@tanstack/ai-openai": "^0.30.0",
         "@tanstack/ai-openrouter": "^0.22.0",
         "@tanstack/ai-persistence": "0.9.0",
