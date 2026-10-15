@@ -38,6 +38,7 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
       environmentVariable: configEnvironmentVariable(definition.key),
       source,
       ...(definition.options ? { options: definition.options } : {}),
+      ...(definition.multiline ? { multiline: true } : {}),
       isSet:
         source === "environment"
           ? snapshot.values[definition.key] !== undefined
