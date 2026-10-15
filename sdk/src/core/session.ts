@@ -291,6 +291,8 @@ export function createAstralBeamChat(
     callbacks?: ChatSubmissionCallbacks | undefined
     /** Hands a refused send back to its sender at once, before its pending work unwinds. */
     onRefused?: () => void
+    /** The current delivery attempt. Identity and key stay stable across Retry, authority does not. */
+    attempt: number
   }
   let submission: Submission | undefined
   const submissions = new Map<string, Submission>()
@@ -326,8 +328,12 @@ export function createAstralBeamChat(
     if (phase === "refused") sent.onRefused?.()
     return true
   }
-  // A send's pending work may continue only while it is still the session's submitting send.
-  const owns = (sent: Submission) => sent === submission && sent.phase === "submitting"
+  // A delivery attempt acts only while it is the session's submission and its current attempt, and
+  // it continues dispatching only while that send is still submitting.
+  const current = (sent: Submission, attempt: number) =>
+    sent === submission && sent.attempt === attempt
+  const owns = (sent: Submission, attempt: number) =>
+    current(sent, attempt) && sent.phase === "submitting"
   // A dispatched send may have reached the server, so it keeps Retry. Otherwise it was not sent.
   const endUnaccepted = (sent: Submission, error?: Error) =>
     settle(
@@ -644,7 +650,10 @@ export function createAstralBeamChat(
     }
     let path = getRunChatUrl()
     let payload: unknown
-    const sent = body.messages.at(-1)?.role === "user" ? submission : undefined
+    const sent =
+      body.messages.at(-1)?.role === "user" && submission?.phase === "submitting"
+        ? submission
+        : undefined
     const previouslyAttempted = sent?.tools !== undefined
     if (sent) {
       payload = {
@@ -1163,11 +1172,11 @@ export function createAstralBeamChat(
   }
 
   // A cancelled send's thread is never published, so it cannot capture a later send.
-  const ensureThread = async (sent: Submission) => {
+  const ensureThread = async (sent: Submission, attempt: number) => {
     if (state.thread) return
     const options = await requestOptions()
     const record = await createChatThread(live.agentId ? { agent_id: live.agentId } : {}, options)
-    if (!owns(sent)) throw new DOMException("Send cancelled", "AbortError")
+    if (!owns(sent, attempt)) throw new DOMException("Send cancelled", "AbortError")
     selectedId = record.id
     update({ thread: threadFromRecord(record, false) })
     void resolveCapabilities()
@@ -1308,20 +1317,23 @@ export function createAstralBeamChat(
   // Dispatches an admitted send. It resumes after each wait only while it still owns its scope, and
   // a send taken during a full history read waits for that read.
   const deliver = async (sent: Submission): Promise<ChatSubmission> => {
+    const attempt = ++sent.attempt
     try {
       await getValidChatAuthToken(authentication)
       await hydration.catch(() => undefined)
-      if (!owns(sent)) return project(sent)
+      if (!owns(sent, attempt)) return project(sent)
       if (state.history === "failed") throw new Error(HISTORY_FAILED)
-      await ensureThread(sent)
-      if (!owns(sent)) return project(sent)
+      await ensureThread(sent, attempt)
+      if (!owns(sent, attempt)) return project(sent)
       sent.callbacks?.onThreadReady?.(state.thread!.id)
-      if (!owns(sent)) return project(sent)
+      if (!owns(sent, attempt)) return project(sent)
       scopeCompletedToolCalls()
       await client.sendMessage(sent.content)
+      if (!current(sent, attempt)) return project(sent)
       endUnaccepted(sent, client.getError())
-      if (sent === submission) await refreshThread(false)
+      await refreshThread(false)
     } catch (error) {
+      if (!current(sent, attempt)) return project(sent)
       const failure = error instanceof Error ? error : new Error(String(error))
       if (failure.name === "AbortError") endUnaccepted(sent)
       else if (endUnaccepted(sent, failure)) notifyError(failure)
@@ -1355,6 +1367,7 @@ export function createAstralBeamChat(
       phase: "submitting",
       key: newUuid(),
       callbacks,
+      attempt: 0,
     }
     submission = sent
     update({ submission: project(sent), error: undefined, olderMessagesLoading: false })
@@ -1455,9 +1468,10 @@ export function createAstralBeamChat(
     sendMessage,
     retry,
     addToolResult,
-    // Stop ends the session's send too: undispatched it returns to its sender, else it keeps Retry.
+    // Stop ends the active attempt: a never-dispatched input returns to its sender, and one the
+    // server may have stays failed with its key for Retry.
     stop: () => {
-      if (submission && !submission.tools) settle(submission, "refused")
+      if (submission?.phase === "submitting") endUnaccepted(submission)
       client.stop()
     },
     retryAuthentication: () => {

@@ -1832,3 +1832,118 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
   expect(await chat.sendMessage("Next")).toMatchObject({ phase: "accepted" })
   expect(targets).toEqual([second.id, second.id])
 })
+
+// Fails the first chat request, then accepts, recording each request's idempotency key.
+function stubRetryableChat(onRead?: () => Promise<void> | undefined) {
+  const keys: Array<string | null> = []
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      return Promise.resolve(
+        keys.length === 1
+          ? new Response("Unavailable", { status: 503 })
+          : acceptedStream(String(keys.length)),
+      )
+    }
+    if (path.endsWith("/messages"))
+      return (onRead?.() ?? Promise.resolve()).then(() => Response.json(page()))
+    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+  })
+  return keys
+}
+
+test("a stale retry attempt cannot act for the newer attempt of the same send", async () => {
+  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
+  const renewal: { wait?: Promise<void> } = {}
+  let release: (() => void) | undefined
+  const keys = stubRetryableChat()
+  const chat = createTestSession({
+    threadId: thread.id,
+    fetchAstralBeamToken: async () => {
+      await renewal.wait
+      return chatTestToken()
+    },
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Retry me")
+  expect(chat.getState().submission?.phase).toBe("failed")
+  renewal.wait = new Promise((resolve) => {
+    release = resolve
+  })
+  chat.retryAuthentication()
+  const stale = chat.retry()
+  void chat.openThread(next.id)
+  void chat.openThread(thread.id)
+  const fresh = chat.retry()
+  release!()
+  await Promise.all([stale, fresh])
+  await vi.waitFor(() => expect(chat.getState().submission?.phase).toBe("accepted"))
+  expect(keys).toEqual([keys[0], keys[0]])
+})
+
+test.each(["history", "authentication"] as const)(
+  "Stop ends a retry waiting for its %s and keeps the send for a later Retry",
+  async (wait) => {
+    let hold: Promise<void> | undefined
+    let release: (() => void) | undefined
+    const keys = stubRetryableChat(() => (wait === "history" ? hold : undefined))
+    const chat = createTestSession({
+      threadId: thread.id,
+      fetchAstralBeamToken: async () => {
+        if (wait === "authentication") await hold
+        return chatTestToken()
+      },
+    })
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.sendMessage("Retry me")
+    hold = new Promise((resolve) => {
+      release = resolve
+    })
+    if (wait === "history") void chat.refreshThread()
+    else chat.retryAuthentication()
+    const stopped = chat.retry()
+    chat.stop()
+    expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "failed" } })
+    release!()
+    hold = undefined
+    expect(await stopped).toMatchObject({ phase: "failed", content: "Retry me" })
+    expect(keys).toHaveLength(1)
+    expect(await chat.retry()).toMatchObject({ phase: "accepted" })
+    expect(keys).toEqual([keys[0], keys[0]])
+  },
+)
+
+test("a send waiting on token renewal never reaches the account the renewal resolves", async () => {
+  let user = currentUser
+  const renewal: { wait?: Promise<void> } = {}
+  let release: (() => void) | undefined
+  const sends = vi.fn()
+  vi.stubGlobal("fetch", (input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) sends()
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession({
+    threadId: thread.id,
+    fetchAstralBeamToken: async () => {
+      await renewal.wait
+      return chatTestToken()
+    },
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  renewal.wait = new Promise((resolve) => {
+    release = resolve
+  })
+  chat.retryAuthentication()
+  const outcome = chat.sendMessage("Private to the first account")
+  user = { ...currentUser, user: { id: "another-user" } }
+  release!()
+  expect(await outcome).toMatchObject({ phase: "refused" })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first account")
+  expect(sends).not.toHaveBeenCalled()
+})
