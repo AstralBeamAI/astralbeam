@@ -105,7 +105,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
-1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
+1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Deletion uses ordinary `s3:DeleteObject`, which creates a delete marker in a versioned bucket. Use lifecycle rules to expire retained versions.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration and restart other running server instances.
@@ -118,7 +118,7 @@ You can change the endpoint, region, bucket, and addressing mode at any time. **
 
 Let's use **Members** to upload or remove your avatar for an Organization. Global account screens show initials. OAuth login imports your provider image, and user or membership creation imports Gravatar. Each successful import replaces avatars across all of your memberships. Unavailable or invalid images leave existing avatars unchanged and do not prevent sign-in. Images must be valid, non-animated PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. External logos submitted through the Organization API are fetched, validated and stored during the write request. A failed logo replacement preserves the existing logo. Organization API responses expose `logoFileId`, and Better Auth compatibility columns `user.image` and `organization.logo` remain null.
 
-Avatars and Organization logos use application URLs that check current membership before redirecting to a signed S3 download URL valid for one minute. The storage endpoint must be reachable from your users' browsers. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
+Avatars and Organization logos use application URLs that check current membership before redirecting to a signed download URL valid for one minute. Downloads use S3 by default, or the optional CloudFront origin below. The S3 endpoint must remain reachable from the platform. Native S3 downloads additionally require browser access to it. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
 
 Files do not expire. The FileMaintenance schedule submits explicitly retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
 
@@ -131,6 +131,18 @@ Let's rotate credentials by creating a key with the same bucket permissions, ent
 Replacement retains deletion targets until object deletion succeeds. Because database references require matching objects, let's stop writers and maintenance runners for a coordinated PostgreSQL and object backup. Preserve the database encryption root separately. Restore both backups into the configured destination before restarting the application. A database-only restore can reference deleted objects. Bucket versioning can preserve older bytes, with a separate retention policy. See [S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
 Storage failures are logged without file content or credentials. Repair settings at `/configure` and test the connection so durable purges can retry.
+
+### Private CloudFront image downloads
+
+CloudFront can serve private avatars and Organization logos through a custom HTTPS origin. Let's add optional image delivery while keeping uploads, native S3 signed URLs and chat attachment downloads on their existing paths.
+
+1. Create a distribution with the bucket's regional S3 origin and [Origin Access Control](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html), configured to always sign origin requests. Keep the bucket private and grant `s3:GetObject` to the CloudFront service principal only for this distribution's ARN.
+2. Because origin access alone does not restrict viewers, require [signed viewer URLs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html) with a trusted key group. We'll upload only the public key to CloudFront and keep the matching RSA 2048-bit PEM private key in the application's encrypted configuration or deployment secret store.
+3. Set the behavior's [cache policy](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html) to `CachingDisabled` and a [response headers policy](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-response-headers-policies.html) overriding `Cache-Control` with `private, no-store`. For a custom hostname, attach an ACM certificate in `us-east-1`, add the alternate domain name and point DNS to the distribution.
+4. In **File storage** at `/configure`, set **CloudFront download origin** to a pathless HTTPS origin, **CloudFront public key ID** to the trusted group's public key ID, and **CloudFront private key** to the matching unencrypted PEM. The deployment overrides are `CLOUDFRONT_DOWNLOAD_ORIGIN`, `CLOUDFRONT_KEY_PAIR_ID` and `CLOUDFRONT_PRIVATE_KEY`. Supply all three together. Preserve PEM line breaks, or use a JSON-encoded string for the environment value. Keep the S3 endpoint unchanged.
+5. Upload and reload an avatar or logo. Confirm that the authorized image URL uses CloudFront, returns the expected bytes with `private, no-store`, and rejects unsigned, expired and altered URLs. URLs last one minute. Confirm native S3 signed URLs still work with CloudFront enabled. Clear all three settings to return image delivery to S3.
+
+The application signs URLs locally and needs no CloudFront control-plane permissions. Malformed or incomplete CloudFront settings fail closed. Let's rotate keys by adding the new public key to the trusted group before updating the application's key ID and private key, then retire the old public key after existing URLs expire.
 
 ## Model providers
 

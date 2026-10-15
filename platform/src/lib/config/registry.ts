@@ -108,7 +108,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "File storage",
     label: "S3 access-key ID",
     description:
-      "Object read, write, and delete permissions. AWS also needs s3:ListBucket, and versioned buckets need s3:DeleteObjectVersion.",
+      "Object read, write, and delete permissions. AWS also needs s3:ListBucket. Use lifecycle rules to expire retained versions.",
     kind: "secret",
     required: true,
     schema: NonEmptyStringSchema,
@@ -135,6 +135,47 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       { value: "true", label: "Path style" },
     ],
     schema: BooleanSettingSchema,
+  },
+  {
+    key: "cloudfront_download_origin",
+    group: "File storage",
+    label: "CloudFront download origin",
+    description:
+      "Optional HTTPS origin for private avatar and logo downloads. Keep the S3 endpoint unchanged.",
+    kind: "url",
+    required: false,
+    isPublic: true,
+    schema: ServerOriginSchema.check(
+      Schema.makeFilter((value) => value.startsWith("https://"), {
+        message: "Use an HTTPS origin without credentials, path, query, or fragment",
+      }),
+    ),
+  },
+  {
+    key: "cloudfront_key_pair_id",
+    group: "File storage",
+    label: "CloudFront public key ID",
+    description: "Public key in the distribution's trusted key group for signed viewer URLs.",
+    kind: "text",
+    required: false,
+    isPublic: true,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "cloudfront_private_key",
+    group: "File storage",
+    label: "CloudFront private key",
+    description:
+      "PEM private key matching the trusted public key. Stored encrypted in the database.",
+    kind: "secret",
+    multiline: true,
+    required: false,
+    schema: Schema.String.check(
+      Schema.isPattern(
+        /^-----BEGIN ((?:RSA |EC )?PRIVATE KEY)-----\r?\n(?:[A-Za-z0-9+/=]+\r?\n)+-----END \1-----\s*$/,
+        { message: "Enter an unencrypted PEM private key" },
+      ),
+    ),
   },
   {
     key: "dogfood_organization_id",
@@ -482,6 +523,21 @@ export function validateConfigCompleteness(
           findConfigDefinition(missing)?.label
         } is required to enable this sign-in provider`,
       })
+    }
+  }
+  const cloudfrontKeys = [
+    "cloudfront_download_origin",
+    "cloudfront_key_pair_id",
+    "cloudfront_private_key",
+  ] as const
+  if (cloudfrontKeys.some((key) => values[key])) {
+    for (const key of cloudfrontKeys) {
+      if (!values[key]) {
+        issues.push({
+          key,
+          message: `${findConfigDefinition(key)?.label} is required to enable CloudFront downloads`,
+        })
+      }
     }
   }
   if (values.email_provider && values.email_provider !== "smtp" && !values.email_from_address) {

@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm"
-import { Effect } from "effect"
+import { getSignedUrl } from "@aws-sdk/cloudfront-signer"
+import { Clock, Effect } from "effect"
 
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { fileObject } from "@/db/schema/files"
-import { StorageObjectMissing, type StorageUnavailable } from "./errors"
+import { Config } from "@/lib/config/config"
+import { StorageObjectMissing, StorageUnavailable } from "./errors"
 import type { SignInRequired } from "@/lib/organizations/errors"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { ObjectStorage } from "./object-storage.server"
@@ -30,7 +32,26 @@ export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
     )
     .pipe(mapDatabaseErrors())
   if (!file) return yield* new StorageObjectMissing()
-  return yield* (yield* ObjectStorage).signedUrl(file)
+  const { values, issues } = yield* (yield* Config).snapshot
+  if (issues.some((issue) => /^(?:s3|cloudfront)_/.test(issue.key)))
+    return yield* new StorageUnavailable()
+  const origin = values.cloudfront_download_origin
+  const keyPairId = values.cloudfront_key_pair_id
+  const privateKey = values.cloudfront_private_key
+  if (!origin && !keyPairId && !privateKey) return yield* (yield* ObjectStorage).signedUrl(file)
+  if (!origin || !keyPairId || !privateKey) return yield* new StorageUnavailable()
+  const now = yield* Clock.currentTimeMillis
+  return yield* Effect.try({
+    try: () =>
+      getSignedUrl({
+        url: `${origin}/${file.key.split("/").map(encodeURIComponent).join("/")}`,
+        keyPairId,
+        privateKey,
+        algorithm: "SHA256",
+        dateLessThan: new Date((Math.floor(now / 1000) + 60) * 1000).toISOString(),
+      }),
+    catch: () => new StorageUnavailable(),
+  })
 })
 
 export function fileResponse<R>(

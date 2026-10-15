@@ -133,6 +133,7 @@ Follow the [relation composition guide](src/db/README.md#relations-v2-compositio
 
 - Object storage consumers assume completed setup and configured storage. Validate settings at `/configure`, and avoid fallback provisioning for absent storage.
 - When operators edit a configured storage destination, show a non-blocking warning that existing files must be migrated manually. Allow saving without pinning or locking destination settings after uploads.
+- Keep native S3 signed URLs working independently of optional CloudFront delivery. Select CloudFront only at `fileDownloadUrl`, fall back to S3 when all CloudFront settings are absent, and preserve the S3 endpoint and upload operations. The optional `CLOUDFRONT_DOWNLOAD_ORIGIN`, `CLOUDFRONT_KEY_PAIR_ID` and secret `CLOUDFRONT_PRIVATE_KEY` overrides must be supplied together.
 
 - The embedded SDK uses `link:../sdk` and must be built before the platform. Typecheck through the `lint` task's `oxlint --type-check`, which reuses its tsgo program instead of a second TypeScript pass. Pass type arguments explicitly to generics whose type parameter appears only in the return type, because tsgo can otherwise infer them from a surrounding `as` cast inconsistently between runs. Keep tenant identity persistence in JWT-authenticated `POST /api/v1/me`, keep token issuance read-only, resolve the displayed Organization selector against authenticated membership, and never turn dashboard roles into tenant-admin privileges.
 

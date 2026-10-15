@@ -19,6 +19,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  InputGroupTextarea,
 } from "@/components/ui/input-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { CopyValueButton } from "./copy-value-button"
@@ -74,15 +75,34 @@ export function ConfigValueInput({
   return (
     <div className="flex flex-col gap-2">
       <InputGroup>
-        <InputGroupInput
-          id={`config-${field.key}`}
-          type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
-          autoComplete={field.kind === "secret" ? "new-password" : "off"}
-          value={value}
-          placeholder={field.isSet ? "Configured" : "Not set"}
-          disabled={disabled || readOnly}
-          onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
-        />
+        {field.multiline && valueVisible ? (
+          <InputGroupTextarea
+            id={`config-${field.key}`}
+            autoComplete="off"
+            value={value}
+            placeholder={field.isSet ? "Configured" : "Not set"}
+            disabled={disabled || readOnly}
+            onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+          />
+        ) : (
+          <InputGroupInput
+            id={`config-${field.key}`}
+            type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
+            autoComplete={field.kind === "secret" ? "new-password" : "off"}
+            value={value}
+            placeholder={field.isSet ? "Configured" : "Not set"}
+            disabled={disabled || readOnly}
+            onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+            onPaste={
+              field.multiline
+                ? (event) => {
+                    event.preventDefault()
+                    onDraftChange({ kind: "set", value: event.clipboardData.getData("text") })
+                  }
+                : undefined
+            }
+          />
+        )}
         <InputGroupAddon align="inline-end">
           {valueVisible && value && <CopyValueButton value={value} label={field.label} />}
           {field.kind === "secret" && (

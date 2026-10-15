@@ -33,6 +33,7 @@ const COMPLETE_VALUES = {
   s3_bucket: "test-files",
   s3_access_key_id: "test-access-key",
   s3_secret_access_key: "test-secret-key",
+  s3_path_style: "false",
 } satisfies ConfigValues
 
 type StoredRow = { readonly key: string; readonly storedValue: string }
@@ -102,6 +103,10 @@ describe("configuration registry", () => {
       ["s3_endpoint", `https://example.com/storage/v1/s3#${secret}`],
       ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
       ["s3_endpoint", "http://s3.example.com"],
+      ["cloudfront_download_origin", "http://localhost"],
+      ["cloudfront_download_origin", "https://files.example.com/path"],
+      ["cloudfront_download_origin", `https://files.example.com?key=${secret}`],
+      ["cloudfront_private_key", secret],
       ["email_from_address", "secret@@value"],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
@@ -134,6 +139,28 @@ describe("configuration registry", () => {
     )
   })
 
+  it("enables CloudFront only with all three settings", () => {
+    const cloudfront = {
+      cloudfront_download_origin: "https://files.example.com",
+      cloudfront_key_pair_id: "KTESTPUBLICKEY",
+      cloudfront_private_key: "-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n",
+    } satisfies ConfigValues
+    const keys = Object.keys(cloudfront) as (keyof typeof cloudfront)[]
+    assert.isEmpty(validateConfigCompleteness(COMPLETE_VALUES))
+    assert.isEmpty(validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront }))
+    for (const key of keys) {
+      assert.deepStrictEqual(
+        validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront, [key]: undefined }).map(
+          (issue) => issue.key,
+        ),
+        [key],
+      )
+      assert.isTrue(
+        Result.isSuccess(decodeConfigValue(findConfigDefinition(key)!, cloudfront[key])),
+      )
+    }
+  })
+
   it("refuses a dogfood credential issued by another organization", () => {
     const issues = validateConfigCompleteness(
       { ...COMPLETE_VALUES, dogfood_organization_id: "01990a5d-0000-7000-8000-000000000099" },
@@ -152,12 +179,14 @@ describe("configuration registry", () => {
         google_client_id: "google-id",
         google_client_secret: "google-secret",
         resend_api_key: "resend-secret",
+        cloudfront_private_key: "cloudfront-secret",
       }),
     )
     assert.include(serialized, "turnstile-site-key")
     for (const secret of [
       "google-secret",
       "resend-secret",
+      "cloudfront-secret",
       SECRET,
       "turnstile-secret-key",
       COMPLETE_VALUES.s3_access_key_id,
@@ -284,6 +313,27 @@ describe("Config", () => {
       assert.isFalse((yield* config.setupState).setupComplete)
     }).pipe(Effect.provide(configLayer(state)))
   })
+
+  it.effect(
+    "does not silently disable CloudFront when its stored configuration is unreadable",
+    () => {
+      const state = {
+        rows: [
+          ...encryptedRows(COMPLETE_VALUES),
+          { key: "cloudfront_private_key", storedValue: "not-a-compact-jwe" },
+        ],
+        reads: 0,
+      }
+      return Effect.gen(function* () {
+        const { snapshot, setupComplete } = yield* (yield* Config).setupState
+        assert.isFalse(setupComplete)
+        assert.include(
+          snapshot.issues.map((issue) => issue.key),
+          "cloudfront_private_key",
+        )
+      }).pipe(Effect.provide(configLayer(state)))
+    },
+  )
 
   it.effect("reads once until invalidated, and never caches a load that began before", () => {
     return Effect.gen(function* () {

@@ -44,6 +44,9 @@ export type ConfigKey =
   | "s3_access_key_id"
   | "s3_secret_access_key"
   | "s3_path_style"
+  | "cloudfront_download_origin"
+  | "cloudfront_key_pair_id"
+  | "cloudfront_private_key"
 
 export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
@@ -53,6 +56,7 @@ export interface ConfigDefinition {
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"
+  multiline?: true
   required: boolean
   /** Effective value used when neither the database nor environment configures the key. */
   defaultValue?: string

@@ -160,6 +160,15 @@ export class Config extends Context.Service<
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
         const issues = validateConfigCompleteness(values, environmentKeys)
+        for (const row of stored.rows ?? []) {
+          if (row.key.startsWith("cloudfront_") && row.storageStatus === "unreadable") {
+            issues.push({
+              key: row.key as ConfigKey,
+              message:
+                "CloudFront configuration cannot be read. Replace or clear the stored value.",
+            })
+          }
+        }
         return {
           generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,

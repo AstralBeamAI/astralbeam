@@ -12,6 +12,7 @@ export interface ConfigureField {
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"
+  multiline?: true
   required: boolean
   canGenerate: boolean
   isPublic: boolean
