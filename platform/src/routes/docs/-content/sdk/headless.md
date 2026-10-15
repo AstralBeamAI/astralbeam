@@ -27,8 +27,9 @@ function MyChat() {
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, `history`, `submission`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
 - Actions: `sendMessage`, `retry`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
-- Each send becomes the `submission`, whose `phase` moves from `submitting` to `accepted`, `failed`, or `refused`. Clear your composer when you send.
-- A `failed` submission may have reached the server, so offer `retry()`. A `refused` one was not accepted, so return its `content` to your composer.
+- Each send becomes the `submission`, whose `phase` moves from `submitting` to `accepted`, `failed`, or `refused`. `sendMessage` and `retry()` resolve with the attempt's outcome.
+- Clear your composer when you send, and return the `content` of a `refused` outcome to it. A `failed` submission may have reached the server, so offer `retry()`.
+- An attempt the session declines, such as one sent while another is active, resolves `refused` without replacing the active submission. `stop()` returns an unsent message the same way.
 - `retry()` reuses the admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Nothing needs a remount.
 - No shadow root and no bundled styles: your markup, your CSS.

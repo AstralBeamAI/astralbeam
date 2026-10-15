@@ -55,12 +55,18 @@ interface ChatTranscriptProps {
 const LATEST_TURN = "[content-visibility:visible]"
 
 // The latest turn only grows: a reply mounts with its first visible content, behind the Thinking
-// marker until then, so an empty item never adds a gap that shifts it.
-const hasVisibleContent = (message: UIMessage) =>
-  message.role !== "assistant" ||
-  message.parts.some(
-    (part) => (part.type !== "text" && part.type !== "thinking") || part.content.length > 0,
+// marker until then. Saved interrupted and draft replies show a marker, so they count as content.
+const hasVisibleContent = (message: UIMessage) => {
+  const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+  return (
+    message.role !== "assistant" ||
+    saved?.state === "interrupted" ||
+    saved?.state === "draft" ||
+    message.parts.some(
+      (part) => (part.type !== "text" && part.type !== "thinking") || part.content.length > 0,
+    )
   )
+}
 
 // Memoized so a streamed chunk re-renders only the message it changed.
 const TranscriptMessage = memo(function TranscriptMessage({

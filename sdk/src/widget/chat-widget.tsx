@@ -5,7 +5,6 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react"
@@ -164,15 +163,6 @@ export function ChatWidget({
     canLoad: auth.status === "ready" && (history === "idle" || history === "failed"),
     debug,
   })
-  // A refused send goes back to the composer once, when its conversation's draft can load.
-  const restoreDraft = composer.restore
-  const restored = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (submission?.phase !== "refused" || history === "loading") return
-    if (restored.current === submission.id) return
-    restored.current = submission.id
-    restoreDraft()
-  }, [submission?.id, submission?.phase, history, restoreDraft])
   const draftIdentity = composer.identity
   // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
@@ -294,10 +284,10 @@ export function ChatWidget({
               })),
           },
     )
-    const callbacks = composer.submit(
-      new Set(attachments.filter((file) => file.status === "ready").map((file) => file.id)),
+    const { restore, ...callbacks } = composer.submit(
+      attachments.filter((file) => file.status === "ready"),
     )
-    void chat.sendMessage(
+    const sent = chat.sendMessage(
       parts.length === 0
         ? text
         : {
@@ -308,6 +298,9 @@ export function ChatWidget({
           },
       callbacks,
     )
+    void sent.then((outcome) => {
+      if (outcome.phase === "refused") restore(outcome.content)
+    })
   }
 
   const submitQuestionnaireAnswers = useCallback(

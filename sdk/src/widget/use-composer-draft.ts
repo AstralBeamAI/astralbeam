@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { MultimodalContent } from "@tanstack/ai-client"
 import type { DebugLogger } from "../lib/debug.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import type { DraftAttachment } from "./lib/types.ts"
@@ -23,6 +24,9 @@ const EMPTY_DRAFT: ThreadDraft = {
   attachmentsLoaded: false,
   storageError: false,
 }
+// Returned input goes ahead of anything typed since, so neither is lost.
+const joinDrafts = (returned: string, unsent: string) =>
+  returned && unsent ? `${returned}\n\n${unsent}` : returned || unsent
 const storedDraft = (apiUrl: string, identity: string, threadId: string): ThreadDraft => ({
   ...EMPTY_DRAFT,
   text: storedThreadDraft(apiUrl, identity, threadId),
@@ -89,10 +93,9 @@ export function useComposerDraft({
       )
       .then(({ attachments, storageError }) => {
         if (cancelled) return
-        // A reload or a refused send returns text the server did not accept ahead of the draft.
+        // After a reload, a send the server never accepted returns ahead of the draft.
         const sent = storedThreadDraft(apiUrl, identity, threadId, undefined, "sent")
-        const unsent = storedThreadDraft(apiUrl, identity, threadId)
-        const text = sent && unsent ? `${sent}\n\n${unsent}` : sent || unsent
+        const text = joinDrafts(sent, storedThreadDraft(apiUrl, identity, threadId))
         if (sent) {
           storedThreadDraft(apiUrl, identity, threadId, text)
           storedThreadDraft(apiUrl, identity, threadId, "", "sent")
@@ -176,7 +179,8 @@ export function useComposerDraft({
   }
 
   // The session keeps these callbacks with its submission, so a Retry settles the same one.
-  const follow = (fileIds: ReadonlySet<string>, initialKey: string) => {
+  const follow = (files: readonly DraftAttachment[], initialKey: string) => {
+    const fileIds = new Set(files.map((file) => file.id))
     let key = initialKey
     return {
       onThreadReady: (id: string) => {
@@ -222,13 +226,31 @@ export function useComposerDraft({
           debug?.("error", "Accepted draft files could not be cleared", error),
         )
       },
+      /** Returns a refused send to the composer it came from, from the session's own copy. */
+      restore: (content: string | MultimodalContent) => {
+        const body = typeof content === "string" ? content : content.content
+        const text =
+          typeof body === "string"
+            ? body
+            : body.flatMap((part) => (part.type === "text" ? [part.content] : [])).join("")
+        storedThreadDraft(
+          apiUrl,
+          identity,
+          key,
+          joinDrafts(text, storedThreadDraft(apiUrl, identity, key)),
+        )
+        storedThreadDraft(apiUrl, identity, key, "", "sent")
+        edit(key, (value) => ({
+          ...value,
+          text: joinDrafts(text, value.text),
+          attachments: [
+            ...files.filter((file) => !value.attachments.some((current) => current.id === file.id)),
+            ...value.attachments,
+          ],
+        }))
+      },
     }
   }
-
-  const restore = useCallback(
-    () => edit(threadId, (value) => ({ ...value, attachmentsLoaded: false })),
-    [edit, threadId],
-  )
 
   return {
     identity,
@@ -261,7 +283,8 @@ export function useComposerDraft({
         return current
       }),
     /** Hands the text and ready files to a send, keeping their stored copies until acceptance. */
-    submit: (fileIds: ReadonlySet<string>) => {
+    submit: (files: readonly DraftAttachment[]) => {
+      const fileIds = new Set(files.map((file) => file.id))
       storedThreadDraft(apiUrl, identity, threadId, draft.text, "sent")
       storedThreadDraft(apiUrl, identity, threadId, "")
       const unsent = (files: DraftAttachment[]) => files.filter((file) => !fileIds.has(file.id))
@@ -278,10 +301,8 @@ export function useComposerDraft({
           savedAttachments: unsent(value.savedAttachments),
         }
       })
-      return follow(fileIds, threadId)
+      return follow(files, threadId)
     },
-    /** Returns a refused send's stored text and files to the composer. */
-    restore,
     /** Empties the new-conversation draft, as starting a new chat does. */
     reset: () => clear("", { ...EMPTY_DRAFT, attachmentsLoaded: true }),
     /** Drops a deleted conversation's draft. */

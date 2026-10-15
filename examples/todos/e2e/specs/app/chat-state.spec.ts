@@ -250,22 +250,34 @@ test("a failed send keeps one Retry across navigation, and later drafts survive 
   await expect(chat.composer()).toHaveValue("Again")
 })
 
-test("a refused send returns to the composer without a bubble or Retry", async ({ page }) => {
-  const control = await stubChat(page)
-  const chat = chatWidget(page)
-  await chat.openNarrowHost()
-  await chat.send("Titled conversation")
-  await chat.waitForIdle()
-  control.next = "rejected"
-  await chat.composer().fill("Rejected input")
-  await chat.composer().press("Enter")
-  await expect(chat.errorAlert()).toContainText("Too long.")
-  await expect(chat.composer()).toHaveValue("Rejected input")
-  await expect(chat.errorAlert().getByRole("button", { name: "Retry" })).toHaveCount(0)
-  await expect(
-    chat.root.locator('[data-slot="message"]', { hasText: "Rejected input" }),
-  ).toHaveCount(0)
-})
+for (const storage of ["available", "full"] as const) {
+  test(`a refused send returns to the composer with ${storage} storage`, async ({ page }) => {
+    const control = await stubChat(page)
+    const chat = chatWidget(page)
+    await chat.openNarrowHost()
+    await chat.send("Titled conversation")
+    await chat.waitForIdle()
+    // Storage is only the reload backup, so recovery must not depend on writing it.
+    if (storage === "full")
+      await page.evaluate(() => {
+        Storage.prototype.setItem = () => {
+          throw new DOMException("Storage is full", "QuotaExceededError")
+        }
+      })
+    await chat.attach({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Notes") })
+    await chat.composer().fill("Rejected input")
+    await expect(chat.sendButton()).toBeEnabled()
+    control.next = "rejected"
+    await chat.composer().press("Enter")
+    await expect(chat.errorAlert()).toContainText("Too long.")
+    await expect(chat.composer()).toHaveValue("Rejected input")
+    await expect(chat.attachmentChip("notes.txt")).toBeVisible()
+    await expect(chat.errorAlert().getByRole("button", { name: "Retry" })).toHaveCount(0)
+    await expect(
+      chat.root.locator('[data-slot="message"]', { hasText: "Rejected input" }),
+    ).toHaveCount(0)
+  })
+}
 
 test("Enter during the history refresh after a reply sends the message", async ({ page }) => {
   const control = await stubChat(page)
