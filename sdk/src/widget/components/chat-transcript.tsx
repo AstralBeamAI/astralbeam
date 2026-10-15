@@ -50,11 +50,16 @@ interface ChatTranscriptProps {
   onQuestionnaireAnswers: (toolCallId: string, answers: QuestionnaireAnswer[]) => void
 }
 
+// The latest turn is always on screen, so it skips the deferred 10rem placeholder that makes new
+// items blink for a frame. History keeps `content-visibility: auto`.
+const LATEST_TURN = "[content-visibility:visible]"
+
 // Memoized so a streamed chunk re-renders only the message it changed.
 const TranscriptMessage = memo(function TranscriptMessage({
   message,
   streaming,
   readOnly,
+  latestTurn,
   currentTenantUserId,
   getAttachment,
   getFile,
@@ -75,7 +80,7 @@ const TranscriptMessage = memo(function TranscriptMessage({
   | "activeSlots"
   | "interactiveToolIds"
   | "onQuestionnaireAnswers"
-> & { message: UIMessage; streaming: boolean; readOnly: boolean }) {
+> & { message: UIMessage; streaming: boolean; readOnly: boolean; latestTurn: boolean }) {
   const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
   const active =
     streaming && !readOnly && message.role === "assistant" && saved?.state !== "interrupted"
@@ -85,7 +90,7 @@ const TranscriptMessage = memo(function TranscriptMessage({
     saved?.authorTenantUserId != null &&
     saved.authorTenantUserId !== currentTenantUserId
   return (
-    <MessageScrollerItem messageId={message.id}>
+    <MessageScrollerItem messageId={message.id} className={latestTurn ? LATEST_TURN : undefined}>
       <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
         <MessageContent className="gap-1">
           {anotherParticipant && <span className="text-xs text-muted-foreground">Participant</span>}
@@ -186,6 +191,15 @@ export function ChatTranscript({
       element.removeEventListener("scroll", loadEarlier)
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
+  // A reply with nothing visible yet stays behind the Thinking marker, so its gap cannot shift it.
+  const last = messages.at(-1)
+  const turnStart = messages.findLastIndex((message) => message.role === "user")
+  const emptyReply =
+    awaitingReply &&
+    last?.role === "assistant" &&
+    last.parts.every(
+      (part) => (part.type === "text" || part.type === "thinking") && part.content.length === 0,
+    )
   if (loadingHistory && messages.length === 0) {
     return (
       <div
@@ -234,10 +248,11 @@ export function ChatTranscript({
         )}
         <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
           <MessageScrollerContent aria-busy={isBusy} className="gap-3 px-(--card-spacing) py-2">
-            {messages.map((message) => (
+            {(emptyReply ? messages.slice(0, -1) : messages).map((message, index) => (
               <TranscriptMessage
                 key={message.id}
                 message={message}
+                latestTurn={index >= turnStart}
                 streaming={streaming && message === messages.at(-1)}
                 readOnly={readOnly}
                 currentTenantUserId={currentTenantUserId}
@@ -252,7 +267,7 @@ export function ChatTranscript({
               />
             ))}
             {awaitingReply && (
-              <MessageScrollerItem messageId="astralbeam-thinking">
+              <MessageScrollerItem messageId="astralbeam-thinking" className={LATEST_TURN}>
                 <Marker role="status">
                   <MarkerIcon>
                     <Spinner />
