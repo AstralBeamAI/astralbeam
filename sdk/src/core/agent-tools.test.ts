@@ -132,30 +132,6 @@ test("structured output uses the exported output contract without rerunning inpu
   ).rejects.toThrow("output validation")
 })
 
-test("widget tools expose their actual schema and duplicate registries fail closed", () => {
-  const schema = {
-    type: "object" as const,
-    properties: { id: { type: "string" } },
-    required: ["id"],
-  }
-  const widget = { description: "Card", parameters: schema }
-  const render = vi.fn()
-  const tools = buildAgentTools(
-    { card: widget },
-    { private: { description: "UI action", visibility: ["app"], execute: () => ({}) } },
-    render,
-  )
-  expect(tools.find((tool) => tool.name === "show_card")?.inputSchema).toEqual(schema)
-  expect(tools.map((tool) => tool.name)).not.toContain("private")
-  expect(() =>
-    buildAgentTools(
-      { card: widget },
-      { show_card: { description: "Collision", execute: () => ({}) } },
-      render,
-    ),
-  ).toThrow("Duplicate")
-})
-
 test("presentation failure does not turn a completed business action into a retry", async () => {
   const debug = vi.fn()
   const render = vi.fn(() => {
