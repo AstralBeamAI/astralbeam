@@ -175,6 +175,7 @@ function initMenu() {
     nav?.toggleAttribute("data-open", open)
     toggle?.setAttribute("aria-expanded", String(open))
     toggle?.setAttribute("aria-label", open ? "Close menu" : "Open menu")
+    if (open) nav?.querySelector<HTMLAnchorElement>("a")?.focus()
   }
 
   toggle.addEventListener("click", (event) => {
@@ -185,7 +186,9 @@ function initMenu() {
   // Any tap outside, or on one of the links, dismisses the panel.
   document.addEventListener("click", () => setOpen(false))
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setOpen(false)
+    if (event.key !== "Escape" || !nav.hasAttribute("data-open")) return
+    if (nav.contains(document.activeElement)) toggle.focus()
+    setOpen(false)
   })
 }
 
@@ -308,10 +311,9 @@ function initAgentDemo() {
     answers.set(stream, (stream.textContent ?? "").trim().replace(/\s+/gu, " "))
   }
 
-  // Bumped by a replay or a visitor message so an in-flight intro can tell that
-  // it has been superseded. Visitor replies are never cancelled.
+  // New messages supersede the intro. Only replay cancels visitor replies.
   let intro = 0
-  const always = () => true
+  let replay = 0
 
   // Pauses in ms. The intro should read like a conversation happening in real
   // time rather than a transcript being dumped into the panel.
@@ -541,14 +543,19 @@ function initAgentDemo() {
       return
     }
 
+    const id = replay
+    const alive = () => id === replay
     void (async () => {
       await mount(userMessage)
-      await think(PACE.visitorReply, always)
-      await playMessage(agentMessage, always)
+      if (!alive()) return
+      await think(PACE.visitorReply, alive)
+      if (!alive()) return
+      await playMessage(agentMessage, alive)
     })()
   })
 
   replayButton?.addEventListener("click", () => {
+    replay += 1
     input.value = ""
     if (reducedMotion) {
       intro += 1

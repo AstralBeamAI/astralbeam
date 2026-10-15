@@ -25,7 +25,7 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 ## Deployment
 
 - The SDK is MIT licensed. The platform is AGPL-3.0.
-- Self-host: one binary and a PostgreSQL database, with your own model keys and sandbox provider.
+- Self-host: one binary, a PostgreSQL database, and a private S3-compatible bucket, with your own model keys and sandbox provider. See the self-hosting guide for complete infrastructure requirements.
 - AstralBeam Cloud: sign up, create an API key, and point the widget at astralbeam.ai.
 
 ## Links

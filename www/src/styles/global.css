@@ -294,6 +294,7 @@ a[href] {
 
 .hud-nav-socials {
   display: flex;
+  gap: 0.5rem;
 }
 
 .hud-nav-social {
@@ -1534,25 +1535,6 @@ main {
 }
 
 /* ---------- open source ---------- */
-
-/* The watermark bleeds off the right edge by design; clip horizontally so it
-   cannot extend the document scroll width. `clip` rather than `hidden` avoids
-   creating a scroll container, which would trap the vertical overhang.
-   https://developer.mozilla.org/en-US/docs/Web/CSS/overflow#clip */
-#open-source {
-  overflow-x: clip;
-  overflow-y: visible;
-}
-
-.os-watermark {
-  position: absolute;
-  right: -4rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: min(44rem, 60vw);
-  color: color-mix(in srgb, var(--primary) 5%, transparent);
-  pointer-events: none;
-}
 
 .os-grid {
   display: grid;

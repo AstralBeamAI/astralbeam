@@ -67,7 +67,7 @@ export function Sidebar() {
       },
       {
         name: "Managed backend",
-        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        desc: "Model calls, tool orchestration, and file handling run on AstralBeam Cloud. No agent backend for you to deploy or scale.",
         icon: <ServerIcon />,
       },
     ],
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
   {
     index: "03",
     title: "CONNECT TOOLS & WIDGETS",
-    desc: "Declare what the agent can do and what it can draw. Tools run in your page against your own state. Widgets render your components inside the reply.",
+    desc: "Declare what the agent can do and what it can show. Tools run in your page against your own state. Widgets render your components inside the reply.",
     file: "sidebar.tsx",
     code: `<AstralBeamChat
   tools={{
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
       },
       {
         name: "Interactive widgets",
-        desc: "Render your own components inside the reply. State stays live in both directions.",
+        desc: "Render your own components inside the reply, connected to your app's live state.",
         icon: <WidgetIcon />,
       },
       {

@@ -240,17 +240,6 @@ export function LandingPage() {
 
         {/* ============ OPEN SOURCE ============ */}
         <section className="section" id="open-source">
-          <svg className="os-watermark" viewBox="-84 -62 168 124" aria-hidden="true">
-            <g fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M -6.56 -18.02 A 30 34 0 1 0 -6.56 18.02"></path>
-              <ellipse cx="32" cy="0" rx="30" ry="34"></ellipse>
-              <path
-                transform="rotate(22)"
-                d="M 0 -56 C 4 -50 6.5 -42 6.5 -31 L 6.5 31 C 6.5 42 4 50 0 56 C -4 50 -6.5 42 -6.5 31 L -6.5 -31 C -6.5 -42 -4 -50 0 -56 Z"
-              ></path>
-            </g>
-          </svg>
-
           <div className="section-head">
             <h2
               className="display section-title reveal scramble"
