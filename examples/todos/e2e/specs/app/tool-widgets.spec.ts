@@ -244,7 +244,7 @@ for (const name of ["show_todoCard", "update_todo"]) {
     thread.role = "viewer"
     await page.reload()
     await chat.savedTool.click()
-    await expect(chat.root).toContainText(result.content[0]!.text)
+    await expect(chat.root).toContainText(presentation ? "Displayed todoCard" : data.updated.text)
     await expect(chat.root).not.toContainText("widget-private-sentinel")
     expect(sends).toBe(1)
     expect(deliveries).toBe(1)
