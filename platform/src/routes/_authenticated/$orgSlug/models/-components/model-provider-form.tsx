@@ -7,6 +7,7 @@ import { type SyntheticEvent, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -33,7 +34,7 @@ import {
   type ModelProviderType,
   type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
-import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
 import { saveModelProvider } from "../-functions/save-model-provider"
 import { modelProviderApiItems, modelProviderDescriptors } from "../-lib/constants"
@@ -88,6 +89,8 @@ export function ModelProviderForm({
     field: string
     message: string
   } | null>(null)
+  const [saveError, setSaveError] = useState<ServerFnError | null>(null)
+  const conflicted = saveError?.tag === "ModelProviderChanged"
   const input = Schema.decodeUnknownResult(
     SaveModelProviderInputSchema,
     strictParseOptions,
@@ -137,9 +140,10 @@ export function ModelProviderForm({
   const saveProvider = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
-    if (Result.isFailure(input) || missingKey || disabled) return
+    if (Result.isFailure(input) || missingKey || disabled || conflicted) return
     setSaving(true)
     setServerFieldError(null)
+    setSaveError(null)
     try {
       const modelProviderId = await saveModelProvider({ data: input.success })
       toast.add({ title: "Provider saved", type: "success" })
@@ -165,8 +169,7 @@ export function ModelProviderForm({
         setServerFieldError({ field: "apiKey", message: failure.message })
       else if (failure.tag === "ModelConfigurationMissing")
         setServerFieldError({ field: "models", message: failure.message })
-      else toast.add({ title: failure.message, type: "error" })
-      if (failure.tag === "ModelProviderChanged") await router.invalidate()
+      else setSaveError(failure)
     } finally {
       setSaving(false)
     }
@@ -346,6 +349,27 @@ export function ModelProviderForm({
               />
             ))}
           </FieldGroup>
+          {saveError && (
+            <Alert variant="destructive" className="mt-6">
+              <AlertTitle>Could not save provider</AlertTitle>
+              <AlertDescription>
+                <p>{saveError.message}</p>
+                {conflicted && (
+                  <p>Reloading replaces your unsaved edits with the latest saved version.</p>
+                )}
+              </AlertDescription>
+              {conflicted && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-fit"
+                  onClick={() => void router.invalidate()}
+                >
+                  Reload latest
+                </Button>
+              )}
+            </Alert>
+          )}
         </CardContent>
         {!readOnly && (
           <CardFooter className="flex-wrap justify-end gap-2">
@@ -378,6 +402,7 @@ export function ModelProviderForm({
                         )
                         setSubmitted(false)
                         setServerFieldError(null)
+                        if (!conflicted) setSaveError(null)
                       }}
                     />
                   }
@@ -387,7 +412,7 @@ export function ModelProviderForm({
                 <TooltipContent>Discard changes</TooltipContent>
               </Tooltip>
             )}
-            <Button type="submit" disabled={disabled}>
+            <Button type="submit" disabled={disabled || conflicted}>
               {saving ? "Saving…" : "Save provider"}
             </Button>
           </CardFooter>

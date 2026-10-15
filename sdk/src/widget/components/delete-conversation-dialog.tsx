@@ -31,7 +31,11 @@ export function DeleteConversationDialog({
         if (!open && !deleting) onClose()
       }}
     >
-      <AlertDialogContent container={container} finalFocus={finalFocus}>
+      <AlertDialogContent
+        container={container}
+        finalFocus={finalFocus}
+        className="absolute max-h-[min(calc(100%-2rem),calc(100dvh-2rem))]"
+      >
         <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
         <AlertDialogDescription className="break-words">
           Delete “{title}” and its messages? This cannot be undone.
@@ -42,9 +46,15 @@ export function DeleteConversationDialog({
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+            disabled={deleting}
+          >
+            Cancel
+          </AlertDialogCancel>
           <Button
             variant="destructive"
+            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
             disabled={deleting}
             onClick={() => {
               setDeleting(true)

@@ -64,6 +64,26 @@ test.beforeEach(async ({ context }) => {
   )
 })
 
+test("reviewing a rejected file reveals and focuses its removal action", async ({ page }) => {
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.waitForReady()
+  await chat.composer().fill("Keep this question and its valid file")
+  const rejected = { ...note, name: "empty.txt", buffer: Buffer.alloc(0) }
+  await chat.attach([rejected, note, image])
+  await expect(chat.sendButton()).toBeEnabled()
+  await expect(chat.errorAlert()).toContainText("The file is empty")
+  await expect(chat.attachmentChip(rejected.name)).not.toBeInViewport()
+  await chat.reviewFiles.press("Enter")
+  await expect(chat.attachmentChip(rejected.name)).toBeFocused()
+  await expect(chat.attachmentChip(rejected.name)).toBeInViewport()
+  await captureMoment(page, "rejected-file-review-preserves-valid-attachments")
+  await chat.attachmentChip(rejected.name).press("Enter")
+  await expect(chat.reviewFiles).toHaveCount(0)
+  await expect(chat.composer()).toHaveValue("Keep this question and its valid file")
+  await expect(chat.attachmentChip(rejected.name)).toHaveCount(0)
+})
+
 test("unsent text, images, and large files recover, and accepted files stay cleared", async ({
   page,
 }) => {
@@ -125,6 +145,8 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
   await expect(chat.composer()).toHaveValue("")
+  await expect.poll(() => submissions).toBe(1)
+  await chat.waitForIdle()
   await page.reload()
   await chat.waitForReady()
   await expect(chat.composer()).toHaveValue("")

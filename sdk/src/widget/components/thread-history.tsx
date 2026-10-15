@@ -72,6 +72,7 @@ export function ThreadHistory({
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
+  const [boundary, setBoundary] = useState<Element>()
   // Each opening fetches afresh, since the title bar can rename or delete chats while it is closed.
   const [openings, setOpenings] = useState(0)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
@@ -144,8 +145,10 @@ export function ThreadHistory({
         }}
         onOpenChange={(next) => {
           setOpen(next)
-          if (next) setOpenings((count) => count + 1)
-          else setText("")
+          if (next) {
+            setBoundary(container.current?.closest('[data-slot="chat"]') ?? undefined)
+            setOpenings((count) => count + 1)
+          } else setText("")
         }}
       >
         <ComboboxPrimitive.Trigger
@@ -156,6 +159,7 @@ export function ThreadHistory({
         </ComboboxPrimitive.Trigger>
         <ComboboxContent
           container={container}
+          collisionBoundary={boundary}
           align="end"
           aria-label="Chat history"
           aria-busy={searching || query.isFetching ? true : undefined}
@@ -189,7 +193,7 @@ export function ThreadHistory({
                         aria-label={threadTitle(thread)}
                         aria-current={current ? "true" : undefined}
                         className={cn(
-                          "group/thread ps-2 pe-1",
+                          "group/thread ps-2 pe-1 any-pointer-coarse:min-h-11",
                           current && "bg-muted font-semibold",
                         )}
                       >

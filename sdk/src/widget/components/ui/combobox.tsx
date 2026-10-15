@@ -1,5 +1,5 @@
 // Added from @shadcn/combobox
-// Local changes: shadow-root portal, accessible labels, persistent empty live region, async status export, native scrollbars, React 18 list ref.
+// Local changes: shadow-root portal and collision boundary, accessible labels, persistent empty live region, async status export, native scrollbars, React 18 list ref.
 "use client"
 
 import * as React from "react"
@@ -97,11 +97,12 @@ function ComboboxContent({
   alignOffset = 0,
   anchor,
   container,
+  collisionBoundary,
   ...props
 }: ComboboxPrimitive.Popup.Props & Pick<ComboboxPrimitive.Portal.Props, "container"> &
   Pick<
     ComboboxPrimitive.Positioner.Props,
-    "side" | "align" | "sideOffset" | "alignOffset" | "anchor"
+    "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionBoundary"
   >) {
   return (
     <ComboboxPrimitive.Portal container={container}>
@@ -111,6 +112,7 @@ function ComboboxContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
+        collisionBoundary={collisionBoundary}
         className="isolate z-50"
       >
         <ComboboxPrimitive.Popup

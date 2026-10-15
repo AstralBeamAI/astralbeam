@@ -47,9 +47,11 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
       metric: "Spend (USD)",
       amount: "2.505",
     })
+    await expect(usageLimits.summary).toContainText(/Limit:.*at most two decimal places/)
     await page.getByRole("button", { name: "Create limit" }).click()
-    await expect(page.getByText("at most two decimal places")).toBeVisible()
+    await expect(usageLimits.amountError).toContainText("at most two decimal places")
     await page.locator("#usage-limit-amount").fill("2.50")
+    await expect(usageLimits.summary).not.toContainText("Limit:")
     await usageLimits.submitCreate(session)
   })
 

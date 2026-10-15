@@ -116,6 +116,7 @@ test("chat history search, selection, and new chat preserve the correct local st
   await confirmation.getByRole("button", { name: "Delete conversation", exact: true }).click()
   await expect.poll(() => deleted).toBe(true)
   await expect(confirmation).toHaveCount(0)
+  await expect(picker).toBeFocused()
 })
 
 for (const role of ["member", "manager", "viewer"]) {

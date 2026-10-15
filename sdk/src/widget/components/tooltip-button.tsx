@@ -23,7 +23,7 @@ export function TooltipButton({
         render={
           <Button
             aria-label={ariaLabel}
-            className={cn("any-pointer-coarse:min-h-10 any-pointer-coarse:min-w-10", className)}
+            className={cn("any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11", className)}
             {...props}
           />
         }

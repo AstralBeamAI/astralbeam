@@ -1,4 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test"
+import { fileURLToPath } from "node:url"
+import { platformUrl, seedTarget } from "../worktree.ts"
 
 /**
  * The embedded chat widget.
@@ -42,6 +44,62 @@ export function chatWidget(page: Page) {
   return {
     root,
     frame: root.locator('[data-slot="chat"]'),
+    history: root.getByRole("combobox", { name: "Show older chats", exact: true }),
+    historySearch: root.getByRole("combobox", { name: "Search chats", exact: true }),
+    historyPopup: root.locator('[data-slot="combobox-content"]'),
+    conversationActions: root.getByRole("button", { name: "Conversation actions", exact: true }),
+    deleteConversation: root.getByRole("menuitem", { name: "Delete", exact: true }),
+    deleteConfirmation: root.getByRole("alertdialog"),
+    confirmDeletion: root.getByRole("button", { name: "Delete conversation", exact: true }),
+    reviewFiles: root.getByRole("button", { name: "Review files", exact: true }),
+
+    conversationOption(title: string): Locator {
+      return root.getByRole("option", { name: title, exact: true })
+    },
+
+    async openNarrowHost(): Promise<void> {
+      await page.route("**/__chat-sdk/*.js", (route) =>
+        route.fulfill({
+          path: fileURLToPath(
+            new URL(
+              `../../../../sdk/dist/${new URL(route.request().url()).pathname.split("/").pop()}`,
+              import.meta.url,
+            ),
+          ),
+          contentType: "text/javascript",
+        }),
+      )
+      await page.route("**/*", (route) =>
+        route.request().resourceType() === "script" ? route.abort() : route.continue(),
+      )
+      await page.goto("/")
+      await page.unroute("**/*")
+      await page.setContent(`<!doctype html><html lang="en"><title>Embedded chat</title>
+        <aside class="chat-sidebar" style="width:320px;height:640px;margin:40px"></aside>
+        <script type="module">
+          import { mountAstralBeamChat } from '/__chat-sdk/client.js';
+          mountAstralBeamChat(document.querySelector('aside'), {
+            apiUrl: ${JSON.stringify(`${platformUrl}/api`)}, agentId: ${JSON.stringify(seedTarget.agentId)},
+            showConversationTitle: true, fetchAstralBeamToken: { url: '/api/astralbeam/token' },
+          });
+        </script></html>`)
+    },
+
+    async expectWithinFrame(element: Locator): Promise<void> {
+      await expect(element).toBeVisible()
+      await expect
+        .poll(async () => {
+          const frame = (await this.root.boundingBox())!
+          const bounds = (await element.boundingBox())!
+          return Math.max(
+            frame.x - bounds.x,
+            frame.y - bounds.y,
+            bounds.x + bounds.width - frame.x - frame.width,
+            bounds.y + bounds.height - frame.y - frame.height,
+          )
+        })
+        .toBeLessThanOrEqual(0)
+    },
 
     composer(): Locator {
       return composer

@@ -70,6 +70,7 @@ export function apiKeysPage(page: Page) {
 
     async deleteKey(name: string): Promise<void> {
       await this.deleteButton(name).click()
+      await expect(openAlertDialog(page).getByRole("heading")).toContainText(name)
       await openAlertDialog(page)
         .getByRole("button", { name: /delete api key/i })
         .click()
