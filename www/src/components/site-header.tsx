@@ -16,16 +16,14 @@ const {
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
   const toggleRef = useRef<HTMLButtonElement>(null)
-  const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!open) return
-    navRef.current?.querySelector<HTMLAnchorElement>("a")?.focus()
     const close = () => setOpen(false)
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close()
-        if (navRef.current?.contains(document.activeElement)) toggleRef.current?.focus()
+        toggleRef.current?.focus()
       }
     }
     document.addEventListener("click", close)
@@ -56,7 +54,6 @@ export function SiteHeader() {
           />
         </a>
         <nav
-          ref={navRef}
           className="hud-nav"
           id="hud-nav"
           aria-label="Primary"
