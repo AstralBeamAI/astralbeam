@@ -145,6 +145,7 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
   await expect(chat.composer()).toHaveValue("")
+  await chat.waitForIdle()
   await page.reload()
   await chat.waitForReady()
   await expect(chat.composer()).toHaveValue("")

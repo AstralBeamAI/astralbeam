@@ -89,7 +89,7 @@ export function chatWidget(page: Page) {
       await expect(element).toBeVisible()
       await expect
         .poll(async () => {
-          const frame = (await this.frame.boundingBox())!
+          const frame = (await this.root.boundingBox())!
           const bounds = (await element.boundingBox())!
           return Math.max(
             frame.x - bounds.x,
