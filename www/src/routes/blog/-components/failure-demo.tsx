@@ -244,7 +244,7 @@ function Demo({ kind }: { kind: DemoKind }) {
     <section className="failure-demo" aria-label={`Simulation: ${example.name}`}>
       <div key={run} className={`demo-stage${panel ? " has-panel" : ""}`}>
         <div className={`demo-window${kind === "mobile" && s >= 1 ? " is-narrow" : ""}`}>
-          <div className="demo-window-bar">
+          <div className={`demo-window-bar ${fixed ? "is-better" : "is-failure"}`}>
             <strong>Assistant</strong>
             <span className={offline ? "is-offline" : ""}>{offline ? "Offline" : "Online"}</span>
           </div>

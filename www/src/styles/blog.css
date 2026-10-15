@@ -264,6 +264,12 @@
   border-bottom: 1px solid var(--blog-line);
   font-size: 12px;
 }
+.demo-window-bar.is-failure {
+  background: #fcefec;
+}
+.demo-window-bar.is-better {
+  background: #eaf5ee;
+}
 .demo-window-bar span {
   color: var(--blog-muted);
 }
