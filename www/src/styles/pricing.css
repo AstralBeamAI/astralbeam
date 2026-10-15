@@ -1,0 +1,102 @@
+.pricing {
+  scroll-margin-top: 4rem;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.pricing-card {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.4rem, 2.5vw, 2rem);
+}
+
+.pricing-cloud {
+  background: var(--primary);
+}
+
+.pricing-label {
+  color: var(--primary);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+.pricing-card h3 {
+  font-size: clamp(1.35rem, 2vw, 1.6rem);
+  letter-spacing: -0.03em;
+}
+
+.pricing-desc,
+.pricing-detail {
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+}
+
+.pricing-credit {
+  color: var(--primary);
+  background: var(--beam-faint);
+  padding: 0.65rem 0.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.72rem;
+}
+
+.pricing-rates {
+  margin-bottom: 2rem;
+}
+
+.pricing-rates > div {
+  margin-top: 1.5rem;
+}
+
+.pricing-rates dt,
+.pricing-rates dd span {
+  display: block;
+  color: var(--text-chrome);
+  font-size: 0.8rem;
+}
+
+.pricing-rates dd {
+  font-size: 0.85rem;
+}
+
+.pricing-rates strong {
+  color: var(--foreground);
+  font-size: 1.85rem;
+  font-weight: 500;
+}
+
+.pricing-summary {
+  font-size: 2.5rem;
+  letter-spacing: -0.04em;
+  margin-top: 2rem;
+}
+
+.pricing-detail {
+  margin-bottom: 2rem;
+}
+
+.pricing-card > .btn {
+  margin-top: auto;
+  padding-inline: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pricing-providers {
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  color: var(--text-chrome);
+  font-size: 0.9rem;
+  max-width: 58rem;
+}
+
+@media (max-width: 960px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -11,6 +11,7 @@ import { startSiteEffects } from "@/scripts/main"
 import { AgentDemo } from "./agent-demo"
 import { highlight, integrations, steps } from "./content"
 import { CopyPrompt } from "./copy-prompt"
+import { Pricing } from "./pricing"
 
 const {
   signUp: signUpUrl,
@@ -67,9 +68,9 @@ export function LandingPage() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="AstralBeam on GitHub"
+              title="GitHub"
             >
               <GithubIcon />
-              <span className="hud-nav-label">GITHUB</span>
             </a>
             <a
               className="hud-nav-social"
@@ -77,11 +78,12 @@ export function LandingPage() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="AstralBeam on Discord"
+              title="Discord"
             >
               <DiscordIcon />
-              <span className="hud-nav-label">DISCORD</span>
             </a>
             <a href={docsUrl}>DOCS</a>
+            <a href="#pricing">PRICING</a>
             <a href={logInUrl}>SIGN IN</a>
           </nav>
           <a className="btn btn-primary hud-cta" href={signUpUrl}>
@@ -303,6 +305,8 @@ export function LandingPage() {
           </div>
         </section>
 
+        <Pricing />
+
         {/* ============ LAUNCH ============ */}
         <section className="section launch" id="launch">
           <h2 className="display launch-title reveal scramble" data-text="READY FOR LAUNCH">
@@ -330,6 +334,7 @@ export function LandingPage() {
 
       <footer className="site-footer mono">
         <span>© 2026 ASTRALBEAM</span>
+        <a href="#pricing">PRICING</a>
         <a href={docsUrl}>DOCS</a>
         <a href={githubUrl} target="_blank" rel="noopener noreferrer">
           GITHUB
