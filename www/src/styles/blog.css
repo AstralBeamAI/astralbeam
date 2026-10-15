@@ -195,29 +195,9 @@
 
 .failure-demo {
   margin-block: 28px 48px;
-  border: 1px solid var(--blog-line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: white;
   font-size: 15px;
   line-height: 1.55;
   letter-spacing: normal;
-}
-.demo-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 18px;
-  gap: 12px;
-  border-bottom: 1px solid var(--blog-line);
-  background: #f3f5ef;
-}
-.demo-label {
-  font-size: 11px;
-  color: var(--blog-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 .demo-modes,
 .demo-card div {
@@ -227,17 +207,23 @@
   width: fit-content;
   gap: 4px;
 }
+.demo-modes {
+  padding: 4px;
+  border-radius: 8px;
+  background: #eaefe8;
+}
 .failure-demo button {
   font: inherit;
   cursor: pointer;
   border: 0;
 }
 .demo-modes button {
+  min-height: 36px;
   background: transparent;
   color: var(--blog-muted);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 13px;
 }
 .demo-modes button[aria-pressed="true"] {
   background: white;
@@ -247,8 +233,6 @@
 .demo-stage {
   display: grid;
   gap: 16px;
-  padding: 20px;
-  background: #f6f8f4;
 }
 .demo-stage.has-panel {
   grid-template-columns: minmax(0, 1fr) 190px;
@@ -585,35 +569,25 @@
   animation: demo-press 0.9s ease both;
 }
 .demo-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: 16px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--blog-line);
+  margin-top: 14px;
 }
 .demo-controls p {
-  display: flex;
-  align-items: center;
-  min-height: 3em;
+  align-self: center;
   font-size: 14px;
+  line-height: 1.4;
+  color: var(--blog-muted);
 }
 .failure-demo .demo-action {
-  flex-shrink: 0;
   min-width: 104px;
   min-height: 44px;
   padding: 10px 16px;
   background: #235e50;
   color: white;
-  border-radius: 5px;
+  border-radius: 8px;
   font-size: 13px;
-}
-.demo-caption {
-  border-top: 1px solid var(--blog-line);
-  padding: 10px 18px;
-  font-size: 11px;
-  color: var(--blog-muted);
-  background: #fbfcf9;
 }
 @keyframes demo-in {
   from {
@@ -707,21 +681,8 @@
     font-size: 24px;
     margin-top: 48px;
   }
-  .demo-toolbar {
-    padding: 10px 12px;
-    gap: 8px;
-  }
-  .demo-label {
-    font-size: 9px;
-    letter-spacing: 0.04em;
-  }
   .demo-modes button {
-    min-height: 44px;
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-  .demo-stage {
-    padding: 12px;
+    padding: 6px 10px;
   }
   .demo-stage.has-panel {
     grid-template-columns: 1fr;
@@ -730,11 +691,13 @@
     min-height: 240px;
   }
   .demo-controls {
-    padding-inline: 16px;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    gap: 12px;
   }
-  .demo-caption {
-    font-size: 10px;
-    padding: 10px 12px;
+  .demo-controls p {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 

@@ -192,11 +192,21 @@ function Demo({ kind }: { kind: DemoKind }) {
   const finished = s === steps.length - 1
 
   useEffect(() => {
+    // A finished failure hands off to the better pattern after a pause to read the last note.
+    const handoff = !fixed && step === steps.length
     const delay = step === 0 ? example.prompt.length * typeMs + 600 : steps[step - 1]?.[0]
-    if (!delay) return
-    const timer = setTimeout(() => setStep(step + 1), delay)
+    if (!delay && !handoff) return
+    const timer = setTimeout(
+      () => {
+        if (!handoff) return setStep(step + 1)
+        setFixed(true)
+        setStep(0)
+        setRun((value) => value + 1)
+      },
+      handoff ? 3000 : delay,
+    )
     return () => clearTimeout(timer)
-  }, [example, steps, step])
+  }, [example, steps, step, fixed])
 
   useEffect(() => {
     const thread = threadRef.current
@@ -219,9 +229,11 @@ function Demo({ kind }: { kind: DemoKind }) {
 
   const note =
     s < -1
-      ? `Press Start to watch ${fixed ? "the better pattern" : "the failure"}.`
+      ? `Press Start to watch ${fixed ? "the better pattern" : "the failure, then a better pattern"}.`
       : s === -1
-        ? "You type a request."
+        ? fixed
+          ? "Now, a better pattern…"
+          : "You type a request."
         : ((fixed ? steps[s]?.[2] : undefined) ?? steps[s]?.[1])
   const lost = !fixed && ((kind === "reconnect" && s >= 2) || (kind === "draft" && s >= 1))
   const offline = (kind === "reconnect" && s === 1) || (kind === "draft" && s >= 1)
@@ -230,17 +242,6 @@ function Demo({ kind }: { kind: DemoKind }) {
 
   return (
     <section className="failure-demo" aria-label={`Simulation: ${example.name}`}>
-      <header className="demo-toolbar">
-        <span className="demo-label">Simulation</span>
-        <div className="demo-modes" aria-label="Example mode">
-          <button type="button" aria-pressed={!fixed} onClick={() => play(false, -1)}>
-            Failure
-          </button>
-          <button type="button" aria-pressed={fixed} onClick={() => play(true, -1)}>
-            Better pattern
-          </button>
-        </div>
-      </header>
       <div key={run} className={`demo-stage${panel ? " has-panel" : ""}`}>
         <div className={`demo-window${kind === "mobile" && s >= 1 ? " is-narrow" : ""}`}>
           <div className="demo-window-bar">
@@ -295,12 +296,19 @@ function Demo({ kind }: { kind: DemoKind }) {
         )}
       </div>
       <div className="demo-controls">
+        <div className="demo-modes" aria-label="Example mode">
+          <button type="button" aria-pressed={!fixed} onClick={() => play(false, -1)}>
+            Failure
+          </button>
+          <button type="button" aria-pressed={fixed} onClick={() => play(true, -1)}>
+            Better pattern
+          </button>
+        </div>
         <p role="status">{note}</p>
         <button className="demo-action" type="button" onClick={() => play(fixed, 0)}>
           {s < -1 ? "▶ Start" : "↺ Replay"}
         </button>
       </div>
-      <p className="demo-caption">Simulated and sped up. No real actions are taken.</p>
     </section>
   )
 }

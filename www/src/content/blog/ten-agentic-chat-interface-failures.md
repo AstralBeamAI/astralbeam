@@ -9,7 +9,7 @@ imageAlt: "A conversation branching into a failed action and a recoverable path.
 
 An agentic chat interface has more to do than display a reply. It must explain work in progress, ask for decisions, and keep an accurate record of what happened. A convincing answer is little comfort when the interface loses your draft or creates the same task twice.
 
-Here are ten small failures worth trying before you ship. Each interactive example is an intentionally simplified simulation, not a recording of a particular product. Press **Start** to watch the failure, then switch to **Better pattern** and play it again.
+Here are ten small failures worth trying before you ship. Each interactive example is an intentionally simplified simulation, not a recording of a particular product. Press **Start** to watch the failure, followed by a better pattern.
 
 ## 1. The spinner that explains nothing
 
