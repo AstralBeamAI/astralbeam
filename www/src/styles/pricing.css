@@ -95,16 +95,6 @@
   max-width: 58rem;
 }
 
-.pricing-providers strong {
-  color: var(--foreground);
-  font-weight: 500;
-}
-
-.pricing-providers p + p {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-}
-
 @media (max-width: 960px) {
   .pricing-grid {
     grid-template-columns: 1fr;

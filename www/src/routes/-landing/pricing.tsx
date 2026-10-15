@@ -81,17 +81,10 @@ export function Pricing() {
         </article>
       </div>
 
-      <div className="pricing-providers">
-        <p>
-          <strong>Your providers, billed directly to you.</strong> Bring your own LLM API keys and
-          pay your model provider directly. Other integrated providers, including sandboxes and
-          observability services, bill you directly too.
-        </p>
-        <p>
-          Usage rates apply to Cloud and managed hosting. The $20 monthly credit is exclusive to
-          Cloud and covers AstralBeam fees, not third-party provider charges. All prices are in USD.
-        </p>
-      </div>
+      <p className="pricing-providers">
+        Bring your own LLM keys. Models, sandboxes, and observability are billed directly by
+        providers. Cloud credits cover AstralBeam fees only. All prices in USD.
+      </p>
     </section>
   )
 }
