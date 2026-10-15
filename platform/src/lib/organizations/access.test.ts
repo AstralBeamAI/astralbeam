@@ -99,8 +99,8 @@ describe("organization API key authorization", () => {
     await expect(
       fixture.auth.api.createOrganization({
         body: {
-          name: "Docs",
-          slug: "docs",
+          name: "Blog",
+          slug: "blog",
         },
         headers: fixture.headers.owner,
       }),
@@ -113,7 +113,7 @@ describe("organization API key authorization", () => {
       fixture.auth.api.updateOrganization({
         body: {
           organizationId: fixture.organizationId,
-          data: { slug: "docs" },
+          data: { slug: "blog" },
         },
         headers: fixture.headers.owner,
       }),

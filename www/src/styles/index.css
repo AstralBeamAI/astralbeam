@@ -4,6 +4,8 @@
 @import "@fontsource/jetbrains-mono";
 @import "@fontsource/jetbrains-mono/700.css";
 @import "@fontsource-variable/space-grotesk";
+@import "@fontsource/source-serif-4/latin-400.css";
 @import "./global.css";
 @import "./pricing.css";
 @import "./legal.css";
+@import "./blog.css";

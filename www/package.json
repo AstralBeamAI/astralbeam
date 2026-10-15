@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite dev",
     "generate-routes": "tsr generate",
+    "generate:blog-images": "bun run scripts/generate-blog-images.ts",
     "build": "NODE_ENV=production vite build",
     "preview": "vite preview",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
@@ -27,10 +28,13 @@
     "@fontsource-variable/space-grotesk": "^5.2.8",
     "@fontsource/anton": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/source-serif-4": "^5.3.1",
     "@tanstack/react-router": "^1.170.44",
     "@tanstack/react-start": "^1.169.1",
+    "front-matter": "^4.0.2",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@tanstack/eslint-plugin-router": "^1.162.0",

@@ -8,6 +8,7 @@ export const RESERVED_ORGANIZATION_SLUGS = [
   "api",
   "assets",
   "auth",
+  "blog",
   "configure",
   "demo",
   "dev",

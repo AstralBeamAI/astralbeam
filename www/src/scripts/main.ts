@@ -163,35 +163,6 @@ function scramble(el: HTMLElement) {
   requestAnimationFrame(frame)
 }
 
-/* ============ HUD chrome ============ */
-
-/* Below 820px the primary links live in a dropdown panel instead of the bar. */
-function initMenu() {
-  const toggle = document.querySelector<HTMLButtonElement>("[data-menu]")
-  const nav = document.getElementById("hud-nav")
-  if (!toggle || !nav) return
-
-  function setOpen(open: boolean) {
-    nav?.toggleAttribute("data-open", open)
-    toggle?.setAttribute("aria-expanded", String(open))
-    toggle?.setAttribute("aria-label", open ? "Close menu" : "Open menu")
-    if (open) nav?.querySelector<HTMLAnchorElement>("a")?.focus()
-  }
-
-  toggle.addEventListener("click", (event) => {
-    event.stopPropagation()
-    setOpen(!nav.hasAttribute("data-open"))
-  })
-
-  // Any tap outside, or on one of the links, dismisses the panel.
-  document.addEventListener("click", () => setOpen(false))
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !nav.hasAttribute("data-open")) return
-    if (nav.contains(document.activeElement)) toggle.focus()
-    setOpen(false)
-  })
-}
-
 /* ============ scroll reveals ============ */
 
 function initReveals() {
@@ -587,7 +558,6 @@ function initAgentDemo() {
 
 function init() {
   initStarfield()
-  initMenu()
   initReveals()
   initTerminals()
   initAgentDemo()

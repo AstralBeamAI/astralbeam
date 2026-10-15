@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { blogPosts } from "@/lib/blog"
 import { siteMetadata, siteUrl } from "@/lib/site"
 
 const { logIn, docs, github, discord } = siteMetadata.links
@@ -33,6 +34,8 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 - [Home](${siteUrl("/")}): Product overview, integration steps, and deployment model.
 - [Hosted app](${logIn}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${docs}): Guides and reference for the SDK and the platform.
+- [Blog](${siteUrl("/blog")}): Notes on building agents and their interfaces.
+${blogPosts.map((post) => `- [${post.title}](${siteUrl(post.path)}): ${post.description}`).join("\n")}
 - [Source code](${github}): The open-source platform under AGPL-3.0.
 - [Discord](${discord}): Community chat with the AstralBeam team.
 

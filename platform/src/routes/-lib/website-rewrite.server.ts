@@ -11,6 +11,7 @@ const WEBSITE_PATHS = new Set([
   "/home",
   "/terms",
   "/privacy",
+  "/blog",
   "/favicon.png",
   "/og-image.png",
   "/licenses.txt",
@@ -18,7 +19,7 @@ const WEBSITE_PATHS = new Set([
   "/site.webmanifest",
   "/sitemap.xml",
 ])
-const WEBSITE_PATH_PREFIXES = ["/website-assets/", "/demo/"]
+const WEBSITE_PATH_PREFIXES = ["/website-assets/", "/demo/", "/blog/"]
 // Conditional request headers let the website answer a cached copy with 304.
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
