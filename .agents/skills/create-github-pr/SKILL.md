@@ -35,7 +35,7 @@ For authorized updates to an existing PR, follow the relevant steps without repe
 CI skips the browser suites to stay fast, so run them locally right after creating the PR and again after every later push.
 
 1. Prepare the worktree: migrate and seed its database with `bun run --cwd platform db migrate` and `bun run --cwd platform db-seed`, build `sdk/dist` with `bun run --cwd sdk build`, and install Chromium once with each suite's `e2e:install` task.
-2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide.
+2. Start both suites as parallel background jobs, logging outside the worktree. Their ports and databases do not collide. Their combined load can push a slow spec past its timeout, so rerun a failing spec alone before treating it as a regression.
    - `bun run --cwd platform e2e` runs the platform suite's default projects against its own `_e2e` database.
    - `bun run --cwd examples/todos e2e --project=app` runs the deterministic todos specs against the seeded worktree database.
 3. Maintain one validation-results comment per PR. Update the first existing validation-results comment posted by the current account, or create it once if none exists. Reuse its comment ID after later pushes, mark the new head's checks pending until they finish, then replace the results with each suite's status, test count, duration, and head SHA. If a comment write fails or its outcome is uncertain, read back the comments before retrying. Do not edit an unrelated last comment or post another validation comment.
@@ -56,7 +56,7 @@ CI skips the browser suites to stay fast, so run them locally right after creati
 - Use one concise, imperative title that summarizes the whole change.
 - Write the description as concise Markdown bullets only, nesting when useful. Do not add headings, prose sections, checklists, validation commands, or test results. The only formatting exceptions are GitHub-generated attachment markup inside the walkthrough bullet when required for an inline player and a required CLA acknowledgment checkbox. Retain the acknowledgment unchecked unless the contributor explicitly accepted it.
 - Prefer relevant links already supplied by the user or discovered in the current conversation and place them inline in the supporting bullet. Do not add a references section, revive superseded context, or invent links.
-- Honor compatible repository template requirements. Ask before creating the PR if a mandatory template conflicts with this format. Use issue-closing keywords only for a verified issue the user intends to close.
+- Honor compatible repository template requirements. Ask before creating the PR if a mandatory template conflicts with this format. Use issue-closing keywords only for a verified issue the user intends to close, written as `Closes #<number>`, because phrasings such as `closing #<number>` do not link the issue.
 
 ## Guardrails
 

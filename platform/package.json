@@ -27,8 +27,9 @@
     "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && bun install --frozen-lockfile",
     "lint": "oxlint --type-check",
     "lint:fix": "oxlint --fix",
-    "ready": "bun run ../scripts/ready.ts check test build count-lines",
+    "ready": "bun run ../scripts/ready.ts check test test:integration build count-lines",
     "test": "vitest run",
+    "test:integration": "bun run scripts/test-integration.ts",
     "ui": "shadcn",
     "compile": "bun build --compile --compile-autoload-package-json --no-compile-autoload-dotenv --no-compile-autoload-bunfig --asset .output/server --asset .output/public --asset src/db/migrations --outfile .output/astralbeam-platform src/main.ts"
   },

@@ -196,7 +196,7 @@ Authorize access before cache operations. Include the entity's full primary key 
 
 For durable metadata, omit TTL and reserve a namespace that ordinary cache invalidation must never delete. These records remain until explicitly deleted.
 
-The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied.
+The integration suite requires a disposable loopback `DATABASE_URL` whose database name ends in `_test`, with checked-in migrations applied. Let's run it from `platform` with `bun run test:integration`, which recreates and migrates the worktree database's `_test` copy first.
 
 Reference: [Effect KeyValueStore](https://effect.website/docs/v4/api/effect/persistence/KeyValueStore).
 
