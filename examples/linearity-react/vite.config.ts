@@ -24,6 +24,6 @@ export default defineConfig(({ mode }) => {
       // https://vite.dev/config/server-options.html#server-fs-allow
       fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../../sdk/dist"] },
     },
-    plugins: [tailwindcss(), nitro({ preset: "deno-server" }), tanstackStart(), react()],
+    plugins: [tailwindcss(), nitro({ preset: "bun" }), tanstackStart(), react()],
   }
 })

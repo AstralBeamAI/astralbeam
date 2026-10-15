@@ -1,4 +1,4 @@
-// Added with: deno task ui add dialog
+// Added with: bun run ui add dialog
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"

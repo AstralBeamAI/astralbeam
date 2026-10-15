@@ -1,4 +1,4 @@
-// Added with: deno task ui add textarea
+// Added with: bun run ui add textarea
 import * as React from "react"
 import { cn } from "cn"
 
