@@ -55,11 +55,8 @@ export function ConversationTitle({
     return () => clearTimeout(timer)
   }, [copied])
   return (
-    <div
-      ref={container}
-      data-slot="conversation-title"
-      className="flex h-10 shrink-0 items-center gap-1 border-b px-4"
-    >
+    // Popups portal into this block rather than the flex row, whose gap would shift the menu button.
+    <div ref={container} data-slot="conversation-title" className="shrink-0 border-b">
       {confirmDelete && (
         <DeleteConversationDialog
           title={label || "Untitled"}
@@ -73,113 +70,115 @@ export function ConversationTitle({
           }}
         />
       )}
-      {renaming ? (
-        <form
-          className="flex min-w-0 flex-1 gap-1"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!title.trim()) return
-            setSaving(true)
-            void chat.renameThread(title.trim()).then((saved) => {
-              setSaving(false)
-              if (saved) {
-                setRenaming(false)
-                requestAnimationFrame(() => actions.current?.focus())
-              }
-            })
-          }}
-        >
-          <Input
-            ref={input}
-            aria-label="Conversation title"
-            className="h-7"
-            value={title}
-            maxLength={200}
-            disabled={saving}
-            onChange={(event) => setTitle(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setRenaming(false)
-                requestAnimationFrame(() => actions.current?.focus())
-              }
-            }}
-          />
-          <TooltipButton
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            tooltip="Cancel"
-            disabled={saving}
-            onClick={() => {
-              setRenaming(false)
-              requestAnimationFrame(() => actions.current?.focus())
+      <div className="flex h-10 items-center gap-1 px-4">
+        {renaming ? (
+          <form
+            className="flex min-w-0 flex-1 gap-1"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!title.trim()) return
+              setSaving(true)
+              void chat.renameThread(title.trim()).then((saved) => {
+                setSaving(false)
+                if (saved) {
+                  setRenaming(false)
+                  requestAnimationFrame(() => actions.current?.focus())
+                }
+              })
             }}
           >
-            <XIcon />
-          </TooltipButton>
-          <TooltipButton
-            type="submit"
-            size="icon-sm"
-            tooltip={saving ? "Saving…" : "Save"}
-            disabled={!title.trim() || saving}
-          >
-            {saving ? <Spinner /> : <CheckIcon />}
-          </TooltipButton>
-        </form>
-      ) : (
-        <>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
-            {label}
-          </span>
-          {copied && (
-            <span role="status" className="text-xs text-muted-foreground">
-              Copied
-            </span>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              ref={actions}
-              render={
-                <TooltipButton tooltip="Conversation actions" variant="ghost" size="icon-sm" />
-              }
+            <Input
+              ref={input}
+              aria-label="Conversation title"
+              className="h-7"
+              value={title}
+              maxLength={200}
+              disabled={saving}
+              onChange={(event) => setTitle(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setRenaming(false)
+                  requestAnimationFrame(() => actions.current?.focus())
+                }
+              }}
+            />
+            <TooltipButton
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              tooltip="Cancel"
+              disabled={saving}
+              onClick={() => {
+                setRenaming(false)
+                requestAnimationFrame(() => actions.current?.focus())
+              }}
             >
-              <DotsThreeIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent container={container} align="end" className="w-40">
-              <DropdownMenuItem
-                disabled={!editable}
-                onClick={() => {
-                  setTitle(thread.title ?? "")
-                  setRenaming(true)
-                }}
+              <XIcon />
+            </TooltipButton>
+            <TooltipButton
+              type="submit"
+              size="icon-sm"
+              tooltip={saving ? "Saving…" : "Save"}
+              disabled={!title.trim() || saving}
+            >
+              {saving ? <Spinner /> : <CheckIcon />}
+            </TooltipButton>
+          </form>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+              {label}
+            </span>
+            {copied && (
+              <span role="status" className="text-xs text-muted-foreground">
+                Copied
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                ref={actions}
+                render={
+                  <TooltipButton tooltip="Conversation actions" variant="ghost" size="icon-sm" />
+                }
               >
-                <PencilSimpleIcon />
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={state.messages.length === 0}
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(transcriptMarkdown(label, state.messages))
-                    .then(() => setCopied(true))
-                }}
-              >
-                <CopyIcon />
-                Copy Markdown
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={!editable}
-                onClick={() => setConfirmDelete(true)}
-              >
-                <TrashIcon />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      )}
+                <DotsThreeIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent container={container} align="end" className="w-40">
+                <DropdownMenuItem
+                  disabled={!editable}
+                  onClick={() => {
+                    setTitle(thread.title ?? "")
+                    setRenaming(true)
+                  }}
+                >
+                  <PencilSimpleIcon />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={state.messages.length === 0}
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(transcriptMarkdown(label, state.messages))
+                      .then(() => setCopied(true))
+                  }}
+                >
+                  <CopyIcon />
+                  Copy Markdown
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={!editable}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <TrashIcon />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
+      </div>
     </div>
   )
 }
