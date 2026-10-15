@@ -91,6 +91,7 @@ export type { AstralBeamChatCore, AstralBeamChatCoreOptions, AstralBeamChatState
 /** Everything `useAstralBeamChat` returns: the live state plus the session's actions. */
 export interface UseAstralBeamChatResult extends AstralBeamChatState {
   sendMessage: AstralBeamChatCore["sendMessage"]
+  retry: AstralBeamChatCore["retry"]
   addToolResult: AstralBeamChatCore["addToolResult"]
   stop: () => void
   reload: () => Promise<void>
@@ -126,6 +127,7 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
   return {
     ...state,
     sendMessage: core.sendMessage,
+    retry: core.retry,
     addToolResult: core.addToolResult,
     stop: core.stop,
     reload: core.reload,

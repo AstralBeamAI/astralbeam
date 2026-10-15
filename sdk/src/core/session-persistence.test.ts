@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
-import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
+import { chatTestToken, createTestSession, disposeTestSessions } from "./session-fixtures.ts"
+import { createAstralBeamChat } from "./session.ts"
 
 const thread = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -154,8 +155,7 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   expect(chat.getState().thread?.hasMessages).toBe(false)
   expect((await chat.searchThreads()).items).toEqual([])
   expect(chat.getState().messages).toEqual([])
-  expect(chat.getState().unsentMessage).toBe("First message")
-  expect(chat.getState().status).toBe("error")
+  expect(chat.getState().submission).toMatchObject({ phase: "refused", content: "First message" })
   await chat.sendMessage("First message")
   expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
   expect(created).toBe(1)
@@ -231,36 +231,35 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
   const onAccepted = vi.fn()
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   await chat.sendMessage("Hello", { onAccepted })
-  expect(chat.getState().unsentMessage).toBe("Hello")
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
   changed = true
   await chat.reload()
   expect(sent).toHaveLength(1)
-  expect(chat.getState().unsentMessage).toBe("Hello")
-  await chat.sendMessage("Edited uncertain input")
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
+  const edited = await chat.sendMessage("Edited uncertain input")
   expect(sent).toHaveLength(1)
-  expect(chat.getState().unsentMessage).toBe("Hello")
-  expect(chat.getState().error?.message).toContain(
-    downgraded ? denied : "acceptance is unconfirmed",
-  )
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
+  expect(edited).toMatchObject({ phase: "refused", content: "Edited uncertain input" })
+  expect(edited.error?.message).toContain(downgraded ? denied : "acceptance is unconfirmed")
   chat.updateOptions({
     tools: { changed: { description: "Changed declaration", execute: () => null } },
   })
-  await chat.sendMessage("Hello")
+  await chat.retry()
   expect(sent).toHaveLength(2)
   expect(sent[0]?.key).toBeTruthy()
   expect(sent[1]?.key).toBe(sent[0]?.key)
   expect(sent[1]?.body.messages).toHaveLength(1)
   expect(sent[1]?.body.tools).toEqual(sent[0]?.body.tools)
-  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().submission?.phase).toBe("accepted")
   expect(chat.getState().error).toBeUndefined()
   expect(onAccepted).toHaveBeenCalledOnce()
-  await chat.sendMessage("Another intent")
+  const another = await chat.sendMessage("Another intent")
   expect(sent).toHaveLength(downgraded ? 2 : 3)
   expect(sent.at(-1)?.key === sent[0]?.key).toBe(downgraded)
   expect(JSON.stringify(sent.at(-1)?.body.tools) === JSON.stringify(sent[0]?.body.tools)).toBe(
     downgraded,
   )
-  expect(chat.getState().error?.message).toBe(downgraded ? denied : undefined)
+  expect(another.error?.message).toBe(downgraded ? denied : undefined)
 })
 
 test.each([
@@ -299,12 +298,16 @@ test.each([
     const chat = createTestSession({ threadId: thread.id })
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     await chat.sendMessage("Original input")
-    if (uncertain) await chat.sendMessage("Original input")
-    await chat.sendMessage("Corrected input")
+    if (uncertain) await chat.retry()
+    const corrected = await chat.sendMessage("Corrected input")
     expect(keys).toHaveLength(2)
     expect(keys[1] === keys[0]).toBe(uncertain)
-    expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
-    expect(chat.getState().error?.message).toContain(
+    expect(chat.getState().submission).toMatchObject({
+      phase: uncertain ? "failed" : "refused",
+      content: uncertain ? "Original input" : "Corrected input",
+    })
+    expect(corrected).toMatchObject({ phase: "refused", content: "Corrected input" })
+    expect(corrected.error?.message).toContain(
       uncertain ? "acceptance is unconfirmed" : "Input was not admitted",
     )
   },
@@ -901,10 +904,9 @@ test("server-side revocation interrupts generation and blocks subsequent sends",
   stream.close()
   await send
   expect(chat.getState().thread?.role).toBe("viewer")
-  expect(chat.getState().error?.message).toContain("Write access was revoked")
-  await chat.sendMessage("A new input")
+  expect(chat.getState().submission?.error?.message).toContain("Write access was revoked")
+  expect((await chat.sendMessage("A new input")).error?.message).toContain("read-only")
   expect(sends).toBe(1)
-  expect(chat.getState().error?.message).toContain("read-only")
 })
 
 test("a browser tool and widget can continue through consecutive committed turns", async () => {
@@ -1259,7 +1261,7 @@ test("a late hydration response cannot replace a newly selected conversation", a
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(chat.getState().thread?.id).toBe(next.id)
   expect(chat.getState().messages[0]?.id).toBe("second")
-  expect(chat.getState().threadLoading).toBe(false)
+  expect(chat.getState().history).toBe("idle")
   expect(chat.getState().error).toBeUndefined()
 })
 
@@ -1284,12 +1286,8 @@ test("a refresh during a first send's conversation creation leaves the session r
   expect(chat.getState().status).toBe("submitted")
   await chat.refreshThread()
   release!(Response.json(page()))
-  expect(await sent).toBe(true)
-  expect(chat.getState()).toMatchObject({
-    status: "ready",
-    threadLoading: false,
-    threadRefreshing: false,
-  })
+  await sent
+  expect(chat.getState()).toMatchObject({ status: "ready", history: "idle" })
 })
 
 test("opening a conversation during a background refresh reports only loading", async () => {
@@ -1317,11 +1315,11 @@ test("opening a conversation during a background refresh reports only loading", 
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
   const refresh = chat.refreshThread()
-  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: true })
+  expect(chat.getState().history).toBe("refreshing")
   const opened = chat.openThread(next.id)
-  expect(chat.getState()).toMatchObject({ threadLoading: true, threadRefreshing: false })
+  expect(chat.getState().history).toBe("loading")
   await Promise.all([refresh, opened])
-  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: false })
+  expect(chat.getState().history).toBe("idle")
 })
 
 test("a failed send keeps its Retry after leaving and reopening its conversation", async () => {
@@ -1362,13 +1360,14 @@ test("a failed send keeps its Retry after leaving and reopening its conversation
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   await chat.sendMessage("Keep this")
-  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
+  const failed = { phase: "failed", content: "Keep this" }
+  expect(chat.getState().submission).toMatchObject(failed)
   await chat.openThread(next.id)
-  expect(chat.getState()).toMatchObject({ status: "ready", unsentMessage: undefined })
+  expect(chat.getState()).toMatchObject({ status: "ready", submission: undefined })
   await chat.openThread(thread.id)
-  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
-  await chat.sendMessage(chat.getState().unsentMessage!)
-  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().submission).toMatchObject(failed)
+  await chat.retry()
+  expect(chat.getState().submission?.phase).toBe("accepted")
   expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1)
   expect(keys).toHaveLength(2)
   expect(keys[1]).toBe(keys[0])
@@ -1392,13 +1391,12 @@ test("failed native hydration blocks sends until a successful reload", async () 
   const chat = createTestSession({
     threadId: thread.id,
   })
-  await vi.waitFor(() => expect(chat.getState().threadLoadFailed).toBe(true))
+  await vi.waitFor(() => expect(chat.getState().history).toBe("failed"))
   await chat.sendMessage("Do not send against missing history")
   expect(sends).not.toHaveBeenCalled()
   failed = false
   await chat.openThread(thread.id)
-  expect(chat.getState().threadLoadFailed).toBe(false)
-  expect(chat.getState().threadLoading).toBe(false)
+  expect(chat.getState().history).toBe("idle")
   expect(chat.getState().error).toBeUndefined()
 })
 
@@ -1464,8 +1462,8 @@ test.each(["auto", thread.id])(
     })
     const chat = createTestSession({ threadId })
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-    await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
-    expect(chat.getState().threadLoadFailed).toBe(threadId !== "auto")
+    await vi.waitFor(() => expect(chat.getState().history).not.toBe("loading"))
+    expect(chat.getState().history === "failed").toBe(threadId !== "auto")
     expect(stored).toBe(threadId === "auto" ? null : thread.id)
     expect(chat.getState().error === undefined).toBe(threadId === "auto")
   },
@@ -1493,10 +1491,10 @@ test("a deleted agent disables generation without resolving the default agent", 
   await vi.waitFor(() => expect(chat.getState().capabilities.attachments).toBe(false))
   const prior = fallback.mock.calls.length
   chat.updateOptions({ agentId: "different-default" })
-  await chat.sendMessage("Must not send")
+  const declined = await chat.sendMessage("Must not send")
   expect(fallback).toHaveBeenCalledTimes(prior)
   expect(send).not.toHaveBeenCalled()
-  expect(chat.getState().error?.message).toContain("agent is unavailable")
+  expect(declined.error?.message).toContain("agent is unavailable")
 })
 
 test("refresh after membership removal leaves a fresh conversation without an error", async () => {
@@ -1525,4 +1523,427 @@ test("refresh after membership removal leaves a fresh conversation without an er
   await chat.refreshThread()
   expect(chat.getState().thread).toBeUndefined()
   expect(chat.getState().error).toBeUndefined()
+})
+
+function acceptedStream(id: string, threadId = thread.id) {
+  const run = { threadId, runId: `run-${id}` }
+  const text = { messageId: `reply-${id}` }
+  return new Response(
+    [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "CUSTOM",
+        name: "astralbeam_thread",
+        value: { threadId, version: 2, acceptedMessageId: `user-${id}` },
+      },
+      { type: "TEXT_MESSAGE_START", ...text, role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", ...text, delta: "Reply" },
+      { type: "TEXT_MESSAGE_END", ...text },
+      { type: "RUN_FINISHED", ...run },
+    ]
+      .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+      .join(""),
+    { headers: { "Content-Type": "text/event-stream" } },
+  )
+}
+
+test("a send during the refresh after a reply is taken at once and sent when it settles", async () => {
+  let sends = 0
+  let reads = 0
+  let release: (() => void) | undefined
+  stubSessionFetch((input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
+    const response = Response.json(page())
+    if (++reads !== 2) return Promise.resolve(response)
+    return new Promise<Response>((resolve) => {
+      release = () => resolve(response)
+    })
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  const first = chat.sendMessage("First")
+  await vi.waitFor(() => expect(release).toBeDefined())
+  expect(chat.getState().history).toBe("refreshing")
+  const next = chat.sendMessage("Next")
+  expect(chat.getState()).toMatchObject({
+    status: "submitted",
+    submission: { content: "Next", phase: "submitting" },
+  })
+  expect(sends).toBe(1)
+  release!()
+  await Promise.all([first, next])
+  expect(sends).toBe(2)
+  expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "accepted" } })
+})
+
+test("a first send stays submitted until its reply streams", async () => {
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST")
+      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream("1"))
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const phases: string[] = []
+  chat.subscribe(() => {
+    const { submission, status } = chat.getState()
+    const phase = `${submission?.phase}:${status}`
+    if (phases.at(-1) !== phase) phases.push(phase)
+  })
+  await chat.sendMessage("First message")
+  expect(phases).toEqual([
+    "submitting:submitted",
+    "accepted:submitted",
+    "accepted:streaming",
+    "accepted:ready",
+  ])
+})
+
+test.each(["before", "after"] as const)(
+  "an attempt declined %s dispatch leaves the active send, its key, and its callbacks",
+  async (when) => {
+    const keys: Array<string | null> = []
+    let release: (() => void) | undefined
+    stubSessionFetch((input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (!path.endsWith("/chat")) return Promise.resolve(Response.json(page()))
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      return new Promise<Response>((resolve) => {
+        release = () => resolve(acceptedStream("1"))
+      })
+    })
+    const chat = createTestSession({ threadId: thread.id })
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    const onAccepted = vi.fn()
+    const first = chat.sendMessage("first", { onAccepted })
+    if (when === "after") await vi.waitUntil(() => release)
+    expect(await chat.sendMessage("second")).toMatchObject({ phase: "refused", content: "second" })
+    expect(chat.getState().submission).toMatchObject({ phase: "submitting", content: "first" })
+    await vi.waitFor(() => expect(release).toBeDefined())
+    release!()
+    expect(await first).toMatchObject({ phase: "accepted", content: "first" })
+    expect(keys).toHaveLength(1)
+    expect(onAccepted).toHaveBeenCalledOnce()
+    expect(chat.getState().history).toBe("idle")
+  },
+)
+
+test("a session restarted like React Strict Mode keeps loading history and sending", async () => {
+  let sends = 0
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST")
+      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatTestToken, threadId: "new" }, true)
+  try {
+    chat.start()
+    chat.dispose()
+    chat.start()
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    for (const text of ["first", "second"]) {
+      expect(await chat.sendMessage(text)).toMatchObject({ phase: "accepted" })
+      expect(chat.getState().history).toBe("idle")
+    }
+    expect(sends).toBe(2)
+  } finally {
+    chat.dispose()
+  }
+})
+
+test("a send before the configured conversation opens returns to its caller", async () => {
+  const sends = vi.fn()
+  stubSessionFetch((input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat") || path.endsWith("/threads")) sends(path)
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  const outcome = await chat.sendMessage("Too early")
+  expect(outcome).toMatchObject({ phase: "refused", content: "Too early" })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  expect(sends).not.toHaveBeenCalled()
+  expect(chat.getState().submission).toBeUndefined()
+})
+
+test.each(["history", "thread"] as const)(
+  "Stop returns a send still waiting for its %s without dispatching it",
+  async (wait) => {
+    const sends = vi.fn()
+    let release: (() => void) | undefined
+    const hold = (response: Response) =>
+      new Promise<Response>((resolve) => {
+        release = () => resolve(response)
+      })
+    let reads = 0
+    stubSessionFetch((input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (path.endsWith("/chat")) {
+        sends()
+        return Promise.resolve(acceptedStream(String(sends.mock.calls.length)))
+      }
+      if (path.endsWith("/threads") && init?.method === "POST")
+        return hold(Response.json({ ...thread, title: "", version: 0 }))
+      const response = Response.json(page())
+      return wait === "history" && ++reads === 2 ? hold(response) : Promise.resolve(response)
+    })
+    const chat = createTestSession(wait === "history" ? { threadId: thread.id } : {})
+    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+    if (wait === "history") {
+      await vi.waitUntil(() => chat.getState().thread)
+      void chat.refreshThread()
+    }
+    expect(chat.getState().history).toBe(wait === "history" ? "refreshing" : "idle")
+    const outcome = chat.sendMessage("Stop me")
+    await vi.waitFor(() => expect(release).toBeDefined())
+    chat.stop()
+    expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "refused" } })
+    release!()
+    expect(await outcome).toEqual(expect.objectContaining({ phase: "refused", content: "Stop me" }))
+    expect((await outcome).error).toBeUndefined()
+    expect(sends).not.toHaveBeenCalled()
+  },
+)
+
+test("an older page adds its messages without replacing the latest thread state", async () => {
+  const current = { ...thread, title: "Current title", version: 4 }
+  stubSessionFetch((input: string | URL) => {
+    const url = new URL(input)
+    if (url.pathname.endsWith("/config"))
+      return Promise.resolve(Response.json({ attachments: true }))
+    const older = url.searchParams.has("page_after")
+    const message = (id: string) => ({
+      id,
+      role: "user",
+      created_at: thread.created_at,
+      parts: [{ id: "text", type: "text", content: id }],
+    })
+    return Promise.resolve(
+      Response.json({
+        ...page([message(older ? "older" : "latest")]),
+        thread: older ? { ...thread, title: "Stale title", version: 1 } : current,
+        page_after: older ? null : "earlier",
+      }),
+    )
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().thread?.version).toBe(4))
+  await chat.loadOlderMessages()
+  expect(chat.getState().messages.map((message) => message.id)).toEqual(["older", "latest"])
+  expect(chat.getState().thread).toMatchObject({ title: "Current title", version: 4 })
+})
+
+test.each(["account", "api", "dispose"] as const)(
+  "a send waiting when its %s scope ends is refused and never reaches the next scope",
+  async (change) => {
+    let user = currentUser
+    let holding = false
+    const held: Array<() => void> = []
+    const posted: unknown[] = []
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
+      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (path.endsWith("/chat")) {
+        if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
+        posted.push(
+          (JSON.parse(init.body) as { messages: Array<{ content: unknown }> }).messages.at(-1)
+            ?.content,
+        )
+        return Promise.resolve(acceptedStream(String(posted.length)))
+      }
+      const response = Response.json(page())
+      if (!holding) return Promise.resolve(response)
+      return new Promise<Response>((resolve) => held.push(() => resolve(response)))
+    })
+    const chat = createTestSession({ threadId: thread.id })
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    holding = true
+    void chat.refreshThread()
+    await vi.waitUntil(() => held.length > 0)
+    const outcome = chat.sendMessage("Private to the first scope")
+    // Lets the send pass its token check and wait on the held history read.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    if (change === "account") {
+      user = { ...currentUser, user: { id: "another-user" } }
+      chat.retryAuthentication()
+    } else if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
+    else chat.dispose()
+    holding = false
+    for (const release of held) release()
+    expect(await outcome).toMatchObject({ phase: "refused", content: "Private to the first scope" })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first scope")
+    const next =
+      change === "dispose"
+        ? undefined
+        : await vi
+            .waitUntil(() => chat.getState().thread && chat.getState().history === "idle")
+            .then(() => chat.sendMessage("Next scope"))
+    expect(next?.phase).toBe(change === "dispose" ? undefined : "accepted")
+    expect(posted).toEqual(change === "dispose" ? [] : ["Next scope"])
+  },
+)
+
+test("a send after Stop keeps its own conversation when the cancelled creation finishes", async () => {
+  const second = { ...thread, id: "00000000-0000-4000-8000-000000000002", title: "" }
+  let creations = 0
+  let release: (() => void) | undefined
+  const targets: string[] = []
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST") {
+      if (++creations === 2) return Promise.resolve(Response.json(second))
+      return new Promise<Response>((resolve) => {
+        release = () => resolve(Response.json({ ...thread, title: "", version: 0 }))
+      })
+    }
+    if (path.endsWith("/chat")) {
+      if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
+      const { threadId } = JSON.parse(init.body) as { threadId: string }
+      targets.push(threadId)
+      return Promise.resolve(acceptedStream(String(targets.length), threadId))
+    }
+    const id = path.split("/").at(-2)!
+    return Promise.resolve(Response.json({ ...page(), thread: id === second.id ? second : thread }))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const cancelled = chat.sendMessage("Cancelled")
+  await vi.waitUntil(() => release)
+  chat.stop()
+  expect(await cancelled).toMatchObject({ phase: "refused", content: "Cancelled" })
+  expect(await chat.sendMessage("Kept")).toMatchObject({ phase: "accepted" })
+  release!()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(chat.getState().thread?.id).toBe(second.id)
+  expect(await chat.sendMessage("Next")).toMatchObject({ phase: "accepted" })
+  expect(targets).toEqual([second.id, second.id])
+})
+
+// Fails the first chat request, then accepts, recording each request's idempotency key.
+function stubRetryableChat(onRead?: () => Promise<void> | undefined) {
+  const keys: Array<string | null> = []
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      return Promise.resolve(
+        keys.length === 1
+          ? new Response("Unavailable", { status: 503 })
+          : acceptedStream(String(keys.length)),
+      )
+    }
+    if (path.endsWith("/messages"))
+      return (onRead?.() ?? Promise.resolve()).then(() => Response.json(page()))
+    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+  })
+  return keys
+}
+
+test("a stale retry attempt cannot act for the newer attempt of the same send", async () => {
+  const next = { ...thread, id: "00000000-0000-4000-8000-000000000003" }
+  const renewal: { wait?: Promise<void> } = {}
+  let release: (() => void) | undefined
+  const keys = stubRetryableChat()
+  const chat = createTestSession({
+    threadId: thread.id,
+    fetchAstralBeamToken: async () => {
+      await renewal.wait
+      return chatTestToken()
+    },
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Retry me")
+  expect(chat.getState().submission?.phase).toBe("failed")
+  renewal.wait = new Promise((resolve) => {
+    release = resolve
+  })
+  chat.retryAuthentication()
+  const stale = chat.retry()
+  void chat.openThread(next.id)
+  void chat.openThread(thread.id)
+  const fresh = chat.retry()
+  release!()
+  await Promise.all([stale, fresh])
+  await vi.waitFor(() => expect(chat.getState().submission?.phase).toBe("accepted"))
+  expect(keys).toEqual([keys[0], keys[0]])
+})
+
+test.each(["history", "authentication"] as const)(
+  "Stop ends a retry waiting for its %s and keeps the send for a later Retry",
+  async (wait) => {
+    let hold: Promise<void> | undefined
+    let release: (() => void) | undefined
+    const keys = stubRetryableChat(() => (wait === "history" ? hold : undefined))
+    const chat = createTestSession({
+      threadId: thread.id,
+      fetchAstralBeamToken: async () => {
+        if (wait === "authentication") await hold
+        return chatTestToken()
+      },
+    })
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.sendMessage("Retry me")
+    hold = new Promise((resolve) => {
+      release = resolve
+    })
+    if (wait === "history") void chat.refreshThread()
+    else chat.retryAuthentication()
+    const stopped = chat.retry()
+    chat.stop()
+    expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "failed" } })
+    release!()
+    hold = undefined
+    expect(await stopped).toMatchObject({ phase: "failed", content: "Retry me" })
+    expect(keys).toHaveLength(1)
+    expect(await chat.retry()).toMatchObject({ phase: "accepted" })
+    expect(keys).toEqual([keys[0], keys[0]])
+  },
+)
+
+test("a send waiting on token renewal never reaches the account the renewal resolves", async () => {
+  let user = currentUser
+  const renewal: { wait?: Promise<void> } = {}
+  let release: (() => void) | undefined
+  const sends = vi.fn()
+  vi.stubGlobal("fetch", (input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) sends()
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession({
+    threadId: thread.id,
+    fetchAstralBeamToken: async () => {
+      await renewal.wait
+      return chatTestToken()
+    },
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  renewal.wait = new Promise((resolve) => {
+    release = resolve
+  })
+  chat.retryAuthentication()
+  const outcome = chat.sendMessage("Private to the first account")
+  user = { ...currentUser, user: { id: "another-user" } }
+  release!()
+  expect(await outcome).toMatchObject({ phase: "refused" })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first account")
+  expect(sends).not.toHaveBeenCalled()
 })

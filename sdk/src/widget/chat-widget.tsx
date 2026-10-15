@@ -98,9 +98,14 @@ export function ChatWidget({
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
+  const { history, submission } = chatState
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
   const usageLimit = chatState.usageLimitReached
-  const error = usageLimit ? new Error(describeUsageLimit(usageLimit)) : chatState.error
+  const error = usageLimit
+    ? new Error(describeUsageLimit(usageLimit))
+    : submission?.phase === "failed" || submission?.phase === "refused"
+      ? submission.error
+      : chatState.error
 
   const toolNames = useMemo(() => new Set(agentTools.map((tool) => tool.name)), [agentTools])
   // Joined into a key so the set keeps its identity across chunks and memoized messages skip them.
@@ -155,7 +160,7 @@ export function ChatWidget({
     verifiedIdentity:
       auth.status === "ready" ? authenticationIdentity(auth.currentUser) : undefined,
     threadId: chatState.thread?.id ?? "",
-    canLoad: auth.status === "ready" && !chatState.threadLoading && !chatState.threadRefreshing,
+    canLoad: auth.status === "ready" && (history === "idle" || history === "failed"),
     debug,
   })
   const draftIdentity = composer.identity
@@ -192,9 +197,8 @@ export function ChatWidget({
     streamBusy ||
     !composer.attachmentsLoaded ||
     composer.saving ||
-    chatState.threadLoading ||
-    chatState.threadRefreshing ||
-    chatState.threadLoadFailed ||
+    history === "loading" ||
+    history === "failed" ||
     chatState.thread?.role === "viewer" ||
     chatState.thread?.agentId === null ||
     hasPendingToolRun(
@@ -280,8 +284,8 @@ export function ChatWidget({
               })),
           },
     )
-    const { refused, ...callbacks } = composer.submit(
-      new Set(attachments.filter((file) => file.status === "ready").map((file) => file.id)),
+    const { restore, ...callbacks } = composer.submit(
+      attachments.filter((file) => file.status === "ready"),
     )
     const sent = chat.sendMessage(
       parts.length === 0
@@ -294,8 +298,8 @@ export function ChatWidget({
           },
       callbacks,
     )
-    void sent.then((taken) => {
-      if (!taken) refused()
+    void sent.then((outcome) => {
+      if (outcome.phase === "refused") restore(outcome.content)
     })
   }
 
@@ -407,7 +411,7 @@ export function ChatWidget({
           getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
-          loadingHistory={chatState.threadLoading}
+          loadingHistory={history === "loading"}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
           getFile={chat.getFile}
@@ -428,7 +432,7 @@ export function ChatWidget({
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
       <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
-        {chatState.threadLoading ? (
+        {history === "loading" ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…
           </span>
@@ -499,21 +503,21 @@ export function ChatWidget({
             chat.stop()
           }}
           onRetry={
-            usageLimit
+            usageLimit || submission?.phase === "refused"
               ? undefined
-              : chatState.unsentMessage !== undefined
-                ? () => void chat.sendMessage(chatState.unsentMessage!, composer.retry())
+              : submission?.phase === "failed"
+                ? () => void chat.retry()
                 : messages.length > 0
                   ? () => void chat.reload()
                   : undefined
           }
-          retryLabel={chatState.unsentMessage !== undefined ? "Retry" : "Refresh"}
-          showError={status === "error" || usageLimit !== undefined}
+          retryLabel={submission?.phase === "failed" ? "Retry" : "Refresh"}
+          showError={error !== undefined}
           error={error}
           streamBusy={streamBusy}
-          isBusy={isBusy}
+          isBusy={isBusy || submission?.phase === "failed"}
           authPending={authPending}
-          threadLoading={chatState.threadLoading}
+          threadLoading={history === "loading"}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}

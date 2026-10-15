@@ -261,9 +261,10 @@ test("a failed send merges its draft into a preloaded destination without losing
   await chat.attach(note)
   await expect(chat.sendButton()).toBeEnabled()
   await chat.sendButton().click()
-  await expect(chat.errorAlert()).toBeVisible()
-  await expect(chat.composer()).toHaveValue("Keep my failed draft")
-  await expect(chat.attachmentChip(note.name)).toBeVisible()
+  // The session keeps an uncertain send for Retry, and the reload below recovers its draft.
+  await expect(chat.errorAlert().getByRole("button", { name: "Retry" })).toBeVisible()
+  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
   await page.reload()
   await expect(chat.attachmentChip(note.name)).toBeVisible()
   await expect(chat.attachmentChip(image.name)).toBeVisible()

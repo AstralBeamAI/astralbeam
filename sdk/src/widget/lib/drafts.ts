@@ -19,14 +19,16 @@ function draftStorageKey(apiUrl: string, identity: string, threadId: string): st
   return JSON.stringify([apiUrl.replace(/\/+$/, ""), identity, threadId])
 }
 
+/** Reads or writes unsent text, or with `sent`, the recovery copy of a send not yet accepted. */
 export function storedThreadDraft(
   apiUrl: string,
   identity: string,
   threadId: string,
   text?: string,
+  slot: "draft" | "sent" = "draft",
 ): string {
   if (!identity) return ""
-  const key = `astralbeam:draft:${draftStorageKey(apiUrl, identity, threadId)}`
+  const key = `astralbeam:${slot}:${draftStorageKey(apiUrl, identity, threadId)}`
   try {
     if (text === undefined) return globalThis.localStorage?.getItem(key) ?? ""
     if (text) globalThis.localStorage?.setItem(key, text)

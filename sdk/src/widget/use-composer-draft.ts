@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { newUuid } from "../core/threads.ts"
+import type { MultimodalContent } from "@tanstack/ai-client"
 import type { DebugLogger } from "../lib/debug.ts"
 import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
 import type { DraftAttachment } from "./lib/types.ts"
@@ -14,16 +14,6 @@ interface ThreadDraft {
   savedAttachments: DraftAttachment[]
   attachmentsLoaded: boolean
   storageError: boolean
-  /** A send the session owns until the server accepts it. Its text and files stay out of the composer. */
-  submission?: Submission | undefined
-}
-
-interface Submission {
-  id: string
-  text: string
-  fileIds: ReadonlySet<string>
-  /** The draft's edit count when submitted, so later typing is never mistaken for the sent text. */
-  edits: number
 }
 
 const EMPTY_DRAFT: ThreadDraft = {
@@ -34,6 +24,9 @@ const EMPTY_DRAFT: ThreadDraft = {
   attachmentsLoaded: false,
   storageError: false,
 }
+// Returned input goes ahead of anything typed since, so neither is lost.
+const joinDrafts = (returned: string, unsent: string) =>
+  returned && unsent ? `${returned}\n\n${unsent}` : returned || unsent
 const storedDraft = (apiUrl: string, identity: string, threadId: string): ThreadDraft => ({
   ...EMPTY_DRAFT,
   text: storedThreadDraft(apiUrl, identity, threadId),
@@ -41,7 +34,8 @@ const storedDraft = (apiUrl: string, identity: string, threadId: string): Thread
 
 /**
  * The composer's unsent text and files per conversation, kept in local storage within one verified
- * identity and API scope. The session owns a send once submitted. The draft only hides it meanwhile.
+ * identity and API scope. A sent message belongs to the session, and storage keeps its recovery
+ * copy until the server accepts it.
  */
 export function useComposerDraft({
   apiUrl,
@@ -66,9 +60,6 @@ export function useComposerDraft({
   if (drafts.apiUrl !== apiUrl || drafts.identity !== identity)
     setDrafts({ apiUrl, identity, threads: new Map() })
   const draft = drafts.threads.get(threadId) ?? storedDraft(apiUrl, identity, threadId)
-  const edits = useRef(new Map<string, number>())
-  const editKey = (key: string) => JSON.stringify([apiUrl, identity, key])
-  const editCount = (key: string) => edits.current.get(editKey(key)) ?? 0
 
   // Late uploads, writes, and send callbacks apply only within the scope that started them.
   const edit = useCallback(
@@ -102,18 +93,28 @@ export function useComposerDraft({
       )
       .then(({ attachments, storageError }) => {
         if (cancelled) return
-        edit(threadId, (value) =>
-          value.attachmentsLoaded
-            ? value
-            : {
-                ...value,
-                attachments,
-                settledAttachments: attachments,
-                savedAttachments: attachments,
-                attachmentsLoaded: true,
-                storageError,
-              },
-        )
+        // After a reload, a send the server never accepted returns ahead of the draft.
+        const sent = storedThreadDraft(apiUrl, identity, threadId, undefined, "sent")
+        const text = joinDrafts(sent, storedThreadDraft(apiUrl, identity, threadId))
+        if (sent) {
+          storedThreadDraft(apiUrl, identity, threadId, text)
+          storedThreadDraft(apiUrl, identity, threadId, "", "sent")
+        }
+        edit(threadId, (value) => {
+          if (value.attachmentsLoaded) return value
+          const added = value.attachments.filter(
+            (file) => !attachments.some((saved) => saved.id === file.id),
+          )
+          return {
+            ...value,
+            text,
+            attachments: added.length ? [...attachments, ...added] : attachments,
+            settledAttachments: attachments,
+            savedAttachments: attachments,
+            attachmentsLoaded: true,
+            storageError,
+          }
+        })
       })
     return () => {
       cancelled = true
@@ -170,24 +171,26 @@ export function useComposerDraft({
 
   const clear = (key: string, keep?: ThreadDraft) => {
     storedThreadDraft(apiUrl, identity, key, "")
+    storedThreadDraft(apiUrl, identity, key, "", "sent")
     void storedThreadAttachments({ apiUrl, identity, threadId: key, update: () => [] }).catch(
       (error: unknown) => debug?.("error", "Draft files could not be cleared", error),
     )
     edit(key, () => keep)
   }
 
-  // The session keeps these callbacks with its pending send, so a Retry settles the same submission.
-  const follow = (submission: Submission, initialKey: string) => {
+  // The session keeps these callbacks with its submission, so a Retry settles the same one.
+  const follow = (files: readonly DraftAttachment[], initialKey: string) => {
+    const fileIds = new Set(files.map((file) => file.id))
     let key = initialKey
     return {
       onThreadReady: (id: string) => {
         if (key !== "") return
         key = id
-        edits.current.set(editKey(id), editCount(""))
-        edits.current.delete(editKey(""))
-        const stored = storedThreadDraft(apiUrl, identity, "")
-        if (stored) storedThreadDraft(apiUrl, identity, id, stored)
-        storedThreadDraft(apiUrl, identity, "", "")
+        for (const slot of ["draft", "sent"] as const) {
+          const stored = storedThreadDraft(apiUrl, identity, "", undefined, slot)
+          if (stored) storedThreadDraft(apiUrl, identity, id, stored, slot)
+          storedThreadDraft(apiUrl, identity, "", "", slot)
+        }
         void storedThreadAttachments({ apiUrl, identity, threadId: "", moveTo: id }).catch(
           (error: unknown) => debug?.("error", "Draft files could not be moved", error),
         )
@@ -213,29 +216,38 @@ export function useComposerDraft({
         edit("", () => undefined)
       },
       onAccepted: () => {
-        if (editCount(key) === submission.edits) storedThreadDraft(apiUrl, identity, key, "")
+        storedThreadDraft(apiUrl, identity, key, "", "sent")
         void storedThreadAttachments({
           apiUrl,
           identity,
           threadId: key,
-          update: (files) => files.filter((file) => !submission.fileIds.has(file.id)),
+          update: (files) => files.filter((file) => !fileIds.has(file.id)),
         }).catch((error: unknown) =>
           debug?.("error", "Accepted draft files could not be cleared", error),
         )
+      },
+      /** Returns a refused send to the composer it came from, from the session's own copy. */
+      restore: (content: string | MultimodalContent) => {
+        const body = typeof content === "string" ? content : content.content
+        const text =
+          typeof body === "string"
+            ? body
+            : body.flatMap((part) => (part.type === "text" ? [part.content] : [])).join("")
+        storedThreadDraft(
+          apiUrl,
+          identity,
+          key,
+          joinDrafts(text, storedThreadDraft(apiUrl, identity, key)),
+        )
+        storedThreadDraft(apiUrl, identity, key, "", "sent")
         edit(key, (value) => ({
           ...value,
-          attachments: value.attachments.filter((file) => !submission.fileIds.has(file.id)),
-          submission: value.submission?.id === submission.id ? undefined : value.submission,
+          text: joinDrafts(text, value.text),
+          attachments: [
+            ...files.filter((file) => !value.attachments.some((current) => current.id === file.id)),
+            ...value.attachments,
+          ],
         }))
-      },
-      /** The session refused the send without keeping it, so an untouched draft gets it back. */
-      refused: () => {
-        const untouched = editCount(key) === submission.edits
-        edit(key, (value) =>
-          value.submission?.id === submission.id
-            ? { ...value, text: untouched ? submission.text : value.text, submission: undefined }
-            : value,
-        )
       },
     }
   }
@@ -243,15 +255,12 @@ export function useComposerDraft({
   return {
     identity,
     text: draft.text,
-    attachments: draft.submission
-      ? draft.attachments.filter((file) => !draft.submission!.fileIds.has(file.id))
-      : draft.attachments,
+    attachments: draft.attachments,
     attachmentsLoaded: draft.attachmentsLoaded,
     /** Attachment changes are still being written to storage. */
     saving: draft.attachments !== draft.settledAttachments,
     storageError: draft.storageError,
     setText: (text: string) => {
-      edits.current.set(editKey(threadId), editCount(threadId) + 1)
       storedThreadDraft(apiUrl, identity, threadId, text)
       edit(threadId, (value) => ({ ...value, text }))
     },
@@ -273,14 +282,27 @@ export function useComposerDraft({
         }
         return current
       }),
-    /** Hides the draft as a submission that the session owns from here. */
-    submit: (fileIds: ReadonlySet<string>) => {
-      const submission = { id: newUuid(), text: draft.text, fileIds, edits: editCount(threadId) }
-      edit(threadId, (value) => ({ ...value, text: "", submission }))
-      return follow(submission, threadId)
+    /** Hands the text and ready files to a send, keeping their stored copies until acceptance. */
+    submit: (files: readonly DraftAttachment[]) => {
+      const fileIds = new Set(files.map((file) => file.id))
+      storedThreadDraft(apiUrl, identity, threadId, draft.text, "sent")
+      storedThreadDraft(apiUrl, identity, threadId, "")
+      const unsent = (files: DraftAttachment[]) => files.filter((file) => !fileIds.has(file.id))
+      edit(threadId, (value) => {
+        const attachments = unsent(value.attachments)
+        return {
+          ...value,
+          text: "",
+          attachments,
+          settledAttachments:
+            value.settledAttachments === value.attachments
+              ? attachments
+              : unsent(value.settledAttachments),
+          savedAttachments: unsent(value.savedAttachments),
+        }
+      })
+      return follow(files, threadId)
     },
-    /** Follows this conversation's unaccepted submission again for a Retry. */
-    retry: () => (draft.submission ? follow(draft.submission, threadId) : undefined),
     /** Empties the new-conversation draft, as starting a new chat does. */
     reset: () => clear("", { ...EMPTY_DRAFT, attachmentsLoaded: true }),
     /** Drops a deleted conversation's draft. */

@@ -54,6 +54,20 @@ interface ChatTranscriptProps {
 // items blink for a frame. History keeps `content-visibility: auto`.
 const LATEST_TURN = "[content-visibility:visible]"
 
+// The latest turn only grows: a reply mounts with its first visible content, behind the Thinking
+// marker until then. Saved interrupted and draft replies show a marker, so they count as content.
+const hasVisibleContent = (message: UIMessage) => {
+  const saved = message.metadata?.astralbeam as SavedMessageMetadata | undefined
+  return (
+    message.role !== "assistant" ||
+    saved?.state === "interrupted" ||
+    saved?.state === "draft" ||
+    message.parts.some(
+      (part) => (part.type !== "text" && part.type !== "thinking") || part.content.length > 0,
+    )
+  )
+}
+
 // Memoized so a streamed chunk re-renders only the message it changed.
 const TranscriptMessage = memo(function TranscriptMessage({
   message,
@@ -191,15 +205,8 @@ export function ChatTranscript({
       element.removeEventListener("scroll", loadEarlier)
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
-  // A reply with nothing visible yet stays behind the Thinking marker, so its gap cannot shift it.
-  const last = messages.at(-1)
-  const turnStart = messages.findLastIndex((message) => message.role === "user")
-  const emptyReply =
-    awaitingReply &&
-    last?.role === "assistant" &&
-    last.parts.every(
-      (part) => (part.type === "text" || part.type === "thinking") && part.content.length === 0,
-    )
+  const shown = messages.filter(hasVisibleContent)
+  const turnStart = shown.findLastIndex((message) => message.role === "user")
   if (loadingHistory && messages.length === 0) {
     return (
       <div
@@ -248,7 +255,7 @@ export function ChatTranscript({
         )}
         <MessageScrollerViewport preserveScrollOnPrepend ref={viewport}>
           <MessageScrollerContent aria-busy={isBusy} className="gap-3 px-(--card-spacing) py-2">
-            {(emptyReply ? messages.slice(0, -1) : messages).map((message, index) => (
+            {shown.map((message, index) => (
               <TranscriptMessage
                 key={message.id}
                 message={message}
