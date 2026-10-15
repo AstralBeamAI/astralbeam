@@ -1,0 +1,273 @@
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { ChatSubmissionCallbacks } from "../core/session.ts"
+import type { DebugLogger } from "../lib/debug.ts"
+import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
+import type { DraftAttachment } from "./lib/types.ts"
+
+const EMPTY_ATTACHMENTS: DraftAttachment[] = []
+
+interface ThreadDraft {
+  text: string
+  attachments: DraftAttachment[]
+  /** The last list written to storage. A failed write settles the UI but keeps the saved baseline. */
+  settledAttachments: DraftAttachment[]
+  savedAttachments: DraftAttachment[]
+  attachmentsLoaded: boolean
+  storageError: boolean
+  /** A send in flight. Its text and files stay out of the composer until the send settles. */
+  submission?: { text: string; fileIds: ReadonlySet<string> } | undefined
+}
+
+const EMPTY_DRAFT: ThreadDraft = {
+  text: "",
+  attachments: EMPTY_ATTACHMENTS,
+  settledAttachments: EMPTY_ATTACHMENTS,
+  savedAttachments: EMPTY_ATTACHMENTS,
+  attachmentsLoaded: false,
+  storageError: false,
+}
+const storedDraft = (apiUrl: string, identity: string, threadId: string): ThreadDraft => ({
+  ...EMPTY_DRAFT,
+  text: storedThreadDraft(apiUrl, identity, threadId),
+})
+
+/**
+ * The composer's unsent text and files per conversation, kept in local storage within one verified
+ * identity and API scope. The session owns a send once submitted. The draft only hides it meanwhile.
+ */
+export function useComposerDraft({
+  apiUrl,
+  verifiedIdentity,
+  threadId,
+  canLoad,
+  debug,
+}: {
+  apiUrl: string
+  /** Undefined while authentication is pending, which keeps the previous identity's drafts. */
+  verifiedIdentity: string | undefined
+  threadId: string
+  canLoad: boolean
+  debug: DebugLogger | undefined
+}) {
+  const [drafts, setDrafts] = useState({
+    apiUrl,
+    identity: "",
+    threads: new Map<string, ThreadDraft>(),
+  })
+  const identity = verifiedIdentity ?? drafts.identity
+  if (drafts.apiUrl !== apiUrl || drafts.identity !== identity)
+    setDrafts({ apiUrl, identity, threads: new Map() })
+  const draft = drafts.threads.get(threadId) ?? storedDraft(apiUrl, identity, threadId)
+
+  // Late uploads, writes, and send callbacks apply only within the scope that started them.
+  const edit = useCallback(
+    (
+      key: string,
+      transform: (
+        draft: ThreadDraft,
+        threads: ReadonlyMap<string, ThreadDraft>,
+      ) => ThreadDraft | undefined,
+    ) =>
+      setDrafts((current) => {
+        if (current.apiUrl !== apiUrl || current.identity !== identity) return current
+        const value = current.threads.get(key) ?? storedDraft(apiUrl, identity, key)
+        const next = transform(value, current.threads)
+        if (next === value) return current
+        const threads = new Map(current.threads)
+        if (next) threads.set(key, next)
+        else threads.delete(key)
+        return { ...current, threads }
+      }),
+    [apiUrl, identity],
+  )
+
+  useEffect(() => {
+    if (!canLoad || draft.attachmentsLoaded) return
+    let cancelled = false
+    void storedThreadAttachments({ apiUrl, identity, threadId })
+      .then(
+        (attachments) => ({ attachments, storageError: false }),
+        () => ({ attachments: EMPTY_ATTACHMENTS, storageError: true }),
+      )
+      .then(({ attachments, storageError }) => {
+        if (cancelled) return
+        edit(threadId, (value) =>
+          value.attachmentsLoaded
+            ? value
+            : {
+                ...value,
+                attachments,
+                settledAttachments: attachments,
+                savedAttachments: attachments,
+                attachmentsLoaded: true,
+                storageError,
+              },
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [apiUrl, identity, threadId, canLoad, draft.attachmentsLoaded, edit])
+
+  // Changes apply by file ID so a stale tab cannot overwrite newer files or restore accepted ones.
+  const pendingWrites = useRef(new Set<string>())
+  useEffect(() => {
+    for (const [key, value] of drafts.threads) {
+      if (!value.attachmentsLoaded || value.attachments === value.settledAttachments) continue
+      const scope = JSON.stringify([drafts.apiUrl, drafts.identity, key])
+      if (pendingWrites.current.has(scope)) continue
+      pendingWrites.current.add(scope)
+      const finish = (storageError: boolean) => {
+        pendingWrites.current.delete(scope)
+        edit(key, (latest, threads) =>
+          threads.has(key)
+            ? {
+                ...latest,
+                settledAttachments: value.attachments,
+                savedAttachments: storageError ? latest.savedAttachments : value.attachments,
+                storageError,
+              }
+            : latest,
+        )
+      }
+      void storedThreadAttachments({
+        apiUrl: drafts.apiUrl,
+        identity: drafts.identity,
+        threadId: key,
+        update: (files) => {
+          const stored = new Map(files.map((file) => [file.id, file]))
+          for (const file of value.savedAttachments) {
+            if (!value.attachments.some((current) => current.id === file.id)) stored.delete(file.id)
+          }
+          for (const file of value.attachments) {
+            if (
+              file.status === "ready" &&
+              !value.savedAttachments.some(
+                (saved) => saved.id === file.id && saved.status === "ready",
+              )
+            )
+              stored.set(file.id, file)
+          }
+          return [...stored.values()]
+        },
+      }).then(
+        () => finish(false),
+        () => finish(true),
+      )
+    }
+  }, [drafts, edit])
+
+  const clear = (key: string, keep?: ThreadDraft) => {
+    storedThreadDraft(apiUrl, identity, key, "")
+    void storedThreadAttachments({ apiUrl, identity, threadId: key, update: () => [] }).catch(
+      (error: unknown) => debug?.("error", "Draft files could not be cleared", error),
+    )
+    edit(key, () => keep)
+  }
+
+  return {
+    identity,
+    text: draft.text,
+    attachments: draft.submission
+      ? draft.attachments.filter((file) => !draft.submission!.fileIds.has(file.id))
+      : draft.attachments,
+    attachmentsLoaded: draft.attachmentsLoaded,
+    /** Attachment changes are still being written to storage. */
+    saving: draft.attachments !== draft.settledAttachments,
+    storageError: draft.storageError,
+    setText: (text: string) => {
+      storedThreadDraft(apiUrl, identity, threadId, text)
+      edit(threadId, (value) => ({ ...value, text }))
+    },
+    updateAttachments: (update: (attachments: DraftAttachment[]) => DraftAttachment[]) =>
+      edit(threadId, (value) => ({ ...value, attachments: update(value.attachments) })),
+    /** Applies an upload's outcome in whichever conversation's draft holds the file now. */
+    settleAttachment: (id: string, update: Partial<DraftAttachment>) =>
+      setDrafts((current) => {
+        if (current.apiUrl !== apiUrl || current.identity !== identity) return current
+        for (const [key, value] of current.threads) {
+          if (!value.attachments.some((file) => file.id === id)) continue
+          const attachments = value.attachments.map((file) =>
+            file.id === id ? { ...file, ...update } : file,
+          )
+          return {
+            ...current,
+            threads: new Map(current.threads).set(key, { ...value, attachments }),
+          }
+        }
+        return current
+      }),
+    /**
+     * Hides the draft as a submission. Storage keeps it until the server accepts the send, and a
+     * send that settles unaccepted restores the text into an empty composer.
+     */
+    submit: (fileIds: ReadonlySet<string>) => {
+      const { text } = draft
+      let key = threadId
+      edit(key, (value) => ({ ...value, text: "", submission: { text, fileIds } }))
+      const callbacks: ChatSubmissionCallbacks = {
+        onThreadReady: (id) => {
+          if (key !== "") return
+          key = id
+          const stored = storedThreadDraft(apiUrl, identity, "")
+          if (stored) storedThreadDraft(apiUrl, identity, id, stored)
+          storedThreadDraft(apiUrl, identity, "", "")
+          void storedThreadAttachments({ apiUrl, identity, threadId: "", moveTo: id }).catch(
+            (error: unknown) => debug?.("error", "Draft files could not be moved", error),
+          )
+          edit(id, (value, threads) => {
+            const moved = threads.get("")
+            const destination = threads.get(id)
+            if (!moved) return value
+            return {
+              ...moved,
+              text: moved.text || destination?.text || "",
+              attachments: [
+                ...new Map(
+                  [...(destination?.attachments ?? []), ...moved.attachments].map((file) => [
+                    file.id,
+                    file,
+                  ]),
+                ).values(),
+              ],
+              settledAttachments: EMPTY_ATTACHMENTS,
+              savedAttachments: [
+                ...(destination?.savedAttachments ?? []),
+                ...moved.savedAttachments,
+              ],
+            }
+          })
+          edit("", () => undefined)
+        },
+        onAccepted: () => {
+          if (storedThreadDraft(apiUrl, identity, key) === text)
+            storedThreadDraft(apiUrl, identity, key, "")
+          void storedThreadAttachments({
+            apiUrl,
+            identity,
+            threadId: key,
+            update: (files) => files.filter((file) => !fileIds.has(file.id)),
+          }).catch((error: unknown) =>
+            debug?.("error", "Accepted draft files could not be cleared", error),
+          )
+          edit(key, (value) => ({
+            ...value,
+            attachments: value.attachments.filter((file) => !fileIds.has(file.id)),
+            submission: undefined,
+          }))
+        },
+      }
+      const settle = () =>
+        edit(key, (value) =>
+          value.submission
+            ? { ...value, text: value.text || value.submission.text, submission: undefined }
+            : value,
+        )
+      return { callbacks, settle }
+    },
+    /** Empties the new-conversation draft, as starting a new chat does. */
+    reset: () => clear("", { ...EMPTY_DRAFT, attachmentsLoaded: true }),
+    /** Drops a deleted conversation's draft. */
+    forget: (id: string) => clear(id),
+  }
+}
