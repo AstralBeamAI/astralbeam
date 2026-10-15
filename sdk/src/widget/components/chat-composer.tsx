@@ -1,6 +1,5 @@
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
-import { Button } from "@/widget/components/ui/button"
+import { ArrowClockwiseIcon, ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
+import { useId, useRef, useState } from "react"
 import { Alert, AlertAction, AlertDescription } from "@/widget/components/ui/alert"
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
@@ -64,6 +63,7 @@ export function ChatComposer({
   onAddFiles,
   onRemoveAttachment,
 }: ChatComposerProps) {
+  const shortcutId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
   const blocked = authPending || authError !== undefined || threadLoading
@@ -90,7 +90,7 @@ export function ChatComposer({
       className="w-full"
       onSubmit={(event) => {
         event.preventDefault()
-        onSend()
+        if (!sendDisabled) onSend()
       }}
       onDragOver={(event) => {
         if (!isFileDrag(event.dataTransfer)) return
@@ -126,15 +126,15 @@ export function ChatComposer({
           </AlertDescription>
           {onRetry && (
             <AlertAction className="static shrink-0">
-              <Button
+              <TooltipButton
                 type="button"
                 variant="outline"
-                size="sm"
-                className="any-pointer-coarse:min-h-9"
+                size="icon-sm"
+                tooltip={retryLabel}
                 onClick={onRetry}
               >
-                {retryLabel}
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </AlertAction>
           )}
         </Alert>
@@ -151,15 +151,15 @@ export function ChatComposer({
           </AlertDescription>
           {onAuthRetry && (
             <AlertAction className="static shrink-0">
-              <Button
+              <TooltipButton
                 type="button"
                 variant="outline"
-                size="sm"
-                className="any-pointer-coarse:min-h-9"
+                size="icon-sm"
+                tooltip="Retry"
                 onClick={onAuthRetry}
               >
-                Retry
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </AlertAction>
           )}
         </Alert>
@@ -187,13 +187,16 @@ export function ChatComposer({
         )}
         <InputGroupTextarea
           aria-label="Message"
+          aria-describedby={shortcutId}
           className="max-h-24 min-h-8 py-1.5 any-pointer-coarse:text-base"
           placeholder={
             authPending
               ? "Verifying your session…"
-              : dropTarget
-                ? "Drop files to attach…"
-                : `Message ${title}…`
+              : threadLoading
+                ? "Loading conversation…"
+                : dropTarget
+                  ? "Drop files to attach…"
+                  : `Message ${title}…`
           }
           disabled={blocked}
           value={draft}
@@ -205,9 +208,10 @@ export function ChatComposer({
             addFiles(event.clipboardData.files)
           }}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
-              onSend()
+              if (!sendDisabled) onSend()
             }
           }}
         />
@@ -257,6 +261,9 @@ export function ChatComposer({
           )}
         </InputGroupAddon>
       </InputGroup>
+      <p id={shortcutId} className="mt-1 text-xs text-muted-foreground">
+        Enter to send, Shift+Enter for a new line
+      </p>
     </form>
   )
 }

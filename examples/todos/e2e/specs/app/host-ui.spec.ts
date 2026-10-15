@@ -97,3 +97,19 @@ test("a tap beside the text focuses the message input", async ({ chat }) => {
   await chat.composerButtonRow().click()
   await expect(chat.composer()).toBeFocused()
 })
+
+test("IME confirmation and multiline input do not submit a draft", async ({ chat, page }) => {
+  let submitted = false
+  await page.route("**/api/v1/chat", (route) => {
+    submitted = true
+    return route.abort()
+  })
+  await chat.waitForReady()
+  await chat.composeWithIme("こんにちは")
+  await expect(chat.composer()).toHaveValue("こんにちは")
+  await chat.composer().press("Shift+Enter")
+  await expect(chat.composer()).toHaveValue("こんにちは\n")
+  expect(submitted).toBe(false)
+  await chat.sendButton().click()
+  await expect.poll(() => submitted).toBe(true)
+})

@@ -668,9 +668,14 @@ export function ChatWidget({
             You can read this conversation.
           </span>
         ) : chatState.thread?.writerActive && !streamBusy ? (
-          <span role="status" className="w-full text-xs text-muted-foreground">
-            A turn is unfinished. Reopen the conversation to see updates.
-          </span>
+          <div className="flex w-full items-center gap-2 text-sm text-muted-foreground">
+            <span role="status" className="min-w-0 flex-1">
+              This response is unfinished. Refresh to check for updates.
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void chat.refreshThread()}>
+              Refresh
+            </Button>
+          </div>
         ) : null}
         {chatState.thread?.role !== "viewer" &&
           chatState.pendingInteractions
@@ -684,15 +689,18 @@ export function ChatWidget({
             .map((pending) => (
               <div
                 key={pending.responseTargetId}
-                className="flex w-full items-center gap-2 text-xs"
+                className="flex w-full flex-wrap items-center gap-2 text-sm"
               >
-                <span className="min-w-0 flex-1">An earlier action has no confirmed result.</span>
+                <span className="min-w-0 flex-1">
+                  An earlier action may already have happened. Continuing skips its result without
+                  running it again.
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => void chat.abandonToolCall(pending.toolCallId)}
                 >
-                  Continue with unknown outcome
+                  Continue without result
                 </Button>
               </div>
             ))}

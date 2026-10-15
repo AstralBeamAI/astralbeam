@@ -96,6 +96,16 @@ export function ChatTranscript({
       element.removeEventListener("scroll", loadEarlier)
     }
   }, [hasOlder, loadingOlder, loadingHistory, messages, onLoadOlder])
+  if (loadingHistory && messages.length === 0) {
+    return (
+      <div
+        role="status"
+        className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground"
+      >
+        <Spinner /> Loading conversation…
+      </div>
+    )
+  }
   if (messages.length === 0 && !hasOlder) {
     if (emptySlot) {
       // The host's own empty state; the wrapper gives the projected content the full height.

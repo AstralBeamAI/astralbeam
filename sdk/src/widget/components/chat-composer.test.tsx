@@ -21,7 +21,7 @@ test("transport and authentication errors keep private diagnostics out of the UI
       error={new Error("HTTP error! status: 500: private server exception")}
       streamBusy={false}
       isBusy={false}
-      threadLoading={false}
+      threadLoading
       authPending={false}
       authError={authError}
       onAuthRetry={undefined}
@@ -34,4 +34,6 @@ test("transport and authentication errors keep private diagnostics out of the UI
   expect(html).toContain("The assistant service returned an error (HTTP 500).")
   expect(html).toContain("connection was rejected")
   expect(html).not.toContain("private server exception")
+  expect(html).toContain("Loading conversation…")
+  expect(html).toMatch(/<textarea[^>]*disabled/)
 })

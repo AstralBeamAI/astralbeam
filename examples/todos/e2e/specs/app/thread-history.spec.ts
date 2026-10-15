@@ -23,6 +23,12 @@ test("chat history search, selection, and new chat preserve the correct local st
     id: "00000000-0000-4000-8000-000000000002",
     title: "Older launch plan",
   }
+  let deleted = false
+  await page.route(`**/api/v1/chat/threads/${recent.id}?*`, (route) => {
+    if (route.request().method() !== "DELETE") return route.continue()
+    deleted = true
+    return route.fulfill({ status: 204 })
+  })
   await page.route(/\/api\/v1\/chat\/threads\?/, (route) => {
     const params = new URL(route.request().url()).searchParams
     const q = params.get("q") ?? ""
@@ -40,7 +46,9 @@ test("chat history search, selection, and new chat preserve the correct local st
                 }))
             : q
               ? []
-              : [recent],
+              : deleted
+                ? []
+                : [recent],
         page_after: q === "launch" && !cursor ? "launch-page-2" : null,
         page_before: null,
       },
@@ -93,6 +101,21 @@ test("chat history search, selection, and new chat preserve the correct local st
   await expect(search).toHaveValue("")
   await expect(page.getByRole("option", { name: recent.title, exact: true })).toBeVisible()
   await expect(page.locator('[role="option"][aria-current="true"]')).toHaveCount(0)
+  const deleteButton = page.getByRole("button", { name: `Delete ${recent.title}`, exact: true })
+  await page.getByRole("option", { name: recent.title, exact: true }).hover()
+  await deleteButton.click()
+  const confirmation = page.getByRole("alertdialog")
+  await expect(confirmation).toContainText(recent.title)
+  expect(deleted).toBe(false)
+  await confirmation.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(confirmation).toHaveCount(0)
+  await expect(picker).toBeFocused()
+  await picker.click()
+  await page.getByRole("option", { name: recent.title, exact: true }).hover()
+  await deleteButton.click()
+  await confirmation.getByRole("button", { name: "Delete conversation", exact: true }).click()
+  await expect.poll(() => deleted).toBe(true)
+  await expect(confirmation).toHaveCount(0)
 })
 
 for (const role of ["member", "manager", "viewer"]) {

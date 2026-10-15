@@ -114,15 +114,15 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
       "Dashboard",
-      "Models",
       "Agents",
+      "Models",
       "Sandboxes",
-      "Usage Limits",
       "MCP servers",
-      "API Keys",
       "Conversations",
       "Tenants",
-      "Users",
+      "Tenant users",
+      "Usage Limits",
+      "API Keys",
       "Members",
       "Settings",
     ])
@@ -160,7 +160,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(agents.cards()).toHaveCount(1)
 
     await agents.openAgent(starterAgent)
-    await expect(agents.publicId()).toHaveValue(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
+    await expect(agents.publicId()).toHaveText(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
     await expect(agents.defaultBadge()).toBeVisible()
     await agents.fillForm({
       name: starterAgent,

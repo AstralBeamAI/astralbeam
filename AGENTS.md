@@ -66,6 +66,7 @@
 
 ## Platform and SDK UI
 
+- Prefer icon-only buttons with hover and keyboard-focus tooltips and accessible names for routine actions, especially chat controls. Keep explicit labels for choices, primary form actions, and destructive confirmations.
 - `platform` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under `platform/src/components/ui`, `platform/src/hooks`, and `platform/src/lib`, or the corresponding SDK paths under `sdk/src/widget`. Neither imports the other's.
 - Add components from the owning project with `deno task ui add <component>`. Both `components.json` files use the phosphor icon library, but their styles diverge on purpose: the platform uses `base-lyra`/`mist`, while the SDK stays on the plain `b0` preset baseline (`base-nova`/`neutral`).
 - At the top of each registry-added UI file, record the repeatable command as `// Added with: deno task ui add <component>` and every intentional local change. Omit nonessential automation flags such as `--overwrite` and `-y` from the recorded command.

@@ -58,6 +58,8 @@ export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: Tod
         agentId={CHAT_AGENT_ID}
         title={CHAT_TITLE}
         onClose={onClose}
+        emptyHeadline="What would you like to get done?"
+        emptyDescription="Try asking to list your tasks, add a new task, or mark one complete."
         apiUrl={ASTRALBEAM_API_URL}
         tools={tools}
         colorScheme={colorScheme}

@@ -11,6 +11,7 @@ export function ThreadDirectoryPage({
   tenantId,
   q,
   size,
+  onSize,
   ErrorFeedback,
   LoadingFeedback,
   Pagination,
@@ -19,7 +20,10 @@ export function ThreadDirectoryPage({
   tenantId: string | undefined
   q: string
   size: number
+  onSize: (size: 20 | 50 | 100) => void
   Pagination: ComponentType<{
+    size: number
+    onSize: (size: 20 | 50 | 100) => void
     page: { page_before: string | null; page_after: string | null } | undefined
     busy: boolean
     onPage: (cursor: { page_after?: string; page_before?: string }) => void
@@ -124,6 +128,8 @@ export function ThreadDirectoryPage({
           page={query.isError ? undefined : query.data}
           busy={query.isFetching}
           onPage={setCursor}
+          size={size}
+          onSize={onSize}
         />
       </div>
     </div>
