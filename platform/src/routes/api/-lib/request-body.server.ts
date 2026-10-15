@@ -15,27 +15,17 @@ export const readRequestJson = Effect.fn("readRequestJson")(function* (
   const declared = Number(request.headers.get("content-length"))
   if (Number.isFinite(declared) && declared > maximumBytes) return yield* new RequestTooLarge()
   const { body: stream } = request
-  const chunks: Uint8Array[] = []
-  let byteLength = 0
-  if (stream) {
-    yield* Stream.fromReadableStream({
-      evaluate: () => stream,
-      onError: () => new RequestBodyInvalid(),
-    }).pipe(
-      Stream.runForEach((chunk) => {
-        byteLength += chunk.byteLength
-        if (byteLength > maximumBytes) return Effect.fail(new RequestTooLarge())
-        chunks.push(chunk)
-        return Effect.void
-      }),
-    )
-  }
-  const body = new Uint8Array(byteLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    body.set(chunk, offset)
-    offset += chunk.byteLength
-  }
+  const body = stream
+    ? yield* Stream.fromReadableStream({
+        evaluate: () => stream,
+        onError: () => new RequestBodyInvalid(),
+      }).pipe(
+        Stream.limitBytes<RequestBodyInvalid | RequestTooLarge, never>(maximumBytes, () =>
+          Stream.fail(new RequestTooLarge()),
+        ),
+        Stream.mkUint8Array,
+      )
+    : new Uint8Array()
   return yield* Effect.try({
     try: (): unknown => JSON.parse(new TextDecoder().decode(body)),
     catch: () => new RequestBodyInvalid(),

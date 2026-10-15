@@ -3,6 +3,7 @@ import { Effect } from "effect"
 
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
 import { Config } from "@/lib/config/config"
+import { errorReason } from "@/lib/runtime/failure-report.server"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 // Website routes served at the same path. Keep in step with `prerenderRoutes` in www/vite.config.ts.
@@ -90,7 +91,8 @@ export function rewriteToWebsite(
       }).pipe(
         Effect.map((upstream) => websiteResponse(upstream, pathname)),
         Effect.catch((error) =>
-          Effect.logWarning("Website request failed", error).pipe(
+          Effect.logWarning("Website request failed").pipe(
+            Effect.annotateLogs({ reason: errorReason(error) }),
             Effect.as(new Response("Bad Gateway", { status: 502 })),
           ),
         ),

@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm"
 import { Deferred, Effect, Fiber } from "effect"
+import { FetchHttpClient } from "effect/http"
 import { TestClock } from "effect/testing"
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -73,6 +74,17 @@ function saveIntegrationProvider(
       ],
       ...fields,
     }),
+  )
+}
+
+function refreshIntegrationCatalog(response: Response) {
+  return runAppEffect(
+    modelPriceCatalogRefresh.pipe(
+      Effect.provideService(
+        FetchHttpClient.Fetch,
+        Object.assign(() => Promise.resolve(response), { preconnect: () => undefined }),
+      ),
+    ),
   )
 }
 
@@ -183,9 +195,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
         },
       ],
     }))
-    vi.stubGlobal("fetch", () => Promise.resolve(Response.json(providers)))
     try {
-      await runAppEffect(modelPriceCatalogRefresh)
+      await refreshIntegrationCatalog(Response.json(providers))
       const refreshed = await runAppEffect(readModelPriceCatalog)
       const [stored] = await db
         .select({
@@ -252,72 +263,67 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
         prices: { inputPerMillion: "3", outputPerMillion: "4" },
       })
 
-      vi.stubGlobal("fetch", () =>
-        Promise.resolve(Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }])),
-      )
-      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
-      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
       const cancelDownload = vi.fn()
-      vi.stubGlobal("fetch", () =>
-        Promise.resolve(
-          new Response(
-            new ReadableStream<Uint8Array>({
-              pull(controller) {
-                controller.enqueue(new Uint8Array(9 * 1024 * 1024))
-              },
-              cancel: cancelDownload,
-            }),
-          ),
+      for (const response of [
+        Response.json([{ id: "openai", api_pattern: "openai.com", models: [] }]),
+        new Response(Buffer.concat([Buffer.from(JSON.stringify(providers)), Uint8Array.of(0xc3)])),
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(controller) {
+              controller.enqueue(new Uint8Array(9 * 1024 * 1024))
+            },
+            cancel: cancelDownload,
+          }),
         ),
-      )
-      await expect(runAppEffect(modelPriceCatalogRefresh)).rejects.toThrow()
+      ]) {
+        await expect(refreshIntegrationCatalog(response)).rejects.toThrow()
+        expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
+      }
       expect(cancelDownload).toHaveBeenCalledOnce()
-      expect(await runAppEffect(readModelPriceCatalog)).toEqual(withoutModel)
       await db.execute(
         sql`update config set value = 'unreadable' where key = 'model_price_catalog'`,
       )
       expect(await runAppEffect(readModelPriceCatalog)).not.toEqual(withoutModel)
     } finally {
       await runAppEffect(writeModelPriceCatalog(previous))
-      vi.unstubAllGlobals()
     }
   })
 
   test("aborts stalled catalog bodies on timeout without replacing the snapshot", async () => {
     const previous = await runAppEffect(readModelPriceCatalog)
-    try {
-      await runAppEffect(
-        Effect.gen(function* () {
-          const started = yield* Deferred.make<AbortSignal>()
-          vi.stubGlobal("fetch", (_input: unknown, init: RequestInit) =>
-            Promise.resolve(
-              new Response(
-                new ReadableStream({
-                  start(controller) {
-                    init.signal!.addEventListener(
-                      "abort",
-                      () => controller.error(new Error("Aborted")),
-                      { once: true },
-                    )
-                  },
+    await runAppEffect(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<AbortSignal>()
+        const cancelDownload = vi.fn()
+        const fetch = (_input: RequestInfo | URL, init?: RequestInit) =>
+          Promise.resolve(
+            new Response(
+              new ReadableStream(
+                {
                   pull() {
-                    Deferred.doneUnsafe(started, Effect.succeed(init.signal!))
+                    Deferred.doneUnsafe(started, Effect.succeed(init!.signal!))
                   },
-                }),
+                  cancel: cancelDownload,
+                },
+                { highWaterMark: 0 },
               ),
             ),
           )
-          const fiber = yield* modelPriceCatalogRefresh.pipe(Effect.forkChild)
-          const signal = yield* Deferred.await(started)
-          yield* TestClock.adjust("30 seconds")
-          expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
-          expect(signal.aborted).toBe(true)
-        }).pipe(Effect.provide(TestClock.layer())),
-      )
-      expect(await runAppEffect(readModelPriceCatalog)).toEqual(previous)
-    } finally {
-      vi.unstubAllGlobals()
-    }
+        const fiber = yield* modelPriceCatalogRefresh.pipe(
+          Effect.provideService(
+            FetchHttpClient.Fetch,
+            Object.assign(fetch, { preconnect: () => undefined }),
+          ),
+          Effect.forkChild,
+        )
+        const signal = yield* Deferred.await(started)
+        yield* TestClock.adjust("30 seconds")
+        expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+        expect(signal.aborted).toBe(true)
+        expect(cancelDownload).toHaveBeenCalledOnce()
+      }).pipe(Effect.provide(TestClock.layer())),
+    )
+    expect(await runAppEffect(readModelPriceCatalog)).toEqual(previous)
   })
 
   test("rejects foreign model assignments and protects models in use, including stale provider writes", async () => {

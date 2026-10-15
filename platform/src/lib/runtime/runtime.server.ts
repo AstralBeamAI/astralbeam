@@ -1,3 +1,4 @@
+import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import { Layer, Logger, ManagedRuntime } from "effect"
 
 import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
@@ -59,6 +60,7 @@ function makeAppLayer() {
     Tenants.layer,
     TenantUsers.layer,
     UsageLimits.layer,
+    BunHttpClient.layer,
     LoggerLayer,
   )
 }

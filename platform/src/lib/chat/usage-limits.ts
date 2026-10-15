@@ -4,6 +4,7 @@ import { Effect, Exit } from "effect"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ModelConfiguration } from "@/lib/model-providers/schemas"
 import { modelUsageCost } from "@/lib/model-providers/usage-cost"
+import { reportFailure } from "@/lib/runtime/failure-report.server"
 import type { UsageSubject } from "@/lib/usage-limits/counters"
 import type { UsageLimitReached } from "@/lib/usage-limits/errors"
 import type { UsageLimit, UsageLimits } from "@/lib/usage-limits/usage-limits.server"
@@ -32,7 +33,7 @@ export function chatUsageLimitGuard(options: {
       await options.execute(
         usageLimits.record({ limits, subject, usage: { tokens, spend } }).pipe(
           // An unrecorded call only undercounts. Ending the reply would lose what was already paid for.
-          Effect.catchCause((cause) => Effect.logError("Usage could not be recorded", cause)),
+          Effect.catchCause((cause) => reportFailure("chatUsageLimitGuard.record", cause)),
         ),
       )
     },

@@ -1,9 +1,8 @@
 import { and, eq } from "drizzle-orm"
-import { Effect, Predicate, Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { Activity, DurableClock, Workflow } from "effect/workflow"
 
 import { Database } from "@/db/database"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { fileObject } from "@/db/schema/files"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { UuidV7Schema } from "@/lib/schemas"
@@ -35,16 +34,10 @@ export const purgeFileWorkflowLayer = purgeFile.toLayer((payload) =>
         success: Schema.Boolean,
         execute: Effect.gen(function* () {
           yield* storage.remove({ key: payload.objectKey })
-          yield* db.delete(fileObject).where(purging).pipe(mapDatabaseErrors())
+          yield* db.delete(fileObject).where(purging)
           return true
         }).pipe(
           Effect.catch(() => Effect.as(Effect.logWarning("Stored file purge will retry"), false)),
-          Effect.catchDefect((error) =>
-            Predicate.isTagged(error, "SqlError") ||
-            Predicate.isTagged(error, "EffectDrizzleQueryError")
-              ? Effect.as(Effect.logWarning("Stored file purge database operation failed"), false)
-              : Effect.die(error),
-          ),
         ),
       })
       if (done) return

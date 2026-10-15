@@ -1,6 +1,8 @@
 import type { StreamChunk } from "@tanstack/ai"
 import { Cause, Effect, Result, Stream } from "effect"
 
+import { errorReason } from "@/lib/runtime/failure-report.server"
+
 /**
  * Logs one line of a `debug: true` run, development only because it prints whole conversations.
  * It mirrors the SDK's browser-console debug log so both sides of a run can be followed.
@@ -131,7 +133,7 @@ export function withChatDebugLog(log: ChatDebugLog) {
       Stream.tapCause((cause) =>
         Cause.hasInterruptsOnly(cause)
           ? Effect.void
-          : log("error", "stream threw", Cause.pretty(cause)),
+          : log("error", "stream threw", errorReason(Cause.squash(cause))),
       ),
     )
 }
