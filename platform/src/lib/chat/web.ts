@@ -1,6 +1,7 @@
 import { Sse } from "effect/encoding"
 import { Schema } from "effect"
 import { webSearchTool as openaiSearch } from "@tanstack/ai-openai/tools"
+import { grokWebSearchTool } from "@tanstack/ai-grok/tools"
 import {
   webSearchTool as anthropicSearch,
   webFetchTool as anthropicFetch,
@@ -62,12 +63,14 @@ export function chatWebTools(
   const tools =
     model.providerType === "openrouter"
       ? [routerSearch(), routerFetch()]
-      : model.api === "responses"
-        ? [openaiSearch({ type: "web_search" })]
-        : [
-            anthropicSearch({ type: "web_search_20250305", name: "web_search", max_uses: 5 }),
-            anthropicFetch({ max_uses: 5, citations: { enabled: true } }),
-          ]
+      : model.providerType === "xai"
+        ? [grokWebSearchTool()]
+        : model.api === "responses"
+          ? [openaiSearch({ type: "web_search" })]
+          : [
+              anthropicSearch({ type: "web_search_20250305", name: "web_search", max_uses: 5 }),
+              anthropicFetch({ max_uses: 5, citations: { enabled: true } }),
+            ]
   if (
     browserTools.some((tool) =>
       [

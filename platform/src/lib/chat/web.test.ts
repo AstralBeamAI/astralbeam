@@ -11,6 +11,7 @@ import { expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { createChatAdapter } from "./adapter"
 import { chatWebState, chatWebTools, fetchChatWeb } from "./web"
+import { modelWebAccess } from "@/lib/model-providers/web.server"
 import { managedChatMiddleware, managedChatDelivery } from "./threads/stream"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
 import type { ChatThreads } from "./threads/threads"
@@ -97,7 +98,7 @@ function webResponse(
       },
       { type: "message_stop" },
     )
-  } else if (provider === "openai") {
+  } else if (provider === "openai" || provider === "xai") {
     const search = {
       type: "web_search_call",
       id: "search",
@@ -248,7 +249,7 @@ function webResponse(
 }
 
 async function exerciseWeb(
-  provider: "openai" | "anthropic" | "openrouter",
+  provider: "openai" | "xai" | "anthropic" | "openrouter",
   options: {
     pause?: "once" | "always"
     application?: "server" | "browser"
@@ -266,7 +267,7 @@ async function exerciseWeb(
     providerName: provider,
     providerType: provider,
     api:
-      provider === "openai"
+      provider === "openai" || provider === "xai"
         ? "responses"
         : provider === "anthropic"
           ? "anthropic-messages"
@@ -527,7 +528,7 @@ test("Responses streamed citations in later output and content parts keep one co
   ])
 })
 
-test.each(["openai", "anthropic", "openrouter"] as const)(
+test.each(["openai", "xai", "anthropic", "openrouter"] as const)(
   "%s native-only evidence survives delivery, reload, and compatible replay",
   async (provider) => {
     const result = await exerciseWeb(provider)
@@ -597,7 +598,7 @@ test.each(["openai", "anthropic", "openrouter"] as const)(
 )
 
 test.each(
-  (["openai", "anthropic", "openrouter"] as const).flatMap((provider) =>
+  (["openai", "xai", "anthropic", "openrouter"] as const).flatMap((provider) =>
     (["server", "browser"] as const).map((application) => ({ provider, application })),
   ),
 )(
@@ -612,7 +613,7 @@ test.each(
     expect(JSON.stringify(decision.modelMessages)).toContain('"name":"lookup"')
     expect(JSON.stringify(decision.modelMessages)).not.toContain('"id":"function-item"')
     const wire = JSON.stringify(
-      result.requests[1]?.[provider === "openai" ? "input" : "messages"] ?? [],
+      result.requests[1]?.[result.model.api === "responses" ? "input" : "messages"] ?? [],
     )
     expect(wire.includes('"name":"lookup"')).toBe(application === "server")
     expect(JSON.stringify(decision.modelMessages).includes("signed-context")).toBe(
@@ -688,6 +689,9 @@ test("disabled access, unsupported models and reserved browser names enforce the
   )
   expect(() => chatWebTools(model, true, [])).toThrow()
   expect(() => chatWebTools({ ...model, api: "responses" }, true, [])).toThrow()
+  const grok = { providerType: "xai", api: "responses", baseUrl: "https://api.x.ai/v1" } as const
+  expect(modelWebAccess({ ...grok, modelId: "grok-4.7" })).toBe(true)
+  expect(modelWebAccess({ ...grok, modelId: "grok-custom" })).toBeNull()
   expect(() =>
     chatWebTools({ ...model, api: "responses", modelId: "custom" }, true, [
       { name: "web_fetch", description: "Browser tool" },
