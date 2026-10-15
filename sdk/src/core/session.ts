@@ -171,7 +171,10 @@ export interface AstralBeamChatState {
   usageLimitReached: { name: string; resetsAt: string } | undefined
   sandbox: SandboxActivity
   thread: ChatThread | undefined
+  /** Saved history is loading with nothing to show yet. */
   threadLoading: boolean
+  /** Saved history is reloading behind the shown transcript. Block sends without showing loading. */
+  threadRefreshing: boolean
   threadLoadFailed: boolean
   messagesCursor: string | undefined
   olderMessagesLoading: boolean
@@ -259,6 +262,7 @@ export function createAstralBeamChat(
     sandbox: { files: [], commands: [] },
     thread: undefined,
     threadLoading: false,
+    threadRefreshing: false,
     threadLoadFailed: false,
     messagesCursor: undefined,
     olderMessagesLoading: false,
@@ -270,6 +274,12 @@ export function createAstralBeamChat(
     state = { ...state, ...next }
     for (const listener of listeners) listener()
   }
+  // Like TanStack Query's isLoading and isRefetching, loading means nothing is shown yet.
+  const historyLoading = () =>
+    state.messages.length > 0 || state.thread?.hasMessages === false
+      ? { threadRefreshing: true }
+      : { threadLoading: true }
+  const historyLoaded = { threadLoading: false, threadRefreshing: false }
 
   const authentication = createChatAuthentication({
     apiUrl: live.apiUrl,
@@ -768,7 +778,7 @@ export function createAstralBeamChat(
     if (threadId)
       adapter.hydrate = (_id, options) => {
         const readGeneration = ++historyGeneration
-        if (!options?.before) update({ threadLoading: true })
+        if (!options?.before) update(historyLoading())
         const read = (async () => {
           let history = await loadThreadMessages(
             threadId,
@@ -833,7 +843,7 @@ export function createAstralBeamChat(
           const settled = (failed: boolean) =>
             queueMicrotask(() => {
               if (generation === selectionGeneration && readGeneration === historyGeneration)
-                update({ threadLoading: false, threadLoadFailed: failed })
+                update({ ...historyLoaded, threadLoadFailed: failed })
             })
           void read.then(
             () => settled(false),
@@ -956,13 +966,16 @@ export function createAstralBeamChat(
   }
   let client = createClient()
   const replaceClient = (threadId = state.thread?.id) => {
-    client.stop()
     const previous = client
+    // Swap first, because the old client reports "ready" on every stop and detach. Only a send keeps
+    // its "submitted" status across the swap.
+    client = createClient(threadId)
+    if (state.status !== "submitted") update({ status: "ready" })
+    previous.stop()
     previous.detach()
     liveToolCalls.clear()
     liveToolMessageIds.clear()
     update({ activeToolCallIds: [] })
-    client = createClient(threadId)
     if (started) client.attach()
     previous.dispose()
   }
@@ -1042,7 +1055,7 @@ export function createAstralBeamChat(
     if (!restoring) navigationGeneration++
     changeSelection(id)
     const generation = selectionGeneration
-    update({ threadLoading: true })
+    update(historyLoading())
     try {
       pendingSend = pendingSends.get(id)
       update({ unsentMessage: pendingSend?.content })
@@ -1065,14 +1078,14 @@ export function createAstralBeamChat(
         reportError(error)
       }
     } finally {
-      if (generation === selectionGeneration) update({ threadLoading: false })
+      if (generation === selectionGeneration) update(historyLoaded)
     }
   }
 
   const newThread = () => {
     navigationGeneration++
     changeSelection()
-    update({ threadLoading: false })
+    update(historyLoaded)
     if (started) void resolveCapabilities()
     if (threadKey) selectedThread(threadKey, null)
     else startWithNewThread = true
@@ -1108,7 +1121,7 @@ export function createAstralBeamChat(
     if (!id) return
     const generation = selectionGeneration
     const previousError = state.error
-    update({ threadLoading: true, olderMessagesLoading: false })
+    update({ ...historyLoading(), olderMessagesLoading: false })
     try {
       if (resetClient) replaceClient()
       else {
@@ -1127,7 +1140,7 @@ export function createAstralBeamChat(
         reportError(error)
       }
     } finally {
-      if (generation === selectionGeneration) update({ threadLoading: false })
+      if (generation === selectionGeneration) update(historyLoaded)
     }
   }
 
@@ -1136,6 +1149,7 @@ export function createAstralBeamChat(
       !client.getHasOlderMessages() ||
       state.olderMessagesLoading ||
       state.threadLoading ||
+      state.threadRefreshing ||
       sending
     )
       return
@@ -1233,7 +1247,7 @@ export function createAstralBeamChat(
       replaceClient()
       await hydration
       if (generation !== selectionGeneration) return
-      update({ threadLoading: false })
+      update(historyLoaded)
       await client.append({
         role: "tool",
         toolCallId: result.toolCallId,
@@ -1261,7 +1275,7 @@ export function createAstralBeamChat(
       return
     }
     if (navigation !== navigationGeneration) return
-    if (sending || state.threadLoading || state.status === "streaming") {
+    if (sending || state.threadLoading || state.threadRefreshing || state.status === "streaming") {
       reportError(new Error("Wait for this client's current request to finish before sending."))
       return
     }
@@ -1407,7 +1421,7 @@ export function createAstralBeamChat(
         pendingSend = undefined
         changeSelection()
         threadKey = undefined
-        update({ threadLoading: false })
+        update(historyLoaded)
         observeAuthentication()
       } else if (live.threadId !== selectedId) {
         selectConfiguredThread()
