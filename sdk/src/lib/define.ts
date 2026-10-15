@@ -17,15 +17,13 @@ export type ExplicitToolResult<Output = unknown> = ToolResult<Output> & {
   readonly [Symbol.toStringTag]: "AstralBeam.ToolResult"
 }
 
-type OutputData<S extends OutputSchema> =
-  S extends StandardSchemaV1<unknown, infer Output> ? Output : unknown
+type ToolOutput<S extends OutputSchema> =
+  S extends StandardSchemaV1<unknown, infer Output> ? Output | ExplicitToolResult<Output> : unknown
 
 export interface TypedToolDefinition<
   Input extends ParametersSchema = JsonSchemaObject,
   Output extends OutputSchema = Record<string, unknown>,
-  Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
-    | OutputData<Output>
-    | ExplicitToolResult<OutputData<Output>>,
+  Result extends ToolOutput<Output> = ToolOutput<Output>,
 > extends Omit<ToolDefinition, "parameters" | "outputSchema" | "execute"> {
   parameters?: Input
   outputSchema?: Output
@@ -52,9 +50,7 @@ export interface TypedWidgetDefinition<
 export function defineTool<
   const Input extends ParametersSchema = JsonSchemaObject,
   const Output extends OutputSchema = Record<string, unknown>,
-  Result extends OutputData<Output> | ExplicitToolResult<OutputData<Output>> =
-    | OutputData<Output>
-    | ExplicitToolResult<OutputData<Output>>,
+  Result extends ToolOutput<Output> = ToolOutput<Output>,
 >(tool: TypedToolDefinition<Input, Output, Result>): TypedToolDefinition<Input, Output, Result> {
   return tool
 }

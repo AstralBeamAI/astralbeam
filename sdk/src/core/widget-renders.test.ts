@@ -173,12 +173,8 @@ test.each(["manager", "viewer"])(
     const execute = vi.fn()
     const chat = createTestSession({
       threadId: thread.id,
-      widgets: {
-        card: { description: "A host card" },
-      },
-      tools: {
-        change_data: { description: "Change data", execute },
-      },
+      widgets: { card: { description: "A host card" } },
+      tools: { change_data: { description: "Change data", execute } },
       onRenderWidget,
     })
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
@@ -230,9 +226,7 @@ test.each(["definition", "renderer", "failed-render"])(
   "saved widgets recover when an unavailable %s is supplied in place",
   async (missing) => {
     savedMessages = savedWidget("card", "late")
-    const widgets = {
-      card: { description: "A host card" },
-    }
+    const widgets = { card: { description: "A host card" } }
     const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
     const chat = createTestSession({
       threadId: thread.id,
@@ -537,42 +531,38 @@ test.each(["update", "definition", "renderer"])(
       },
       onRenderWidget: render,
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
-      mocked.onCustomEvent?.("astralbeam_thread", {
-        threadId: thread.id,
-        version: 1,
-        saved: true,
-        executableToolCallIds: ["attached-call"],
+    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+    mocked.onCustomEvent?.("astralbeam_thread", {
+      threadId: thread.id,
+      version: 1,
+      saved: true,
+      executableToolCallIds: ["attached-call"],
+    })
+    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+      {},
+      { toolCallId: "attached-call" },
+    )
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const context = render.mock.calls[0]![0].context
+    expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
+    await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
+    await expect(context.callTool("toString")).rejects.toThrow("unavailable")
+    await expect(context.callTool("action")).resolves.toEqual({ updated: true })
+    expect(action).toHaveBeenCalledTimes(1)
+    if (unavailable === "definition") chat.updateOptions({ widgets: {}, tools: {} })
+    else if (unavailable === "renderer") chat.updateOptions({ onRenderWidget: undefined })
+    else
+      updates.mockImplementationOnce(() => {
+        throw new Error("Update failed")
       })
-      const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
-        {},
-        { toolCallId: "attached-call" },
-      )
-      await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
-      const context = render.mock.calls[0]![0].context
-      expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
-      await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
-      await expect(context.callTool("toString")).rejects.toThrow("unavailable")
-      await expect(context.callTool("action")).resolves.toEqual({ updated: true })
-      expect(action).toHaveBeenCalledTimes(1)
-      if (unavailable === "definition") chat.updateOptions({ widgets: {}, tools: {} })
-      else if (unavailable === "renderer") chat.updateOptions({ onRenderWidget: undefined })
-      else
-        updates.mockImplementationOnce(() => {
-          throw new Error("Update failed")
-        })
-      pending.resolve(toolResult(result))
-      await execution
-      expect(updates).toHaveBeenCalledTimes(unavailable === "update" ? 1 : 0)
-      expect(render).toHaveBeenCalledTimes(1)
-      expect(dispose).toHaveBeenCalledTimes(1)
-      chat.reset()
-      await expect(context.callTool("action", {})).rejects.toThrow()
-      expect(action).toHaveBeenCalledTimes(1)
-    } finally {
-      chat.dispose()
-    }
+    pending.resolve(toolResult(result))
+    await execution
+    expect(updates).toHaveBeenCalledTimes(unavailable === "update" ? 1 : 0)
+    expect(render).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+    chat.reset()
+    await expect(context.callTool("action", {})).rejects.toThrow()
+    expect(action).toHaveBeenCalledTimes(1)
   },
 )
 
@@ -606,20 +596,16 @@ test("saved attached widgets hydrate UI data without replaying their business ac
     tools: { lookup: { description: "Lookup", execute } },
     onRenderWidget: render,
   })
-  try {
-    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
-    expect(render.mock.calls[0]![0].context).toMatchObject({
-      input: {},
-      result,
-      status: "complete",
-    })
-    expect(execute).not.toHaveBeenCalled()
-    await chat.refreshThread()
-    expect(render).toHaveBeenCalledTimes(1)
-    expect(execute).not.toHaveBeenCalled()
-  } finally {
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+  expect(render.mock.calls[0]![0].context).toMatchObject({
+    input: {},
+    result,
+    status: "complete",
+  })
+  expect(execute).not.toHaveBeenCalled()
+  await chat.refreshThread()
+  expect(render).toHaveBeenCalledTimes(1)
+  expect(execute).not.toHaveBeenCalled()
 })
 
 test("stopping a pending tool cancels its widget and blocks local actions", async () => {
@@ -636,29 +622,24 @@ test("stopping a pending tool cancels its widget and blocks local actions", asyn
     },
     onRenderWidget: render,
   })
-  try {
-    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
-    mocked.onCustomEvent?.("astralbeam_thread", {
-      threadId: thread.id,
-      version: 1,
-      saved: true,
-      executableToolCallIds: ["pending-call"],
-    })
-    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
-      {},
-      { toolCallId: "pending-call" },
-    )
-    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
-    const context = render.mock.calls[0]![0].context
-    chat.stop()
-    await expect(context.callTool("action")).rejects.toThrow()
-    expect(action).not.toHaveBeenCalled()
-    pending.resolve({ updated: true })
-    await execution
-    expect(update.mock.calls.at(-1)![0].status).toBe("cancelled")
-    expect(update.mock.calls.at(-1)![0].signal.aborted).toBe(true)
-  } finally {
-    pending.resolve({ updated: true })
-    chat.dispose()
-  }
+  await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+  mocked.onCustomEvent?.("astralbeam_thread", {
+    threadId: thread.id,
+    version: 1,
+    saved: true,
+    executableToolCallIds: ["pending-call"],
+  })
+  const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+    {},
+    { toolCallId: "pending-call" },
+  )
+  await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+  const context = render.mock.calls[0]![0].context
+  chat.stop()
+  await expect(context.callTool("action")).rejects.toThrow()
+  expect(action).not.toHaveBeenCalled()
+  pending.resolve({ updated: true })
+  await execution
+  expect(update.mock.calls.at(-1)![0].status).toBe("cancelled")
+  expect(update.mock.calls.at(-1)![0].signal.aborted).toBe(true)
 })

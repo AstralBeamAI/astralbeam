@@ -2065,25 +2065,21 @@ test.each([false, true])(
         .find((part) => part.type === "tool-call" && part.name === "old_tool")
       if (part) streamedPart = { ...part }
     })
-    try {
-      await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-      await chat.sendMessage("Check snapshot")
-      if (delayed) {
-        await chat.refreshThread()
-        await chat.addToolResult({
-          tool: "ask_questionnaire",
-          toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
-          output: { answers: [] },
-          state: "output-available",
-        })
-      }
-      expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
-      expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
-      expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
-      expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
-    } finally {
-      unsubscribe()
-      chat.dispose()
+    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    await chat.sendMessage("Check snapshot")
+    if (delayed) {
+      await chat.refreshThread()
+      await chat.addToolResult({
+        tool: "ask_questionnaire",
+        toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+        output: { answers: [] },
+        state: "output-available",
+      })
     }
+    expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+    expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+    expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+    expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
+    unsubscribe()
   },
 )

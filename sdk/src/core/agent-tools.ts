@@ -35,12 +35,13 @@ export function buildAgentTools(
   renderWidget: RenderWidget,
   debug?: DebugLogger,
 ) {
-  const registry = new Map<string, { tool: NamedTool; presentation: boolean }>()
+  const names = new Set<string>()
+  const tools: ReturnType<typeof buildHostTool>[] = [buildAskQuestionnaireTool()]
   const register = (tool: NamedTool, presentation = false) => {
     // Match WebMCP names. https://webmachinelearning.github.io/webmcp/#dom-modelcontext-registertool
     if (
       !/^[\w.-]{1,128}$/.test(tool.name) ||
-      registry.has(tool.name) ||
+      names.has(tool.name) ||
       [ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL].includes(tool.name)
     )
       throw new Error(`Duplicate, reserved or invalid tool name "${tool.name}"`)
@@ -49,7 +50,9 @@ export function buildAgentTools(
     const inputSchema = toJsonSchema(tool.parameters)
     if (!tool.parameters || !("~standard" in tool.parameters)) compileJsonSchema(inputSchema)
     if (tool.outputSchema) compileJsonSchema(toJsonSchema(tool.outputSchema, "output"))
-    registry.set(tool.name, { tool, presentation })
+    names.add(tool.name)
+    if (!tool.visibility || tool.visibility.includes("model"))
+      tools.push(buildHostTool(tool, presentation, renderWidget, debug))
   }
   for (const [name, tool] of Object.entries(hostTools)) register({ ...tool, name })
   for (const [id, widget] of Object.entries(widgets)) {
@@ -66,12 +69,7 @@ export function buildAgentTools(
       true,
     )
   }
-  return [
-    buildAskQuestionnaireTool(),
-    ...[...registry.values()]
-      .filter(({ tool }) => !tool.visibility || tool.visibility.includes("model"))
-      .map(({ tool, presentation }) => buildHostTool(tool, presentation, renderWidget, debug)),
-  ]
+  return tools
 }
 
 // Declared without an execute function on purpose: the call stays pending while the

@@ -4,25 +4,6 @@ import { toolResult } from "../lib/define.ts"
 
 const context = () => ({ signal: new AbortController().signal, invocationId: "call" })
 
-test("plain objects become structured results without reserving business field names", async () => {
-  const data = {
-    content: "Article body",
-    structuredContent: { nested: true },
-    uiData: { label: "Business data" },
-    isError: true,
-  }
-  const { result, value } = await executeHostTool(
-    { name: "read", description: "Read", execute: () => data },
-    {},
-    context(),
-  )
-  expect(result).toEqual({
-    content: [{ type: "text", text: JSON.stringify(data) }],
-    structuredContent: data,
-  })
-  expect(value).toBe(data)
-})
-
 test("invalid results warn against retrying a completed mutation", async () => {
   const execute = vi.fn(() => ({ optional: undefined }))
   const debug = vi.fn()
@@ -40,21 +21,25 @@ test("invalid results warn against retrying a completed mutation", async () => {
   expect(debug).toHaveBeenCalledWith("error", expect.any(String), expect.anything())
 })
 
-test.each([["first"], "done", 0, false, null].map((data) => ({ data })))(
-  "envelopes JSON output $data",
-  async ({ data }) => {
-    const { result, value } = await executeHostTool(
-      { name: "read", description: "Read", execute: () => data },
-      {},
-      context(),
-    )
-    expect(result).toEqual({
-      content: [{ type: "text", text: JSON.stringify(data) }],
-      structuredContent: data,
-    })
-    expect(value).toBe(data)
-  },
-)
+test.each([
+  { data: { content: "Business data", structuredContent: {}, uiData: {}, isError: true } },
+  { data: ["first"] },
+  { data: "done" },
+  { data: 0 },
+  { data: false },
+  { data: null },
+])("envelopes JSON output without reserving business fields: $data", async ({ data }) => {
+  const { result, value } = await executeHostTool(
+    { name: "read", description: "Read", execute: () => data },
+    {},
+    context(),
+  )
+  expect(result).toEqual({
+    content: [{ type: "text", text: JSON.stringify(data) }],
+    structuredContent: data,
+  })
+  expect(value).toBe(data)
+})
 
 test("validates JSON inputs and structured outputs while preserving UI data", async () => {
   const result = {
@@ -154,9 +139,14 @@ test("widget tools expose their actual schema and duplicate registries fail clos
     required: ["id"],
   }
   const widget = { description: "Card", parameters: schema }
-  const render = vi.fn(() => Promise.resolve({ widget: "card", rendered: true }))
-  const tools = buildAgentTools({ card: widget }, {}, render)
+  const render = vi.fn()
+  const tools = buildAgentTools(
+    { card: widget },
+    { private: { description: "UI action", visibility: ["app"], execute: () => ({}) } },
+    render,
+  )
   expect(tools.find((tool) => tool.name === "show_card")?.inputSchema).toEqual(schema)
+  expect(tools.map((tool) => tool.name)).not.toContain("private")
   expect(() =>
     buildAgentTools(
       { card: widget },
@@ -164,19 +154,6 @@ test("widget tools expose their actual schema and duplicate registries fail clos
       render,
     ),
   ).toThrow("Duplicate")
-  expect(
-    buildAgentTools(
-      {},
-      {
-        private: {
-          description: "UI action",
-          visibility: ["app"],
-          execute: () => ({}),
-        },
-      },
-      render,
-    ).map((tool) => tool.name),
-  ).not.toContain("private")
 })
 
 test("presentation failure does not turn a completed business action into a retry", async () => {
