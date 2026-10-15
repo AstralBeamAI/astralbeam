@@ -50,6 +50,7 @@ export type ConfigKey =
   | "otel_logs_exporter"
   | "otel_sdk_disabled"
   | "otel_resource_attributes"
+  | "download_signing_strategy"
   | "cloudfront_download_origin"
   | "cloudfront_key_pair_id"
   | "cloudfront_private_key"

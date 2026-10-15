@@ -78,7 +78,7 @@ const environmentConfig = EffectConfig.all(
   ),
 )
 
-/** Environment values, decoded like stored ones. An invalid value fails every load until fixed. */
+/** Invalid CloudFront overrides gate only the selected strategy. Other invalid values fail loads. */
 const readEnvironmentConfig = Effect.fnUntraced(function* () {
   const raw = yield* environmentConfig.pipe(
     // Each load rereads the process environment, as it rereads the stored values it overrides.
@@ -86,12 +86,19 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
     Effect.orDie,
   )
   const values: ConfigValues = {}
+  const keys = new Set<ConfigKey>()
+  const issues: ConfigIssue[] = []
   for (const definition of ENVIRONMENT_CONFIG_DEFINITIONS) {
     const value = raw[definition.key]
     if (!value || Option.isNone(value)) continue
+    keys.add(definition.key)
     const decoded = decodeConfigValue(definition, parseEnvironmentConfigValue(value.value))
     if (Result.isSuccess(decoded)) {
       values[definition.key] = decoded.success
+      continue
+    }
+    if (definition.key.startsWith("cloudfront_")) {
+      issues.push({ key: definition.key, message: decoded.failure.message })
       continue
     }
     const variable = configEnvironmentVariable(definition.key)
@@ -100,7 +107,7 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
     )
     return yield* Effect.die(new ConfigEnvironmentInvalid({ variable }))
   }
-  return values
+  return { values, keys, issues }
 })
 
 /** The secret-free slice of a complete configuration that browsers may see. */
@@ -156,16 +163,22 @@ export class Config extends Context.Service<
       const generations = yield* Ref.make(0)
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
-        const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
+        const environmentKeys = environment.keys
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
-        const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
+        const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment.values }
         const issues = validateConfigCompleteness(values, environmentKeys)
+        if (values.download_signing_strategy === "cloudfront") issues.push(...environment.issues)
         for (const row of stored.rows ?? []) {
-          if (row.key.startsWith("cloudfront_") && row.storageStatus === "unreadable") {
+          if (
+            row.storageStatus === "unreadable" &&
+            (row.key === "download_signing_strategy" ||
+              (values.download_signing_strategy === "cloudfront" &&
+                row.key.startsWith("cloudfront_")))
+          ) {
             issues.push({
               key: row.key as ConfigKey,
               message:
-                "CloudFront configuration cannot be read. Replace or clear the stored value.",
+                "Download signing configuration cannot be read. Replace or clear the stored value.",
             })
           }
         }
