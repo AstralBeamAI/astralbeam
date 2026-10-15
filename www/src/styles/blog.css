@@ -7,6 +7,7 @@
   color: var(--blog-ink);
   color-scheme: light;
   min-height: 100svh;
+  padding-top: 84px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.65;
@@ -20,53 +21,13 @@
   outline: 2px solid var(--blog-accent);
   outline-offset: 5px;
 }
-.blog-header,
-.blog-footer {
-  width: min(1080px, calc(100% - 48px));
-  margin-inline: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-.blog-header {
-  min-height: 88px;
-  border-bottom: 1px solid var(--blog-line);
-}
-.blog-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--font-body);
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-}
-.blog-brand img {
-  display: block;
-}
-.blog-header nav,
-.blog-footer nav {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  font-size: 14px;
-}
-.blog-header a[aria-current] {
-  color: var(--blog-accent);
-  text-decoration: underline;
-  text-underline-offset: 6px;
-}
-.blog-header nav a,
-.blog-footer nav a {
-  padding-block: 12px;
-}
 .blog-shell a:hover {
   color: var(--blog-accent);
 }
 .blog-main {
   width: min(960px, calc(100% - 48px));
   margin-inline: auto;
+  scroll-margin-top: 84px;
 }
 .blog-intro {
   padding-block: 84px 64px;
@@ -89,9 +50,17 @@
   text-wrap: balance;
 }
 .blog-intro h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: clamp(44px, 5.5vw, 64px);
   line-height: 1.1;
   margin-bottom: 24px;
+}
+.blog-intro h1 img {
+  width: 1.7em;
+  height: 1em;
+  object-fit: cover;
 }
 .blog-intro > p:last-child {
   color: var(--blog-muted);
@@ -142,12 +111,6 @@
   font-size: 14px;
   margin-top: 24px;
   font-weight: 600;
-}
-.blog-footer {
-  padding-block: 28px;
-  border-top: 1px solid var(--blog-line);
-  color: var(--blog-muted);
-  font-size: 13px;
 }
 .blog-article {
   max-width: 720px;
@@ -229,9 +192,10 @@
   position: absolute;
   left: 20px;
   top: -80px;
-  background: white;
+  background: var(--foreground);
+  color: var(--background);
   padding: 12px 20px;
-  z-index: 10;
+  z-index: 51;
 }
 .blog-skip:focus {
   top: 12px;
@@ -470,29 +434,8 @@
 }
 
 @media (max-width: 640px) {
-  .blog-header,
-  .blog-footer,
   .blog-main {
     width: calc(100% - 40px);
-  }
-  .blog-header {
-    min-height: 76px;
-    gap: 14px;
-  }
-  .blog-brand {
-    font-size: 16px;
-    gap: 6px;
-  }
-  .blog-brand img {
-    width: 25px;
-    height: 25px;
-  }
-  .blog-header nav {
-    gap: 16px;
-    font-size: 12px;
-  }
-  .blog-header nav a:last-child {
-    display: none;
   }
   .blog-intro {
     padding-block: 52px 40px;
@@ -562,14 +505,6 @@
   .demo-caption {
     font-size: 10px;
     padding: 10px 12px;
-  }
-  .blog-footer {
-    gap: 12px;
-    font-size: 11px;
-  }
-  .blog-footer nav {
-    gap: 16px;
-    font-size: 11px;
   }
 }
 

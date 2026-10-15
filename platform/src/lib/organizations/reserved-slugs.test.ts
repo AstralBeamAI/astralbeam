@@ -40,6 +40,7 @@ describe("reserved organization slugs", () => {
 
   test("rejects reserved slugs case-insensitively and allows ordinary ones", () => {
     expect(isReservedOrganizationSlug("Docs")).toBe(true)
+    expect(isReservedOrganizationSlug("Blog")).toBe(true)
     expect(isReservedOrganizationSlug("acme")).toBe(false)
     expect(RESERVED_ORGANIZATION_SLUGS).toContain("settings")
   })

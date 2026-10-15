@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import logo from "@/assets/astralbeam-logo-light.svg?url&no-inline"
 import { blogDate, blogPosts } from "@/lib/blog"
 import { pageHead } from "@/lib/page-head"
 
@@ -9,8 +10,7 @@ export const Route = createFileRoute("/blog/")({
   head: () =>
     pageHead({
       title: "Blog | AstralBeam",
-      description:
-        "Notes on building useful agents and the interfaces people use to work with them.",
+      description: "The latest news and articles from AstralBeam",
       canonicalPath: "/blog",
     }),
   component: BlogIndex,
@@ -20,13 +20,10 @@ function BlogIndex() {
   return (
     <BlogShell>
       <header className="blog-intro">
-        <p className="blog-eyebrow">The AstralBeam blog</p>
         <h1>
-          Notes on building
-          <br />
-          with agents.
+          <img src={logo} alt="AstralBeam" width="108" height="64" /> Blog
         </h1>
-        <p>Ideas, details, and lessons from the interface between people and AI.</p>
+        <p>The latest news and articles from AstralBeam</p>
       </header>
       <section className="blog-posts" aria-label="Latest articles">
         {blogPosts.map((post) => (
