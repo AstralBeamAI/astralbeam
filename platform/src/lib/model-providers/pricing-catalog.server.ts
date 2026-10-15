@@ -13,8 +13,16 @@ import {
   type ModelProviderType,
 } from "./schemas.ts"
 
+// Catalog provider IDs. https://github.com/pydantic/genai-prices/tree/main/prices/providers
+export const modelPriceCatalogProviderIds: Record<ModelProviderType, string> = {
+  openai: "openai",
+  anthropic: "anthropic",
+  google: "google",
+  xai: "x-ai",
+  openrouter: "openrouter",
+}
 const bundledModelProviders = Schema.decodeUnknownSync(ModelPriceCatalogProvidersSchema)(
-  ["openai", "anthropic", "openrouter"].map((id) => findProvider({ providerId: id })),
+  Object.values(modelPriceCatalogProviderIds).map((id) => findProvider({ providerId: id })),
 )
 const bundledModelPriceCatalog: ModelPriceCatalog = {
   providers: bundledModelProviders,
@@ -53,7 +61,9 @@ export function catalogModelConfiguration(input: {
   providerType: ModelProviderType
   modelId: string
 }): ModelConfiguration | null {
-  const provider = input.catalog.providers.find((item) => item.id === input.providerType)
+  const provider = input.catalog.providers.find(
+    (item) => item.id === modelPriceCatalogProviderIds[input.providerType],
+  )
   if (!provider) return null
   const result = calcPrice({}, input.modelId, { provider: provider as Provider })
   if (!result?.model.context_window) return null

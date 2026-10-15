@@ -8,6 +8,8 @@ import {
   type ContentPart,
 } from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
+import { createGeminiChat } from "@tanstack/ai-gemini"
+import { createGrokText } from "@tanstack/ai-grok"
 import { createOpenaiChat } from "@tanstack/ai-openai"
 import { createOpenRouterText } from "@tanstack/ai-openrouter"
 import { HTTPClient } from "@openrouter/sdk/lib/http"
@@ -112,6 +114,27 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
       fetch: configuration.fetch,
       auth: "api-key",
       maxRetries: nativeWeb ? 0 : 2,
+    })
+  }
+  if (configuration.api === "gemini-generate-content") {
+    const createGeminiModel = extendAdapter(createGeminiChat, [
+      createModel(configuration.modelId, ["text", "image", "document"]),
+    ])
+    // Explicit Gemini API mode stops the SDK reading Vertex AI settings from the deployment.
+    return createGeminiModel(configuration.modelId, configuration.apiKey, {
+      vertexai: false,
+      httpOptions: { baseUrl: configuration.baseUrl, fetch: configuration.fetch },
+    })
+  }
+  if (configuration.providerType === "xai") {
+    const createGrokModel = extendAdapter(createGrokText, [
+      createModel(configuration.modelId, ["text", "image", "document"]),
+    ])
+    return createGrokModel(configuration.modelId, configuration.apiKey, {
+      baseURL: configuration.baseUrl,
+      fetch: configuration.fetch,
+      organization: null,
+      project: null,
     })
   }
   if (configuration.providerType === "openrouter" && nativeWeb) {

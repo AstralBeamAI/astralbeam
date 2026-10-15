@@ -182,32 +182,49 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await captureMilestone(page, "03-assigned-provider-protected")
   })
 
-  await test.step("configure native Anthropic and OpenRouter with their endpoint defaults", async () => {
+  await test.step("configure native providers with their endpoint defaults", async () => {
+    for (const [provider, modelId, baseUrl] of [
+      ["Anthropic", "claude-sonnet-5-5", "https://api.anthropic.com"],
+      ["Google Gemini", "gemini-3.8-flash", "https://generativelanguage.googleapis.com"],
+      ["xAI Grok", "grok-4.7", "https://api.x.ai/v1"],
+      ["OpenRouter", "anthropic/claude-sonnet-5.5", "https://openrouter.ai/api/v1"],
+    ] as const) {
+      await page.goto(modelPath)
+      await models.create({
+        name: `${provider} ${runId}`,
+        provider,
+        modelId,
+        apiKey: `browser-fixture-${modelId}`,
+      })
+      await page.getByRole("button", { name: "Endpoint and API format" }).click()
+      await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(baseUrl)
+    }
     await page.goto(modelPath)
-    await models.create({
-      name: `Anthropic ${runId}`,
-      provider: "Anthropic",
-      modelId: "claude-sonnet-5-5",
-      apiKey: "sk-ant-browser-fixture-3333",
-    })
-    await page.getByRole("button", { name: "Endpoint and API format" }).click()
-    await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(
-      "https://api.anthropic.com",
-    )
-    await page.goto(modelPath)
-    await models.create({
-      name: `OpenRouter ${runId}`,
-      provider: "OpenRouter",
-      modelId: "anthropic/claude-sonnet-5.5",
-      apiKey: "sk-or-browser-fixture-4444",
-    })
-    await page.getByRole("button", { name: "Endpoint and API format" }).click()
-    await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(
-      "https://openrouter.ai/api/v1",
-    )
-    await page.goto(modelPath)
-    await expect(page.getByRole("link", { name: `Anthropic ${runId}`, exact: true })).toBeVisible()
-    await expect(page.getByRole("link", { name: `OpenRouter ${runId}`, exact: true })).toBeVisible()
+    for (const provider of ["Anthropic", "Google Gemini", "xAI Grok", "OpenRouter"])
+      await expect(
+        page.getByRole("link", { name: `${provider} ${runId}`, exact: true }),
+      ).toBeVisible()
     await captureMilestone(page, "04-supported-provider-types")
+  })
+
+  await test.step("assign Gemini and Grok models to an agent", async () => {
+    const gemini = `gemini-3.8-flash (Google Gemini ${runId})`
+    const grok = `grok-4.7 (xAI Grok ${runId})`
+    await page.goto(`/${baseline.organizationSlug}/agents`)
+    await agents.startCreate()
+    await waitForHydration(page.locator("#agent-name"))
+    await agents.fillForm({
+      name: `Gemini and Grok agent ${runId}`,
+      systemPrompt: "Help the user with their application.",
+      models: [gemini, grok],
+    })
+    await agents.selectDefaultModel(grok)
+    await agents.submitCreate()
+    await page.reload()
+    await expect(page.getByRole("checkbox", { name: gemini, exact: true })).toBeChecked()
+    await expect(page.getByRole("combobox", { name: "Default model", exact: true })).toContainText(
+      grok,
+    )
+    await captureMilestone(page, "08-gemini-and-grok-agent-models")
   })
 })

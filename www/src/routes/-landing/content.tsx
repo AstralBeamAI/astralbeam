@@ -176,7 +176,8 @@ export const integrations: Integration[] = [
     items: [
       { name: "OpenAI" },
       { name: "Anthropic" },
-      { name: "Google", soon: true },
+      { name: "Google Gemini" },
+      { name: "xAI Grok" },
       { name: "OpenRouter" },
       { name: "Vercel AI Gateway", soon: true },
     ],

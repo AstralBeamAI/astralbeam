@@ -64,6 +64,11 @@ describe("model pricing catalog", () => {
       { aboveInputTokens: 60_000, prices: { inputPerMillion: "6" } },
     ])
     expect(catalogModelConfiguration({ ...lookup, modelId: "unknown" })).toBeNull()
+    // The catalog names xAI's provider x-ai.
+    const xaiCatalog = { providers: [{ ...testPriceCatalog.providers[0]!, id: "x-ai" }] }
+    expect(
+      catalogModelConfiguration({ ...lookup, catalog: xaiCatalog, providerType: "xai" })?.prices,
+    ).toEqual(card.prices)
     const unsupported = {
       ...testPriceCatalog,
       providers: [

@@ -14,6 +14,12 @@ export const modelProviderDescriptors: Record<
     baseUrl: "https://api.anthropic.com",
     api: "anthropic-messages",
   },
+  google: {
+    label: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com",
+    api: "gemini-generate-content",
+  },
+  xai: { label: "xAI Grok", baseUrl: "https://api.x.ai/v1", api: "responses" },
   openrouter: {
     label: "OpenRouter",
     baseUrl: "https://openrouter.ai/api/v1",

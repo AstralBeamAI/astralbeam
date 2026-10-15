@@ -76,11 +76,23 @@ export function modelInputAllowance(configuration: ModelConfiguration) {
   )
 }
 
-const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "openrouter"] as const
+const MODEL_PROVIDER_TYPES = ["openai", "anthropic", "google", "xai", "openrouter"] as const
 const ModelProviderTypeSchema = enumSchema(MODEL_PROVIDER_TYPES)
 export type ModelProviderType = typeof ModelProviderTypeSchema.Type
-const ModelProviderApiSchema = enumSchema(["responses", "chat-completions", "anthropic-messages"])
+const ModelProviderApiSchema = enumSchema([
+  "responses",
+  "chat-completions",
+  "anthropic-messages",
+  "gemini-generate-content",
+])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
+const modelProviderApis: Record<ModelProviderType, readonly ModelProviderApi[]> = {
+  openai: ["responses", "chat-completions"],
+  anthropic: ["anthropic-messages"],
+  google: ["gemini-generate-content"],
+  xai: ["responses"],
+  openrouter: ["chat-completions"],
+}
 
 const ModelProviderApiKeySchema = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isTrimmed()),
@@ -139,19 +151,20 @@ export const ModelProviderFieldsSchema = Schema.Struct({
 }).pipe(
   Schema.check(
     Schema.makeFilter((provider) => {
-      const supported =
-        provider.providerType === "anthropic"
-          ? provider.api === "anthropic-messages"
-          : provider.providerType === "openrouter"
-            ? provider.api === "chat-completions"
-            : provider.api !== "anthropic-messages"
-      if (!supported)
+      if (!modelProviderApis[provider.providerType].includes(provider.api))
         return { path: ["api"], issue: "Select a supported API format for this provider" }
       // The Anthropic SDK appends /v1/messages itself. https://docs.anthropic.com/en/api/messages
       if (provider.api === "anthropic-messages" && /\/v1\/?$/.test(provider.baseUrl))
         return {
           path: ["baseUrl"],
           issue: "Remove /v1 from the Anthropic API URL. The client adds it to each request",
+        }
+      // The Gemini SDK appends /v1beta/models itself. https://ai.google.dev/gemini-api/docs/api-versions
+      if (provider.api === "gemini-generate-content" && /\/v1\w*\/?$/.test(provider.baseUrl))
+        return {
+          path: ["baseUrl"],
+          issue:
+            "Remove the API version from the Gemini API URL. The client adds it to each request",
         }
       return undefined
     }),

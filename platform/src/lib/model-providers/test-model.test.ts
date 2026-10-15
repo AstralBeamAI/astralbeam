@@ -23,31 +23,40 @@ function textResponse(text = "OK", finish: string | null = "stop", api = configu
           { type: "response.output_text.delta", delta: text },
           { type: "response.completed", response: { id: "r1", status: "completed", output: [] } },
         ]
-      : api === "anthropic-messages"
+      : api === "gemini-generate-content"
         ? [
             {
-              type: "message_start",
-              message: {
-                id: "m1",
-                role: "assistant",
-                content: [],
-                usage: { input_tokens: 1, output_tokens: 0 },
-              },
+              candidates: [{ content: { role: "model", parts: [{ text }] }, finishReason: "STOP" }],
             },
-            { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
-            { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
-            { type: "content_block_stop", index: 0 },
-            {
-              type: "message_delta",
-              delta: { stop_reason: "end_turn" },
-              usage: { output_tokens: 1 },
-            },
-            { type: "message_stop" },
           ]
-        : [{ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] }]
+        : api === "anthropic-messages"
+          ? [
+              {
+                type: "message_start",
+                message: {
+                  id: "m1",
+                  role: "assistant",
+                  content: [],
+                  usage: { input_tokens: 1, output_tokens: 0 },
+                },
+              },
+              { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+              { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
+              { type: "content_block_stop", index: 0 },
+              {
+                type: "message_delta",
+                delta: { stop_reason: "end_turn" },
+                usage: { output_tokens: 1 },
+              },
+              { type: "message_stop" },
+            ]
+          : [{ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] }]
   return new Response(
     events
-      .map((event) => `event: ${event.type ?? "message"}\ndata: ${JSON.stringify(event)}\n\n`)
+      .map(
+        (event) =>
+          `${event.type ? `event: ${event.type}\n` : ""}data: ${JSON.stringify(event)}\n\n`,
+      )
       .join(""),
     { headers: { "content-type": "text/event-stream" } },
   )
@@ -61,6 +70,8 @@ describe("testProviderModel", () => {
         ["openrouter", "chat-completions", "max_tokens"],
         ["openai", "responses", "max_output_tokens"],
         ["anthropic", "anthropic-messages", "max_tokens"],
+        ["xai", "responses", "max_output_tokens"],
+        ["google", "gemini-generate-content", "maxOutputTokens"],
       ] as const) {
         let request: Record<string, unknown> = {}
         assert.isUndefined(
@@ -74,8 +85,12 @@ describe("testProviderModel", () => {
             },
           }),
         )
-        assert.strictEqual(request.model, "saved-model")
-        assert.strictEqual(request[tokenField], 1024)
+        const gemini = api === "gemini-generate-content"
+        assert.strictEqual(request.model, gemini ? undefined : "saved-model")
+        assert.strictEqual(
+          (gemini ? (request.generationConfig as Record<string, unknown>) : request)[tokenField],
+          1024,
+        )
         if (tokenField === "max_completion_tokens") assert.notProperty(request, "max_tokens")
         assert.deepEqual(request.tools ?? [], [])
       }
@@ -88,6 +103,7 @@ describe("testProviderModel", () => {
         ["chat-completions", 401, "credentials"],
         ["responses", 401, "credentials"],
         ["anthropic-messages", 401, "credentials"],
+        ["gemini-generate-content", 403, "credentials"],
         ["chat-completions", 402, "allowance"],
         ["chat-completions", 404, "model"],
         ["chat-completions", 400, "configuration"],
@@ -98,7 +114,12 @@ describe("testProviderModel", () => {
         const failed = yield* testProviderModel({
           ...configuration,
           api,
-          providerType: api === "anthropic-messages" ? "anthropic" : "openai",
+          providerType:
+            api === "anthropic-messages"
+              ? "anthropic"
+              : api === "gemini-generate-content"
+                ? "google"
+                : "openai",
           fetch: () =>
             status
               ? Promise.resolve(
