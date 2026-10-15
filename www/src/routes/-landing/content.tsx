@@ -1,9 +1,21 @@
 import { Fragment, type ReactNode } from "react"
 
+import {
+  ChartIcon,
+  ChatIcon,
+  CheckIcon,
+  FileIcon,
+  PlugIcon,
+  ServerIcon,
+  ShieldIcon,
+  SlidersIcon,
+  WidgetIcon,
+} from "@/components/icons"
+
 interface Benefit {
   name: string
   desc: string
-  soon?: boolean
+  icon?: ReactNode
 }
 
 interface Step {
@@ -19,7 +31,7 @@ export const steps: Step[] = [
   {
     index: "01",
     title: "ADD THE FRONTEND SDK",
-    desc: "Install one package and mount one component. You get a complete agent sidebar that already streams, retries, reads files, and matches your product.",
+    desc: "Install the SDK and mount the agentic chat component in your app. You get robust message streaming, file uploads, and style customization out of the box.",
     file: "sidebar.tsx",
     code: `$ npm install @astralbeam/sdk
 + added 1 package
@@ -31,14 +43,9 @@ export function Sidebar() {
     <AstralBeamChat
       title="Acme Assistant"
       theme={{
-        light: {
-          "--primary": "#4f46e5",
-          "--radius": "0.75rem",
-        },
-        dark: {
-          "--primary": "#818cf8",
-        }}}
-      attachments={{ maxFiles: 5 }}
+        light: { "--primary": "#4f46e5", "--radius": "0.75rem" },
+        dark: { "--primary": "#818cf8" },
+      }}
     />
   )
 }`,
@@ -46,27 +53,22 @@ export function Sidebar() {
       {
         name: "Cursor-style agentic chat",
         desc: "Streaming replies, visible tool calls, and follow-up questions. A React component, or a one-line mount anywhere else.",
-      },
-      {
-        name: "Managed backend",
-        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        icon: <ChatIcon />,
       },
       {
         name: "Fully customizable",
         desc: "Your title, copy, color scheme, and design tokens, or swap the header and empty state for your own components.",
+        icon: <SlidersIcon />,
       },
       {
-        name: "Users' files",
-        desc: "Users drop in screenshots, PDFs, spreadsheets, and code. The agent reads them and answers from them.",
+        name: "Files and artifacts",
+        desc: "Upload files, work with their contents, and download generated results.",
+        icon: <FileIcon />,
       },
       {
-        name: "Sandboxes and artifacts",
-        desc: "Give the agent a sandbox to run code against uploaded data. The files it produces arrive as signed downloads.",
-      },
-      {
-        name: "Resumable streaming",
-        desc: "Reload mid-answer and the stream picks up where it left off, on the same device or another one.",
-        soon: true,
+        name: "Managed backend",
+        desc: "Model calls, tool orchestration, and file handling run on AstralBeam. Nothing for you to deploy or scale.",
+        icon: <ServerIcon />,
       },
     ],
   },
@@ -96,30 +98,22 @@ export async function POST(request: Request) {
       {
         name: "Conversation history",
         desc: "Every user picks up their own threads, on any device, without you storing a message.",
-        soon: true,
+        icon: <ChatIcon />,
       },
       {
-        name: "Rate limits",
-        desc: "Per-customer and per-user limits, so one tenant can never drain another's budget.",
+        name: "Usage limits",
+        desc: "Set token or spend limits per tenant, user, or conversation, with allowances that reset on your schedule.",
+        icon: <SlidersIcon />,
       },
       {
         name: "Usage tracking",
-        desc: "Tokens, tool calls, and sandbox time, broken down by tenant and by user.",
-        soon: true,
-      },
-      {
-        name: "Metered billing",
-        desc: "Charge for usage through Stripe, with plans, allowances, and overages.",
-        soon: true,
-      },
-      {
-        name: "Observability",
-        desc: "One click to send traces to Langfuse, Braintrust, or your OpenTelemetry collector.",
-        soon: true,
+        desc: "See token usage and model spend against each allowance, broken down by tenant, user, or conversation.",
+        icon: <ChartIcon />,
       },
       {
         name: "Tenant isolation",
-        desc: "Organization and tenant boundaries are enforced in the database, not only at the API.",
+        desc: "Keep each tenant's conversations and files separate, with access checked for every user.",
+        icon: <ShieldIcon />,
       },
     ],
   },
@@ -146,29 +140,24 @@ export async function POST(request: Request) {
 />`,
     benefits: [
       {
-        name: "Read user data",
-        desc: "Tools run in the page with the user's own session, so the agent sees exactly what they see.",
-      },
-      {
-        name: "Take actions",
-        desc: "Refund, create, assign, send. The agent does the work inside your app, behind your permission checks.",
+        name: "Read data and take actions",
+        desc: "Tools use the user's session to read data and act inside your app, behind your permission checks.",
+        icon: <CheckIcon />,
       },
       {
         name: "Interactive widgets",
         desc: "Render your own components inside the reply. State stays live in both directions.",
+        icon: <WidgetIcon />,
       },
       {
-        name: "Ask before acting",
-        desc: "The agent can pause and ask the user a structured question before it commits.",
+        name: "Validation and approvals",
+        desc: "Validate inputs with your schemas and ask users a structured question before taking action.",
+        icon: <SlidersIcon />,
       },
       {
-        name: "Typed and validated",
-        desc: "Zod, Valibot, ArkType, or plain JSON Schema. Input is validated before your code runs.",
-      },
-      {
-        name: "Your app as an MCP server",
-        desc: "Expose the same tools over MCP, so users can drive your app from Claude, ChatGPT, or Cursor.",
-        soon: true,
+        name: "MCP connections",
+        desc: "Connect remote MCP servers and let users authorize the tools their agent can use.",
+        icon: <PlugIcon />,
       },
     ],
   },
@@ -186,9 +175,9 @@ export const integrations: Integration[] = [
     desc: "Bring your own keys. Route through a gateway if you already have one.",
     items: [
       { name: "OpenAI" },
-      { name: "Anthropic", soon: true },
+      { name: "Anthropic" },
       { name: "Google", soon: true },
-      { name: "OpenRouter", soon: true },
+      { name: "OpenRouter" },
       { name: "Vercel AI Gateway", soon: true },
     ],
   },

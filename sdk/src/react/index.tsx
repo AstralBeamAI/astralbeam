@@ -176,6 +176,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       threadId,
       title,
       showHeader,
+      onClose,
       showConversationTitle,
       header,
       headerActions,
@@ -299,6 +300,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
+        onClose,
         showConversationTitle,
         emptyHeadline,
         emptyDescription,
@@ -319,6 +321,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
+        onClose,
         showConversationTitle,
         emptyHeadline,
         emptyDescription,
@@ -371,3 +374,6 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     )
   },
 )
+
+export { AstralBeamMcpServers } from "./mcp-servers.tsx"
+export type { AstralBeamMcpServersProps } from "./mcp-servers.tsx"

@@ -21,7 +21,7 @@ import {
   TenantPatchSchema,
   TenantRecordSchema as ManagementTenantRecordSchema,
   TenantWriteSchema,
-} from "../../../../lib/tenants/schemas.ts"
+} from "@/lib/tenants/schemas.ts"
 
 export const restExampleTenant = {
   id: "019eed68-fd00-7c42-9a61-53b3a890d276",

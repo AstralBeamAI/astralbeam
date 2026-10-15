@@ -1,18 +1,14 @@
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
-import { Button } from "@/widget/components/ui/button"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/widget/components/ui/input-group"
+import { ArrowClockwiseIcon, ArrowUpIcon, PaperclipIcon, StopIcon } from "@phosphor-icons/react"
+import { useId, useRef, useState } from "react"
+import { Alert, AlertAction, AlertDescription } from "@/widget/components/ui/alert"
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/components/ui/input-group"
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
 import { cn } from "cn"
 import { describeError } from "../lib/utils.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 
 interface ChatComposerProps {
   /** Widget title, used in the input's placeholder ("Message <title>…"). */
@@ -33,6 +29,7 @@ interface ChatComposerProps {
   streamBusy: boolean
   /** `streamBusy` or host tools executing between runs; blocks sending. */
   isBusy: boolean
+  threadLoading: boolean
   /** Authentication is not ready, so the composer cannot start a run. */
   authPending: boolean
   authError: Error | undefined
@@ -57,6 +54,7 @@ export function ChatComposer({
   error,
   streamBusy,
   isBusy,
+  threadLoading,
   authPending,
   authError,
   onAuthRetry,
@@ -65,9 +63,10 @@ export function ChatComposer({
   onAddFiles,
   onRemoveAttachment,
 }: ChatComposerProps) {
+  const shortcutId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
-  const blocked = authPending || authError !== undefined
+  const blocked = authPending || authError !== undefined || threadLoading
   // A file still being read would be left out of the message, so the send waits for it.
   const reading = attachments.some((attachment) => attachment.status === "reading")
   const sendable = attachments.some((attachment) => attachment.status === "ready")
@@ -91,7 +90,7 @@ export function ChatComposer({
       className="w-full"
       onSubmit={(event) => {
         event.preventDefault()
-        onSend()
+        if (!sendDisabled) onSend()
       }}
       onDragOver={(event) => {
         if (!isFileDrag(event.dataTransfer)) return
@@ -113,41 +112,57 @@ export function ChatComposer({
       }}
     >
       {showError && (
-        <div
-          role="alert"
-          className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
+        <Alert
+          variant="destructive"
+          className="mb-1.5 flex items-center gap-2 border-destructive/30 bg-destructive/5 py-1 has-data-[slot=alert-action]:pe-2.5"
         >
-          <div className="min-w-0 flex-1">
-            <div className="break-words">{describeError(error)}</div>
+          <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
+            <div>{describeError(error)}</div>
             {isAstralBeamApiError(error) && error.body?.reference && (
               <div className="mt-0.5 text-muted-foreground">
                 Support reference: {error.body.reference}
               </div>
             )}
-          </div>
+          </AlertDescription>
           {onRetry && (
-            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              {retryLabel}
-            </Button>
+            <AlertAction className="static shrink-0">
+              <TooltipButton
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                tooltip={retryLabel}
+                onClick={onRetry}
+              >
+                <ArrowClockwiseIcon />
+              </TooltipButton>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
       {authError && (
-        <div
-          role="alert"
-          className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive"
+        <Alert
+          variant="destructive"
+          className="mb-1.5 flex items-center gap-2 border-destructive/30 bg-destructive/5 py-1 has-data-[slot=alert-action]:pe-2.5"
         >
-          <div className="min-w-0 flex-1">
+          <AlertDescription className="min-w-0 flex-1 text-xs text-pretty wrap-anywhere">
             {isAstralBeamApiError(authError) && authError.status === 401
               ? "The assistant's connection was rejected. Contact this app's support team."
               : "The assistant could not verify your session. Retry or contact this app's support team."}
-          </div>
+          </AlertDescription>
           {onAuthRetry && (
-            <Button type="button" variant="outline" size="sm" onClick={onAuthRetry}>
-              Retry
-            </Button>
+            <AlertAction className="static shrink-0">
+              <TooltipButton
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                tooltip="Retry"
+                onClick={onAuthRetry}
+              >
+                <ArrowClockwiseIcon />
+              </TooltipButton>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
       {attachmentLimits.enabled && (
         <input
@@ -166,19 +181,22 @@ export function ChatComposer({
       )}
       <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
-          <InputGroupAddon align="block-start">
+          <InputGroupAddon align="block-start" className="py-1">
             <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
           </InputGroupAddon>
         )}
         <InputGroupTextarea
           aria-label="Message"
-          className="max-h-24 min-h-9"
+          aria-describedby={shortcutId}
+          className="max-h-24 min-h-8 py-1.5 any-pointer-coarse:text-base"
           placeholder={
             authPending
               ? "Verifying your session…"
-              : dropTarget
-                ? "Drop files to attach…"
-                : `Message ${title}…`
+              : threadLoading
+                ? "Loading conversation…"
+                : dropTarget
+                  ? "Drop files to attach…"
+                  : `Message ${title}…`
           }
           disabled={blocked}
           value={draft}
@@ -190,57 +208,62 @@ export function ChatComposer({
             addFiles(event.clipboardData.files)
           }}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
-              onSend()
+              if (!sendDisabled) onSend()
             }
           }}
         />
-        <InputGroupAddon align="block-end">
+        <InputGroupAddon align="block-end" className="pt-0 pb-1">
           {attachmentLimits.enabled && (
-            <InputGroupButton
+            <TooltipButton
               type="button"
-              size="icon-sm"
+              variant="ghost"
+              size="icon"
               aria-label="Attach files"
-              title={
+              tooltip={
                 attachmentsFull
                   ? `Up to ${attachmentLimits.maxFiles} files per message`
-                  : "Attach images, PDFs, documents, spreadsheets, data, or text files"
+                  : "Attach files"
               }
               disabled={blocked || attachmentsFull}
               onClick={() => fileInput.current?.click()}
             >
               <PaperclipIcon />
-            </InputGroupButton>
+            </TooltipButton>
           )}
           {/* Host controls project here in the host page's own style; the slot lays out as
             display: contents, so each projected child is a flex item of this row. */}
           {actionsSlot && <slot name={actionsSlot} />}
           {streamBusy ? (
-            <InputGroupButton
+            <TooltipButton
               type="button"
               variant="default"
-              size="icon-sm"
+              size="icon"
               className="ml-auto"
+              tooltip="Stop"
               onClick={onStop}
             >
               <StopIcon />
-              <span className="sr-only">Stop</span>
-            </InputGroupButton>
+            </TooltipButton>
           ) : (
-            <InputGroupButton
+            <TooltipButton
               type="submit"
               variant="default"
-              size="icon-sm"
+              size="icon"
               className="ml-auto"
+              tooltip="Send"
               disabled={sendDisabled}
             >
               <ArrowUpIcon />
-              <span className="sr-only">Send</span>
-            </InputGroupButton>
+            </TooltipButton>
           )}
         </InputGroupAddon>
       </InputGroup>
+      <p id={shortcutId} className="mt-1 text-xs text-muted-foreground">
+        Enter to send, Shift+Enter for a new line
+      </p>
     </form>
   )
 }

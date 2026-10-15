@@ -1,5 +1,5 @@
 // Added with: bun run ui add @better-auth-ui/organization
-// Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, and colocate private list states.
+// Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, colocate private list states, and allow onboarding to hide empty invitations.
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import { useListUserInvitations } from "@better-auth-ui/react/plugins/organization"
@@ -14,15 +14,17 @@ import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { UserInvitationRow } from "./user-invitation-row"
 
 export type UserInvitationsProps = {
+  hideEmpty?: boolean
   className?: string
   onInvitationAction?: () => unknown
 }
 
-/**
- * Organization invitations for the signed-in user. Always renders the section
- * card; uses `UserInvitationsEmpty` when there are no pending invitations.
- */
-export function UserInvitations({ className, onInvitationAction }: UserInvitationsProps) {
+/** Organization invitations, optionally hiding the empty section during onboarding. */
+export function UserInvitations({
+  className,
+  onInvitationAction,
+  hideEmpty = false,
+}: UserInvitationsProps) {
   const { authClient } = useAuth<OrganizationAuthClient>()
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
   const session = useSession(authClient)
@@ -31,6 +33,8 @@ export function UserInvitations({ className, onInvitationAction }: UserInvitatio
   const { data: invitations, isPending } = useListUserInvitations(authClient, {
     enabled: emailVerified,
   })
+
+  if (hideEmpty && emailVerified && !isPending && invitations?.length === 0) return null
 
   return (
     <div className={className}>

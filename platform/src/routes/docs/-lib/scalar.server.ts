@@ -1,10 +1,10 @@
 import type { ReferenceProps } from "@scalar/api-reference"
 // Scalar publishes its self-contained browser entry without a package subpath export.
 import scalarScript from "../../../../node_modules/@scalar/api-reference/dist/browser/standalone.js?raw"
-import appStyles from "../../../styles.css?raw"
+import appStyles from "@/styles.css?raw"
 import scalarStyles from "./scalar.css?inline"
 import docsHeaderStyles from "./header.css?inline"
-import { APP_LOGO_LIGHT_SVG_URL, APP_NAME } from "../../../lib/constants"
+import { APP_LOGO_LIGHT_SVG_URL, APP_NAME } from "@/lib/constants"
 
 // Reuse the compiler's output without importing Tailwind resets or running the compiler at runtime.
 const apiDocsTheme = appStyles

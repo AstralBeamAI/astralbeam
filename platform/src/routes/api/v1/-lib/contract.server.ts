@@ -1,5 +1,5 @@
 import { HttpApi, OpenApi } from "effect/http-api"
-import { APP_NAME } from "../../../../lib/constants.ts"
+import { APP_NAME } from "@/lib/constants.ts"
 import { ApiBoundary, RestAuthorization } from "./shared.server"
 import { chatApi } from "../chat/-lib/chat.server"
 import { chatThreadApi } from "../chat/-lib/threads.server"
@@ -8,6 +8,7 @@ import { tenantApi } from "./tenant.server"
 import { tenantUserApi } from "./tenant-user.server"
 
 import { currentUserApi } from "./current-user.server"
+import { personalMcpApi } from "./mcp.server"
 import { organizationApi } from "./organization.server"
 
 export const ApiV1 = HttpApi.make("ApiV1")
@@ -27,6 +28,7 @@ export const ApiV1 = HttpApi.make("ApiV1")
     chatApi,
     chatThreadApi,
     currentUserApi,
+    personalMcpApi,
   )
   .prefix("/api/v1")
   .middleware(ApiBoundary)

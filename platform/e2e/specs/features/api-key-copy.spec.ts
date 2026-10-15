@@ -1,5 +1,5 @@
-import { expect, test } from "../../fixtures.ts"
-import { makeRunIdentity } from "../../identity.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
 
 for (const clipboardResult of ["rejected", "unavailable"] as const) {
   test(`a ${clipboardResult} clipboard offers manual copying without losing the new API key`, async ({

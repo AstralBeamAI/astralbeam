@@ -39,6 +39,10 @@ Use inspect_workspace to learn the active workspace, its projects, and its membe
 When asked to open a view, project, or issue, call navigate_app with a URL returned by inspect_workspace or list_issues. Keep navigation confirmations short because the user can see the page.
 
 Use issueCard to show an issue when the user asks for a card, or when discussing an issue outside its own page. Use assigneePicker when the user wants to choose an owner in chat. Both widgets take the issue's opaque UUID and stay connected to the app. Read the issue again before making another change because the user may have edited it through a widget. Keep confirmations brief. Summarize large sets instead of repeating every issue. Ask a short question when a request is ambiguous. You can only act in the currently selected workspace.
+
+When asked to research, use Web access and cite official sources. Treat attached documents as reference material. Do not claim that implementation or security sign-off is complete merely because an issue is assigned or in progress.
+
+When the user asks about an attachment, read its contents before answering. Answer the request in their message rather than asking what to do with the file.
 ```
 
 The assistant's name and empty-state copy belong to the host UI. Its behavior belongs to the agent's dashboard configuration. Setting `title="Astro"` does not change the system prompt.
@@ -51,6 +55,8 @@ The assistant's name and empty-state copy belong to the host UI. Its behavior be
 - Ask, “Open the SSO launch blocker and let me choose an owner here.” Astro takes you to the issue page and shows a picker in chat. Choose Maya and watch the page update.
 - Change an issue’s status, priority, or assignee on its page. Properties save immediately, and live cards in chat update with them. Use **Edit details** for its title and description.
 - Switch to Orbit. The sample data and Astro's conversation change with the workspace.
+- Attach a launch brief, ask Astro to check it against the issue, then research official guidance with Web access and inspect its sources.
+- Rename the conversation from its title menu. Start a new chat, then search older chats to reopen it with its saved attachments.
 - Refresh to check your edits, then choose **Reset demo** to restore both workspaces.
 
 ## What is saved
@@ -107,10 +113,12 @@ The deterministic browser suite starts its own server on port 4818 and requires 
 bun run e2e
 ```
 
-To record the real assistant against an already running, configured local demo, use:
+To record the real assistant, enable **Allow file attachments** and **Web access** on Astro with a model that supports Web access. Confirm the local platform's file storage is configured, then run against the already running local demo:
 
 ```sh
 E2E_BASE_URL=http://127.0.0.1:4900 E2E_LIVE_ASTRO=true E2E_CAPTURE=true E2E_OUTPUT_DIR="$(mktemp -d /tmp/linearity-recording.XXXXXX)" bun run e2e walkthrough.spec.ts
 ```
 
-The walkthrough follows the Atlas enterprise pilot in three exchanges. Astro finds the launch blocker and shows a live card, opens the issue with an owner picker, then raises its priority and starts the work after the user chooses Maya. It records at 140% zoom with pauses for reading each result. Keep the README GIF to 20–25 seconds by cutting typing and model wait time. Attach the fuller video to the PR. Reset, refresh, and tenant-isolation checks stay in the deterministic suite. The recording also saves screenshots and `story.json` timestamps for editing the film. The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `bun run e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.
+The walkthrough follows the Atlas enterprise pilot. Astro finds the launch blocker and shows a live card, opens the issue with an owner picker, then raises its priority and starts the work after the user chooses Maya. It then reviews an attached security brief, researches official SAML guidance with citations, and reopens the named conversation from history. The recording verifies that the saved brief downloads unchanged. It records at 140% zoom with pauses for reading each result, and saves screenshots and `story.json` timestamps for editing the film. Keep the README video under one minute by cutting typing and model wait time, with captions readable without sound. Keep short previews to 20–25 seconds. Reset, refresh, and tenant-isolation checks stay in the deterministic suite.
+
+The browser suite uses disposable local credentials `local-review` / `linearity-local-only`. Set those only on the local demo used for recording. Never reuse them on the deployed playground. Chromium must already be installed, or install it with `bun run e2e:install`. Recordings and screenshots go to the system temporary directory by default, or to `E2E_OUTPUT_DIR`. Keep that path outside the repository.

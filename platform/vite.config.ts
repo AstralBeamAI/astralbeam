@@ -132,6 +132,7 @@ const viteConfig = defineConfig(({ mode }) => {
             // Daytona loads busboy dynamically, outside Nitro's static dependency graph.
             // https://nitro.build/config#tracedeps
             traceDeps: ["busboy"],
+            minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
             alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },

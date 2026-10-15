@@ -8,7 +8,7 @@ AstralBeam adds a Cursor-style AI agent to your app in minutes. It answers queri
 
 Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embedded:
 
-https://github.com/user-attachments/assets/03049d7d-5645-4080-922a-5e823230638d
+https://github.com/user-attachments/assets/6bb3d981-b82d-40a2-9be1-d1bb6cfe5759
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the codebase structure and local development.
 

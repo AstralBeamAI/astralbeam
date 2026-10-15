@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 import { loadEnv } from "vite"
 
-import { migrateDatabase } from "../src/db/migrate-command.ts"
+import { migrateDatabase } from "@/db/migrate-command.ts"
 
 const databaseArguments = process.argv.slice(2)
 const kitCommands = ["generate", "check", "up", "export"]

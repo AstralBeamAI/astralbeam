@@ -41,6 +41,7 @@ export function chatWidget(page: Page) {
 
   return {
     root,
+    frame: root.locator('[data-slot="chat"]'),
 
     composer(): Locator {
       return composer
@@ -48,6 +49,11 @@ export function chatWidget(page: Page) {
 
     sendButton(): Locator {
       return sendButton
+    },
+
+    async composeWithIme(text: string): Promise<void> {
+      await composer.fill(text)
+      await composer.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true })
     },
 
     async selectConversation(title: string): Promise<void> {
@@ -173,9 +179,7 @@ export function chatWidget(page: Page) {
     },
 
     emptyState(): Locator {
-      // The widget's own empty transcript, from DEFAULT_EMPTY_HEADLINE in `sdk/src/lib/constants.ts`;
-      // the host registers no `empty` slot.
-      return root.getByText("Ask the assistant", { exact: false })
+      return root.getByText("What would you like to get done?", { exact: true })
     },
 
     sandboxTrigger(): Locator {

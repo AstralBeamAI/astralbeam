@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ChatWidget } from "./chat-widget.tsx"
+import { TooltipProvider } from "./components/ui/tooltip"
 import { bridgeHostStyle } from "./host-style.ts"
 import { chatStyles } from "./styles.generated.ts"
 
@@ -43,11 +44,13 @@ export function renderChat(
     }
     live = nextOptions
     root.render(
-      <ChatWidget
-        options={nextOptions}
-        host={shadowRoot.host as HTMLElement}
-        controller={controller}
-      />,
+      <TooltipProvider delay={400}>
+        <ChatWidget
+          options={nextOptions}
+          host={shadowRoot.host as HTMLElement}
+          controller={controller}
+        />
+      </TooltipProvider>,
     )
   }
   render(options)

@@ -12,12 +12,12 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 ## Integration
 
 1. Add the frontend SDK (@astralbeam/sdk): Cursor-style agentic chat, managed backend, full customization of copy, colors, and slots, users' file attachments, coding sandboxes with downloadable artifacts, resumable streaming (in progress).
-2. Identify your users: your server mints a short-lived token carrying the user and tenant. Unlocks per-customer and per-user rate limits, tenant isolation, and, in progress, conversation history, usage tracking, Stripe-metered billing, and one-click observability.
-3. Hook up tools and widgets: the agent reads user data, takes actions inside your app, renders interactive widgets in its replies, asks before acting, and validates typed input. Exposing your app over MCP is in progress.
+2. Identify your users: your server mints a short-lived token carrying the user and tenant. Unlocks conversation history, token and spend limits, usage tracking by tenant, user, or conversation, and tenant isolation.
+3. Hook up tools and widgets: the agent reads user data, takes actions inside your app, renders interactive widgets in its replies, asks before acting, and validates typed input. Users can authorize remote MCP connections to give their agent more tools.
 
 ## Works with your stack
 
-- LLM providers and gateways: OpenAI today, with Anthropic, Google, OpenRouter, and Vercel AI Gateway in progress.
+- LLM providers and gateways: OpenAI, Anthropic, and OpenRouter. Google and Vercel AI Gateway are in progress.
 - Observability: Langfuse, Braintrust, LangSmith, and OpenTelemetry, in progress.
 - Coding sandboxes: Docker, Daytona, Vercel Sandbox, and Sprites.
 - Identity and billing: any auth provider for identity, with Stripe billing in progress.

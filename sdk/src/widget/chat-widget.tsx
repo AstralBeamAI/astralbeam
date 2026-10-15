@@ -1,4 +1,4 @@
-import { NotePencilIcon } from "@phosphor-icons/react"
+import { NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
   useEffect,
@@ -13,7 +13,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/c
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
+import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
+import { TooltipButton } from "./components/tooltip-button.tsx"
 import { SandboxPanel } from "./components/sandbox-panel.tsx"
 import { SandboxStatusPill } from "./components/sandbox-status.tsx"
 import {
@@ -60,6 +62,7 @@ export function ChatWidget({
   host: HTMLElement
   controller: RefObject<ChatController | null>
 }) {
+  const closable = !!options.onClose
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
@@ -136,10 +139,10 @@ export function ChatWidget({
     messages,
   ])
   const toolTitles = useMemo(() => {
-    const titles: Record<string, string> = {}
+    const titles: Record<string, string> = { ...chatState.serverToolTitles }
     for (const tool of agentTools) if (tool.title !== undefined) titles[tool.name] = tool.title
     return titles
-  }, [agentTools])
+  }, [agentTools, chatState.serverToolTitles])
   useEffect(() => {
     debug?.("mount", "tool set declared to the agent", {
       tools: [...toolNames],
@@ -551,14 +554,21 @@ export function ChatWidget({
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
-  // The Card frame with a bordered header, an unpadded content area, and a footer composer is
-  // shadcn's canonical chat assembly (docs/changelog/2026-06-chat-components). The host sizes and
-  // frames the widget, so the card's own radius and ring are stripped for a full-bleed fit.
+  // The host sizes the desktop card. Closable chat fills the mobile viewport.
   const showHeader = options.showHeader !== false
+  const closeButton = options.onClose && (
+    <TooltipButton variant="ghost" size="icon-sm" tooltip="Close chat" onClick={options.onClose}>
+      <XIcon />
+    </TooltipButton>
+  )
   return (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
-    <Card className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0">
+    <Card
+      data-slot="chat"
+      data-closable={closable}
+      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
+    >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
           <div className="min-w-0 flex-1">
@@ -569,6 +579,11 @@ export function ChatWidget({
               <CardTitle className="truncate">{options.title ?? DEFAULT_TITLE}</CardTitle>
             )}
           </div>
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
           <ThreadHistory
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
@@ -576,11 +591,10 @@ export function ChatWidget({
             onDelete={forgetDraft}
             onSelect={focusComposer}
           />
-          <Button
+          <TooltipButton
             variant="ghost"
             size="icon-sm"
-            aria-label="New chat"
-            title="New chat"
+            tooltip="New chat"
             disabled={!chatState.thread && messages.length === 0}
             onClick={() => {
               resetThread()
@@ -588,9 +602,25 @@ export function ChatWidget({
             }}
           >
             <NotePencilIcon />
-          </Button>
+          </TooltipButton>
           {hostSlots.has("headerActions") && <slot name={hostSlotName("headerActions")} />}
+          {closeButton}
         </CardHeader>
+      )}
+      {!showHeader && (
+        <div className="flex justify-end px-2">
+          <McpConnectionsPanel
+            key={`mcp:${apiUrl}:${draftIdentity}`}
+            chat={chat}
+            state={chatState}
+          />
+          {closeButton}
+        </div>
+      )}
+      {!!chatState.unavailableMcpConnections?.length && (
+        <p role="status" className="px-4 py-2 text-xs text-muted-foreground">
+          Some connected tools are unavailable. Open MCP connections to review them.
+        </p>
       )}
       {options.showConversationTitle === true && chatState.thread?.title && (
         <ConversationTitle
@@ -617,6 +647,8 @@ export function ChatWidget({
           emptyDescription={options.emptyDescription}
           widgets={widgets}
           toolTitles={toolTitles}
+          serverToolTitles={chatState.serverToolTitles}
+          streaming={status === "streaming"}
           activeSlots={activeSlots}
           interactiveToolIds={interactiveToolIds}
           isBusy={isBusy}
@@ -626,7 +658,7 @@ export function ChatWidget({
       </CardContent>
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
-      <CardFooter className="flex-col gap-2 rounded-none border-t-0 bg-transparent pt-1">
+      <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
         {chatState.threadLoading ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…
@@ -636,9 +668,14 @@ export function ChatWidget({
             You can read this conversation.
           </span>
         ) : chatState.thread?.writerActive && !streamBusy ? (
-          <span role="status" className="w-full text-xs text-muted-foreground">
-            A turn is unfinished. Reopen the conversation to see updates.
-          </span>
+          <div className="flex w-full items-center gap-2 text-sm text-muted-foreground">
+            <span role="status" className="min-w-0 flex-1">
+              This response is unfinished. Refresh to check for updates.
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void chat.refreshThread()}>
+              Refresh
+            </Button>
+          </div>
         ) : null}
         {chatState.thread?.role !== "viewer" &&
           chatState.pendingInteractions
@@ -652,15 +689,18 @@ export function ChatWidget({
             .map((pending) => (
               <div
                 key={pending.responseTargetId}
-                className="flex w-full items-center gap-2 text-xs"
+                className="flex w-full flex-wrap items-center gap-2 text-sm"
               >
-                <span className="min-w-0 flex-1">An earlier action has no confirmed result.</span>
+                <span className="min-w-0 flex-1">
+                  An earlier action may already have happened. Continuing skips its result without
+                  running it again.
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => void chat.abandonToolCall(pending.toolCallId)}
                 >
-                  Continue with unknown outcome
+                  Continue without result
                 </Button>
               </div>
             ))}
@@ -698,6 +738,7 @@ export function ChatWidget({
           streamBusy={streamBusy}
           isBusy={isBusy}
           authPending={authPending}
+          threadLoading={chatState.threadLoading}
           authError={authError}
           onAuthRetry={chat.retryAuthentication}
           attachments={attachments}

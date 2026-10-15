@@ -1,10 +1,10 @@
 // Adapted with: bun run ui add @emailcn/react-email/block-auth-magic-link-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-magic-link-default.tsx
-// Local changes: Repurpose the magic-link block for verification, retain the prior production copy and required props, use the shared shell and fallback URL, and co-locate typed preview props.
+// Local changes: Repurpose the magic-link block for verification, retain the prior production copy and required props, use the shared shell and fallback URL, and co-locate typed preview props. Use @/ for deep source imports.
 
 import { Heading, Text } from "react-email"
 
-import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "../../lib/constants.ts"
+import { APP_LOGO_LIGHT_PNG_URL, APP_NAME, INERT_REDIRECT_ORIGIN } from "@/lib/constants.ts"
 import { EmailAction, EmailAddressLink, EmailDivider, EmailShell } from "../email-shell.tsx"
 
 interface EmailVerificationEmailProps {

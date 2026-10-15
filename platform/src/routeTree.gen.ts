@@ -33,6 +33,7 @@ import { Route as DocsSectionIndexRouteImport } from './routes/docs/$section/ind
 import { Route as DocsApiIndexRouteImport } from './routes/docs/api/index'
 import { Route as AuthenticatedOrgSlugAgentsIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/index'
 import { Route as AuthenticatedOrgSlugApiKeysIndexRouteImport } from './routes/_authenticated/$orgSlug/api-keys/index'
+import { Route as AuthenticatedOrgSlugMcpIndexRouteImport } from './routes/_authenticated/$orgSlug/mcp/index'
 import { Route as AuthenticatedOrgSlugMembersIndexRouteImport } from './routes/_authenticated/$orgSlug/members/index'
 import { Route as AuthenticatedOrgSlugModelsIndexRouteImport } from './routes/_authenticated/$orgSlug/models/index'
 import { Route as AuthenticatedOrgSlugSandboxesIndexRouteImport } from './routes/_authenticated/$orgSlug/sandboxes/index'
@@ -44,6 +45,7 @@ import { Route as AuthenticatedOrgSlugUsageLimitsIndexRouteImport } from './rout
 import { Route as AuthenticatedUserOnboardingIndexRouteImport } from './routes/_authenticated/_user/onboarding/index'
 import { Route as AuthenticatedUserOrganizationsIndexRouteImport } from './routes/_authenticated/_user/organizations/index'
 import { Route as AuthenticatedUserSettingsIndexRouteImport } from './routes/_authenticated/_user/settings/index'
+import { Route as ApiMcpOauthSplatRouteImport } from './routes/api/mcp/oauth/$'
 import { Route as DocsSectionPageIndexRouteImport } from './routes/docs/$section/$page/index'
 import { Route as DocsSectionChar123pageChar125DotmdIndexRouteImport } from './routes/docs/$section/{$page}[.]md/index'
 import { Route as AuthenticatedOrgSlugAgentsAgentIdIndexRouteImport } from './routes/_authenticated/$orgSlug/agents/$agentId/index'
@@ -182,6 +184,12 @@ const AuthenticatedOrgSlugApiKeysIndexRoute =
     path: '/api-keys/',
     getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
   } as any)
+const AuthenticatedOrgSlugMcpIndexRoute =
+  AuthenticatedOrgSlugMcpIndexRouteImport.update({
+    id: '/mcp/',
+    path: '/mcp/',
+    getParentRoute: () => AuthenticatedOrgSlugRouteRoute,
+  } as any)
 const AuthenticatedOrgSlugMembersIndexRoute =
   AuthenticatedOrgSlugMembersIndexRouteImport.update({
     id: '/members/',
@@ -248,6 +256,11 @@ const AuthenticatedUserSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedUserRouteRoute,
   } as any)
+const ApiMcpOauthSplatRoute = ApiMcpOauthSplatRouteImport.update({
+  id: '/api/mcp/oauth/$',
+  path: '/api/mcp/oauth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSectionPageIndexRoute = DocsSectionPageIndexRouteImport.update({
   id: '/$section/$page/',
   path: '/$section/$page/',
@@ -353,8 +366,10 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
   '/docs/api/': typeof DocsApiIndexRoute
+  '/api/mcp/oauth/$': typeof ApiMcpOauthSplatRoute
   '/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/$orgSlug/mcp/': typeof AuthenticatedOrgSlugMcpIndexRoute
   '/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/$orgSlug/models/': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
@@ -399,8 +414,10 @@ export interface FileRoutesByTo {
   '/$orgSlug': typeof AuthenticatedOrgSlugIndexRoute
   '/docs/$section': typeof DocsSectionIndexRoute
   '/docs/api': typeof DocsApiIndexRoute
+  '/api/mcp/oauth/$': typeof ApiMcpOauthSplatRoute
   '/$orgSlug/agents': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/$orgSlug/api-keys': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/$orgSlug/mcp': typeof AuthenticatedOrgSlugMcpIndexRoute
   '/$orgSlug/members': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/$orgSlug/models': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/$orgSlug/sandboxes': typeof AuthenticatedOrgSlugSandboxesIndexRoute
@@ -451,8 +468,10 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/': typeof AuthenticatedOrgSlugIndexRoute
   '/docs/$section/': typeof DocsSectionIndexRoute
   '/docs/api/': typeof DocsApiIndexRoute
+  '/api/mcp/oauth/$': typeof ApiMcpOauthSplatRoute
   '/_authenticated/$orgSlug/agents/': typeof AuthenticatedOrgSlugAgentsIndexRoute
   '/_authenticated/$orgSlug/api-keys/': typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  '/_authenticated/$orgSlug/mcp/': typeof AuthenticatedOrgSlugMcpIndexRoute
   '/_authenticated/$orgSlug/members/': typeof AuthenticatedOrgSlugMembersIndexRoute
   '/_authenticated/$orgSlug/models/': typeof AuthenticatedOrgSlugModelsIndexRoute
   '/_authenticated/$orgSlug/sandboxes/': typeof AuthenticatedOrgSlugSandboxesIndexRoute
@@ -502,8 +521,10 @@ export interface FileRouteTypes {
     | '/$orgSlug/'
     | '/docs/$section/'
     | '/docs/api/'
+    | '/api/mcp/oauth/$'
     | '/$orgSlug/agents/'
     | '/$orgSlug/api-keys/'
+    | '/$orgSlug/mcp/'
     | '/$orgSlug/members/'
     | '/$orgSlug/models/'
     | '/$orgSlug/sandboxes/'
@@ -548,8 +569,10 @@ export interface FileRouteTypes {
     | '/$orgSlug'
     | '/docs/$section'
     | '/docs/api'
+    | '/api/mcp/oauth/$'
     | '/$orgSlug/agents'
     | '/$orgSlug/api-keys'
+    | '/$orgSlug/mcp'
     | '/$orgSlug/members'
     | '/$orgSlug/models'
     | '/$orgSlug/sandboxes'
@@ -599,8 +622,10 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/'
     | '/docs/$section/'
     | '/docs/api/'
+    | '/api/mcp/oauth/$'
     | '/_authenticated/$orgSlug/agents/'
     | '/_authenticated/$orgSlug/api-keys/'
+    | '/_authenticated/$orgSlug/mcp/'
     | '/_authenticated/$orgSlug/members/'
     | '/_authenticated/$orgSlug/models/'
     | '/_authenticated/$orgSlug/sandboxes/'
@@ -641,6 +666,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
+  ApiMcpOauthSplatRoute: typeof ApiMcpOauthSplatRoute
   ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute: typeof ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute
   ApiFilesOrganizationsOrganizationIdLogosFileIdRoute: typeof ApiFilesOrganizationsOrganizationIdLogosFileIdRoute
 }
@@ -815,6 +841,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugApiKeysIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugRouteRoute
     }
+    '/_authenticated/$orgSlug/mcp/': {
+      id: '/_authenticated/$orgSlug/mcp/'
+      path: '/mcp'
+      fullPath: '/$orgSlug/mcp/'
+      preLoaderRoute: typeof AuthenticatedOrgSlugMcpIndexRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugRouteRoute
+    }
     '/_authenticated/$orgSlug/members/': {
       id: '/_authenticated/$orgSlug/members/'
       path: '/members'
@@ -891,6 +924,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedUserSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedUserRouteRoute
+    }
+    '/api/mcp/oauth/$': {
+      id: '/api/mcp/oauth/$'
+      path: '/api/mcp/oauth/$'
+      fullPath: '/api/mcp/oauth/$'
+      preLoaderRoute: typeof ApiMcpOauthSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/docs/$section/$page/': {
       id: '/docs/$section/$page/'
@@ -997,6 +1037,7 @@ interface AuthenticatedOrgSlugRouteRouteChildren {
   AuthenticatedOrgSlugIndexRoute: typeof AuthenticatedOrgSlugIndexRoute
   AuthenticatedOrgSlugAgentsIndexRoute: typeof AuthenticatedOrgSlugAgentsIndexRoute
   AuthenticatedOrgSlugApiKeysIndexRoute: typeof AuthenticatedOrgSlugApiKeysIndexRoute
+  AuthenticatedOrgSlugMcpIndexRoute: typeof AuthenticatedOrgSlugMcpIndexRoute
   AuthenticatedOrgSlugMembersIndexRoute: typeof AuthenticatedOrgSlugMembersIndexRoute
   AuthenticatedOrgSlugModelsIndexRoute: typeof AuthenticatedOrgSlugModelsIndexRoute
   AuthenticatedOrgSlugSandboxesIndexRoute: typeof AuthenticatedOrgSlugSandboxesIndexRoute
@@ -1021,6 +1062,7 @@ const AuthenticatedOrgSlugRouteRouteChildren: AuthenticatedOrgSlugRouteRouteChil
     AuthenticatedOrgSlugAgentsIndexRoute: AuthenticatedOrgSlugAgentsIndexRoute,
     AuthenticatedOrgSlugApiKeysIndexRoute:
       AuthenticatedOrgSlugApiKeysIndexRoute,
+    AuthenticatedOrgSlugMcpIndexRoute: AuthenticatedOrgSlugMcpIndexRoute,
     AuthenticatedOrgSlugMembersIndexRoute:
       AuthenticatedOrgSlugMembersIndexRoute,
     AuthenticatedOrgSlugModelsIndexRoute: AuthenticatedOrgSlugModelsIndexRoute,
@@ -1150,6 +1192,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
+  ApiMcpOauthSplatRoute: ApiMcpOauthSplatRoute,
   ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute:
     ApiFilesOrganizationsOrganizationIdAvatarsFileIdRoute,
   ApiFilesOrganizationsOrganizationIdLogosFileIdRoute:

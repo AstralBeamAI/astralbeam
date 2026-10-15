@@ -1,8 +1,8 @@
-import { captureMilestone } from "../../capture.ts"
-import { expectToast } from "../../dialogs.ts"
-import { expect, test } from "../../fixtures.ts"
-import { waitForHydration } from "../../hydration.ts"
-import { makeRunIdentity } from "../../identity.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expectToast } from "@e2e/dialogs.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { waitForHydration } from "@e2e/hydration.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
 
 test("independent OpenAI connections supply distinct agent models and protect assignments", async ({
   page,
@@ -190,6 +190,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
       modelId: "claude-sonnet-5-5",
       apiKey: "sk-ant-browser-fixture-3333",
     })
+    await page.getByRole("button", { name: "Endpoint and API format" }).click()
     await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(
       "https://api.anthropic.com",
     )
@@ -200,6 +201,7 @@ test("independent OpenAI connections supply distinct agent models and protect as
       modelId: "anthropic/claude-sonnet-5.5",
       apiKey: "sk-or-browser-fixture-4444",
     })
+    await page.getByRole("button", { name: "Endpoint and API format" }).click()
     await expect(page.getByLabel("API URL", { exact: true })).toHaveValue(
       "https://openrouter.ai/api/v1",
     )

@@ -1,39 +1,11 @@
 import sharp from "sharp"
 import { lookup } from "node:dns/promises"
 import { request as httpsRequest } from "node:https"
-import { BlockList } from "node:net"
 import { Context, Effect, Layer } from "effect"
 
 import { isPrivateModelEndpointAddress } from "@/lib/model-providers/endpoints.server"
 import { ImageImportUnavailable, InvalidImage } from "./errors"
 import { IMAGE_MAX_BYTES } from "./image-limits"
-
-// Refuse special-purpose and address-translation destinations in external image imports.
-// https://www.iana.org/assignments/iana-ipv6-special-registry
-const unavailableImageAddresses = new BlockList()
-for (const address of ["192.0.2.0", "198.51.100.0", "203.0.113.0", "192.88.99.0"])
-  unavailableImageAddresses.addSubnet(address, 24, "ipv4")
-for (const [address, prefix] of [
-  ["::", 96],
-  ["64:ff9b::", 96],
-  ["64:ff9b:1::", 48],
-  ["100::", 64],
-  ["100:0:0:1::", 64],
-  ["2001::", 23],
-  ["2001:db8::", 32],
-  ["2002::", 16],
-  ["3fff::", 20],
-  ["5f00::", 16],
-  ["fec0::", 10],
-] as const)
-  unavailableImageAddresses.addSubnet(address, prefix, "ipv6")
-
-function unsafeImageAddress(address: string, family: number): boolean {
-  return (
-    isPrivateModelEndpointAddress(address) ||
-    unavailableImageAddresses.check(address, family === 6 ? "ipv6" : "ipv4")
-  )
-}
 
 async function downloadPublicImage(source: string, signal: AbortSignal): Promise<Uint8Array> {
   if (!URL.canParse(source)) throw new InvalidImage()
@@ -53,7 +25,7 @@ async function downloadPublicImage(source: string, signal: AbortSignal): Promise
     const addresses = await lookup(hostname, { all: true })
     if (
       !addresses.length ||
-      addresses.some(({ address, family }) => unsafeImageAddress(address, family))
+      addresses.some(({ address }) => isPrivateModelEndpointAddress(address))
     )
       throw new InvalidImage()
     signal.throwIfAborted()

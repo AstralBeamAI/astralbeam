@@ -1,7 +1,7 @@
 import { OpenApi } from "effect/http-api"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { argv } from "node:process"
-import { ApiV1 } from "../src/routes/api/v1/-lib/contract.server.ts"
+import { ApiV1 } from "@/routes/api/v1/-lib/contract.server.ts"
 
 const apiSnapshot = new URL("../public/api/openapi.json", import.meta.url)
 const document = OpenApi.fromApi(ApiV1)

@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { Bubble, BubbleContent } from "@/widget/components/ui/bubble"
 import { Marker, MarkerContent, MarkerIcon } from "@/widget/components/ui/marker"
 import { Spinner } from "@/widget/components/ui/spinner"
+import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/widget/components/ui/trace"
 import type { WidgetDefinition } from "../../lib/types.ts"
 import { ASK_QUESTIONNAIRE_TOOL, RENDER_WIDGET_TOOL } from "../../core/protocol.ts"
 import { isSandboxTool } from "../../core/sandbox.ts"
@@ -19,6 +20,8 @@ import {
 } from "../lib/utils.ts"
 import { InlineQuestionnaire } from "./inline-questionnaire.tsx"
 import { MarkdownMessage } from "./markdown-message.tsx"
+import { HighlightedCode } from "./highlighted-code.tsx"
+import { ReasoningPart } from "./reasoning-part.tsx"
 import { SandboxPart } from "./sandbox-part.tsx"
 import { SentAttachment } from "./user-message-body.tsx"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
@@ -34,6 +37,8 @@ interface AssistantPartProps {
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
+  serverToolTitles?: Readonly<Record<string, string>> | undefined
+  streaming?: boolean | undefined
   activeSlots: ReadonlyMap<string, string>
   interactiveToolIds: ReadonlySet<string>
   interrupted?: boolean | undefined
@@ -53,21 +58,17 @@ function FailureMarker({ children }: { children: ReactNode }) {
 
 function ToolCallMarker({ running, children }: { running: boolean; children: ReactNode }) {
   return (
-    <Marker role={running ? "status" : undefined}>
-      <MarkerIcon>{running ? <Spinner /> : <WrenchIcon />}</MarkerIcon>
-      <MarkerContent className={running ? "shimmer" : undefined}>{children}</MarkerContent>
-    </Marker>
-  )
-}
-
-function ToolCallSection({ title, children }: { title: string; children: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs font-medium text-foreground">{title}</div>
-      <pre className="mt-0.5 max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap wrap-break-word">
-        {children}
-      </pre>
-    </div>
+    <Trace>
+      <TraceLine status={running ? "running" : undefined}>
+        <TraceIcon>{running ? <Spinner /> : <WrenchIcon />}</TraceIcon>
+        <TraceTitle
+          className="whitespace-normal wrap-anywhere"
+          aria-live={running ? "polite" : undefined}
+        >
+          {children}
+        </TraceTitle>
+      </TraceLine>
+    </Trace>
   )
 }
 
@@ -98,6 +99,7 @@ function ToolCallDisclosure({
     <ToolDisclosure
       icon={failed ? <WarningCircleIcon /> : running ? <Spinner /> : <WrenchIcon />}
       running={running}
+      failed={failed}
       label={
         failed ? (
           <>{label} failed</>
@@ -113,15 +115,17 @@ function ToolCallDisclosure({
         ) : undefined
       }
     >
-      <div className="mt-1 flex flex-col gap-2 rounded-md border border-border bg-muted p-2">
-        <ToolCallSection title="Input">{formatToolJson(part.input) || "\u2014"}</ToolCallSection>
-        <ToolCallSection title="Output">
+      <div className="flex min-w-0 flex-col gap-2">
+        <HighlightedCode title="Input" language="json" wrap>
+          {formatToolJson(part.input) || "\u2014"}
+        </HighlightedCode>
+        <HighlightedCode title="Output" language="json" wrap>
           {settled
             ? formatToolJson(part.output) || "\u2014"
             : readOnly
               ? "No saved result."
               : "Waiting for the result\u2026"}
-        </ToolCallSection>
+        </HighlightedCode>
       </div>
     </ToolDisclosure>
   )
@@ -210,6 +214,8 @@ export function AssistantPart({
   getFile,
   widgets,
   toolTitles,
+  serverToolTitles,
+  streaming = false,
   activeSlots,
   onQuestionnaireAnswers,
   interactiveToolIds,
@@ -227,18 +233,22 @@ export function AssistantPart({
       return (
         <Bubble variant="ghost">
           <BubbleContent>
-            <MarkdownMessage>
+            <MarkdownMessage citations={webPartMetadata(part).web?.citations}>
               {citedWebText(part.content, webPartMetadata(part).web?.citations ?? [])}
             </MarkdownMessage>
           </BubbleContent>
         </Bubble>
       )
     case "thinking":
-      return <div className="px-1 text-xs text-muted-foreground italic">{part.content}</div>
+      return (
+        <ReasoningPart content={part.content} running={streaming && !readOnly && !interrupted} />
+      )
     case "tool-call": {
       if (webPartMetadata(part).providerExecuted)
-        return <WebActivity part={part} active={!readOnly && !interrupted} />
-      const title = Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined
+        return <WebActivity part={part} active={streaming && !readOnly && !interrupted} />
+      const title =
+        (part as ChatToolCallPart).savedToolTitle ??
+        (Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined)
       if (readOnly) {
         if (isSandboxTool(part.name) && isSettledToolCall(part))
           return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
@@ -255,10 +265,15 @@ export function AssistantPart({
           </FailureMarker>
         )
       }
-      if (!interactiveToolIds.has(part.id) && !isSettledToolCall(part)) {
+      const serverRunning =
+        streaming &&
+        (isSandboxTool(part.name) ||
+          (serverToolTitles !== undefined && Object.hasOwn(serverToolTitles, part.name)))
+      if (!interactiveToolIds.has(part.id) && !serverRunning && !isSettledToolCall(part)) {
         return (
           <ToolCallMarker running={false}>
-            Waiting for a confirmed result from <span className="font-mono">{part.name}</span>.
+            Waiting for a confirmed result from{" "}
+            {title ?? <span className="font-mono">{part.name}</span>}.
           </ToolCallMarker>
         )
       }

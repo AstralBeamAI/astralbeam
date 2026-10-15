@@ -1,12 +1,13 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
 import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } from "react"
 import { cn } from "cn"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
-import { Button } from "./ui/button.tsx"
+import { DeleteConversationDialog } from "./delete-conversation-dialog.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 import {
   Combobox,
   ComboboxCollection,
@@ -65,6 +66,8 @@ export function ThreadHistory({
   onSelect: () => void
   onDelete: (threadId: string) => void
 }) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null)
   const container = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
@@ -106,16 +109,26 @@ export function ThreadHistory({
     : groupThreads(query.data?.pages.flatMap((page) => page.items) ?? [])
   const currentId = state.thread?.id
   const writing = state.status === "submitted" || state.status === "streaming"
-  const deleteThread = (thread: ChatThread) => {
-    void chat.deleteThread(thread).then((deleted) => {
-      if (!deleted) return
-      onDelete(thread.id)
-      void query.refetch()
-    })
-  }
   return (
     <div ref={container} data-slot="thread-history">
+      {deletingThread && (
+        <DeleteConversationDialog
+          title={threadTitle(deletingThread)}
+          container={container}
+          finalFocus={trigger}
+          onClose={() => setDeletingThread(null)}
+          onDelete={async () => {
+            const deleted = await chat.deleteThread(deletingThread)
+            if (deleted) {
+              onDelete(deletingThread.id)
+              void query.refetch()
+            }
+            return deleted
+          }}
+        />
+      )}
       <Combobox
+        open={open}
         items={groups}
         filteredItems={groups}
         value={null}
@@ -136,9 +149,8 @@ export function ThreadHistory({
         }}
       >
         <ComboboxPrimitive.Trigger
-          aria-label="Show older chats"
-          title="Show older chats"
-          render={<Button variant="ghost" size="icon-sm" />}
+          ref={trigger}
+          render={<TooltipButton tooltip="Show older chats" variant="ghost" size="icon-sm" />}
         >
           <ClockCounterClockwiseIcon />
         </ComboboxPrimitive.Trigger>
@@ -183,22 +195,23 @@ export function ThreadHistory({
                       >
                         <span className="min-w-0 flex-1 truncate">{threadTitle(thread)}</span>
                         {thread.role === "manager" && (
-                          <Button
+                          <TooltipButton
                             variant="ghost"
                             size="icon-xs"
                             aria-label={`Delete ${threadTitle(thread)}`}
-                            title="Delete"
+                            tooltip="Delete chat"
                             disabled={current && writing}
-                            className="opacity-0 group-hover/thread:opacity-100 group-data-highlighted/thread:opacity-100 focus-visible:opacity-100"
+                            className="opacity-0 group-hover/thread:opacity-100 group-data-highlighted/thread:opacity-100 focus-visible:opacity-100 any-pointer-coarse:opacity-100"
                             onPointerDown={stopRowEvent}
                             onMouseDown={stopRowEvent}
                             onClick={(event) => {
                               event.stopPropagation()
-                              deleteThread(thread)
+                              setOpen(false)
+                              setDeletingThread(thread)
                             }}
                           >
                             <TrashIcon />
-                          </Button>
+                          </TooltipButton>
                         )}
                       </ComboboxItem>
                     )
@@ -210,16 +223,17 @@ export function ThreadHistory({
           {!searching && query.isError && (
             <div className="p-2 text-xs" role="alert">
               Could not load chats.
-              <Button
+              <TooltipButton
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                tooltip="Retry"
                 disabled={query.isFetching}
                 onClick={() =>
                   void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
                 }
               >
-                Retry
-              </Button>
+                <ArrowClockwiseIcon />
+              </TooltipButton>
             </div>
           )}
         </ComboboxContent>

@@ -20,10 +20,16 @@ test("the assistant and appearance persist across all example pages", async ({
     await captureMoment(page, `shared-assistant-${name.toLowerCase().replaceAll(" ", "-")}`)
   }
   await page.setViewportSize({ width: 390, height: 844 })
-  await todos.navigate("Conversations")
-  await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
-  await expect(page.locator(".app")).toHaveJSProperty("scrollWidth", 390)
+  expect(await chat.frame.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 })
+  await expect(chat.composer()).toBeInViewport()
+  await expect(todos.controls.closeAssistant).toBeInViewport()
   await captureMoment(page, "shared-assistant-mobile")
+  await todos.controls.closeAssistant.click()
+  await expect(chat.root).toHaveCount(0)
+  await todos.navigate("Conversations")
+  await todos.toggleAssistant()
+  await chat.waitForReady()
+  await expect(chat.composer()).toHaveValue("Keep this draft while browsing")
 })
 
 /**
@@ -90,4 +96,20 @@ test("a tap beside the text focuses the message input", async ({ chat }) => {
   // The middle of the button row is padding: the attach button sits at its start, send at its end.
   await chat.composerButtonRow().click()
   await expect(chat.composer()).toBeFocused()
+})
+
+test("IME confirmation and multiline input do not submit a draft", async ({ chat, page }) => {
+  let submitted = false
+  await page.route("**/api/v1/chat", (route) => {
+    submitted = true
+    return route.abort()
+  })
+  await chat.waitForReady()
+  await chat.composeWithIme("こんにちは")
+  await expect(chat.composer()).toHaveValue("こんにちは")
+  await chat.composer().press("Shift+Enter")
+  await expect(chat.composer()).toHaveValue("こんにちは\n")
+  expect(submitted).toBe(false)
+  await chat.sendButton().click()
+  await expect.poll(() => submitted).toBe(true)
 })

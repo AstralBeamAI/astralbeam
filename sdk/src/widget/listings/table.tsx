@@ -102,8 +102,10 @@ export function DirectoryTable({
                   <dt className="line-clamp-3 max-w-1/2 shrink-0 break-all text-muted-foreground">
                     {key}:
                   </dt>
-                  <dd className="line-clamp-6 min-w-0 [overflow-wrap:anywhere]">
-                    {typeof value === "string" ? value : JSON.stringify(value)}
+                  <dd className="min-w-0 [overflow-wrap:anywhere]">
+                    <DirectoryMetadataValue
+                      value={typeof value === "string" ? value : JSON.stringify(value)}
+                    />
                   </dd>
                 </div>
               ))}
@@ -250,5 +252,19 @@ export function ListingTable<T extends { id: string }>({
         )}
       </TableBody>
     </Table>
+  )
+}
+
+function DirectoryMetadataValue({ value }: { value: string }) {
+  if (value.length <= 160) return <span>{value}</span>
+  return (
+    <details className="group/metadata">
+      <summary className="cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring">
+        <span className="group-open/metadata:hidden">{value.slice(0, 160)}… </span>
+        <span className="text-primary underline group-open/metadata:hidden">Show full value</span>
+        <span className="hidden text-primary underline group-open/metadata:inline">Show less</span>
+      </summary>
+      <p className="mt-1 whitespace-pre-wrap">{value}</p>
+    </details>
   )
 }

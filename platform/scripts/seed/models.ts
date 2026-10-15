@@ -2,13 +2,7 @@ import process from "node:process"
 
 import { and, eq } from "drizzle-orm"
 
-import {
-  agent,
-  agentModel,
-  configTable,
-  modelProvider,
-  providerModel,
-} from "../../src/db/schema.ts"
+import { agent, agentModel, configTable, modelProvider, providerModel } from "@/db/schema.ts"
 
 import type { SeedTransaction } from "./database.ts"
 import { SEED_MODEL_PROVIDER, SEED_ORGANIZATIONS } from "./fixtures.ts"

@@ -1,12 +1,10 @@
 "use client"
 
-import { InfoIcon } from "@phosphor-icons/react"
 import type { Organization } from "better-auth/client"
 import { useState } from "react"
 
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
@@ -42,16 +40,7 @@ export function OrganizationOnboarding({
         </p>
       </div>
 
-      <UserInvitations onInvitationAction={onInvitationAction} />
-
-      <Alert>
-        <InfoIcon aria-hidden="true" />
-        <AlertTitle>Don&apos;t see your organization?</AlertTitle>
-        <AlertDescription>
-          Ask its owner to invite <strong className="break-all">{email}</strong>, the exact email
-          address you use with email and password, Google, or GitHub.
-        </AlertDescription>
-      </Alert>
+      <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
 
       <div className="flex flex-col items-stretch gap-2 sm:items-start">
         <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -61,6 +50,11 @@ export function OrganizationOnboarding({
           You will be the organization owner and can add members afterward.
         </p>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        Already part of an organization? Ask its owner to invite{" "}
+        <strong className="break-all">{email}</strong>, the email address you use to sign in.
+      </p>
 
       <CreateOrganizationDialog
         open={createOpen}

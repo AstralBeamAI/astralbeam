@@ -1,5 +1,5 @@
 // Added with: bun run ui add @better-auth-ui/settings
-// Local changes: use Phosphor icons, Base UI Toast, configured CAPTCHA, domain-specific function names, and hover titles for password visibility controls; apply strict optional typing. Share password visibility controls.
+// Local changes: use Phosphor icons, Base UI Toast, configured CAPTCHA, domain-specific function names, and hover titles for password visibility controls; apply strict optional typing. Share password visibility controls. Use @/ for deep source imports.
 
 import { getViewURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import {
@@ -21,8 +21,8 @@ import { PasswordInput } from "@/components/auth/password-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
-import { OpenEmailButton } from "../../open-email-button"
-import { PasswordStrengthMeter } from "../../password-strength-meter"
+import { OpenEmailButton } from "@/components/auth/open-email-button"
+import { PasswordStrengthMeter } from "@/components/auth/password-strength-meter"
 
 export type ChangePasswordProps = {
   className?: string

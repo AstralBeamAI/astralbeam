@@ -21,6 +21,7 @@ import {
   getRunChatUrl,
   listChatThreads,
   updateChatThread,
+  personalMcpGetCatalog,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -43,6 +44,12 @@ import {
   updateAuthentication,
 } from "./auth.ts"
 import { startAuthentication } from "./auth-lifecycle.ts"
+import {
+  manageMcpConnection,
+  authorizeMcpConnection,
+  type McpCatalog,
+  type McpConnectionOperation,
+} from "./mcp.ts"
 import { isSettledToolCall } from "./messages.ts"
 import { webPartMetadata } from "./web.ts"
 import {
@@ -156,6 +163,8 @@ export interface AstralBeamChatState {
   /** What the resolved agent grants; the UI should render only that. */
   capabilities: { attachments: boolean }
   /** The tool set currently declared to the agent, in declaration order. */
+  serverToolTitles?: Readonly<Record<string, string>>
+  unavailableMcpConnections?: readonly string[]
   agentTools: readonly AgentToolInfo[]
   sandboxStatus: SandboxStatus | undefined
   /** The usage limit that ended the last run, by display name, until another run starts. */
@@ -218,6 +227,9 @@ export interface AstralBeamChatCore {
     mimeType: string
   }) => Promise<UploadedChatFile>
   getFile: (fileId: string) => Promise<Blob>
+  getMcpCatalog: () => Promise<McpCatalog>
+  manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
+  authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
   getAttachment: (messageId: string, partId: string) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
@@ -337,6 +349,12 @@ export function createAstralBeamChat(
     update({ error: failure, status: "error" })
     if (state.auth.status !== "error" || state.auth.error !== failure)
       live.streamCallbacks?.onError?.(failure)
+  }
+  const clearUnavailableMcpConnection = (id: string) => {
+    update({
+      unavailableMcpConnections:
+        state.unavailableMcpConnections?.filter((entry) => entry !== id) ?? [],
+    })
   }
   const requestOptions = async (conversation = true): Promise<JwtOptions> => {
     const generation = selectionGeneration
@@ -884,6 +902,18 @@ export function createAstralBeamChat(
           }
           return
         }
+        if (eventType === "astralbeam_mcp_tools") {
+          const event = data as {
+            tools?: { name: string; title: string }[]
+            unavailable?: string[]
+          }
+          const titles: Record<string, string> = {}
+          for (const tool of event.tools ?? [])
+            if (typeof tool.name === "string" && typeof tool.title === "string")
+              titles[tool.name] = tool.title
+          update({ serverToolTitles: titles, unavailableMcpConnections: event.unavailable ?? [] })
+          return
+        }
         const limit = data as { name?: unknown; resetsAt?: unknown } | undefined
         if (
           eventType === USAGE_LIMIT_REACHED_EVENT &&
@@ -907,6 +937,8 @@ export function createAstralBeamChat(
       // Read per event rather than captured, so a `debug` update reaches the next chunk.
       onChunk: (chunk) => {
         if (client !== next) return
+        if (chunk.type === EventType.RUN_STARTED)
+          update({ serverToolTitles: {}, unavailableMcpConnections: [] })
         live.streamCallbacks?.onChunk?.(chunk)
       },
       onResponse: (response) => {
@@ -997,6 +1029,8 @@ export function createAstralBeamChat(
       sandboxStatus: undefined,
       usageLimitReached: undefined,
       pendingInteractions: [],
+      serverToolTitles: {},
+      unavailableMcpConnections: [],
       threadLoadFailed: false,
       messagesCursor: undefined,
       olderMessagesLoading: false,
@@ -1443,6 +1477,17 @@ export function createAstralBeamChat(
       if (!thread) throw new Error("Open a conversation before downloading attachments.")
       const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
       return response.blob()
+    },
+    getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),
+    manageMcpConnection: async (operation) => {
+      const result = await manageMcpConnection(operation, await requestOptions(false))
+      if ("id" in operation) clearUnavailableMcpConnection(operation.id)
+      else if (result && "id" in result) clearUnavailableMcpConnection(result.id)
+      return result
+    },
+    authorizeMcpConnection: async (input) => {
+      const id = await authorizeMcpConnection(input, () => requestOptions(false))
+      clearUnavailableMcpConnection(id)
     },
     abandonToolCall,
     reset: () => {

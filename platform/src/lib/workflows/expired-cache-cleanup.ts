@@ -1,6 +1,6 @@
 import { Effect, Schedule } from "effect"
 
-import { deleteExpiredDatabaseCacheBatch } from "../../db/cache.ts"
+import { deleteExpiredDatabaseCacheBatch } from "@/db/cache.ts"
 
 const expiredCacheCleanup = Effect.gen(function* () {
   yield* deleteExpiredDatabaseCacheBatch.pipe(

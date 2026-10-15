@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest"
-import { Route as LegacyChatRoute } from "../../chat/$"
+import { Route as LegacyChatRoute } from "@/routes/api/chat/$"
 import { handleApiV1Request } from "./route.server"
 
 vi.mock("./route.server", () => ({ handleApiV1Request: vi.fn() }))

@@ -1,5 +1,5 @@
 import { toast } from "@/components/ui/toast"
-import { USAGE_LIMIT_SUBJECTS_PAGE_SIZE } from "@/lib/usage-limits/schemas"
+import { type UsageLimitFields, USAGE_LIMIT_SUBJECTS_PAGE_SIZE } from "@/lib/usage-limits/schemas"
 import type { UsageLimit } from "@/lib/usage-limits/usage-limits.server"
 
 type UsageLimitWindow = Pick<UsageLimit, "windowCount" | "windowUnit" | "windowType" | "timeZone">
@@ -48,4 +48,19 @@ export async function copyUsageLimitId(id: string): Promise<void> {
 /** The last page of a limit's usage list, which is page 1 even when nothing is listed. */
 export function lastUsageLimitSubjectsPage(total: number): number {
   return Math.max(1, Math.ceil(total / USAGE_LIMIT_SUBJECTS_PAGE_SIZE))
+}
+
+export function summarizeUsageLimit(limit: UsageLimitFields): string {
+  const subject = {
+    global: "This organization shares",
+    tenant: "Each tenant has",
+    tenant_user: "Each tenant user has",
+    thread: "Each conversation has",
+  }[limit.scope]
+  const period = `${limit.windowCount} ${limit.windowUnit}${limit.windowCount === 1 ? "" : "s"}`
+  const reset =
+    limit.windowType === "fixed"
+      ? `Resets on calendar boundaries in ${limit.timeZone}.`
+      : "Starts at first use and resets when that period ends."
+  return `${subject} a budget of ${formatUsageLimitAmount(limit)} per ${period}. ${reset}${limit.appliesByDefault ? "" : " Applies only when included in the chat token."}`
 }

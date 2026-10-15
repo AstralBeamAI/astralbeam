@@ -12,6 +12,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
+| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
 | `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
@@ -36,7 +37,7 @@ Replace parts of the widget's own chrome with host-rendered content, styled by t
 ```tsx
 <AstralBeamChat
   header={<MyChatTitle />}
-  headerActions={<MyCloseButton />}
+  onClose={() => setChatOpen(false)}
   empty={<MyWelcome />}
   composerActions={<MyVoiceButton />}
 />
@@ -82,3 +83,23 @@ Conversations are saved automatically and start private. Your token endpoint sup
 ```
 
 Duplicating a tab or opening one through an opener can copy its initial session storage, including the pending draft before a conversation is saved. The tabs maintain independent selections afterwards.
+
+## MCP server management
+
+`AstralBeamMcpServers` provides the server list and **Add MCP server** form used by the dashboard. Let's supply the servers and our host's authorized create and remove callbacks:
+
+```tsx
+import { AstralBeamMcpServers } from "@astralbeam/sdk/react"
+
+;<AstralBeamMcpServers
+  key={`${currentUserId}:${managementScopeId}`}
+  servers={servers}
+  oauthRedirectUri={oauthRedirectUri}
+  onCreateServer={createServer}
+  onRemoveServer={removeServer}
+/>
+```
+
+The host loads `servers` as `{ id, endpointUrl, authKind }` records. Each callback must authorize its operation on the server and refresh that list after success. `onCreateServer` receives the endpoint and authentication configuration, and may return `{ errors: [{ field: "endpointUrl", message: "Enter a public HTTPS URL." }] }` for field feedback. Omit write callbacks for a read-only list. `oauthRedirectUri` displays the exact URI to register with an OAuth provider. The shared `theme` and `colorScheme` options apply here too.
+
+Vanilla hosts use `mountAstralBeamMcpServers(element, options)` from `@astralbeam/sdk/client`, then call `update(options)` or `unmount()`. Unmount when identity or management scope changes, or change the React `key`, to clear pending form values. The component does not grant permissions or create a new management API. Currently, Organization admins manage server definitions and TenantUsers manage their own connections through chat's **MCP connections** panel.

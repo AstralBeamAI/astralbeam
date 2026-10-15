@@ -1,9 +1,9 @@
-import { baselineStatePath, writeBaseline } from "../../baseline.ts"
-import { captureMilestone } from "../../capture.ts"
-import { expect, test } from "../../fixtures.ts"
-import { makeRunIdentity } from "../../identity.ts"
-import { emailLink, waitForEmail } from "../../mailbox.ts"
-import { mailboxSmtpPort, operatorKey, platformUrl } from "../../worktree.ts"
+import { baselineStatePath, writeBaseline } from "@e2e/baseline.ts"
+import { captureMilestone } from "@e2e/capture.ts"
+import { expect, test } from "@e2e/fixtures.ts"
+import { makeRunIdentity } from "@e2e/identity.ts"
+import { emailLink, waitForEmail } from "@e2e/mailbox.ts"
+import { mailboxSmtpPort, operatorKey, platformUrl } from "@e2e/worktree.ts"
 
 /**
  * One continuous session over an empty deployment: configure it, create an account, verify its
@@ -114,17 +114,44 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
       "Dashboard",
-      "Models",
       "Agents",
+      "Models",
       "Sandboxes",
-      "Usage Limits",
-      "API Keys",
+      "MCP servers",
       "Conversations",
       "Tenants",
-      "Users",
+      "Tenant users",
+      "Usage Limits",
+      "API Keys",
       "Members",
       "Settings",
     ])
+  })
+
+  await test.step("the owner adds an MCP server with safe headers and removes it", async () => {
+    await shell.navigation.getByRole("link", { name: "MCP servers", exact: true }).click()
+    await page.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    const form = page.getByRole("form", { name: "Add MCP server" })
+    await form.getByLabel("Server URL").fill("https://mcp.example.com/mcp")
+    await form
+      .getByRole("combobox", { name: "Authentication", exact: true })
+      .selectOption("static_headers")
+    const headers = form.getByLabel("Header names, comma separated")
+    await headers.fill("Cookie")
+    await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    await expect(
+      form.getByText("Use unique HTTP header names. Cookies, routing and MCP headers are reserved"),
+    ).toBeVisible()
+    await headers.fill("Authorization")
+    await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    const server = page.getByRole("article").filter({ hasText: "https://mcp.example.com/mcp" })
+    await expect(server).toBeVisible()
+    await server.getByRole("button", { name: "Remove server: mcp.example.com" }).click()
+    await server
+      .getByRole("group", { name: "Remove server?" })
+      .getByRole("button", { name: "Remove server", exact: true })
+      .click()
+    await expect(server).toHaveCount(0)
   })
 
   await test.step("the owner edits the starter agent and adds a second one", async () => {
@@ -133,7 +160,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(agents.cards()).toHaveCount(1)
 
     await agents.openAgent(starterAgent)
-    await expect(agents.publicId()).toHaveValue(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
+    await expect(agents.publicId()).toHaveText(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
     await expect(agents.defaultBadge()).toBeVisible()
     await agents.fillForm({
       name: starterAgent,

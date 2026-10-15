@@ -34,6 +34,52 @@ export interface AstralBeamApiError {
   reference?: string
 }
 
+export type McpConnectionEncodedAuthState =
+  (typeof McpConnectionEncodedAuthState)[keyof typeof McpConnectionEncodedAuthState]
+
+export const McpConnectionEncodedAuthState = {
+  disconnected: "disconnected",
+  connected: "connected",
+  reauthorization_required: "reauthorization_required",
+} as const
+
+export interface McpConnectionEncoded {
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  organization_id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  tenant_id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  mcp_server_id: string
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  lock_version: number
+  auth_state: McpConnectionEncodedAuthState
+}
+
+export type McpServerEncodedAuthKind =
+  | (typeof McpServerEncodedAuthKind)[keyof typeof McpServerEncodedAuthKind]
+  | null
+
+export const McpServerEncodedAuthKind = {
+  none: "none",
+  static_headers: "static_headers",
+  oauth: "oauth",
+} as const
+
+export interface McpServerEncoded {
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  organization_id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  id: string
+  endpoint_url: string
+  auth_kind: McpServerEncodedAuthKind
+  header_names: string[]
+}
+
 /**
  * Customer-defined JSON object; keys are preserved.
  */
@@ -841,6 +887,60 @@ export type SearchChatTenantUsersParams = {
 
 export type RemoveChatParticipantParams = {
   expected_version: string
+}
+
+export type PersonalMcpGetCatalog200 = {
+  servers: McpServerEncoded[]
+  connections: McpConnectionEncoded[]
+}
+
+export type PersonalMcpCreateConnectionBody = {
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  mcp_server_id: string
+}
+
+export type PersonalMcpSetHeadersBodyHeaders = { [key: string]: string }
+
+export type PersonalMcpSetHeadersBody = {
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  lock_version: number
+  headers: PersonalMcpSetHeadersBodyHeaders
+}
+
+export type PersonalMcpTestConnection200 = {
+  /**
+   * @minimum -9007199254740991
+   * @maximum 9007199254740991
+   */
+  tool_count: number
+}
+
+export type PersonalMcpAuthorizeConnection200Attempt = {
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  organization_id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  tenant_id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|[fF]{8}-[fF]{4}-[fF]{4}-[fF]{4}-[fF]{12})$ */
+  id: string
+  /** @pattern ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$ */
+  connection_id: string
+}
+
+export type PersonalMcpAuthorizeConnection200 = {
+  attempt: PersonalMcpAuthorizeConnection200Attempt
+  popup_url: string
+}
+
+export type PersonalMcpBindBrowserBody = {
+  attempt_id: string
+  challenge: string
+}
+
+export type PersonalMcpCompleteAuthorizationBody = {
+  attempt_id: string
 }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {
@@ -1759,5 +1859,204 @@ export const getCurrentUser = (options: Parameters<typeof astralBeamJwtFetch>[1]
   return astralBeamJwtFetch<CurrentUser>(getGetCurrentUserUrl(), {
     ...options,
     method: "POST",
+  })
+}
+
+export const getPersonalMcpGetCatalogUrl = () => {
+  return `/api/v1/me/mcp/catalog`
+}
+
+export const personalMcpGetCatalog = (options: Parameters<typeof astralBeamJwtFetch>[1]) => {
+  return astralBeamJwtFetch<PersonalMcpGetCatalog200>(getPersonalMcpGetCatalogUrl(), {
+    ...options,
+    method: "GET",
+  })
+}
+
+export const getPersonalMcpCreateConnectionUrl = () => {
+  return `/api/v1/me/mcp/connections`
+}
+
+export const personalMcpCreateConnection = (
+  personalMcpCreateConnectionBody: PersonalMcpCreateConnectionBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<McpConnectionEncoded>(getPersonalMcpCreateConnectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalMcpCreateConnectionBody),
+  })
+}
+
+export const getPersonalMcpSetHeadersUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/headers`
+}
+
+export const personalMcpSetHeaders = (
+  id: string,
+  personalMcpSetHeadersBody: PersonalMcpSetHeadersBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<void>(getPersonalMcpSetHeadersUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalMcpSetHeadersBody),
+  })
+}
+
+export const getPersonalMcpDisconnectConnectionUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}`
+}
+
+export const personalMcpDisconnectConnection = (
+  id: string,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<void>(getPersonalMcpDisconnectConnectionUrl(id), {
+    ...options,
+    method: "DELETE",
+  })
+}
+
+export const getPersonalMcpTestConnectionUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/test`
+}
+
+export const personalMcpTestConnection = (
+  id: string,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<PersonalMcpTestConnection200>(getPersonalMcpTestConnectionUrl(id), {
+    ...options,
+    method: "POST",
+  })
+}
+
+export const getPersonalMcpAuthorizeConnectionUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/authorize`
+}
+
+export const personalMcpAuthorizeConnection = (
+  id: string,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  return astralBeamJwtFetch<PersonalMcpAuthorizeConnection200>(
+    getPersonalMcpAuthorizeConnectionUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  )
+}
+
+export const getPersonalMcpBindBrowserUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/oauth/bind`
+}
+
+export const personalMcpBindBrowser = (
+  id: string,
+  personalMcpBindBrowserBody: PersonalMcpBindBrowserBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<void>(getPersonalMcpBindBrowserUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalMcpBindBrowserBody),
+  })
+}
+
+export const getPersonalMcpCompleteAuthorizationUrl = (id: string) => {
+  return `/api/v1/me/mcp/connections/${encodeURIComponent(String(id))}/oauth/complete`
+}
+
+export const personalMcpCompleteAuthorization = (
+  id: string,
+  personalMcpCompleteAuthorizationBody: PersonalMcpCompleteAuthorizationBody,
+  options: Parameters<typeof astralBeamJwtFetch>[1],
+) => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {}
+    if (h instanceof Headers) return Object.fromEntries(h.entries())
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      )
+    }
+    const headers: Record<string, string | readonly string[]> = {}
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value
+    }
+    return headers
+  }
+  return astralBeamJwtFetch<boolean>(getPersonalMcpCompleteAuthorizationUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(personalMcpCompleteAuthorizationBody),
   })
 }

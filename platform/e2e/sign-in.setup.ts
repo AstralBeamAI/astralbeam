@@ -2,7 +2,7 @@ import { existsSync } from "node:fs"
 
 import { expect, test } from "@playwright/test"
 
-import { SEED_PASSWORD, SEED_USERS } from "../scripts/seed/fixtures.ts"
+import { SEED_PASSWORD, SEED_USERS } from "@scripts/seed/fixtures.ts"
 import { seededStatePath } from "./baseline.ts"
 import { authPage } from "./pages/auth-page.ts"
 import { platformUrl } from "./worktree.ts"

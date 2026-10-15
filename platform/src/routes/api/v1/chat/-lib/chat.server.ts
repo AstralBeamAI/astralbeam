@@ -1,8 +1,8 @@
 import { Effect, Schema } from "effect"
-import { ApiUuidSchema } from "../../../../../lib/tenants/schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { ChatSubmissionReceiptSchema } from "./threads.server"
-import { NonEmptyStringSchema } from "../../../../../lib/schemas.ts"
+import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,

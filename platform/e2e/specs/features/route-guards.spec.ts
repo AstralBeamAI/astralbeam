@@ -1,4 +1,4 @@
-import { expect, test } from "../../fixtures.ts"
+import { expect, test } from "@e2e/fixtures.ts"
 
 /**
  * A focused spec, written the way a later one should be: it takes the organization the journey

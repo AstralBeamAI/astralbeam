@@ -1,7 +1,15 @@
 import { useId, useState } from "react"
 import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { ArrowClockwiseIcon, BuildingsIcon, UsersIcon, ChatsIcon } from "@phosphor-icons/react"
+import {
+  ArrowClockwiseIcon,
+  BuildingsIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  ChatsIcon,
+  FunnelXIcon,
+  UsersIcon,
+} from "@phosphor-icons/react"
 import {
   type TenantPage,
   type TenantRecordEncoded,
@@ -12,7 +20,7 @@ import type {
   MountAstralBeamTenantUserListOptions,
 } from "../../client/listings.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
-import { Button } from "../components/ui/button.tsx"
+import { TooltipButton } from "../components/tooltip-button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { SearchDropdown } from "../components/search-dropdown.tsx"
 import { NativeSelect, NativeSelectOption } from "../components/ui/native-select.tsx"
@@ -103,9 +111,9 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             <h2 className="font-heading text-lg font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
               {currentTenant
-                ? `${
-                    currentTenant.name || currentTenant.external_id
-                  } · ${currentTenant.external_id}`
+                ? currentTenant.name && currentTenant.name !== currentTenant.external_id
+                  ? `${currentTenant.name} · ${currentTenant.external_id}`
+                  : currentTenant.external_id
                 : scope === "tenant"
                   ? "Current tenant"
                   : "Current organization"}{" "}
@@ -148,28 +156,27 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             <NativeSelectOption value="false">Non-admins</NativeSelectOption>
           </NativeSelect>
         )}
+        {(search || adminFilter !== "all") && (
+          <TooltipButton
+            variant="ghost"
+            size="icon-sm"
+            tooltip="Clear filters"
+            onClick={() => {
+              setSearch("")
+              setAdmin("all")
+            }}
+          >
+            <FunnelXIcon aria-hidden />
+          </TooltipButton>
+        )}
         <div
           data-slot="directory-page-controls"
           className="ms-auto flex shrink-0 items-center gap-2"
         >
-          <NativeSelect
-            disabled={awaitingTenant}
-            aria-label="Rows per page"
-            className="min-w-32"
-            value={size}
-            onChange={(e) => setSize(Number(e.target.value) as typeof size)}
-          >
-            {[20, 50, 100].map((value) => (
-              <NativeSelectOption key={value} value={value}>
-                {value} per page
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <Button
+          <TooltipButton
             variant="outline"
             size="icon"
-            aria-label="Refresh directory"
-            title="Refresh directory"
+            tooltip="Refresh directory"
             disabled={fetching > 0}
             onClick={() => void queryClient.refetchQueries({ type: "active" })}
           >
@@ -177,7 +184,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
               aria-hidden
               className={fetching > 0 ? "animate-spin motion-reduce:animate-none" : undefined}
             />
-          </Button>
+          </TooltipButton>
         </div>
       </div>
       {resolve && tenant.isError ? (
@@ -192,7 +199,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           <p role="status" className="text-muted-foreground">
             {needsPicker
               ? config.tenantPrompt
-              : "No persisted tenant found. Create the tenant, then refresh."}
+              : "This tenant is not available. Contact your app’s support team if you expected to see records here."}
           </p>
         </div>
       ) : kind === "threads" ? (
@@ -202,6 +209,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           tenantId={tenantId}
           q={q}
           size={size}
+          onSize={setSize}
           ErrorFeedback={ListingError}
           LoadingFeedback={ListingLoading}
           Pagination={PageNavigation}
@@ -211,6 +219,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
           {...{ options, kind, session, tenantId, q, size }}
+          onSize={setSize}
         />
       )}
     </section>
@@ -246,7 +255,11 @@ function TenantPicker({
         value={selected}
         onValueChange={onSelect}
         showClear
-        itemLabel={(item) => `${item.name || item.external_id} · ${item.external_id}`}
+        itemLabel={(item) =>
+          item.name && item.name !== item.external_id
+            ? `${item.name} · ${item.external_id}`
+            : item.external_id
+        }
         loadPage={(q, cursor, signal) =>
           loadTenantChoices(session, { q, ...(cursor ? { page_after: cursor } : {}) }, signal)
         }
@@ -263,12 +276,14 @@ function DirectoryPage({
   q,
   admin,
   size,
+  onSize,
 }: Omit<WidgetProps, "kind"> & {
   kind: "tenants" | "users"
   tenantId: string | undefined
   q: string
   admin: "all" | "true" | "false"
   size: number
+  onSize: (size: 20 | 50 | 100) => void
 }) {
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
@@ -301,6 +316,8 @@ function DirectoryPage({
           page={query.isError ? undefined : query.data}
           busy={query.isFetching}
           onPage={setCursor}
+          size={size}
+          onSize={onSize}
         />
       </div>
     </div>
@@ -311,32 +328,50 @@ function PageNavigation({
   page,
   busy,
   onPage,
+  size,
+  onSize,
 }: {
+  size: number
+  onSize: (size: 20 | 50 | 100) => void
   page: { page_before: string | null; page_after: string | null } | undefined
   busy: boolean
   onPage: (cursor: Cursor) => void
 }) {
   return (
-    <nav
-      aria-label="Directory pages"
-      className="grid grid-cols-2 justify-end gap-2 @lg/directory:flex"
-    >
-      <Button
+    <nav aria-label="Directory pages" className="flex flex-wrap items-center justify-end gap-2">
+      <div className="me-auto">
+        <NativeSelect
+          disabled={busy}
+          aria-label="Rows per page"
+          className="min-w-32"
+          value={size}
+          onChange={(e) => onSize(Number(e.target.value) as 20 | 50 | 100)}
+        >
+          {[20, 50, 100].map((value) => (
+            <NativeSelectOption key={value} value={value}>
+              {value} per page
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </div>
+      <TooltipButton
         variant="outline"
-        size="sm"
+        size="icon-sm"
+        tooltip="Previous"
         disabled={busy || !page?.page_before}
         onClick={() => onPage({ page_before: page!.page_before! })}
       >
-        Previous
-      </Button>
-      <Button
+        <CaretLeftIcon aria-hidden className="rtl:rotate-180" />
+      </TooltipButton>
+      <TooltipButton
         variant="outline"
-        size="sm"
+        size="icon-sm"
+        tooltip="Next"
         disabled={busy || !page?.page_after}
         onClick={() => onPage({ page_after: page!.page_after! })}
       >
-        Next
-      </Button>
+        <CaretRightIcon aria-hidden className="rtl:rotate-180" />
+      </TooltipButton>
     </nav>
   )
 }
@@ -367,9 +402,9 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
       </AlertDescription>
-      <Button variant="outline" size="sm" onClick={retry}>
-        Retry
-      </Button>
+      <TooltipButton variant="outline" size="icon-sm" tooltip="Retry" onClick={retry}>
+        <ArrowClockwiseIcon aria-hidden />
+      </TooltipButton>
     </Alert>
   )
 }
