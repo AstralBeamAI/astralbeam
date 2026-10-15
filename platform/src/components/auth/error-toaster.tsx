@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Use the contextual Base UI Toast manager, suppress field-handled errors, sanitize backend details, surface email, invalid-link, and API-key protection codes, and repair strict cache-handler cleanup.
 
 import {

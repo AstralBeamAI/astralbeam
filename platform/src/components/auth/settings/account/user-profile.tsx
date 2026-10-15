@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: remove username and generic additional fields; use Base UI Toast, domain-specific function names, and strict typing.
 
 "use client"

@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
 
 "use client"

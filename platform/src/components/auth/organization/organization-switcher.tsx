@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: Replace Lucide with Phosphor icons, add a stable accessible trigger name and hover title, address organizations by their root-level slug path, let a URL-scoped page supply the active organization, and size the trigger's organization row.
 // Resolve the URL-scoped organization's logo from the existing membership list.
 

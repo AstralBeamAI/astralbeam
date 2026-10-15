@@ -1,5 +1,5 @@
-// Previously added with: deno task ui add @better-auth-ui/reset-password-email
-// Adapted with: deno task ui add @emailcn/react-email/block-auth-password-reset-default
+// Previously added with: bun run ui add @better-auth-ui/reset-password-email
+// Adapted with: bun run ui add @emailcn/react-email/block-auth-password-reset-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-password-reset-default.tsx
 // Local changes: Retain the prior reset copy and required production props, use the shared shell and fallback URL, and co-locate typed preview props.
 

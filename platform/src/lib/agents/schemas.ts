@@ -1,6 +1,5 @@
 import { Schema } from "effect"
 
-// Relative, because seed modules import this under a plain `deno run` without the `@/` alias.
 import {
   DisplayNameSchema,
   NonEmptyStringSchema,

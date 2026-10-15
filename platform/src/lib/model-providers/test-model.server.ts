@@ -34,7 +34,10 @@ export const testProviderModel = Effect.fn("testProviderModel")(
     return yield* Effect.tryPromise({
       try: async () => {
         let upstreamCompleted = false
-        const guardedFetch: typeof fetch = async (request, init) => {
+        const guardedFetch: (
+          input: RequestInfo | URL,
+          init?: RequestInit,
+        ) => Promise<Response> = async (request, init) => {
           failure = new ModelProviderTestFailed({ reason: "network" })
           upstreamCompleted = configuration.api !== "chat-completions"
           const response = await configuration.fetch(request, {

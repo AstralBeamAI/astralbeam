@@ -1,5 +1,5 @@
-// Added with: deno task ui add @better-auth-ui/organization
-// Local changes: use Phosphor/Deno browser globals, render comma-joined static roles correctly, and provide a semantic page heading.
+// Added with: bun run ui add @better-auth-ui/organization
+// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading.
 
 import { getSafeRedirectTo } from "@better-auth-ui/core"
 import {

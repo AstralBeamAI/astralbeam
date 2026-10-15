@@ -5,7 +5,7 @@ export type { AstralBeamApiErrorBody }
 
 export interface ApiRequestOptions extends RequestInit {
   apiUrl?: string | undefined
-  fetchClient?: typeof globalThis.fetch
+  fetchClient?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
 export type ApiKeyOptions = ApiRequestOptions & { apiKey: string; astralBeamToken?: never }

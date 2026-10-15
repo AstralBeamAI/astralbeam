@@ -1,4 +1,4 @@
-// Adapted with: deno task ui add @emailcn/react-email/block-auth-magic-link-default
+// Adapted with: bun run ui add @emailcn/react-email/block-auth-magic-link-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/auth-magic-link-default.tsx
 // Local changes: Repurpose the magic-link block for verification, retain the prior production copy and required props, use the shared shell and fallback URL, and co-locate typed preview props.
 

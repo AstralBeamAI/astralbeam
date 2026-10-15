@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: remove the unconfigured two-factor continuation branch, add configured CAPTCHA, choose reauthentication from the user's actual accounts, preserve the return path, and keep credential errors non-sensitive.
 
 "use client"

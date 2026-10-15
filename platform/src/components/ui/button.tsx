@@ -1,4 +1,4 @@
-// Added with: deno task ui add button
+// Added with: bun run ui add button
 // Local changes: none.
 
 import { Button as ButtonPrimitive } from "@base-ui/react/button"

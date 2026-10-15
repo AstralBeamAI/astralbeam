@@ -7,14 +7,14 @@ The suite is self-contained and deterministic. It creates and migrates its own d
 ## Run it
 
 ```sh
-deno task --cwd platform e2e:install   # once, to fetch Chromium
-deno task --cwd platform e2e
+bun run --cwd platform e2e:install   # once, to fetch Chromium
+bun run --cwd platform e2e
 ```
 
-- `deno task --cwd platform e2e -g "some title"` narrows to matching test titles while iterating. Playwright does not apply `-g` to a dependency project, so the baseline below is still established.
-- `deno task --cwd platform e2e --project=features` runs only the focused specs, after their dependencies.
-- `E2E_SANDBOX=docker deno task --cwd platform e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
-- `deno task --cwd platform e2e --ui` opens Playwright's runner for stepping through a flow.
+- `bun run --cwd platform e2e -g "some title"` narrows to matching test titles while iterating. Playwright does not apply `-g` to a dependency project, so the baseline below is still established.
+- `bun run --cwd platform e2e --project=features` runs only the focused specs, after their dependencies.
+- `E2E_SANDBOX=docker bun run --cwd platform e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
+- `bun run --cwd platform e2e --ui` opens Playwright's runner for stepping through a flow.
 - It is not part of `check`, `test`, or `ready`. CI does not run it. Agents run the default projects after creating or pushing to a pull request, as the [post-PR checks](../../.agents/skills/create-github-pr/SKILL.md#post-pr-checks) describe.
 
 Every run drops and recreates the suite's database, so it is repeatable and leaves no state behind between runs. Nothing needs seeding first.
@@ -26,21 +26,21 @@ The `list` reporter narrates every `test.step` as it starts and finishes, with i
 Video, traces, and screenshots are kept for any failure and land in `e2e/.output`, which is git-ignored.
 
 ```sh
-E2E_CAPTURE=all deno task --cwd platform e2e   # record video, trace, and screenshots for a passing run too
-deno task --cwd platform --eval 'playwright show-report e2e/.output/report'
-deno task --cwd platform --eval 'playwright show-trace e2e/.output/test-results/<test>/trace.zip'
+E2E_CAPTURE=all bun run --cwd platform e2e   # record video, trace, and screenshots for a passing run too
+bun run --cwd platform playwright show-report e2e/.output/report
+bun run --cwd platform playwright show-trace e2e/.output/test-results/<test>/trace.zip
 ```
 
 Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `captureMilestone(page, name)` writes a named screenshot to the test's output directory and attaches it to the report, so `e2e/.output/test-results/<test>/01-configure-complete.png` is ready to attach to a pull request.
 
 ## Seeded evidence runs
 
-Most pull requests need a video of one flow against realistic data rather than the cold-start journey. The `e2e:seeded` task runs `specs/seeded` against the worktree's own database after `deno task db-seed`, already signed in as `owner@example.com`, with video, trace, and screenshots always on.
+Most pull requests need a video of one flow against realistic data rather than the cold-start journey. The `e2e:seeded` task runs `specs/seeded` against the worktree's own database after `bun run db-seed`, already signed in as `owner@example.com`, with video, trace, and screenshots always on.
 
 ```sh
-deno task --cwd platform db-seed
-deno task --cwd platform e2e:seeded                                        # starts its own server
-E2E_PLATFORM_URL=http://localhost:4500 deno task --cwd platform e2e:seeded  # reuses a running one
+bun run --cwd platform db-seed
+bun run --cwd platform e2e:seeded                                        # starts its own server
+E2E_PLATFORM_URL=http://localhost:4500 bun run --cwd platform e2e:seeded  # reuses a running one
 ```
 
 - `sign-in.setup.ts` signs in once and saves the session to `e2e/.output/seeded-state.json`. Later runs reuse it while the server still accepts it, so they skip the Turnstile wait.

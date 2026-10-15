@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls.
 
 "use client"

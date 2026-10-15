@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Use redirect-mode OAuth, forward explicit signup/legal intent and error redirects, honor disabled state, and omit the unconfigured last-login badge.
 
 "use client"

@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/user-button
+// Added with: bun run ui add @better-auth-ui/user-button
 // Local changes: remove username fields, accept membership avatar URLs, and optionally wrap the name and email.
 
 import { useAuth, useSession } from "@better-auth-ui/react"

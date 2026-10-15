@@ -2,6 +2,7 @@ import process from "node:process"
 
 import { Deferred, Effect, type Fiber } from "effect"
 import type { NitroAppPlugin } from "nitro/types"
+import type { ViteHotContext } from "vite/types/hot.d.ts"
 
 import { closeClusterProcess, startClusterRunner, stopClusterRunner } from "./runtime.ts"
 
@@ -17,32 +18,34 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
   clusterPluginProcess[clusterShutdownCleanupKey]?.()
   Effect.runFork(startClusterRunner)
 
-  if (import.meta.hot) {
+  // Vite provides this context, while Bun declares its own incompatible hot-reload interface.
+  const hot = import.meta.hot as unknown as ViteHotContext | undefined
+  if (hot) {
     // Vite owns development signals and requests this cleanup before it terminates the worker.
     const closeDevelopmentCluster = () =>
       Effect.runFork(
         closeClusterProcess.pipe(
           Effect.catchCause(() => Effect.logError("Development cluster cleanup failed")),
-          Effect.andThen(Effect.sync(() => import.meta.hot?.send("astralbeam:closed"))),
+          Effect.andThen(Effect.sync(() => hot.send("astralbeam:closed"))),
         ),
       )
     const removeShutdownHandlers = () => {
-      import.meta.hot?.off("astralbeam:close", closeDevelopmentCluster)
+      hot.off("astralbeam:close", closeDevelopmentCluster)
       if (clusterPluginProcess[clusterShutdownCleanupKey] === removeShutdownHandlers) {
         delete clusterPluginProcess[clusterShutdownCleanupKey]
       }
     }
     clusterPluginProcess[clusterShutdownCleanupKey] = removeShutdownHandlers
-    import.meta.hot.on("astralbeam:close", closeDevelopmentCluster)
-    import.meta.hot.dispose(() => {
+    hot.on("astralbeam:close", closeDevelopmentCluster)
+    hot.dispose(() => {
       removeShutdownHandlers()
       Effect.runFork(stopClusterRunner)
     })
     return
   }
 
-  // Deno's server shutdown waits for open streams such as chat runs, so cleanup waits for Nitro's
-  // close hook only as long as srvx's own graceful timeout. https://docs.deno.com/api/deno/~/Deno.HttpServer
+  // Let HTTP requests drain before closing resources, bounded by srvx's graceful timeout.
+  // https://srvx.h3.dev/guide/lifecycle
   const drained = Deferred.makeUnsafe<void>()
   nitro.hooks.hook("close", () => void Deferred.doneUnsafe(drained, Effect.void))
   const shutdown = Deferred.await(drained).pipe(

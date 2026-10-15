@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/api-key
+// Added with: bun run ui add @better-auth-ui/api-key
 // Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"

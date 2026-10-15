@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: Use Phosphor, domain-specific function names, and a hover title for the icon-only filter action; take the organization and its permissions as props from the page loader and scope every member query to its ID; omit disabled teams, support responsive controls/table and strict optional props, colocate the private loading row, and reset the page during render when its query changes.
 // Local changes: match directory pagination with a page-size selector, refresh icon, and right-aligned navigation.
 

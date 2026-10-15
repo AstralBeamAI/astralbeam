@@ -44,7 +44,10 @@ export function isPublicModelEndpointUrl(url: URL): boolean {
 
 // Refuses non-HTTPS URLs, private resolutions, and redirects. DNS may change before fetch's own
 // lookup, but HTTPS then requires the rebound target to hold a certificate for the host.
-export const fetchPublicModelEndpoint: typeof fetch = async (input, init) => {
+export const fetchPublicModelEndpoint: (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response> = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : input)
   const addresses = isPublicModelEndpointUrl(url)
     ? await lookup(url.hostname.replace(/^\[(.*)\]$/, "$1"), { all: true })

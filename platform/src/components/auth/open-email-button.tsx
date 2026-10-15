@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Use Phosphor icons and browser-safe globals, and memoize the QR code by email for the React Compiler lint.
 
 import { createQrCodeSvgData, getEmailProviderLink } from "@better-auth-ui/core"

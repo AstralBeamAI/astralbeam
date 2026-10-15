@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Type forwarded props against the configured Phosphor icon for strict compatibility.
 
 import { cn } from "cn"

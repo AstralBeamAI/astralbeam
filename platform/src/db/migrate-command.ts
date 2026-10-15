@@ -11,9 +11,8 @@ import {
   runDatabaseMigrations,
 } from "./migration-log.ts"
 
-// `deno compile --include` embeds this folder. Plain `pg` keeps drizzle-orm and effect, tens of
-// megabytes each, out of the binary's npm payload.
-const MIGRATIONS_DIRECTORY = new URL("migrations/", import.meta.url)
+// Bun embeds the migration tree beside the executable entry. https://bun.sh/docs/bundler/executables
+const MIGRATIONS_DIRECTORY = new URL("./migrations/", import.meta.url)
 
 function readEmbeddedMigrations(): BundledMigration[] {
   return readdirSync(MIGRATIONS_DIRECTORY)

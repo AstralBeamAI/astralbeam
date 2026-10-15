@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/auth
+// Added with: bun run ui add @better-auth-ui/auth
 // Local changes: Preserve exact optional-property typing and remove unconfigured passwordless fallback routing.
 
 "use client"

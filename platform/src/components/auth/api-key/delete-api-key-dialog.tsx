@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/api-key
+// Added with: bun run ui add @better-auth-ui/api-key
 // Local changes: Use Phosphor icons; support exact optional property types; notify the paginated list after deletion.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"

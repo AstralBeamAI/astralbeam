@@ -86,7 +86,7 @@ export async function assertSeedMigrationsApplied(database: SeedDatabase): Promi
     throw new Error(
       `${pending.length} migration(s) have not been applied, starting with '${
         pending[0]
-      }'. Run \`deno task db migrate\` first.`,
+      }'. Run \`bun run db migrate\` first.`,
     )
   }
 }

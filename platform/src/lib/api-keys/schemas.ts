@@ -1,5 +1,4 @@
 import type { ListedApiKey } from "@better-auth-ui/core/plugins/api-key"
-// Seed modules and the database schema import this under a plain `deno run`, so it has no `@/` imports.
 import { Schema } from "effect"
 
 import { UUID_V7_PATTERN } from "../schemas.ts"

@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/organization
+// Added with: bun run ui add @better-auth-ui/organization
 // Local changes: Use Phosphor icons, hover titles for icon-only actions, and static roles; take member permissions as props from the page loader; omit dynamic roles, teams, and member model fields.
 
 import {

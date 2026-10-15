@@ -31,7 +31,7 @@
     "config": ["e2e/playwright.config.ts"],
     "entry": ["e2e/*.setup.ts", "e2e/specs/**/*.spec.ts"],
   },
-  // Keep Deno-run generators and framework entry points explicit.
+  // Keep Bun-run generators and framework entry points explicit.
   "entry": [
     "e2e/mailbox-server.ts",
     "e2e/prepare-database.ts",

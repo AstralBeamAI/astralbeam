@@ -12,6 +12,6 @@
       "effect/unstable/sql/SqlError": ["./node_modules/effect/dist/sql/SqlError.d.ts"],
       "@/*": ["./src/*"]
     },
-    "types": ["vite/client", "@tanstack/react-start"]
+    "types": ["bun", "vite/client", "@tanstack/react-start"]
   }
 }

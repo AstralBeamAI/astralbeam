@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/api-key
+// Added with: bun run ui add @better-auth-ui/api-key
 // Local changes: Use Phosphor icons, support exact optional property types, disable last-key deletion, and render dates after hydration.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"

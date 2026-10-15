@@ -1,4 +1,4 @@
-// Added with: deno task ui add native-select
+// Added with: bun run ui add native-select
 // Local changes: none.
 import * as React from "react"
 import { cn } from "cn"

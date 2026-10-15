@@ -682,7 +682,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
             yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
             yield* TestClock.adjust("5 minutes")
           }
-          yield* Effect.promise(() => db.execute(sql`drop table tenant_purge_blocker`))
+          yield* Effect.promise(() => db.execute(sql`delete from tenant_purge_blocker`))
           yield* TestClock.adjust("5 minutes")
           yield* Fiber.join(deletion)
         }).pipe(Effect.provide(TestClock.layer())),

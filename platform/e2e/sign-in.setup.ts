@@ -24,7 +24,7 @@ test("sign in as the seeded owner", async ({ browser, page }) => {
   await auth.signIn(SEED_USERS[0].email, SEED_PASSWORD)
   await expect(
     page,
-    "Sign-in failed. Run `deno task db-seed` from `platform` against this server's database.",
+    "Sign-in failed. Run `bun run db-seed` from `platform` against this server's database.",
   ).not.toHaveURL(/\/auth\//, { timeout: 30_000 })
   await page.context().storageState({ path: seededStatePath })
 })

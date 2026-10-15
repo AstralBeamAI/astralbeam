@@ -1,4 +1,4 @@
-// Added with: deno task ui add @better-auth-ui/settings
+// Added with: bun run ui add @better-auth-ui/settings
 // Local changes: remove username-plugin fields, use Phosphor icons, and use the displayed Organization’s member avatar, with initials outside Organizations.
 
 import { useMatches } from "@tanstack/react-router"

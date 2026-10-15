@@ -188,13 +188,10 @@ function installTransactionTransportGuards() {
       ),
     })
   }
-  const denoTransport = Reflect.get(globalThis, "Deno") as
-    | Record<"connect" | "connectTls", (...args: unknown[]) => unknown>
-    | undefined
-  if (denoTransport) {
-    for (const method of ["connect", "connectTls"] as const) {
-      denoTransport[method] = guardedTransactionTransport(denoTransport[method], `Deno.${method}`)
-    }
+  for (const method of ["connect", "udpSocket", "spawn", "spawnSync"] as const) {
+    Object.assign(Bun, {
+      [method]: guardedTransactionTransport(Bun[method], `Bun.${method}`),
+    })
   }
 }
 

@@ -14,7 +14,7 @@ The code lives in `examples/todos` in the repository, and it demonstrates four t
 Run this command from the repository root to create an organization, a todos agent, a sandbox provider, and an API key:
 
 ```sh
-deno task --cwd platform db-seed
+bun run --cwd platform db-seed
 ```
 
 It also writes `examples/todos/.env` when that file does not already exist, so the example points at the database you just seeded.
@@ -27,7 +27,7 @@ The API key and the agent must belong to the same organization, as a key cannot 
 
 ## 2. Run the example
 
-Start the platform on port 4500 with `deno task dev` from `platform`, then build the SDK with `deno task build` from `sdk`. From `examples/todos`, run `deno install` followed by `deno task dev` and open `http://localhost:4700`.
+From the repository root, install the workspace with `bun install --frozen-lockfile` and build the SDK with `bun run --cwd sdk build`. Start the platform on port 4500 with `bun run --cwd platform dev`. In another terminal, start the example with `bun run --cwd examples/todos dev` and open `http://localhost:4700`.
 
 You should see the todo list with the assistant sidebar beside it, and controls along the top for hiding the assistant and switching themes.
 
@@ -105,7 +105,7 @@ Ask it to export the todos as CSV. Published files remain available in the conve
 
 ## Automated checks
 
-Run `deno task e2e` from `examples/todos` to drive all of the above in a browser against the seeded database, including the token round trip and the chat endpoint's authorization boundary. It needs that database, so it stays out of the default checks.
+Run `bun run e2e` from `examples/todos` to drive all of the above in a browser against the seeded database, including the token round trip and the chat endpoint's authorization boundary. It needs that database, so it stays out of the default checks.
 
 ## Next
 

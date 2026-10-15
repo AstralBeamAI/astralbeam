@@ -45,7 +45,7 @@ type Fixtures = {
  * The one import a spec needs. Every page object is a thin factory over `page`, so a spec composes
  * the flow it needs instead of repeating selectors.
  *
- * Playwright's second argument is positional, so it is named `provide` rather than `use`: Deno's
+ * Playwright's second argument is positional, so it is named `provide` rather than `use`: the
  * React lint rules read a bare `use(...)` call as React's own hook.
  */
 export const test = base.extend<Fixtures>({

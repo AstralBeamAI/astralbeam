@@ -28,7 +28,7 @@ const mailboxApiPort = Number(process.env.E2E_MAILBOX_PORT ?? portBase + 2)
 export const mailboxSmtpPort = Number(process.env.E2E_SMTP_PORT ?? portBase + 1)
 
 /**
- * `E2E_SEEDED=1` (`deno task e2e:seeded`) runs `specs/seeded` against the worktree's seeded
+ * `E2E_SEEDED=1` (`bun run e2e:seeded`) runs `specs/seeded` against the worktree's seeded
  * database instead, signed in as the seeded owner. `E2E_PLATFORM_URL` reuses a running server.
  */
 export const seededMode = process.env.E2E_SEEDED === "1"
@@ -105,7 +105,7 @@ export function e2eWebServers() {
     if (externalPlatformUrl) return []
     return [
       {
-        command: "deno task dev",
+        command: "bun run dev",
         cwd: platformDirectory,
         url: `${platformUrl}/api/status`,
         env: { PORT: String(platformPort), APP_BASE_URL: platformUrl },
@@ -119,7 +119,7 @@ export function e2eWebServers() {
   }
   return [
     {
-      command: "deno run -P=tooling ./e2e/mailbox-server.ts",
+      command: "bun run ./e2e/mailbox-server.ts",
       cwd: platformDirectory,
       url: `${mailboxUrl}/health`,
       env: {
@@ -134,7 +134,7 @@ export function e2eWebServers() {
     {
       // The database is prepared here rather than in `globalSetup`, which Playwright runs only
       // after it has already started the web servers.
-      command: "deno run -P=tooling ./e2e/prepare-database.ts && deno task dev",
+      command: "bun run ./e2e/prepare-database.ts && bun run dev",
       cwd: platformDirectory,
       url: `${platformUrl}/api/status`,
       env: {

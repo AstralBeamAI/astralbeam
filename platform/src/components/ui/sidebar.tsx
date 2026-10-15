@@ -1,4 +1,4 @@
-// Added with: deno task ui add sidebar
+// Added with: bun run ui add sidebar
 // Local changes: Add a hover title to the icon-only trigger.
 
 "use client"

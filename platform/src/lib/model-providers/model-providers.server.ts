@@ -80,7 +80,7 @@ export interface ChatModelConfiguration {
   /** The model's stored price and limit override, which `ModelProviders.pricing` completes. */
   readonly configured?: ModelConfiguration | null | undefined
   /** Enforces the deployment's private endpoint policy on every provider request. */
-  readonly fetch: typeof fetch
+  readonly fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
 export type SaveModelProviderInput = ModelProviderFields & {

@@ -20,30 +20,29 @@ mv astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
 
 `sha256sum` prints `astralbeam-platform-linux-x86_64: OK` when the download matches the release's checksum and fails otherwise. That proves the file arrived intact, but the release carries no signature, so nothing here verifies where it came from. Running the binary is only a smoke check. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.4 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
 
-For a fork, or a target without a prebuilt asset, we build the binary ourselves. Deno is the only supported toolchain.
+For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
 
-With [Deno installed](https://docs.deno.com/runtime/getting_started/installation/), run these commands from the repository root to install the frozen dependencies, build the SDK the platform bundles, and build the binary:
+With the [Bun version named in `.bun-version`](https://bun.sh/docs/installation) installed, run these commands from the repository root to install the frozen dependencies, build the SDK the platform bundles, and build the binary:
 
 ```sh
-(cd sdk && deno install --frozen)
-deno task --cwd sdk build
-(cd platform && deno install --frozen)
-deno task --cwd platform build
+bun install --frozen-lockfile
+bun run --cwd sdk build
+bun run --cwd platform build
 ```
 
 **NOTE**: Do not run `scripts/setup.sh` on a deployment host. It is the contributor setup, and it migrates any database `DATABASE_URL` reaches and seeds it with fixed development credentials.
 
-The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary.
+The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
 Run this command to smoke-test the binary the way CI does:
 
 ```sh
-deno task --cwd platform binary:check
+bun run --cwd platform binary:check
 ```
 
-It rejects a binary over 200 MiB, requires `version` and `--version` to print the platform version and `--help` to list `migrate` and `upgrade`, starts it on a free loopback port, and requires the status endpoint, the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
+It requires `version` and `--version` to print the platform version and `--help` to list `migrate` and `upgrade`, starts it on a free loopback port, and requires the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
 
-**TIP**: You can skip the binary and run the same commands with `deno task --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
+**TIP**: You can skip the binary and run the same commands with `bun run --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 
 ## 2. Provision the database
 
@@ -181,7 +180,7 @@ Let's move a running deployment to a newer release. Read the release notes first
    sudo astralbeam-platform upgrade
    ```
 
-   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.4`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub, checks it against the release's `SHA256SUMS`, and swaps it in place after you confirm. It refuses a download that does not match its checksum or is missing from the file, and it supports releases from v0.13.4, the first to publish `SHA256SUMS`. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `deno task start`, it refuses, because the running executable is then Deno itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no signature.
+   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.4`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub, checks it against the release's `SHA256SUMS`, and swaps it in place after you confirm. It refuses a download that does not match its checksum or is missing from the file, and it supports releases from v0.13.4, the first to publish `SHA256SUMS`. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `bun run start`, it refuses, because the running executable is then Bun itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no signature.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
