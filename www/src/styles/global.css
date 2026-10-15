@@ -292,6 +292,10 @@ a[href] {
   text-shadow: 0 0 12px var(--beam-soft);
 }
 
+.hud-nav-socials {
+  display: flex;
+}
+
 .hud-nav-social {
   display: inline-flex;
   align-items: center;

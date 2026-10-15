@@ -62,26 +62,28 @@ export function LandingPage() {
             />
           </a>
           <nav className="hud-nav" id="hud-nav" aria-label="Primary">
-            <a
-              className="hud-nav-social"
-              href={githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="AstralBeam on GitHub"
-              title="GitHub"
-            >
-              <GithubIcon />
-            </a>
-            <a
-              className="hud-nav-social"
-              href={discordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="AstralBeam on Discord"
-              title="Discord"
-            >
-              <DiscordIcon />
-            </a>
+            <span className="hud-nav-socials">
+              <a
+                className="hud-nav-social"
+                href={githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="AstralBeam on GitHub"
+                title="GitHub"
+              >
+                <GithubIcon />
+              </a>
+              <a
+                className="hud-nav-social"
+                href={discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="AstralBeam on Discord"
+                title="Discord"
+              >
+                <DiscordIcon />
+              </a>
+            </span>
             <a href={docsUrl}>DOCS</a>
             <a href="#pricing">PRICING</a>
             <a href={logInUrl}>SIGN IN</a>
