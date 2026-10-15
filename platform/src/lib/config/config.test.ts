@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto"
 import { assert, describe, it } from "@effect/vitest"
 import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
 import type { SqlClient, SqlConnection } from "effect/sql"
@@ -20,6 +21,7 @@ import type { ConfigValues } from "./types.ts"
 const migrations = { pending: false }
 
 const SECRET = "a".repeat(64)
+const cloudfrontConfigKeyPair = generateKeyPairSync("rsa", { modulusLength: 2048 })
 const COMPLETE_VALUES = {
   dogfood_organization_id: "01990a5d-0000-7000-8000-000000000013",
   dogfood_api_key: `key_01990a5d-0000-7000-8000-000000000013_01990a5d-0000-7000-8000-000000000024_abo_${"A".repeat(64)}`,
@@ -105,6 +107,7 @@ describe("configuration registry", () => {
       ["s3_endpoint", "http://s3.example.com"],
       ["cloudfront_download_origin", "http://localhost"],
       ["cloudfront_download_origin", "https://files.example.com/path"],
+      ["cloudfront_download_origin", "https://files.example.com:8443"],
       ["cloudfront_download_origin", `https://files.example.com?key=${secret}`],
       ["cloudfront_private_key", secret],
       ["email_from_address", "secret@@value"],
@@ -143,11 +146,14 @@ describe("configuration registry", () => {
     const cloudfront = {
       cloudfront_download_origin: "https://files.example.com",
       cloudfront_key_pair_id: "KTESTPUBLICKEY",
-      cloudfront_private_key: "-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n",
+      cloudfront_private_key: cloudfrontConfigKeyPair.privateKey
+        .export({ type: "pkcs8", format: "pem" })
+        .toString(),
     } satisfies ConfigValues
     const keys = Object.keys(cloudfront) as (keyof typeof cloudfront)[]
     assert.isEmpty(validateConfigCompleteness(COMPLETE_VALUES))
     assert.isEmpty(validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront }))
+    assert.isEmpty(validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront }, new Set(keys)))
     for (const key of keys) {
       assert.deepStrictEqual(
         validateConfigCompleteness({ ...COMPLETE_VALUES, ...cloudfront, [key]: undefined }).map(
@@ -158,6 +164,55 @@ describe("configuration registry", () => {
       assert.isTrue(
         Result.isSuccess(decodeConfigValue(findConfigDefinition(key)!, cloudfront[key])),
       )
+      for (const overridden of [[key], keys.filter((candidate) => candidate !== key)]) {
+        assert.deepStrictEqual(
+          validateConfigCompleteness(
+            { ...COMPLETE_VALUES, ...cloudfront },
+            new Set(overridden),
+          ).map((issue) => issue.key),
+          keys.filter((candidate) => !overridden.includes(candidate)),
+        )
+      }
+    }
+    assert.deepStrictEqual(
+      decodeConfigValue(
+        findConfigDefinition("cloudfront_download_origin")!,
+        "https://files.example.com:443/",
+      ),
+      Result.succeed("https://files.example.com"),
+    )
+  })
+
+  it("validates CloudFront key material and supported algorithms without exposing rejected keys", () => {
+    const definition = findConfigDefinition("cloudfront_private_key")!
+    const ecKey = generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey
+    assert.isTrue(
+      Result.isSuccess(
+        decodeConfigValue(definition, ecKey.export({ type: "sec1", format: "pem" }).toString()),
+      ),
+    )
+    for (const value of [
+      "-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n",
+      cloudfrontConfigKeyPair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+      cloudfrontConfigKeyPair.privateKey
+        .export({
+          type: "pkcs8",
+          format: "pem",
+          cipher: "aes-256-cbc",
+          passphrase: "fixture-passphrase",
+        })
+        .toString(),
+      generateKeyPairSync("rsa", { modulusLength: 1024 })
+        .privateKey.export({ type: "pkcs8", format: "pem" })
+        .toString(),
+      generateKeyPairSync("ec", { namedCurve: "secp384r1" })
+        .privateKey.export({ type: "pkcs8", format: "pem" })
+        .toString(),
+    ]) {
+      const decoded = decodeConfigValue(definition, value)
+      assert.isTrue(Result.isFailure(decoded))
+      if (Result.isFailure(decoded))
+        assert.notInclude(decoded.failure.message, value.split("\n")[1]!)
     }
   })
 
