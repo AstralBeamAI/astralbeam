@@ -31,6 +31,7 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
   await test.step("a usage page past the end returns to the last page", async () => {
     const limitPage = page.url()
     await page.goto(`${limitPage}?page=3`)
+    await waitForHydration(shell.sectionLink("Usage Limits"))
     await expect(page.getByText("No usage in the current window yet.")).toBeVisible()
     expect(new URL(page.url()).searchParams.get("page")).toBeNull()
   })

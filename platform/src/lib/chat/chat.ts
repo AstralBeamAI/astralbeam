@@ -53,6 +53,7 @@ import { ChatSandboxes } from "./sandbox/sandbox"
 import { createChatSandboxTools } from "./sandbox/tools"
 import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
+import { errorReason } from "@/lib/runtime/failure-report.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { chatUsageLimitGuard } from "./usage-limits"
 
@@ -458,7 +459,7 @@ export class Chat extends Context.Service<
                 Effect.annotateLogs({
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
-                  code: chunk.code,
+                  code: errorReason(chunk),
                 }),
               ),
               runError,
