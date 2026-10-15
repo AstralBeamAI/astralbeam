@@ -1,4 +1,4 @@
-// Added with: bun run ui add skeleton
+// Added from @shadcn/skeleton
 import { cn } from "cn"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {

@@ -1,4 +1,4 @@
-// Added with: bun run ui add sidebar
+// Added from @shadcn/sidebar
 // Local changes: Read the breakpoint through useSyncExternalStore instead of setting state in an effect.
 
 import * as React from "react"

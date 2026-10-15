@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, and reset closed-dialog state during render.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"

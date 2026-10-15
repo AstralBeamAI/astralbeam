@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/settings
+// Added from @better-auth-ui/settings
 // Local changes: none.
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"

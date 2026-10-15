@@ -1,4 +1,4 @@
-// Added with: bun run ui add dialog
+// Added from @shadcn/dialog
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"

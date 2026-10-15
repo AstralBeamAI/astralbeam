@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/api-key
+// Added from @better-auth-ui/api-key
 // Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; promptly evict the one-time secret from the mutation cache.
 
 "use client"

@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/theme
+// Added from @better-auth-ui/theme
 // Local changes: none.
 "use client"
 

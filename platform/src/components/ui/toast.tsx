@@ -1,4 +1,4 @@
-// Added with: bun run ui add toast
+// Added from @shadcn/toast
 // Local changes: Add a hover title to the icon-only close action. Raise the viewport to z-[60], above dialog overlays.
 import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"

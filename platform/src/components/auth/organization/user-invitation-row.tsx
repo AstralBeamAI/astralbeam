@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, notify onboarding after an invitation action, and render dates after hydration.
 
 "use client"

@@ -1,4 +1,4 @@
-// Added with: bun run ui add tooltip
+// Added from @shadcn/tooltip
 // Local changes: shadow-root portal container.
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
 import { cn } from "cn"

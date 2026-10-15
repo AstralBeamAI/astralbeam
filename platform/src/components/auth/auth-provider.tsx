@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Inject the Base UI Toast error handler and remove unused custom-field typing.
 
 import {

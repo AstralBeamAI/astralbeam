@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: use Phosphor and drop the organizations settings tab, which lives at /organizations, and drop the redundant `localization` assertion.
 
 import { createAuthPlugin } from "@better-auth-ui/core"

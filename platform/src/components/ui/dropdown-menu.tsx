@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/settings
+// Added from @better-auth-ui/settings
 // Local changes: Show a pointer cursor on menu items, matching the project's `--pointer` button cursor.
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"

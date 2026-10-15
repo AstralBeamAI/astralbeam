@@ -1,4 +1,4 @@
-// Adapted with: bun run ui add @emailcn/react-email/theme-default
+// Adapted from @emailcn/react-email/theme-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/themes/email-theme.ts
 // Local changes: Inline the app's light brand palette as static sRGB email tokens, use system fonts, and expose matching class names only.
 

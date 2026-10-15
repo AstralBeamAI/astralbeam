@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: repair strict optional props and query only the signed-in member for static role labels.
 
 import {

@@ -1,4 +1,4 @@
-// Added with: bun run ui add native-select
+// Added from @shadcn/native-select
 import * as React from "react"
 import { cn } from "cn"
 import { CaretDownIcon } from "@phosphor-icons/react"

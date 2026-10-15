@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, colocate private list states, and allow onboarding to hide empty invitations.
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"

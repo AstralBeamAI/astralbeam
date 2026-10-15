@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/api-key
+// Added from @better-auth-ui/api-key
 // Local changes: Keep organization-only API keys on their dedicated organization route.
 
 import { createAuthPlugin } from "@better-auth-ui/core"

@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: Keep generated plugin implementation types module-private.
 
 import type { AuthPlugin as AuthPluginPrimitive, AuthPluginComponents } from "@better-auth-ui/react"

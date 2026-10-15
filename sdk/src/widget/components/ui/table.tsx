@@ -1,4 +1,4 @@
-// Added with: bun run ui add table
+// Added from @shadcn/table
 import * as React from "react"
 import { cn } from "cn"
 

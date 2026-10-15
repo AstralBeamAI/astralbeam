@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: none.
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"

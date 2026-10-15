@@ -1,4 +1,4 @@
-// Added with: bun run ui add label
+// Added from @shadcn/label
 "use client"
 
 import * as React from "react"

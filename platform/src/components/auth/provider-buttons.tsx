@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/auth
+// Added from @better-auth-ui/auth
 // Local changes: Forward the controlled legal-acceptance gate to OAuth signup buttons and preserve strict optional-property typing.
 
 "use client"

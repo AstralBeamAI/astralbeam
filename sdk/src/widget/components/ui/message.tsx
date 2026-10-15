@@ -1,4 +1,4 @@
-// Added with: bun run ui add message
+// Added from @shadcn/message
 import * as React from "react"
 
 import { cn } from "cn"

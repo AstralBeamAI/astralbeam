@@ -1,4 +1,4 @@
-// Adapted with: bun run ui add @emailcn/react-email/block-notification-default
+// Adapted from @emailcn/react-email/block-notification-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/notification-default.tsx
 // Local changes: Repurpose the notification block as an organization deletion notice, use the shared shell and dashboard URL, and co-locate typed preview props. Use @/ for deep source imports.
 

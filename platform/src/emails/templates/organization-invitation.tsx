@@ -1,5 +1,5 @@
-// Previously added with: bun run ui add @better-auth-ui/organization-invitation-email
-// Adapted with: bun run ui add @emailcn/react-email/block-invite-default
+// Previously added from @better-auth-ui/organization-invitation-email
+// Adapted from @emailcn/react-email/block-invite-default
 // Source: shadcn-labs/emailcn@7979f3be5fb0e7f689b810a24d48c2c75c40ed06:registry/bases/react-email/blocks/invite-default.tsx
 // Local changes: Map the team invite to Better Auth organization, role, and inviter details; retain required production props; use the shared shell and fallback URL; and co-locate typed preview props. Use @/ for deep source imports.
 

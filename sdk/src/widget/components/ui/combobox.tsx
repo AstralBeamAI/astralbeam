@@ -1,4 +1,4 @@
-// Added with: bun run ui add combobox
+// Added from @shadcn/combobox
 // Local changes: shadow-root portal, accessible labels, persistent empty live region, async status export, native scrollbars, React 18 list ref.
 "use client"
 

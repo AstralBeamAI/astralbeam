@@ -1,4 +1,4 @@
-// Added with: bun run ui add @better-auth-ui/organization
+// Added from @better-auth-ui/organization
 // Local changes: Replace Lucide with Phosphor icons and Sonner with Base UI Toast, and return to /organizations after leaving.
 
 "use client"
