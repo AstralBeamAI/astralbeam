@@ -7,6 +7,7 @@ export {
   type AstralBeamChatCoreOptions,
   type AstralBeamChatState,
   type ChatStreamCallbacks,
+  type ChatSubmission,
   type ChatSubmissionCallbacks,
   createAstralBeamChat,
   type WidgetRenderRequest,

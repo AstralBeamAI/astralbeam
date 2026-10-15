@@ -64,8 +64,8 @@ test("HTTP errors reach chat state and callbacks with their API details", async 
     streamCallbacks: { onError },
   })
   await chat.sendMessage("Hello")
-  expect(chat.getState().unsentMessage).toBe("Hello")
-  expect(chat.getState().error?.message).toBe(problem.detail)
+  expect(chat.getState().submission).toMatchObject({ phase: "refused", content: "Hello" })
+  expect(chat.getState().submission?.error?.message).toBe(problem.detail)
   expect(onError).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       name: "AstralBeamApiError",

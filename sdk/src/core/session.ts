@@ -73,6 +73,8 @@ import {
   selectedThread,
 } from "./threads.ts"
 
+const HISTORY_FAILED = "Reopen this conversation or start a new one before sending."
+
 /** A widget render the agent requested, handed to the host's `onRenderWidget`. */
 export interface WidgetRenderRequest {
   widget: string
@@ -154,10 +156,22 @@ function sameAgentTools(
   )
 }
 
+/**
+ * One send and its outcome in the selected conversation. `failed` means the server may have
+ * accepted it, so only `retry()` can resend it. `refused` means it was not accepted.
+ */
+export interface ChatSubmission {
+  id: string
+  content: string | MultimodalContent
+  phase: "submitting" | "accepted" | "failed" | "refused"
+  error?: Error | undefined
+}
+
 export interface AstralBeamChatState {
   messages: UIMessage[]
-  /** The underlying chat client status: "ready", "submitted", "streaming", or "error". */
+  /** The run status: "ready", "submitted", "streaming", or "error". */
   status: ChatClientState
+  /** The latest failure outside a submission, such as history loading or a failed reply. */
   error: Error | undefined
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
@@ -171,15 +185,11 @@ export interface AstralBeamChatState {
   usageLimitReached: { name: string; resetsAt: string } | undefined
   sandbox: SandboxActivity
   thread: ChatThread | undefined
-  /** Saved history is loading with nothing to show yet. */
-  threadLoading: boolean
-  /** Saved history is reloading behind the shown transcript. Block sends without showing loading. */
-  threadRefreshing: boolean
-  threadLoadFailed: boolean
+  /** Saved history: `loading` has nothing to show yet, `refreshing` reloads behind the transcript. */
+  history: "idle" | "loading" | "refreshing" | "failed"
   messagesCursor: string | undefined
   olderMessagesLoading: boolean
-  /** Retained until the server acknowledges the send, including after an uncertain network failure. */
-  unsentMessage: string | MultimodalContent | undefined
+  submission: ChatSubmission | undefined
   activeToolCallIds: readonly string[]
   pendingInteractions: readonly ChatPendingInteraction[]
 }
@@ -195,14 +205,13 @@ export interface AstralBeamChatCore {
    * the chat session. Only the keys given are replaced.
    */
   updateOptions: (options: Partial<AstralBeamChatCoreOptions>) => void
-  /**
-   * Sends a message, persisting it before generation begins. Resolves false when the session refused
-   * the input without keeping it for Retry, so the caller still owns it.
-   */
+  /** Sends a message as a new `submission`, persisting it before generation begins. */
   sendMessage: (
     content: string | MultimodalContent,
     callbacks?: ChatSubmissionCallbacks,
-  ) => Promise<boolean>
+  ) => Promise<void>
+  /** Resends a `failed` submission with its original idempotency key and callbacks. */
+  retry: () => Promise<void>
   /** Resolves a client tool call the host executed itself (a questionnaire, an approval). */
   addToolResult: ChatClient["addToolResult"]
   /** Stops the in-flight generation; the transcript keeps what already streamed. */
@@ -264,25 +273,50 @@ export function createAstralBeamChat(
     usageLimitReached: undefined,
     sandbox: { files: [], commands: [] },
     thread: undefined,
-    threadLoading: false,
-    threadRefreshing: false,
-    threadLoadFailed: false,
+    history: "idle",
     messagesCursor: undefined,
     olderMessagesLoading: false,
-    unsentMessage: undefined,
+    submission: undefined,
     activeToolCallIds: [],
     pendingInteractions: [],
   }
+  // The selected conversation's send. Uncertain and refused sends are kept per conversation.
+  type Submission = ChatSubmission & {
+    key: string
+    tools?: Array<Record<string, unknown>>
+    callbacks?: ChatSubmissionCallbacks | undefined
+  }
+  let submission: Submission | undefined
+  const submissions = new Map<string, Submission>()
+  // The session owns the run status, so a send is "submitted" while its conversation is prepared,
+  // and a replaced client's reports never reach it.
+  let clientStatus: ChatClientState = "ready"
   const update = (next: Partial<AstralBeamChatState>) => {
-    state = { ...state, ...next }
+    const status =
+      submission?.phase === "submitting" && clientStatus !== "streaming"
+        ? "submitted"
+        : clientStatus
+    state = { ...state, ...next, status }
     for (const listener of listeners) listener()
   }
-  // Like TanStack Query's isLoading and isRefetching, loading means nothing is shown yet.
-  const historyLoading = () =>
-    state.messages.length > 0 || state.thread?.hasMessages === false
-      ? { threadLoading: false, threadRefreshing: true }
-      : { threadLoading: true, threadRefreshing: false }
-  const historyLoaded = { threadLoading: false, threadRefreshing: false }
+  const settle = (phase: ChatSubmission["phase"], error?: Error) => {
+    if (!submission) return
+    submission.phase = phase
+    submission.error = error
+    const { id, content } = submission
+    update({ submission: { id, content, phase, ...(error ? { error } : {}) } })
+  }
+  // An unaccepted send can be retried only if the server may have it.
+  const settleUnaccepted = (error?: Error) =>
+    settle(
+      submission?.tools ? "failed" : "refused",
+      error ??
+        new Error(
+          submission?.tools
+            ? "This message may not have been sent. Retry to send it."
+            : "This message was not sent.",
+        ),
+    )
 
   const authentication = createChatAuthentication({
     apiUrl: live.apiUrl,
@@ -294,7 +328,6 @@ export function createAstralBeamChat(
   let identity: string | undefined
   let started = false
   let selectionGeneration = 0
-  let navigationGeneration = 0
   let historyGeneration = 0
   let hydration: Promise<unknown> = Promise.resolve()
   let requestController = new AbortController()
@@ -302,24 +335,11 @@ export function createAstralBeamChat(
   let startWithNewThread = false
   let threadRecords: Awaited<ReturnType<typeof loadThreadMessages>>["messages"] = []
   const clientId = newUuid()
-  let pendingSend:
-    | {
-        content: string | MultimodalContent
-        accepted: boolean
-        key: string
-        tools?: Array<Record<string, unknown>>
-        callbacks?: ChatSubmissionCallbacks | undefined
-        /** The failure shown when its conversation was left, restored with its Retry on return. */
-        error?: Error | undefined
-      }
-    | undefined
-  let sending = false
-  const pendingSends = new Map<string, NonNullable<typeof pendingSend>>()
-  const acceptPendingSend = () => {
-    if (!pendingSend || pendingSend.accepted) return
-    pendingSend.accepted = true
+  const acceptSubmission = () => {
+    if (submission?.phase !== "submitting") return
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    pendingSend.callbacks?.onAccepted?.()
+    settle("accepted")
+    submission.callbacks?.onAccepted?.()
   }
   const replaceAcceptedMessage = (record: ChatHistoryPageEncodedMessagesItem) => {
     const messages = [...client.getMessages()]
@@ -358,12 +378,15 @@ export function createAstralBeamChat(
     for (const [id, result] of retained) toolResults.set(id, result)
   }
 
+  const notifyError = (error: Error) => {
+    if (state.auth.status !== "error" || state.auth.error !== error)
+      live.streamCallbacks?.onError?.(error)
+  }
   const reportError = (error: unknown) => {
     if (error instanceof Error && error.name === "AbortError") return
     const failure = error instanceof Error ? error : new Error(String(error))
-    update({ error: failure, status: "error" })
-    if (state.auth.status !== "error" || state.auth.error !== failure)
-      live.streamCallbacks?.onError?.(failure)
+    update({ error: failure })
+    notifyError(failure)
   }
   const clearUnavailableMcpConnection = (id: string) => {
     update({
@@ -593,16 +616,16 @@ export function createAstralBeamChat(
     }
     let path = getRunChatUrl()
     let payload: unknown
-    const submission = body.messages.at(-1)?.role === "user" ? pendingSend : undefined
-    const previouslyAttempted = submission?.tools !== undefined
-    if (submission) {
+    const sent = body.messages.at(-1)?.role === "user" ? submission : undefined
+    const previouslyAttempted = sent?.tools !== undefined
+    if (sent) {
       payload = {
         ...body,
         threadId: thread.id,
         resume: undefined,
         parentRunId: undefined,
         messages: [body.messages.at(-1)],
-        tools: (submission.tools ??= body.tools),
+        tools: (sent.tools ??= body.tools),
         forwardedProps: {
           ...body.forwardedProps,
           clientId,
@@ -649,7 +672,7 @@ export function createAstralBeamChat(
     liveToolCalls.clear()
     update({ activeToolCallIds: [] })
     const headers = new Headers(init.headers)
-    if (submission) headers.set("Idempotency-Key", submission.key)
+    if (sent) headers.set("Idempotency-Key", sent.key)
     const response = await astralBeamChatFetch(path, {
       ...auth,
       ...init,
@@ -660,12 +683,12 @@ export function createAstralBeamChat(
       const limit = isAstralBeamApiError(error) ? error.body?.usage_limit : undefined
       if (limit) update({ usageLimitReached: { name: limit.name, resetsAt: limit.resets_at } })
       if (
-        submission &&
+        sent &&
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
         (error.status === 400 || error.status === 413 || error.status === 429)
       )
-        delete submission.tools
+        delete sent.tools
       throw error
     })
     if (generation !== selectionGeneration)
@@ -690,7 +713,7 @@ export function createAstralBeamChat(
             }
           : {}),
       })
-      if (submission) {
+      if (sent) {
         const history = await loadThreadMessages(thread.id, auth, undefined, liveToolMessageIds)
         if (generation !== selectionGeneration)
           throw new DOMException("Conversation changed", "AbortError")
@@ -698,7 +721,7 @@ export function createAstralBeamChat(
           (message) => message.id === receipt.accepted_message_id,
         )
         if (accepted) replaceAcceptedMessage(accepted)
-        acceptPendingSend()
+        acceptSubmission()
       }
       return new Response("", { headers: { "Content-Type": "text/event-stream" } })
     }
@@ -770,20 +793,31 @@ export function createAstralBeamChat(
       throw error instanceof Error && isAstralBeamApiError(error.cause) ? error.cause : error
     }
   }
-  // The thread ID is fixed per client and keys the server's sandbox lease, so a new conversation
-  // gets a new client instead of `clear()`. A replaced client's late callbacks are dropped.
-  const createClient = (threadId = state.thread?.id): ChatClient => {
+  // TanStack fixes a client's thread ID, so each selected conversation gets its own client. A new
+  // chat keeps its client after its first send creates the saved thread, which requests then name.
+  const createClient = (): ChatClient => {
     const generation = selectionGeneration
     const adapter: ConnectionAdapter = {
       ...connection,
-    }
-    // Local empty chats have no saved resource for native hydration.
-    // Saved threads use the authorized REST hydration below.
-    delete adapter.hydrate
-    if (threadId)
-      adapter.hydrate = (_id, options) => {
+      hydrate: (_id, options) => {
+        const threadId = selectedId
+        // A new chat has no saved history to request until its first send creates the thread.
+        if (!threadId)
+          return Promise.resolve({
+            messages: [],
+            activeRun: null,
+            interrupts: null,
+            page: { truncated: false },
+          })
         const readGeneration = ++historyGeneration
-        if (!options?.before) update(historyLoading())
+        // Like TanStack Query's isLoading and isRefetching, loading means nothing is shown yet.
+        if (!options?.before)
+          update({
+            history:
+              state.messages.length > 0 || state.thread?.hasMessages === false
+                ? "refreshing"
+                : "loading",
+          })
         const read = (async () => {
           let history = await loadThreadMessages(
             threadId,
@@ -824,7 +858,6 @@ export function createAstralBeamChat(
             thread: threadFromRecord(history.thread, history.messages.length > 0),
             messagesCursor: history.page_after ?? undefined,
             pendingInteractions: history.pendingInteractions,
-            threadLoadFailed: false,
           })
           restoreCompletedWidgets(messages)
           if (!options?.before && agentChanged) void resolveCapabilities()
@@ -843,31 +876,38 @@ export function createAstralBeamChat(
           }
         })()
         if (!options?.before) {
-          hydration = read
-          // Complete loading after ChatClient applies the page, including hydration on React remount.
-          const settled = (failed: boolean) =>
-            queueMicrotask(() => {
-              if (generation === selectionGeneration && readGeneration === historyGeneration)
-                update({ ...historyLoaded, threadLoadFailed: failed })
-            })
-          void read.then(
-            () => settled(false),
-            () => settled(true),
-          )
+          // Settle the phase after ChatClient applies the page, including hydration on React remount.
+          const settled = read
+            .then(
+              () => "idle" as const,
+              () => "failed" as const,
+            )
+            .then(
+              (history) =>
+                new Promise<void>((resolve) =>
+                  queueMicrotask(() => {
+                    if (generation === selectionGeneration && readGeneration === historyGeneration)
+                      update({ history })
+                    resolve()
+                  }),
+                ),
+            )
+          hydration = settled.then(() => read)
+          void hydration.catch(() => undefined)
         }
         return read
-      }
+      },
+    }
     const next: ChatClient = new ChatClient({
       connection: adapter,
-      // An empty local view uses its client ID until a stored thread is created before sending.
-      threadId: threadId ?? clientId,
+      threadId: selectedId ?? clientId,
       persistence: true,
       history: { pageSize: 100 },
       queue: "drop",
       tools: declareTools(),
       forwardedProps: forwardedProps(),
       onMessagesChange: (messages) => {
-        if (client !== next || generation !== selectionGeneration) return
+        if (client !== next) return
         // Model snapshots omit client render IDs. Retain the existing slot before publishing them.
         restoreCompletedWidgets(messages)
         // User messages are immutable. Keep saved download identities across model snapshots.
@@ -876,15 +916,12 @@ export function createAstralBeamChat(
           const saved = state.messages.find((previous) => previous.id === message.id)
           if (saved?.parts.some((part) => "savedAttachmentId" in part)) message.parts = saved.parts
         }
-        update({ messages, sandbox: collectSandboxActivity(messages), error: next.getError() })
+        update({ messages, sandbox: collectSandboxActivity(messages) })
       },
       onStatusChange: (status) => {
-        if (client === next && generation === selectionGeneration)
-          update({
-            status,
-            error: next.getError(),
-            ...(status === "submitted" ? { usageLimitReached: undefined } : {}),
-          })
+        if (client !== next) return
+        clientStatus = status
+        update(status === "submitted" ? { usageLimitReached: undefined } : {})
       },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
@@ -901,9 +938,9 @@ export function createAstralBeamChat(
             executableToolCallIds?: string[]
           }
           if (state.thread?.id === event.threadId) {
-            if (event.acceptedMessage && pendingSend && !pendingSend.accepted)
+            if (event.acceptedMessage && submission?.phase === "submitting")
               replaceAcceptedMessage(event.acceptedMessage)
-            if (event.acceptedMessageId) acceptPendingSend()
+            if (event.acceptedMessageId) acceptSubmission()
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
                 if (!liveToolCalls.has(id)) toolResults.delete(toolResultKey(id))
@@ -912,7 +949,6 @@ export function createAstralBeamChat(
             update({
               thread: { ...state.thread, version: event.version },
               activeToolCallIds: [...liveToolCalls],
-              ...(event.acceptedMessageId ? { unsentMessage: undefined } : {}),
             })
           }
           return
@@ -963,19 +999,21 @@ export function createAstralBeamChat(
         if (client === next) live.streamCallbacks?.onFinish?.(message)
       },
       onError: (error) => {
-        if (client === next && (state.auth.status !== "error" || state.auth.error !== error))
-          live.streamCallbacks?.onError?.(error)
+        if (client !== next) return
+        // An unaccepted send keeps its failure on the submission.
+        if (submission?.phase !== "submitting" && error.name !== "AbortError") update({ error })
+        notifyError(error)
       },
     })
     return next
   }
+  let selectedId: string | undefined
   let client = createClient()
-  const replaceClient = (threadId = state.thread?.id, keepSubmitted = false) => {
+  const replaceClient = () => {
     const previous = client
-    // Swap first, because the old client reports "ready" on every stop and detach. Only the send
-    // that creates a conversation keeps its "submitted" status across the swap.
-    client = createClient(threadId)
-    if (!keepSubmitted) update({ status: "ready" })
+    // Swap first, so the old client's reports on stop and detach are dropped.
+    client = createClient()
+    clientStatus = "ready"
     previous.stop()
     previous.detach()
     liveToolCalls.clear()
@@ -1023,17 +1061,17 @@ export function createAstralBeamChat(
   const changeSelection = (threadId?: string) => {
     const previousId = state.thread?.id
     if (previousId) {
-      if (pendingSend && !pendingSend.accepted)
-        pendingSends.set(previousId, { ...pendingSend, error: state.error })
-      else pendingSends.delete(previousId)
+      if (submission?.phase === "submitting") settleUnaccepted()
+      if (submission && submission.phase !== "accepted") submissions.set(previousId, submission)
+      else submissions.delete(previousId)
       threadToolResults.set(previousId, toolResults)
     }
     selectionGeneration++
     historyGeneration++
-    sending = false
+    selectedId = threadId
+    submission = undefined
     requestController.abort()
     requestController = new AbortController()
-    pendingSend = undefined
     toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
     historicalToolIds.clear()
     threadRecords = []
@@ -1041,67 +1079,46 @@ export function createAstralBeamChat(
     update({
       thread: undefined,
       messages: [],
-      unsentMessage: undefined,
+      submission: undefined,
       error: undefined,
-      status: "ready",
       sandbox: { files: [], commands: [] },
       sandboxStatus: undefined,
       usageLimitReached: undefined,
       pendingInteractions: [],
       serverToolTitles: {},
       unavailableMcpConnections: [],
-      ...historyLoaded,
-      threadLoadFailed: false,
+      history: "idle",
       messagesCursor: undefined,
       olderMessagesLoading: false,
     })
-    replaceClient(threadId)
+    replaceClient()
   }
 
   const openThread = async (id: string, restoring = false) => {
-    if (!restoring) navigationGeneration++
     changeSelection(id)
     const generation = selectionGeneration
-    update(historyLoading())
+    submission = submissions.get(id)
+    if (submission) settle(submission.phase, submission.error)
     try {
-      pendingSend = pendingSends.get(id)
-      // A retained send stays recoverable after navigation, so its failure and Retry return with it.
-      update(
-        pendingSend
-          ? {
-              unsentMessage: pendingSend.content,
-              status: "error",
-              error: pendingSend.error ?? new Error("This message was not sent. Retry to send it."),
-            }
-          : { unsentMessage: undefined },
-      )
       if (!started) client.attach()
       await hydration
       if (generation !== selectionGeneration) return
       if (threadKey) selectedThread(threadKey, id)
     } catch (error) {
-      if (generation === selectionGeneration) {
-        if (
-          restoring &&
-          (live.threadId === undefined || live.threadId === "auto") &&
-          isAstralBeamApiError(error) &&
-          error.status === 404
-        ) {
-          newThread()
-          return
-        }
-        update({ threadLoadFailed: true })
-        reportError(error)
-      }
-    } finally {
-      if (generation === selectionGeneration) update(historyLoaded)
+      if (generation !== selectionGeneration) return
+      if (
+        restoring &&
+        (live.threadId === undefined || live.threadId === "auto") &&
+        isAstralBeamApiError(error) &&
+        error.status === 404
+      )
+        newThread()
+      else reportError(error)
     }
   }
 
   const newThread = () => {
-    navigationGeneration++
     changeSelection()
-    update(historyLoaded)
     if (started) void resolveCapabilities()
     if (threadKey) selectedThread(threadKey, null)
     else startWithNewThread = true
@@ -1124,39 +1141,26 @@ export function createAstralBeamChat(
     const record = await createChatThread(live.agentId ? { agent_id: live.agentId } : {}, options)
     if (generation !== selectionGeneration)
       throw new DOMException("Conversation changed", "AbortError")
-    const thread = threadFromRecord(record, false)
-    update({ thread })
-    replaceClient(thread.id, true)
-    await hydration
+    selectedId = record.id
+    update({ thread: threadFromRecord(record, false) })
     void resolveCapabilities()
-    if (threadKey) selectedThread(threadKey, thread.id)
+    if (threadKey) selectedThread(threadKey, record.id)
   }
 
-  const refreshThread = async (preserveError = false, resetClient = true) => {
-    const id = state.thread?.id
-    if (!id) return
+  // Reloads saved history behind the transcript. Only an explicit refresh clears a shown failure.
+  const refreshThread = async (explicit = true) => {
+    if (!state.thread) return
     const generation = selectionGeneration
-    const previousError = state.error
-    update({ ...historyLoading(), olderMessagesLoading: false })
+    update({ olderMessagesLoading: false })
     try {
-      if (resetClient) replaceClient()
-      else {
-        client.detach()
-        client.attach()
-      }
+      client.detach()
+      client.attach()
       await hydration
-      if (generation !== selectionGeneration) return
-      if (preserveError && previousError) update({ error: previousError, status: "error" })
+      if (explicit && generation === selectionGeneration) update({ error: undefined })
     } catch (error) {
-      if (generation === selectionGeneration) {
-        if (isAstralBeamApiError(error) && error.status === 404) {
-          newThread()
-          return
-        }
-        reportError(error)
-      }
-    } finally {
-      if (generation === selectionGeneration) update(historyLoaded)
+      if (generation !== selectionGeneration) return
+      if (isAstralBeamApiError(error) && error.status === 404) newThread()
+      else reportError(error)
     }
   }
 
@@ -1164,9 +1168,8 @@ export function createAstralBeamChat(
     if (
       !client.getHasOlderMessages() ||
       state.olderMessagesLoading ||
-      state.threadLoading ||
-      state.threadRefreshing ||
-      sending
+      state.history !== "idle" ||
+      submission?.phase === "submitting"
     )
       return
     const generation = selectionGeneration
@@ -1192,7 +1195,7 @@ export function createAstralBeamChat(
       )
       if (generation !== selectionGeneration) return false
       const renamed = threadFromRecord(record, thread.hasMessages)
-      update({ thread: renamed, error: client.getError(), status: client.getStatus() })
+      update({ thread: renamed })
       return true
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
@@ -1221,7 +1224,7 @@ export function createAstralBeamChat(
     result: Parameters<ChatClient["addToolResult"]>[0] | { toolCallId: string },
   ) => {
     const generation = selectionGeneration
-    if (sending || client.getIsLoading()) {
+    if (submission?.phase === "submitting" || client.getIsLoading()) {
       reportError(new Error("Wait for this client's current request to finish before responding."))
       return
     }
@@ -1260,10 +1263,9 @@ export function createAstralBeamChat(
     }
     scopeCompletedToolCalls()
     if (pending) {
-      replaceClient()
-      await hydration
+      client.stop()
+      await refreshThread(false)
       if (generation !== selectionGeneration) return
-      update(historyLoaded)
       await client.append({
         role: "tool",
         toolCallId: result.toolCallId,
@@ -1272,98 +1274,73 @@ export function createAstralBeamChat(
     } else if ("tool" in result) {
       await client.addToolResult(result)
     }
-    if (generation === selectionGeneration)
-      await refreshThread(client.getError() !== undefined, false)
+    if (generation === selectionGeneration) await refreshThread(false)
   }
   const abandonToolCall = (toolCallId: string) => addToolResult({ toolCallId })
+
+  // Waits for a refresh in flight, so a send taken right after a reply follows its saved history.
+  const deliver = async (sent: Submission) => {
+    const generation = selectionGeneration
+    const current = () => generation === selectionGeneration && submission === sent
+    try {
+      await getValidChatAuthToken(authentication)
+      await hydration.catch(() => undefined)
+      if (!current()) return
+      if (state.history === "failed") throw new Error(HISTORY_FAILED)
+      await ensureThread()
+      if (!current()) return
+      sent.callbacks?.onThreadReady?.(state.thread!.id)
+      if (!current()) return
+      scopeCompletedToolCalls()
+      await client.sendMessage(sent.content)
+      if (!current()) return
+      if (sent.phase === "submitting") settleUnaccepted(client.getError())
+      await refreshThread(false)
+    } catch (error) {
+      if (!current() || (error instanceof Error && error.name === "AbortError")) return
+      const failure = error instanceof Error ? error : new Error(String(error))
+      settleUnaccepted(failure)
+      notifyError(failure)
+    }
+  }
 
   const sendMessage = async (
     content: string | MultimodalContent,
     callbacks?: ChatSubmissionCallbacks,
-  ): Promise<boolean> => {
-    const navigation = navigationGeneration
-    try {
-      await getValidChatAuthToken(authentication)
-    } catch (error) {
-      if (navigation !== navigationGeneration) return false
-      update({ unsentMessage: content })
-      reportError(error)
-      return true
-    }
-    if (navigation !== navigationGeneration) return false
-    if (sending || state.threadLoading || state.threadRefreshing || state.status === "streaming") {
-      reportError(new Error("Wait for this client's current request to finish before sending."))
-      return false
-    }
-    if (state.threadLoadFailed) {
-      reportError(new Error("Reopen this conversation or start a new one before sending."))
-      return false
-    }
-    const samePendingContent =
-      pendingSend !== undefined && JSON.stringify(pendingSend.content) === JSON.stringify(content)
-    const uncertainSend =
-      pendingSend?.tools !== undefined && !pendingSend.accepted ? pendingSend : undefined
-    const retrying = uncertainSend !== undefined && samePendingContent
-    if (state.thread?.agentId === null && !retrying) {
-      reportError(
-        new Error(
-          "This conversation’s agent is unavailable. Start a new conversation to continue.",
-        ),
-      )
-      return false
-    }
-    if (state.thread?.role === "viewer" && !retrying) {
-      reportError(new Error("You have read-only access to this conversation."))
-      return false
-    }
-    if (uncertainSend && !samePendingContent) {
-      update({ unsentMessage: uncertainSend.content })
-      reportError(
-        new Error(
-          "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation.",
-        ),
-      )
-      return false
-    }
-    const generation = selectionGeneration
-    historyGeneration++
-    update({ olderMessagesLoading: false })
-    sending = true
-    if (!pendingSend || pendingSend.accepted || !samePendingContent) {
-      pendingSend = {
-        content,
-        accepted: false,
-        key: newUuid(),
-        callbacks,
-      }
-      client.stop()
-      liveToolCalls.clear()
-      scopeCompletedToolCalls()
-      liveToolMessageIds.clear()
-      update({ activeToolCallIds: [] })
-    }
-    pendingSend.callbacks ??= callbacks
-    update({ unsentMessage: content, error: undefined, status: "submitted" })
-    try {
-      await ensureThread()
-      if (generation !== selectionGeneration) return true
-      pendingSend.callbacks?.onThreadReady?.(state.thread!.id)
-      if (generation !== selectionGeneration) return true
-      scopeCompletedToolCalls()
-      await client.sendMessage(content)
-      if (generation !== selectionGeneration) return true
-      const failed = client.getError() !== undefined
-      if (pendingSend?.accepted) {
-        pendingSend = undefined
-        update({ unsentMessage: undefined })
-      }
-      await refreshThread(failed, false)
-    } catch (error) {
-      if (generation === selectionGeneration) reportError(error)
-    } finally {
-      if (generation === selectionGeneration) sending = false
-    }
-    return true
+  ) => {
+    const refusal =
+      submission?.phase === "submitting" || state.status === "streaming" || client.getIsLoading()
+        ? "Wait for this client's current request to finish before sending."
+        : state.history === "loading"
+          ? "Wait for this conversation to load before sending."
+          : state.history === "failed"
+            ? HISTORY_FAILED
+            : state.thread?.agentId === null
+              ? "This conversation’s agent is unavailable. Start a new conversation to continue."
+              : state.thread?.role === "viewer"
+                ? "You have read-only access to this conversation."
+                : submission?.phase === "failed"
+                  ? "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation."
+                  : undefined
+    // A refusal keeps an uncertain send and its Retry rather than replacing it.
+    if (refusal && submission?.phase === "failed") return settle("failed", new Error(refusal))
+    const phase = refusal ? "refused" : "submitting"
+    submission = { id: newUuid(), content, phase, key: newUuid(), callbacks }
+    if (refusal) return settle(phase, new Error(refusal))
+    settle(phase)
+    client.stop()
+    liveToolCalls.clear()
+    scopeCompletedToolCalls()
+    liveToolMessageIds.clear()
+    update({ activeToolCallIds: [], error: undefined, olderMessagesLoading: false })
+    await deliver(submission)
+  }
+
+  const retry = async () => {
+    if (submission?.phase !== "failed") return
+    update({ error: undefined })
+    settle("submitting")
+    await deliver(submission)
   }
 
   const observeAuthentication = () => {
@@ -1372,16 +1349,16 @@ export function createAstralBeamChat(
     if (auth.status === "ready") {
       const nextIdentity = authenticationIdentity(auth.currentUser)
       if (identity !== undefined && identity !== nextIdentity) {
-        navigationGeneration++
-        pendingSends.clear()
+        submissions.clear()
         threadToolResults.clear()
         toolResults.clear()
-        pendingSend = undefined
+        submission = undefined
       }
       identity = nextIdentity
       const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}`
       if (threadKey !== nextThreadKey) {
-        changeSelection()
+        // The first identity has nothing to clear, so a send made before it resolves continues.
+        if (threadKey !== undefined) changeSelection()
         threadKey = nextThreadKey
         if (startWithNewThread) {
           selectedThread(nextThreadKey, null)
@@ -1431,14 +1408,12 @@ export function createAstralBeamChat(
       authentication.debug = debug
       client.updateOptions({ tools: declareTools(), forwardedProps: forwardedProps() })
       if (live.apiUrl !== apiUrl) {
-        navigationGeneration++
-        pendingSends.clear()
+        submissions.clear()
         threadToolResults.clear()
         toolResults.clear()
-        pendingSend = undefined
+        submission = undefined
         changeSelection()
         threadKey = undefined
-        update(historyLoaded)
         observeAuthentication()
       } else if (live.threadId !== selectedId) {
         selectConfiguredThread()
@@ -1448,6 +1423,7 @@ export function createAstralBeamChat(
       if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
     },
     sendMessage,
+    retry,
     addToolResult,
     stop: () => client.stop(),
     retryAuthentication: () => {
@@ -1483,7 +1459,7 @@ export function createAstralBeamChat(
     openThread,
     renameThread,
     deleteThread,
-    refreshThread,
+    refreshThread: () => refreshThread(),
     loadOlderMessages,
     uploadAttachment: async ({ data, filename, mimeType }) => {
       const agentId = state.thread ? state.thread.agentId : live.agentId

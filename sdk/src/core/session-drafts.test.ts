@@ -92,9 +92,9 @@ test.each(["selection", "api", "identity"] as const)(
     await chat.sendMessage("Keep my original intent", { onThreadReady, onAccepted })
     expect(onThreadReady).toHaveBeenCalledWith(threadA)
     expect(onAccepted).not.toHaveBeenCalled()
-    expect(chat.getState().unsentMessage).toBe("Keep my original intent")
+    expect(chat.getState().submission?.phase).toBe("failed")
     await chat.openThread(threadB)
-    expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().submission).toBeUndefined()
 
     if (change === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
     else if (change === "identity") {
@@ -103,16 +103,17 @@ test.each(["selection", "api", "identity"] as const)(
     } else await chat.openThread(threadA)
 
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
-    expect(chat.getState().unsentMessage).toBe(
+    expect(chat.getState().submission?.content).toBe(
       change === "selection" ? "Keep my original intent" : undefined,
     )
     await chat.reload()
     expect(sent).toHaveLength(1)
-    await chat.sendMessage("Keep my original intent")
+    if (change === "selection") await chat.retry()
+    else await chat.sendMessage("Keep my original intent")
     expect(sent).toHaveLength(2)
     expect(sent[0]?.key).toBeTruthy()
     expect(sent[1]?.key === sent[0]?.key).toBe(change === "selection")
-    expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().submission?.phase).toBe("accepted")
     expect(chat.getState().error).toBeUndefined()
     expect(onAccepted).toHaveBeenCalledTimes(change === "selection" ? 1 : 0)
   },
@@ -146,7 +147,7 @@ test("a send awaiting authentication cannot follow the user into a new conversat
   await send
   expect(mutations).toEqual([])
   expect(chat.getState().thread).toBeUndefined()
-  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().submission).toBeUndefined()
   expect(chat.getState().error).toBeUndefined()
   expect(onThreadReady).not.toHaveBeenCalled()
   expect(onAccepted).not.toHaveBeenCalled()
@@ -227,7 +228,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
       ),
     )
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1))
-    expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().submission?.phase).toBe("accepted")
     expect(chat.getState().messages.findLast((message) => message.role === "user")?.parts).toEqual([
       { type: "text", content: "Start a saved conversation" },
     ])
@@ -239,7 +240,7 @@ test("new-conversation callbacks identify the destination and acknowledge input 
     expect(onAccepted).toHaveBeenCalledTimes(1)
     expect(onThreadReady).toHaveBeenCalledExactlyOnceWith(threadA)
     expect(chat.getState().thread).toBeUndefined()
-    expect(chat.getState().unsentMessage).toBeUndefined()
+    expect(chat.getState().submission).toBeUndefined()
   } finally {
     stream?.close()
   }

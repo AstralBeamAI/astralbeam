@@ -154,8 +154,7 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   expect(chat.getState().thread?.hasMessages).toBe(false)
   expect((await chat.searchThreads()).items).toEqual([])
   expect(chat.getState().messages).toEqual([])
-  expect(chat.getState().unsentMessage).toBe("First message")
-  expect(chat.getState().status).toBe("error")
+  expect(chat.getState().submission).toMatchObject({ phase: "refused", content: "First message" })
   await chat.sendMessage("First message")
   expect((await chat.searchThreads()).items[0]?.title).toBe("First message")
   expect(created).toBe(1)
@@ -231,27 +230,27 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
   const onAccepted = vi.fn()
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   await chat.sendMessage("Hello", { onAccepted })
-  expect(chat.getState().unsentMessage).toBe("Hello")
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
   changed = true
   await chat.reload()
   expect(sent).toHaveLength(1)
-  expect(chat.getState().unsentMessage).toBe("Hello")
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
   await chat.sendMessage("Edited uncertain input")
   expect(sent).toHaveLength(1)
-  expect(chat.getState().unsentMessage).toBe("Hello")
-  expect(chat.getState().error?.message).toContain(
+  expect(chat.getState().submission).toMatchObject({ phase: "failed", content: "Hello" })
+  expect(chat.getState().submission?.error?.message).toContain(
     downgraded ? denied : "acceptance is unconfirmed",
   )
   chat.updateOptions({
     tools: { changed: { description: "Changed declaration", execute: () => null } },
   })
-  await chat.sendMessage("Hello")
+  await chat.retry()
   expect(sent).toHaveLength(2)
   expect(sent[0]?.key).toBeTruthy()
   expect(sent[1]?.key).toBe(sent[0]?.key)
   expect(sent[1]?.body.messages).toHaveLength(1)
   expect(sent[1]?.body.tools).toEqual(sent[0]?.body.tools)
-  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().submission?.phase).toBe("accepted")
   expect(chat.getState().error).toBeUndefined()
   expect(onAccepted).toHaveBeenCalledOnce()
   await chat.sendMessage("Another intent")
@@ -260,7 +259,7 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
   expect(JSON.stringify(sent.at(-1)?.body.tools) === JSON.stringify(sent[0]?.body.tools)).toBe(
     downgraded,
   )
-  expect(chat.getState().error?.message).toBe(downgraded ? denied : undefined)
+  expect(chat.getState().submission?.error?.message).toBe(downgraded ? denied : undefined)
 })
 
 test.each([
@@ -299,12 +298,15 @@ test.each([
     const chat = createTestSession({ threadId: thread.id })
     await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
     await chat.sendMessage("Original input")
-    if (uncertain) await chat.sendMessage("Original input")
+    if (uncertain) await chat.retry()
     await chat.sendMessage("Corrected input")
     expect(keys).toHaveLength(2)
     expect(keys[1] === keys[0]).toBe(uncertain)
-    expect(chat.getState().unsentMessage).toBe(uncertain ? "Original input" : "Corrected input")
-    expect(chat.getState().error?.message).toContain(
+    expect(chat.getState().submission).toMatchObject({
+      phase: uncertain ? "failed" : "refused",
+      content: uncertain ? "Original input" : "Corrected input",
+    })
+    expect(chat.getState().submission?.error?.message).toContain(
       uncertain ? "acceptance is unconfirmed" : "Input was not admitted",
     )
   },
@@ -901,10 +903,10 @@ test("server-side revocation interrupts generation and blocks subsequent sends",
   stream.close()
   await send
   expect(chat.getState().thread?.role).toBe("viewer")
-  expect(chat.getState().error?.message).toContain("Write access was revoked")
+  expect(chat.getState().submission?.error?.message).toContain("Write access was revoked")
   await chat.sendMessage("A new input")
   expect(sends).toBe(1)
-  expect(chat.getState().error?.message).toContain("read-only")
+  expect(chat.getState().submission?.error?.message).toContain("read-only")
 })
 
 test("a browser tool and widget can continue through consecutive committed turns", async () => {
@@ -1259,7 +1261,7 @@ test("a late hydration response cannot replace a newly selected conversation", a
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(chat.getState().thread?.id).toBe(next.id)
   expect(chat.getState().messages[0]?.id).toBe("second")
-  expect(chat.getState().threadLoading).toBe(false)
+  expect(chat.getState().history).toBe("idle")
   expect(chat.getState().error).toBeUndefined()
 })
 
@@ -1284,12 +1286,8 @@ test("a refresh during a first send's conversation creation leaves the session r
   expect(chat.getState().status).toBe("submitted")
   await chat.refreshThread()
   release!(Response.json(page()))
-  expect(await sent).toBe(true)
-  expect(chat.getState()).toMatchObject({
-    status: "ready",
-    threadLoading: false,
-    threadRefreshing: false,
-  })
+  await sent
+  expect(chat.getState()).toMatchObject({ status: "ready", history: "idle" })
 })
 
 test("opening a conversation during a background refresh reports only loading", async () => {
@@ -1317,11 +1315,11 @@ test("opening a conversation during a background refresh reports only loading", 
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
   const refresh = chat.refreshThread()
-  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: true })
+  expect(chat.getState().history).toBe("refreshing")
   const opened = chat.openThread(next.id)
-  expect(chat.getState()).toMatchObject({ threadLoading: true, threadRefreshing: false })
+  expect(chat.getState().history).toBe("loading")
   await Promise.all([refresh, opened])
-  expect(chat.getState()).toMatchObject({ threadLoading: false, threadRefreshing: false })
+  expect(chat.getState().history).toBe("idle")
 })
 
 test("a failed send keeps its Retry after leaving and reopening its conversation", async () => {
@@ -1362,13 +1360,14 @@ test("a failed send keeps its Retry after leaving and reopening its conversation
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   await chat.sendMessage("Keep this")
-  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
+  const failed = { phase: "failed", content: "Keep this" }
+  expect(chat.getState().submission).toMatchObject(failed)
   await chat.openThread(next.id)
-  expect(chat.getState()).toMatchObject({ status: "ready", unsentMessage: undefined })
+  expect(chat.getState()).toMatchObject({ status: "ready", submission: undefined })
   await chat.openThread(thread.id)
-  expect(chat.getState()).toMatchObject({ status: "error", unsentMessage: "Keep this" })
-  await chat.sendMessage(chat.getState().unsentMessage!)
-  expect(chat.getState().unsentMessage).toBeUndefined()
+  expect(chat.getState().submission).toMatchObject(failed)
+  await chat.retry()
+  expect(chat.getState().submission?.phase).toBe("accepted")
   expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1)
   expect(keys).toHaveLength(2)
   expect(keys[1]).toBe(keys[0])
@@ -1392,13 +1391,12 @@ test("failed native hydration blocks sends until a successful reload", async () 
   const chat = createTestSession({
     threadId: thread.id,
   })
-  await vi.waitFor(() => expect(chat.getState().threadLoadFailed).toBe(true))
+  await vi.waitFor(() => expect(chat.getState().history).toBe("failed"))
   await chat.sendMessage("Do not send against missing history")
   expect(sends).not.toHaveBeenCalled()
   failed = false
   await chat.openThread(thread.id)
-  expect(chat.getState().threadLoadFailed).toBe(false)
-  expect(chat.getState().threadLoading).toBe(false)
+  expect(chat.getState().history).toBe("idle")
   expect(chat.getState().error).toBeUndefined()
 })
 
@@ -1464,8 +1462,8 @@ test.each(["auto", thread.id])(
     })
     const chat = createTestSession({ threadId })
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-    await vi.waitFor(() => expect(chat.getState().threadLoading).toBe(false))
-    expect(chat.getState().threadLoadFailed).toBe(threadId !== "auto")
+    await vi.waitFor(() => expect(chat.getState().history).not.toBe("loading"))
+    expect(chat.getState().history === "failed").toBe(threadId !== "auto")
     expect(stored).toBe(threadId === "auto" ? null : thread.id)
     expect(chat.getState().error === undefined).toBe(threadId === "auto")
   },
@@ -1496,7 +1494,7 @@ test("a deleted agent disables generation without resolving the default agent", 
   await chat.sendMessage("Must not send")
   expect(fallback).toHaveBeenCalledTimes(prior)
   expect(send).not.toHaveBeenCalled()
-  expect(chat.getState().error?.message).toContain("agent is unavailable")
+  expect(chat.getState().submission?.error?.message).toContain("agent is unavailable")
 })
 
 test("refresh after membership removal leaves a fresh conversation without an error", async () => {
@@ -1525,4 +1523,83 @@ test("refresh after membership removal leaves a fresh conversation without an er
   await chat.refreshThread()
   expect(chat.getState().thread).toBeUndefined()
   expect(chat.getState().error).toBeUndefined()
+})
+
+function acceptedStream(id: string) {
+  const run = { threadId: thread.id, runId: `run-${id}` }
+  const text = { messageId: `reply-${id}` }
+  return new Response(
+    [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "CUSTOM",
+        name: "astralbeam_thread",
+        value: { threadId: thread.id, version: 2, acceptedMessageId: `user-${id}` },
+      },
+      { type: "TEXT_MESSAGE_START", ...text, role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", ...text, delta: "Reply" },
+      { type: "TEXT_MESSAGE_END", ...text },
+      { type: "RUN_FINISHED", ...run },
+    ]
+      .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+      .join(""),
+    { headers: { "Content-Type": "text/event-stream" } },
+  )
+}
+
+test("a send during the refresh after a reply is taken at once and sent when it settles", async () => {
+  let sends = 0
+  let reads = 0
+  let release: (() => void) | undefined
+  stubSessionFetch((input: string | URL) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
+    const response = Response.json(page())
+    if (++reads !== 2) return Promise.resolve(response)
+    return new Promise<Response>((resolve) => {
+      release = () => resolve(response)
+    })
+  })
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  const first = chat.sendMessage("First")
+  await vi.waitFor(() => expect(release).toBeDefined())
+  expect(chat.getState().history).toBe("refreshing")
+  const next = chat.sendMessage("Next")
+  expect(chat.getState()).toMatchObject({
+    status: "submitted",
+    submission: { content: "Next", phase: "submitting" },
+  })
+  expect(sends).toBe(1)
+  release!()
+  await Promise.all([first, next])
+  expect(sends).toBe(2)
+  expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "accepted" } })
+})
+
+test("a first send stays submitted until its reply streams", async () => {
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/threads") && init?.method === "POST")
+      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream("1"))
+    return Promise.resolve(Response.json(page()))
+  })
+  const chat = createTestSession()
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const phases: string[] = []
+  chat.subscribe(() => {
+    const { submission, status } = chat.getState()
+    const phase = `${submission?.phase}:${status}`
+    if (phases.at(-1) !== phase) phases.push(phase)
+  })
+  await chat.sendMessage("First message")
+  expect(phases).toEqual([
+    "submitting:submitted",
+    "accepted:submitted",
+    "accepted:streaming",
+    "accepted:ready",
+  ])
 })

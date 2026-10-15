@@ -297,10 +297,10 @@ else chat.reset()
 
 await chat.sendMessage("Summarize the service incident.")
 const threadId = chat.getState().thread?.id
-if (!threadId) throw chat.getState().error ?? new Error("No saved thread was selected.")
+if (!threadId) throw chat.getState().submission?.error ?? new Error("No saved thread was selected.")
 ```
 
-`searchThreads(query?, cursor?, signal?)` returns conversation records in `items` and the next page cursor in `page_after`. The caller owns list loading and error state. Resource actions report recoverable failures through `getState().error`, so the host UI should observe that state before continuing dependent actions. `threadId` is the conversation UUID, and passing it in options opens that saved thread after authentication.
+`searchThreads(query?, cursor?, signal?)` returns conversation records in `items` and the next page cursor in `page_after`. The caller owns list loading and error state. Resource actions report recoverable failures through `getState().error`, and sends through `getState().submission`, so the host UI should observe that state before continuing dependent actions. `threadId` is the conversation UUID, and passing it in options opens that saved thread after authentication.
 
 Managers can rename and delete the selected conversation. Participant management remains available through the HTTP API, while SDK sharing controls are deferred.
 
