@@ -50,17 +50,9 @@
   text-wrap: balance;
 }
 .blog-intro h1 {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   font-size: clamp(44px, 5.5vw, 64px);
   line-height: 1.1;
   margin-bottom: 24px;
-}
-.blog-intro h1 img {
-  width: 1.7em;
-  height: 1em;
-  object-fit: cover;
 }
 .blog-intro > p:last-child {
   color: var(--blog-muted);
