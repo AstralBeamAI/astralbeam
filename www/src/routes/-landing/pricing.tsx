@@ -26,7 +26,7 @@ export function Pricing() {
       <div className="section-head">
         <p className="eyebrow">PRICING</p>
         <h2 className="display section-title" id="pricing-title">
-          YOUR AGENT. YOUR WAY.
+          PAY FOR WHAT YOU USE
         </h2>
         <p className="section-sub">
           Start on our cloud, let us manage yours, or host it yourself. Bring your own LLM keys
@@ -39,10 +39,10 @@ export function Pricing() {
           <p className="pricing-label mono">HOSTED BY ASTRALBEAM</p>
           <h3>Cloud</h3>
           <p className="pricing-desc">We run the platform. You build your product.</p>
-          <p className="pricing-credit mono">$20 in free credits every month</p>
           <dl className="pricing-rates">
             <UsageRates />
           </dl>
+          <p className="pricing-credit mono">$20 in free credits every month</p>
           <a className="btn btn-primary btn-lg" href={siteMetadata.links.signUp}>
             Get Started
           </a>
