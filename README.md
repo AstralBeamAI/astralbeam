@@ -6,7 +6,7 @@ Website: https://astralbeam.ai · Docs: https://astralbeam.ai/docs
 
 AstralBeam adds a Cursor-style AI agent to your app in minutes. It answers queries, interacts with your app, renders your UI components, and works with users' files. Self-host it or use [AstralBeam Cloud](https://astralbeam.ai).
 
-Watch the AstralBeam agent work inside a [Linear clone](examples/linearity-react) in this 59-second demo, with narration and captions:
+Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embedded:
 
 https://github.com/user-attachments/assets/f9911690-9fc5-4cf3-9a34-ebbb397c0a80
 
