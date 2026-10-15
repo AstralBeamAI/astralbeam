@@ -1,4 +1,4 @@
-import { NotePencilIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
 import {
   type RefObject,
   useEffect,
@@ -575,7 +575,7 @@ export function ChatWidget({
     <Card
       data-slot="chat"
       data-closable={closable}
-      className="h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
+      className="relative h-full w-full gap-0 rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
@@ -636,7 +636,10 @@ export function ChatWidget({
           chat={chat}
           state={chatState}
           thread={chatState.thread}
-          onDelete={forgetDraft}
+          onDelete={(threadId) => {
+            forgetDraft(threadId)
+            focusComposer()
+          }}
         />
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
@@ -680,9 +683,14 @@ export function ChatWidget({
             <span role="status" className="min-w-0 flex-1">
               This response is unfinished. Refresh to check for updates.
             </span>
-            <Button variant="outline" size="sm" onClick={() => void chat.refreshThread()}>
-              Refresh
-            </Button>
+            <TooltipButton
+              variant="outline"
+              size="icon-sm"
+              tooltip="Refresh"
+              onClick={() => void chat.refreshThread()}
+            >
+              <ArrowClockwiseIcon />
+            </TooltipButton>
           </div>
         ) : null}
         {chatState.thread?.role !== "viewer" &&
@@ -706,6 +714,7 @@ export function ChatWidget({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
                   onClick={() => void chat.abandonToolCall(pending.toolCallId)}
                 >
                   Continue without result

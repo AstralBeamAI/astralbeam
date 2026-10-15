@@ -23,6 +23,8 @@ export function usageLimitsPage(page: Page) {
 
   return {
     table: page.getByRole("table", { name: "Usage limits" }),
+    summary: page.getByRole("status").filter({ hasText: "Limit summary" }),
+    amountError: page.locator("#usage-limit-amount-error"),
 
     row(name: string): Locator {
       return this.table.getByRole("row").filter({ hasText: name })

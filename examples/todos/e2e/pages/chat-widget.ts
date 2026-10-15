@@ -42,6 +42,39 @@ export function chatWidget(page: Page) {
   return {
     root,
     frame: root.locator('[data-slot="chat"]'),
+    history: root.getByRole("combobox", { name: "Show older chats", exact: true }),
+    historySearch: root.getByRole("combobox", { name: "Search chats", exact: true }),
+    historyPopup: root.locator('[data-slot="combobox-content"]'),
+    conversationActions: root.getByRole("button", { name: "Conversation actions", exact: true }),
+    conversationTitle: root.getByRole("textbox", { name: "Conversation title", exact: true }),
+    deleteConfirmation: root.getByRole("alertdialog"),
+    reviewFiles: root.getByRole("button", { name: "Review files", exact: true }),
+    hostHeader: root.getByText("Task helper", { exact: true }),
+    hostHelp: root.getByRole("button", { name: "Help", exact: true }),
+    hostContext: root.getByRole("button", { name: "Context", exact: true }),
+    hostActionCount: root.getByText(/^Host actions:/),
+
+    conversationOption(title: string): Locator {
+      return root.getByRole("option", { name: title, exact: true })
+    },
+
+    conversationAction(name: "Rename" | "Delete"): Locator {
+      return root.getByRole("menuitem", { name, exact: true })
+    },
+
+    confirmDeletion(): Locator {
+      return root.getByRole("button", { name: "Delete conversation", exact: true })
+    },
+
+    async expectWithinFrame(element: Locator): Promise<void> {
+      await expect(element).toBeVisible()
+      const frame = (await this.frame.boundingBox())!
+      const bounds = (await element.boundingBox())!
+      expect.soft(bounds.x).toBeGreaterThanOrEqual(frame.x)
+      expect.soft(bounds.y).toBeGreaterThanOrEqual(frame.y)
+      expect.soft(bounds.x + bounds.width).toBeLessThanOrEqual(frame.x + frame.width)
+      expect.soft(bounds.y + bounds.height).toBeLessThanOrEqual(frame.y + frame.height)
+    },
 
     composer(): Locator {
       return composer

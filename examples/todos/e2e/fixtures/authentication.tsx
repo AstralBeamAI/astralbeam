@@ -26,7 +26,7 @@ function Authentication() {
   )
 }
 
-createRoot(document.getElementById("authentication-root")!).render(
+createRoot(document.getElementById("fixture-root")!).render(
   <StrictMode>
     <Authentication />
   </StrictMode>,

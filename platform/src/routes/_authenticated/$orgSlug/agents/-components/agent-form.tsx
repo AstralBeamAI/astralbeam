@@ -8,8 +8,9 @@ import { Schema } from "effect"
 import type { Agent, AgentSandboxProvider } from "@/lib/agents/agents.server"
 import type { ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/agents/schemas"
-import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -86,6 +87,8 @@ export function AgentForm({
   ])
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<ServerFnError | null>(null)
+  const conflicted = saveError?.tag === "AgentChanged"
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
   const sandboxProviderItems = sandboxProviders.map((provider) => ({
@@ -107,9 +110,10 @@ export function AgentForm({
 
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!valid || readOnly) return
+    if (!valid || readOnly || conflicted) return
     setSaving(true)
     setNameError(null)
+    setSaveError(null)
     const fields = {
       name: normalizedName,
       systemPrompt,
@@ -145,8 +149,7 @@ export function AgentForm({
         setNameError(failure.message)
         return
       }
-      toast.add({ title: failure.message, type: "error" })
-      if (failure.tag === "AgentChanged") await router.invalidate()
+      setSaveError(failure)
     } finally {
       setSaving(false)
     }
@@ -170,6 +173,7 @@ export function AgentForm({
     setSandboxEnabled(existing.sandboxProviderId !== null)
     setSandboxProviderId(existing.sandboxProviderId ?? NO_SANDBOX_PROVIDER)
     setNameError(null)
+    if (!conflicted) setSaveError(null)
   }
 
   const disabled = saving || readOnly
@@ -187,40 +191,46 @@ export function AgentForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field data-invalid={nameError !== null || undefined}>
-              <FieldLabel htmlFor="agent-name">Name</FieldLabel>
-              <Input
-                id="agent-name"
-                value={name}
-                required
-                maxLength={AGENT_NAME_MAX_LENGTH}
-                disabled={disabled}
-                aria-invalid={nameError !== null || undefined}
-                aria-describedby={nameError ? "agent-name-error" : undefined}
-                onChange={(event) => {
-                  setName(event.target.value)
-                  setNameError(null)
-                }}
-              />
-              <FieldError id="agent-name-error">{nameError}</FieldError>
-              <FieldDescription>Unique within this organization.</FieldDescription>
-            </Field>
+            <FieldSet>
+              <FieldLegend>Identity</FieldLegend>
+              <Field data-invalid={nameError !== null || undefined}>
+                <FieldLabel htmlFor="agent-name">Name</FieldLabel>
+                <Input
+                  id="agent-name"
+                  value={name}
+                  required
+                  maxLength={AGENT_NAME_MAX_LENGTH}
+                  disabled={disabled}
+                  aria-invalid={nameError !== null || undefined}
+                  aria-describedby={nameError ? "agent-name-error" : undefined}
+                  onChange={(event) => {
+                    setName(event.target.value)
+                    setNameError(null)
+                  }}
+                />
+                <FieldError id="agent-name-error">{nameError}</FieldError>
+                <FieldDescription>Unique within this organization.</FieldDescription>
+              </Field>
+            </FieldSet>
 
-            <Field>
-              <FieldLabel htmlFor="agent-system-prompt">System prompt</FieldLabel>
-              <Textarea
-                id="agent-system-prompt"
-                value={systemPrompt}
-                required
-                maxLength={AGENT_SYSTEM_PROMPT_MAX_LENGTH}
-                rows={12}
-                disabled={disabled}
-                onChange={(event) => setSystemPrompt(event.target.value)}
-              />
-              <FieldDescription>
-                Describe the agent’s purpose, how it should respond, and what it should avoid.
-              </FieldDescription>
-            </Field>
+            <FieldSet>
+              <FieldLegend>Instructions</FieldLegend>
+              <Field>
+                <FieldLabel htmlFor="agent-system-prompt">System prompt</FieldLabel>
+                <Textarea
+                  id="agent-system-prompt"
+                  value={systemPrompt}
+                  required
+                  maxLength={AGENT_SYSTEM_PROMPT_MAX_LENGTH}
+                  rows={12}
+                  disabled={disabled}
+                  onChange={(event) => setSystemPrompt(event.target.value)}
+                />
+                <FieldDescription>
+                  Describe the agent’s purpose, how it should respond, and what it should avoid.
+                </FieldDescription>
+              </Field>
+            </FieldSet>
 
             <AgentModelFields
               organizationSlug={organizationSlug}
@@ -230,24 +240,23 @@ export function AgentForm({
               onChange={setModelIds}
             />
 
-            <Field orientation="horizontal">
-              <Checkbox
-                id="agent-attachments-enabled"
-                checked={attachmentsEnabled}
-                disabled={disabled}
-                onCheckedChange={(next) => setAttachmentsEnabled(next === true)}
-              />
-              <FieldLabel htmlFor="agent-attachments-enabled" className="font-normal">
-                Allow file attachments
-              </FieldLabel>
-            </Field>
-            <FieldDescription>
-              Let people attach files when chatting with this agent.
-            </FieldDescription>
-
             <FieldSet>
               <FieldLegend>Capabilities</FieldLegend>
               <FieldDescription>Choose what this agent can do.</FieldDescription>
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="agent-attachments-enabled"
+                  checked={attachmentsEnabled}
+                  disabled={disabled}
+                  onCheckedChange={(next) => setAttachmentsEnabled(next === true)}
+                />
+                <FieldLabel htmlFor="agent-attachments-enabled" className="font-normal">
+                  Allow file attachments
+                </FieldLabel>
+              </Field>
+              <FieldDescription>
+                Let people attach files when chatting with this agent.
+              </FieldDescription>
               <Field orientation="horizontal">
                 <FieldContent>
                   <FieldLabel htmlFor="agent-web-access">Web access</FieldLabel>
@@ -320,6 +329,27 @@ export function AgentForm({
               )}
             </FieldSet>
           </FieldGroup>
+          {saveError && (
+            <Alert variant="destructive" className="mt-6">
+              <AlertTitle>Could not save agent</AlertTitle>
+              <AlertDescription>
+                <p>{saveError.message}</p>
+                {conflicted && (
+                  <p>Reloading replaces your unsaved edits with the latest saved version.</p>
+                )}
+              </AlertDescription>
+              {conflicted && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-fit"
+                  onClick={() => void router.invalidate()}
+                >
+                  Reload latest
+                </Button>
+              )}
+            </Alert>
+          )}
         </CardContent>
         {!readOnly && (
           <CardFooter className="flex-wrap justify-end gap-2">
@@ -347,7 +377,7 @@ export function AgentForm({
                 <TooltipContent>Discard changes</TooltipContent>
               </Tooltip>
             )}
-            <Button type="submit" disabled={!valid || saving}>
+            <Button type="submit" disabled={!valid || saving || conflicted}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}
             </Button>
           </CardFooter>

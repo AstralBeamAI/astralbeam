@@ -1,20 +1,9 @@
 import { expect, test } from "../../fixtures.ts"
 import { seedTarget } from "../../worktree.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
-import type { Page } from "@playwright/test"
+import { openBrowserFixture } from "../../pages/fixture-page.ts"
 
-async function openAuthentication(page: Page) {
-  const fixture = new URL("../../fixtures/authentication.tsx", import.meta.url)
-  const fixturePath = fixture.pathname.slice(new URL("../../../", import.meta.url).pathname.length)
-  await page.route("**/*", (route) =>
-    route.request().resourceType() === "script" ? route.abort() : route.continue(),
-  )
-  await page.goto("/")
-  await page.unroute("**/*")
-  await page.setContent(
-    `<html><title>Standalone authentication</title><div id="authentication-root"></div><script type="module">import RefreshRuntime from "/@react-refresh"; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => type => type; window.__vite_plugin_react_preamble_installed__ = true; await import("/${fixturePath}");</script></html>`,
-  )
-}
+const fixture = new URL("../../fixtures/authentication.tsx", import.meta.url)
 
 test("standalone function props synchronize current user and refresh on rejection", async ({
   page,
@@ -37,7 +26,7 @@ test("standalone function props synchronize current user and refresh on rejectio
       ? route.fulfill({ status: 401, json: { status: 401, detail: "Renew identity" } })
       : route.continue()
   })
-  await openAuthentication(page)
+  await openBrowserFixture(page, fixture)
   await expect(page.getByText(seedTarget.user.name, { exact: true })).toBeVisible()
   expect(issued).toBe(2)
   expect(synchronized).toBe(2)
@@ -75,7 +64,7 @@ test("host callbacks and refresh recover initial and background authentication f
   await page.route("**/api/v1/me", (route) =>
     denied ? route.fulfill({ status: 403, json: {} }) : route.continue(),
   )
-  await openAuthentication(page)
+  await openBrowserFixture(page, fixture)
   const row = page.getByText(seedTarget.user.name, { exact: true })
   const errors = page.getByLabel("Host errors")
   await expect(page.getByRole("alert")).toBeVisible()

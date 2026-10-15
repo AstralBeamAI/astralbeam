@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; support exact optional property types; notify the paginated list after deletion.
+// Local changes: Use Phosphor icons, exact optional props, named-key confirmation, and notify the list after deletion.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -51,7 +51,7 @@ export function DeleteApiKeyDialog({
             <KeyIcon aria-hidden="true" />
           </AlertDialogMedia>
 
-          <AlertDialogTitle>{apiKeyLocalization.deleteApiKey}</AlertDialogTitle>
+          <AlertDialogTitle>Delete {apiKey.name || apiKeyLocalization.apiKey}?</AlertDialogTitle>
 
           <AlertDialogDescription>{apiKeyLocalization.deleteApiKeyWarning}</AlertDialogDescription>
         </AlertDialogHeader>

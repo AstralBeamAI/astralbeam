@@ -5,6 +5,7 @@ import { type SyntheticEvent, useMemo, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
 import { useIsHydrated } from "@/components/auth/use-is-hydrated"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -39,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
-import { parseServerFnError } from "@/lib/runtime/server-fn-error"
+import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
 import { UsageLimitFieldsSchema, type UsageLimitFields } from "@/lib/usage-limits/schemas"
 import type { UsageLimit } from "@/lib/usage-limits/usage-limits.server"
@@ -61,6 +62,19 @@ const decodeUsageLimitFields = Schema.decodeUnknownResult(
 )
 
 type Duration = (typeof usageLimitDurationItems)[number]["value"]
+
+const usageLimitFieldLabels: Record<keyof UsageLimitFields, string> = {
+  name: "Name",
+  enabled: "Status",
+  appliesByDefault: "Apply to every tenant user",
+  scope: "Scope",
+  metric: "Metric",
+  amount: "Limit",
+  windowType: "Window",
+  windowCount: "Duration",
+  windowUnit: "Duration",
+  timeZone: "Time zone",
+}
 
 /** Base UI resolves the trigger's label from `items`, not from the rendered options. */
 function UsageLimitSelect<Value extends string>({
@@ -135,6 +149,8 @@ export function UsageLimitForm({
   const [amount, setAmount] = useState(existing?.amount ?? "")
   const [saving, setSaving] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [saveError, setSaveError] = useState<ServerFnError | null>(null)
+  const conflicted = saveError?.tag === "UsageLimitChanged"
 
   // Zone lists and the browser's zone differ from the server's, so they wait for hydration.
   const hydrated = useIsHydrated()
@@ -157,6 +173,14 @@ export function UsageLimitForm({
     timeZone: windowType === "fixed" ? timeZone : null,
   })
   const issues = Result.isFailure(input) ? formatUsageLimitIssues(input.failure.issue).issues : []
+  const summaryIssues = [
+    ...new Set(
+      issues.map((issue) => {
+        const field = issue.path?.[0] as keyof UsageLimitFields
+        return `${usageLimitFieldLabels[field] ?? "Configuration"}: ${issue.message}`
+      }),
+    ),
+  ]
   const fieldErrors = (field: string) =>
     submitted ? issues.filter((issue) => issue.path?.[0] === field) : []
   const disabled = saving || readOnly
@@ -164,8 +188,9 @@ export function UsageLimitForm({
   const saveUsageLimit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
-    if (Result.isFailure(input) || disabled) return
+    if (Result.isFailure(input) || disabled || conflicted) return
     setSaving(true)
+    setSaveError(null)
     try {
       if (existing) {
         await updateUsageLimit({
@@ -191,8 +216,7 @@ export function UsageLimitForm({
       })
     } catch (error) {
       const failure = parseServerFnError(error)
-      toast.add({ title: failure.message, type: "error" })
-      if (failure.tag === "UsageLimitChanged") await router.invalidate()
+      setSaveError(failure)
     } finally {
       setSaving(false)
     }
@@ -381,16 +405,41 @@ export function UsageLimitForm({
           </FieldGroup>
           <div className="mt-6 border-t pt-4 text-sm" role="status">
             <p className="font-medium">Limit summary</p>
-            <p className="mt-1 text-muted-foreground">
-              {Result.isSuccess(input)
-                ? summarizeUsageLimit(input.success)
-                : "Complete the name, a valid amount, and the reset period to preview this limit."}
-            </p>
+            {Result.isSuccess(input) ? (
+              <p className="mt-1 text-muted-foreground">{summarizeUsageLimit(input.success)}</p>
+            ) : (
+              <ul className="mt-1 list-disc space-y-1 ps-4 text-muted-foreground">
+                {summaryIssues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            )}
           </div>
+          {saveError && (
+            <Alert variant="destructive" className="mt-6">
+              <AlertTitle>Could not save usage limit</AlertTitle>
+              <AlertDescription>
+                <p>{saveError.message}</p>
+                {conflicted && (
+                  <p>Reloading replaces your unsaved edits with the latest saved version.</p>
+                )}
+              </AlertDescription>
+              {conflicted && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-fit"
+                  onClick={() => void router.invalidate()}
+                >
+                  Reload latest
+                </Button>
+              )}
+            </Alert>
+          )}
         </CardContent>
         {!readOnly && (
           <CardFooter className="justify-end gap-2">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || conflicted}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create limit"}
             </Button>
           </CardFooter>

@@ -15,6 +15,12 @@ export type AgentDraft = {
  */
 export function agentsPage(page: Page) {
   return {
+    nameField: page.locator("#agent-name"),
+    systemPromptField: page.locator("#agent-system-prompt"),
+    saveButton: page.getByRole("button", { name: "Save changes", exact: true }),
+    saveFailure: page.getByRole("alert").filter({ hasText: "Could not save agent" }),
+    reloadButton: page.getByRole("button", { name: "Reload latest", exact: true }),
+
     card(name: string | RegExp): Locator {
       return page.locator('[data-slot="card"]').filter({ hasText: name })
     },
@@ -43,8 +49,8 @@ export function agentsPage(page: Page) {
     },
 
     async fillForm({ name, systemPrompt, attachmentsEnabled, models }: AgentDraft): Promise<void> {
-      await page.locator("#agent-name").fill(name)
-      await page.locator("#agent-system-prompt").fill(systemPrompt)
+      await this.nameField.fill(name)
+      await this.systemPromptField.fill(systemPrompt)
       if (attachmentsEnabled !== undefined) {
         // The shadcn checkbox keeps its id on a hidden proxy input, so drive it through its role.
         const checkbox = page.getByRole("checkbox", { name: "Allow file attachments", exact: true })
@@ -64,7 +70,7 @@ export function agentsPage(page: Page) {
 
     /** Waits for the write itself, because the button is enabled again either way. */
     async saveChanges(): Promise<void> {
-      await page.getByRole("button", { name: "Save changes" }).click()
+      await this.saveButton.click()
       await expectToast(page, "Agent saved")
     },
 
