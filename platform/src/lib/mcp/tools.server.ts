@@ -29,20 +29,81 @@ function mcpToolAlias(connectionId: string, nativeName: string): string {
   return `mcp_${connectionId.replaceAll("-", "")}_${createHash("sha256").update(nativeName).digest("hex").slice(0, 24)}`
 }
 
-// Work around ai-mcp bypassing SDK tool headers and cancellation.
+// Work around ai-mcp bypassing SDK header validation, mirroring and cancellation.
 // https://github.com/TanStack/ai/issues/1794
-function mcpInputHeaders(schema: JsonSchemaType, args: unknown, headers = new Headers()): Headers {
-  if (!args || typeof args !== "object") return headers
-  for (const [key, property] of Object.entries(schema.properties ?? {})) {
-    if (!property || typeof property !== "object") continue
-    const value = (args as Record<string, unknown>)[key]
-    const name = (property as Record<string, unknown>)["x-mcp-header"]
-    if (name !== undefined && value != null) {
+function mcpHeaderPaths(
+  schema: unknown,
+  path: string[] | null = [],
+  headers = new Map<string, string[]>(),
+): Map<string, string[]> | undefined {
+  if (!schema || typeof schema !== "object") return headers
+  const node = schema as Record<string, unknown>
+  const name = node["x-mcp-header"]
+  if (name !== undefined) {
+    if (
+      !path?.length ||
+      typeof name !== "string" ||
+      !/^[!#$%&'*+\-.^`|~\w]+$/.test(name) ||
+      typeof node.type !== "string" ||
+      !["string", "integer", "boolean"].includes(node.type) ||
+      headers.has(name.toLowerCase())
+    )
+      return undefined
+    headers.set(name.toLowerCase(), path)
+  }
+  for (const [keyword, value] of Object.entries(node)) {
+    if (!value || typeof value !== "object") continue
+    if (
+      ["properties", "patternProperties", "dependentSchemas", "$defs", "definitions"].includes(
+        keyword,
+      )
+    ) {
+      for (const [key, child] of Object.entries(value))
+        if (
+          !mcpHeaderPaths(child, keyword === "properties" && path ? [...path, key] : null, headers)
+        )
+          return undefined
+    } else if (
+      [
+        "items",
+        "prefixItems",
+        "contains",
+        "additionalProperties",
+        "unevaluatedProperties",
+        "unevaluatedItems",
+        "propertyNames",
+        "oneOf",
+        "anyOf",
+        "allOf",
+        "not",
+        "if",
+        "then",
+        "else",
+        "contentSchema",
+      ].includes(keyword)
+    ) {
+      for (const child of Array.isArray(value) ? value : [value])
+        if (!mcpHeaderPaths(child, null, headers)) return undefined
+    }
+  }
+  return headers
+}
+
+function mcpInputHeaders(paths: Map<string, string[]>, args: unknown): Headers {
+  const headers = new Headers()
+  for (const [name, path] of paths) {
+    const value = path.reduce<unknown>(
+      (current, key) =>
+        current && typeof current === "object"
+          ? (current as Record<string, unknown>)[key]
+          : undefined,
+      args,
+    )
+    if (value != null) {
       if (
-        typeof name !== "string" ||
-        !name ||
-        headers.has(`Mcp-Param-${name}`) ||
-        (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean")
+        typeof value !== "string" &&
+        typeof value !== "boolean" &&
+        !(typeof value === "number" && Number.isSafeInteger(value))
       )
         throw new McpUnavailable()
       const text = String(value)
@@ -55,7 +116,6 @@ function mcpInputHeaders(schema: JsonSchemaType, args: unknown, headers = new He
           : `=?base64?${Buffer.from(text).toString("base64")}?=`,
       )
     }
-    mcpInputHeaders(property, value, headers)
   }
   return headers
 }
@@ -152,7 +212,9 @@ const makeMcpTools = Effect.gen(function* () {
       }).pipe(Effect.onError(() => Effect.promise(() => client.close())))
       return yield* Effect.try({
         try: () =>
-          tools.map((remote) => {
+          tools.flatMap((remote) => {
+            const headers = mcpHeaderPaths(remote.inputSchema)
+            if (!headers) return []
             const nativeToolName = remote.metadata.mcp.serverToolName
             const name = mcpToolAlias(connection.id, nativeToolName)
             const details = {
@@ -162,13 +224,15 @@ const makeMcpTools = Effect.gen(function* () {
               connectionId: connection.id,
               nativeToolName,
             }
-            return {
+            const tool = {
               ...remote,
               name,
               description: `MCP server: ${server.endpointUrl}\n${remote.description}`,
               inputSchema: fromJsonSchema(remote.inputSchema as JsonSchemaType, validator),
               ...(remote.outputSchema
-                ? { outputSchema: fromJsonSchema(remote.outputSchema as JsonSchemaType, validator) }
+                ? {
+                    outputSchema: fromJsonSchema(remote.outputSchema as JsonSchemaType, validator),
+                  }
                 : {}),
               metadata: {
                 source: "mcp",
@@ -180,7 +244,7 @@ const makeMcpTools = Effect.gen(function* () {
                   return await callSignals.run(
                     {
                       signal: context?.abortSignal,
-                      headers: mcpInputHeaders(remote.inputSchema as JsonSchemaType, args),
+                      headers: mcpInputHeaders(headers, args),
                     },
                     () => remote.execute!(args, context),
                   )
@@ -189,6 +253,7 @@ const makeMcpTools = Effect.gen(function* () {
                 }
               },
             } satisfies AnyServerTool
+            return [tool]
           }),
         catch: () => new McpUnavailable(),
       })

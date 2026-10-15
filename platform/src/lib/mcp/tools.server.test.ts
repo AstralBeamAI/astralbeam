@@ -144,6 +144,62 @@ describe("request-oriented MCP tools", () => {
         { state: { sse } },
       )
   })
+  test("omits invalid header schemas during discovery while retaining healthy tools", async () => {
+    const header = { type: "string", "x-mcp-header": "Region" }
+    const literal = { "x-mcp-header": "literal data" }
+    const valid = {
+      type: "object",
+      properties: {
+        nested: { type: "object", properties: { region: { ...header, type: "integer" } } },
+        data: { type: "object", const: literal, enum: [literal], default: literal },
+      },
+    }
+    const invalid = [
+      { properties: { region: { ...header, "x-mcp-header": "bad name" } } },
+      { properties: { region: { ...header, "x-mcp-header": "" } } },
+      { properties: { region: { ...header, "x-mcp-header": 1 } } },
+      { properties: { region: { ...header, type: "number" } } },
+      { properties: { region: { ...header, type: ["string"] } } },
+      {
+        properties: {
+          region: header,
+          nested: {
+            type: "object",
+            properties: { region: { ...header, "x-mcp-header": "REGION" } },
+          },
+        },
+      },
+      { oneOf: [{ properties: { region: header } }] },
+      { "x-mcp-header": "Root" },
+      { $defs: { region: header } },
+      { properties: { regions: { type: "array", items: header } } },
+    ]
+    await withMcpTools(
+      async (set) => {
+        expect(set.unavailable).toEqual([])
+        expect(set.tools.map((tool) => tool.metadata.nativeToolName)).toEqual(["lookup", "nested"])
+        expect(set.tools[1]!.metadata.originalInputSchema).toEqual(valid)
+        expect(mcpToolFixture.state.calls).toBe(0)
+        await set.tools[1]!.execute({ nested: { region: 42 } }, undefined)
+        expect(mcpToolFixture.state.regionHeader).toBe("42")
+        await expect(
+          set.tools[1]!.execute({ nested: { region: 2 ** 53 } }, undefined),
+        ).rejects.toThrow()
+        expect(mcpToolFixture.state.calls).toBe(1)
+      },
+      {
+        state: {
+          extraTools: [
+            ...invalid.map((schema, index) => ({
+              name: `invalid_${index}`,
+              inputSchema: { type: "object", ...schema },
+            })),
+            { name: "nested", inputSchema: valid },
+          ],
+        },
+      },
+    )
+  })
   test("counts catalog pages without counting an OAuth retry", async () => {
     for (const listPages of [8, 9]) {
       let refreshes = 0

@@ -10,6 +10,7 @@ export async function startMcpFixture() {
     cimd: false,
     sse: false,
     listPages: 2,
+    extraTools: [] as { name: string; inputSchema: Record<string, unknown> }[],
     rejectedListToken: "",
     lostToolResponse: false,
     toolGate: null as (() => Promise<void>) | null,
@@ -152,6 +153,7 @@ export async function startMcpFixture() {
                         required: ["ok"],
                       },
                     },
+                    ...state.extraTools,
                   ],
                 }
         } else if (body.method === "tools/call") {
