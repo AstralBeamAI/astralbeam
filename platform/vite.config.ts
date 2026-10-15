@@ -129,9 +129,9 @@ const viteConfig = defineConfig(({ mode }) => {
         ? []
         : nitro({
             preset: "bun",
-            // Daytona loads busboy dynamically, outside Nitro's static dependency graph.
+            // Trace Daytona's dynamic busboy import and Sharp's computed WASM asset path.
             // https://nitro.build/config#tracedeps
-            traceDeps: ["busboy"],
+            traceDeps: ["busboy", "@img/sharp-wasm32*"],
             minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias

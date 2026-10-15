@@ -174,6 +174,8 @@ Run each of these against the public origin:
 
 Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 
+**NOTE**: Moving from a Deno-built release to a Bun-built release needs no separate Bun installation or database conversion. Keep the existing environment variables and saved bootstrap configuration. The service user must be able to write to the system temporary directory, or to a directory selected with `TMPDIR`.
+
 1. Run this command to replace the installed binary with the latest release for this host's target:
 
    ```sh
