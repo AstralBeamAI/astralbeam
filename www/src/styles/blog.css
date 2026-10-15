@@ -44,14 +44,14 @@
 .blog-intro h1,
 .blog-article h1,
 .blog-card h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Source Serif 4", Georgia, serif;
   font-weight: 400;
-  letter-spacing: -0.045em;
+  letter-spacing: normal;
   text-wrap: balance;
 }
 .blog-intro h1 {
-  font-size: clamp(44px, 5.5vw, 64px);
-  line-height: 1.1;
+  font-size: clamp(36px, 4.5vw, 52px);
+  line-height: 1.2;
   margin-bottom: 24px;
 }
 .blog-intro > p:last-child {
@@ -89,8 +89,8 @@
   color: var(--blog-muted);
 }
 .blog-card h2 {
-  font-size: 34px;
-  line-height: 1.15;
+  font-size: 30px;
+  line-height: 1.25;
   margin-block: 14px 16px;
 }
 .blog-card > div > p:not(.blog-meta) {
@@ -123,8 +123,8 @@
   margin-bottom: 18px;
 }
 .blog-article h1 {
-  font-size: clamp(40px, 5vw, 58px);
-  line-height: 1.08;
+  font-size: clamp(36px, 4vw, 48px);
+  line-height: 1.2;
   margin-bottom: 22px;
 }
 .blog-deck {
@@ -443,7 +443,7 @@
     gap: 24px;
   }
   .blog-card h2 {
-    font-size: 32px;
+    font-size: 28px;
   }
   .blog-article-header {
     padding-top: 24px;
@@ -452,7 +452,7 @@
     margin-top: 28px;
   }
   .blog-article h1 {
-    font-size: 40px;
+    font-size: 36px;
   }
   .blog-deck {
     font-size: 17px;

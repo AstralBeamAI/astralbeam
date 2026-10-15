@@ -1,5 +1,5 @@
 ---
-title: "10 ways an agentic chat interface can break"
+title: "10 Ways an Agentic Chat Interface Can Break"
 description: "The happy path is a conversation. The hard parts begin when the agent actually does something. Try ten small failures, and a better pattern for each."
 date: "2026-10-15"
 author: "AstralBeam team"
