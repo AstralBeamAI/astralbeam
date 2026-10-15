@@ -9,7 +9,7 @@ imageAlt: "A conversation branching into a failed action and a recoverable path.
 
 An agentic chat interface has more to do than display a reply. It must explain work in progress, ask for decisions, and keep an accurate record of what happened. A convincing answer is little comfort when the interface loses your draft or creates the same task twice.
 
-Here are ten small failures worth trying before you ship. Each interactive example is an intentionally simplified simulation, not a recording of a particular product. Choose **Failure**, run the action, then try the **Better pattern**.
+Here are ten small failures worth trying before you ship. Each interactive example is an intentionally simplified simulation, not a recording of a particular product. Press **Start** to watch the failure, then switch to **Better pattern** and play it again.
 
 ## 1. The spinner that explains nothing
 
@@ -61,7 +61,7 @@ partial
 
 ## 7. New messages steal your reading position
 
-You scroll up to check a detail, and the next reply throws you to the bottom. Follow new content only while the reader is already near the end. Otherwise, preserve their position and offer a “new reply” control. Try adding a reply below while reading the first invoice. The better pattern lets you decide when to jump.
+You scroll up to check a detail, and the next reply throws you to the bottom. Follow new content only while the reader is already near the end. Otherwise, preserve their position and offer a “new reply” control. In the example below, a reply arrives while you reread an earlier invoice. The better pattern lets you decide when to jump.
 
 ```demo
 scroll
