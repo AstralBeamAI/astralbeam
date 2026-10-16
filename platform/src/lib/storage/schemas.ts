@@ -31,12 +31,3 @@ export const StorageConnectionSchema = Schema.Struct({
 })
 
 export type StorageConnection = typeof StorageConnectionSchema.Type
-
-const StorageDestinationSchema = Schema.Struct({
-  endpoint: StorageEndpointSchema,
-  region: NonEmptyStringSchema,
-  bucket: NonEmptyStringSchema,
-  pathStyle: Schema.Boolean,
-})
-
-export const StoredStorageDestinationSchema = Schema.fromJsonString(StorageDestinationSchema)

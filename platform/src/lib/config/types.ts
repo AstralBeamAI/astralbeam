@@ -38,7 +38,6 @@ export type ConfigKey =
   | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
-  | "s3_destination"
   | "s3_endpoint"
   | "s3_region"
   | "s3_bucket"
