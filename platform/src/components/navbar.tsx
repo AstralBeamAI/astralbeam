@@ -129,7 +129,14 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
   )
 }
 
-export function DocsNavbar({ section }: { section?: { slug: string; title: string } | undefined }) {
+export function DocsNavbar({
+  section,
+}: {
+  section?: { slug: string; title: string; href?: string } | undefined
+}) {
+  // Scalar replaces router history state, so leave its document on navigation.
+  // https://github.com/scalar/scalar/blob/545bab57b0b18d8811504389396953f60a354443/packages/api-reference/src/components/ApiReference.vue#L1701
+  const reloadDocument = Boolean(section?.href)
   return (
     <Navbar
       reloadDocument
@@ -138,15 +145,22 @@ export function DocsNavbar({ section }: { section?: { slug: string; title: strin
         // Below `sm` the trail would crowd the links, and the logo alone leads home.
         <div className="hidden min-w-0 items-center gap-1 sm:flex">
           <NavbarCrumb>
-            <Link to="/docs" activeOptions={{ exact: true }} className={navLinkClassName}>
+            <Link
+              to="/docs"
+              reloadDocument={reloadDocument}
+              activeOptions={{ exact: true }}
+              className={navLinkClassName}
+            >
               Docs
             </Link>
           </NavbarCrumb>
           {section && (
             <NavbarCrumb>
               <Link
-                to="/docs/$section"
-                params={{ section: section.slug }}
+                {...(section.href
+                  ? { to: section.href }
+                  : { to: "/docs/$section", params: { section: section.slug } })}
+                reloadDocument={reloadDocument}
                 className={cn(navLinkClassName, "min-w-0")}
               >
                 <span className="truncate">{section.title}</span>

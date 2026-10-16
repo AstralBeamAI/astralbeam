@@ -83,7 +83,7 @@ export function SiteHeader() {
           </span>
           <a href={docsUrl}>DOCS</a>
           <a href="/blog">BLOG</a>
-          <a href="/#pricing">PRICING</a>
+          <a href="/home#pricing">PRICING</a>
           <a href={logInUrl}>SIGN IN</a>
         </nav>
         <a className="btn btn-primary hud-cta" href={signUpUrl}>

@@ -14,6 +14,7 @@ export const siteMetadata = {
     docs: `${origin}/docs`,
     github: "https://github.com/astralbeamai/astralbeam",
     discord: "https://discord.gg/suehFycUvW",
+    x: "https://x.com/AstralBeamAI",
   },
   icon: {
     path: "/favicon.png",

@@ -13,7 +13,8 @@
       "@/*": ["./src/*"],
       "@e2e/*": ["./e2e/*"],
       "@scripts/*": ["./scripts/*"],
-      "@sdk/*": ["../sdk/src/*"]
+      "@sdk/*": ["../sdk/src/*"],
+      "@www/*": ["../www/src/*"]
     },
     "types": ["bun", "vite/client", "@tanstack/react-start"]
   }
