@@ -8,7 +8,7 @@ import {
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret } from "@/lib/utils.server"
-import { StorageEndpointSchema, StoredStorageDestinationSchema } from "@/lib/storage/schemas"
+import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
   NonEmptyStringSchema,
@@ -75,20 +75,6 @@ export function decodeConfigValue(
 }
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
-  {
-    key: "s3_destination",
-    group: "File storage",
-    label: "Storage destination",
-    description: "Pinned when application objects are first prepared.",
-    kind: "text",
-    required: false,
-    systemManaged: true,
-    schema: Schema.String.check(
-      Schema.makeFilter((value) =>
-        Result.isSuccess(Schema.decodeUnknownResult(StoredStorageDestinationSchema)(value)),
-      ),
-    ),
-  },
   {
     key: "s3_endpoint",
     group: "File storage",

@@ -4,6 +4,27 @@ import { captureMilestone } from "@e2e/capture.ts"
 import { expect, test } from "@e2e/fixtures.ts"
 import { operatorKey } from "@e2e/worktree.ts"
 
+test("the operator changes configured storage after a manual migration warning", async ({
+  page,
+  configure,
+}) => {
+  await configure.open()
+  await configure.signIn(operatorKey)
+  const warning = page.getByText("Existing files must be migrated manually", { exact: true })
+  await expect(warning).toBeHidden()
+  await expect(configure.field("s3_bucket")).toHaveValue("e2e-files")
+  await configure.setValue("s3_bucket", "replacement-files")
+  await expect(warning).toBeVisible()
+  await captureMilestone(page, "storage-manual-migration-warning")
+  await configure.save()
+  await expect(warning).toBeHidden()
+  await page.reload()
+  await expect(configure.field("s3_bucket")).toHaveValue("replacement-files")
+  await captureMilestone(page, "storage-destination-saved")
+  await configure.setValue("s3_bucket", "e2e-files")
+  await configure.save()
+})
+
 test("the operator tests unsaved storage settings and sees safe verification failures", async ({
   page,
   configure,

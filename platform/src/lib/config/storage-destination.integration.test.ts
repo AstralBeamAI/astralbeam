@@ -1,4 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3"
 import { like } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
@@ -47,7 +46,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
     vi.unstubAllEnvs()
   })
 
-  test("pins the destination across runtimes, permits credential rotation and rejects environment drift", async () => {
+  test("seeds distinct worktree buckets and preserves configured storage on reruns", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {
       vi.stubEnv("RUSTFS_HOST_PORT", "19000")
@@ -63,6 +62,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       })
       const buckets = new Set<string>()
       for (const name of ["worktree_a", "worktree-a", "Worktree_a", "x".repeat(63)]) {
+        await getAuthDatabase().delete(configTable).where(like(configTable.key, "s3_%"))
         await getAuthDatabase().transaction((transaction) => seedConfig(transaction, name))
         await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
         const { values } = await runtime.runPromise(
@@ -76,27 +76,16 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
         Effect.flatMap(Config, (config) => config.update(destinationUpdates)),
       )
       await runtime.runPromise(
-        Effect.flatMap(Config, (config) => config.reserveStorageDestination(destinationSettings)),
-      )
-      await runtime.runPromise(
         Effect.flatMap(Config, (config) =>
           config.update([{ key: "s3_secret_access_key", value: "rotated-secret" }]),
         ),
       )
+      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
     } finally {
       await runtime.dispose()
     }
-    const restarted = ManagedRuntime.make(Layer.merge(Config.layer, ObjectStorage.layer))
+    const restarted = ManagedRuntime.make(Config.layer)
     try {
-      vi.stubEnv("S3_ENDPOINT", "http://127.0.0.1:9000")
-      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
-      vi.stubEnv("S3_ENDPOINT", "")
-      const result = await restarted.runPromise(
-        Effect.flatMap(Config, (config) =>
-          config.update([{ key: "s3_endpoint", value: "http://127.0.0.1:9000/other" }]),
-        ).pipe(Effect.result),
-      )
-      expect(result._tag).toBe("Failure")
       const values = await restarted.runPromise(
         Effect.flatMap(Config, (config) => config.snapshot).pipe(
           Effect.map((snapshot) => snapshot.values),
@@ -105,62 +94,56 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       expect(values.s3_endpoint).toBe(destinationSettings.endpoint)
       expect(values.s3_access_key_id).toBe("first-key")
       expect(values.s3_secret_access_key).toBe("rotated-secret")
-      vi.stubEnv("S3_BUCKET", "environment-bucket")
-      await restarted.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
-      const snapshot = await restarted.runPromise(
-        Effect.flatMap(Config, (config) => config.snapshot),
-      )
-      expect(snapshot.issues.some((issue) => issue.key === "s3_endpoint")).toBe(true)
-      const pin = await restarted.runPromise(
-        Effect.flatMap(Config, (config) =>
-          config.reserveStorageDestination({
-            ...destinationSettings,
-            bucket: "environment-bucket",
-          }),
-        ).pipe(Effect.result),
-      )
-      expect(pin._tag).toBe("Failure")
-      const objectKey = `destination-test/${crypto.randomUUID()}`
-      const requests = vi.spyOn(S3Client.prototype, "send").mockResolvedValue(undefined)
-      try {
-        const cleanup = await restarted.runPromise(
-          Effect.flatMap(ObjectStorage, (storage) => storage.remove({ key: objectKey })).pipe(
-            Effect.result,
-          ),
-        )
-        expect(cleanup).toMatchObject({ _tag: "Failure", failure: { _tag: "StorageUnavailable" } })
-        expect(requests).not.toHaveBeenCalled()
-      } finally {
-        requests.mockRestore()
-      }
     } finally {
       await restarted.dispose()
     }
   })
 
-  test("serializes the first upload reservation against a destination edit on another replica", async () => {
-    const uploader = ManagedRuntime.make(Config.layer)
-    const operator = ManagedRuntime.make(Config.layer)
+  test("changes a legacy pinned destination and uses the new settings for object access", async () => {
+    await getAuthDatabase()
+      .insert(configTable)
+      .values({
+        key: "s3_destination",
+        value: {
+          key: "s3_destination",
+          value: JSON.stringify({
+            endpoint: destinationSettings.endpoint,
+            region: destinationSettings.region,
+            bucket: destinationSettings.bucket,
+            pathStyle: destinationSettings.pathStyle,
+          }),
+        },
+      })
+    const runtime = ManagedRuntime.make(Layer.merge(Config.layer, ObjectStorage.layer))
     try {
-      await operator.runPromise(
+      await runtime.runPromise(
         Effect.flatMap(Config, (config) => config.update(destinationUpdates)),
       )
-      await uploader.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
-      const results = await Promise.all([
-        uploader.runPromise(
-          Effect.flatMap(Config, (config) =>
-            config.reserveStorageDestination(destinationSettings),
-          ).pipe(Effect.result),
+      const initialUrl = await runtime.runPromise(
+        Effect.flatMap(ObjectStorage, (storage) => storage.signedUrl({ key: "existing-file" })),
+      )
+      expect(new URL(initialUrl).pathname).toBe("/storage/v1/s3/test-files/existing-file")
+      await runtime.runPromise(
+        Effect.flatMap(Config, (config) =>
+          config.update([
+            { key: "s3_endpoint", value: "https://s3.us-west-2.amazonaws.com" },
+            { key: "s3_region", value: "us-west-2" },
+            { key: "s3_bucket", value: "other-bucket" },
+            { key: "s3_path_style", value: "false" },
+          ]),
         ),
-        operator.runPromise(
-          Effect.flatMap(Config, (config) =>
-            config.update([{ key: "s3_bucket", value: "other-bucket" }]),
-          ).pipe(Effect.result),
-        ),
-      ])
-      expect(results.filter((result) => result._tag === "Success")).toHaveLength(1)
+      )
+      const changedUrl = await runtime.runPromise(
+        Effect.flatMap(ObjectStorage, (storage) => storage.signedUrl({ key: "existing-file" })),
+      )
+      expect(new URL(changedUrl).origin).toBe("https://other-bucket.s3.us-west-2.amazonaws.com")
+      vi.stubEnv("S3_BUCKET", "environment-bucket")
+      await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
+      const snapshot = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
+      expect(snapshot.values.s3_bucket).toBe("environment-bucket")
+      expect(snapshot.issues.filter((issue) => issue.key.startsWith("s3_"))).toEqual([])
     } finally {
-      await Promise.all([uploader.dispose(), operator.dispose()])
+      await runtime.dispose()
     }
   })
 })

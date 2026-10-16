@@ -78,7 +78,7 @@ Run this command against an empty database to restore:
 pg_restore --dbname="$DATABASE_URL" astralbeam.dump
 ```
 
-Restore the bucket objects at the same storage endpoint, region, bucket name, and addressing mode recorded in the restored configuration. Pinned destinations cannot change through `/configure`.
+Restore the bucket objects to the destination recorded in the restored configuration, keeping their object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
 
 Then start the application with that `DATABASE_URL` and the encryption keyring that was in effect when the dump was taken. If the restored data predates the running version, the setup gate closes until you approve the missing migrations. Test a restore before you need one, and confirm afterwards that `/configure` can read the stored secrets rather than reporting them unreadable.
 
