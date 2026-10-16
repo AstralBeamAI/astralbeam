@@ -1,8 +1,8 @@
-# AstralBeam website
+# @astralbeam/www
 
 TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting.
 
-Run from the repository root:
+Run common commands from the repository root:
 
 ```sh
 bun run --cwd www dev      # development server on 4600
@@ -13,25 +13,27 @@ bun run --cwd www ready    # check, build, then test
 bun run --cwd www deploy   # ready, then deploy to Cloudflare
 ```
 
-Tests inspect the build output, so `ready` builds first. See [contributor setup](../SETUP.md) for dependencies.
+`ready` builds before testing because the tests inspect `.output/public/`. Use `deploy` only when publishing the website is intended.
 
-## Editing
+For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `www`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
+
+Structure:
 
 - Routes live in `src/routes/`, landing content in `src/routes/-landing/`, and styles in `src/styles/`.
-- Add public routes to `vite.config.ts` and the platform's `src/routes/-lib/website-rewrite.server.ts`. Keep build assets under `/website-assets/` for the platform proxy.
-- Blog posts live in `src/content/blog/*.md` and are discovered automatically. Match an existing post's front matter. Keep its 1200 × 630 PNG and matching SVG under `public/blog/images/`. Fenced `demo` blocks select examples from `src/routes/blog/-components/failure-demo.tsx`.
 
-Under `dev`, generated `/favicon.png` and `/og-image.png` return 404. Verify them with a production build. Keep Nitro's public output outside the project to avoid development asset collisions.
+`vite.config.ts` lists fixed prerendered routes and discovers blog routes from Markdown filenames. Add other new routes there, otherwise the build will not emit them. The platform serves this website under its own origin through the rewrites in `platform/src/routes/-lib/website-rewrite.server.ts`, so add other new public paths there too, and keep build assets under `/website-assets/`, the prefix it proxies. The `/blog/` prefix includes posts, the feed, and blog images.
 
-## Analytics
+Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
 
-`src/lib/analytics.ts` initializes PostHog through both apps' client entries, only on `https://astralbeam.ai`. Full URLs are captured with authentication tokens redacted. Replay text, inputs, and attributes are masked, and network headers and bodies are excluded. Other settings use SDK/project defaults.
+Fenced blocks with the language `demo` embed the interactive example named inside, such as `retry`. The available examples are in `src/routes/blog/-components/failure-demo.tsx`. Normal Markdown handles the rest of the article. These examples run entirely in the browser with synthetic data and no model calls. Keep each example's explanation in the Markdown so the article remains useful without JavaScript.
 
-The platform identifies Better Auth users and their organization. The website shares that browser identity without fetching sessions. See the [privacy disclosure](src/routes/privacy.tsx) for collected data.
+Two caveats for the development server. Vite claims `.png` requests before Nitro sees them, so `/favicon.png` and `/og-image.png` answer 404 under `dev` while building them correctly. Nitro also registers its public output directory as a top-level asset root, so do not point `output.publicDir` back inside the project: every path the last build wrote a file for would then fail under `dev`.
 
-## Deployment
+All animation respects `prefers-reduced-motion`. Fonts are self-hosted via @fontsource (Anton / Space Grotesk / JetBrains Mono / Source Serif 4).
 
-For Cloudflare Workers Builds, use root `www`, `BUN_VERSION` from `.bun-version`, build command `bun install --frozen-lockfile && bun run build`, production command `bun run wrangler deploy`, and preview command `bun run wrangler versions upload`.
+`src/lib/analytics.ts` initializes the `posthog-js` SDK only on `https://astralbeam.ai`. The website and platform import it from TanStack Start's `src/client.tsx`, covering the website, blog, docs, API reference, and dashboard through their normal Vite builds. Both clients expose the SDK through `@posthog/react`’s `PostHogProvider`. It captures page views, interactions, web vitals, and masked session replays. Event and replay URLs retain query strings, fragments, organization slugs, and resource IDs, with authentication token values redacted. Person profiles, page titles, campaign and referrer attribution, performance capture, and replay console logs use SDK and project defaults. Initial attribution can also reach feature flag requests outside event masking. Text, inputs, and element attributes are masked. Network bodies and headers are excluded. The project token is public browser configuration. Local development, previews on other origins, and self-hosted installations do not send analytics. Future client instrumentation can import the initialized `posthog-js` singleton. Server tracing needs its own integration.
+
+The platform identifies logged-in organization users from its existing Better Auth session using their immutable user ID, with name and email as person properties. The dashboard's resolved organization adds `organization_id` and `organization_name` to events and an `organization` group keyed by its immutable ID, with its name as a group property. The same-origin PostHog identity and most recent organization persist across the website and blog, which do not fetch authentication sessions. Signing out, session expiration, or switching accounts resets the previous identity once the platform session resolves. Session loading and temporary authentication errors do not reset anonymous attribution. Group-level reports require PostHog's separately enabled group analytics add-on.
 
 ## Hosted domain redirects
 
