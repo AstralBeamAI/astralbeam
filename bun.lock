@@ -10,7 +10,7 @@
     },
     "cli": {
       "name": "@astralbeam/cli",
-      "version": "0.20.1",
+      "version": "0.20.2",
       "bin": {
         "astralbeam": "dist/astralbeam.js",
       },
@@ -109,7 +109,7 @@
     },
     "platform": {
       "name": "@astralbeam/platform",
-      "version": "0.20.1",
+      "version": "0.20.2",
       "dependencies": {
         "@astralbeam/sdk": "workspace:*",
         "@aws-sdk/client-s3": "^3.1151.0",
@@ -218,7 +218,7 @@
     },
     "sdk": {
       "name": "@astralbeam/sdk",
-      "version": "0.20.1",
+      "version": "0.20.2",
       "devDependencies": {
         "@base-ui/react": "^1.7.0",
         "@phosphor-icons/react": "^2.1.10",
