@@ -203,11 +203,10 @@ function PrivacyPage() {
         <p>
           On astralbeam.ai, we use PostHog for page views, interaction analytics, and session replay
           across the website, blog, documentation, and dashboard. Replay masks text, form inputs,
-          and element attributes. We mask organization slugs and resource IDs in captured platform
-          paths. Query strings and fragments are stripped from captured URLs, while standard
-          campaign parameters may still be captured for attribution. We exclude console logs and
-          network request bodies and headers. This integration does not run on self-hosted
-          installations or local development sites.
+          and element attributes. Captured URLs include query strings, fragments, organization
+          slugs, and resource IDs. We also capture referrers and campaign parameters for
+          attribution. We exclude console logs and network request bodies and headers. This
+          integration does not run on self-hosted installations or local development sites.
         </p>
       </section>
 
