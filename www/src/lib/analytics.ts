@@ -1,11 +1,34 @@
 import posthog from "posthog-js"
 
+function redactAnalyticsUrl(value: string): string {
+  return value
+    .replace(/[?#].*/su, "")
+    .replace(
+      /^(https:\/\/astralbeam\.ai)?\/(?!\/)(.*)$/su,
+      (_match, origin: string | undefined, pathname: string) => {
+        const segments = pathname.split("/")
+        if (
+          segments[0] &&
+          !/^(?:api|assets|auth|blog|configure|demo|dev|docs(?:\.md)?|home|onboarding|organizations|privacy|settings|terms|website-assets|(?:favicon|og-image)\.png|(?:licenses|llms|robots)\.txt|site\.webmanifest|sitemap\.xml)$/u.test(
+            segments[0],
+          )
+        ) {
+          segments[0] = ":organization"
+        }
+        const path = segments
+          .join("/")
+          .replace(/[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}/giu, ":id")
+        return `${origin ?? ""}/${path}`
+      },
+    )
+}
+
 function redactAnalyticsUrls(value: unknown): void {
   if (value === null || typeof value !== "object") return
   const properties = value as Record<string, unknown>
   for (const [key, item] of Object.entries(properties)) {
-    if (typeof item === "string" && /url|href|referrer/iu.test(key)) {
-      properties[key] = item.replace(/[?#].*/su, "")
+    if (typeof item === "string" && /url|href|referrer|pathname/iu.test(key)) {
+      properties[key] = redactAnalyticsUrl(item)
     } else {
       redactAnalyticsUrls(item)
     }
@@ -38,9 +61,12 @@ if (window.location.origin === "https://astralbeam.ai") {
       // Attribute masking also protects signed image links and hidden inputs. https://posthog.com/docs/session-replay/privacy
       maskTextSelector: "*",
       maskAllElementAttributes: true,
+      // Keep network content private even if enabled remotely. https://posthog.com/docs/session-replay/network-recording
+      recordHeaders: false,
+      recordBody: false,
       maskCapturedNetworkRequestFn: (request) => ({
         ...request,
-        name: request.name.replace(/[?#].*/su, ""),
+        name: redactAnalyticsUrl(request.name),
       }),
     },
   })
