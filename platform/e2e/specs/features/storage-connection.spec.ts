@@ -58,6 +58,21 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await configure.open()
     await configure.signIn(operatorKey)
     await configure.openSection("File storage")
+    await test.step("preserve multiline secrets through masked paste, reveal, and discard", async () => {
+      const key = "cloudfront_private_key"
+      const pem = "-----BEGIN PRIVATE KEY-----\nsynthetic-test-only\n-----END PRIVATE KEY-----\n"
+      const field = configure.field(key)
+      await expect(field).toHaveAttribute("type", "password")
+      await configure.pasteValue(key, pem)
+      await expect(field).toHaveAttribute("type", "password")
+      await configure.secretVisibilityButton(key).click()
+      await expect(field).toHaveJSProperty("tagName", "TEXTAREA")
+      await expect(field).toHaveValue(pem)
+      await configure.secretVisibilityButton(key).click()
+      await expect(field).toHaveAttribute("type", "password")
+      await configure.discardButton(key).click()
+      await expect(field).toHaveValue("")
+    })
     const button = page.getByRole("button", { name: "Test storage", exact: true })
     await expect(button).toBeDisabled()
     await configure

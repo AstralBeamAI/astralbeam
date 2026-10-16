@@ -38,7 +38,7 @@ export const signDownload = Effect.fn("signDownload")(function* ({
             keyPairId,
             privateKey,
             algorithm: "SHA256",
-            dateLessThan: new Date(Math.floor(expiresAt.getTime() / 1000) * 1000).toISOString(),
+            dateLessThan: Math.floor(expiresAt.getTime() / 1000) * 1000,
           }),
         catch: () => new StorageUnavailable(),
       })

@@ -61,6 +61,22 @@ export function configurePage(page: Page) {
       await this.field(key).fill(value)
     },
 
+    async pasteValue(key: string, value: string): Promise<void> {
+      await this.field(key).evaluate((field, text) => {
+        const clipboardData = new DataTransfer()
+        clipboardData.setData("text/plain", text)
+        field.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, clipboardData }))
+      }, value)
+    },
+
+    secretVisibilityButton(key: string): Locator {
+      return this.fieldGroup(key).getByRole("button", { name: /^(Show|Hide) / })
+    },
+
+    discardButton(key: string): Locator {
+      return this.fieldGroup(key).getByRole("button", { name: "Discard", exact: true })
+    },
+
     /** Generates and stores a new secret. The confirmation button repeats the trigger's label. */
     async generateSecret(key: string): Promise<void> {
       await openFieldSection(key)
