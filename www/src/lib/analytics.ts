@@ -19,19 +19,8 @@ function redactUrlTokens(value: unknown): void {
 if (window.location.origin === "https://astralbeam.ai") {
   posthog.init("phc_CxMzFhGR4Xv4pZnTdrgxnUsCTt93wMaPNdPdUadBpwrn", {
     defaults: "2026-05-30",
-    person_profiles: "never",
-    respect_dnt: true,
     mask_all_text: true,
     mask_all_element_attributes: true,
-    property_denylist: ["title", "$title"],
-    // Initial attribution URLs also reach flags outside before_send. https://github.com/PostHog/posthog-js/blob/main/packages/browser-common/src/feature-flags.ts
-    save_campaign_params: false,
-    save_referrer: false,
-    capture_performance: {
-      network_timing: false,
-      web_vitals_attribution: false,
-    },
-    enable_recording_console_log: false,
     before_send: (event) => {
       redactUrlTokens(event)
       return event
