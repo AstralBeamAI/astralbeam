@@ -132,8 +132,8 @@ export function ConfigFieldGroups({
                   <AlertTitle>Existing files must be migrated manually</AlertTitle>
                   <AlertDescription>
                     Saving these settings does not move existing attachments, avatars, or logos.
-                    Migrate the objects to the new destination with their object keys unchanged to
-                    keep them accessible, then restart other server instances after saving.
+                    Stop writers and maintenance runners, copy objects to the new destination with
+                    their object keys unchanged, then save and restart every server instance.
                   </AlertDescription>
                 </Alert>
               )}

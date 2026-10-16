@@ -2,7 +2,7 @@ import process from "node:process"
 import { createHash } from "node:crypto"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { like, sql } from "drizzle-orm"
+import { inArray, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "@/db/schema.ts"
@@ -73,7 +73,15 @@ function localStorageEndpoint(value: string) {
 
 export async function initializeStorage(database: SeedDatabase): Promise<void> {
   if (process.env.SKIP_DOCKER_COMPOSE === "true") return
-  const rows = await database.select().from(configTable).where(like(configTable.key, "s3_%"))
+  const rows = await database
+    .select()
+    .from(configTable)
+    .where(
+      inArray(
+        configTable.key,
+        Object.keys(SEED_CONFIG_VALUES).filter((key) => key.startsWith("s3_")),
+      ),
+    )
   const value = (key: string) => {
     const schema =
       key === "s3_endpoint"

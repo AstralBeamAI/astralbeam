@@ -1,4 +1,4 @@
-import { like } from "drizzle-orm"
+import { like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -17,7 +17,7 @@ import { getAuthDatabase } from "@/db/database"
 import { configTable } from "@/db/schema"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { Config } from "./config"
-import { seedConfig } from "@scripts/seed/config"
+import { initializeStorage, seedConfig } from "@scripts/seed/config"
 
 const destinationSettings = {
   endpoint: "http://127.0.0.1:9000/storage/v1/s3",
@@ -142,6 +142,10 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const snapshot = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
       expect(snapshot.values.s3_bucket).toBe("environment-bucket")
       expect(snapshot.issues.filter((issue) => issue.key.startsWith("s3_"))).toEqual([])
+      await getAuthDatabase().execute(
+        sql`update config set value = 'retired-key-ciphertext' where key = 's3_destination'`,
+      )
+      await initializeStorage(getAuthDatabase())
     } finally {
       await runtime.dispose()
     }
