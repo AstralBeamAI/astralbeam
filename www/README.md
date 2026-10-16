@@ -25,13 +25,15 @@ Under `dev`, generated `/favicon.png` and `/og-image.png` return 404. Verify the
 
 ## Analytics
 
-`src/lib/analytics.ts` initializes PostHog through both apps' client entries, only on `https://astralbeam.ai`. Full URLs are captured with authentication tokens redacted. Replay text, inputs, and attributes are masked, and network headers and bodies are excluded. Other settings use SDK/project defaults.
+`src/lib/analytics.ts` initializes PostHog through both apps' client entries, only on `https://astralbeam.ai`. Full URLs are captured with authentication tokens redacted. Replay text, inputs, and attributes are masked, and network headers and bodies are excluded. Initial attribution persistence is disabled to keep authentication tokens out of feature-flag requests. Other settings use SDK/project defaults.
 
 The platform identifies Better Auth users and their organization. The website shares that browser identity without fetching sessions. See the [privacy disclosure](src/routes/privacy.tsx) for collected data.
 
 ## Deployment
 
 For Cloudflare Workers Builds, use root `www`, `BUN_VERSION` from `.bun-version`, build command `bun install --frozen-lockfile && bun run build`, production command `bun run wrangler deploy`, and preview command `bun run wrangler versions upload`.
+
+## Hosted domain redirects
 
 [Caddyfile](Caddyfile) configures the hosted domains separately from Cloudflare deployment and requires Caddy 2.8+. Preserve other hosts, validate the full configuration, then reload. Its temporary redirect repairs previously cached apex-to-www redirects without clearing sessions. If a browser still loops, open [the recovery URL](https://astralbeam.ai/?_redirect_recovery=1) once or clear its cached files. Verify in a previously affected browser as well as a private window.
 

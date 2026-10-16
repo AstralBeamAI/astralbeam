@@ -4,7 +4,9 @@ import posthog from "posthog-js"
 import { StrictMode, startTransition } from "react"
 import { hydrateRoot } from "react-dom/client"
 
-import "@/lib/analytics"
+import { initAnalytics } from "@/lib/analytics"
+
+initAnalytics()
 
 startTransition(() => {
   hydrateRoot(
