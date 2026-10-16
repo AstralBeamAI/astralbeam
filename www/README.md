@@ -5,12 +5,12 @@ TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to 
 Run from the repository root:
 
 ```sh
-bun run --cwd www dev                  # localhost:4600
-bun run --cwd www build                # .output/public/
-bun run --cwd www preview              # localhost:4001
-bun run --cwd www generate:blog-images # regenerate PNGs from blog SVGs
-bun run --cwd www ready                # check, build, then test
-bun run --cwd www deploy               # ready, then publish to Cloudflare
+bun run --cwd www dev      # development server on 4600
+bun run --cwd www build    # static output in .output/public/
+bun run --cwd www preview  # production preview on 4001
+bun run --cwd www generate:blog-images # refresh optimized PNGs from blog SVGs
+bun run --cwd www ready    # check, build, then test
+bun run --cwd www deploy   # ready, then deploy to Cloudflare
 ```
 
 Tests inspect the build output, so `ready` builds first. See [contributor setup](../SETUP.md) for dependencies.
