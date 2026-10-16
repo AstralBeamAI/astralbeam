@@ -160,7 +160,7 @@ test("fails closed for broken CloudFront configuration or a changed S3 destinati
 test.each(["s3", "cloudfront"])(
   "honors the requested absolute expiry with %s signing",
   async (strategy) => {
-    const expiresAt = new Date(Date.now() + 37_900)
+    const expiresAt = new Date(Math.floor(Date.now() / 1000) * 1000 + 37_900)
     const signed = await Effect.runPromise(
       signDownload({ objectKey: fileDownloadObjectKey, expiresAt }).pipe(
         Effect.provide(

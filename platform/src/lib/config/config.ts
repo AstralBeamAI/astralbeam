@@ -168,19 +168,16 @@ export class Config extends Context.Service<
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment.values }
         const issues = validateConfigCompleteness(values, environmentKeys)
         if (values.download_signing_strategy === "cloudfront") issues.push(...environment.issues)
-        for (const row of stored.rows ?? []) {
-          if (
-            row.storageStatus === "unreadable" &&
-            (row.key === "download_signing_strategy" ||
-              (values.download_signing_strategy === "cloudfront" &&
-                row.key.startsWith("cloudfront_")))
-          ) {
-            issues.push({
-              key: row.key as ConfigKey,
-              message:
-                "Download signing configuration cannot be read. Replace or clear the stored value.",
-            })
-          }
+        if (
+          stored.rows?.some(
+            (row) => row.key === "download_signing_strategy" && row.storageStatus === "unreadable",
+          )
+        ) {
+          issues.push({
+            key: "download_signing_strategy",
+            message:
+              "Download signing configuration cannot be read. Replace or clear the stored value.",
+          })
         }
         return {
           generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
