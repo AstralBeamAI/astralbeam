@@ -25,7 +25,7 @@ Under `dev`, generated `/favicon.png` and `/og-image.png` return 404. Verify the
 
 ## Analytics
 
-`src/lib/analytics.ts` initializes PostHog through both apps' client entries, only on `https://astralbeam.ai`. Full URLs are captured with authentication tokens redacted. Replay text, inputs, and attributes are masked, and network headers and bodies are excluded. Initial attribution persistence is disabled to keep authentication tokens out of feature-flag requests. Other settings use SDK/project defaults.
+`src/lib/analytics.ts` initializes PostHog through both apps' client entries, only on `https://astralbeam.ai`. Full URLs are captured with authentication tokens redacted. Replay text, inputs, and attributes are masked, and network headers and bodies are excluded. Other settings use SDK/project defaults.
 
 The platform identifies Better Auth users and their organization. The website shares that browser identity without fetching sessions. See the [privacy disclosure](src/routes/privacy.tsx) for collected data.
 
