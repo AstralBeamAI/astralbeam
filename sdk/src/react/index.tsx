@@ -150,7 +150,7 @@ export interface AstralBeamChatRef {
  * documented once, on `MountAstralBeamChatOptions`.
  */
 export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "widgets" | "slots"> {
-  /** Stable mount element ID. Included with the organization and agent in the saved width scope. */
+  /** Stable mount element ID. Combined with `agentId`, when provided, to scope the saved width. */
   id?: string | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition> | undefined

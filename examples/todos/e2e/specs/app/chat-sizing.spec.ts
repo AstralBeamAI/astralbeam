@@ -11,7 +11,7 @@ import {
 const organization = SEED_ORGANIZATIONS[0]
 const firstAgent = `agent_${organization.id}_${organization.agents[0].id}`
 const secondAgent = `agent_${organization.id}_${organization.agents[1].id}`
-const WIDTH_STORAGE_KEY = `astralbeam:chat-size:v1:organization:${organization.id}:component:chat-sizing-test:agent:${SEED_TODOS_TARGET.agentId}`
+const WIDTH_STORAGE_KEY = `astralbeam:chat-size:v1:component:chat-sizing-test:agent:${SEED_TODOS_TARGET.agentId}`
 
 test("horizontal sizing keeps full height and restores in reloads and new tabs", async ({
   page,
@@ -177,7 +177,7 @@ for (const closed of ["hidden", "collapsed"] as const) {
   })
 }
 
-test("storage combines organization, component and agent identities", async ({ page }) => {
+test("storage combines component and agent identities", async ({ page }) => {
   const sizing = chatSizing(page)
   await sizing.openHost({ agentId: firstAgent, hostId: "" })
   await sizing.setWidth(560)

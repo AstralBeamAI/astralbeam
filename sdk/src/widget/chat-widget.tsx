@@ -57,6 +57,7 @@ export function ChatWidget({
   controller: RefObject<ChatController | null>
 }) {
   const panelId = useId()
+  const sizing = useChatWidth(options, host)
   const closable = !!options.onClose
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
@@ -102,11 +103,6 @@ export function ChatWidget({
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
-  const sizing = useChatWidth(
-    options,
-    host,
-    auth.status === "ready" ? auth.currentUser.organization.id : undefined,
-  )
   const { history, submission } = chatState
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
   const usageLimit = chatState.usageLimitReached

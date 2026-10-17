@@ -20,17 +20,10 @@ function readWidth(key: string | null): number | null {
   return null
 }
 
-export function useChatWidth(
-  options: MountAstralBeamChatOptions,
-  host: HTMLElement,
-  organizationId: string | undefined,
-) {
+export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElement) {
   const component = host.id ? `:component:${host.id}` : ""
   const agent = options.agentId ? `:agent:${options.agentId}` : ""
-  const key =
-    organizationId && (component || agent)
-      ? `astralbeam:chat-size:v1:organization:${organizationId}${component}${agent}`
-      : null
+  const key = component || agent ? `astralbeam:chat-size:v1${component}${agent}` : null
   const [preference, setPreference] = useState(() => ({ key, value: readWidth(key) }))
   if (preference.key !== key) setPreference({ key, value: readWidth(key) })
   const saved = preference.key === key ? preference.value : null

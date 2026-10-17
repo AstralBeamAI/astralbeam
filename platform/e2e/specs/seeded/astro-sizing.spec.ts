@@ -15,7 +15,7 @@ test("Astro scopes resized width by organization across reloads and mobile", asy
   expect(
     await page.evaluate(
       (key) => localStorage.getItem(key),
-      `astralbeam:chat-size:v1:organization:${SEED_DOGFOOD.organizationId}:component:chat-${SEED_ORGANIZATIONS[0].id}`,
+      `astralbeam:chat-size:v1:component:chat-${SEED_ORGANIZATIONS[0].id}`,
     ),
   ).toBe(JSON.stringify({ width: 498 }))
   await captureMilestone(page, "astro-resized")
@@ -31,7 +31,7 @@ test("Astro scopes resized width by organization across reloads and mobile", asy
   expect(
     await page.evaluate(
       (key) => localStorage.getItem(key),
-      `astralbeam:chat-size:v1:organization:${SEED_DOGFOOD.organizationId}:component:chat-${SEED_DOGFOOD.organizationId}`,
+      `astralbeam:chat-size:v1:component:chat-${SEED_DOGFOOD.organizationId}`,
     ),
   ).toBeNull()
   await shell.switchOrganization(SEED_DOGFOOD.name, SEED_ORGANIZATIONS[0].name)
