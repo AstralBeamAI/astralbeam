@@ -4,7 +4,7 @@ import { LegalPage } from "@/components/legal-page"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
 
-const effectiveDate = "August 25, 2026"
+const effectiveDate = "October 17, 2026"
 
 export const Route = createFileRoute("/privacy")({
   head: () =>
@@ -199,6 +199,16 @@ function PrivacyPage() {
           We use cookies and similar technologies that are necessary to authenticate users, maintain
           sessions, remember preferences, protect the Services, and understand operation and usage.
           Browser settings may let you block cookies, but essential features may stop working.
+        </p>
+        <p>
+          On astralbeam.ai, we use PostHog for page views, interaction analytics, and session replay
+          across the website, blog, documentation, and dashboard. For signed-in users, we link
+          activity to their account ID, name, email address, organization ID, and organization name.
+          Replay masks text, form inputs, and element attributes. Event and replay URLs include
+          query strings, fragments, organization slugs, resource IDs, and any authentication tokens
+          in those URLs. We also capture referrers and campaign parameters for attribution. Browser
+          console logs may be recorded for debugging. We exclude network request bodies and headers.
+          This integration does not run on self-hosted installations or local development sites.
         </p>
       </section>
 

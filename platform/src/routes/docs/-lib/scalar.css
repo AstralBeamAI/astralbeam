@@ -1,6 +1,3 @@
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/manrope";
-
 /* Map the app's generated tokens to Scalar's supported theme variables.
    https://scalar.com/products/api-references/themes */
 :root,
@@ -34,25 +31,12 @@
   --scalar-sidebar-search-border-color: var(--input);
 }
 
-body {
-  margin: 0;
-  padding-top: var(--scalar-custom-header-height);
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--scalar-font);
-}
-
 body .scalar-api-reference .t-doc__sidebar {
   top: var(--scalar-custom-header-height);
   height: calc(100dvh - var(--scalar-custom-header-height));
 }
 
-.docs-header.api-docs-header {
-  position: fixed;
-  inset: 0 0 auto;
-}
-
-:is([role="navigation"], aside) a[href="https://www.scalar.com"] {
+.scalar-api-reference :is([role="navigation"], aside) a[href="https://www.scalar.com"] {
   display: none;
 }
 

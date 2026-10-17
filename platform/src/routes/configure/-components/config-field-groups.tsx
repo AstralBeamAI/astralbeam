@@ -1,6 +1,6 @@
 "use client"
 
-import { GlobeIcon } from "@phosphor-icons/react"
+import { GlobeIcon, WarningIcon } from "@phosphor-icons/react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -73,6 +73,15 @@ export function ConfigFieldGroups({
       field.source === "environment" &&
       ["s3_endpoint", "s3_region", "s3_path_style"].includes(field.key),
   )
+  const storageDestinationFields = fields.filter((field) =>
+    ["s3_endpoint", "s3_region", "s3_bucket", "s3_path_style"].includes(field.key),
+  )
+  const changingStorageDestination =
+    storageDestinationFields.every((field) => field.value !== null) &&
+    storageDestinationFields.some((field) => {
+      const draft = drafts[field.key]
+      return draft?.kind === "set" && draft.value !== field.value
+    })
 
   return [...fieldsByGroup].map(([group, groupFields]) => {
     const visibleFields =
@@ -117,6 +126,17 @@ export function ConfigFieldGroups({
                   ? "Connection presets are unavailable while these settings come from the environment."
                   : "Prefill connection settings, then adjust the endpoint and region for your provider. Bucket and credentials stay unchanged. For R2, replace <account-id> with your account ID."}
               </p>
+              {changingStorageDestination && (
+                <Alert>
+                  <WarningIcon aria-hidden="true" className="text-warning" />
+                  <AlertTitle>Existing files must be migrated manually</AlertTitle>
+                  <AlertDescription>
+                    Saving these settings does not move existing attachments, avatars, or logos.
+                    Migrate the objects to the new destination with their object keys unchanged to
+                    keep them accessible, then restart other server instances after saving.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
           {visibleFields.map((field) => (

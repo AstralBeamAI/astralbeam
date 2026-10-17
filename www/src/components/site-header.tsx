@@ -11,7 +11,7 @@ const {
   docs: docsUrl,
   discord: discordUrl,
   github: githubUrl,
-  twitter: twitterUrl,
+  x: xUrl,
 } = siteMetadata.links
 
 export function SiteHeader() {
@@ -83,7 +83,7 @@ export function SiteHeader() {
             </a>
             <a
               className="hud-nav-social"
-              href={twitterUrl}
+              href={xUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="AstralBeam on X (Twitter)"
@@ -94,7 +94,7 @@ export function SiteHeader() {
           </span>
           <a href={docsUrl}>DOCS</a>
           <a href="/blog">BLOG</a>
-          <a href="/#pricing">PRICING</a>
+          <a href="/home#pricing">PRICING</a>
           <a href={logInUrl}>SIGN IN</a>
         </nav>
         <a className="btn btn-primary hud-cta" href={signUpUrl}>

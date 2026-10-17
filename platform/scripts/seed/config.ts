@@ -2,7 +2,7 @@ import process from "node:process"
 import { createHash } from "node:crypto"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { eq, like, sql } from "drizzle-orm"
+import { like, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "@/db/schema.ts"
@@ -32,13 +32,6 @@ export async function seedConfig(
 ): Promise<SeedConfigResult> {
   const written: string[] = []
   const fromEnvironment: string[] = []
-  await transaction.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('file-storage-destination', 0))`,
-  )
-  const [storagePin] = await transaction
-    .select({ key: configTable.key })
-    .from(configTable)
-    .where(eq(configTable.key, "s3_destination"))
   const values = {
     ...SEED_CONFIG_VALUES,
     s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
@@ -50,21 +43,22 @@ export async function seedConfig(
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
   }
   for (const [key, value] of Object.entries(values)) {
-    if (storagePin && key.startsWith("s3_")) continue
     if (process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue
     }
     const storedValue = { key, value }
-    await transaction
-      .insert(configTable)
-      .values({ key, value: storedValue })
-      .onConflictDoUpdate({
-        target: configTable.key,
-        // An upsert bypasses Drizzle's `updatedAt` hook, so the column is set explicitly.
-        set: { value: storedValue, updatedAt: sql`now()` },
-      })
-    written.push(key)
+    const insert = transaction.insert(configTable).values({ key, value: storedValue })
+    const rows = await (
+      key.startsWith("s3_")
+        ? insert.onConflictDoNothing({ target: configTable.key })
+        : insert.onConflictDoUpdate({
+            target: configTable.key,
+            // An upsert bypasses Drizzle's `updatedAt` hook, so the column is set explicitly.
+            set: { value: storedValue, updatedAt: sql`now()` },
+          })
+    ).returning({ key: configTable.key })
+    written.push(...rows.map((row) => row.key))
   }
   return { written, fromEnvironment }
 }

@@ -18,6 +18,7 @@ import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
 import { Effect } from "effect"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
+import { AnalyticsIdentity } from "@/components/analytics-identity"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicNavbar } from "@/components/navbar"
 import { PublicConfigProvider } from "@/components/public-config-provider"
@@ -273,6 +274,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="min-h-svh antialiased">
         <ThemeProvider storageKey="theme">
           <Toaster>
+            <AnalyticsIdentity />
             <AppProviders>{children}</AppProviders>
           </Toaster>
           <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />

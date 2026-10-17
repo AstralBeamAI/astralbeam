@@ -7,7 +7,7 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { Context, Effect, Layer, RcMap, Schema, SynchronizedRef } from "effect"
+import { Context, Effect, Layer, RcMap, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -85,12 +85,11 @@ export class ObjectStorage extends Context.Service<
   }
 >()("astralbeam/storage/ObjectStorage") {
   // Provides S3 operations using operator settings and scoped, reusable clients.
-  // Application object access fails when storage settings or the pinned destination are invalid.
+  // Application object access fails when storage settings are invalid.
   static readonly layerNoDeps = Layer.effect(
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
-      const destinationReserved = yield* SynchronizedRef.make(false)
       const clients = yield* RcMap.make({
         lookup: acquireStorageClient,
         idleTimeToLive: "1 minute",
@@ -157,29 +156,17 @@ export class ObjectStorage extends Context.Service<
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
           withClient((client, connection) =>
-            SynchronizedRef.updateEffect(destinationReserved, (reserved) =>
-              reserved
-                ? Effect.succeed(true)
-                : config.reserveStorageDestination(connection).pipe(Effect.as(true)),
-            ).pipe(
-              Effect.catchTag("StorageDestinationLocked", () =>
-                Effect.fail(new StorageUnavailable()),
+            storageRequest((abortSignal) =>
+              client.send(
+                new PutObjectCommand({
+                  Bucket: connection.bucket,
+                  Key: input.key,
+                  Body: input.bytes,
+                  ContentType: input.contentType,
+                }),
+                { abortSignal },
               ),
-              Effect.andThen(
-                storageRequest((abortSignal) =>
-                  client.send(
-                    new PutObjectCommand({
-                      Bucket: connection.bucket,
-                      Key: input.key,
-                      Body: input.bytes,
-                      ContentType: input.contentType,
-                    }),
-                    { abortSignal },
-                  ),
-                ),
-              ),
-              Effect.asVoid,
-            ),
+            ).pipe(Effect.asVoid),
           ),
         ),
         get: Effect.fn("ObjectStorage.get")((input) =>

@@ -1,60 +1,179 @@
-import { useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
+
+// Each step lasts `ms` before the next one starts, and the final step uses 0.
+type Step = readonly [ms: number, note: string, fixedNote?: string]
 
 const examples = {
   progress: {
     name: "The endless spinner",
     prompt: "Find overdue invoices and draft reminders.",
-    action: "Advance 30 seconds",
+    steps: [
+      [1600, "The agent starts working.", "The agent says what it is doing right now."],
+      [
+        1800,
+        "Twenty seconds later, it still says only “Thinking…”.",
+        "It reports what it found and what comes next.",
+      ],
+      [
+        1800,
+        "Is it working, stuck, or waiting for you?",
+        "Progress comes from the execution state, not an invented percentage.",
+      ],
+      [
+        0,
+        "A minute in, you still can't tell whether to wait or refresh.",
+        "It ends with a clear outcome. Nothing was sent without you.",
+      ],
+    ],
   },
   reconnect: {
     name: "The lost stream",
     prompt: "Summarize this month's support tickets.",
-    action: "Disconnect",
+    steps: [
+      [2200, "The answer starts streaming in."],
+      [2000, "Your phone switches networks mid-response."],
+      [
+        0,
+        "Reconnecting starts a new conversation. The partial answer is gone.",
+        "The client rejoins the same response and keeps streaming.",
+      ],
+    ],
   },
   retry: {
     name: "The duplicate action",
     prompt: "Create a task: Review the launch plan.",
-    action: "Retry request",
+    steps: [
+      [1400, "The agent calls the create-task tool."],
+      [1500, "The server creates the task…"],
+      [1700, "…but the response never reaches the browser."],
+      [1000, "You press Retry."],
+      [1500, "The retry sends the same write again.", "The retry reuses the operation ID."],
+      [
+        0,
+        "Now there are two identical tasks.",
+        "The server returns the existing task. Nothing is duplicated.",
+      ],
+    ],
   },
   approval: {
     name: "The blank cheque",
     prompt: "Clean up the completed tasks.",
-    action: "Approve",
+    steps: [
+      [1400, "The agent proposes an action."],
+      [
+        2400,
+        "The approval says nothing about what will happen.",
+        "The approval names the action, the records, and the way back.",
+      ],
+      [1000, "You approve it."],
+      [
+        0,
+        "“Allow” meant permanently deleting 38 tasks across every project.",
+        "Exactly the reviewed tasks are archived, and you can undo it.",
+      ],
+    ],
   },
   cancel: {
     name: "The misleading stop button",
     prompt: "Send the three reminder emails.",
-    action: "Stop",
+    steps: [
+      [1300, "The agent starts sending."],
+      [1300, "The first email goes out."],
+      [1000, "You press Stop."],
+      [
+        1500,
+        "The chat says “Stopped,” but only the text stopped.",
+        "Stop reaches the tool, and the chat waits for confirmation.",
+      ],
+      [
+        0,
+        "Behind the scenes, every email was sent.",
+        "It reports what was sent, what was cancelled, and what can't be undone.",
+      ],
+    ],
   },
   partial: {
     name: "The false success",
-    prompt: "Update all three project owners.",
-    action: "Run update",
+    prompt: "Make Dana the owner of all three projects.",
+    steps: [
+      [1100, "The agent updates each project."],
+      [900, "Cedar is updated."],
+      [900, "Birch is updated."],
+      [1300, "Maple fails with a permission error."],
+      [
+        0,
+        "The summary celebrates anyway. Maple is unchanged.",
+        "The summary matches the tool results and explains how to fix Maple.",
+      ],
+    ],
   },
   scroll: {
     name: "The scroll jump",
-    prompt: "Read the earlier reply, then add a new one.",
-    action: "Receive a reply",
+    prompt: "Export these as a CSV.",
+    steps: [
+      [1300, "The agent starts the export."],
+      [1700, "While you wait, you scroll up to reread invoice 1042."],
+      [
+        1700,
+        "The reply arrives and yanks you to the bottom.",
+        "Your position holds, and a pill says a new reply arrived.",
+      ],
+      [1000, "Now you have to find your place again.", "You jump when you're ready."],
+      [0, "Now you have to find your place again.", "You jump when you're ready."],
+    ],
   },
   draft: {
     name: "The disappearing draft",
-    prompt: "Write a message, then simulate a failed send.",
-    action: "Send with network error",
+    prompt: "Summarize the overdue invoices for Friday and flag anything over $5,000.",
+    steps: [
+      [
+        1500,
+        "You send it, and the composer clears right away.",
+        "You send it, and the message waits for the server to confirm.",
+      ],
+      [
+        0,
+        "The network fails, and your message is gone.",
+        "The network fails. Your draft is back in the composer, ready to retry.",
+      ],
+    ],
   },
   mobile: {
     name: "The squeezed interface",
-    prompt: "Review the agent's results on your phone.",
-    action: "Narrow to phone",
+    prompt: "Show me this month's reports.",
+    steps: [
+      [1600, "The agent returns a table of results."],
+      [2200, "Now open the same chat on a phone."],
+      [
+        0,
+        "The table keeps its desktop width, and Download is cut off.",
+        "The results reflow into cards, and every action stays reachable.",
+      ],
+    ],
   },
   accessible: {
     name: "The silent update",
-    prompt: "The report is ready. Can everyone tell?",
-    action: "Finish report",
+    prompt: "Export October's invoices as a CSV.",
+    steps: [
+      [2000, "The agent prepares the report."],
+      [2200, "The report appears on screen."],
+      [
+        0,
+        "A screen reader user hears nothing and keeps waiting.",
+        "The finished state is announced once, without reading every token.",
+      ],
+    ],
   },
-} as const
+} satisfies Record<string, { name: string; prompt: string; steps: readonly Step[] }>
 
 type DemoKind = keyof typeof examples
-const initialDraft = "Summarize the overdue invoices for Friday."
+const panels: Partial<Record<DemoKind, string>> = {
+  retry: "Tasks",
+  cancel: "Outbox",
+  partial: "Projects",
+  accessible: "Screen reader",
+}
+const typeMs = 40
 
 export function FailureDemo({ kind }: { kind: string }) {
   if (!(kind in examples)) throw new Error(`Unknown blog demo: ${kind}`)
@@ -62,313 +181,483 @@ export function FailureDemo({ kind }: { kind: string }) {
 }
 
 function Demo({ kind }: { kind: DemoKind }) {
-  const [fixed, setFixed] = useState(false)
-  const [step, setStep] = useState(0)
-  const [draft, setDraft] = useState(initialDraft)
   const example = examples[kind]
-  const scrollRef = useRef<HTMLTextAreaElement>(null)
+  const steps: readonly Step[] = example.steps
+  const [fixed, setFixed] = useState(false)
+  // -1 is idle, 0 types the prompt, and later steps play `steps[step - 1]`.
+  const [step, setStep] = useState(-1)
+  const [run, setRun] = useState(0)
+  const threadRef = useRef<HTMLDivElement>(null)
+  const s = step - 1
+  const finished = s === steps.length - 1
 
   useEffect(() => {
-    if (kind === "scroll" && step > 0 && !fixed && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    // A finished failure hands off to the better pattern after a pause to read the last note.
+    const handoff = !fixed && step === steps.length
+    const delay = step === 0 ? example.prompt.length * typeMs + 600 : steps[step - 1]?.[0]
+    if (!delay && !handoff) return
+    const timer = setTimeout(
+      () => {
+        if (!handoff) return setStep(step + 1)
+        setFixed(true)
+        setStep(0)
+        setRun((value) => value + 1)
+      },
+      handoff ? 3000 : delay,
+    )
+    return () => clearTimeout(timer)
+  }, [example, steps, step, fixed])
+
+  useEffect(() => {
+    const thread = threadRef.current
+    if (kind !== "scroll" || !thread) return
+    const reading = thread.querySelector<HTMLElement>(".demo-reading")
+    if (s === 1 && reading) thread.scrollTo({ top: reading.offsetTop - 16, behavior: "smooth" })
+    else if (s < 1 || s === (fixed ? 4 : 2)) {
+      thread.scrollTo({
+        top: thread.scrollHeight,
+        behavior: s < 0 || !fixed ? "instant" : "smooth",
+      })
     }
-  }, [kind, step, fixed])
+  }, [kind, s, fixed, run])
 
-  function resetDemo(nextFixed = fixed) {
+  function play(nextFixed: boolean, nextStep: number) {
     setFixed(nextFixed)
-    setStep(0)
-    setDraft(initialDraft)
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    setStep(nextStep)
+    setRun(run + 1)
   }
 
-  function advanceDemo() {
-    setStep(step + 1)
-    if (kind === "draft" && !fixed) setDraft("")
-  }
-
-  const action = kind === "reconnect" && step === 1 ? "Reconnect" : example.action
-  const repeatable = kind === "retry" || kind === "scroll"
-  const lastStep = kind === "reconnect" || kind === "progress" ? 2 : 1
-  const finished = !repeatable && step >= lastStep
+  const note =
+    s < -1
+      ? `Press Start to watch ${fixed ? "the better pattern" : "the failure, then a better pattern"}.`
+      : s === -1
+        ? fixed
+          ? "Now, a better pattern…"
+          : "You type a request."
+        : ((fixed ? steps[s]?.[2] : undefined) ?? steps[s]?.[1])
+  const lost = !fixed && ((kind === "reconnect" && s >= 2) || (kind === "draft" && s >= 1))
+  const offline = (kind === "reconnect" && s === 1) || (kind === "draft" && s >= 1)
+  const busy = s >= 0 && !finished && kind !== "draft" && !(kind === "cancel" && !fixed && s >= 3)
+  const panel = panels[kind]
 
   return (
-    <section className="failure-demo" aria-label={`Interactive example: ${example.name}`}>
-      <header className="demo-toolbar">
-        <span className="demo-label">Try it yourself</span>
+    <section className="failure-demo" aria-label={`Simulation: ${example.name}`}>
+      <div key={run} className={`demo-stage${panel ? " has-panel" : ""}`}>
+        <div className={`demo-window${kind === "mobile" && s >= 1 ? " is-narrow" : ""}`}>
+          <div className={`demo-window-bar ${fixed ? "is-better" : "is-failure"}`}>
+            <strong>Assistant</strong>
+            <span className={offline ? "is-offline" : ""}>{offline ? "Offline" : "Online"}</span>
+          </div>
+          <div
+            className={`demo-thread${kind === "scroll" ? " is-scrollable" : ""}`}
+            ref={threadRef}
+          >
+            {kind === "scroll" && <History reading={s >= 1} />}
+            {s >= 0 && !lost && (
+              <div className="demo-user">
+                {example.prompt}
+                {kind === "draft" && <small>{s === 0 ? "Sending…" : "Not sent · Retry"}</small>}
+              </div>
+            )}
+            {s >= 0 && (
+              <div className="demo-agent">
+                <Scene kind={kind} s={s} fixed={fixed} />
+              </div>
+            )}
+          </div>
+          {kind === "scroll" && fixed && (s === 2 || s === 3) && (
+            <span className="demo-pill">
+              ↓ New reply
+              {s === 3 && <Pointer />}
+            </span>
+          )}
+          <div className="demo-composer">
+            {s === -1 ? (
+              <span>
+                <Typed text={example.prompt} speed={typeMs} />
+                <span className="demo-caret" />
+              </span>
+            ) : kind === "draft" && fixed && s >= 1 ? (
+              <span>{example.prompt}</span>
+            ) : (
+              <span className="demo-placeholder">Ask anything</span>
+            )}
+            <span className={`demo-send${busy ? " is-stop" : ""}`} aria-hidden="true">
+              {busy ? "■" : "↑"}
+              {kind === "cancel" && s === 2 && <Pointer />}
+            </span>
+          </div>
+        </div>
+        {panel && (
+          <aside className={`demo-panel${kind === "accessible" ? " is-reader" : ""}`}>
+            <span>{panel}</span>
+            <Panel kind={kind} s={s} fixed={fixed} />
+          </aside>
+        )}
+      </div>
+      <div className="demo-controls">
         <div className="demo-modes" aria-label="Example mode">
-          <button type="button" aria-pressed={!fixed} onClick={() => resetDemo(false)}>
+          <button type="button" aria-pressed={!fixed} onClick={() => play(false, -1)}>
             Failure
           </button>
-          <button type="button" aria-pressed={fixed} onClick={() => resetDemo(true)}>
+          <button type="button" aria-pressed={fixed} onClick={() => play(true, -1)}>
             Better pattern
           </button>
         </div>
-      </header>
-      <div className="demo-scene">
-        <div className="demo-prompt">
-          <span>You</span>
-          <p>{example.prompt}</p>
-        </div>
-        <div className="demo-agent">
-          <span>Assistant</span>
-          {kind === "scroll" ? (
-            <>
-              <textarea
-                ref={scrollRef}
-                className="demo-scroll"
-                readOnly
-                aria-label="Scrollable conversation"
-                value={[
-                  "The detail you were reading\nInvoice 1042 is awaiting approval.",
-                  "Invoice 1043 has been paid.",
-                  "Invoice 1044 is due on Friday.",
-                  "Invoice 1045 needs a purchase order.",
-                  ...Array.from(
-                    { length: step },
-                    (_, index) => `New reply ${index + 1}: the export is ready.`,
-                  ),
-                ].join("\n\n")}
-              />
-              {fixed && step > 0 && (
-                <button
-                  type="button"
-                  className="demo-jump"
-                  onClick={() => {
-                    if (scrollRef.current)
-                      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-                  }}
-                >
-                  ↓ Jump to new reply
-                </button>
-              )}
-            </>
-          ) : kind === "draft" ? (
-            <>
-              <label className="demo-input-label">
-                Your message
-                <textarea
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  rows={2}
-                />
-              </label>
-              {step > 0 && (
-                <p className="demo-error" role="status">
-                  Could not send.{" "}
-                  {fixed
-                    ? "Your draft is still here. Try again when connected."
-                    : "Your message has disappeared."}
-                </p>
-              )}
-            </>
-          ) : kind === "mobile" ? (
-            <div className={`demo-viewport${step > 0 ? " is-narrow" : ""}`}>
-              <div className={`demo-result-table${fixed ? " is-responsive" : ""}`}>
-                <div>
-                  <strong>Report</strong>
-                  <strong>Status</strong>
-                  <strong>Action</strong>
-                </div>
-                <div>
-                  <span>October invoices</span>
-                  <span>Ready</span>
-                  <span className="demo-download">Download ↓</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <DemoResult kind={kind} step={step} fixed={fixed} />
-          )}
-        </div>
-      </div>
-      <div className="demo-controls">
-        <button className="demo-action" type="button" onClick={advanceDemo} disabled={finished}>
-          {finished ? "Example complete" : action}
-          <span aria-hidden="true"> {finished ? "✓" : "→"}</span>
-        </button>
-        <button
-          className="demo-reset"
-          type="button"
-          aria-label={`Reset ${example.name}`}
-          title="Reset example"
-          onClick={() => resetDemo()}
-        >
-          ↺
+        <p role="status">{note}</p>
+        <button className="demo-action" type="button" onClick={() => play(fixed, 0)}>
+          {s < -1 ? "▶ Start" : "↺ Replay"}
         </button>
       </div>
-      <p className="demo-caption">
-        Interactive simulation. {fixed ? "A better response" : "Deliberately broken behavior"}.
-        {kind === "progress"
-          ? " Time advances only when you click."
-          : " No real actions are taken."}
-      </p>
     </section>
   )
 }
 
-function DemoResult({ kind, step, fixed }: { kind: DemoKind; step: number; fixed: boolean }) {
+function Scene({ kind, s, fixed }: { kind: DemoKind; s: number; fixed: boolean }) {
   switch (kind) {
     case "progress":
       return (
-        <div role="status">
+        <>
           {fixed ? (
             <>
-              <p>
-                {step === 0
-                  ? "Looking up overdue invoices…"
-                  : step === 1
-                    ? "Found 12 invoices. Drafting reminders…"
-                    : "12 reminder drafts are ready for review."}
-              </p>
-              <p className="demo-detail">
-                {step * 30} seconds elapsed · {step === 2 ? "Complete" : "No emails sent"}
-              </p>
-            </>
-          ) : (
-            <>
-              <p>
-                <span className="demo-dots" aria-hidden="true">
-                  •••
-                </span>{" "}
-                Thinking…
-              </p>
-              <p className="demo-detail">{step * 30} seconds elapsed. No other information.</p>
-            </>
-          )}
-        </div>
-      )
-    case "reconnect":
-      return (
-        <div role="status">
-          {step === 0 ? (
-            <p>The most common issue was billing. Of the 48 tickets…</p>
-          ) : fixed ? (
-            <>
-              <p>
-                The most common issue was billing. Of the 48 tickets
-                {step === 2 ? ", 19 concerned invoices. Login issues came next." : "…"}
-              </p>
-              <p className="demo-detail">
-                {step === 1
-                  ? "Connection lost. Keeping your partial answer."
-                  : "Reconnected to the same response. Complete."}
-              </p>
-            </>
-          ) : (
-            <p className="demo-error">
-              {step === 1
-                ? "Connection lost. Response removed."
-                : "New conversation. How can I help?"}
-            </p>
-          )}
-        </div>
-      )
-    case "retry":
-      return (
-        <div role="status">
-          <p className="demo-detail">
-            The first request succeeded, but its acknowledgement was lost.
-          </p>
-          <div className="demo-tasks">
-            {Array.from({ length: fixed ? 1 : step + 1 }, (_, index) => (
-              <p key={`task-${index + 1}`}>
-                <span aria-hidden="true">□</span> Review the launch plan{" "}
-                <small>#{104 + index}</small>
-              </p>
-            ))}
-          </div>
-          {step > 0 && (
-            <p className={fixed ? "demo-success" : "demo-error"}>
-              {fixed
-                ? "Same operation ID. Existing task returned."
-                : `${step + 1} tasks created for one request.`}
-            </p>
-          )}
-        </div>
-      )
-    case "approval":
-      return (
-        <div role="status">
-          {step > 0 ? (
-            <p className={fixed ? "demo-success" : "demo-error"}>
-              {fixed
-                ? "Archived the 3 reviewed tasks. Nothing deleted."
-                : "Deleted 38 completed tasks. No undo available."}
-            </p>
-          ) : fixed ? (
-            <>
-              <p>
-                <strong>Archive 3 completed tasks in Launch?</strong>
-              </p>
-              <p className="demo-detail">
-                Draft announcement, Review copy, Schedule launch. You can restore them from Archive.
-              </p>
-            </>
-          ) : (
-            <p>Allow this action?</p>
-          )}
-        </div>
-      )
-    case "cancel":
-      return (
-        <div role="status">
-          <p>
-            {step === 0
-              ? "Sending reminders: 1 sent, 2 queued."
-              : fixed
-                ? "Stopped. 1 email was already sent. 2 queued emails cancelled."
-                : "Stopped."}
-          </p>
-          {step > 0 && (
-            <p className={fixed ? "demo-detail" : "demo-error"}>
-              {fixed
-                ? "The sent email cannot be recalled."
-                : "Behind the scenes: all 3 emails were sent."}
-            </p>
-          )}
-        </div>
-      )
-    case "partial":
-      return (
-        <div role="status">
-          {step === 0 ? (
-            <p>Ready to update Cedar, Birch, and Maple.</p>
-          ) : (
-            <>
-              <p className={fixed ? "" : "demo-success"}>
-                {fixed ? "Updated 2 of 3 projects." : "Done! All project owners updated."}
-              </p>
-              <ul className="demo-outcomes">
-                <li>✓ Cedar updated</li>
-                <li>✓ Birch updated</li>
-                <li className="demo-error">× Maple: permission denied</li>
-              </ul>
-              {fixed && (
-                <p className="demo-detail">
-                  Ask a project admin for access to Maple, then retry only that update.
+              <Tool status={s > 0 ? "ok" : "run"}>
+                {s > 0 ? "Found 12 overdue invoices" : "Searching invoices"}
+              </Tool>
+              {s > 0 && (
+                <Tool status={s === 3 ? "ok" : "run"}>
+                  {s === 3 ? "Drafted 12 reminders" : `Drafting reminders · ${s * 4} of 12`}
+                </Tool>
+              )}
+              {s === 3 && (
+                <p>
+                  <Typed text="12 reminder drafts are ready for your review. No emails have been sent." />
                 </p>
               )}
             </>
+          ) : (
+            <p>
+              <span className="demo-dots" aria-hidden="true">
+                •••
+              </span>{" "}
+              Thinking…
+            </p>
           )}
-        </div>
+          <p className="demo-detail">
+            <Clock running={s < 3} /> elapsed
+          </p>
+        </>
+      )
+    case "reconnect": {
+      const start = "The most common issue was billing. Of the 48 tickets,"
+      if (!fixed && s === 1) return <Tool status="fail">Connection lost. Response removed.</Tool>
+      if (!fixed && s === 2)
+        return (
+          <p>
+            <Typed text="Hi! How can I help you today?" />
+          </p>
+        )
+      return (
+        <>
+          <p>
+            {s === 0 ? <Typed text={start} /> : start}
+            {s === 2 && (
+              <Typed text=" 19 concerned invoices, and login problems came next with 11." />
+            )}
+          </p>
+          {s === 1 && <Tool status="run">Connection lost. Reconnecting to this response</Tool>}
+        </>
+      )
+    }
+    case "retry":
+      return (
+        <>
+          <Tool status={s < 2 ? "run" : "fail"}>{s < 2 ? "Creating task" : "Request failed"}</Tool>
+          {(s === 2 || s === 3) && (
+            <p>
+              <span className="demo-btn">
+                Retry
+                {s === 3 && <Pointer />}
+              </span>
+            </p>
+          )}
+          {s >= 4 && (
+            <Tool status={s === 4 ? "run" : "ok"}>
+              {fixed
+                ? s === 4
+                  ? "Checking operation op_7f3a"
+                  : "Found existing task #104"
+                : s === 4
+                  ? "Creating task"
+                  : "Created task #105"}
+            </Tool>
+          )}
+          {s === 5 && (
+            <p>
+              <Typed text={`Created “Review the launch plan” (#${fixed ? 104 : 105}).`} />
+            </p>
+          )}
+        </>
+      )
+    case "approval":
+      return (
+        <>
+          <p>
+            <Typed text="I can clean those up for you." />
+          </p>
+          {s >= 1 && (
+            <div className="demo-card">
+              {fixed ? (
+                <>
+                  <strong>Archive 3 completed tasks in Launch?</strong>
+                  <ul>
+                    <li>Draft announcement</li>
+                    <li>Review copy</li>
+                    <li>Schedule launch</li>
+                  </ul>
+                  <small>You can restore them from Archive.</small>
+                </>
+              ) : (
+                <strong>Allow this action?</strong>
+              )}
+              {s < 3 ? (
+                <div>
+                  <span className="demo-btn">{fixed ? "Cancel" : "Deny"}</span>
+                  <span className="demo-btn is-primary">
+                    {fixed ? "Archive 3 tasks" : "Allow"}
+                    {s === 2 && <Pointer />}
+                  </span>
+                </div>
+              ) : (
+                <small>✓ Approved</small>
+              )}
+            </div>
+          )}
+          {s === 3 &&
+            (fixed ? (
+              <Tool status="ok">
+                Archived 3 tasks in Launch · <u>Undo</u>
+              </Tool>
+            ) : (
+              <Tool status="fail">Deleted 38 completed tasks in all projects. No undo.</Tool>
+            ))}
+        </>
+      )
+    case "cancel":
+      return (
+        <>
+          <Tool status={s < 3 || (fixed && s === 3) ? "run" : "ok"}>
+            {s < 3
+              ? `Sending reminders · ${s > 0 ? 1 : 0} of 3 sent`
+              : fixed && s === 3
+                ? "Stopping the email tool"
+                : "Stopped"}
+          </Tool>
+          {fixed && s === 4 && (
+            <p>
+              <Typed text="1 email was already sent and can't be recalled. The 2 queued emails were cancelled." />
+            </p>
+          )}
+        </>
+      )
+    case "partial":
+      return fixed ? (
+        <>
+          {["Cedar", "Birch", "Maple"].map(
+            (name, index) =>
+              s >= index && (
+                <Tool key={name} status={s > index ? (index === 2 ? "fail" : "ok") : "run"}>
+                  {name}
+                  {s > index && (index === 2 ? ": permission denied" : ": Dana is the owner")}
+                </Tool>
+              ),
+          )}
+          {s === 4 && (
+            <p>
+              <Typed text="Dana now owns 2 of 3 projects. Ask a Maple admin for access, then I'll retry only Maple." />
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <Tool status={s < 4 ? "run" : "ok"}>Updating project owners</Tool>
+          {s === 4 && (
+            <p className="demo-success">
+              <Typed text="Done! Dana now owns all three projects." />
+            </p>
+          )}
+        </>
+      )
+    case "scroll":
+      return (
+        <>
+          <Tool status={s < 2 ? "run" : "ok"}>
+            {s < 2 ? "Exporting invoices" : "Exported 5 invoices"}
+          </Tool>
+          {s >= 2 && (
+            <p>
+              The export is ready: <span className="demo-link">invoices-october.csv</span>
+            </p>
+          )}
+        </>
+      )
+    case "draft":
+      return s >= 1 ? (
+        <Tool status="fail">
+          {fixed
+            ? "Couldn't send. Your draft is back below."
+            : "Couldn't send. Check your connection."}
+        </Tool>
+      ) : null
+    case "mobile":
+      return (
+        <>
+          <p>
+            <Typed text="Here are this month's reports:" />
+          </p>
+          <div className={`demo-table${fixed ? " is-responsive" : ""}`}>
+            <div>
+              <strong>Report</strong>
+              <strong>Status</strong>
+              <strong>Action</strong>
+            </div>
+            {["October invoices", "Q3 summary"].map((report) => (
+              <div key={report}>
+                <span>{report}</span>
+                <span>Ready</span>
+                <span className="demo-link">Download ↓</span>
+              </div>
+            ))}
+          </div>
+        </>
       )
     case "accessible":
+      return s < 1 ? (
+        <Tool status="run">Preparing report</Tool>
+      ) : (
+        <>
+          <Tool status="ok">Report ready</Tool>
+          <p>
+            <span className="demo-btn">↓ invoices-october.csv</span>
+          </p>
+        </>
+      )
+  }
+}
+
+function Panel({ kind, s, fixed }: { kind: DemoKind; s: number; fixed: boolean }) {
+  switch (kind) {
+    case "retry":
+      return s < 1 ? (
+        <p className="demo-detail">No tasks yet</p>
+      ) : (
+        [104, 105].map(
+          (id) =>
+            (id === 104 || (!fixed && s === 5)) && (
+              <Row key={id} label="Review the launch plan" status={`#${id}`} />
+            ),
+        )
+      )
+    case "cancel": {
+      if (s < 0) return <p className="demo-detail">Empty</p>
+      const sent = fixed ? Math.min(s, 1) : s >= 3 ? s - 1 : Math.min(s, 1)
+      return ["Acme", "Birch Co", "Cedar Ltd"].map((name, index) => (
+        <Row
+          key={name}
+          label={name}
+          status={index < sent ? "Sent" : fixed && s === 4 ? "Cancelled" : "Queued"}
+          error={index > 0 && index < sent}
+        />
+      ))
+    }
+    case "partial":
+      return ["Cedar", "Birch", "Maple"].map((name, index) => (
+        <Row
+          key={name}
+          label={name}
+          status={s > index ? (index === 2 ? "Lee · denied" : "Dana") : "Lee"}
+          error={s > index && index === 2}
+        />
+      ))
+    case "accessible":
       return (
-        <div role="status">
-          <p>{step === 0 ? "Preparing report…" : "Report ready. Download CSV ↓"}</p>
-          <div className="demo-reader">
-            <span>Simulated screen reader output</span>
-            <p>
-              {step === 0
-                ? "“Preparing report.”"
-                : fixed
-                  ? "“Report ready. Download CSV.”"
-                  : "Silence. The visual update was never announced."}
-            </p>
-          </div>
-        </div>
+        <>
+          {s >= 0 && <p>“Message sent.”</p>}
+          {s >= 1 &&
+            (fixed ? (
+              <p>“Report ready. Download invoices-october.csv, button.”</p>
+            ) : (
+              <p className="demo-silence">Silence</p>
+            ))}
+        </>
       )
     default:
       return null
   }
+}
+
+function History({ reading }: { reading: boolean }) {
+  return (
+    <>
+      <div className="demo-user">Which invoices need attention?</div>
+      <div className="demo-agent">
+        <p>Here is where each open invoice stands:</p>
+        <p className={`demo-reading${reading ? " is-highlighted" : ""}`}>
+          Invoice 1042 is awaiting approval from Priya in finance.
+        </p>
+        <p>Invoice 1043 was paid on Monday.</p>
+        <p>Invoice 1044 is due on Friday.</p>
+        <p>Invoice 1045 needs a purchase order.</p>
+        <p>Invoice 1046 is disputed by the customer.</p>
+      </div>
+    </>
+  )
+}
+
+function Tool({ status, children }: { status: "run" | "ok" | "fail"; children: ReactNode }) {
+  return (
+    <p className={`demo-tool is-${status}`}>
+      <span aria-hidden="true">{status === "ok" ? "✓" : status === "fail" ? "×" : ""}</span>
+      {children}
+    </p>
+  )
+}
+
+function Row({ label, status, error }: { label: string; status: string; error?: boolean }) {
+  return (
+    <p className="demo-row">
+      {label}
+      <small key={status} className={error ? "demo-error" : undefined}>
+        {status}
+      </small>
+    </p>
+  )
+}
+
+function Typed({ text, speed = 18 }: { text: string; speed?: number }) {
+  const [length, setLength] = useState(0)
+  useEffect(() => {
+    if (length >= text.length) return
+    const timer = setTimeout(() => setLength(length + 1), speed)
+    return () => clearTimeout(timer)
+  }, [length, text, speed])
+  return text.slice(0, length)
+}
+
+function Clock({ running }: { running: boolean }) {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    if (!running) return
+    // One simulated second every 80 ms keeps a minute-long wait under six seconds.
+    const timer = setInterval(() => setSeconds((value) => value + 1), 80)
+    return () => clearInterval(timer)
+  }, [running])
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+function Pointer() {
+  return (
+    <svg className="demo-pointer" viewBox="0 0 16 22" width="16" height="22" aria-hidden="true">
+      <path d="M1 1v17l4.5-4.5 3 7 3-1.3-3-6.7H15z" />
+    </svg>
+  )
 }
