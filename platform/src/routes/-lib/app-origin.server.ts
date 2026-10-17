@@ -2,7 +2,7 @@ import { Effect } from "effect"
 
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
 import { Config } from "@/lib/config/config"
-import { runRouteEffect } from "@/lib/runtime/server-fn.server"
+import { runAppEffect } from "@/lib/runtime/app-effect.server"
 
 /** The deployment's public origin, for the absolute URLs crawlers require. */
 export function resolveAppOrigin(request: Request): Promise<string> {
@@ -10,7 +10,7 @@ export function resolveAppOrigin(request: Request): Promise<string> {
   // unreachable, and treats a 5xx there as disallow-all, so the request's origin is the fallback.
   const requestOrigin = new URL(request.url).origin
   if (getDatabaseBootstrapIssues().length > 0) return Promise.resolve(requestOrigin)
-  return runRouteEffect(
+  return runAppEffect(
     Effect.flatMap(Config, (config) => config.get("app_base_url")).pipe(
       Effect.catchCause(() => Effect.succeed(undefined)),
       Effect.map((appBaseUrl) => appBaseUrl ?? requestOrigin),

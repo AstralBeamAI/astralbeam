@@ -59,6 +59,34 @@ async function fetchBinaryCheckResponse(url: URL) {
   })
 }
 
+async function checkBinaryDocsDiscovery(baseUrl: URL) {
+  const sitemap = await fetchBinaryCheckResponse(new URL("/docs/sitemap.xml", baseUrl))
+  const titles = new Set<string>()
+  for (const [, location] of (await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/gu)) {
+    const url = new URL(new URL(location!).pathname, baseUrl)
+    const response = await fetchBinaryCheckResponse(url)
+    const html = await response.text()
+    const title = /<title>([^<]+)<\/title>/u.exec(html)?.[1]
+    if (!title || titles.has(title) || !/<meta name="description" content="[^"]+"/u.test(html)) {
+      throw new Error(`Docs metadata is missing or duplicated at ${url.pathname}`)
+    }
+    titles.add(title)
+    if (response.headers.get("link") !== `<${url.href}>; rel="canonical"`) {
+      throw new Error(`Docs canonical does not match the running deployment at ${url.pathname}`)
+    }
+  }
+  if (titles.size === 0) throw new Error("Docs sitemap did not contain any pages")
+
+  const canonical = new URL("/docs/sdk/getting-started", baseUrl)
+  for (const suffix of ["/", "?utm_source=check", ".md"]) {
+    const response = await fetchBinaryCheckResponse(new URL(`${canonical.href}${suffix}`))
+    await response.body?.cancel()
+    if (response.headers.get("link") !== `<${canonical.href}>; rel="canonical"`) {
+      throw new Error(`Docs variant ${suffix} did not identify its HTML canonical`)
+    }
+  }
+}
+
 function waitForBinaryCheckProcess(binaryProcess: ChildProcess) {
   if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
     return Promise.resolve()
@@ -206,6 +234,7 @@ async function runBinaryCheck() {
     if (cached.status !== 304) {
       throw new Error("Binary did not revalidate unchanged docs")
     }
+    await checkBinaryDocsDiscovery(baseUrl)
   } finally {
     try {
       await stopBinaryCheckProcess(binaryProcess, status)

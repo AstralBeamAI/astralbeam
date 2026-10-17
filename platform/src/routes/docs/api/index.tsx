@@ -30,6 +30,14 @@ export const Route = createFileRoute("/docs/api/")({
     }
     return content
   },
-  head: () => ({ meta: [{ title: `${APP_NAME} API` }] }),
+  head: () => ({
+    meta: [
+      { title: `${APP_NAME} API` },
+      {
+        name: "description",
+        content: `HTTP API reference for ${APP_NAME}, including authentication, Tenants, TenantUsers, pagination, and errors.`,
+      },
+    ],
+  }),
   component: ApiDocsReference,
 })

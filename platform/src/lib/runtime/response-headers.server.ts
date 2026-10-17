@@ -1,5 +1,7 @@
 import type { NitroAppPlugin } from "nitro/types"
 
+import { resolveAppOrigin } from "@/routes/-lib/app-origin.server"
+
 // One year is the shortest max-age the preload list accepts.
 // https://hstspreload.org/#deployment-recommendations
 const STRICT_TRANSPORT_SECURITY = "max-age=63072000; includeSubDomains"
@@ -39,9 +41,20 @@ export function applyResponseSecurityHeaders(
 }
 
 const responseHeadersPlugin: NitroAppPlugin = (nitro) => {
-  nitro.hooks.hook("response", (response, event) => {
+  nitro.hooks.hook("response", async (response, event) => {
     const pathname = new URL(event.req.url).pathname
     applyResponseSecurityHeaders(response.headers, event.req, pathname)
+    if (
+      response.ok &&
+      (pathname === "/docs" || pathname === "/docs.md" || pathname.startsWith("/docs/")) &&
+      /^text\/(?:html|markdown)\b/u.test(response.headers.get("Content-Type") ?? "")
+    ) {
+      // Runtime HTTP canonicals keep prerendered docs portable between deployments.
+      // https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls#rel-canonical-http-header
+      const origin = await resolveAppOrigin(event.req)
+      const path = pathname.replace(/\/$/u, "").replace(/\.md$/u, "")
+      response.headers.set("Link", `<${new URL(path, origin).href}>; rel="canonical"`)
+    }
   })
 }
 

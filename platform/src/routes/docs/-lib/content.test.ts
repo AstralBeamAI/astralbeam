@@ -80,9 +80,9 @@ const docsNavigationSections: DocsSection[] = [
     title: "Start",
     description: "",
     pages: [
-      { slug: "overview", title: "Overview" },
-      { slug: "draft", title: "Draft", draft: true },
-      { slug: "tutorial", title: "Tutorial" },
+      { slug: "overview", title: "Overview", description: "" },
+      { slug: "draft", title: "Draft", description: "", draft: true },
+      { slug: "tutorial", title: "Tutorial", description: "" },
     ],
   },
   {
@@ -90,20 +90,20 @@ const docsNavigationSections: DocsSection[] = [
     title: "Unpublished",
     description: "",
     draft: true,
-    pages: [{ slug: "overview", title: "Overview" }],
+    pages: [{ slug: "overview", title: "Overview", description: "" }],
   },
   {
     slug: "api",
     title: "API",
     description: "",
     href: "/docs/api",
-    pages: [{ slug: "overview", title: "Overview" }],
+    pages: [{ slug: "overview", title: "Overview", description: "" }],
   },
   {
     slug: "sdk",
     title: "SDK",
     description: "",
-    pages: [{ slug: "overview", title: "Overview" }],
+    pages: [{ slug: "overview", title: "Overview", description: "" }],
   },
 ]
 
