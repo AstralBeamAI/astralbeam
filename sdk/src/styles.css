@@ -178,3 +178,11 @@
     scroll-behavior: auto !important;
   }
 }
+
+a[target="_blank"]:not(:empty):not(:has(*)):not([data-slot="inline-citation"])::after,
+a[target="_blank"] [data-slot="trace-title"]::after {
+  content: "↗";
+  display: inline-block;
+  font-size: 0.75em;
+  margin-inline-start: 0.125rem;
+}

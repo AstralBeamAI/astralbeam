@@ -67,7 +67,7 @@ function MarkdownLink({ href, children, title, ...props }: MarkdownComponentProp
       safeWebUrl(source.url) === href,
   )
   if (citation && href) return <InlineCitation citation={citation} href={href} />
-  const external = /^https?:\/\//i.test(href ?? "")
+  const external = /^(?:https?:)?\/\//i.test(href ?? "")
   return (
     <a
       {...props}

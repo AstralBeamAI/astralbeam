@@ -1,9 +1,9 @@
-import { ArrowUpRightIcon, GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { GlobeIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import type { ChatToolCallPart } from "../../core/threads.ts"
 import { safeWebUrl, webPartMetadata } from "../../core/web.ts"
 import { ToolDisclosure } from "./tool-disclosure.tsx"
 import { Spinner } from "./ui/spinner.tsx"
-import { Trace, TraceDescription, TraceIcon, TraceLine, TraceTitle } from "./ui/trace.tsx"
+import { Trace, TraceDescription, TraceLine, TraceTitle } from "./ui/trace.tsx"
 
 export function WebActivity({ part, active }: { part: ChatToolCallPart; active: boolean }) {
   const evidence = webPartMetadata(part).web
@@ -46,12 +46,11 @@ export function WebActivity({ part, active }: { part: ChatToolCallPart; active: 
           >
             <TraceLine>
               <TraceTitle className="whitespace-normal wrap-anywhere">
-                {source.title || new URL(source.url).hostname}
+                {source.title && source.title !== source.url
+                  ? source.title
+                  : new URL(source.url).pathname}
                 <span className="sr-only"> (opens in a new tab)</span>
               </TraceTitle>
-              <TraceIcon>
-                <ArrowUpRightIcon aria-hidden />
-              </TraceIcon>
             </TraceLine>
             <TraceDescription className="min-w-0 text-xs wrap-anywhere">
               {new URL(source.url).hostname}

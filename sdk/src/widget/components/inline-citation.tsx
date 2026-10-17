@@ -13,6 +13,7 @@ export function InlineCitation({ citation, href }: { citation: WebCitation; href
   return (
     <HoverCard>
       <HoverCardTrigger
+        data-slot="inline-citation"
         ref={setTrigger}
         href={href}
         target="_blank"

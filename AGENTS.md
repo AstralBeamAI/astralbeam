@@ -66,6 +66,8 @@
 
 ## Platform and SDK UI
 
+- Open external HTTP(S) links in a new tab with `target="_blank"` and `rel="noopener noreferrer"`, including Markdown links. Preserve internal navigation, downloads, and non-web protocols such as `mailto:`.
+- Keep numbered chat citation badges free of external-link arrows, and generate arrows on consulted-source titles through CSS rather than explicit icons. Text-link arrows use a smaller font size than their labels.
 - Prefer icon-only buttons with hover and keyboard-focus tooltips and accessible names for routine actions, especially chat controls. Keep explicit labels for choices, primary form actions, and destructive confirmations.
 - `platform` and `sdk` each own a `components.json` and their own shadcn-generated components, hooks, and utilities under `platform/src/components/ui`, `platform/src/hooks`, and `platform/src/lib`, or the corresponding SDK paths under `sdk/src/widget`. Neither imports the other's.
 - Add components from the owning project with `bun run ui add <component>`. Both `components.json` files use the phosphor icon library, but their styles diverge on purpose: the platform uses `base-lyra`/`mist`, while the SDK stays on the plain `b0` preset baseline (`base-nova`/`neutral`).
