@@ -86,19 +86,17 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
     Effect.orDie,
   )
   const values: ConfigValues = {}
-  const keys = new Set<ConfigKey>()
-  const issues: ConfigIssue[] = []
   for (const definition of ENVIRONMENT_CONFIG_DEFINITIONS) {
     const value = raw[definition.key]
     if (!value || Option.isNone(value)) continue
-    keys.add(definition.key)
     const decoded = decodeConfigValue(definition, parseEnvironmentConfigValue(value.value))
     if (Result.isSuccess(decoded)) {
       values[definition.key] = decoded.success
       continue
     }
     if (definition.key.startsWith("cloudfront_")) {
-      issues.push({ key: definition.key, message: decoded.failure.message })
+      // Keep the override present so an invalid value cannot fall back to stored credentials.
+      values[definition.key] = undefined
       continue
     }
     const variable = configEnvironmentVariable(definition.key)
@@ -107,7 +105,7 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
     )
     return yield* Effect.die(new ConfigEnvironmentInvalid({ variable }))
   }
-  return { values, keys, issues }
+  return values
 })
 
 /** The secret-free slice of a complete configuration that browsers may see. */
@@ -163,11 +161,10 @@ export class Config extends Context.Service<
       const generations = yield* Ref.make(0)
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
-        const environmentKeys = environment.keys
+        const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
-        const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment.values }
+        const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
         const issues = validateConfigCompleteness(values, environmentKeys)
-        if (values.download_signing_strategy === "cloudfront") issues.push(...environment.issues)
         if (
           stored.rows?.some(
             (row) => row.key === "download_signing_strategy" && row.storageStatus === "unreadable",

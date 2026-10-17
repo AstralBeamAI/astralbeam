@@ -57,7 +57,6 @@ export interface ConfigDefinition {
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"
-  multiline?: true
   required: boolean
   /** Effective value used when neither the database nor environment configures the key. */
   defaultValue?: string

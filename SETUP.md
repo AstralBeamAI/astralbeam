@@ -97,8 +97,6 @@ Stop services with `docker compose down` or `podman compose down`. [Reset only t
 
 The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/lib/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring.
 
-Native S3 is the default download signing strategy. For private CloudFront avatar and logo delivery, follow the [file storage configuration guide](platform/src/routes/docs/-content/self-hosting/configuration.md#private-cloudfront-image-downloads) and explicitly select CloudFront. Its assigned hostname works without a custom domain. Keep the native S3 endpoint and credentials configured for uploads.
-
 ## Cloud agent setup
 
 Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
