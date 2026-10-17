@@ -20,10 +20,17 @@ export const Route = createFileRoute("/docs/$section/$page/")({
     }
     const page = section ? findDocsPage(section, params.page) : undefined
     if (!section || !page) throw notFound()
-    return { pageTitle: page.title, markdown: await loadDocsMarkdown(section.slug, page.slug) }
+    return {
+      pageTitle: `${page.title} · ${section.title}`,
+      description: page.description,
+      markdown: await loadDocsMarkdown(section.slug, page.slug),
+    }
   },
   head: ({ loaderData, params }) => ({
-    meta: [{ title: `${loaderData?.pageTitle} · Docs · ${APP_NAME}` }],
+    meta: [
+      { title: `${loaderData?.pageTitle} · Docs · ${APP_NAME}` },
+      { name: "description", content: loaderData?.description },
+    ],
     links: [
       {
         rel: "alternate",

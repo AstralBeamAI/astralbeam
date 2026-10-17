@@ -37,7 +37,7 @@ The platform identifies logged-in organization users from its existing Better Au
 
 ## Hosted domain redirects
 
-[Caddyfile](Caddyfile) configures the hosted domains separately from Cloudflare deployment and requires Caddy 2.8+. Preserve other hosts, validate the full configuration, then reload. Its temporary redirect repairs previously cached apex-to-www redirects without clearing sessions. If a browser still loops, open [the recovery URL](https://astralbeam.ai/?_redirect_recovery=1) once or clear its cached files. Verify in a previously affected browser as well as a private window.
+[Caddyfile](Caddyfile) configures the hosted domains separately from Cloudflare deployment and requires Caddy 2.8+. Preserve other hosts, validate the full configuration, then reload. Its permanent redirects preserve paths and queries from the legacy hosts. The legacy app host still proxies `/api*` to the platform, and the play host still proxies the example app. The www redirect retains the recovery parameter to bypass previously cached apex-to-www redirects without clearing sessions. The apex compresses public website and documentation responses with Zstandard or gzip. If a browser still loops, open [the recovery URL](https://astralbeam.ai/?_redirect_recovery=1) once or clear its cached files. Verify in a previously affected browser as well as a private window.
 
 ## License
 

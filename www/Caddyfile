@@ -1,4 +1,6 @@
 astralbeam.ai {
+	@public path / /home /blog /blog/* /docs /docs/* /docs.md /website-assets/*
+	encode @public zstd gzip
 	@redirectRecovery query _redirect_recovery=1
 	# Clear the old apex-to-www redirect without touching sessions or local storage.
 	# https://www.w3.org/TR/clear-site-data/#clear-cache
@@ -14,6 +16,19 @@ www.astralbeam.ai {
 	route {
 		uri query _redirect_recovery 1
 		header Cache-Control "no-store"
-		redir https://astralbeam.ai{uri} temporary
+		redir https://astralbeam.ai{uri} 308
 	}
+}
+
+app.astralbeam.ai {
+	handle /api* {
+		reverse_proxy localhost:3100
+	}
+	handle {
+		redir https://astralbeam.ai{uri} 308
+	}
+}
+
+play.astralbeam.ai {
+	reverse_proxy localhost:4900
 }
