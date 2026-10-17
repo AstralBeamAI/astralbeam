@@ -27,7 +27,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
-      target: ${{ steps.target.outputs.sha }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -54,7 +53,6 @@ jobs:
           fi
 
       - name: Verify publishing target
-        id: target
         if: ${{ env.DRY_RUN != 'true' }}
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -74,7 +72,6 @@ jobs:
             echo "::error::GITHUB_TOKEN cannot release this commit because it changes .github/workflows relative to $DEFAULT_BRANCH. Merge those workflow changes into $DEFAULT_BRANCH before publishing."
             exit 1
           fi
-          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build release artifacts
@@ -203,13 +200,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-          RELEASE_TARGET: ${{ needs.verify.outputs.target }}
         # The glob matches both the platform and the CLI binaries downloaded above.
         run: |
           sha256sum astralbeam-* > SHA256SUMS
-          target=()
-          if [ -n "$RELEASE_TARGET" ]; then target=(--target "$RELEASE_TARGET"); fi
-          gh release create "v$RELEASE_VERSION" "${target[@]}" --latest --generate-notes astralbeam-* SHA256SUMS
+          tag="v$RELEASE_VERSION"
+          refs="$(gh api "repos/$GH_REPO/git/matching-refs/tags/$tag" --jq '.[].ref')"
+          if ! grep -Fxq "refs/tags/$tag" <<< "$refs"; then
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" > /dev/null
+          fi
+          tag_sha="$(gh api "repos/$GH_REPO/commits/refs/tags/$tag" --jq .sha)"
+          if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::$tag now points to a different commit. Refusing to release artifacts from $GITHUB_SHA."
+            exit 1
+          fi
+          gh release create "$tag" --verify-tag --latest --generate-notes astralbeam-* SHA256SUMS
 
   stage-npm:
     name: Stage the SDK and CLI on npm
