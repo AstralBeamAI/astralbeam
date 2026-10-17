@@ -11,21 +11,21 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-it("returns JSON-compatible context, including no undefined fields", async () => {
-  const result = await createWorkspaceTools(demoWorkspaces[0].id, {
+it("returns JSON-compatible context, including no undefined fields", () => {
+  const result = createWorkspaceTools(demoWorkspaces[0].id, {
     current: () => "/",
     go: async () => {},
   }).inspect_workspace.execute()
   expect(JSON.parse(JSON.stringify(result))).toStrictEqual(result)
 })
 
-it("makes consecutive tool changes readable immediately and rejects a stale workspace", async () => {
+it("makes consecutive tool changes readable immediately and rejects a stale workspace", () => {
   const tools = createWorkspaceTools(demoWorkspaces[0].id, {
     current: () => "/",
     go: async () => {},
   })
   const workspace = demoStore.workspace(demoWorkspaces[0].id)
-  await tools.create_issue.execute({
+  tools.create_issue.execute({
     title: "Plan the launch",
     description: "Review release criteria",
     status: "Todo",
@@ -38,8 +38,8 @@ it("makes consecutive tool changes readable immediately and rejects a stale work
   const created = demoStore
     .workspace(workspace.id)
     .issues.find((issue) => issue.title === "Plan the launch")!
-  await tools.update_issue.execute({ id: created.id, changes: { status: "In progress" } })
-  const issues = await tools.list_issues.execute({ query: "Plan the launch" })
+  tools.update_issue.execute({ id: created.id, changes: { status: "In progress" } })
+  const issues = tools.list_issues.execute({ query: "Plan the launch" })
   expect(issues).toEqual([
     { ...created, status: "In progress", url: workspaceUrl(workspace.id, `issues/${created.id}`) },
   ])
@@ -73,11 +73,11 @@ it("navigates only to existing destinations in the active workspace", async () =
   await expect(tools.navigate_app.execute({ url })).rejects.toThrow("workspace changed")
 })
 
-it("finds a customer mentioned in the issue description", async () => {
+it("finds a customer mentioned in the issue description", () => {
   const tools = createWorkspaceTools(demoWorkspaces[0].id, {
     current: () => "/",
     go: () => Promise.resolve(),
   })
-  const issues = await tools.list_issues.execute({ query: "Atlas SSO" })
+  const issues = tools.list_issues.execute({ query: "Atlas SSO" })
   expect(issues).toEqual([expect.objectContaining({ number: 128 })])
 })
