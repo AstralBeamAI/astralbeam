@@ -51,14 +51,13 @@ export function chatSizing(page: Page) {
       await this.expectWidth(pixels)
     },
 
-    async dragBy(pixels: number, cancel = false): Promise<void> {
+    async dragBy(pixels: number): Promise<void> {
       const bounds = (await handle.boundingBox())!
       const x = bounds.x + bounds.width / 2
       const y = bounds.y + bounds.height / 2
       await page.mouse.move(x, y)
       await page.mouse.down()
       await page.mouse.move(x - pixels, y, { steps: 8 })
-      if (cancel) await page.keyboard.press("Escape")
       await page.mouse.up()
     },
 

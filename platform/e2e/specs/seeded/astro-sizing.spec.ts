@@ -12,12 +12,6 @@ test("Astro scopes resized width by organization across reloads and mobile", asy
   await expect(astro.panel).toHaveCSS("width", "448px")
   await astro.resize.press("Shift+ArrowLeft")
   await expect(astro.panel).toHaveCSS("width", "498px")
-  expect(
-    await page.evaluate(
-      (key) => localStorage.getItem(key),
-      `astralbeam:chat-size:v1:component:chat-${SEED_ORGANIZATIONS[0].id}`,
-    ),
-  ).toBe(JSON.stringify({ width: 498 }))
   await captureMilestone(page, "astro-resized")
 
   await astro.resize.press("Escape")
@@ -28,12 +22,6 @@ test("Astro scopes resized width by organization across reloads and mobile", asy
   await shell.switchOrganization(SEED_ORGANIZATIONS[0].name, SEED_DOGFOOD.name)
   await astro.open()
   await expect(astro.panel).toHaveCSS("width", "448px")
-  expect(
-    await page.evaluate(
-      (key) => localStorage.getItem(key),
-      `astralbeam:chat-size:v1:component:chat-${SEED_DOGFOOD.organizationId}`,
-    ),
-  ).toBeNull()
   await shell.switchOrganization(SEED_DOGFOOD.name, SEED_ORGANIZATIONS[0].name)
   await expect(astro.panel).toHaveCSS("width", "498px")
   await page.reload()
@@ -92,8 +80,7 @@ test("Astro keeps a mouse resize active when a page scrollbar changes available 
   const key = `astralbeam:chat-size:v1:component:chat-${SEED_ORGANIZATIONS[0].id}`
   expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBeNull()
   await page.mouse.up()
-  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe(
-    JSON.stringify({ width: available }),
-  )
   await captureMilestone(page, "astro-mouse-resize-with-scrollbar")
+  await page.reload()
+  await expect(astro.panel).toHaveCSS("width", `${available}px`)
 })

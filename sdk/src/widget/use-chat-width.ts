@@ -19,6 +19,13 @@ function readWidth(key: string): number | null {
   return null
 }
 
+function paintWidth(host: HTMLElement, width: number, maximum: number, handle?: HTMLElement) {
+  host.style.setProperty("width", `${width}px`)
+  host.setAttribute("data-astralbeam-full-width", String(width >= maximum))
+  handle?.setAttribute("aria-valuenow", String(width))
+  handle?.setAttribute("aria-valuetext", `${width} pixels`)
+}
+
 export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElement) {
   const component = host.id ? `:component:${encodeURIComponent(host.id)}` : ""
   const agent = options.agentId ? `:agent:${encodeURIComponent(options.agentId)}` : ""
@@ -55,9 +62,10 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
           ? window.innerWidth
           : boundary.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
       const fallback =
-        host.getClientRects().length > 0 && (host.offsetWidth > 0 || configuredWidth !== undefined)
+        bounds.fallback ??
+        (host.getClientRects().length > 0 && (host.offsetWidth > 0 || configuredWidth !== undefined)
           ? host.offsetWidth
-          : null
+          : null)
       if (maximum <= 0) return
       setBounds((previous) => {
         const next = {
@@ -75,13 +83,13 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(boundary)
-    observer.observe(host)
+    if (bounds.fallback === null) observer.observe(host)
     mobile.addEventListener("change", measure)
     return () => {
       observer.disconnect()
       mobile.removeEventListener("change", measure)
     }
-  }, [host, resizeContainer, closable, configuredWidth])
+  }, [host, resizeContainer, closable, configuredWidth, bounds.fallback])
 
   const maximum = Math.floor(bounds.maximum)
   const minimum = Math.min(320, maximum)
@@ -96,17 +104,11 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
   const width = bounds.mobile ? maximum : clamp(preferred)
   const enabled = options.resizable !== false && !bounds.mobile && maximum > minimum
 
-  const paint = (value: number) => {
-    host.style.setProperty("width", `${value}px`)
-    host.setAttribute("data-astralbeam-full-width", String(value >= maximum))
-  }
   const cancelDrag = () => {
     const active = drag.current
     if (!active) return
     drag.current = null
-    paint(width)
-    active.element.setAttribute("aria-valuenow", String(width))
-    active.element.setAttribute("aria-valuetext", `${width} pixels`)
+    paintWidth(host, width, maximum, active.element)
     if (active.element.hasPointerCapture(active.pointerId))
       active.element.releasePointerCapture(active.pointerId)
   }
@@ -139,14 +141,9 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     const next = drag.current
       ? Math.round(Math.min(maximum, Math.max(minimum, drag.current.next)))
       : width
-    if (active) {
-      active.element.setAttribute("aria-valuenow", String(next))
-      active.element.setAttribute("aria-valuetext", `${next} pixels`)
-    }
     // A hidden mount must reveal its original CSS width before a saved width replaces it.
     if (maximum > 0 && bounds.fallback !== null) {
-      host.style.setProperty("width", `${next}px`)
-      host.setAttribute("data-astralbeam-full-width", String(next >= maximum))
+      paintWidth(host, next, maximum, active?.element)
     }
   }, [host, width, minimum, maximum, bounds.fallback, enabled, key])
 
@@ -189,9 +186,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       if (!active || active.pointerId !== event.pointerId) return
       active.next = active.width + ((event.clientX - active.x) * active.direction) / active.scale
       const next = clamp(active.next)
-      paint(next)
-      active.element.setAttribute("aria-valuenow", String(next))
-      active.element.setAttribute("aria-valuetext", `${next} pixels`)
+      paintWidth(host, next, maximum, active.element)
     },
     onPointerUp: (event: PointerEvent<HTMLDivElement>) => {
       const active = drag.current
