@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import type { SandboxHandle, SandboxProvider } from "@tanstack/ai-sandbox"
 import { Context, Effect, Exit, Layer, Scope } from "effect"
+import { PassThrough } from "node:stream"
 import { beforeEach, vi } from "vitest"
 
 const sandboxTest = vi.hoisted(() => ({
@@ -10,11 +11,27 @@ const sandboxTest = vi.hoisted(() => ({
   destroyed: [] as string[],
   files: new Map<string, Uint8Array>(),
   resumable: true,
+  uploadExitCode: 0,
 }))
 
 // The provider factory is a module function that builds the vendor adapter.
 vi.mock("@/lib/sandboxes/factory.server", () => ({
   createSandboxProvider: () => Effect.succeed(fakeSandboxProvider),
+}))
+
+vi.mock("dockerode", () => ({
+  default: class {
+    getContainer() {
+      return {
+        exec: () =>
+          Promise.resolve({
+            start: () => Promise.resolve(new PassThrough()),
+            inspect: () =>
+              Promise.resolve({ Running: false, ExitCode: sandboxTest.uploadExitCode }),
+          }),
+      }
+    }
+  },
 }))
 
 import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
@@ -25,16 +42,17 @@ import { ChatSandboxes, type ChatSandboxStatus } from "./sandbox.ts"
 function fakeSandboxHandle(id: string): SandboxHandle {
   return {
     id,
-    provider: "fake",
+    provider: "docker",
     workspaceRoot: "/workspace",
     fs: {
+      mkdir: () => Promise.resolve(),
       readBytes: (path: string) => Promise.resolve(sandboxTest.files.get(path) ?? new Uint8Array()),
     },
   } as unknown as SandboxHandle
 }
 
 const fakeSandboxProvider = {
-  name: "fake",
+  name: "docker",
   capabilities: () => ({ snapshots: false }),
   create: () => {
     sandboxTest.created += 1
@@ -85,10 +103,34 @@ beforeEach(() => {
     destroyed: [],
     files: new Map(),
     resumable: true,
+    uploadExitCode: 0,
   })
 })
 
 describe("ChatSandboxes", () => {
+  it.effect.each([0, 2])(
+    "checks the upload command's exit status (%s) before reporting ready",
+    (exitCode) =>
+      Effect.gen(function* () {
+        sandboxTest.uploadExitCode = exitCode
+        const session = yield* sessionFor(yield* ChatSandboxes)
+        yield* session.prepareUploads([
+          {
+            handle: "notes.txt",
+            filename: "notes.txt",
+            mimeType: "text/plain",
+            bytes: new TextEncoder().encode("hello"),
+          },
+        ])
+        assert.strictEqual(sandboxTest.created, 0)
+        if (exitCode === 0) yield* session.acquire(noStatus)
+        else {
+          const failure = yield* Effect.flip(session.acquire(noStatus))
+          assert.strictEqual(failure._tag, "ChatSandboxUnavailable")
+        }
+      }).pipe(Effect.provide(sandboxesLayer)),
+  )
+
   it.effect("starts a run's sandbox once and keeps a failed start for later tool calls", () =>
     Effect.gen(function* () {
       sandboxTest.createFails = true

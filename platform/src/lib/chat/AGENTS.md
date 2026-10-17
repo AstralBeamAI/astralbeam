@@ -53,6 +53,7 @@
 - Sandbox leases are process-local, namespaced by `chatPrincipalScope`, swept at 15 minutes idle, and capped at 25 live with LRU eviction. Resume therefore works only within one replica.
 - When changing sandbox allocation, include the provider configuration ID in workspace identity, reserve capacity before provisioning, and protect active leases until run cleanup.
 - Bound sandbox reads, artifacts, and command output during collection, and propagate provider cancellation. Post-buffer checks and wrapper timeouts do not bound resource use.
+- Uploads must preserve the sandbox user's filesystem permissions. Docker daemon archive extraction can bypass them, so transfer files through a command running as the configured container user.
 - `sandbox_publish_artifact` copies and verifies bytes through `StoredFiles` before returning a file ID. Its short commit attaches the file to the assistant message that requested publication, checking the active claim. Downloads authorize current conversation access, read verified S3 bytes without reconnecting to the sandbox, and use blob URLs for image previews. Saved administrative transcripts reuse the existing attachment endpoint.
 
 ## Streaming

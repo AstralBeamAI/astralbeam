@@ -20,6 +20,7 @@ import {
   Ref,
 } from "effect"
 import { Buffer } from "node:buffer"
+import { finished } from "node:stream/promises"
 
 import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
@@ -106,20 +107,31 @@ const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   // One level below a workspace that already exists, so this needs no recursive `mkdir`.
   yield* chatSandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
   if (handle.provider === "docker") {
-    // The Docker adapter writes 32 KiB per exec. Send bounded uploads through its bulk API.
-    // https://docs.docker.com/reference/api/engine/version/v1.52/#operation/PutContainerArchive
+    // Stream one tar under the container user. The daemon's archive API bypasses its permissions.
+    // https://github.com/apocas/dockerode#streams-goodness
     return yield* chatSandboxCall(async (signal) => {
       const { default: Docker } = await import("dockerode")
       const archive = await new Bun.Archive(
         Object.fromEntries(uploads.map((upload) => [upload.handle, upload.bytes])),
       ).bytes()
-      await new Docker()
-        .getContainer(handle.id)
-        .putArchive(Buffer.from(archive.buffer, archive.byteOffset, archive.byteLength), {
-          path: directory,
-          copyUIDGID: true,
-          abortSignal: signal,
-        })
+      const execution = await new Docker().getContainer(handle.id).exec({
+        Cmd: ["tar", "-xf", "-", "-C", directory],
+        AttachStdin: true,
+        AttachStdout: true,
+        AttachStderr: true,
+        abortSignal: signal,
+      })
+      const stream = await execution.start({ hijack: true, stdin: true, abortSignal: signal })
+      try {
+        const completed = finished(stream, { signal, cleanup: true })
+        stream.resume()
+        stream.end(Buffer.from(archive.buffer, archive.byteOffset, archive.byteLength))
+        await completed
+        const status = await execution.inspect({ abortSignal: signal })
+        if (status.Running || status.ExitCode !== 0) throw new Error("Attachment upload failed")
+      } finally {
+        stream.destroy()
+      }
     }, CHAT_SANDBOX_FILE_TIMEOUT_MS)
   }
   yield* Effect.forEach(
