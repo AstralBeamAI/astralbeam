@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, test, vi } from "vitest"
+import type { ChatToolCallPart } from "../../core/threads.ts"
 import { slotNameForToolCall } from "../lib/utils.ts"
+import { AssistantPart } from "./assistant-part.tsx"
 import { ChatTranscript } from "./chat-transcript.tsx"
 
 test.each([
@@ -62,5 +64,48 @@ test.each([
     expect(html).not.toContain('data-slot="spinner"')
     expect(html).not.toContain("<form")
     expect(html).not.toContain("<slot")
+  },
+)
+
+test.each([
+  {
+    content: [{ type: "text", text: "Todo unavailable" }],
+    isError: true,
+    expected: "Todo unavailable",
+  },
+  { content: [], isError: false, expected: "This widget is unavailable." },
+])(
+  "an unavailable widget shows $expected without disclosing UI data",
+  ({ content, isError, expected }) => {
+    const part: ChatToolCallPart = {
+      type: "tool-call",
+      id: "saved:card",
+      name: "get_todo",
+      widget: "missing",
+      resultVersion: 1,
+      arguments: "{}",
+      input: {},
+      state: "complete",
+      output: {
+        content,
+        uiData: { privateLabel: "UI only" },
+        isError,
+      },
+    }
+    const html = renderToStaticMarkup(
+      <AssistantPart
+        part={part}
+        messageId="saved-message"
+        getAttachment={vi.fn()}
+        widgets={{}}
+        toolTitles={{}}
+        activeSlots={new Map()}
+        interactiveToolIds={new Set()}
+        onQuestionnaireAnswers={vi.fn()}
+      />,
+    )
+    expect(html).toContain(expected)
+    expect(html).not.toContain("UI only")
+    expect(html).not.toContain("Preparing a widget")
   },
 )
