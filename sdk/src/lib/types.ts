@@ -119,7 +119,7 @@ export interface ToolAnnotations {
 }
 
 export interface ToolDefinition {
-  title?: string
+  metadata?: Record<string, unknown> | undefined
   /** Tells the agent what the tool does so it can decide when to call it. */
   description: string
   /** Advisory protocol hints. Authorization remains the application's responsibility. */

@@ -150,7 +150,6 @@ export const CORE_OPTION_KEYS = Object.keys({
 export interface AgentToolInfo {
   name: string
   title: string | undefined
-  widget: string | undefined
 }
 
 function sameAgentTools(
@@ -160,10 +159,7 @@ function sameAgentTools(
   return (
     current.length === next.length &&
     current.every(
-      (tool, index) =>
-        tool.name === next[index]?.name &&
-        tool.title === next[index]?.title &&
-        tool.widget === next[index]?.widget,
+      (tool, index) => tool.name === next[index]?.name && tool.title === next[index]?.title,
     )
   )
 }
@@ -506,7 +502,7 @@ export function createAstralBeamChat(
     toolCallId: string,
     result?: ToolResult,
     status: WidgetContext["status"] = "complete",
-  ): Promise<{ widget: string; rendered: boolean }> => {
+  ): Promise<boolean> => {
     const generation = selectionGeneration
     if (status === "cancelled") renders.get(toolCallId)?.controller.abort()
     const declaration =
@@ -520,8 +516,7 @@ export function createAstralBeamChat(
     const validated = declaration.parameters
       ? await validateParameters(declaration.parameters, input.props ?? {})
       : (input.props ?? {})
-    if (generation !== selectionGeneration || state.thread?.role === "viewer")
-      return { widget: input.widget, rendered: false }
+    if (generation !== selectionGeneration || state.thread?.role === "viewer") return false
     if (declaration !== live.widgets?.[input.widget])
       return renderWidget(input, toolCallId, result, status)
     if (validated == null) {
@@ -530,7 +525,7 @@ export function createAstralBeamChat(
     const onRenderWidget = live.onRenderWidget
     if (!onRenderWidget) {
       renders.get(toolCallId)?.dispose()
-      return { widget: input.widget, rendered: false }
+      return false
     }
     const previous = renders.get(toolCallId)
     if (previous?.controller.signal.aborted) status = "cancelled"
@@ -571,7 +566,7 @@ export function createAstralBeamChat(
         previous.dispose()
         throw error
       }
-      return { widget: input.widget, rendered: true }
+      return true
     }
     // Compared by identity, so a late release cannot forget the cleanup of a newer render that
     // has meanwhile taken over the same tool call.
@@ -603,7 +598,7 @@ export function createAstralBeamChat(
     if (render.handle && typeof render.handle !== "function")
       Object.assign(render, { update: render.handle.update })
     restoredWidgets.add(toolCallId)
-    return { widget: input.widget, rendered: true }
+    return true
   }
 
   const widgetForPart = (part: ChatToolCallPart): RenderWidgetInput | undefined => {
@@ -696,9 +691,7 @@ export function createAstralBeamChat(
       live.widgets ?? {},
       live.tools ?? {},
       (...args) =>
-        generation === selectionGeneration
-          ? renderWidget(...args)
-          : Promise.resolve({ widget: args[0].widget, rendered: false }),
+        generation === selectionGeneration ? renderWidget(...args) : Promise.resolve(false),
       debug,
     ).map((tool) => {
       if (!tool.execute) return tool
@@ -761,7 +754,6 @@ export function createAstralBeamChat(
       return {
         name: tool.name,
         title: typeof title === "string" && title.length > 0 ? title : undefined,
-        widget: (tool.metadata?.astralbeam as { widget?: string } | undefined)?.widget,
       }
     })
     // Compared by value: a host that rebuilds equivalent tool objects every render would
@@ -1178,7 +1170,6 @@ export function createAstralBeamChat(
           submission.toolMetadata ??= declaredToolMetadata
           runToolMetadata = submission.toolMetadata
         }
-        runToolMetadata ??= declaredToolMetadata
         live.streamCallbacks?.onResponse?.(response)
       },
       onFinish: (message) => {
@@ -1244,6 +1235,7 @@ export function createAstralBeamChat(
   }
 
   const changeSelection = (threadId?: string) => {
+    runToolMetadata = undefined
     const previousId = state.thread?.id
     const released = releaseSubmission("The conversation changed before this was sent.")
     if (previousId) {

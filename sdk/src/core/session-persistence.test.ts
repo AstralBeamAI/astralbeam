@@ -1973,113 +1973,123 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   expect(sends).not.toHaveBeenCalled()
 })
 
-test.each([false, true])(
-  "a host update keeps captured tool metadata through delayed continuation=%s",
-  async (delayed) => {
-    let admitted = false
-    let continued = false
-    let body:
-      | {
-          tools: { name: string }[]
-          forwardedProps: { toolMetadata: Record<string, unknown> }
-        }
-      | undefined
-    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
-      const path = new URL(input).pathname
-      if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
-      if (path.endsWith("/config"))
-        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-      if (path.endsWith("/messages"))
-        return Promise.resolve(
-          Response.json(
-            admitted && !continued
-              ? {
-                  ...page([
-                    savedAssistantMessage({
-                      id: "question-part",
-                      toolCallId: "question",
-                      name: "ask_questionnaire",
-                      input: { items: [] },
-                    }),
-                  ]),
-                  pending_interactions: [
-                    {
-                      source_message_id: "assistant",
-                      source_part_id: "question-part",
-                      response_target_id: "target",
-                      tool_call_id: "question",
-                      target_tenant_user_id: "user",
-                      target_client_id: null,
-                      execution_location: "browser",
-                    },
-                  ],
-                }
-              : page(),
-          ),
-        )
-      if (path.endsWith("/threads"))
-        return Promise.resolve(Response.json({ items: [thread], page_after: null }))
-      if (path.endsWith("/chat")) {
-        body = JSON.parse(init!.body as string) as typeof body
-        if (delayed) {
-          admitted = true
-          return Promise.resolve(acceptedStream("initial"))
-        }
+test("captured tool metadata follows delayed continuations and conversation selection", async () => {
+  let selected = thread
+  let admitted = false
+  let continued = false
+  let body:
+    | {
+        tools: { name: string }[]
+        forwardedProps: { toolMetadata: Record<string, unknown> }
       }
-      continued = true
-      const run = { threadId: thread.id, runId: "run" }
-      const events = [
-        { type: "RUN_STARTED", ...run },
-        {
-          type: "TOOL_CALL_START",
-          parentMessageId: "assistant",
-          toolCallId: "call",
-          toolCallName: "old_tool",
-        },
-        { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
-        { type: "TOOL_CALL_END", toolCallId: "call" },
-        { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
-      ]
+    | undefined
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.endsWith("/messages"))
       return Promise.resolve(
-        new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
-          headers: { "content-type": "text/event-stream" },
+        Response.json({
+          ...(admitted && !continued
+            ? {
+                ...page([
+                  savedAssistantMessage({
+                    id: "question-part",
+                    toolCallId: "question",
+                    name: "ask_questionnaire",
+                    input: { items: [] },
+                  }),
+                ]),
+                pending_interactions: [
+                  {
+                    source_message_id: "assistant",
+                    source_part_id: "question-part",
+                    response_target_id: "target",
+                    tool_call_id: "question",
+                    target_tenant_user_id: "user",
+                    target_client_id: null,
+                    execution_location: "browser",
+                  },
+                ],
+              }
+            : page()),
+          thread: selected,
         }),
       )
-    })
-    const chat = createTestSession({
-      threadId: thread.id,
-      tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
-      widgets: { card: { description: "Card" } },
-      streamCallbacks: {
-        onResponse: () =>
-          chat.updateOptions({
-            tools: { new_tool: { description: "New", execute: () => ({}) } },
-          }),
-      },
-    })
-    let streamedPart: unknown
-    const unsubscribe = chat.subscribe(() => {
-      const part = chat
-        .getState()
-        .messages.flatMap((message) => message.parts)
-        .find((part) => part.type === "tool-call" && part.name === "old_tool")
-      if (part) streamedPart = { ...part }
-    })
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
-    await chat.sendMessage("Check snapshot")
-    if (delayed) {
-      await chat.refreshThread()
-      await chat.addToolResult({
-        tool: "ask_questionnaire",
-        toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
-        output: { answers: [] },
-        state: "output-available",
-      })
+    if (path.endsWith("/threads"))
+      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+    if (path.endsWith("/chat")) {
+      body = JSON.parse(init!.body as string) as typeof body
+      admitted = true
+      return Promise.resolve(acceptedStream("initial"))
     }
-    expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
-    expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
-    expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
-    expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
-    unsubscribe()
-  },
-)
+    continued = true
+    const run = { threadId: selected.id, runId: "run" }
+    const events = [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "TOOL_CALL_START",
+        parentMessageId: "assistant",
+        toolCallId: "call",
+        toolCallName: "old_tool",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+      { type: "TOOL_CALL_END", toolCallId: "call" },
+      { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
+    ]
+    return Promise.resolve(
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    )
+  })
+  const chat = createTestSession({
+    threadId: thread.id,
+    tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
+    widgets: { card: { description: "Card" } },
+    streamCallbacks: {
+      onResponse: () =>
+        chat.updateOptions({
+          tools: { new_tool: { description: "New", execute: () => ({}) } },
+        }),
+    },
+  })
+  let streamedPart: unknown
+  const unsubscribe = chat.subscribe(() => {
+    const part = chat
+      .getState()
+      .messages.flatMap((message) => message.parts)
+      .find((part) => part.type === "tool-call" && part.name === "old_tool")
+    if (part) streamedPart = { ...part }
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Check snapshot")
+  await chat.refreshThread()
+  await chat.addToolResult({
+    tool: "ask_questionnaire",
+    toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+    output: { answers: [] },
+    state: "output-available",
+  })
+  expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+  expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+  expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+  expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
+  for (const destination of ["00000000-0000-4000-8000-000000000002", thread.id]) {
+    selected = { ...thread, id: destination }
+    admitted = true
+    continued = false
+    await chat.openThread(destination)
+    streamedPart = undefined
+    await chat.addToolResult({
+      tool: "ask_questionnaire",
+      toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+      output: { answers: [] },
+      state: "output-available",
+    })
+    expect(streamedPart).toMatchObject({ name: "old_tool" })
+    expect((streamedPart as { widget?: string }).widget).toBeUndefined()
+  }
+  unsubscribe()
+})

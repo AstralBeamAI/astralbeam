@@ -24,7 +24,7 @@ type RenderWidget = (
   toolCallId: string,
   result?: ToolResult,
   status?: WidgetContext["status"],
-) => Promise<{ widget: string; rendered: boolean }>
+) => Promise<boolean>
 
 export type WidgetDeclaration = Pick<WidgetDefinition, "description" | "parameters">
 type NamedTool = HostToolDefinition & { name: string }
@@ -173,7 +173,7 @@ function buildHostTool(
     description: tool.description,
     inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
     metadata: {
-      ...(tool.title ? { title: tool.title } : {}),
+      ...tool.metadata,
       astralbeam: {
         resultVersion: 1,
         ...(tool.widget ? { widget: tool.widget } : {}),
@@ -190,13 +190,12 @@ function buildHostTool(
     const present = async (result: ToolResult | undefined, status: WidgetContext["status"]) => {
       if (!tool.widget) return false
       try {
-        const { rendered } = await render(
+        return await render(
           { widget: tool.widget, props: (input ?? {}) as Record<string, unknown> },
           toolCallId,
           result,
           status,
         )
-        return rendered
       } catch (error) {
         debug?.("error", "Widget presentation failed", error)
         return false

@@ -4,36 +4,26 @@ Tools let an agent act in your app, and widgets show your UI in its replies. Let
 
 ## Tools
 
-Let's register tools by name in an object. Each invocation receives its own identity and cancellation signal.
+Let’s declare tools in a keyed object. Implementations can omit unused callback arguments.
 
 ```ts
-import type { ToolRegistry } from "@astralbeam/sdk/core"
-
-const tools = {
+tools: {
   restart_service: {
-    title: "Restart a service",
+    metadata: { title: "Restart a service" }, // transcript label; defaults to the tool's name
     description: "Restart one of the host app's services by name",
-    parameters: {
-      type: "object",
-      properties: { service: { type: "string" } },
-      required: ["service"],
-    },
-    execute: async ({ service }, { signal }) => {
-      const restarted = await restartService(String(service), { signal })
-      return { restarted }
-    },
+    parameters: { type: "object", properties: { service: { type: "string" } }, required: ["service"] },
+    execute: async ({ service }, { signal }) => await restartService(String(service), { signal }),
   },
-} satisfies ToolRegistry
+}
 ```
 
-- The object key is the unique, stable tool name. `title` labels the transcript. `annotations` carry advisory behavior hints, such as `readOnlyHint` and `destructiveHint`.
-- `visibility` defaults to `["model", "app"]`. An app-only tool can be called from widgets without being declared to the model.
-- `execute(input, context)` receives validated input and a required `context.signal`. `context.invocationId` is optional. Implementations may omit unused callback parameters. Cancellation cannot undo a completed mutation.
-- Return model-safe JSON data directly, including arrays, primitives, and typed domain objects. The SDK supplies `structuredContent` and a JSON text fallback.
-- `outputSchema` validates successful `structuredContent`. Return `toolResult({ content: "Not found", isError: true })` for a known failure.
-- Return JSON-compatible values without `undefined`. A thrown error leaves the outcome unknown because the action may already have changed external state.
+- Return JSON data directly, including arrays, primitives, and domain objects. The SDK supplies `structuredContent` and a JSON text fallback.
+- `execute(input, context)` receives validated input, `signal`, and an optional `invocationId`. Cancellation cannot undo an action already applied.
+- `outputSchema` validates successful structured output locally and against the saved server declaration. Return plain JSON without `undefined` fields.
+- `metadata.title` labels the transcript. `annotations` provide advisory hints. `visibility` defaults to `["model", "app"]`, or use `["app"]` for widget-only actions.
+- A thrown error leaves the action's outcome unknown. Its changes may already be applied, so read current state before retrying.
 
-For custom results, let's mark the envelope explicitly. `content` accepts text or content blocks. Omit it for a JSON fallback from `structuredContent`, or no model content when only `uiData` is supplied. Ordinary data can use these same field names without being mistaken for an envelope.
+For custom results, let’s use `toolResult(...)`. Ordinary data can use the same field names without being mistaken for an envelope.
 
 ```ts
 import { toolResult } from "@astralbeam/sdk/core"
@@ -45,88 +35,61 @@ return toolResult({
 })
 ```
 
+`content` accepts text or content blocks. Omit it for a JSON fallback from `structuredContent`, or no content for UI-only results. `uiData` stays out of model history and raw disclosures. Set `isError: true` for a known failure.
+
 ## Widgets
 
-Widgets have stable IDs. Let's associate a tool with a result presentation, or register a standalone widget the model can request directly.
-
 ```tsx
-import type { WidgetRegistry } from "@astralbeam/sdk/react"
-
-const widgets = {
+widgets: {
   systemStatus: {
-    description: "Show the current status of the host app's systems",
+    description: "Shows the current status of the host app's systems",
     parameters: { type: "object", properties: { degraded: { type: "boolean" } } },
-    render: ({ degraded }, { result, status }) => (
-      <StatusCard
-        degraded={Boolean(degraded)}
-        data={result?.structuredContent}
-        loading={status === "pending"}
-      />
-    ),
+    render: ({ degraded }) => <StatusCard degraded={Boolean(degraded)} />,
   },
-} satisfies WidgetRegistry
-```
-
-- A standalone widget declares `show_<id>` with its actual input schema. Keep IDs compatible with tool names, using letters, digits, dots, underscores, or hyphens. Generated tool names must fit within 128 characters.
-- Set a tool's `widget` to that ID to present its input and result. Supply a compatible widget input schema, or omit it for result-only presentations.
-- React’s `render(props, context)` receives validated props first. Context includes `input`, `result`, `status`, `invocationId`, `signal`, and `callTool(name, input)`. Status is pending, complete, error, or cancelled.
-- `uiData` reaches the widget and saved history but is excluded from model context. Keep anything the model needs in `content` or `structuredContent`.
-- `callTool` validates and runs an app-visible tool without sending a chat message. It returns plain data or the tool's custom result.
-- React renders stay in your app's tree with working state and context. Several calls can coexist. The oldest collapse after the render cap.
-
-## Native rendering and restoration
-
-Outside React, `render(props, container, context)` draws into the supplied light-DOM element. Return cleanup, or an update handle to preserve an existing presentation across lifecycle changes.
-
-```ts
-render: (_props, container, context) => {
-  const view = mountStatusCard(container, context)
-  return { update: (next) => view.update(next), dispose: () => view.unmount() }
 }
 ```
 
-- Removing a widget disposes its live presentations. A missing renderer does not retry the business action.
-- Reopening history restores input and results without executing business tools. Persist records referenced by IDs, and show a fallback for deleted records.
-- Existing saved plain results and `render_widget` calls remain readable. New declarations use an explicit result format version internally.
+- Standalone widgets expose `show_<id>` tools with their actual input schema. Tool names use letters, digits, dots, underscores, or hyphens, up to 128 characters.
+- Set a tool's `widget` to its presentation ID. Supply a compatible widget input schema, or omit it for result-only presentations.
+- React uses `render(props, context)`. Native rendering uses `render(props, container, context)` and returns cleanup or `{ update(context), dispose() }`.
+- Context provides `input`, `result`, `status`, `invocationId`, `signal`, and `callTool(name, input)`. Status is pending, complete, error, or cancelled.
+- `callTool` validates and runs an app-visible tool without another assistant response, returning its data or custom result. Presentation failures never retry business actions.
+- Renders stay in your app's tree with working state and context. Several can coexist. The oldest collapse after the render cap.
+- Removing a widget disposes its presentations. Reopening history restores input and results without executing business tools. Show a fallback for deleted host records.
+- Existing saved plain results and `render_widget` calls remain readable. New results carry an explicit format version internally.
 
-## Schemas and optional type inference
+## Schemas
 
-`parameters` accepts object JSON Schema. `outputSchema` can describe any JSON value. Both accept a [Standard Schema](https://standardschema.dev) validator with [Standard JSON Schema](https://standardschema.dev/json-schema) export, such as Zod 4. Let's use optional helpers to infer callback types from the validator.
+`parameters` accepts object JSON Schema. `outputSchema` can describe any JSON value. Both also accept a [Standard Schema](https://standardschema.dev) validator with [Standard JSON Schema export](https://standardschema.dev/json-schema), such as Zod 4.
+
+- Both formats validate input before execution or rendering. Missing JSON Schema export fails declaration.
+- Models sometimes send numbers as strings. With Zod, prefer `z.coerce.number()` over `z.number()`.
+- Validation supports Effect's [Draft 2020-12 subset](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/SchemaRepresentation.ts). Unsupported contracts fail registration. Server admission bounds regex analysis for untrusted declarations.
+
+## Typed definitions
+
+The optional `defineTool` and `defineWidget` helpers preserve the supplied object and callback arguments: with a Standard Schema in `parameters`, the `execute` or `render` input is the schema's own output type.
 
 ```tsx
 import { defineTool, defineWidget } from "@astralbeam/sdk/react"
 import { z } from "zod"
 
-const tools = {
-  create_todo: defineTool({
-    description: "Create a todo",
-    parameters: z.object({ text: z.string().min(1) }),
-    execute: ({ text }) => ({ created: addTodo(text) }),
-  }),
-}
-const widgets = {
-  todoCard: defineWidget({
-    description: "Show a todo by ID",
-    parameters: z.object({ id: z.coerce.number() }),
-    render: ({ id }) => <TodoCard id={id} />,
-  }),
-  newTodo: defineWidget({
-    description: "Let the user add a todo",
-    tools,
-    render: (_props, { callTool }) => (
-      <NewTodoForm onSubmit={(text) => callTool("create_todo", { text })} />
-    ),
-  }),
-}
+const todoCard = defineWidget({
+  description: "A single todo from the host app, addressed by its id",
+  parameters: z.object({ id: z.coerce.number(), highlight: z.boolean().optional() }),
+  render: ({ id, highlight }) => <TodoCard id={id} highlight={highlight ?? false} />,
+})
+
+const createTodo = defineTool({
+  description: "Create a new todo and append it to the list",
+  parameters: z.object({ text: z.string().min(1) }),
+  execute: ({ text }) => addTodo(text), // text: string, validated before this runs
+})
 ```
 
-- Both schema formats validate input in the browser. Missing JSON Schema export fails declaration instead of widening the model's input contract.
-- `defineTool` and `defineWidget` only provide type inference. They return the supplied object unchanged. Plain JSON Schema inputs remain `Record<string, unknown>`.
-- Inline definitions receive callback types from the SDK props or options. Separate registries can use `satisfies ToolRegistry` or `satisfies WidgetRegistry`.
-- Add `tools` to a `defineWidget` definition for typed `callTool` names, schema inputs, and inferred results. Omit `parameters` for tools without arguments.
-- The SDK validates structured output locally, and the server validates it against the saved declaration before accepting a result.
-- JSON Schema validation supports Effect's [Draft 2020-12 subset](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/SchemaRepresentation.ts). Unsupported input or output contracts fail registration before tools run. Server admission also rejects regex patterns whose evaluation cannot pass bounded analysis.
-- Import helpers from `/react` for JSX or `/client` for containers. `/core` exports `defineTool` and `toolResult` for headless consumers.
+- Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets). `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
+- Inline definitions need no helpers. Separate registries can use `satisfies ToolRegistry` or `satisfies WidgetRegistry`. Plain JSON Schema input stays `Record<string, unknown>`.
+- Add `tools` to a widget definition to infer `callTool` names, schema inputs, and results. Omit `parameters` when a tool takes no input.
 
 ## Live state
 
@@ -134,7 +97,7 @@ Definitions are declared once but called many turns later, so make sure they rea
 
 - The drop-in React component routes `execute` through the latest `tools` prop, keeping closures fresh. Headless and vanilla sessions capture callbacks for the active run, so replacements or removals take effect on the next run.
 - Widget renders re-read the current `widgets` prop, so host state changes re-render projected UI.
-- Pass IDs in widget input and resolve them against your own state, rather than snapshotting data into props.
+- Pass ids in widget props and resolve them against your own state, rather than snapshotting data into props.
 
 ## Read after a write
 

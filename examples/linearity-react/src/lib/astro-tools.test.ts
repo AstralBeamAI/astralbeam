@@ -4,8 +4,6 @@ import { demoWorkspaces } from "./model.ts"
 import { workspaceUrl } from "./navigation.ts"
 import { demoStore } from "./store.ts"
 
-const invocation = { signal: new AbortController().signal, invocationId: "test" }
-
 beforeEach(() => {
   vi.stubGlobal("localStorage", { setItem: vi.fn() })
   demoStore.switchWorkspace(demoWorkspaces[0].id)
@@ -17,7 +15,7 @@ it("returns JSON-compatible context, including no undefined fields", async () =>
   const result = await createWorkspaceTools(demoWorkspaces[0].id, {
     current: () => "/",
     go: async () => {},
-  }).inspect_workspace.execute({}, invocation)
+  }).inspect_workspace.execute()
   expect(JSON.parse(JSON.stringify(result))).toStrictEqual(result)
 })
 
@@ -27,34 +25,28 @@ it("makes consecutive tool changes readable immediately and rejects a stale work
     go: async () => {},
   })
   const workspace = demoStore.workspace(demoWorkspaces[0].id)
-  await tools.create_issue.execute(
-    {
-      title: "Plan the launch",
-      description: "Review release criteria",
-      status: "Todo",
-      priority: "High",
-      label: "Feature",
-      assigneeId: null,
-      projectId: workspace.projects[0]!.id,
-      cycle: "Cycle 24",
-    },
-    invocation,
-  )
+  await tools.create_issue.execute({
+    title: "Plan the launch",
+    description: "Review release criteria",
+    status: "Todo",
+    priority: "High",
+    label: "Feature",
+    assigneeId: null,
+    projectId: workspace.projects[0]!.id,
+    cycle: "Cycle 24",
+  })
   const created = demoStore
     .workspace(workspace.id)
     .issues.find((issue) => issue.title === "Plan the launch")!
-  await tools.update_issue.execute(
-    { id: created.id, changes: { status: "In progress" } },
-    invocation,
-  )
-  const issues = await tools.list_issues.execute({ query: "Plan the launch" }, invocation)
+  await tools.update_issue.execute({ id: created.id, changes: { status: "In progress" } })
+  const issues = await tools.list_issues.execute({ query: "Plan the launch" })
   expect(issues).toEqual([
     { ...created, status: "In progress", url: workspaceUrl(workspace.id, `issues/${created.id}`) },
   ])
   demoStore.switchWorkspace(demoWorkspaces[1].id)
-  expect(() =>
-    tools.update_issue.execute({ id: created.id, changes: { status: "Done" } }, invocation),
-  ).toThrow("workspace changed")
+  expect(() => tools.update_issue.execute({ id: created.id, changes: { status: "Done" } })).toThrow(
+    "workspace changed",
+  )
 })
 
 it("navigates only to existing destinations in the active workspace", async () => {
@@ -66,10 +58,7 @@ it("navigates only to existing destinations in the active workspace", async () =
   })
   const tools = createWorkspaceTools(workspace.id, { current: () => current, go })
   const url = workspaceUrl(workspace.id, `issues/${workspace.issues[0]!.id}`)
-  await expect(tools.navigate_app.execute({ url }, invocation)).resolves.toEqual({
-    url,
-    opened: true,
-  })
+  await expect(tools.navigate_app.execute({ url })).resolves.toEqual({ url, opened: true })
   for (const invalid of [
     "https://example.com",
     "//example.com",
@@ -77,11 +66,11 @@ it("navigates only to existing destinations in the active workspace", async () =
     workspaceUrl(workspace.id, "issues/missing"),
     `/${workspace.id}/../${demoWorkspaces[1].id}/overview`,
   ]) {
-    await expect(tools.navigate_app.execute({ url: invalid }, invocation)).rejects.toThrow()
+    await expect(tools.navigate_app.execute({ url: invalid })).rejects.toThrow()
   }
   expect(go).toHaveBeenCalledTimes(1)
   demoStore.switchWorkspace(demoWorkspaces[1].id)
-  await expect(tools.navigate_app.execute({ url }, invocation)).rejects.toThrow("workspace changed")
+  await expect(tools.navigate_app.execute({ url })).rejects.toThrow("workspace changed")
 })
 
 it("finds a customer mentioned in the issue description", async () => {
@@ -89,6 +78,6 @@ it("finds a customer mentioned in the issue description", async () => {
     current: () => "/",
     go: () => Promise.resolve(),
   })
-  const issues = await tools.list_issues.execute({ query: "Atlas SSO" }, invocation)
+  const issues = await tools.list_issues.execute({ query: "Atlas SSO" })
   expect(issues).toEqual([expect.objectContaining({ number: 128 })])
 })

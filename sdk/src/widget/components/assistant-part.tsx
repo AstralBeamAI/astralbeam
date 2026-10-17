@@ -143,13 +143,11 @@ function WidgetCallPart({
 }: Pick<AssistantPartProps, "widgets" | "activeSlots"> & {
   part: ChatToolCallPart
 }) {
-  const input =
+  const widget =
     part.name === RENDER_WIDGET_TOOL
-      ? (part.input as RenderWidgetInput | undefined)
+      ? (part.input as RenderWidgetInput | undefined)?.widget
       : part.widget
-        ? { widget: part.widget, props: part.input as Record<string, unknown> }
-        : undefined
-  const definition = input ? getWidget(widgets, input.widget) : undefined
+  const definition = widget ? getWidget(widgets, widget) : undefined
   const renderId = part.widgetRenderId ?? part.id
   const slotName = slotNameForToolCall(renderId)
   if (!definition || !activeSlots.has(slotName)) {
@@ -164,8 +162,10 @@ function WidgetCallPart({
           : ""
         return part.state === "error" || result?.isError ? (
           <FailureMarker>{text || "This widget failed."}</FailureMarker>
-        ) : (
+        ) : text ? (
           <p className="whitespace-pre-wrap">{text}</p>
+        ) : (
+          <FailureMarker>This widget is unavailable.</FailureMarker>
         )
       }
       return <FailureMarker>This widget is unavailable.</FailureMarker>

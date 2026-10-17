@@ -95,11 +95,38 @@ test("React conversation directory reads saved pages, uploads and decisions with
                     executionLocation: "sandbox",
                   },
                   {
+                    id: "lookup",
+                    type: "tool-call",
+                    toolCallId: "lookup",
+                    name: "saved_lookup",
+                    arguments: "{}",
+                    declaration: { resultVersion: 1 },
+                  },
+                  {
                     id: "question",
                     type: "tool-call",
                     name: "ask_questionnaire",
                     toolCallId: "call",
                     arguments: '{"items":[{"question":"Approve?","choices":["Yes","No"]}]}',
+                  },
+                ],
+              },
+              {
+                id: "lookup-result",
+                role: "tool",
+                state: "complete",
+                source_assistant_message_id: "decision",
+                source_tool_part_id: "lookup",
+                parts: [
+                  {
+                    id: "result",
+                    type: "tool-result",
+                    resultVersion: 1,
+                    outcome: "succeeded",
+                    output: {
+                      content: [{ type: "text", text: "Model-safe lookup" }],
+                      uiData: { secret: "WIDGET_ONLY_SENTINEL" },
+                    },
                   },
                 ],
               },
@@ -155,6 +182,9 @@ test("React conversation directory reads saved pages, uploads and decisions with
   await expect(directory.transcript).toContainText("Saved partial response")
   await expect(directory.transcript.getByRole("textbox")).toHaveCount(0)
   await expect(directory.transcript.getByRole("radio")).toHaveCount(0)
+  await directory.transcript.getByRole("button", { name: "Saved saved_lookup" }).click()
+  await expect(directory.transcript).toContainText("Model-safe lookup")
+  await expect(directory.transcript).not.toContainText("WIDGET_ONLY_SENTINEL")
   await directory.transcript.getByRole("button", { name: "Saved ask_questionnaire" }).click()
   await expect(directory.transcript).toContainText("Approve?")
   await expect(directory.transcript).toContainText("No saved result.")
