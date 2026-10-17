@@ -200,6 +200,12 @@ test("storage combines component and agent identities", async ({ page }) => {
   await sizing.openHost({ agentId: secondAgent, hostId: "primary-chat" })
   await sizing.expectWidth(700)
 
+  await sizing.openHost({ agentId: "default", hostId: `primary-chat:agent:${firstAgent}` })
+  await sizing.expectWidth(480)
+  await sizing.setWidth(660)
+  await sizing.openHost({ agentId: firstAgent, hostId: "primary-chat" })
+  await sizing.expectWidth(600)
+
   await page.evaluate(() => localStorage.setItem("astralbeam:chat-size:v1", '{"width":760}'))
   await sizing.openHost({ agentId: "default", hostId: "" })
   await sizing.expectWidth(480)
