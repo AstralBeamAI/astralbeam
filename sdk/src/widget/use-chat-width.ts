@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 
-function readWidth(key: string | null): number | null {
-  if (!key) return null
+function readWidth(key: string): number | null {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(key) ?? "null")
     if (
@@ -23,7 +22,7 @@ function readWidth(key: string | null): number | null {
 export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElement) {
   const component = host.id ? `:component:${encodeURIComponent(host.id)}` : ""
   const agent = options.agentId ? `:agent:${encodeURIComponent(options.agentId)}` : ""
-  const key = component || agent ? `astralbeam:chat-size:v1${component}${agent}` : null
+  const key = `astralbeam:chat-size:v1${component}${agent}`
   const [preference, setPreference] = useState(() => ({ key, value: readWidth(key) }))
   if (preference.key !== key) setPreference({ key, value: readWidth(key) })
   const saved = preference.key === key ? preference.value : null
@@ -151,7 +150,6 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     if (next === width) return
     const override = next === clamp(defaultWidth) ? null : next
     setPreference({ key, value: override })
-    if (!key) return
     try {
       if (override === null) localStorage.removeItem(key)
       else localStorage.setItem(key, JSON.stringify({ width: override }))

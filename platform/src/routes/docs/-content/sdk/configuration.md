@@ -68,7 +68,7 @@ Widths you choose that differ from the default are stored in `localStorage` for 
 - Returning to the default width removes the saved override. Unchanged gestures and temporary container constraints do not write preferences.
 - The SDK combines the mount's stable element ID and `agentId` when provided. Placements with the same identity share their preference, while different agents keep separate widths even in the same mount.
 - React chats accept the standard `id` prop, such as `<AstralBeamChat id="support-chat" />`, to identify a placement. React's component `key` does not identify a stored width.
-- Without a mount ID or `agentId`, width changes last only until unmount because the SDK cannot infer a stable identity for later reloads or tabs.
+- When both the mount ID and `agentId` are omitted, chats use the shared `astralbeam:chat-size:v1` key. These chats share their saved width on the same origin.
 - Existing tabs keep their current layout. Saving a size does not immediately resize another open tab.
 - If storage is unavailable, resizing still works for the current mount. Nothing sensitive is stored with the layout preference.
 
