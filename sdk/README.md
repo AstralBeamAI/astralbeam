@@ -128,9 +128,9 @@ Chat remembers widths you choose that differ from the default. Set `initialWidth
 - Drag the resize edge or focus it and use arrow keys. Drag to the available maximum or press End to use all available width.
 - Saved width wins over `initialWidth`. Moving back to the default clears the saved override. Unchanged gestures write nothing.
 - `initialWidth="100%"` uses available width as the default. A saved width still wins. Height always follows the parent.
-- Storage uses the mount's stable element ID, including React's `id` prop, then `agentId`. Placements with the same identity share their width. Anonymous mounts without either keep width changes only until unmount because no stable identity can be inferred.
+- Storage combines the authenticated organization ID, the mount's stable element ID (React's `id` prop), and `agentId` when available. Give placements their own IDs to keep widths separate when they use the same agent. Anonymous mounts without a mount ID or `agentId` keep width changes only until unmount.
 - `resizable={false}` hides the resize edge while retaining configured sizing and saved preferences.
-- Preferences belong to this browser and origin, independent of account identity. Existing tabs keep their current layout until the next mount.
+- Organization-scoped saved widths restore after chat authentication resolves. Preferences belong to this browser and origin. Existing tabs keep their current layout until the next mount.
 - Let surrounding wrappers follow chat width. For nested layouts, supply a stable outer container through `resizeContainer`. See [Configuration](https://astralbeam.ai/docs/sdk/configuration#chat-width).
 
 ## Tools and widgets

@@ -3,9 +3,15 @@ import { captureMoment } from "../../capture.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { chatSizing } from "../../pages/chat-sizing.ts"
 import { todosPage } from "../../pages/todos-page.ts"
-import { SEED_ORGANIZATIONS } from "../../../../../platform/scripts/seed/fixtures.ts"
+import {
+  SEED_ORGANIZATIONS,
+  SEED_TODOS_TARGET,
+} from "../../../../../platform/scripts/seed/fixtures.ts"
 
-const WIDTH_STORAGE_KEY = "astralbeam:chat-size:v1:component:chat-sizing-test"
+const organization = SEED_ORGANIZATIONS[0]
+const firstAgent = `agent_${organization.id}_${organization.agents[0].id}`
+const secondAgent = `agent_${organization.id}_${organization.agents[1].id}`
+const WIDTH_STORAGE_KEY = `astralbeam:chat-size:v1:organization:${organization.id}:component:chat-sizing-test:agent:${SEED_TODOS_TARGET.agentId}`
 
 test("horizontal sizing keeps full height and restores in reloads and new tabs", async ({
   page,
@@ -171,12 +177,7 @@ for (const closed of ["hidden", "collapsed"] as const) {
   })
 }
 
-test("default storage scopes independent agents and gives stable host IDs precedence", async ({
-  page,
-}) => {
-  const organization = SEED_ORGANIZATIONS[0]
-  const firstAgent = `agent_${organization.id}_${organization.agents[0].id}`
-  const secondAgent = `agent_${organization.id}_${organization.agents[1].id}`
+test("storage combines organization, component and agent identities", async ({ page }) => {
   const sizing = chatSizing(page)
   await sizing.openHost({ agentId: firstAgent, hostId: "" })
   await sizing.setWidth(560)
@@ -192,7 +193,12 @@ test("default storage scopes independent agents and gives stable host IDs preced
   await sizing.openHost({ agentId: firstAgent, hostId: "secondary-chat" })
   await sizing.expectWidth(480)
   await sizing.openHost({ agentId: secondAgent, hostId: "primary-chat" })
+  await sizing.expectWidth(480)
+  await sizing.setWidth(700)
+  await sizing.openHost({ agentId: firstAgent, hostId: "primary-chat" })
   await sizing.expectWidth(600)
+  await sizing.openHost({ agentId: secondAgent, hostId: "primary-chat" })
+  await sizing.expectWidth(700)
 
   await page.evaluate(() => localStorage.setItem("astralbeam:chat-size:v1", '{"width":760}'))
   await sizing.openHost({ agentId: "default", hostId: "" })
