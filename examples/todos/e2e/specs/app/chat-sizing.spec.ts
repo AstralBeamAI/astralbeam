@@ -38,6 +38,16 @@ test("horizontal sizing keeps full height and restores in reloads and new tabs",
   await page.mouse.move(x - 120, y)
   await expect(sizing.handle).toHaveAttribute("aria-valuenow", "640")
   await page.setViewportSize({ width: 1400, height: 900 })
+  await sizing.expectWidth(640)
+  await expect(sizing.handle).toHaveAttribute("aria-valuenow", "640")
+  await expect(sizing.handle).toHaveAttribute("aria-valuetext", "640 pixels")
+  await page.mouse.move(x - 1600, y)
+  await sizing.expectWidth(1400)
+  await page.setViewportSize({ width: 1000, height: 900 })
+  await sizing.expectWidth(1000)
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await sizing.expectWidth(1600)
+  await page.keyboard.press("Escape")
   await sizing.expectWidth(520)
   await expect(sizing.handle).toHaveAttribute("aria-valuenow", "520")
   await expect(sizing.handle).toHaveAttribute("aria-valuetext", "520 pixels")
@@ -94,7 +104,7 @@ test.describe("touch resizing", () => {
   })
 })
 
-test("initial width opens a zero-width host and survives clamping and host controls", async ({
+test("default width opens a zero-width host and survives clamping and host controls", async ({
   page,
 }) => {
   const sizing = chatSizing(page)
@@ -178,6 +188,8 @@ for (const closed of ["hidden", "collapsed"] as const) {
 }
 
 test("storage combines component and agent identities", async ({ page }) => {
+  // Storage scope does not depend on authentication.
+  await page.route("**/api/v1/me", (route) => route.abort())
   const sizing = chatSizing(page)
   await sizing.openHost({ agentId: firstAgent, hostId: "" })
   await sizing.setWidth(560)

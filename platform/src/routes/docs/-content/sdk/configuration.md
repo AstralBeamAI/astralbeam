@@ -14,7 +14,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
 | `resizable` | `true` | Enables the resize edge and keyboard resizing |
-| `initialWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
+| `defaultWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
 | `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
 | `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
@@ -35,42 +35,14 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 
 ## Chat width
 
-Chat resizes horizontally and keeps filling its parent's height. Let's choose a starting width:
+Chat resizes horizontally and fills its parent's height. Give the parent a definite height and let surrounding wrappers follow chat's width.
 
-```tsx
-<AstralBeamChat initialWidth={420} />
-```
-
-- Saved width or a user adjustment takes precedence over `initialWidth`. Without either, changing `initialWidth` updates the width in place.
-- Without `initialWidth`, the fallback is the mount's initial width.
-- Drag the resize edge, or focus it and press Left/Right to move it. Home selects the minimum, and End fills the available width.
-- `initialWidth="100%"` uses available container width as the default. A saved width still takes precedence, including when this prop changes.
-- `resizable={false}` hides the resize edge while retaining configured sizing. Resizing changes width only, and height continues to fill the parent.
-- A smaller container temporarily clamps the rendered width without overwriting your preferred width. Growing it restores the space available to that preference.
-- With `onClose`, chat still fills the mobile viewport at widths up to 900px. Mobile layout leaves your saved desktop width intact.
-
-### Layout boundary
-
-Because fixed-width wrappers prevent chat from growing, let your surrounding wrappers follow its width and let adjacent content shrink. Keep a definite parent height, with `min-height: 0` where needed in flex columns.
-
-The mount's parent is the default width boundary. Nested sidebar wrappers often grow with the chat, so their width cannot describe the space available. Let's return the stable outer layout container through `resizeContainer`:
-
-```tsx
-<AstralBeamChat initialWidth={420} resizeContainer={() => layoutRef.current} />
-```
-
-Use a container whose content width is independent of chat's width. The SDK uses that width for `"100%"` and the resize limit. Omit `resizeContainer` when the mount's parent already provides it. Avoid fixed widths or fixed grid tracks around the chat that would clip it or leave unused space.
-
-### Saved width
-
-Widths you choose that differ from the default are stored in `localStorage` for this origin. They restore when chat mounts, including after reload or in a new tab, separately from conversations and drafts.
-
-- Returning to the default width removes the saved override. Unchanged gestures and temporary container constraints do not write preferences.
-- The SDK combines the mount's stable element ID and `agentId` when provided. Placements with the same identity share their preference, while different agents keep separate widths even in the same mount.
-- React chats accept the standard `id` prop, such as `<AstralBeamChat id="support-chat" />`, to identify a placement. React's component `key` does not identify a stored width.
-- When both the mount ID and `agentId` are omitted, chats use the shared `astralbeam:chat-size:v1` key. These chats share their saved width on the same origin.
-- Existing tabs keep their current layout. Saving a size does not immediately resize another open tab.
-- If storage is unavailable, resizing still works for the current mount. Nothing sensitive is stored with the layout preference.
+- `defaultWidth` accepts pixels or `"100%"` for available width. Omit it to use the mount's initial CSS width. Saved overrides take precedence.
+- The mount's parent limits available width. Supply `resizeContainer={() => layoutRef.current}` only when nested wrappers require a stable outer layout container.
+- Drag the edge or use arrow keys, Home, and End to resize. `resizable={false}` hides the edge while preserving sizing and saved preferences.
+- Only widths that differ from the default are saved in `localStorage` across reloads and new tabs. Returning to the default clears the override.
+- Storage combines the mount element's `id` (React's `id` prop) and `agentId` when provided. Without either, chats share one width preference on the same origin.
+- Narrow containers temporarily clamp your preferred width. With `onClose`, mobile chat fills the viewport while keeping the desktop preference. Existing tabs keep their current layout.
 
 ## Chrome slots
 

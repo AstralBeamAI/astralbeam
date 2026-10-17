@@ -59,3 +59,41 @@ test("Astro scopes resized width by organization across reloads and mobile", asy
   await expect(astro.panel).toHaveCSS("width", "320px")
   await expect(shell.navigation).toBeVisible()
 })
+
+test("Astro keeps a mouse resize active when a page scrollbar changes available width", async ({
+  page,
+  astro,
+  shell,
+}) => {
+  await page.goto(`/${SEED_ORGANIZATIONS[0].slug}`)
+  await page.addStyleTag({
+    content: "html { overflow-y: hidden; } html::-webkit-scrollbar { width: 15px; }",
+  })
+  await astro.open()
+  const edge = (await astro.resize.boundingBox())!
+  const x = edge.x + edge.width / 2
+  const y = edge.y + edge.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x - 200, y, { steps: 8 })
+  await expect(astro.panel).toHaveCSS("width", "648px")
+  await page.evaluate(() => {
+    document.documentElement.style.overflowY = "scroll"
+    document.documentElement.style.scrollbarGutter = "stable"
+  })
+  const available = await page.evaluate(
+    () => document.documentElement.getBoundingClientRect().width,
+  )
+  expect(available).toBe(1425)
+  await expect(astro.panel).toHaveCSS("width", "648px")
+  await page.mouse.move(0, y, { steps: 8 })
+  await expect(astro.panel).toHaveCSS("width", `${available}px`)
+  await expect(shell.navigation).toBeHidden()
+  const key = `astralbeam:chat-size:v1:component:chat-${SEED_ORGANIZATIONS[0].id}`
+  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBeNull()
+  await page.mouse.up()
+  expect(await page.evaluate((storageKey) => localStorage.getItem(storageKey), key)).toBe(
+    JSON.stringify({ width: available }),
+  )
+  await captureMilestone(page, "astro-mouse-resize-with-scrollbar")
+})

@@ -33,6 +33,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
   })
   const drag = useRef<{
     element: HTMLDivElement
+    key: string
     pointerId: number
     x: number
     width: number
@@ -40,7 +41,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     direction: number
     scale: number
   } | null>(null)
-  const { resizeContainer, onClose, initialWidth: initial } = options
+  const { resizeContainer, onClose, defaultWidth: configuredWidth } = options
   const closable = !!onClose
 
   useLayoutEffect(() => {
@@ -54,7 +55,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
           ? window.innerWidth
           : boundary.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
       const fallback =
-        host.getClientRects().length > 0 && (host.offsetWidth > 0 || initial !== undefined)
+        host.getClientRects().length > 0 && (host.offsetWidth > 0 || configuredWidth !== undefined)
           ? host.offsetWidth
           : null
       if (maximum <= 0) return
@@ -80,15 +81,15 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       observer.disconnect()
       mobile.removeEventListener("change", measure)
     }
-  }, [host, resizeContainer, closable, initial])
+  }, [host, resizeContainer, closable, configuredWidth])
 
   const maximum = Math.floor(bounds.maximum)
   const minimum = Math.min(320, maximum)
   const defaultWidth =
-    initial === "100%"
+    configuredWidth === "100%"
       ? maximum
-      : initial && Number.isFinite(initial) && initial > 0
-        ? initial
+      : configuredWidth && Number.isFinite(configuredWidth) && configuredWidth > 0
+        ? configuredWidth
         : (bounds.fallback ?? 0)
   const preferred = saved ?? defaultWidth
   const clamp = (value: number) => Math.round(Math.min(maximum, Math.max(minimum, value)))
@@ -130,19 +131,24 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
 
   useLayoutEffect(() => {
     const active = drag.current
-    drag.current = null
-    if (active) {
-      active.element.setAttribute("aria-valuenow", String(width))
-      active.element.setAttribute("aria-valuetext", `${width} pixels`)
+    if (active && (!enabled || active.key !== key)) {
+      drag.current = null
+      if (active.element.hasPointerCapture(active.pointerId))
+        active.element.releasePointerCapture(active.pointerId)
     }
-    if (active?.element.hasPointerCapture(active.pointerId))
-      active.element.releasePointerCapture(active.pointerId)
+    const next = drag.current
+      ? Math.round(Math.min(maximum, Math.max(minimum, drag.current.next)))
+      : width
+    if (active) {
+      active.element.setAttribute("aria-valuenow", String(next))
+      active.element.setAttribute("aria-valuetext", `${next} pixels`)
+    }
     // A hidden mount must reveal its original CSS width before a saved width replaces it.
     if (maximum > 0 && bounds.fallback !== null) {
-      host.style.setProperty("width", `${width}px`)
-      host.setAttribute("data-astralbeam-full-width", String(width >= maximum))
+      host.style.setProperty("width", `${next}px`)
+      host.setAttribute("data-astralbeam-full-width", String(next >= maximum))
     }
-  }, [host, width, maximum, bounds.fallback, enabled, key])
+  }, [host, width, minimum, maximum, bounds.fallback, enabled, key])
 
   const resize = (value: number) => {
     if (!enabled || !Number.isFinite(value)) return
@@ -169,6 +175,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       event.currentTarget.setPointerCapture(event.pointerId)
       drag.current = {
         element: event.currentTarget,
+        key,
         pointerId: event.pointerId,
         x: event.clientX,
         width,
@@ -180,12 +187,11 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
       const active = drag.current
       if (!active || active.pointerId !== event.pointerId) return
-      active.next = clamp(
-        active.width + ((event.clientX - active.x) * active.direction) / active.scale,
-      )
-      paint(active.next)
-      active.element.setAttribute("aria-valuenow", String(active.next))
-      active.element.setAttribute("aria-valuetext", `${active.next} pixels`)
+      active.next = active.width + ((event.clientX - active.x) * active.direction) / active.scale
+      const next = clamp(active.next)
+      paint(next)
+      active.element.setAttribute("aria-valuenow", String(next))
+      active.element.setAttribute("aria-valuetext", `${next} pixels`)
     },
     onPointerUp: (event: PointerEvent<HTMLDivElement>) => {
       const active = drag.current

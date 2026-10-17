@@ -343,7 +343,7 @@ function DogfoodChatPanel({
         <AstralBeamChat
           id={`chat-${organization.organizationId}`}
           apiUrl="/api"
-          initialWidth={448}
+          defaultWidth={448}
           resizable={!fullWidth}
           resizeContainer={resizeContainer}
           colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
