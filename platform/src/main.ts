@@ -201,9 +201,10 @@ program
       if (createHash("sha256").update(bytes).digest("hex") !== expected) {
         throw new Error(`v${version} ${asset} does not match its SHA256SUMS entry`)
       }
-      const downloadPath = `${binaryPath}.download`
+      const downloadDirectory = mkdtempSync(`${binaryPath}.upgrade-`)
+      const downloadPath = join(downloadDirectory, "binary")
       try {
-        writeFileSync(downloadPath, bytes)
+        writeFileSync(downloadPath, bytes, { flag: "wx" })
         chmodSync(downloadPath, 0o755)
         // Windows cannot overwrite a running executable, but it can rename one.
         if (process.platform === "win32") renameSync(binaryPath, `${binaryPath}.old`)
@@ -214,7 +215,7 @@ program
           throw error
         }
       } finally {
-        rmSync(downloadPath, { force: true })
+        rmSync(downloadDirectory, { recursive: true, force: true })
       }
       console.log(`Replaced ${packageJson.version} with ${version}`)
       console.log(`Run \`${program.name()} migrate\`, then restart the service`)
