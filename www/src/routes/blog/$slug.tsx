@@ -48,6 +48,21 @@ export const Route = createFileRoute("/blog/$slug")({
 })
 
 const markdownComponents: Components = {
+  a({ href, title, children }) {
+    const external =
+      href &&
+      /^(?:https?:)?\/\//i.test(href) &&
+      new URL(href, siteMetadata.origin).origin !== siteMetadata.origin
+    return (
+      <a
+        href={href}
+        title={title}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+    )
+  },
   pre({ node, children }) {
     const code = node?.children[0]
     if (

@@ -1888,3 +1888,10 @@ main {
     transition: none;
   }
 }
+
+a[target="_blank"]:not(footer a):not(:empty):not(:has(*))::after {
+  content: "↗";
+  display: inline-block;
+  font-size: 0.75em;
+  margin-inline-start: 0.125rem;
+}

@@ -203,3 +203,10 @@ body {
   border-color: var(--app-highlight);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-highlight) 20%, transparent);
 }
+
+a[target="_blank"]:not(:empty):not(:has(*))::after {
+  content: "↗";
+  display: inline-block;
+  font-size: 0.75em;
+  margin-inline-start: 0.125rem;
+}

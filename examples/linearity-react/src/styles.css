@@ -1734,3 +1734,10 @@ h1 {
     animation: none !important;
   }
 }
+
+a[target="_blank"]:not(:empty):not(:has(*))::after {
+  content: "↗";
+  display: inline-block;
+  font-size: 0.75em;
+  margin-inline-start: 0.125rem;
+}
