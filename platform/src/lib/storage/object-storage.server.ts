@@ -82,7 +82,7 @@ export class ObjectStorage extends Context.Service<
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
     readonly signedUrl: (input: {
       key: string
-      expiresAt: Date
+      expiresAt?: Date
     }) => Effect.Effect<string, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
@@ -209,8 +209,9 @@ export class ObjectStorage extends Context.Service<
                   }),
                   {
                     signingDate: new Date(now),
-                    expiresIn:
-                      Math.floor(input.expiresAt.getTime() / 1000) - Math.floor(now / 1000),
+                    expiresIn: input.expiresAt
+                      ? Math.floor(input.expiresAt.getTime() / 1000) - Math.floor(now / 1000)
+                      : 60,
                   },
                 ),
               ),

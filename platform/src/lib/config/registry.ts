@@ -276,7 +276,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description:
       "RSA 2048-bit PEM private key matching the trusted public key. Stored encrypted in the database.",
     kind: "secret",
-    multiline: true,
     required: false,
     schema: Schema.String.check(
       Schema.makeFilter(
@@ -648,15 +647,13 @@ export function validateConfigCompleteness(
   const hasCloudfrontEnvironmentOverride = cloudfrontKeys.some((key) => environmentKeys.has(key))
   if (values.download_signing_strategy === "cloudfront") {
     for (const key of cloudfrontKeys) {
-      if (hasCloudfrontEnvironmentOverride && !environmentKeys.has(key)) {
+      const missingOverride = hasCloudfrontEnvironmentOverride && !environmentKeys.has(key)
+      if (missingOverride || !values[key]) {
         issues.push({
           key,
-          message: `${configEnvironmentVariable(key)} is required when CloudFront settings are supplied through the environment`,
-        })
-      } else if (!values[key]) {
-        issues.push({
-          key,
-          message: `${findConfigDefinition(key)?.label} is required to enable CloudFront downloads`,
+          message: missingOverride
+            ? `${configEnvironmentVariable(key)} is required with other CloudFront overrides`
+            : `A valid ${findConfigDefinition(key)?.label} is required for CloudFront`,
         })
       }
     }
