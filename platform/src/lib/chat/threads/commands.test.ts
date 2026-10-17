@@ -32,6 +32,7 @@ describe("managed conversation commands", () => {
   it.effect("validates uploaded content before accepting input", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
+    let sandboxProviderId: string | null = null
     const layer = Layer.mergeAll(
       Layer.succeed(ChatFiles, {
         store: ({ payload }) => Effect.succeed(payload),
@@ -41,7 +42,7 @@ describe("managed conversation commands", () => {
       }),
       Layer.succeed(SqlClient.SqlClient, {} as SqlClient.SqlClient),
       Layer.succeed(Agents, {
-        resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId: null }),
+        resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId }),
       } as unknown as typeof Agents.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
@@ -87,27 +88,38 @@ describe("managed conversation commands", () => {
         }).pipe(Effect.result)
         assert.equal(invalid._tag, "Failure")
       }
-      attachmentsEnabled = false
-      const disabled = yield* prepareManagedChat({
+      const officeInput = {
         ...input,
         params: {
           ...commandParams,
           messages: [
             {
-              id: "upload",
-              role: "user",
+              id: "office-upload",
+              role: "user" as const,
               content: [
                 {
-                  type: "document",
-                  source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
+                  type: "document" as const,
+                  source: {
+                    type: "data" as const,
+                    value: btoa("PK\x03\x04original"),
+                    mimeType: "application/octet-stream",
+                  },
+                  metadata: { filename: "book.xlsx" },
                 },
               ],
             },
           ],
         },
-      }).pipe(Effect.flip)
-      assert.equal(disabled._tag, "ChatAttachmentsDisabled")
+      }
+      const unavailable = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
+      assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
       assert.lengthOf(admitted, 1)
+      sandboxProviderId = commandThreadId
+      yield* prepareManagedChat(officeInput)
+      attachmentsEnabled = false
+      const disabled = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
+      assert.equal(disabled._tag, "ChatAttachmentsDisabled")
+      assert.lengthOf(admitted, 2)
     }).pipe(Effect.provide(layer))
   })
 

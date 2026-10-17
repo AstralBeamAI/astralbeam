@@ -140,8 +140,14 @@ export function chatWidget(page: Page) {
       await test.step(`send "${text}"`, async () => {
         await this.waitForReady()
         await composer.fill(text)
+        await expect(sendButton).toBeEnabled()
         await composer.press("Enter")
-        await expect(root.getByText(text, { exact: false }).first()).toBeVisible()
+        await expect(
+          root
+            .locator('[data-slot="message"][data-align="end"]')
+            .getByText(text, { exact: true })
+            .last(),
+        ).toBeVisible()
       })
     },
 

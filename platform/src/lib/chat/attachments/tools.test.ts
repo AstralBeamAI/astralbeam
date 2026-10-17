@@ -14,96 +14,53 @@ function file(text = "hello", handle = "notes.md"): ChatAttachmentFile {
     mimeType: "text/markdown",
     bytes: new Uint8Array(),
     text,
-    sandboxPath: `uploads/${handle}`,
-  }
-}
-
-/** A file with no text view, optionally without a sandbox to open it in either. */
-function opaqueFile(options: { sandbox: boolean }): ChatAttachmentFile {
-  return {
-    handle: "events.parquet",
-    filename: "events.parquet",
-    mimeType: "application/vnd.apache.parquet",
-    bytes: new Uint8Array(),
-    ...(options.sandbox ? { sandboxPath: "uploads/events.parquet" } : {}),
   }
 }
 
 /** Runs `read_attachment` over a set of files, the way the model reaches it. */
 async function read(
   files: readonly ChatAttachmentFile[],
-  input: { file: string; offset?: number; limit?: number },
+  input: { file: string; offset?: number; limit?: number | undefined },
+  sandbox = true,
 ) {
-  const [tool] = createChatAttachmentTools(files)
+  const [tool] = createChatAttachmentTools(files, { sandbox })
   return (await tool?.execute?.(input)) as Record<string, unknown>
 }
 
 // An agent should not be offered a reader when there is nothing to read.
 test("declares no tool for a run with no files", () => {
-  expect(createChatAttachmentTools([])).toEqual([])
-  expect(createChatAttachmentTools([file()])).toHaveLength(1)
+  expect(createChatAttachmentTools([], { sandbox: false })).toEqual([])
 })
 
-test("reads a file's text by handle", async () => {
-  const result = await read([file()], { file: "notes.md" })
+test("reads text by handle and reports truncation without advertising an unavailable sandbox", async () => {
+  const result = await read([{ ...file(), truncated: true }], { file: "notes.md" }, false)
   expect(result).toMatchObject({
     file: "notes.md",
     content: "hello",
     offset: 0,
     totalCharacters: 5,
     end: true,
+    readableTextTruncated: true,
   })
   expect(result.nextOffset).toBeUndefined()
+  expect(result.sandboxPath).toBeUndefined()
 })
 
-// The shape has to arrive with the contents, because it is the only place it arrives at all: a
-// column name comes from the file, so it is never written into a prompt.
-test("reports a table's shape and the sandbox path alongside the text", async () => {
-  const sheet: ChatAttachmentFile = {
-    ...file("month,sales\nJan,343\n", "sales.csv"),
-    mimeType: "text/csv",
-    tables: [
-      {
-        delimiter: ",",
-        rows: 1,
-        columns: [
-          { name: "month", type: "string" },
-          { name: "sales", type: "integer" },
-        ],
-      },
-    ],
-  }
-  const result = await read([sheet], { file: "sales.csv" })
-  expect(result).toMatchObject({
-    mimeType: "text/csv",
-    sandboxPath: "uploads/sales.csv",
-    tables: [{ rows: 1, columns: [{ name: "month" }, { name: "sales" }] }],
-  })
-})
+test.each([undefined, CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10])(
+  "pages a long file within the cap for requested limit %s",
+  async (limit) => {
+    const files = [file(LONG_TEXT)]
+    const first = await read(files, { file: "notes.md", limit })
+    expect(first.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+    expect(first.end).toBe(false)
+    expect(first.nextOffset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
 
-// Paging is what replaces truncation: a long file is fully readable rather than cut off, which is
-// the whole reason contents are not pasted into the prompt.
-test("pages a long file and reports where to continue", async () => {
-  const files = [file(LONG_TEXT)]
-  const first = await read(files, { file: "notes.md" })
-  expect(first.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-  expect(first.end).toBe(false)
-  expect(first.nextOffset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-
-  const second = await read(files, { file: "notes.md", offset: first.nextOffset as number })
-  expect(second.offset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-  expect(second.content).toBe(LONG_TEXT.slice(CHAT_ATTACHMENT_READ_MAX_CHARACTERS))
-  expect(second.end).toBe(true)
-})
-
-// The page size is model context, not a preference, so an agent asking for more gets the cap.
-test("caps a page however much the agent asks for", async () => {
-  const result = await read([file(LONG_TEXT)], {
-    file: "notes.md",
-    limit: CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10,
-  })
-  expect(result.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-})
+    const second = await read(files, { file: "notes.md", offset: first.nextOffset as number })
+    expect(second.offset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+    expect(second.content).toBe(LONG_TEXT.slice(CHAT_ATTACHMENT_READ_MAX_CHARACTERS))
+    expect(second.end).toBe(true)
+  },
+)
 
 test("clamps an offset past the end instead of failing", async () => {
   const result = await read([file()], { file: "notes.md", offset: 9999 })
@@ -119,12 +76,18 @@ test("names the available handles when the agent guesses one wrong", async () =>
 })
 
 test("sends the agent to the sandbox for a file with no text view", async () => {
-  const sandboxed = opaqueFile({ sandbox: true })
-  expect((await read([sandboxed], { file: "events.parquet" })).refusal).toContain(
-    "Open it with code in the sandbox at uploads/events.parquet",
-  )
-  const unsandboxed = opaqueFile({ sandbox: false })
-  expect((await read([unsandboxed], { file: "events.parquet" })).refusal).toContain(
-    "no sandbox to open it in",
-  )
+  const files: ChatAttachmentFile[] = [
+    {
+      handle: "events.parquet",
+      filename: "events.parquet",
+      mimeType: "application/vnd.apache.parquet",
+      bytes: new Uint8Array(),
+    },
+  ]
+  const available = await read(files, { file: "events.parquet" })
+  expect(available.sandboxPath).toBe("uploads/events.parquet")
+  expect(available.refusal).toContain("Open it with code in the sandbox")
+  const unavailable = await read(files, { file: "events.parquet" }, false)
+  expect(unavailable.refusal).toContain("no sandbox")
+  expect(unavailable.sandboxPath).toBeUndefined()
 })
