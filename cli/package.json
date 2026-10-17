@@ -22,8 +22,8 @@
     "access": "public"
   },
   "scripts": {
-    "binary:check": "bun run compile && .output/astralbeam --version && .output/astralbeam skill > /dev/null",
-    "build": "tsdown",
+    "binary:check": "bun run compile && bun dist/astralbeam.js --version && .output/astralbeam --version && .output/astralbeam skill > /dev/null",
+    "build": "tsdown && bun pm pack --dry-run --quiet",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
     "check:fix": "bun run lint:fix && bun run format && bun run knip:fix",
     "count-lines": "bun run ../scripts/count-lines.ts",

@@ -61,7 +61,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun run generate:styles && tsdown --platform browser",
+    "build": "bun run generate:styles && tsdown --platform browser && bun pm pack --dry-run --quiet",
     "dev": "bun run generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & bun run scripts/embed-styles.ts --watch & tsdown --platform browser --watch --no-clean)",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && bun run scripts/embed-styles.ts",
     "generate:api": "orval && oxfmt src/api/generated",
