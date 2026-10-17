@@ -334,10 +334,14 @@ function DogfoodChatPanel({
       )}
     >
       <div
-        className={cn("min-h-0 flex-1 max-lg:[&>*]:min-w-full", widgetThemeClassName)}
+        className={cn(
+          "min-h-0 flex-1 max-lg:[&>*]:min-w-full lg:[&>*]:w-[28rem]",
+          widgetThemeClassName,
+        )}
         style={widgetThemeStyle}
       >
         <AstralBeamChat
+          id={`chat-${organization.organizationId}`}
           apiUrl="/api"
           initialWidth={448}
           resizable={!fullWidth}

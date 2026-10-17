@@ -16,6 +16,7 @@ test("horizontal sizing keeps full height and restores in reloads and new tabs",
   await chat.waitForReady()
   const sizing = chatSizing(page)
   await sizing.expectWidth(380)
+  await expect(sizing.handle).toHaveCSS("width", "8px")
   const original = (await chat.root.boundingBox())!
   expect((await sizing.handle.boundingBox())!.height).toBe((await chat.frame.boundingBox())!.height)
   await chat.composer().fill("Keep this draft while resizing")
@@ -60,6 +61,31 @@ test("horizontal sizing keeps full height and restores in reloads and new tabs",
   await otherSizing.expectWidth(550)
   await sizing.expectWidth(560)
   await otherPage.close()
+})
+
+test.describe("touch resizing", () => {
+  test.use({ hasTouch: true })
+
+  test("a coarse pointer can drag from the enlarged target", async ({ page, context }) => {
+    const sizing = chatSizing(page)
+    await sizing.openHost()
+    await expect(sizing.handle).toHaveCSS("width", "44px")
+    const bounds = (await sizing.handle.boundingBox())!
+    const x = bounds.x + 30
+    const y = bounds.y + bounds.height / 2
+    const pointer = await context.newCDPSession(page)
+    await pointer.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    })
+    for (let step = 1; step <= 8; step++)
+      await pointer.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: x - (120 * step) / 8, y }],
+      })
+    await pointer.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    await sizing.expectWidth(600)
+  })
 })
 
 test("initial width opens a zero-width host and survives clamping and host controls", async ({
@@ -126,21 +152,24 @@ test("malformed or failing storage does not interrupt resizing or an active requ
   await sizing.expectWidth(600)
 })
 
-test("a chat mounted hidden retains its CSS fallback and clears a returned default", async ({
-  page,
-}) => {
-  await page.addInitScript(
-    (key) => localStorage.setItem(key, JSON.stringify({ width: 640 })),
-    WIDTH_STORAGE_KEY,
-  )
-  const sizing = chatSizing(page)
-  await sizing.openHost({ hidden: true })
-  await sizing.showContainer.click()
-  await chatWidget(page).waitForReady()
-  await sizing.expectWidth(640)
-  await sizing.setWidth(400)
-  expect(await page.evaluate((key) => localStorage.getItem(key), WIDTH_STORAGE_KEY)).toBeNull()
-})
+for (const closed of ["hidden", "collapsed"] as const) {
+  test(`a chat mounted ${closed} retains its CSS fallback and clears a returned default`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (key) => localStorage.setItem(key, JSON.stringify({ width: 640 })),
+      WIDTH_STORAGE_KEY,
+    )
+    const sizing = chatSizing(page)
+    await sizing.openHost({ [closed]: true })
+    if (closed === "collapsed") await sizing.expectWidth(0)
+    await sizing.showContainer.click()
+    await chatWidget(page).waitForReady()
+    await sizing.expectWidth(640)
+    await sizing.setWidth(400)
+    expect(await page.evaluate((key) => localStorage.getItem(key), WIDTH_STORAGE_KEY)).toBeNull()
+  })
+}
 
 test("default storage scopes independent agents and gives stable host IDs precedence", async ({
   page,
@@ -164,4 +193,14 @@ test("default storage scopes independent agents and gives stable host IDs preced
   await sizing.expectWidth(480)
   await sizing.openHost({ agentId: secondAgent, hostId: "primary-chat" })
   await sizing.expectWidth(600)
+
+  await page.evaluate(() => localStorage.setItem("astralbeam:chat-size:v1", '{"width":760}'))
+  await sizing.openHost({ agentId: "default", hostId: "" })
+  await sizing.expectWidth(480)
+  await sizing.setWidth(560)
+  await sizing.openHost({ agentId: "default", hostId: "" })
+  await sizing.expectWidth(480)
+  expect(await page.evaluate(() => localStorage.getItem("astralbeam:chat-size:v1"))).toBe(
+    '{"width":760}',
+  )
 })

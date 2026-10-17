@@ -7,7 +7,7 @@ const fillWidth = document.querySelector<HTMLInputElement>("#fill-width")!
 const host = document.querySelector<HTMLElement>("aside")!
 const chat = mountAstralBeamChat(host, {
   apiUrl: ASTRALBEAM_API_URL,
-  agentId: host.dataset.agentId || CHAT_AGENT_ID,
+  agentId: host.dataset.agentId === "default" ? undefined : host.dataset.agentId || CHAT_AGENT_ID,
   initialWidth: Number(host.dataset.initialWidth) || undefined,
   resizeContainer: () => boundary,
 })
@@ -20,5 +20,6 @@ document.querySelector("#default-width")!.addEventListener("click", () => {
   chat.update({ initialWidth: 520 })
 })
 document.querySelector("#show")!.addEventListener("click", () => {
+  host.style.width = "400px"
   host.parentElement!.style.display = "contents"
 })

@@ -13,10 +13,12 @@ export function chatSizing(page: Page) {
 
     async openHost({
       hidden = false,
+      collapsed = false,
       agentId = "",
       hostId = "chat-sizing-test",
     }: {
       hidden?: boolean
+      collapsed?: boolean
       agentId?: string
       hostId?: string
     } = {}): Promise<void> {
@@ -31,11 +33,11 @@ export function chatSizing(page: Page) {
             <label><input id="fill-width" type="checkbox">Use full available width</label>
             <label><input id="resizing" type="checkbox" checked>Allow resizing</label>
             <button id="default-width" type="button">Change initial width</button>
-            <button id="show" type="button" ${hidden ? "" : "hidden"}>Show container</button>
+            <button id="show" type="button" ${hidden || collapsed ? "" : "hidden"}>Show container</button>
             <main style="display:flex;justify-content:flex-end;width:960px;height:640px">
-              <div style="display:${hidden ? "none" : "contents"}"><aside class="chat-sidebar" id="${hostId}" data-agent-id="${agentId}" data-initial-width="${hidden ? "" : "480"}" style="width:${hidden ? 400 : 0}px;height:100%"></aside></div>
+              <div style="display:${hidden ? "none" : "contents"}"><aside class="chat-sidebar" id="${hostId}" data-agent-id="${agentId}" data-initial-width="${hidden || collapsed ? "" : "480"}" style="width:${hidden ? 400 : 0}px;height:100%"></aside></div>
             </main><script type="module" src="/${fixturePath}"></script></html>`)
-      if (hidden) await expect(chat.frame).toBeAttached()
+      if (hidden || collapsed) await expect(chat.frame).toBeAttached()
       else await chat.waitForReady()
     },
 

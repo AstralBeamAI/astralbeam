@@ -19,7 +19,7 @@ export function ChatResizeHandle({
       aria-valuemax={sizing.maximum}
       aria-valuenow={sizing.width}
       aria-valuetext={`${sizing.width} pixels`}
-      className="absolute inset-y-0 start-0 z-20 w-2 touch-none cursor-col-resize border-s border-transparent hover:border-primary/20 focus-visible:border-primary/30 focus-visible:outline-none"
+      className="absolute inset-y-0 start-0 z-20 w-2 touch-none cursor-col-resize border-s border-transparent hover:border-primary/20 focus-visible:border-primary/30 focus-visible:outline-none any-pointer-coarse:inset-y-14 any-pointer-coarse:w-11"
       onPointerDown={sizing.onPointerDown}
       onPointerMove={sizing.onPointerMove}
       onPointerUp={sizing.onPointerUp}

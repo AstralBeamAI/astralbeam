@@ -1,8 +1,8 @@
-import { SEED_ORGANIZATIONS } from "@scripts/seed/fixtures.ts"
+import { SEED_DOGFOOD, SEED_ORGANIZATIONS } from "@scripts/seed/fixtures.ts"
 import { expect, test } from "@e2e/fixtures.ts"
 import { captureMilestone } from "@e2e/capture.ts"
 
-test("Astro preserves resized width across reloads and mobile and can fill available width", async ({
+test("Astro scopes resized width by organization across reloads and mobile", async ({
   page,
   astro,
   shell,
@@ -12,11 +12,29 @@ test("Astro preserves resized width across reloads and mobile and can fill avail
   await expect(astro.panel).toHaveCSS("width", "448px")
   await astro.resize.press("Shift+ArrowLeft")
   await expect(astro.panel).toHaveCSS("width", "498px")
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      `astralbeam:chat-size:v1:component:chat-${SEED_ORGANIZATIONS[0].id}`,
+    ),
+  ).toBe(JSON.stringify({ width: 498 }))
   await captureMilestone(page, "astro-resized")
 
-  await astro.close.click()
+  await astro.resize.press("Escape")
   await expect(astro.panel).toBeHidden()
   await astro.open()
+  await expect(astro.panel).toHaveCSS("width", "498px")
+
+  await shell.switchOrganization(SEED_ORGANIZATIONS[0].name, SEED_DOGFOOD.name)
+  await astro.open()
+  await expect(astro.panel).toHaveCSS("width", "448px")
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      `astralbeam:chat-size:v1:component:chat-${SEED_DOGFOOD.organizationId}`,
+    ),
+  ).toBeNull()
+  await shell.switchOrganization(SEED_DOGFOOD.name, SEED_ORGANIZATIONS[0].name)
   await expect(astro.panel).toHaveCSS("width", "498px")
   await page.reload()
   await expect(astro.panel).toHaveCSS("width", "498px")

@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 
-function readWidth(key: string): number | null {
+function readWidth(key: string | null): number | null {
+  if (!key) return null
   try {
     const value: unknown = JSON.parse(localStorage.getItem(key) ?? "null")
     if (
@@ -24,8 +25,8 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     ? `:component:${host.id}`
     : options.agentId
       ? `:agent:${options.agentId}`
-      : ""
-  const key = `astralbeam:chat-size:v1${scope}`
+      : null
+  const key = scope ? `astralbeam:chat-size:v1${scope}` : null
   const [preference, setPreference] = useState(() => ({ key, value: readWidth(key) }))
   if (preference.key !== key) setPreference({ key, value: readWidth(key) })
   const saved = preference.key === key ? preference.value : null
@@ -43,7 +44,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     direction: number
     scale: number
   } | null>(null)
-  const { resizeContainer, onClose } = options
+  const { resizeContainer, onClose, initialWidth: initial } = options
   const closable = !!onClose
 
   useLayoutEffect(() => {
@@ -56,7 +57,10 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
         closable && mobile.matches
           ? window.innerWidth
           : boundary.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-      const fallback = host.getClientRects().length > 0 ? host.offsetWidth : null
+      const fallback =
+        host.getClientRects().length > 0 && (host.offsetWidth > 0 || initial !== undefined)
+          ? host.offsetWidth
+          : null
       if (maximum <= 0) return
       setBounds((previous) => {
         const next = {
@@ -80,11 +84,10 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       observer.disconnect()
       mobile.removeEventListener("change", measure)
     }
-  }, [host, resizeContainer, closable])
+  }, [host, resizeContainer, closable, initial])
 
   const maximum = Math.floor(bounds.maximum)
   const minimum = Math.min(320, maximum)
-  const initial = options.initialWidth
   const defaultWidth =
     initial === "100%"
       ? maximum
@@ -151,6 +154,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
     if (next === width) return
     const override = next === clamp(defaultWidth) ? null : next
     setPreference({ key, value: override })
+    if (!key) return
     try {
       if (override === null) localStorage.removeItem(key)
       else localStorage.setItem(key, JSON.stringify({ width: override }))
@@ -203,7 +207,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       else if (event.key === "ArrowRight") resize(width + step * direction)
       else if (event.key === "Home") resize(minimum)
       else if (event.key === "End") resize(maximum)
-      else if (event.key === "Escape") cancelDrag()
+      else if (event.key === "Escape" && drag.current) cancelDrag()
       else return
       event.preventDefault()
     },
