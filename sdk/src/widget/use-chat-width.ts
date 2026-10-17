@@ -150,8 +150,8 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
   const resize = (value: number) => {
     if (!enabled || !Number.isFinite(value)) return
     const next = clamp(value)
-    if (next === width) return
     const override = next === clamp(defaultWidth) ? null : next
+    if (next === width && (override !== null || saved === null)) return
     setPreference({ key, value: override })
     try {
       if (override === null) localStorage.removeItem(key)
@@ -193,7 +193,7 @@ export function useChatWidth(options: MountAstralBeamChatOptions, host: HTMLElem
       if (!active || active.pointerId !== event.pointerId) return
       drag.current = null
       event.currentTarget.releasePointerCapture(event.pointerId)
-      resize(active.next)
+      if (active.next !== active.width) resize(active.next)
     },
     cancelDrag,
     onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
