@@ -57,6 +57,7 @@ Generate shadcn components with `bun run ui add <component>` and allow only mini
 - Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the platform.
 - Keep keyboard focus visible inside paint-contained transcript items. Use inset focus styling or internal spacing instead of removing focus indicators or `content-visibility`.
 - Keep chat spacing compact, with smaller gaps within a reply than between messages. Give chat actions at least 44px touch targets whenever any available pointer is coarse, including hybrid devices, without blanket height overrides that inflate every button.
+- Resize chat horizontally and fill the parent's height. Persist only user width overrides, using mount and agent IDs when available or the shared `astralbeam:chat-size:v1` fallback when both are omitted.
 - Mount a transcript item only once it has visible content and keep the latest turn out of `content-visibility` placeholders, so the latest turn only grows. The todos `chat-state.spec.ts` frame sampler guards this.
 - Keep `TranscriptMessage` props identity-stable across streamed chunks so memoized messages skip unchanged history. Do not adopt React Compiler, which needs a Babel pass in tsdown, cannot cover the React wrapper that runs on host React 18, and still needs this stability.
 - Follow `components.json` aliases for registry files: UI components under `src/widget/components/ui`, hooks under `src/widget/hooks`, and helpers under `src/widget/lib`. Hand-written chat components live one per file under `src/widget/components`.

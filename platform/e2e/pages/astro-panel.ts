@@ -9,6 +9,8 @@ export function astroPanel(page: Page) {
 
   return {
     panel,
+    resize: panel.getByRole("separator", { name: "Resize chat", exact: true }),
+    close: panel.getByRole("button", { name: "Close chat", exact: true }),
 
     async open(): Promise<void> {
       const trigger = page.getByRole("button", { name: "Ask Astro" })

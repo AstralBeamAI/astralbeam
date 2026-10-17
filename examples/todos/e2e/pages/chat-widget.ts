@@ -109,6 +109,10 @@ export function chatWidget(page: Page) {
       return sendButton
     },
 
+    stopButton(): Locator {
+      return stopButton
+    },
+
     async composeWithIme(text: string): Promise<void> {
       await composer.fill(text)
       await composer.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true })

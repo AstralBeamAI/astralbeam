@@ -34,7 +34,7 @@ function AuthenticatedLayout() {
   return (
     <div className="group/dogfood flex items-start">
       <DogfoodChat>
-        <div className="min-w-0 flex-1 max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden">
+        <div className="min-w-0 flex-1 group-has-[[data-dogfood-chat=open]_[data-astralbeam-full-width=true]]/dogfood:hidden max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden">
           <Outlet />
         </div>
       </DogfoodChat>

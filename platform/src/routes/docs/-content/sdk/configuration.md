@@ -13,6 +13,9 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
+| `resizable` | `true` | Enables the resize edge and keyboard resizing |
+| `defaultWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
+| `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
 | `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
@@ -29,6 +32,17 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 - Transport options are read per request. Updating `apiUrl` clears the previous deployment's local session. An updated `fetchAstralBeamToken` applies to the next token request.
 - Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
 - Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
+
+## Chat width
+
+Chat resizes horizontally and fills its parent's height. Give the parent a definite height and let surrounding wrappers follow chat's width.
+
+- `defaultWidth` accepts pixels or `"100%"` for available width. Omit it to use the mount's initial CSS width. Saved overrides take precedence.
+- The mount's parent limits available width. Supply `resizeContainer={() => layoutRef.current}` only when nested wrappers require a stable outer layout container.
+- Drag the edge or use arrow keys, Home, and End to resize. `resizable={false}` hides the edge while preserving sizing and saved preferences.
+- Only widths that differ from the default are saved in `localStorage` across reloads and new tabs. Returning to the default clears the override.
+- Storage combines the mount element's `id` (React's `id` prop) and `agentId` when provided. Without either, chats share one width preference on the same origin.
+- Narrow containers temporarily clamp your preferred width. With `onClose`, mobile chat fills the viewport while keeping the desktop preference. Existing tabs keep their current layout.
 
 ## Chrome slots
 

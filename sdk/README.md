@@ -35,7 +35,7 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 </script>
 ```
 
-- The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
+- Chat resizes horizontally and fills its parent's height. Give it a definite height (`min-h-0` in a flex column) and flexible width.
 - Chat uses the hosted cloud by default. Tokens come from your application. For self-hosting, set `apiUrl` to your deployment’s `/api` base.
 - `@astralbeam/sdk/client` ships no React. The chat loads as a lazy chunk with its own bundled copy.
 - No runtime dependencies. `react` and `react-dom` are optional peers used only by `@astralbeam/sdk/react`.
@@ -96,6 +96,9 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
+| `resizable` | `true` | Enables the resize edge and keyboard resizing |
+| `defaultWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
+| `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
 | `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |

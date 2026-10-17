@@ -222,12 +222,20 @@ body {
 }
 
 .chat-sidebar {
-  width: 380px;
+  width: max-content;
   flex-shrink: 0;
   min-width: 0;
   height: 100%;
   overflow: hidden;
-  border-left: 1px solid var(--border);
+  box-shadow: -1px 0 0 var(--border);
+}
+
+.chat-sidebar > div {
+  width: 380px;
+}
+
+.app:has(.chat-sidebar [data-astralbeam-full-width="true"]) > .todos {
+  display: none;
 }
 
 .directory-error {
@@ -250,8 +258,7 @@ body {
   .chat-sidebar {
     width: 100%;
     height: min(42rem, 80dvh);
-    border-left: none;
-    border-top: 1px solid var(--border);
+    box-shadow: 0 -1px 0 var(--border);
   }
 }
 

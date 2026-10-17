@@ -150,6 +150,8 @@ export interface AstralBeamChatRef {
  * documented once, on `MountAstralBeamChatOptions`.
  */
 export interface AstralBeamChatProps extends Omit<MountAstralBeamChatOptions, "widgets" | "slots"> {
+  /** Stable mount element ID. Combined with `agentId`, when provided, to scope the saved width. */
+  id?: string | undefined
   /** Host-defined widgets the agent can render inline in the conversation, keyed by identifier. */
   widgets?: Record<string, WidgetDefinition> | undefined
   /** Replaces the header's title with the host's own React content; `showHeader` still applies. */
@@ -174,10 +176,14 @@ type ChromeSlotName = (typeof CHROME_SLOT_NAMES)[number]
 export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>(
   function AstralBeamChat(
     {
+      id,
       agentId,
       threadId,
       title,
       showHeader,
+      resizable,
+      defaultWidth,
+      resizeContainer,
       onClose,
       showConversationTitle,
       header,
@@ -302,6 +308,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
+        resizable,
+        defaultWidth,
+        resizeContainer,
         onClose,
         showConversationTitle,
         emptyHeadline,
@@ -323,6 +332,9 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
         fetchAstralBeamToken,
         title,
         showHeader,
+        resizable,
+        defaultWidth,
+        resizeContainer,
         onClose,
         showConversationTitle,
         emptyHeadline,
@@ -354,7 +366,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
     // Re-applies the initial values harmlessly; afterwards, every prop change retunes the widget.
     useEffect(() => {
       handleRef.current?.update(live)
-    }, [live])
+    }, [live, id])
     // Read current props at render time so live host state flows into every projected slot.
     const chromeContent: Record<ChromeSlotName, ReactNode> = {
       header,
@@ -363,7 +375,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       composerActions,
     }
     return (
-      <div style={{ height: "100%" }} ref={targetRef}>
+      <div id={id} style={{ height: "100%" }} ref={targetRef}>
         {[...activeRenders].map(([key, { widget, container, props }]) => {
           // Read the current prop on every render, so live host state flows into the widget.
           const definition = widgets[widget]
