@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
 import { Outlet, useLocation, useNavigate, useParams, useRouter } from "@tanstack/react-router"
 import {
@@ -56,6 +56,8 @@ function WorkspaceApp({
   const [navOpen, setNavOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const chat = useRef<AstralBeamChatRef>(null)
+  const workspaceStage = useRef<HTMLDivElement>(null)
+  const resizeContainer = useCallback(() => workspaceStage.current, [])
   const navigate = (next: View) => {
     void route({ href: workspaceUrl(workspace.id, next.toLowerCase()) })
     setNavOpen(false)
@@ -85,7 +87,7 @@ function WorkspaceApp({
   }, [workspace.id, route])
   return (
     <div className="app-viewport">
-      <div className={`app-shell ${chatOpen ? "with-chat" : ""} ${navOpen ? "nav-open" : ""}`}>
+      <div className={`app-shell ${navOpen ? "nav-open" : ""}`}>
         <Sidebar
           workspace={workspace}
           workspaces={workspaces}
@@ -108,78 +110,81 @@ function WorkspaceApp({
             onClick={() => setNavOpen(false)}
           />
         )}
-        <div className="main-column">
-          <header className="topbar">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="nav-toggle"
-              aria-label="Toggle navigation"
-              onClick={() => setNavOpen(!navOpen)}
-            >
-              <SidebarSimpleIcon />
-            </Button>
-            <span className="breadcrumb">
-              {workspace.name}
-              <span>/</span>
-              <strong>{view}</strong>
-            </span>
-            <span className="spacer" />
-            <span className="saved-indicator">
-              <i />
-              {notice ? "Session only" : "Saved on this browser"}
-            </span>
-            <Button
-              type="button"
-              variant={chatOpen ? "secondary" : "outline"}
-              className="astro-toggle"
-              onClick={() => setChatOpen(!chatOpen)}
-              aria-expanded={chatOpen}
-            >
-              <StarFourIcon weight="fill" />
-              Astro
-            </Button>
-          </header>
-          {notice && (
-            <p role="status" className="storage-notice">
-              {notice}
-            </p>
-          )}
-          <main className="main-content" data-scroll-restoration-id="workspace-content">
-            <Outlet />
-          </main>
+        <div ref={workspaceStage} className="workspace-stage">
+          <div className="main-column">
+            <header className="topbar">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="nav-toggle"
+                aria-label="Toggle navigation"
+                onClick={() => setNavOpen(!navOpen)}
+              >
+                <SidebarSimpleIcon />
+              </Button>
+              <span className="breadcrumb">
+                {workspace.name}
+                <span>/</span>
+                <strong>{view}</strong>
+              </span>
+              <span className="spacer" />
+              <span className="saved-indicator">
+                <i />
+                {notice ? "Session only" : "Saved on this browser"}
+              </span>
+              <Button
+                type="button"
+                variant={chatOpen ? "secondary" : "outline"}
+                className="astro-toggle"
+                onClick={() => setChatOpen(!chatOpen)}
+                aria-expanded={chatOpen}
+              >
+                <StarFourIcon weight="fill" />
+                Astro
+              </Button>
+            </header>
+            {notice && (
+              <p role="status" className="storage-notice">
+                {notice}
+              </p>
+            )}
+            <main className="main-content" data-scroll-restoration-id="workspace-content">
+              <Outlet />
+            </main>
+          </div>
+          <aside
+            className={`astro-panel ${chatOpen ? "" : "chat-hidden"}`}
+            aria-label="Astro assistant"
+            inert={!chatOpen}
+          >
+            <div className="astro-widget">
+              <Astro
+                ref={chat}
+                workspace={workspace}
+                visitorId={visitorId}
+                resizeContainer={resizeContainer}
+                onClose={() => setChatOpen(false)}
+                onOpen={(issue) =>
+                  void route({ href: workspaceUrl(workspace.id, `issues/${issue.id}`) })
+                }
+                navigation={{
+                  current: () => router.state.location.href,
+                  go: async (url) => {
+                    await router.navigate({ href: url })
+                  },
+                }}
+              />
+            </div>
+            <div className="astro-footer">
+              <SparkleIcon size={12} />
+              Powered by{" "}
+              <a href="https://astralbeam.ai" target="_blank" rel="noopener noreferrer">
+                AstralBeam
+              </a>
+            </div>
+          </aside>
         </div>
-        <aside
-          className={`astro-panel ${chatOpen ? "" : "chat-hidden"}`}
-          aria-label="Astro assistant"
-          inert={!chatOpen}
-        >
-          <div className="astro-widget">
-            <Astro
-              ref={chat}
-              workspace={workspace}
-              visitorId={visitorId}
-              onClose={() => setChatOpen(false)}
-              onOpen={(issue) =>
-                void route({ href: workspaceUrl(workspace.id, `issues/${issue.id}`) })
-              }
-              navigation={{
-                current: () => router.state.location.href,
-                go: async (url) => {
-                  await router.navigate({ href: url })
-                },
-              }}
-            />
-          </div>
-          <div className="astro-footer">
-            <SparkleIcon size={12} />
-            Powered by{" "}
-            <a href="https://astralbeam.ai" target="_blank" rel="noreferrer">
-              AstralBeam
-            </a>
-          </div>
-        </aside>
         <Dialog open={resetOpen} onOpenChange={setResetOpen}>
           <DialogContent>
             <span className="reset-icon">

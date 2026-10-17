@@ -3,6 +3,7 @@ import {
   type AstralBeamChatColorScheme,
   type ToolDefinition,
 } from "@astralbeam/sdk/react"
+import { useCallback, useRef } from "react"
 
 import { TodoCard } from "@/components/todo-card.tsx"
 import { ASTRALBEAM_API_URL, CHAT_AGENT_ID, CHAT_TITLE } from "@/lib/config.ts"
@@ -19,6 +20,8 @@ interface TodosAssistantProps {
 
 export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: TodosAssistantProps) {
   const { todos, getTodos, setTodos, createTodo } = useTodos()
+  const sidebar = useRef<HTMLElement>(null)
+  const resizeContainer = useCallback(() => sidebar.current?.parentElement ?? null, [])
   const onToggleTodo = (id: number) =>
     setTodos((current) =>
       current.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
@@ -53,8 +56,9 @@ export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: Tod
   }
 
   return (
-    <aside className="chat-sidebar">
+    <aside ref={sidebar} className="chat-sidebar">
       <AstralBeamChat
+        resizeContainer={resizeContainer}
         agentId={CHAT_AGENT_ID}
         title={CHAT_TITLE}
         onClose={onClose}

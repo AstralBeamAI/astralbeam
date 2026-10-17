@@ -10,6 +10,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react"
 import { cn } from "cn"
 import { getRouteApi, useMatches, useRouter } from "@tanstack/react-router"
@@ -171,6 +172,14 @@ type DogfoodChatState = {
 
 const DogfoodChatContext = createContext<DogfoodChatState | null>(null)
 
+const fullscreenChatQuery = "(width < 64rem)"
+const getFullscreenChat = () => window.matchMedia(fullscreenChatQuery).matches
+function subscribeFullscreenChat(onChange: () => void) {
+  const query = window.matchMedia(fullscreenChatQuery)
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}
+
 function dogfoodChatVisibility(chatKey: string | null, open?: boolean): boolean {
   if (!chatKey) return false
   try {
@@ -252,6 +261,8 @@ function DogfoodChatPanel({
   const { organizationSlug, permissions } = organization
   const panel = useRef<HTMLDivElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
+  const fullWidth = useSyncExternalStore(subscribeFullscreenChat, getFullscreenChat, () => false)
+  const resizeContainer = useCallback(() => panel.current?.parentElement ?? null, [])
   useEffect(() => {
     if (!open) {
       document.getElementById(triggerId)?.focus()
@@ -318,13 +329,19 @@ function DogfoodChatPanel({
       aria-label={`Ask ${ASSISTANT_NAME}`}
       data-dogfood-chat={open ? "open" : "closed"}
       className={cn(
-        "fixed inset-0 z-30 flex h-dvh flex-col border-l bg-background lg:sticky lg:top-0 lg:w-[28rem] lg:shrink-0",
+        "fixed inset-0 z-30 flex h-dvh flex-col bg-background shadow-[-1px_0_0_var(--border)] lg:sticky lg:top-0 lg:w-max lg:shrink-0",
         !open && "hidden",
       )}
     >
-      <div className={cn("min-h-0 flex-1", widgetThemeClassName)} style={widgetThemeStyle}>
+      <div
+        className={cn("min-h-0 flex-1 max-lg:[&>*]:min-w-full", widgetThemeClassName)}
+        style={widgetThemeStyle}
+      >
         <AstralBeamChat
           apiUrl="/api"
+          initialWidth={448}
+          resizable={!fullWidth}
+          resizeContainer={resizeContainer}
           colorScheme={theme === "dark" || theme === "light" ? theme : "system"}
           showConversationTitle
           header={

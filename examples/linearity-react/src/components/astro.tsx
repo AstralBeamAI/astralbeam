@@ -18,6 +18,7 @@ export function Astro({
   ref,
   workspace,
   visitorId,
+  resizeContainer,
   onOpen,
   onClose,
   navigation,
@@ -25,6 +26,7 @@ export function Astro({
   ref: RefObject<AstralBeamChatRef | null>
   workspace: Workspace
   visitorId: string
+  resizeContainer?: (() => HTMLElement | null) | undefined
   onOpen: (issue: Issue) => void
   onClose: () => void
   navigation: AppNavigation
@@ -34,6 +36,7 @@ export function Astro({
   return (
     <AstralBeamChat
       ref={ref}
+      resizeContainer={resizeContainer}
       title="Astro"
       onClose={onClose}
       showConversationTitle

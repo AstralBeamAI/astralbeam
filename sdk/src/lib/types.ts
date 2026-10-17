@@ -168,6 +168,12 @@ export interface MountAstralBeamChatOptions {
    * `false` hides it and gives the transcript the full height. Default `true`.
    */
   showHeader?: boolean | undefined
+  /** Enables horizontal resizing. Height always fills the host. Default `true`. */
+  resizable?: boolean | undefined
+  /** Default width in CSS pixels, or `"100%"` for available width. Saved widths take precedence. */
+  initialWidth?: number | "100%" | undefined
+  /** Stable available-width container for nested layouts. Defaults to the mount target's parent. */
+  resizeContainer?: (() => HTMLElement | null) | undefined
   /** Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback. */
   onClose?: (() => void) | undefined
   /**

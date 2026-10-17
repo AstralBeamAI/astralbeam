@@ -35,7 +35,7 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 </script>
 ```
 
-- The widget fills its container, so give it a parent with a definite height (`min-h-0` in a flex column).
+- Chat resizes horizontally and fills its parent's height. Give it a definite height (`min-h-0` in a flex column) and flexible width.
 - Chat uses the hosted cloud by default. Tokens come from your application. For self-hosting, set `apiUrl` to your deployment’s `/api` base.
 - `@astralbeam/sdk/client` ships no React. The chat loads as a lazy chunk with its own bundled copy.
 - No runtime dependencies. `react` and `react-dom` are optional peers used only by `@astralbeam/sdk/react`.
@@ -96,6 +96,9 @@ Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` appl
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
 | `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
+| `resizable` | `true` | Enables the resize edge and keyboard resizing |
+| `initialWidth` | host's initial width | Starting width in pixels, or `"100%"` for available width, when no saved override exists |
+| `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
 | `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |
@@ -113,6 +116,22 @@ Conversations are saved automatically and start private. The widget searches sav
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 
 By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
+
+## Chat width
+
+Chat remembers widths you choose that differ from the default. Set `initialWidth` for the starting width:
+
+```tsx
+<AstralBeamChat initialWidth={420} />
+```
+
+- Drag the resize edge or focus it and use arrow keys. Drag to the available maximum or press End to use all available width.
+- Saved width wins over `initialWidth`. Moving back to the default clears the saved override. Unchanged gestures write nothing.
+- `initialWidth="100%"` uses available width as the default. A saved width still wins. Height always follows the parent.
+- Storage uses the vanilla mount's stable ID, then `agentId`, then a shared fallback. Placements with the same identity share their width.
+- `resizable={false}` hides the resize edge while retaining configured sizing and saved preferences.
+- Preferences belong to this browser and origin, independent of account identity. Existing tabs keep their current layout until the next mount.
+- Let surrounding wrappers follow chat width. For nested layouts, supply a stable outer container through `resizeContainer`. See [Configuration](https://astralbeam.ai/docs/sdk/configuration#chat-width).
 
 ## Tools and widgets
 

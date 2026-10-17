@@ -3,6 +3,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useMemo,
   useState,
@@ -11,6 +12,8 @@ import {
 import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
+import { ChatResizeHandle } from "./components/chat-resize-handle.tsx"
+import { useChatWidth } from "./use-chat-width.ts"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
@@ -53,6 +56,8 @@ export function ChatWidget({
   host: HTMLElement
   controller: RefObject<ChatController | null>
 }) {
+  const panelId = useId()
+  const sizing = useChatWidth(options, host)
   const closable = !!options.onClose
   const widgets = options.widgets ?? NO_WIDGETS
   const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
@@ -324,7 +329,7 @@ export function ChatWidget({
   // Re-registered every render so the loader's handle always calls the latest closures.
   useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
-  // The host sizes the desktop card. Closable chat fills the mobile viewport.
+  // Closable chat fills the mobile viewport without changing its preferred desktop width.
   const showHeader = options.showHeader !== false
   const closeButton = options.onClose && (
     <TooltipButton variant="ghost" size="icon-sm" tooltip="Close chat" onClick={options.onClose}>
@@ -335,10 +340,12 @@ export function ChatWidget({
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
     <Card
+      id={panelId}
       data-slot="chat"
       data-closable={closable}
       className="relative h-full w-full gap-0 overflow-clip rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
     >
+      <ChatResizeHandle sizing={sizing} panelId={panelId} />
       {showHeader && (
         <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
           <div className="min-w-0 flex-1">

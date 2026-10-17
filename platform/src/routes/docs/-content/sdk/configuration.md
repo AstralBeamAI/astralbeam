@@ -13,6 +13,9 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
+| `resizable` | `true` | Enables the resize edge and keyboard resizing |
+| `initialWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
+| `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
 | `showConversationTitle` | `false` | Shows a bar under the header with a titled conversation's title and a menu to rename, delete, or copy it as Markdown |
 | `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
 | `colorScheme` | `"system"` | `"light"`, `"dark"`, or follow the OS setting live |
@@ -29,6 +32,45 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 - Transport options are read per request. Updating `apiUrl` clears the previous deployment's local session. An updated `fetchAstralBeamToken` applies to the next token request.
 - Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
 - Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
+
+## Chat width
+
+Chat resizes horizontally and keeps filling its parent's height. Let's choose a starting width:
+
+```tsx
+<AstralBeamChat initialWidth={420} />
+```
+
+- Saved width or a user adjustment takes precedence over `initialWidth`. Without either, changing `initialWidth` updates the width in place.
+- Without `initialWidth`, the fallback is the mount's initial width.
+- Drag the resize edge, or focus it and press Left/Right to move it. Home selects the minimum, and End fills the available width.
+- `initialWidth="100%"` uses available container width as the default. A saved width still takes precedence, including when this prop changes.
+- `resizable={false}` hides the resize edge while retaining configured sizing. Resizing changes width only, and height continues to fill the parent.
+- A smaller container temporarily clamps the rendered width without overwriting your preferred width. Growing it restores the space available to that preference.
+- With `onClose`, chat still fills the mobile viewport at widths up to 900px. Mobile layout leaves your saved desktop width intact.
+
+### Layout boundary
+
+Because fixed-width wrappers prevent chat from growing, let your surrounding wrappers follow its width and let adjacent content shrink. Keep a definite parent height, with `min-height: 0` where needed in flex columns.
+
+The mount's parent is the default width boundary. Nested sidebar wrappers often grow with the chat, so their width cannot describe the space available. Let's return the stable outer layout container through `resizeContainer`:
+
+```tsx
+<AstralBeamChat initialWidth={420} resizeContainer={() => layoutRef.current} />
+```
+
+Use a container whose content width is independent of chat's width. The SDK uses that width for `"100%"` and the resize limit. Omit `resizeContainer` when the mount's parent already provides it. Avoid fixed widths or fixed grid tracks around the chat that would clip it or leave unused space.
+
+### Saved width
+
+Widths you choose that differ from the default are stored in `localStorage` for this origin. They restore on mount, including after reload or in a new tab, separately from account-scoped conversations and drafts.
+
+- Returning to the default width removes the saved override. Unchanged gestures and temporary container constraints do not write preferences.
+- The SDK derives the storage key from the vanilla mount's stable element ID, or from `agentId` when no mount ID exists.
+- React chats use `agentId` when supplied. React's component `key` does not identify a stored width.
+- Without a mount ID or `agentId`, the fallback key is `astralbeam:chat-size:v1`. Placements using the same key share their preference.
+- Existing tabs keep their current layout. Saving a size does not immediately resize another open tab.
+- If storage is unavailable, resizing still works for the current mount. Nothing sensitive is stored with the layout preference.
 
 ## Chrome slots
 

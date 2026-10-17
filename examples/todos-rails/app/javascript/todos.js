@@ -59,6 +59,7 @@ document.getElementById("new-todo").addEventListener("submit", async (event) => 
 })
 
 const chat = mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
+  resizeContainer: () => app,
   apiUrl: app.dataset.apiUrl,
   // Absent falls back to the organization's default agent.
   agentId: app.dataset.agentId,

@@ -179,15 +179,23 @@ body {
 }
 
 .chat-sidebar {
-  width: 380px;
+  width: max-content;
   flex-shrink: 0;
   height: 100%;
-  border-left: 2px solid var(--app-border);
+  box-shadow: -2px 0 0 var(--app-border);
+}
+
+.app:has(.chat-sidebar:not([hidden]) [data-astralbeam-full-width="true"]) > .todos {
+  display: none;
 }
 
 /* The widget fills its container, so the mount point needs a definite height. */
 .widget {
   height: 100%;
+}
+
+#astralbeam-chat {
+  width: 380px;
 }
 
 /* The todo representation that the chat widget projects into the conversation. */
