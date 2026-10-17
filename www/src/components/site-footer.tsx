@@ -1,6 +1,11 @@
 import { siteMetadata } from "@/lib/site"
 
-const { docs: docsUrl, discord: discordUrl, github: githubUrl } = siteMetadata.links
+const {
+  docs: docsUrl,
+  discord: discordUrl,
+  github: githubUrl,
+  twitter: twitterUrl,
+} = siteMetadata.links
 
 export function SiteFooter() {
   return (
@@ -14,6 +19,9 @@ export function SiteFooter() {
       </a>
       <a href={discordUrl} target="_blank" rel="noopener noreferrer">
         DISCORD
+      </a>
+      <a href={twitterUrl} target="_blank" rel="noopener noreferrer">
+        X
       </a>
       <a href="mailto:hello@astralbeam.ai">
         <span className="mail-full">HELLO@ASTRALBEAM.AI</span>

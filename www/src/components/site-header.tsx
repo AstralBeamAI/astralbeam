@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inline"
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
-import { DiscordIcon, GithubIcon } from "@/components/icons"
+import { DiscordIcon, GithubIcon, XIcon } from "@/components/icons"
 import { siteMetadata } from "@/lib/site"
 
 const {
@@ -11,6 +11,7 @@ const {
   docs: docsUrl,
   discord: discordUrl,
   github: githubUrl,
+  twitter: twitterUrl,
 } = siteMetadata.links
 
 export function SiteHeader() {
@@ -79,6 +80,16 @@ export function SiteHeader() {
               title="Discord"
             >
               <DiscordIcon />
+            </a>
+            <a
+              className="hud-nav-social"
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="AstralBeam on X (Twitter)"
+              title="X (Twitter)"
+            >
+              <XIcon />
             </a>
           </span>
           <a href={docsUrl}>DOCS</a>
