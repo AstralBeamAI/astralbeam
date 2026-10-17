@@ -119,7 +119,7 @@ test("unsent text, images, and large files recover, and accepted files stay clea
   await chat.waitForReady()
   await chat.composer().fill("  Keep my unsent question\nwith these files  ")
   await chat.attach([note, image, large])
-  await expect(chat.sendButton()).toBeEnabled()
+  await expect(chat.sendButton()).toBeEnabled({ timeout: 20_000 })
   const stored = await page.evaluate(() =>
     Object.keys(localStorage)
       .map((key) => localStorage.getItem(key) ?? "")

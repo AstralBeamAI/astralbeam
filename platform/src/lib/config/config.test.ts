@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto"
 import { assert, describe, it } from "@effect/vitest"
 import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
 import type { SqlClient, SqlConnection } from "effect/sql"
@@ -20,6 +21,7 @@ import type { ConfigValues } from "./types.ts"
 const migrations = { pending: false }
 
 const SECRET = "a".repeat(64)
+const cloudfrontConfigKeyPair = generateKeyPairSync("rsa", { modulusLength: 2048 })
 const COMPLETE_VALUES = {
   dogfood_organization_id: "01990a5d-0000-7000-8000-000000000013",
   dogfood_api_key: `key_01990a5d-0000-7000-8000-000000000013_01990a5d-0000-7000-8000-000000000024_abo_${"A".repeat(64)}`,
@@ -33,6 +35,7 @@ const COMPLETE_VALUES = {
   s3_bucket: "test-files",
   s3_access_key_id: "test-access-key",
   s3_secret_access_key: "test-secret-key",
+  s3_path_style: "false",
 } satisfies ConfigValues
 
 type StoredRow = { readonly key: string; readonly storedValue: string }
@@ -102,6 +105,11 @@ describe("configuration registry", () => {
       ["s3_endpoint", `https://example.com/storage/v1/s3#${secret}`],
       ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
       ["s3_endpoint", "http://s3.example.com"],
+      ["cloudfront_download_origin", "http://localhost"],
+      ["cloudfront_download_origin", "https://files.example.com/path"],
+      ["cloudfront_download_origin", "https://files.example.com:8443"],
+      ["cloudfront_download_origin", `https://files.example.com?key=${secret}`],
+      ["cloudfront_private_key", secret],
       ["email_from_address", "secret@@value"],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
@@ -114,12 +122,18 @@ describe("configuration registry", () => {
     }
   })
 
-  it("preserves S3 endpoint paths and normalizes optional trailing slashes", () => {
+  it("preserves S3 endpoint paths and normalizes allowed download origins", () => {
     const endpoint = findConfigDefinition("s3_endpoint")!
     for (const value of ["https://example.com", "https://example.com/storage/v1/s3"]) {
       for (const suffix of ["", "/", "//"]) {
         assert.deepStrictEqual(decodeConfigValue(endpoint, value + suffix), Result.succeed(value))
       }
+    }
+    for (const origin of ["https://files.example.com", "https://d123example.cloudfront.net"]) {
+      assert.deepStrictEqual(
+        decodeConfigValue(findConfigDefinition("cloudfront_download_origin")!, `${origin}:443/`),
+        Result.succeed(origin),
+      )
     }
   })
 
@@ -132,6 +146,46 @@ describe("configuration registry", () => {
       issues.map((issue) => issue.key),
       "email_from_address",
     )
+  })
+
+  it("requires all three CloudFront settings only when that signing strategy is selected", () => {
+    const values: ConfigValues = {
+      ...COMPLETE_VALUES,
+      download_signing_strategy: "cloudfront",
+      cloudfront_download_origin: "https://files.example.com",
+      cloudfront_key_pair_id: "KTESTPUBLICKEY",
+      cloudfront_private_key: "configured",
+    }
+    assert.isEmpty(validateConfigCompleteness(values))
+    const overrides = new Set(["cloudfront_download_origin"] as const)
+    assert.deepStrictEqual(
+      validateConfigCompleteness(values, overrides).map((issue) => issue.key),
+      ["cloudfront_key_pair_id", "cloudfront_private_key"],
+    )
+    delete values.cloudfront_private_key
+    assert.isNotEmpty(validateConfigCompleteness(values))
+  })
+
+  it("validates CloudFront key material and supported algorithms without exposing rejected keys", () => {
+    const definition = findConfigDefinition("cloudfront_private_key")!
+    const encoding = { type: "pkcs8", format: "pem" } as const
+    const pem = cloudfrontConfigKeyPair.privateKey.export(encoding)
+    assert.isTrue(Result.isSuccess(decodeConfigValue(definition, pem)))
+    for (const value of [
+      cloudfrontConfigKeyPair.publicKey.export({ type: "spki", format: "pem" }),
+      cloudfrontConfigKeyPair.privateKey.export({
+        ...encoding,
+        cipher: "aes-256-cbc",
+        passphrase: "fixture-passphrase",
+      }),
+      generateKeyPairSync("rsa", { modulusLength: 1024 }).privateKey.export(encoding),
+      generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey.export(encoding),
+    ]) {
+      const decoded = decodeConfigValue(definition, value)
+      assert.isTrue(Result.isFailure(decoded))
+      if (Result.isFailure(decoded))
+        assert.notInclude(decoded.failure.message, value.split("\n")[1]!)
+    }
   })
 
   it("refuses a dogfood credential issued by another organization", () => {
@@ -152,12 +206,14 @@ describe("configuration registry", () => {
         google_client_id: "google-id",
         google_client_secret: "google-secret",
         resend_api_key: "resend-secret",
+        cloudfront_private_key: "cloudfront-secret",
       }),
     )
     assert.include(serialized, "turnstile-site-key")
     for (const secret of [
       "google-secret",
       "resend-secret",
+      "cloudfront-secret",
       SECRET,
       "turnstile-secret-key",
       COMPLETE_VALUES.s3_access_key_id,
@@ -246,6 +302,7 @@ describe("Config", () => {
     const unreadable = [
       { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
       { key: "resend_api_key", storedValue: "not-a-compact-jwe" },
+      { key: "cloudfront_private_key", storedValue: "not-a-compact-jwe" },
     ]
     const state = {
       rows: [
@@ -253,6 +310,7 @@ describe("Config", () => {
           ...withoutSecret,
           email_from_address: "hello@example.com",
           email_provider: "resend",
+          download_signing_strategy: "cloudfront",
         }),
         ...unreadable,
       ],
@@ -262,10 +320,18 @@ describe("Config", () => {
       const config = yield* Config
       const issues = (yield* config.snapshot).issues.map((issue) => issue.key)
       assert.includeMembers(issues, ["better_auth_secret", "resend_api_key"])
+      assert.include(issues, "cloudfront_private_key")
 
-      state.rows = [...encryptedRows(COMPLETE_VALUES), unreadable[1]!]
+      state.rows = [...encryptedRows(COMPLETE_VALUES), ...unreadable.slice(1)]
       yield* config.invalidate
       assert.deepStrictEqual((yield* config.snapshot).issues, [])
+
+      state.rows.push({ key: "download_signing_strategy", storedValue: "not-a-compact-jwe" })
+      yield* config.invalidate
+      assert.deepStrictEqual(
+        (yield* config.snapshot).issues.map((issue) => issue.key),
+        ["download_signing_strategy"],
+      )
     }).pipe(Effect.provide(configLayer(state)))
   })
 
@@ -282,6 +348,40 @@ describe("Config", () => {
 
       migrations.pending = true
       assert.isFalse((yield* config.setupState).setupComplete)
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
+  it.effect("ignores inactive invalid CloudFront overrides and permits S3 recovery", () => {
+    const state = {
+      rows: encryptedRows({
+        ...COMPLETE_VALUES,
+        cloudfront_private_key: cloudfrontConfigKeyPair.privateKey.export({
+          type: "pkcs8",
+          format: "pem",
+        }),
+      }),
+      reads: 0,
+    }
+    const secret = "invalid-private-key"
+    stubEnvironment({ CLOUDFRONT_PRIVATE_KEY: secret })
+    return Effect.gen(function* () {
+      const config = yield* Config
+      assert.isTrue((yield* config.setupState).setupComplete)
+      assert.isTrue((yield* config.snapshot).environmentKeys.has("cloudfront_private_key"))
+      assert.isUndefined((yield* config.snapshot).values.cloudfront_private_key)
+      for (const [strategy, complete] of [
+        ["cloudfront", false],
+        ["s3", true],
+      ] as const) {
+        vi.stubEnv("DOWNLOAD_SIGNING_STRATEGY", strategy)
+        yield* config.invalidate
+        const { snapshot, setupComplete } = yield* config.setupState
+        assert.strictEqual(setupComplete, complete)
+        assert.notInclude(JSON.stringify(snapshot.issues), secret)
+      }
+      vi.stubEnv("DOWNLOAD_SIGNING_STRATEGY", "invalid")
+      yield* config.invalidate
+      assert.isTrue(Exit.isFailure(yield* Effect.exit(config.snapshot)))
     }).pipe(Effect.provide(configLayer(state)))
   })
 

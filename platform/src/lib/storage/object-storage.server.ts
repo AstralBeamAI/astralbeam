@@ -7,7 +7,7 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { Context, Effect, Layer, RcMap, Schema } from "effect"
+import { Clock, Context, Effect, Layer, RcMap, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
@@ -80,7 +80,10 @@ export class ObjectStorage extends Context.Service<
       key: string
     }) => Effect.Effect<{ size: number; contentType: string }, StorageFailure>
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
-    readonly signedUrl: (input: { key: string }) => Effect.Effect<string, StorageFailure>
+    readonly signedUrl: (input: {
+      key: string
+      expiresAt?: Date
+    }) => Effect.Effect<string, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
 >()("astralbeam/storage/ObjectStorage") {
@@ -195,15 +198,22 @@ export class ObjectStorage extends Context.Service<
         ),
         signedUrl: Effect.fn("ObjectStorage.signedUrl")((input) =>
           withClient((client, connection) =>
-            storageRequest(() =>
-              getSignedUrl(
-                client,
-                new GetObjectCommand({
-                  Bucket: connection.bucket,
-                  Key: input.key,
-                  ResponseCacheControl: "private, no-store",
-                }),
-                { expiresIn: 60 },
+            Effect.flatMap(Clock.currentTimeMillis, (now) =>
+              storageRequest(() =>
+                getSignedUrl(
+                  client,
+                  new GetObjectCommand({
+                    Bucket: connection.bucket,
+                    Key: input.key,
+                    ResponseCacheControl: "private, no-store",
+                  }),
+                  {
+                    signingDate: new Date(now),
+                    expiresIn: input.expiresAt
+                      ? Math.floor(input.expiresAt.getTime() / 1000) - Math.floor(now / 1000)
+                      : 60,
+                  },
+                ),
               ),
             ),
           ),
