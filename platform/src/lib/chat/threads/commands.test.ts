@@ -4,6 +4,8 @@ import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
@@ -31,11 +33,16 @@ const commandParams: ChatParams = {
 describe("managed conversation commands", () => {
   it.effect("validates uploaded content before accepting input", () => {
     let admitted = 0
+    let stored = 0
     let attachmentsEnabled = true
     let sandboxProviderId: string | null = null
+    let sandboxReadable = false
     const layer = Layer.mergeAll(
       Layer.succeed(ChatFiles, {
-        store: ({ payload }) => Effect.succeed(payload),
+        store: ({ payload }) => {
+          stored += 1
+          return Effect.succeed(payload)
+        },
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),
         attach: () => Effect.succeed(0),
@@ -44,6 +51,17 @@ describe("managed conversation commands", () => {
       Layer.succeed(Agents, {
         resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId }),
       } as unknown as typeof Agents.Service),
+      Layer.succeed(SandboxProviders, {
+        resolveConfiguration: () =>
+          sandboxReadable
+            ? Effect.succeed({
+                name: "Local",
+                provider: "docker",
+                options: { image: "node:22" },
+                credentials: {},
+              })
+            : Effect.fail(new SandboxProviderUnreadable()),
+      } as unknown as typeof SandboxProviders.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
         admit: () => {
@@ -104,10 +122,14 @@ describe("managed conversation commands", () => {
           ],
         },
       }
-      const unavailable = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
-      assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
-      assert.equal(admitted, 1)
-      sandboxProviderId = commandThreadId
+      for (const providerId of [null, commandThreadId]) {
+        sandboxProviderId = providerId
+        const unavailable = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
+        assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
+        assert.equal(admitted, 1)
+        assert.equal(stored, 1)
+      }
+      sandboxReadable = true
       yield* prepareManagedChat(officeInput)
       attachmentsEnabled = false
       const disabled = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
