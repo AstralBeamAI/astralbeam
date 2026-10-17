@@ -4,6 +4,7 @@ import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "ef
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { withDatabaseIdempotency } from "@/db/lib/idempotency"
 import { CHAT_ATTACHMENT_MAX_COUNT } from "../attachments/constants"
 import {
@@ -12,7 +13,11 @@ import {
   normalizeChatAttachments,
   sanitizeAttachmentFilename,
 } from "../attachments/attachments"
-import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
+import {
+  ChatAttachmentSandboxRequired,
+  ChatAttachmentsDisabled,
+  ChatSystemPromptRefused,
+} from "../errors"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ChatAdmission, type ThreadInput } from "./threads"
 import {
@@ -204,10 +209,15 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       scope: { ...scope, threadId: id },
       messages: convertMessagesToModelMessages(params.messages),
     }),
-    { sandbox: agent.sandboxProviderId !== null },
   )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
+  if (normalized.files.some((file) => file.text === undefined)) {
+    if (agent.sandboxProviderId === null) return yield* new ChatAttachmentSandboxRequired()
+    yield* (yield* SandboxProviders)
+      .resolveConfiguration({ organizationId: scope.organizationId, id: agent.sandboxProviderId })
+      .pipe(Effect.mapError(() => new ChatAttachmentSandboxRequired()))
+  }
   const stored = yield* files.store({
     scope: { ...scope, threadId: id },
     payload: {

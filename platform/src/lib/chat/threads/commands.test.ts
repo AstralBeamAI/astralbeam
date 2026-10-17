@@ -4,8 +4,10 @@ import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import type { ChatParams } from "../types"
-import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
+import { ChatThreads, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 
 const commandOrgId = "019a0000-0000-7000-8000-000000000001"
@@ -29,24 +31,34 @@ const commandParams: ChatParams = {
 }
 
 describe("managed conversation commands", () => {
-  it.effect("validates uploaded content before accepting input", () => {
-    const admitted: AdmitInput[] = []
+  it.effect("requires a readable sandbox before accepting opaque attachments", () => {
+    let admitted = 0
+    let stored = 0
     let attachmentsEnabled = true
+    let sandboxProviderId: string | null = null
+    let sandboxReadable = false
     const layer = Layer.mergeAll(
       Layer.succeed(ChatFiles, {
-        store: ({ payload }) => Effect.succeed(payload),
+        store: ({ payload }) => {
+          stored += 1
+          return Effect.succeed(payload)
+        },
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),
         attach: () => Effect.succeed(0),
       }),
       Layer.succeed(SqlClient.SqlClient, {} as SqlClient.SqlClient),
       Layer.succeed(Agents, {
-        resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId: null }),
+        resolveForChat: () => Effect.succeed({ attachmentsEnabled, sandboxProviderId }),
       } as unknown as typeof Agents.Service),
+      Layer.succeed(SandboxProviders, {
+        resolveConfiguration: () =>
+          sandboxReadable ? Effect.void : Effect.fail(new SandboxProviderUnreadable()),
+      } as unknown as typeof SandboxProviders.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
-        admit: (input: AdmitInput) => {
-          admitted.push(input)
+        admit: () => {
+          admitted += 1
           return Effect.succeed({
             thread: { id: commandThreadId, lockVersion: 1 },
             inputMessage: { id: commandUserId },
@@ -57,57 +69,43 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
-      for (const source of [
-        { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
-        {
-          type: "data",
-          value: `${btoa("\x89PNG\r\n\x1a\n" + "x".repeat(30))}!`,
-          mimeType: "image/png",
-        },
-        {
-          type: "data",
-          value: `data:application/pdf;base64,${btoa("%PDF-1.7" + "x".repeat(30))}!`,
-          mimeType: "application/pdf",
-        },
-      ] as const) {
-        const invalid = yield* prepareManagedChat({
-          ...input,
-          params: {
-            ...commandParams,
-            messages: [
+      const officeParams: ChatParams = {
+        ...commandParams,
+        messages: [
+          {
+            id: "upload",
+            role: "user",
+            content: [
               {
-                id: "upload",
-                role: "user",
-                content: [
-                  { type: source.mimeType === "application/pdf" ? "document" : "image", source },
-                ],
+                type: "document",
+                source: {
+                  type: "data",
+                  value: btoa("PK\x03\x04original"),
+                  mimeType: "application/octet-stream",
+                },
+                metadata: { filename: "book.xlsx" },
               },
             ],
           },
-        }).pipe(Effect.result)
-        assert.equal(invalid._tag, "Failure")
+        ],
       }
+      for (const providerId of [null, commandThreadId]) {
+        sandboxProviderId = providerId
+        const unavailable = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+          Effect.flip,
+        )
+        assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
+        assert.equal(admitted, 1)
+        assert.equal(stored, 1)
+      }
+      sandboxReadable = true
+      yield* prepareManagedChat({ ...input, params: officeParams })
       attachmentsEnabled = false
-      const disabled = yield* prepareManagedChat({
-        ...input,
-        params: {
-          ...commandParams,
-          messages: [
-            {
-              id: "upload",
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
-                },
-              ],
-            },
-          ],
-        },
-      }).pipe(Effect.flip)
+      const disabled = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+        Effect.flip,
+      )
       assert.equal(disabled._tag, "ChatAttachmentsDisabled")
-      assert.lengthOf(admitted, 1)
+      assert.equal(admitted, 2)
     }).pipe(Effect.provide(layer))
   })
 

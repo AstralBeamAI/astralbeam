@@ -167,7 +167,9 @@ Execution remains attached to its foreground request. Process crashes can leave 
 
 Sandbox reuse omits the configured provider connection ID, so switching connections to the same vendor can resume the previous workspace. The shared 25-workspace cap applies after provisioning. Eviction and idle cleanup can destroy active workspaces, and filesystem activity does not refresh leases.
 
-Sandbox files and command output are buffered before size checks or truncation, and wrapper timeouts may not stop transfers. Sparse XLSX worksheets are padded and rendered synchronously before text truncation, without a document-wide work budget. Both paths can exhaust replica resources.
+Office documents remain opaque in the application process and are analyzed from their original bytes through existing sandbox tools. Text, CSV, and TSV retain bounded, paged reading without a sandbox. This removes synchronous Office decompression and parsing from the shared process, but sandbox files and command output are still buffered before size checks or truncation, and wrapper timeouts may not stop transfers. Those paths can exhaust replica resources.
+
+Office reading and complete CSV analysis beyond the text cap depend on a working sandbox. Table and section metadata are calculated on demand, with no deterministic profile or Office text fallback. Analysis can require additional model turns, installed libraries, and network access. Sandbox parsing failures occur after admission, while file size, signature, and ownership checks remain at admission.
 
 Management APIs lack application body, name, and metadata budgets. Their schemas can accept NUL or ill-formed Unicode that PostgreSQL rejects as internal failures. Ingress limits and client-address forwarding require hosted verification.
 

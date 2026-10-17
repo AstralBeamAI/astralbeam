@@ -36,9 +36,8 @@ export const ATTACHMENT_TEXT_MIME_TYPES = [
   "image/svg+xml",
 ]
 
-// Data files: the endpoint profiles the delimited ones as tables and leaves the binary ones to the
-// agent's sandbox. They are their own kind because the agent works with them as files rather than
-// reading them start to finish, and because a spreadsheet's cap has nothing to do with a README's.
+// CSV and TSV keep a text view, while binary data needs a sandbox. This kind allows larger
+// uploads than ordinary text so the agent can analyze the original file with code.
 export const ATTACHMENT_DATA_MIME_TYPES = [
   "text/csv",
   "text/tab-separated-values",
