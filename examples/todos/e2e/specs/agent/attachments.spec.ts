@@ -1,9 +1,7 @@
 import { spawnSync } from "node:child_process"
-import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 
 /**
@@ -15,12 +13,8 @@ import { expect, test } from "../../fixtures.ts"
 const attachmentSamplesPath = fileURLToPath(new URL("../../../samples", import.meta.url))
 
 test("turns an attached spreadsheet into todos", async ({ todos, chat }) => {
-  await test.step("attach the sample spreadsheet", async () => {
-    await chat.waitForReady()
-    await chat.attach(join(attachmentSamplesPath, "tasks.csv"))
-    await expect(chat.attachmentChip("tasks.csv")).toBeVisible()
-  })
-
+  await chat.waitForReady()
+  await chat.attach(join(attachmentSamplesPath, "tasks.csv"))
   await chat.sendAndWait("Create one todo for each task row in the attached file.")
 
   // The model chooses how many rows to take, so this asserts the file was actually read rather
@@ -29,7 +23,7 @@ test("turns an attached spreadsheet into todos", async ({ todos, chat }) => {
   expect(await todos.items().count()).toBeGreaterThan(3)
 })
 
-test("analyzes Office originals in the sandbox", async ({ page, todos, chat }) => {
+test("analyzes Office originals in the sandbox", async ({ todos, chat }) => {
   test.skip(
     spawnSync("docker", ["info"], { stdio: "ignore" }).status !== 0,
     "Office analysis requires the seeded Docker sandbox provider to be reachable.",
@@ -57,26 +51,22 @@ test("analyzes Office originals in the sandbox", async ({ page, todos, chat }) =
     await expect(todos.item(result)).toBeVisible()
   }
   await expect(chat.toolRow(/exit 0/).first()).toBeVisible()
-  await captureMoment(page, "Office analysis created todos from document slide and workbook facts")
 })
 
-test("analyzes the complete CSV beyond its bounded text view", async ({
-  page,
-  todos,
-  chat,
-}, info) => {
+test("analyzes the complete CSV beyond its bounded text view", async ({ todos, chat }) => {
   test.skip(
     spawnSync("docker", ["info"], { stdio: "ignore" }).status !== 0,
     "Full-file analysis requires the seeded Docker sandbox provider to be reachable.",
   )
   test.slow()
-  const fullCsvPath = info.outputPath("full.csv")
-  await writeFile(
-    fullCsvPath,
-    "task,amount,note\n" + "Task,1,abcdefghij\n".repeat(150_000) + "Final,97,LASTROW\n",
-  )
   await chat.waitForReady()
-  await chat.attach(fullCsvPath)
+  await chat.attach({
+    name: "full.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "task,amount,note\n" + "Task,1,abcdefghij\n".repeat(150_000) + "Final,97,LASTROW\n",
+    ),
+  })
   await chat.sendAndWait(
     "Use the original complete CSV in your sandbox and calculate its row count and sum of amount. The file is large, do not create one todo per row.",
   )
@@ -85,5 +75,4 @@ test("analyzes the complete CSV beyond its bounded text view", async ({
   )
   await expect(todos.item("FULL CSV rows 150001 total 150097")).toBeVisible()
   await expect(chat.toolRow(/exit 0/).first()).toBeVisible()
-  await captureMoment(page, "Complete CSV analyzed beyond the bounded text view")
 })

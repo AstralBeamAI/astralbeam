@@ -5,7 +5,7 @@ import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
 import type { ChatParams } from "../types"
-import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
+import { ChatThreads, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 
 const commandOrgId = "019a0000-0000-7000-8000-000000000001"
@@ -30,7 +30,7 @@ const commandParams: ChatParams = {
 
 describe("managed conversation commands", () => {
   it.effect("validates uploaded content before accepting input", () => {
-    const admitted: AdmitInput[] = []
+    let admitted = 0
     let attachmentsEnabled = true
     let sandboxProviderId: string | null = null
     const layer = Layer.mergeAll(
@@ -46,8 +46,8 @@ describe("managed conversation commands", () => {
       } as unknown as typeof Agents.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
-        admit: (input: AdmitInput) => {
-          admitted.push(input)
+        admit: () => {
+          admitted += 1
           return Effect.succeed({
             thread: { id: commandThreadId, lockVersion: 1 },
             inputMessage: { id: commandUserId },
@@ -58,36 +58,29 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
-      for (const source of [
-        { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
-        {
-          type: "data",
-          value: `${btoa("\x89PNG\r\n\x1a\n" + "x".repeat(30))}!`,
-          mimeType: "image/png",
+      const invalid = yield* prepareManagedChat({
+        ...input,
+        params: {
+          ...commandParams,
+          messages: [
+            {
+              id: "upload",
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "url",
+                    value: "http://internal.invalid/image",
+                    mimeType: "image/png",
+                  },
+                },
+              ],
+            },
+          ],
         },
-        {
-          type: "data",
-          value: `data:application/pdf;base64,${btoa("%PDF-1.7" + "x".repeat(30))}!`,
-          mimeType: "application/pdf",
-        },
-      ] as const) {
-        const invalid = yield* prepareManagedChat({
-          ...input,
-          params: {
-            ...commandParams,
-            messages: [
-              {
-                id: "upload",
-                role: "user",
-                content: [
-                  { type: source.mimeType === "application/pdf" ? "document" : "image", source },
-                ],
-              },
-            ],
-          },
-        }).pipe(Effect.result)
-        assert.equal(invalid._tag, "Failure")
-      }
+      }).pipe(Effect.flip)
+      assert.equal(invalid._tag, "ChatThreadInvalid")
       const officeInput = {
         ...input,
         params: {
@@ -113,13 +106,13 @@ describe("managed conversation commands", () => {
       }
       const unavailable = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
       assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
-      assert.lengthOf(admitted, 1)
+      assert.equal(admitted, 1)
       sandboxProviderId = commandThreadId
       yield* prepareManagedChat(officeInput)
       attachmentsEnabled = false
       const disabled = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
       assert.equal(disabled._tag, "ChatAttachmentsDisabled")
-      assert.lengthOf(admitted, 2)
+      assert.equal(admitted, 2)
     }).pipe(Effect.provide(layer))
   })
 

@@ -495,12 +495,23 @@ describe("Chat.run", () => {
   )
 
   it.effect.each([
-    { sandboxProviderId: null, reason: "removed" },
-    { sandboxProviderId: sandboxedAgent.sandboxProviderId, reason: "unreadable" },
+    { sandboxProviderId: null, valid: true, reason: "sandbox removed" },
+    {
+      sandboxProviderId: sandboxedAgent.sandboxProviderId,
+      valid: true,
+      reason: "sandbox unreadable",
+    },
+    { sandboxProviderId: null, valid: false, reason: "malformed bytes" },
   ])(
-    "replays saved attachments after uploads are disabled and sandbox is $reason",
-    ({ sandboxProviderId }) =>
+    "validates saved attachments after uploads are disabled: $reason",
+    ({ sandboxProviderId, valid }) =>
       Effect.gen(function* () {
+        if (!valid) {
+          const failure = yield* Effect.flip(runChat())
+          assert.strictEqual(failure._tag, "ChatThreadInvalid")
+          assert.isEmpty(chatRunTest.options)
+          return
+        }
         yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
         const options = chatRunTest.options[0]!
         assert.include(JSON.stringify(options.messages), "[Attached: sales.xlsx]")
@@ -541,7 +552,9 @@ describe("Chat.run", () => {
                       type: "document",
                       source: {
                         type: "data",
-                        value: btoa("PK\x03\x04opaque workbook bytes"),
+                        value: btoa(
+                          valid ? "PK\x03\x04opaque workbook bytes" : "not an Office archive",
+                        ),
                         mimeType:
                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                       },
@@ -554,43 +567,6 @@ describe("Chat.run", () => {
           }),
         ),
       ),
-  )
-
-  it.effect("rejects malformed saved attachments even when their analysis is unavailable", () =>
-    Effect.gen(function* () {
-      const failure = yield* Effect.flip(runChat())
-      assert.strictEqual(failure._tag, "ChatThreadInvalid")
-      assert.isEmpty(chatRunTest.options)
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({
-          agent: { ...sandboxedAgent, sandboxProviderId: null },
-          model: CHAT_TEST_MODEL,
-          history: [
-            {
-              id: chatTestExecution.claim.inputMessageId,
-              role: "user",
-              state: "complete",
-              payload: {
-                version: 1,
-                parts: [
-                  {
-                    id: "document",
-                    type: "document",
-                    source: {
-                      type: "data",
-                      value: btoa("not an Office archive"),
-                      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    },
-                    metadata: { filename: "broken.xlsx" },
-                  },
-                ],
-              },
-            },
-          ] as unknown as MessageRecord[],
-        }),
-      ),
-    ),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>

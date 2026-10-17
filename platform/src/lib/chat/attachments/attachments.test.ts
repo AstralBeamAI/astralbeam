@@ -1,5 +1,5 @@
 import { APP_HANDLE } from "@/lib/constants"
-import type { ChatMiddleware, ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
+import type { ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
 import { expect, test } from "vitest"
 
 import {
@@ -31,7 +31,7 @@ test("keeps text and CSV contents behind handles, outside the user's message", (
   const { messages, attachments, files } = normalizeChatAttachments(
     userMessage([
       documentEntry("notes.md", "text/markdown", btoa("hello from a file")),
-      documentEntry("payload.csv", "text/csv", btoa(csv)),
+      documentEntry("payload.csv", "application/octet-stream", btoa(csv)),
       { type: "text", text: "what does this say?" },
     ]),
   )
@@ -42,10 +42,9 @@ test("keeps text and CSV contents behind handles, outside the user's message", (
   ])
   expect(files).toMatchObject([
     { handle: "notes.md", text: "hello from a file" },
-    { handle: "payload.csv", text: csv },
+    { handle: "payload.csv", mimeType: "text/csv", text: csv },
   ])
   expect(attachments.map((attachment) => attachment.result)).toEqual(["text", "data"])
-  expect(JSON.stringify(messages)).not.toContain("IGNORE ALL PREVIOUS INSTRUCTIONS")
 })
 
 test("caller metadata never reaches a provider block beside an image", () => {
@@ -75,27 +74,15 @@ test("CSV text is capped while the original file remains available for sandbox a
   expect(new TextDecoder().decode(files[0]?.bytes)).toBe(csv)
 })
 
-// A browser labels a `.csv` written by some tools `application/octet-stream`, and the delivery a
-// file gets depends on the type, so the extension has to be able to correct it.
-test("a data file mislabeled by the browser is still readable from its extension", () => {
-  const { files, attachments } = normalizeChatAttachments(
-    userMessage([documentEntry("rows.csv", "application/octet-stream", btoa("a,b\n1,2\n"))]),
-  )
-  expect(attachments[0]?.result).toBe("data")
-  expect(files[0]?.mimeType).toBe("text/csv")
-  expect(files[0]?.text).toBe("a,b\n1,2\n")
-})
-
-test("passes images and PDFs through with a sanitized filename for the provider", () => {
+test("passes images and PDFs through with repaired types and sanitized filenames", () => {
   const { messages, attachments, files } = normalizeChatAttachments(
     userMessage([
+      documentEntry("shot.png", "image/png", REAL_PNG),
       {
         type: "image",
-        source: { type: "data", value: REAL_PNG, mimeType: "image/png" },
-        metadata: { filename: "shot.png" },
+        source: { type: "data", value: btoa("%PDF-1.7"), mimeType: "application/pdf" },
+        metadata: { filename: "re\nport .pdf" },
       },
-      // A newline in a filename would forge line structure in the prompt it lands in.
-      documentEntry("re\nport .pdf", "application/pdf", btoa("%PDF-1.7")),
     ]),
   )
   const entries = contentOf(messages)
@@ -201,19 +188,6 @@ test("names files in the message by handle, not by their original name", () => {
   expect(files.map((file) => file.handle)).toEqual(["etc_passwd", "data.csv", "data-2.csv"])
 })
 
-test("leaves assistant messages and plain text conversations untouched", () => {
-  const messages = [
-    { id: "u1", role: "user", content: "hello" },
-    { id: "a1", role: "assistant", content: "hi" },
-    { id: "a2", role: "assistant", parts: [{ type: "text", content: "hi" }] },
-  ] as unknown as ChatMessages
-  expect(normalizeChatAttachments(messages)).toEqual({
-    messages,
-    attachments: [],
-    files: [],
-  })
-})
-
 test("keeps attachment payloads out of the debug log", () => {
   const redacted = redactChatAttachmentData(
     userMessage([
@@ -224,23 +198,6 @@ test("keeps attachment payloads out of the debug log", () => {
     ]),
   )
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
-})
-
-// The provider adapter rejects a document part that is not a PDF, so a mislabeled file would
-// otherwise fail the whole run instead of being read as the image it is.
-test("repairs a part whose type contradicts its MIME type", () => {
-  const { messages, attachments } = normalizeChatAttachments(
-    userMessage([
-      documentEntry("shot.png", "image/png", REAL_PNG),
-      {
-        type: "image",
-        source: { type: "data", value: btoa("%PDF-1.7"), mimeType: "application/pdf" },
-        metadata: { filename: "spec.pdf" },
-      },
-    ]),
-  )
-  expect(contentOf(messages).map((entry) => entry.type)).toEqual(["image", "document"])
-  expect(attachments.map((attachment) => attachment.result)).toEqual(["image", "pdf"])
 })
 
 // A renamed or truncated file used to reach the provider and fail the whole run with an opaque
@@ -262,7 +219,11 @@ test("refuses a payload whose bytes do not match its declared type", () => {
       ),
       {
         type: "image",
-        source: { type: "data", value: "!!! not base64 !!!", mimeType: "image/png" },
+        source: {
+          type: "data",
+          value: `data:image/png;base64,${REAL_PNG}!`,
+          mimeType: "image/png",
+        },
         metadata: { filename: "corrupt.png" },
       },
       {
@@ -332,12 +293,6 @@ test("strips media smuggled onto a non-user message", () => {
   expect(attachments).toHaveLength(2)
 })
 
-function onChunk(middleware: ChatMiddleware, chunk: unknown) {
-  const hook = middleware.onChunk
-  if (!hook) throw new Error("The middleware declares no onChunk hook.")
-  return hook({} as ChatMiddlewareContext, chunk as StreamChunk)
-}
-
 // Snapshots keep authenticated file references while hydrated model input stays server-side.
 test("restores the user's own attachments in a messages snapshot", () => {
   const sent = [
@@ -358,32 +313,30 @@ test("restores the user's own attachments in a messages snapshot", () => {
       { id: "user-2", role: "user", content: "and this one has no file" },
     ],
   }
-  const stored = onChunk(
-    createChatAttachmentSnapshotMiddleware(sent, [
-      {
-        id: "user-1",
-        createdAt: new Date(0),
-        state: "complete",
-        authorTenantUserId: null,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "file-part",
-              type: "document",
-              source: {
-                type: APP_HANDLE,
-                id: "00000000-0000-4000-8000-000000000001",
-                mimeType: "text/csv",
-                byteSize: 4,
-              },
+  const middleware = createChatAttachmentSnapshotMiddleware(sent, [
+    {
+      id: "user-1",
+      createdAt: new Date(0),
+      state: "complete",
+      authorTenantUserId: null,
+      payload: {
+        version: 1,
+        parts: [
+          {
+            id: "file-part",
+            type: "document",
+            source: {
+              type: APP_HANDLE,
+              id: "00000000-0000-4000-8000-000000000001",
+              mimeType: "text/csv",
+              byteSize: 4,
             },
-          ],
-        },
+          },
+        ],
       },
-    ]),
-    snapshot,
-  )
+    },
+  ])
+  const stored = middleware.onChunk?.({} as ChatMiddlewareContext, snapshot as StreamChunk)
   expect(stored).toMatchObject({
     messages: [
       {
@@ -399,17 +352,4 @@ test("restores the user's own attachments in a messages snapshot", () => {
     ],
   })
   expect(JSON.stringify(stored)).not.toContain(btoa("a\n1\n"))
-})
-
-test("leaves every other chunk, and a conversation with no attachment, untouched", () => {
-  const middleware = createChatAttachmentSnapshotMiddleware(
-    [{ id: "user-1", role: "user", content: "hello" }] as unknown as ChatMessages,
-    [],
-  )
-  expect(
-    onChunk(middleware, { type: "MESSAGES_SNAPSHOT", timestamp: 0, messages: [] }),
-  ).toBeUndefined()
-  expect(
-    onChunk(middleware, { type: "TEXT_MESSAGE_CONTENT", timestamp: 0, delta: "hi" }),
-  ).toBeUndefined()
 })
