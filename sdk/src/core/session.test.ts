@@ -206,8 +206,8 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
   const tools = () => ({
     refresh: {
       description: "Refresh the host's list",
-      title: "Refresh the list",
-      execute: () => ({ done: true }),
+      metadata: { title: "Refresh the list" },
+      execute: () => "done",
     },
   })
   const chat = createTestSession({ tools: tools() })
@@ -221,24 +221,19 @@ test("rebuilding equivalent tool definitions notifies no subscriber", () => {
 
   expect(notifications).toBe(0)
   expect(chat.getState().agentTools).toEqual([
-    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined, widget: undefined },
-    { name: "refresh", title: "Refresh the list", widget: undefined },
+    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined },
+    { name: "refresh", title: "Refresh the list" },
   ])
 
   // A real change still reaches the store, so a title update relabels its transcript entry.
   chat.updateOptions({
-    tools: {
-      refresh: {
-        description: "Refresh the host's list",
-        execute: () => ({ done: true }),
-      },
-    },
+    tools: { refresh: { description: "Refresh the host's list", execute: () => "done" } },
   })
 
   expect(notifications).toBe(1)
   expect(chat.getState().agentTools).toEqual([
-    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined, widget: undefined },
-    { name: "refresh", title: undefined, widget: undefined },
+    { name: ASK_QUESTIONNAIRE_TOOL, title: undefined },
+    { name: "refresh", title: undefined },
   ])
 })
 

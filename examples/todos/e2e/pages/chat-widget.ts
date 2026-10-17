@@ -54,7 +54,6 @@ export function chatWidget(page: Page) {
     deleteConfirmation: root.getByRole("alertdialog"),
     confirmDeletion: root.getByRole("button", { name: "Delete conversation", exact: true }),
     reviewFiles: root.getByRole("button", { name: "Review files", exact: true }),
-    savedTool: root.getByRole("button", { name: /^Saved / }),
 
     conversationOption(title: string): Locator {
       return root.getByRole("option", { name: title, exact: true })

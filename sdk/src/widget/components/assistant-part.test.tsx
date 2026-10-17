@@ -66,36 +66,45 @@ test.each([
   },
 )
 
-test("an unavailable widget shows failure text without disclosing UI data", () => {
-  const part: ChatToolCallPart = {
-    type: "tool-call",
-    id: "saved:card",
-    name: "get_todo",
-    widget: "missing",
-    resultVersion: 1,
-    arguments: "{}",
-    input: {},
-    state: "complete",
-    output: {
-      content: [{ type: "text", text: "Todo unavailable" }],
-      uiData: { privateLabel: "UI only" },
-      isError: true,
-    },
-  }
-  const html = renderToStaticMarkup(
-    <AssistantPart
-      part={part}
-      messageId="saved-message"
-      getAttachment={vi.fn()}
-      widgets={{}}
-      toolTitles={{}}
-      activeSlots={new Map()}
-      interactiveToolIds={new Set()}
-      onQuestionnaireAnswers={vi.fn()}
-    />,
-  )
-  expect(html).toContain("Todo unavailable")
-  expect(html).not.toContain("UI only")
-  expect(html).not.toContain("This widget is unavailable")
-  expect(html).not.toContain("Preparing a widget")
-})
+test.each([
+  {
+    content: [{ type: "text", text: "Todo unavailable" }],
+    isError: true,
+    expected: "Todo unavailable",
+  },
+  { content: [], isError: false, expected: "This widget is unavailable." },
+])(
+  "an unavailable widget shows $expected without disclosing UI data",
+  ({ content, isError, expected }) => {
+    const part: ChatToolCallPart = {
+      type: "tool-call",
+      id: "saved:card",
+      name: "get_todo",
+      widget: "missing",
+      resultVersion: 1,
+      arguments: "{}",
+      input: {},
+      state: "complete",
+      output: {
+        content,
+        uiData: { privateLabel: "UI only" },
+        isError,
+      },
+    }
+    const html = renderToStaticMarkup(
+      <AssistantPart
+        part={part}
+        messageId="saved-message"
+        getAttachment={vi.fn()}
+        widgets={{}}
+        toolTitles={{}}
+        activeSlots={new Map()}
+        interactiveToolIds={new Set()}
+        onQuestionnaireAnswers={vi.fn()}
+      />,
+    )
+    expect(html).toContain(expected)
+    expect(html).not.toContain("UI only")
+    expect(html).not.toContain("Preparing a widget")
+  },
+)

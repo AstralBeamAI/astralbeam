@@ -23,14 +23,13 @@ type ToolOutput<S extends OutputSchema> =
 export interface TypedToolDefinition<
   Input extends ParametersSchema = JsonSchemaObject,
   Output extends OutputSchema = Record<string, unknown>,
-  Result extends ToolOutput<Output> = ToolOutput<Output>,
 > extends Omit<ToolDefinition, "parameters" | "outputSchema" | "execute"> {
   parameters?: Input
   outputSchema?: Output
   execute: (
     input: InferParameters<Input>,
     context: Parameters<ToolDefinition["execute"]>[1],
-  ) => Result | Promise<Result>
+  ) => ToolOutput<Output> | Promise<ToolOutput<Output>>
 }
 
 export interface TypedWidgetDefinition<
@@ -50,8 +49,11 @@ export interface TypedWidgetDefinition<
 export function defineTool<
   const Input extends ParametersSchema = JsonSchemaObject,
   const Output extends OutputSchema = Record<string, unknown>,
-  Result extends ToolOutput<Output> = ToolOutput<Output>,
->(tool: TypedToolDefinition<Input, Output, Result>): TypedToolDefinition<Input, Output, Result> {
+  Execute extends TypedToolDefinition<Input, Output>["execute"] = TypedToolDefinition<
+    Input,
+    Output
+  >["execute"],
+>(tool: Omit<TypedToolDefinition<Input, Output>, "execute"> & { execute: Execute }) {
   return tool
 }
 
