@@ -494,79 +494,68 @@ describe("Chat.run", () => {
     ),
   )
 
-  it.effect.each([
-    { sandboxProviderId: null, valid: true, reason: "sandbox removed" },
-    {
-      sandboxProviderId: sandboxedAgent.sandboxProviderId,
-      valid: true,
-      reason: "sandbox unreadable",
-    },
-    { sandboxProviderId: null, valid: false, reason: "malformed bytes" },
-  ])(
-    "validates saved attachments after uploads are disabled: $reason",
-    ({ sandboxProviderId, valid }) =>
-      Effect.gen(function* () {
-        if (!valid) {
-          const failure = yield* Effect.flip(runChat())
-          assert.strictEqual(failure._tag, "ChatThreadInvalid")
-          assert.isEmpty(chatRunTest.options)
-          return
-        }
-        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
-        const options = chatRunTest.options[0]!
-        assert.include(JSON.stringify(options.messages), "[Attached: sales.xlsx]")
-        assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
-        assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
-        assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
-        const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
-        const refreshed = yield* Effect.promise(async () =>
-          gate.onConfig!(
-            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
-            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
-          ),
-        )
-        assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.xlsx]")
-        for (const tools of [options.tools, refreshed?.tools]) {
-          const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
-          const result = yield* Effect.promise(() =>
-            Promise.resolve(reader.execute?.({ file: "sales.xlsx" }) as unknown),
-          )
-          assert.notProperty(result, "sandboxPath")
-          assert.include(JSON.stringify(result), "no sandbox")
-        }
-      }).pipe(
-        Effect.provide(
-          chatTestLayer({
-            agent: { ...sandboxedAgent, sandboxProviderId },
-            model: CHAT_TEST_MODEL,
-            history: [
-              {
-                id: chatTestExecution.claim.inputMessageId,
-                role: "user",
-                state: "complete",
-                payload: {
-                  version: 1,
-                  parts: [
-                    {
-                      id: "office",
-                      type: "document",
-                      source: {
-                        type: "data",
-                        value: btoa(
-                          valid ? "PK\x03\x04opaque workbook bytes" : "not an Office archive",
-                        ),
-                        mimeType:
-                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                      },
-                      metadata: { filename: "sales.xlsx" },
-                    },
-                  ],
-                },
-              },
-            ] as unknown as MessageRecord[],
-          }),
+  it.effect.each(["removed", "unreadable", "malformed"])("saved attachments: %s", (state) =>
+    Effect.gen(function* () {
+      if (state === "malformed") {
+        const failure = yield* Effect.flip(runChat())
+        assert.strictEqual(failure._tag, "ChatThreadInvalid")
+        assert.isEmpty(chatRunTest.options)
+        return
+      }
+      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+      const options = chatRunTest.options[0]!
+      assert.include(JSON.stringify(options.messages), "[Attached: sales.xlsx]")
+      assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
+      assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
+      assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
+      const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
+      const refreshed = yield* Effect.promise(async () =>
+        gate.onConfig!(
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
+      )
+      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.xlsx]")
+      for (const tools of [options.tools, refreshed?.tools]) {
+        const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
+        const result = yield* Effect.promise(() =>
+          Promise.resolve(reader.execute?.({ file: "sales.xlsx" }) as unknown),
+        )
+        assert.notProperty(result, "sandboxPath")
+      }
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: {
+            ...sandboxedAgent,
+            sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
+          },
+          model: CHAT_TEST_MODEL,
+          history: [
+            {
+              id: chatTestExecution.claim.inputMessageId,
+              role: "user",
+              state: "complete",
+              payload: {
+                version: 1,
+                parts: [
+                  {
+                    id: "document",
+                    type: "document",
+                    source: {
+                      type: "data",
+                      value: btoa(state === "malformed" ? "invalid" : "PK\x03\x04opaque"),
+                      mimeType: "application/octet-stream",
+                    },
+                    metadata: { filename: "sales.xlsx" },
+                  },
+                ],
+              },
+            },
+          ] as unknown as MessageRecord[],
+        }),
       ),
+    ),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>

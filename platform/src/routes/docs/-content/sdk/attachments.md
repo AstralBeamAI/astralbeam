@@ -36,6 +36,7 @@ For files beyond images and PDFs, the message carries a file handle and the agen
 - Results include type and size, without precomputed table or section metadata. Ask the agent to calculate sheet names, column types, row counts, and totals. Complete analysis beyond the text cap requires a working sandbox.
 - File contents, names, and table labels remain user input or tool results, never system instructions.
 - Agents with a sandbox receive the original file at `uploads/<name>` when they first use a sandbox tool. This also lets them analyze text beyond the readable-text cap.
+- Large files can exceed the sandbox's 30-second transfer timeout, particularly with Docker. Split the file if analysis fails during sandbox startup.
 - Office files, Parquet, and SQLite have no text view and require a sandbox. Without one, server admission rejects a new message containing these formats.
 - If sandbox access becomes unavailable, earlier attachments remain downloadable and you can continue chatting. Reading Office content again requires restored sandbox access, while text, CSV, and TSV remain readable within the text cap.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
