@@ -15,6 +15,14 @@ import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
 import { AttachmentFileContext } from "../components/attachment-preview.tsx"
 
+const readOnlyTranscriptProps = {
+  widgets: {},
+  toolTitles: {},
+  activeSlots: new Map<string, string>(),
+  interactiveToolIds: new Set<string>(),
+  onQuestionnaireAnswers: () => {},
+}
+
 export function ThreadViewer({
   session,
   thread,
@@ -114,10 +122,7 @@ export function ThreadViewer({
         <div className="h-[32rem] min-h-64 overflow-hidden rounded-lg border border-foreground/10 bg-background text-foreground [--card-spacing:--spacing(4)]">
           <ChatTranscript
             messages={messages}
-            widgets={{}}
-            toolTitles={{}}
-            activeSlots={new Map()}
-            interactiveToolIds={new Set()}
+            {...readOnlyTranscriptProps}
             readOnly
             hasOlder={query.hasNextPage && !query.isError}
             loadingHistory={query.isFetching}
@@ -127,7 +132,6 @@ export function ThreadViewer({
             }}
             isBusy={query.isFetching}
             awaitingReply={false}
-            onQuestionnaireAnswers={() => {}}
           />
         </div>
       ) : null}

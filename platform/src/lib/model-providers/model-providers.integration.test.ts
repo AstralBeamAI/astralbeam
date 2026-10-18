@@ -262,6 +262,28 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
         pricingSource: { kind: "catalog" },
         prices: { inputPerMillion: "3", outputPerMillion: "4" },
       })
+      const editorCatalog = {
+        providers: refreshed.providers.map((provider) => ({
+          ...provider,
+          models: provider.models.map((model) => ({
+            ...model,
+            prices: { input_mtok: 5, output_mtok: 6 },
+          })),
+        })),
+      }
+      const displayed = await runAppEffect(
+        Effect.flatMap(ModelProviders, (service) =>
+          service.get({
+            organizationId,
+            id: providerId,
+            catalog: editorCatalog,
+          }),
+        ),
+      )
+      expect(displayed!.models[0]!.configuration?.prices).toEqual({
+        inputPerMillion: "5",
+        outputPerMillion: "6",
+      })
 
       const cancelDownload = vi.fn()
       for (const response of [

@@ -29,6 +29,7 @@ import {
   ModelConfigurationMissing,
 } from "./errors.ts"
 import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import { modelWebAccess } from "./web.server"
 import {
@@ -154,6 +155,7 @@ export class ModelProviders extends Context.Service<
     readonly get: (input: {
       readonly organizationId: string
       readonly id: string
+      readonly catalog?: ModelPriceCatalog
     }) => Effect.Effect<OrganizationModelProvider | null>
     readonly choices: (input: {
       readonly organizationId: string
@@ -288,11 +290,12 @@ export class ModelProviders extends Context.Service<
       const get = Effect.fn("ModelProviders.get")(function* (input: {
         organizationId: string
         id: string
+        catalog?: ModelPriceCatalog
       }) {
         const stored = yield* readModelProviderRow(input.organizationId, input.id)
         if (!stored) return null
         const { storedCredentials: _storedCredentials, ...row } = stored
-        const catalog = yield* readPricing
+        const catalog = input.catalog ?? (yield* readPricing)
         const apiKey = readModelProviderKey(stored)
         const models = yield* db
           .select({

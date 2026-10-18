@@ -73,6 +73,7 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
             : yield* providers.get({
                 organizationId: context.organizationId,
                 id: data.id,
+                catalog: pricing,
               })
         const pricedModels = (providerType: ModelProviderType) =>
           [

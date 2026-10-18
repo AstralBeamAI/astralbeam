@@ -121,7 +121,11 @@ export class UsageLimits extends Context.Service<
       readonly usageLimitId: string
       readonly page: number
     }) => Effect.Effect<
-      { readonly subjects: readonly UsageLimitSubjectUsage[]; readonly total: number },
+      {
+        readonly usageLimit: UsageLimit
+        readonly subjects: readonly UsageLimitSubjectUsage[]
+        readonly total: number
+      },
       UsageLimitNotFound
     >
     readonly record: (input: {
@@ -404,6 +408,7 @@ export class UsageLimits extends Context.Service<
           { concurrency: "unbounded" },
         ).pipe(Effect.orDie)
         return {
+          usageLimit: limit,
           total: counted?.total ?? 0,
           subjects: rows.map((row) => ({
             id: row.id,

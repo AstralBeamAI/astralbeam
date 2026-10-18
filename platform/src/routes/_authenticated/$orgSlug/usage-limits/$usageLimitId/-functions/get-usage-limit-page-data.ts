@@ -16,10 +16,7 @@ export const getUsageLimitPageData = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         const usageLimits = yield* UsageLimits
         const input = { organizationId: context.organizationId, usageLimitId: data.usageLimitId }
-        const [usageLimit, usage] = yield* Effect.all(
-          [usageLimits.get(input), usageLimits.subjects({ ...input, page: data.page })],
-          { concurrency: "unbounded" },
-        )
+        const { usageLimit, ...usage } = yield* usageLimits.subjects({ ...input, page: data.page })
         return { data: { usageLimit, usage }, permissions: context.permissions }
       }).pipe(Effect.catchTag("UsageLimitNotFound", () => Effect.succeed(null))),
       serverFnMeta.name,
