@@ -19,6 +19,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  InputGroupTextarea,
 } from "@/components/ui/input-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { CopyValueButton } from "./copy-value-button"
@@ -49,6 +50,8 @@ export function ConfigValueInput({
   const value = draft.kind === "set" ? draft.value : (revealedValue ?? field.value ?? "")
   const readOnly = field.source === "environment"
   const valueVisible = field.kind !== "secret" || visible
+  const multiline = field.key === "cloudfront_private_key"
+  const ValueInput = multiline && valueVisible ? InputGroupTextarea : InputGroupInput
 
   // A stored secret is not in the page, so showing it has to fetch it first. A draft the operator
   // just typed is already here, which keeps blind replacement free of a server round trip.
@@ -74,14 +77,21 @@ export function ConfigValueInput({
   return (
     <div className="flex flex-col gap-2">
       <InputGroup>
-        <InputGroupInput
+        <ValueInput
           id={`config-${field.key}`}
-          type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
-          autoComplete={field.kind === "secret" ? "new-password" : "off"}
+          type={!valueVisible ? "password" : field.kind === "url" ? "url" : undefined}
+          autoComplete={
+            field.kind === "secret" && !(multiline && valueVisible) ? "new-password" : "off"
+          }
           value={value}
           placeholder={field.isSet ? "Configured" : "Not set"}
           disabled={disabled || readOnly}
           onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+          onPaste={(event) => {
+            if (!multiline || valueVisible) return
+            event.preventDefault()
+            onDraftChange({ kind: "set", value: event.clipboardData.getData("text") })
+          }}
         />
         <InputGroupAddon align="inline-end">
           {valueVisible && value && <CopyValueButton value={value} label={field.label} />}

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm"
-import { Effect } from "effect"
+import { Clock, Effect } from "effect"
 
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
@@ -7,7 +7,7 @@ import { fileObject } from "@/db/schema/files"
 import { StorageObjectMissing, type StorageUnavailable } from "./errors"
 import type { SignInRequired } from "@/lib/organizations/errors"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { ObjectStorage } from "./object-storage.server"
+import { signDownload } from "./download-signer.server"
 
 // Controllers authorize access before issuing a URL. The URL is valid for one minute.
 export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
@@ -30,7 +30,11 @@ export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
     )
     .pipe(mapDatabaseErrors())
   if (!file) return yield* new StorageObjectMissing()
-  return yield* (yield* ObjectStorage).signedUrl(file)
+  const now = yield* Clock.currentTimeMillis
+  return yield* signDownload({
+    objectKey: file.key,
+    expiresAt: new Date(now + 60_000),
+  })
 })
 
 export function fileResponse<R>(
