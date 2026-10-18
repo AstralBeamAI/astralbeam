@@ -169,21 +169,24 @@ export class Organizations extends Context.Service<
             )
         const countIf = (allowed: boolean, table: OrganizationOwnedTable, filter?: SQL) =>
           allowed ? countRows(table, filter) : Effect.succeed(null)
-        const [agents, sandboxProviders, apiKeys, usableApiKeys, members] = yield* Effect.all([
-          countIf(input.permissions.readConfiguration, agent),
-          countIf(input.permissions.readConfiguration, sandboxProvider),
-          countIf(input.permissions.readApiKey, apiKey),
-          countIf(
-            input.permissions.readApiKey,
-            apiKey,
-            and(
-              eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
-              eq(apiKey.enabled, true),
-              or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
+        const [agents, sandboxProviders, apiKeys, usableApiKeys, members] = yield* Effect.all(
+          [
+            countIf(input.permissions.readConfiguration, agent),
+            countIf(input.permissions.readConfiguration, sandboxProvider),
+            countIf(input.permissions.readApiKey, apiKey),
+            countIf(
+              input.permissions.readApiKey,
+              apiKey,
+              and(
+                eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
+                eq(apiKey.enabled, true),
+                or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
+              ),
             ),
-          ),
-          countRows(member),
-        ])
+            countRows(member),
+          ],
+          { concurrency: "unbounded" },
+        )
         return { agents, sandboxProviders, apiKeys, usableApiKeys, members }
       })
 

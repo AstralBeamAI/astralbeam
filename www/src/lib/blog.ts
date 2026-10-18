@@ -1,4 +1,5 @@
-import frontMatter from "front-matter"
+import type { MDXProps } from "mdx/types"
+import type { ComponentType } from "react"
 
 interface PostMetadata {
   title: string
@@ -9,22 +10,22 @@ interface PostMetadata {
   imageAlt: string
 }
 
-const sources = import.meta.glob<string>("../content/blog/*.md", {
-  query: "?raw",
-  import: "default",
+export const blogModules = import.meta.glob<{
+  default: ComponentType<MDXProps>
+  frontmatter: PostMetadata
+  readingTime: { minutes: number }
+}>("../content/blog/*.md", {
   eager: true,
 })
 
-export const blogPosts = Object.entries(sources)
-  .map(([file, source]) => {
-    const { attributes, body } = frontMatter<PostMetadata>(source)
+export const blogPosts = Object.entries(blogModules)
+  .map(([file, { frontmatter, readingTime }]) => {
     const slug = file.slice(file.lastIndexOf("/") + 1, -3)
     return {
-      ...attributes,
+      ...frontmatter,
       slug,
       path: `/blog/${slug}`,
-      body,
-      minutes: Math.max(1, Math.ceil(body.split(/\s+/u).length / 220)),
+      minutes: Math.max(1, Math.ceil(readingTime.minutes)),
     }
   })
   .sort((a, b) => b.date.localeCompare(a.date))

@@ -180,6 +180,7 @@ a[href] {
 .fx-scanlines::after {
   content: "";
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   height: 22vh;
@@ -194,10 +195,10 @@ a[href] {
 
 @keyframes scan-sweep {
   from {
-    top: -25vh;
+    transform: translateY(-25vh);
   }
   to {
-    top: 105vh;
+    transform: translateY(105vh);
   }
 }
 

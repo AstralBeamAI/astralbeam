@@ -952,9 +952,10 @@ export function createAstralBeamChat(
         // Model snapshots omit client render IDs. Retain the existing slot before publishing them.
         restoreCompletedWidgets(messages)
         // User messages are immutable. Keep saved download identities across model snapshots.
+        const savedMessages = new Map(state.messages.map((message) => [message.id, message]))
         for (const message of messages) {
           if (message.role !== "user") continue
-          const saved = state.messages.find((previous) => previous.id === message.id)
+          const saved = savedMessages.get(message.id)
           if (saved?.parts.some((part) => "fileId" in part)) message.parts = saved.parts
         }
         update({ messages, sandbox: collectSandboxActivity(messages) })

@@ -49,34 +49,18 @@ export function LandingPage() {
         <section className="hero" id="top">
           <div className="hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow reveal">
+              <p className="eyebrow">
                 OPEN SOURCE · <span>SELF-HOSTED</span> OR MANAGED
               </p>
               <h1 className="display hero-title">
-                <span className="reveal scramble" data-text="ADD AN AGENT">
-                  ADD AN AGENT
-                </span>
+                ADD AN AGENT
                 <br />
-                <span
-                  className="reveal scramble beam-text"
-                  data-text="TO YOUR APP"
-                  style={cssVars({ "--reveal-delay": ".12s" })}
-                >
-                  TO YOUR APP
-                </span>
+                <span className="beam-text">TO YOUR APP</span>
                 <br />
-                <span
-                  className="reveal scramble"
-                  data-text="IN MINUTES"
-                  style={cssVars({ "--reveal-delay": ".24s" })}
-                >
-                  IN MINUTES
-                </span>
+                IN MINUTES
               </h1>
-              <p className="hero-sub reveal" style={cssVars({ "--reveal-delay": ".36s" })}>
-                {siteMetadata.description}
-              </p>
-              <div className="hero-ctas reveal" style={cssVars({ "--reveal-delay": ".48s" })}>
+              <p className="hero-sub">{siteMetadata.description}</p>
+              <div className="hero-ctas">
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
                   GET STARTED
                 </a>

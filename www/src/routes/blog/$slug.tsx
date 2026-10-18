@@ -1,15 +1,20 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
-import Markdown from "react-markdown"
-import type { Components } from "react-markdown"
 
-import { blogDate, blogPosts } from "@/lib/blog"
+import { blogDate, blogModules, blogPosts } from "@/lib/blog"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata, siteUrl } from "@/lib/site"
 
 import { BlogShell } from "./-components/blog-shell"
-import { FailureDemo } from "./-components/failure-demo"
+import { markdownComponents } from "./-components/markdown"
 
 export const Route = createFileRoute("/blog/$slug")({
+  codeSplitGroupings: [["loader", "component"]],
+  // Reject missing posts before loading split chunks so the static 404 can hydrate.
+  // https://tanstack.com/router/latest/docs/framework/react/guide/not-found-errors
+  beforeLoad: ({ params }) => {
+    const files = Object.keys(import.meta.glob("../../content/blog/*.md"))
+    if (!files.includes(`../../content/blog/${params.slug}.md`)) throw notFound()
+  },
   loader: ({ params }) => {
     const post = blogPosts.find((entry) => entry.slug === params.slug)
     if (!post) throw notFound()
@@ -47,41 +52,9 @@ export const Route = createFileRoute("/blog/$slug")({
   component: BlogPost,
 })
 
-const markdownComponents: Components = {
-  a({ href, title, children }) {
-    const external =
-      href &&
-      /^(?:https?:)?\/\//i.test(href) &&
-      new URL(href, siteMetadata.origin).origin !== siteMetadata.origin
-    return (
-      <a
-        href={href}
-        title={title}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      >
-        {children}
-      </a>
-    )
-  },
-  pre({ node, children }) {
-    const code = node?.children[0]
-    if (
-      code?.type === "element" &&
-      Array.isArray(code.properties.className) &&
-      code.properties.className.includes("language-demo")
-    ) {
-      const text = code.children[0]
-      if (text?.type === "text") return <FailureDemo kind={text.value.trim()} />
-    }
-    return <pre>{children}</pre>
-  },
-  img({ src, alt }) {
-    return <img src={src} alt={alt ?? ""} loading="lazy" decoding="async" />
-  },
-}
-
 function BlogPost() {
   const post = Route.useLoaderData()
+  const Content = blogModules[`../content/blog/${post.slug}.md`]!.default
   return (
     <BlogShell>
       <article className="blog-article">
@@ -109,9 +82,7 @@ function BlogPost() {
           fetchPriority="high"
         />
         <div className="blog-prose">
-          <Markdown components={markdownComponents} skipHtml>
-            {post.body}
-          </Markdown>
+          <Content components={markdownComponents} />
         </div>
         <a className="blog-back blog-end" href="/blog">
           ← Back to the blog

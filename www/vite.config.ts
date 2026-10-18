@@ -1,9 +1,14 @@
 import { readdirSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
+import mdx from "@mdx-js/rollup"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
+import remarkFrontmatter from "remark-frontmatter"
+import remarkMdxFrontmatter from "remark-mdx-frontmatter"
+import remarkReadingTime from "remark-reading-time"
+import remarkMdxReadingTime from "remark-reading-time/mdx"
 import { defineConfig } from "vite"
 
 const workspaceDirectory = fileURLToPath(new URL("../", import.meta.url))
@@ -37,7 +42,13 @@ export default defineConfig(({ mode }) => ({
   server: { host: true, port: 4600, strictPort: true, fs: { allow: [workspaceDirectory] } },
   preview: { host: true, port: 4001, strictPort: true },
   // The platform proxies this prefix when it serves the website under its own origin.
-  build: { target: "es2025", assetsDir: "website-assets" },
+  build: {
+    target: "es2025",
+    assetsDir: "website-assets",
+    // Let unicode ranges select fonts instead of embedding unused subsets in blocking CSS.
+    // https://vite.dev/config/build-options#build-assetsinlinelimit
+    assetsInlineLimit: (filePath) => (/\.woff2?$/u.test(filePath) ? false : undefined),
+  },
   plugins: [
     // The suite reads the built output, so it has no server or prerenderer to start.
     ...(mode === "test"
@@ -63,6 +74,18 @@ export default defineConfig(({ mode }) => ({
           }),
         ]),
     tanstackStart(),
+    {
+      ...mdx({
+        format: "md",
+        remarkPlugins: [
+          remarkFrontmatter,
+          remarkMdxFrontmatter,
+          remarkReadingTime,
+          remarkMdxReadingTime,
+        ],
+      }),
+      enforce: "pre",
+    },
     viteReact(),
   ],
 }))

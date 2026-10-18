@@ -18,7 +18,7 @@ export const Route = createFileRoute("/docs/sitemap.xml")({
           {
             headers: {
               "Content-Type": "application/xml; charset=utf-8",
-              "Cache-Control": "public, no-cache",
+              "Cache-Control": "public, max-age=300, must-revalidate",
             },
           },
         )

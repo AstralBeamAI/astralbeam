@@ -49,7 +49,11 @@ function isWebsitePath(request: Request, pathname: string): boolean {
 
 function websiteResponse(upstream: Response, pathname: string): Response {
   const headers = new Headers(upstream.headers)
-  if (pathname === "/") {
+  if (upstream.status >= 400) {
+    // Workers applies asset-prefix header rules to 404 fallbacks too. Never cache these failures.
+    // https://github.com/cloudflare/workers-sdk/blob/main/packages/workers-shared/asset-worker/src/utils/headers.ts
+    headers.set("Cache-Control", "no-store")
+  } else if (pathname === "/") {
     // Signed-in visitors get the dashboard at this URL, so shared caches must not keep this page.
     headers.set("Cache-Control", "private, no-cache")
     headers.append("Vary", "Cookie")
@@ -100,7 +104,12 @@ export function rewriteToWebsite(
         Effect.catch((error) =>
           Effect.logWarning("Website request failed").pipe(
             Effect.annotateLogs({ reason: errorReason(error) }),
-            Effect.as(new Response("Bad Gateway", { status: 502 })),
+            Effect.as(
+              new Response("Bad Gateway", {
+                status: 502,
+                headers: { "Cache-Control": "no-store" },
+              }),
+            ),
           ),
         ),
       )

@@ -1,6 +1,5 @@
 # TanStack Start hydrates each prerendered page through inline scripts and React emits inline
-# `style` attributes, so `script-src` and `style-src` allow `'unsafe-inline'`. Vite inlines the
-# smallest font subsets as `data:` URLs, so `font-src` allows `data:`.
+# `style` attributes, so `script-src` and `style-src` allow `'unsafe-inline'`.
 # PostHog loads replay bundles and sends events through its own domains.
 # https://posthog.com/docs/advanced/content-security-policy
 /*
@@ -12,3 +11,33 @@
 
 /website-assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/blog/images/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/demo/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/favicon.png
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/og-image.png
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/licenses.txt
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/site.webmanifest
+  Cache-Control: public, max-age=300, must-revalidate
+
+/robots.txt
+  Cache-Control: public, max-age=300, must-revalidate
+
+/llms.txt
+  Cache-Control: public, max-age=300, must-revalidate
+
+/sitemap.xml
+  Cache-Control: public, max-age=300, must-revalidate
+
+/blog/feed.xml
+  Cache-Control: public, max-age=300, must-revalidate

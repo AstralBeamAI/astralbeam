@@ -23,7 +23,7 @@ export const Route = createFileRoute("/docs.md")({
           {
             headers: {
               "Content-Type": "text/markdown; charset=utf-8",
-              "Cache-Control": "public, no-cache",
+              "Cache-Control": "public, max-age=300, must-revalidate",
             },
           },
         )

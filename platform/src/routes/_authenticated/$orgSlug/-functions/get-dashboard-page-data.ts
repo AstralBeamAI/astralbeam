@@ -16,19 +16,22 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         // Counting only what this role may read makes the serialized payload the authorization
         // boundary, rather than the cards the browser chooses to render.
-        const counts = yield* Effect.flatMap(Organizations, (organizations) =>
-          organizations.resourceCounts({
-            organizationId: context.organizationId,
-            permissions: context.permissions,
-          }),
+        const { counts, modelSetup } = yield* Effect.all(
+          {
+            counts: Effect.flatMap(Organizations, (organizations) =>
+              organizations.resourceCounts({
+                organizationId: context.organizationId,
+                permissions: context.permissions,
+              }),
+            ),
+            modelSetup: context.permissions.readConfiguration
+              ? Effect.flatMap(ModelProviders, (providers) =>
+                  providers.setupState({ organizationId: context.organizationId }),
+                )
+              : Effect.succeed(null),
+          },
+          { concurrency: "unbounded" },
         )
-        // Null where the reader's role does not permit configuration, which is also why no
-        // banner appears for them.
-        const modelSetup = context.permissions.readConfiguration
-          ? yield* Effect.flatMap(ModelProviders, (providers) =>
-              providers.setupState({ organizationId: context.organizationId }),
-            )
-          : null
         return {
           data: { organizationName: context.organizationName, counts, modelSetup },
           permissions: context.permissions,

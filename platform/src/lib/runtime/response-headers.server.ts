@@ -1,6 +1,12 @@
 import type { NitroAppPlugin } from "nitro/types"
 
+import { APP_HANDLE } from "@/lib/constants"
 import { resolveAppOrigin } from "@/routes/-lib/app-origin.server"
+
+const PUBLIC_LOGO_PATH = new RegExp(
+  `^/${APP_HANDLE}-(?:logo|wordmark)-(?:light|dark)\\.(?:svg|png)$`,
+  "u",
+)
 
 // One year is the shortest max-age the preload list accepts.
 // https://hstspreload.org/#deployment-recommendations
@@ -22,13 +28,26 @@ export function applyResponseSecurityHeaders(
   headers: Headers,
   request: Request,
   pathname: string,
+  status: number,
 ): void {
   // Vary on encoding even when Nitro serves the uncompressed representation.
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
   headers.append("Vary", "Accept-Encoding")
   if (pathname === "/api/openapi.json") {
-    headers.set("Cache-Control", "public, no-cache")
     headers.set("Access-Control-Allow-Origin", "*")
+  }
+  if (
+    (status === 200 || status === 304) &&
+    (request.method === "GET" || request.method === "HEAD") &&
+    !headers.has("Cache-Control")
+  ) {
+    // Stable URLs can change between releases, so revalidate after their short freshness window.
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#must-revalidate
+    if (PUBLIC_LOGO_PATH.test(pathname)) {
+      headers.set("Cache-Control", "public, max-age=3600, must-revalidate")
+    } else if (pathname === "/api/openapi.json") {
+      headers.set("Cache-Control", "public, max-age=300, must-revalidate")
+    }
   }
   if ((pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")) {
     headers.set("Cache-Control", "public, no-cache")
@@ -46,7 +65,7 @@ export function applyResponseSecurityHeaders(
 const responseHeadersPlugin: NitroAppPlugin = (nitro) => {
   nitro.hooks.hook("response", async (response, event) => {
     const pathname = new URL(event.req.url).pathname
-    applyResponseSecurityHeaders(response.headers, event.req, pathname)
+    applyResponseSecurityHeaders(response.headers, event.req, pathname, response.status)
     if (
       response.ok &&
       (pathname === "/docs" || pathname === "/docs.md" || pathname.startsWith("/docs/")) &&
