@@ -11,7 +11,8 @@
 
 ## Tooling and validation
 
-- Use Bun through `bun run --cwd <project> <task>` or from the affected project directory. Do not install or invoke Node, npm, npx, or ESLint directly. SDK consumers may use their host's package manager, and the Rails example follows its own instructions and `bin/ci`.
+- Use Bun through `bun run --cwd <project> <task>` or from the affected project directory. On macOS run application code natively, using a devcontainer only when requested. Do not install or invoke Node, npm, npx, or ESLint directly. SDK consumers may use their host's package manager, and the Rails example follows its own instructions and `bin/ci`.
+- Commit only reviewed non-secret environment defaults, never credentials, deployment values, or `*.local`. Preserve `env = false` in every Bun configuration, shell/CI/deployment precedence over files, and standalone environment loading local to its tool.
 - Keep root `package.json` a launcher for six explicit workspaces, shared compiler options in `tsconfig.base.json`, and project-specific configuration in each project. Preserve `check`, `test`, and `build` meanings, compose `ready` through `scripts/ready.ts`, and put reusable gates in `check` rather than CI-only steps.
 - Use project Oxlint and oxfmt tasks. Keep lint configurations structurally aligned, retain preset options, and assign each rule one owner. Fix findings in code without suppressions or overrides. Exclude only generated or registry-vendored sources, disable rules only for linked upstream defects, and re-audit presets, compatibility issues, and plugin loaders on upgrades.
 - Before `bun run knip:fix`, commit or back up untracked work, then inspect the full diff before `check:fix`. Knip entries must be real execution roots. Keep application entry exports checked and SDK public exports exempt. Ignore registry export noise without excluding unreachable files from discovery.
@@ -22,15 +23,12 @@
 - Use plain single shell commands with absolute paths or `bun run --cwd`, and scripts for multi-step logic. Keep scratch files and evidence outside the worktree in a task-unique directory, never shared paths such as `/tmp/pr-body.md`.
 - Upgrade dependencies with `bun update <package>@latest --minimum-release-age=0`, aligning exact-pinned siblings. Bump versions only when asked, update pinned SDK URLs with `git grep '@astralbeam/sdk@'`, and below 1.0 use a minor bump for breaking changes and a patch otherwise.
 
-## Identity and environment
+## Product conventions
 
 - An Organization is an AstralBeam customer, organization users are its dashboard users, Tenants are its customers, and TenantUsers interact with the embedded sidebar. The dashboard assistant is Astro. Keep organization, tenant, and tenant-user authority distinct.
-- Organization UUIDs are immutable, slugs are editable URL identifiers only, and only the organization table may have a `slug` column. Never use slugs as credential, token, relationship, or seed identity. Changing a slug breaks old URLs.
-- Give every entity its own opaque UUID and separate foreign-key columns. First-party organization-owned keys include `(organization_id, id)`, with further Tenant/thread scope where applicable. Better Auth retains adapter-compatible keys. Public IDs are `agent_<organizationId>_<id>` and `key_<organizationId>_<id>`.
-- On macOS run applications natively with Bun, Compose PostgreSQL/PgBouncer/Valkey/Mailpit, and native RustFS. Use a devcontainer only when requested. Never install host PostgreSQL or Valkey through setup. When an existing local PostgreSQL service is explicitly requested, use it directly without starting containers and preserve database isolation.
-- Provision through existing setup tasks and installed tools, without initializer containers, following [SETUP.md](SETUP.md). Preserve PgBouncer as the only loopback-published database endpoint and existing backend/host-port overrides. Direct `docker compose exec postgres` is for explicit administration. Only Codex Cloud Ubuntu uses `INSTALL_EXTRA=codex-db` with `SKIP_DOCKER_COMPOSE=true`.
-- Each worktree owns a database named for its unique folder, such as `a3f4` in `.../a3f4/astralbeam`, and a bucket derived from that database. `copy-worktree-env.sh` resets only that database before setup. Keep `db-reset` free of migrations, never recreate shared volumes, and preserve configured storage on setup reruns.
-- Keep Platform environment files under `platform`, commit only reviewed non-secret defaults, and never commit credentials, deployment values, or `*.local`. Preserve `env = false` in Bun configuration and shell/CI/deployment precedence over files. Keep runtime settings in database config at `/configure` and standalone environment loading local to its tool.
+- Organization UUIDs are immutable and slugs are editable URL identifiers only. Never use slugs as credential, token, relationship, or seed identity. Changing a slug breaks old URLs.
+- Entity IDs are opaque UUIDs. Public IDs are `agent_<organizationId>_<id>` and `key_<organizationId>_<id>`.
+- Follow [Platform instructions](platform/AGENTS.md) for Platform, database, and theme work, including changes to shared setup scripts, Compose, and local resources outside that directory.
 
 ## UI and documentation
 
@@ -38,18 +36,6 @@
 - Prefer icon-only routine actions with accessible names and hover/focus tooltips. Keep labels for choices, primary form actions, and destructive confirmations.
 - Platform and SDK own independent registry components and styles. Add components with the owning project's `bun run ui add <component>`, use Phosphor rather than Lucide, and record the registry item and every local change in each generated file's provenance header.
 - Keep consumer docs about setup, usage, behavior, and troubleshooting. Use `SETUP.md` for contributor setup and existing architecture/module guides for rationale. Preserve useful references, safety guidance, and copy-pasteable commands when shortening docs, without duplicating command sections elsewhere.
-- Keep AGENTS files focused on non-obvious constraints and task-specific links. Delete duplicated or tooling-enforced instructions instead of relocating them, preserve enforcement gaps, and avoid speculative future designs. Do not remove unrelated instructions without authorization.
+- Keep shared rules here and project-specific constraints in the closest AGENTS file, linking them for callers outside that scope. Focus on non-obvious constraints and task-specific links. Delete duplicated or tooling-enforced instructions instead of relocating them, preserve enforcement gaps, and avoid speculative future designs. Do not remove unrelated instructions without authorization.
 - Name plans `*.plan.md` and include motivation, authoritative references, affected files/API anchors, validation, and boundaries. Keep plans and PR descriptions concise and evidence-backed.
 - Outside formatter coverage, keep Markdown paragraphs/list items on single source lines with blank lines before lists. Avoid semicolons and em dashes in prose. Preserve exact quotes, code, and licenses. Code comments explain only non-obvious decisions, link authoritative evidence, and stay within two lines.
-- For `/docs`, follow the [house voice](https://swiftace.org): open with the subject and action, use "let's" and "we" for procedures and "you" for reader state, explain a command's purpose and reason before it, number steps, label asides `**NOTE**:` or `**TIP**:`, and reserve tables for reference data.
-
-## Theme and brand
-
-- Keep the theme compiler under `platform/scripts/theme` pure and outside runtime imports. `brand.json` owns Platform colors, while SDK colors remain independent. Keep hand-authored Platform CSS theme-agnostic and synchronize compiler schemas with `theme.schema.json`.
-- After theme changes run `bun run --cwd platform generate:theme` and refresh email sRGB values from its output. After SVG master changes run `bun run --cwd platform generate:png`. Keep logo masters and variants under `platform/public`.
-
-## Database
-
-- Use PostgreSQL 18+ and database commands through `bun run --cwd platform db <command>`. After schema changes run `generate --name <description>`, review SQL, run `check`, and commit schema with migrations. Apply only checked-in migrations with `migrate`, never Drizzle `push`, including `--explain`. Effect owns its `effect_cluster_*` migrations separately.
-- Use PostgreSQL `uuid` keys with database-generated `uuidv7()`, `citext` email identity, and `timestamp with time zone` without forced precision. Keep SQL identifiers lower snake case, text unconstrained, and timestamp ranges half-open. Follow PostgreSQL's [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance.
-- Never rewrite migrations others may have applied. Include required extension DDL, and regenerate only unmerged, unapplied iterations unused by shared deployments. Preserve full immutable identity as colon-joined cache-key prefixes and scope cleanup to the same namespace. Read [Platform database constraints](platform/AGENTS.md#database) before schema, migration, or transaction changes.
