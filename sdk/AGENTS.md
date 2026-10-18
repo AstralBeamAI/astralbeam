@@ -26,6 +26,7 @@ When changing chat persistence or recovery, read the [chat lifecycle and failure
 
 ## Presentation and verification
 
+- Use the same card and media dimensions for every file type in the composer, transcript, and published artifacts. Constrain cards to the available width, retain full filenames in truncated labels, and show a file-type icon while a thumbnail loads or is unavailable. Request previews through the existing file and attachment loaders in preview mode.
 - Numbered citation badges have no arrows. Consulted-source titles get smaller arrows through CSS.
 - Share semantic theme tokens and `applyWidgetTheme` across chat and directories. Keep host styling in `theme` and `customCss` with stable `data-slot` hooks, without changing SDK defaults or adding directory palettes.
 - Keep chat compact and keyboard focus visible within paint containment. Give actions 44px touch targets whenever any pointer is coarse, without inflating every button. Mount transcript items only when visible content exists, keep the latest turn outside `content-visibility` placeholders, and preserve stable message props. Do not adopt React Compiler.

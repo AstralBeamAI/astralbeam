@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect"
 import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { ChatSubmissionReceiptSchema } from "./threads.server"
+import { chatArtifactResponse, chatFileSuccess } from "./files.server"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 import {
   HttpApiBuilder,
@@ -121,19 +122,17 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       ),
     HttpApiEndpoint.get("getChatFile", "/chat/files", {
       query: Schema.Struct({
-        threadId: ApiUuidSchema,
+        threadId: Schema.optionalKey(ApiUuidSchema),
         fileId: ApiUuidSchema,
         filename: Schema.optionalKey(Schema.String),
+        preview: Schema.optionalKey(Schema.Boolean),
       }),
-      success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-        "Content-Disposition": Schema.String,
-        "Content-Length": Schema.String,
-      }),
+      success: chatFileSuccess,
     })
       .annotate(OpenApi.Summary, "Download a chat artifact")
       .annotate(
         OpenApi.Description,
-        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
+        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Set preview=true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -156,7 +155,6 @@ export function chatHandlers(api: typeof ApiV1) {
         chatAdmissionResponse,
         readChatRequestBody,
       } = yield* Effect.promise(() => import("./run.server"))
-      const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
       const { ChatFiles } = yield* Effect.promise(
         () => import("@/lib/chat/attachments/attachments"),
       )
@@ -295,20 +293,28 @@ export function chatHandlers(api: typeof ApiV1) {
               scope.tenantId,
               scope.tenantUserId,
             ]).pipe(Effect.provideContext(services))
-            yield* threads.get({ scope, id: query.threadId })
+            const preview = query.preview ?? false
+            if (query.threadId) yield* threads.get({ scope, id: query.threadId })
+            else if (!preview) return yield* new ChatThreadInvalid()
             const file = yield* files
               .read({
                 scope: {
                   organizationId: scope.organizationId,
                   tenantId: scope.tenantId,
-                  threadId: query.threadId,
+                  ...(query.threadId ? { threadId: query.threadId } : {}),
+                  ...(preview ? { tenantUserId: scope.tenantUserId } : {}),
                 },
                 fileId: query.fileId,
+                ...(preview ? { preview: true } : {}),
               })
               .pipe(
                 Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
               )
-            return chatArtifactResponse({ ...file, path: query.filename ?? "artifact" })
+            return chatArtifactResponse({
+              ...file,
+              path: preview ? "preview.webp" : (query.filename ?? "artifact"),
+              preview,
+            })
           }),
         )
     }),

@@ -2,6 +2,8 @@
 
 The composer uploads files before sending a message: paperclip button, drag and drop, or paste. Images and PDFs go to the model as-is. Every other file is delivered as a file the agent reads or analyzes.
 
+Images and readable text, including CSV and TSV, show a small preview in the composer and saved messages. Previews are generated on first view and cached for later use. A file-type card appears while loading or when a preview is unavailable, including PDFs, Office documents, Parquet, and SQLite. Downloading always returns the original file.
+
 ## Draft recovery
 
 After uploading, local storage keeps file IDs and metadata alongside unsent text. Reloading or reopening restores the draft without sending automatically. File bytes and signed URLs are never saved locally. Clearing storage removes draft references. Uploads do not expire, and files still uploading are not saved yet.

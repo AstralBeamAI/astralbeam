@@ -232,6 +232,16 @@ export function chatWidget(page: Page) {
       return root.getByRole("button", { name: `Remove ${name}` })
     },
 
+    attachmentCard(name: string): Locator {
+      return root.locator('[data-slot="attachment"]').filter({
+        has: page.getByText(name, { exact: true }),
+      })
+    },
+
+    attachmentPreview(name: string): Locator {
+      return root.getByRole("img", { name: `Preview of ${name}`, exact: true })
+    },
+
     newChatButton(): Locator {
       return root.getByRole("button", { name: "New chat" })
     },

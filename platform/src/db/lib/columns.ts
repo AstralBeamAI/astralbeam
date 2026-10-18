@@ -6,7 +6,6 @@ import {
   timestamp,
   uuid,
   type AnyPgColumn,
-  type ForeignKey,
 } from "drizzle-orm/pg-core"
 import { Result, Schema } from "effect"
 
@@ -23,13 +22,6 @@ type EncryptedJsonOptions<Value> = {
 
 type ForeignKeyDeferrability = "immediate" | "deferred"
 
-// Drizzle retains the columns array on built constraints, so timing survives introspection.
-// https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/pg-core/foreign-keys.ts
-const foreignKeyDeferrability = new WeakMap<
-  ReturnType<ForeignKey["reference"]>["columns"],
-  ForeignKeyDeferrability
->()
-
 // Drizzle cannot represent deferrability. Preserve DEFERRABLE clauses in migration SQL.
 // https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/pg-core/foreign-keys.ts
 export function deferrableForeignKey<
@@ -45,14 +37,7 @@ export function deferrableForeignKey<
   foreignColumns: { [Key in keyof TColumns]: AnyPgColumn<{ tableName: TForeignTableName }> }
   deferrable?: ForeignKeyDeferrability
 }) {
-  const { deferrable = "immediate", ...reference } = options
-  const columns: TColumns = [...reference.columns]
-  foreignKeyDeferrability.set(columns, deferrable)
-  return foreignKey({ ...reference, columns })
-}
-
-export function getForeignKeyDeferrability(constraint: ForeignKey) {
-  return foreignKeyDeferrability.get(constraint.reference().columns)
+  return foreignKey(options)
 }
 
 // The migration installs PostgreSQL's trusted citext extension before creating these columns. https://www.postgresql.org/docs/current/citext.html

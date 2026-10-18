@@ -5,6 +5,7 @@ import { Activity, DurableClock, Workflow } from "effect/workflow"
 import { Database } from "@/db/database"
 import { fileObject } from "@/db/schema/files"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { filePreviewObjectKey } from "@/lib/storage/file-previews.server"
 import { UuidV7Schema } from "@/lib/schemas"
 
 // One durable purge per file. Its payload retains the object key across retries and restarts.
@@ -34,6 +35,7 @@ export const purgeFileWorkflowLayer = purgeFile.toLayer((payload) =>
         success: Schema.Boolean,
         execute: Effect.gen(function* () {
           yield* storage.remove({ key: payload.objectKey })
+          yield* storage.remove({ key: filePreviewObjectKey(payload.objectKey) })
           yield* db.delete(fileObject).where(purging)
           return true
         }).pipe(

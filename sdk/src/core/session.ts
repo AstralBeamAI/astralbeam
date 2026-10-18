@@ -245,11 +245,15 @@ export interface AstralBeamChatCore {
     filename: string
     mimeType: string
   }) => Promise<UploadedChatFile>
-  getFile: (fileId: string) => Promise<Blob>
+  getFile: (fileId: string, options?: { preview?: boolean }) => Promise<Blob>
   getMcpCatalog: () => Promise<McpCatalog>
   manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
   authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
-  getAttachment: (messageId: string, partId: string) => Promise<Blob>
+  getAttachment: (
+    messageId: string,
+    partId: string,
+    options?: { preview?: boolean },
+  ) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
 }
@@ -1522,16 +1526,33 @@ export function createAstralBeamChat(
         options,
       )
     },
-    getFile: async (fileId) => {
+    getFile: async (fileId, options) => {
       const thread = state.thread
-      if (!thread) throw new Error("Open a conversation before downloading files.")
-      return (await getChatFile({ threadId: thread.id, fileId }, await requestOptions())).blob()
+      if (!thread && !options?.preview)
+        throw new Error("Open a conversation before downloading files.")
+      return (
+        await getChatFile(
+          {
+            fileId,
+            ...(thread ? { threadId: thread.id } : {}),
+            ...(options?.preview ? { preview: "true" } : {}),
+          },
+          await requestOptions(!options?.preview),
+        )
+      ).blob()
     },
-    getAttachment: async (messageId, partId) => {
+    getAttachment: async (messageId, partId, options) => {
       const thread = state.thread
       if (!thread) throw new Error("Open a conversation before downloading attachments.")
-      const response = await getChatAttachment(thread.id, messageId, partId, await requestOptions())
-      return response.blob()
+      return (
+        await getChatAttachment(
+          thread.id,
+          messageId,
+          partId,
+          options?.preview ? { preview: "true" } : {},
+          await requestOptions(),
+        )
+      ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),
     manageMcpConnection: async (operation) => {

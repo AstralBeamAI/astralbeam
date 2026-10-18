@@ -72,17 +72,10 @@ export function storedThreadAttachments({
           [...read(destinationKey), ...attachments].map((file) => [file.id, file]),
         ).values(),
       ]
-      globalThis.localStorage?.setItem(
-        destinationKey,
-        JSON.stringify(attachments.map(({ data: _data, ...file }) => file)),
-      )
+      globalThis.localStorage?.setItem(destinationKey, JSON.stringify(attachments))
       globalThis.localStorage?.removeItem(key)
     } else if (update) {
-      if (attachments.length)
-        globalThis.localStorage?.setItem(
-          key,
-          JSON.stringify(attachments.map(({ data: _data, ...file }) => file)),
-        )
+      if (attachments.length) globalThis.localStorage?.setItem(key, JSON.stringify(attachments))
       else globalThis.localStorage?.removeItem(key)
     }
     return attachments

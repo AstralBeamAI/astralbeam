@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer"
 import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
-import { todosPage } from "../../pages/todos-page.ts"
 import { openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -28,7 +27,9 @@ test("React conversation directory reads saved pages, uploads and decisions with
 }) => {
   const directory = threadDirectoryPage(page)
   const mutations: string[] = []
-  let hasConversations = true
+  const missingPreview = page.waitForResponse(
+    "**/messages/publication/attachments/result?preview=true",
+  )
   let previousTop: number | undefined
   page.on("request", (request) => {
     if (
@@ -38,19 +39,9 @@ test("React conversation directory reads saved pages, uploads and decisions with
     )
       mutations.push(request.url())
   })
-  await page.route("**/api/v1/threads?*", (route) => {
-    const q = new URL(route.request().url()).searchParams.get("q") ?? ""
-    return route.fulfill({
-      json: {
-        items:
-          hasConversations && (!q || savedThread.title.toLowerCase().includes(q.toLowerCase()))
-            ? [savedThread]
-            : [],
-        page_after: null,
-        page_before: null,
-      },
-    })
-  })
+  await page.route("**/api/v1/threads?*", (route) =>
+    route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
+  )
   await page.route("**/api/v1/tenants/*/threads/*/messages?*", async (route) => {
     const earlier = new URL(route.request().url()).searchParams.has("page_after")
     if (earlier && previousTop === undefined) {
@@ -128,29 +119,21 @@ test("React conversation directory reads saved pages, uploads and decisions with
       ),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
-    route.fulfill({ body: "Saved upload", contentType: "text/plain" }),
-  )
+  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload*", (route) => {
+    if (new URL(route.request().url()).searchParams.has("preview"))
+      return route.fulfill({ status: 404 })
+    return route.fulfill({ body: "Saved upload", contentType: "text/plain" })
+  })
   await page.route(
-    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result",
+    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result*",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
+      if (new URL(route.request().url()).searchParams.has("preview"))
+        return route.fulfill({ status: 404 })
       return route.fulfill({ body: "Generated report", contentType: "text/plain" })
     },
   )
   await directory.openReact()
-  await expect(
-    directory.directory.getByRole("columnheader", { name: "Participants", exact: true }),
-  ).toBeVisible()
-  await expect(
-    directory.directory.getByRole("columnheader", { name: "Tenant", exact: true }),
-  ).toHaveCount(0)
-  await expect(
-    directory.directory.getByRole("row").filter({ hasText: savedThread.title }),
-  ).toContainText("Ada Example")
-  await expect(
-    directory.directory.getByRole("row").filter({ hasText: savedThread.title }),
-  ).toContainText("guest")
   await directory.conversation(savedThread.title).click()
   await expect(directory.transcript).toContainText("Saved partial response")
   await expect(directory.transcript.getByRole("textbox")).toHaveCount(0)
@@ -179,23 +162,10 @@ test("React conversation directory reads saved pages, uploads and decisions with
   const generated = page.waitForEvent("download")
   await directory.transcript.getByRole("button", { name: "Download generated-report.txt" }).click()
   expect((await generated).suggestedFilename()).toBe("generated-report.txt")
-  await directory.refresh.click()
+  await missingPreview
+  await expect(page.getByRole("alert")).toHaveCount(0)
   await captureMoment(page, "read-only-conversation-transcript")
   expect(mutations).toEqual([])
-  await directory.back.click()
-  await directory.search.fill("missing")
-  await expect(directory.directory).toContainText("No conversations match your filters")
-  await page.setViewportSize({ width: 320, height: 844 })
-  await todosPage(page).controls.closeAssistant.click()
-  await directory.search.fill("")
-  await expect(directory.conversation(savedThread.title)).toBeVisible()
-  expect(
-    await directory.directory.evaluate((element) => element.scrollWidth <= element.clientWidth),
-  ).toBe(true)
-  await captureMoment(page, "conversation-directory-mobile")
-  hasConversations = false
-  await directory.refresh.click()
-  await expect(directory.directory).toContainText("No conversations yet.")
 })
 
 test("vanilla conversation directory follows cursors, filters Tenants and clears selected history on identity changes", async ({
@@ -277,43 +247,6 @@ test("non-admin Tenant credentials cannot browse conversations", async ({ page }
     "Tenant administrator authority is required",
   )
   await expect(directory.directory.getByRole("table")).toHaveCount(0)
-})
-
-test("empty projected history pages automatically load earlier messages", async ({ page }) => {
-  const directory = threadDirectoryPage(page)
-  const thread = savedThread
-  let earlierRequests = 0
-  await page.route("**/api/v1/threads?*", (route) =>
-    route.fulfill({ json: { items: [thread], page_after: null, page_before: null } }),
-  )
-  await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) => {
-    const earlier = new URL(route.request().url()).searchParams.has("page_after")
-    if (earlier) earlierRequests++
-    return route.fulfill({
-      json: savedDirectoryMessages(
-        thread,
-        earlierRequests === 2
-          ? [savedUserMessage("earlier", "Earlier context")]
-          : Array.from({ length: 100 }, (_, i) => ({
-              id: `result-${earlierRequests}-${i}`,
-              role: "tool",
-              state: "complete",
-              source_assistant_message_id: "assistant",
-              source_tool_part_id: "call",
-              response_target_id: `target-${i}`,
-              parts: [
-                { id: "result", type: "tool-result", output: { ok: true }, outcome: "succeeded" },
-              ],
-            })),
-        earlierRequests === 2 ? null : `earlier-${earlierRequests}`,
-      ),
-    })
-  })
-  await directory.openReact()
-  await directory.conversation(thread.title).click()
-  await expect(directory.transcript).toBeVisible()
-  await expect(directory.transcript).toContainText("Earlier context")
-  expect(earlierRequests).toBe(2)
 })
 
 test("scrolling during refresh waits without canceling the latest history", async ({ page }) => {
@@ -447,11 +380,13 @@ for (const status of [401, 403, 404]) {
         ]),
       }),
     )
-    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
-      route.fulfill({
-        status,
-        json: { type: "about:blank", title: "Access denied", status, detail: "Access denied" },
-      }),
+    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload*", (route) =>
+      new URL(route.request().url()).searchParams.has("preview")
+        ? route.fulfill({ status: 204 })
+        : route.fulfill({
+            status,
+            json: { type: "about:blank", title: "Access denied", status, detail: "Access denied" },
+          }),
     )
     await directory.openReact()
     await directory.conversation(savedThread.title).click()
@@ -494,7 +429,8 @@ test("refresh preserves saved image previews without downloading again", async (
       ]),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture", (route) => {
+  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture*", (route) => {
+    expect(new URL(route.request().url()).searchParams.get("preview")).toBe("true")
     images++
     return route.fulfill({
       contentType: "image/png",

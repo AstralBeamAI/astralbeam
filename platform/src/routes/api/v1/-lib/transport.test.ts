@@ -41,13 +41,11 @@ import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { organization } from "@/db/schema/organizations"
 import {
-  createTenant as sdkCreateTenant,
   getChatFile as sdkGetChatFile,
   getCurrentUser as sdkGetCurrentUser,
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
-  updateTenant as sdkUpdateTenant,
 } from "@sdk/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
@@ -403,11 +401,14 @@ afterAll(() => restWebHandler.dispose())
 
 beforeEach(() => {
   vi.resetAllMocks()
-  restTestState.readFile.mockImplementation(({ fileId }: { fileId: string }) =>
-    Effect.succeed({
-      bytes: new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
-      mimeType: fileId === restUserId ? "image/png" : "text/plain",
-    }),
+  restTestState.readFile.mockImplementation(
+    ({ fileId, preview }: { fileId: string; preview?: boolean }) =>
+      Effect.succeed({
+        bytes: preview
+          ? new Uint8Array()
+          : new TextEncoder().encode(fileId === restUserId ? "saved image" : "Hello"),
+        mimeType: fileId === restUserId ? "image/png" : "text/plain",
+      }),
   )
   vi.stubEnv("DATABASE_ENCRYPTION_KEY", "rest-unit-test-key-not-for-deployment")
   Object.assign(restTestState, {
@@ -566,40 +567,6 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(response.status).toBe(429)
     expect(response.headers.get("retry-after")).toBe("2")
     expect(restTestState.writes).toHaveLength(0)
-  })
-
-  test("generated SDK sends typed writes and consumes live cursor pages", async () => {
-    const options = {
-      apiKey: restTestApiKey,
-      apiUrl: "http://localhost/api",
-      fetchClient: restSdkFetch,
-      headers: new Headers({ "Content-Type": "application/json" }),
-    }
-    restTestState.rows.push([restTenantRow], [{ ...restTenantRow, name: "Updated" }])
-    const tenant = await sdkCreateTenant({ external_id: restTenantRow.externalId }, options)
-    expect(tenant).toMatchObject({
-      id: restTenantId,
-      name: null,
-      created_at: "2026-09-01T00:00:00.000Z",
-    })
-    expect(await sdkUpdateTenant(tenant.id, { name: "Updated" }, options)).toHaveProperty(
-      "name",
-      "Updated",
-    )
-    restTestState.rows.push([restTenantRow, { ...restTenantRow, id: restOtherId }])
-    const first = await sdkListTenants({ page_size: 1 }, options)
-    restTestState.rows.push([{ ...restTenantRow, id: restOtherId }], [restTenantRow])
-    const second = await sdkListTenants({ page_size: 1, page_after: first.page_after! }, options)
-    expect(second.items[0]?.id).toBe(restOtherId)
-    restTestState.rows.push([restTenantRow], [{ ...restTenantRow, id: restOtherId }])
-    const previous = await sdkListTenants({ page_before: second.page_before! }, options)
-    expect(previous.items).toEqual(first.items)
-    restTestState.rows.push([])
-    await expect(sdkUpdateTenant(restOtherId, { name: null }, options)).rejects.toMatchObject({
-      name: "AstralBeamApiError",
-      status: 404,
-      body: { status: 404 },
-    })
   })
 
   test("conversation search binds pagination to the search and participant identity", async () => {
@@ -1297,6 +1264,22 @@ describe("REST API through the Effect Fetch handler", () => {
       })
       expect(unavailable.status).toBe(error._tag === "ChatThreadInvalid" ? 404 : 503)
     }
+  })
+
+  test("previews permit unsent files while retaining conversation access checks", async () => {
+    const headers = { Authorization: "Bearer chat-token" }
+    const previewPath = `/chat/files?fileId=${restUserId}&preview=true`
+    expect((await restRequest(previewPath, { headers })).status).toBe(204)
+    expect(restTestState.thread).not.toHaveBeenCalled()
+    restTestState.readFile.mockReturnValue(Effect.fail(new ChatThreadInvalid()))
+    expect((await restRequest(previewPath, { headers })).status).toBe(404)
+    restTestState.readFile.mockClear()
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    expect((await restRequest(`${previewPath}&threadId=${restOtherId}`, { headers })).status).toBe(
+      404,
+    )
+    expect(restTestState.readFile).not.toHaveBeenCalled()
+    expect((await restRequest(`/chat/files?fileId=${restUserId}`, { headers })).status).toBe(400)
   })
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {

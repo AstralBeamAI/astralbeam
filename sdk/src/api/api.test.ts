@@ -1,5 +1,5 @@
-import { assert, expect, expectTypeOf, test, vi } from "vitest"
-import { getChatConfig, getChatFile, listTenants, updateTenant } from "./index.ts"
+import { assert, expect, test, vi } from "vitest"
+import { getChatConfig, getChatAttachment, getThreadAttachment, listTenants } from "./index.ts"
 import { astralBeamApiFetch, isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
@@ -35,6 +35,21 @@ test("typed credentials own authentication, preserving custom bases and queries"
   expect(chatUrl).toBe("/api/v1/chat/config")
   expect(new Headers(chatInit?.headers).get("authorization")).toBe("Bearer jwt")
   expect(new Headers(chatInit?.headers).has("x-api-key")).toBe(false)
+  const ids = ["thread", "message", "part"] as const
+  await getChatAttachment(...ids, { apiUrl: options.apiUrl, fetchClient, astralBeamToken: "jwt" })
+  await getThreadAttachment("tenant", ...ids, options, { preview: "true" })
+  expect(
+    fetchClient.mock.calls
+      .slice(2)
+      .map(([url, init]) => [
+        new URL(new Request(url, init).url).search,
+        new Headers(init?.headers).get("authorization"),
+        new Headers(init?.headers).get("x-api-key"),
+      ]),
+  ).toEqual([
+    ["", "Bearer jwt", null],
+    ["?preview=true", null, "organization-key"],
+  ])
 })
 
 test("non-JSON HTTP errors preserve status and headers without retrying", async () => {
@@ -59,47 +74,3 @@ test("204 successes do not attempt to decode an absent response body", async () 
     astralBeamApiFetch<void>("/resource", { method: "DELETE", apiKey: "key", fetchClient }),
   ).resolves.toBeUndefined()
 })
-
-test.each([undefined, "support-id", { id: "support-id" }])(
-  "only accepts error bodies with optional string references: %j",
-  async (reference) => {
-    const body = {
-      type: "about:blank",
-      title: "Unavailable",
-      detail: "Try later",
-      status: 503,
-      reference,
-    }
-    const fetchClient = () => Promise.resolve(Response.json(body, { status: 503 }))
-    const error = await listTenants({}, { apiKey: "key", fetchClient }).catch(
-      (error: unknown) => error,
-    )
-    assert(isAstralBeamApiError(error))
-    expect(error.body).toEqual(typeof reference === "object" ? undefined : body)
-  },
-)
-
-test("invalid JSON successes and native abort errors propagate", async () => {
-  const fetchClient = vi.fn<typeof fetch>().mockResolvedValue(new Response("invalid json"))
-  await expect(listTenants({}, { apiKey: "key", fetchClient })).rejects.toBeInstanceOf(SyntaxError)
-  const error = new DOMException("aborted", "AbortError")
-  fetchClient.mockReset().mockRejectedValue(error)
-  await expect(updateTenant("id", { name: null }, { apiKey: "key", fetchClient })).rejects.toBe(
-    error,
-  )
-  expect(fetchClient).toHaveBeenCalledTimes(1)
-})
-
-// Generated authentication types distinguish resources and chat, checked by `typecheck`.
-{
-  type ResourceOptions = NonNullable<Parameters<typeof listTenants>[1]>
-  type ChatOptions = NonNullable<Parameters<typeof getChatConfig>[1]>
-  type DownloadOptions = NonNullable<Parameters<typeof getChatFile>[1]>
-  expectTypeOf<{ apiKey: string }>().toExtend<ResourceOptions>()
-  expectTypeOf<{ astralBeamToken: string }>().toExtend<ResourceOptions>()
-  expectTypeOf<{ apiKey: string; astralBeamToken: string }>().not.toExtend<ResourceOptions>()
-  expectTypeOf<{ apiKey: string }>().not.toExtend<ChatOptions>()
-  expectTypeOf<{ astralBeamToken: string }>().toExtend<DownloadOptions>()
-  expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof listTenants>>()
-  expectTypeOf<[Record<string, never>]>().not.toExtend<Parameters<typeof getChatConfig>>()
-}

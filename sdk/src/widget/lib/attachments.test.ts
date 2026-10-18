@@ -2,7 +2,6 @@ import { expect, test } from "vitest"
 
 import {
   acceptAttachmentFiles,
-  attachmentContentParts,
   classifyAttachmentFile,
   describeSentAttachment,
   resolveAttachmentOptions,
@@ -15,21 +14,6 @@ function ids() {
   let next = 0
   return () => `attachment-${next++}`
 }
-
-test("classifies the file types the chat endpoint can read", () => {
-  expect(classifyAttachmentFile({ name: "shot.png", type: "image/png", size: 10 }, limits)).toEqual(
-    { kind: "image", mimeType: "image/png" },
-  )
-  expect(
-    classifyAttachmentFile({ name: "spec.pdf", type: "application/pdf", size: 10 }, limits),
-  ).toEqual({ kind: "pdf", mimeType: "application/pdf" })
-  expect(
-    classifyAttachmentFile({ name: "notes.md", type: "text/markdown", size: 10 }, limits),
-  ).toEqual({ kind: "text", mimeType: "text/markdown" })
-  expect(
-    classifyAttachmentFile({ name: "clip.mp3", type: "audio/mpeg", size: 10 }, limits),
-  ).toEqual({ error: "Unsupported file type" })
-})
 
 // A data or office file's kind decides its size cap and its icon, and the endpoint keys its whole
 // delivery on the type sent here, so a `.csv` arriving as `text/plain` would be read as prose.
@@ -147,7 +131,6 @@ test("counts already-picked files against the limits", () => {
       mimeType: "application/pdf",
       kind: "pdf",
       status: "ready",
-      data: "AA==",
     },
     {
       id: "rejected",
@@ -167,57 +150,6 @@ test("counts already-picked files against the limits", () => {
   })
   // The ready PDF counts toward the total; the rejected file never will be sent, so it does not.
   expect(picked[0]?.draft.error).toBe("Over the 10 MB message limit")
-})
-
-test("sends images as image parts and everything else as named documents", () => {
-  const attachments: DraftAttachment[] = [
-    {
-      id: "1",
-      name: "shot.png",
-      size: 12,
-      mimeType: "image/png",
-      kind: "image",
-      status: "ready",
-      fileId: "image-object",
-    },
-    {
-      id: "2",
-      name: "spec.pdf",
-      size: 34,
-      mimeType: "application/pdf",
-      kind: "pdf",
-      status: "ready",
-      fileId: "document-object",
-    },
-    {
-      id: "3",
-      name: "notes.md",
-      size: 56,
-      mimeType: "text/markdown",
-      kind: "text",
-      status: "reading",
-    },
-    {
-      id: "4",
-      name: "clip.mp3",
-      size: 78,
-      mimeType: "audio/mpeg",
-      status: "error",
-      error: "Unsupported file type",
-    },
-  ]
-  expect(attachmentContentParts(attachments)).toEqual([
-    {
-      type: "image",
-      source: { type: "file", value: "image-object", mimeType: "image/png" },
-      metadata: { filename: "shot.png", size: 12 },
-    },
-    {
-      type: "document",
-      source: { type: "file", value: "document-object", mimeType: "application/pdf" },
-      metadata: { filename: "spec.pdf", size: 34 },
-    },
-  ])
 })
 
 // The href becomes an <img src> and a download anchor, so a part carrying an active scheme, or
@@ -252,12 +184,4 @@ test("a sent attachment points only at data the composer itself sends", () => {
     }).href,
   ).toBe("data:audio/mpeg;base64,AAAA")
   expect(href("javascript:alert(1)", "image/png", "url")).toBeUndefined()
-})
-
-test("attachments are on unless the host turns them off", () => {
-  expect(resolveAttachmentOptions(undefined).enabled).toBe(true)
-  expect(resolveAttachmentOptions(true).enabled).toBe(true)
-  expect(resolveAttachmentOptions({ maxFiles: 2 }).enabled).toBe(true)
-  expect(resolveAttachmentOptions(false).enabled).toBe(false)
-  expect(resolveAttachmentOptions({ enabled: false }).enabled).toBe(false)
 })

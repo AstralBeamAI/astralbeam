@@ -3725,6 +3725,18 @@
               "minLength": 1
             },
             "required": true
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false
           }
         ],
         "security": [
@@ -3766,6 +3778,9 @@
                 "required": true
               }
             }
+          },
+          "204": {
+            "description": "<No Content>"
           },
           "400": {
             "description": "AstralBeamApiError",
@@ -4032,6 +4047,7 @@
             }
           }
         },
+        "description": "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
         "summary": "Download a saved conversation upload for administration"
       }
     },
@@ -4402,7 +4418,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "required": true
+            "required": false
           },
           {
             "name": "fileId",
@@ -4418,6 +4434,18 @@
             "in": "query",
             "schema": {
               "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             },
             "required": false
           }
@@ -4455,6 +4483,9 @@
                 "required": true
               }
             }
+          },
+          "204": {
+            "description": "<No Content>"
           },
           "400": {
             "description": "AstralBeamApiError",
@@ -4721,7 +4752,7 @@
             }
           }
         },
-        "description": "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Published artifacts survive sandbox shutdown. The server verifies the stored size and hash before returning content-sniffed bytes.",
+        "description": "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Set preview=true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
         "summary": "Download a chat artifact"
       }
     },
@@ -9219,6 +9250,18 @@
               "minLength": 1
             },
             "required": true
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false
           }
         ],
         "security": [
@@ -9254,6 +9297,9 @@
                 "required": true
               }
             }
+          },
+          "204": {
+            "description": "<No Content>"
           },
           "400": {
             "description": "AstralBeamApiError",
@@ -9520,6 +9566,7 @@
             }
           }
         },
+        "description": "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
         "summary": "Download a saved attachment"
       }
     },

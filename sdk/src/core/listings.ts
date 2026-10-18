@@ -260,9 +260,23 @@ export function loadDirectoryThreadAttachment(
   messageId: string,
   partId: string,
   signal: AbortSignal,
+  options?: { preview: true },
 ) {
   return listingRequest(session, signal, async (auth) => {
-    const response = await getThreadAttachment(tenantId, id, messageId, partId, auth)
-    return response.blob()
+    try {
+      const response = await getThreadAttachment(
+        tenantId,
+        id,
+        messageId,
+        partId,
+        options?.preview ? { preview: "true" } : {},
+        auth,
+      )
+      return await response.blob()
+    } catch (error) {
+      if (options?.preview && !(isAstralBeamApiError(error) && [401, 403].includes(error.status)))
+        return new Blob()
+      throw error
+    }
   })
 }

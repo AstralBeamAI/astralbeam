@@ -15,6 +15,7 @@ import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatResizeHandle } from "./components/chat-resize-handle.tsx"
 import { useChatWidth } from "./use-chat-width.ts"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
+import { AttachmentPreviewContext } from "./components/attachment-preview.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
@@ -93,6 +94,13 @@ export function ChatWidget({
   // One session per committed mount, retuned in place, though Strict Mode's render probe can
   // still build a discarded second.
   const [chat] = useState(() => createAstralBeamChat(sessionOptions, true))
+  const loadPreview = useCallback(
+    (messageId: string | undefined, id: string) =>
+      messageId
+        ? chat.getAttachment(messageId, id, { preview: true })
+        : chat.getFile(id, { preview: true }),
+    [chat],
+  )
   // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
     chat.updateOptions(sessionOptions)
@@ -243,13 +251,12 @@ export function ChatWidget({
       const data = readAttachmentData(file)
       void chat
         .uploadAttachment({ data, filename: pick.name, mimeType: pick.mimeType })
-        .then(async (uploaded) => {
+        .then((uploaded) => {
           composer.settleAttachment(pick.id, {
             status: "ready",
             fileId: uploaded.fileId,
             mimeType: uploaded.mimeType,
             size: uploaded.byteSize,
-            ...(pick.kind === "image" ? { data: await data } : {}),
           })
         })
         .catch((error: unknown) => {
@@ -336,7 +343,7 @@ export function ChatWidget({
       <XIcon />
     </TooltipButton>
   )
-  return (
+  const content = (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
     <Card
@@ -535,4 +542,5 @@ export function ChatWidget({
       </CardFooter>
     </Card>
   )
+  return <AttachmentPreviewContext value={loadPreview}>{content}</AttachmentPreviewContext>
 }

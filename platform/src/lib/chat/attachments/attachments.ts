@@ -7,6 +7,7 @@ import { Database } from "@/db/database.ts"
 import { chatFile } from "@/db/schema/chat.ts"
 import { fileObject } from "@/db/schema/files.ts"
 import { StoredFiles } from "@/lib/storage/stored-files.server.ts"
+import { FilePreviews } from "@/lib/storage/file-previews.server.ts"
 import {
   ChatMessagePayloadSchema,
   type ChatMessagePayload,
@@ -657,8 +658,9 @@ export class ChatFiles extends Context.Service<
       cache?: ChatFileCache
     }) => Effect.Effect<ChatMessagePayload, FileError>
     readonly read: (input: {
-      scope: ChatFileScope
+      scope: Omit<ChatFileScope, "threadId"> & { threadId?: string }
       fileId: string
+      preview?: boolean
     }) => Effect.Effect<{ bytes: Uint8Array; mimeType: string }, FileError>
     readonly hydrate: (input: {
       scope: ChatFileScope
@@ -677,6 +679,7 @@ export class ChatFiles extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const files = yield* StoredFiles
+      const previews = yield* FilePreviews
       const queryFile = (id: string, ownership: ReturnType<typeof ownedFiles>) =>
         db
           .select({ file: fileObject, attachment: chatFile })
@@ -802,19 +805,25 @@ export class ChatFiles extends Context.Service<
       const read = Effect.fnUntraced(function* ({
         scope,
         fileId,
+        preview = false,
         maxBytes = CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-      }: {
-        scope: ChatFileScope
-        fileId: string
-        maxBytes?: number
-      }) {
+      }: Parameters<typeof ChatFiles.Service.read>[0] & { maxBytes?: number }) {
+        if (!preview && !scope.threadId) return yield* new ChatThreadInvalid()
         // Admission reads uploader-private files. Saved downloads use conversation ownership.
         const ownership = scope.tenantUserId
           ? available({ ...scope, tenantUserId: scope.tenantUserId })
-          : ownedFiles(scope)
+          : scope.threadId
+            ? ownedFiles({ ...scope, threadId: scope.threadId })
+            : undefined
+        if (!ownership) return yield* new ChatThreadInvalid()
         const [saved] = yield* queryFile(fileId, ownership)
         if (!saved) return yield* new ChatThreadInvalid()
         const file = saved.file
+        if (preview)
+          return yield* previews.read({ file }).pipe(
+            Effect.map((result) => result ?? { bytes: new Uint8Array(), mimeType: "image/webp" }),
+            Effect.mapError(() => new ChatFileUnavailable()),
+          )
         if (file.byteSize > maxBytes) return yield* new ChatThreadInvalid()
         const bytes = yield* files
           .read({ file })
@@ -920,6 +929,6 @@ export class ChatFiles extends Context.Service<
     }),
   )
   static readonly layer = ChatFiles.layerNoDeps.pipe(
-    Layer.provide([Database.layer, StoredFiles.layer]),
+    Layer.provide([Database.layer, StoredFiles.layer, FilePreviews.layer]),
   )
 }

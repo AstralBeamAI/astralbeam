@@ -70,7 +70,6 @@ export function SandboxPart({
   if (artifact?.published && !failed) {
     return (
       <SentAttachment
-        expanded
         messageId={part.artifactMessageId ?? ""}
         getAttachment={readFile}
         part={{

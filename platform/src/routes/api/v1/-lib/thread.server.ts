@@ -23,6 +23,7 @@ import {
   savedChatAttachmentResponse,
 } from "../chat/-lib/threads.server"
 import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
+import { chatFileSuccess } from "../chat/-lib/files.server"
 
 const directoryThreadDate = Schema.DateFromString.pipe(
   Schema.annotateEncoded({ format: "date-time" }),
@@ -101,12 +102,15 @@ export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLeve
           messageId: ApiUuidSchema,
           partId: NonEmptyStringSchema,
         },
-        success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-          "Content-Disposition": Schema.String,
-          "Content-Length": Schema.String,
-        }),
+        query: Schema.Struct({ preview: Schema.optionalKey(Schema.Boolean) }),
+        success: chatFileSuccess,
       },
-    ).annotate(OpenApi.Summary, "Download a saved conversation upload for administration"),
+    )
+      .annotate(OpenApi.Summary, "Download a saved conversation upload for administration")
+      .annotate(
+        OpenApi.Description,
+        "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+      ),
   )
   .annotateEndpoints(OpenApi.Override, restResourceSecurity)
   .annotate(
@@ -183,9 +187,9 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
             headers: response.headers,
           })
         }),
-        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params }) {
+        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params, query }) {
           const message = yield* threads.directoryMessage({ ...params, scope: yield* RestScope })
-          return yield* savedChatAttachmentResponse(message, params.partId)
+          return yield* savedChatAttachmentResponse(message, params.partId, query.preview)
         }),
       })
     }),

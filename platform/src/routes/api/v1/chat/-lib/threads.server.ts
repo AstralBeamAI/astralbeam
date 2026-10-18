@@ -21,6 +21,7 @@ import {
 } from "../../-lib/shared.server"
 import type { ThreadRecord, MessageRecord, ParticipantRecord } from "@/lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
+import { chatArtifactResponse, chatFileSuccess } from "./files.server"
 import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "@/lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
@@ -311,12 +312,15 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
       "/chat/threads/:id/messages/:messageId/attachments/:partId",
       {
         params: { ...threadParams, messageId: ApiUuidSchema, partId: NonEmptyStringSchema },
-        success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-          "Content-Disposition": Schema.String,
-          "Content-Length": Schema.String,
-        }),
+        query: Schema.Struct({ preview: Schema.optionalKey(Schema.Boolean) }),
+        success: chatFileSuccess,
       },
-    ).annotate(OpenApi.Summary, "Download a saved attachment"),
+    )
+      .annotate(OpenApi.Summary, "Download a saved attachment")
+      .annotate(
+        OpenApi.Description,
+        "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+      ),
   )
   .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -630,14 +634,14 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               lockVersion: query.expected_version,
             })
           }),
-          getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params }) {
+          getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params, query }) {
             const scope = yield* scopeFor(request)
             const message = yield* threads.getMessage({
               scope,
               id: params.id,
               messageId: params.messageId,
             })
-            return yield* savedChatAttachmentResponse(message, params.partId)
+            return yield* savedChatAttachmentResponse(message, params.partId, query.preview)
           }),
         })
     }),
@@ -647,9 +651,9 @@ export function chatThreadHandlers(api: typeof ApiV1) {
 export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentResponse")(function* (
   message: MessageRecord,
   partId: string,
+  preview: boolean = false,
 ) {
   const { ChatFiles } = yield* Effect.promise(() => import("@/lib/chat/attachments/attachments"))
-  const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
   const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
   const saved = message.payload.parts.find((entry) => entry.id === partId)
   if (!saved) return yield* new ChatThreadNotFound()
@@ -674,6 +678,7 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
       threadId: message.threadId,
     },
     fileId: source.id,
+    ...(preview ? { preview: true } : {}),
   })
   const metadata = saved.metadata
   const path =
@@ -682,5 +687,5 @@ export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentRespons
       : output && typeof output.path === "string"
         ? output.path
         : "attachment"
-  return chatArtifactResponse({ ...file, path })
+  return chatArtifactResponse({ ...file, path: preview ? "preview.webp" : path, preview })
 })

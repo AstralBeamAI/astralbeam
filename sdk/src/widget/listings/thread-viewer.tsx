@@ -12,6 +12,7 @@ import {
 import { projectThreadMessages } from "../../core/threads.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
+import { AttachmentPreviewContext } from "../components/attachment-preview.tsx"
 
 export function ThreadViewer({
   session,
@@ -35,7 +36,7 @@ export function ThreadViewer({
     getNextPageParam: (page) => page.page_after ?? undefined,
   })
   const getAttachment = useCallback(
-    async (messageId: string, partId: string) => {
+    async (messageId: string, partId: string, options?: { preview: true }) => {
       try {
         return await loadDirectoryThreadAttachment(
           session,
@@ -44,6 +45,7 @@ export function ThreadViewer({
           messageId,
           partId,
           session.abortController.signal,
+          options,
         )
       } catch (error) {
         if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
@@ -52,6 +54,11 @@ export function ThreadViewer({
       }
     },
     [session, thread.tenant_id, thread.id],
+  )
+  const loadPreview = useCallback(
+    (messageId: string | undefined, id: string) =>
+      messageId ? getAttachment(messageId, id, { preview: true }) : Promise.resolve(new Blob()),
+    [getAttachment],
   )
   const messages = useMemo(() => {
     const projected = projectThreadMessages(
@@ -70,7 +77,7 @@ export function ThreadViewer({
   const error = attachmentError ?? query.error
   const inaccessible = isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
-  return (
+  const content = (
     <section
       data-slot="directory-transcript"
       aria-label="Saved conversation"
@@ -130,4 +137,5 @@ export function ThreadViewer({
       ) : null}
     </section>
   )
+  return <AttachmentPreviewContext value={loadPreview}>{content}</AttachmentPreviewContext>
 }

@@ -215,8 +215,8 @@ export function readAttachmentData(file: Blob): Promise<string> {
   })
 }
 
-/** Renders an attachment back as a data URI, for an image thumbnail in the composer or transcript. */
-export function attachmentDataUri(mimeType: string, data: string): string {
+/** Restores the data URI prefix for an inline attachment in a transcript. */
+function attachmentDataUri(mimeType: string, data: string): string {
   return `data:${mimeType};base64,${data}`
 }
 

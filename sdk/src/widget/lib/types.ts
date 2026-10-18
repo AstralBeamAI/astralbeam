@@ -55,8 +55,6 @@ export interface DraftAttachment {
   status: "reading" | "ready" | "error"
   /** Uploaded object ID. Only this reference and file metadata are persisted locally. */
   fileId?: string
-  /** Transient base64 for the upload and image preview. */
-  data?: string
   /** Why the file was rejected or could not be read; present when the status is `"error"`. */
   error?: string
 }

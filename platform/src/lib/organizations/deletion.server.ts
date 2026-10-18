@@ -8,6 +8,7 @@ import { cacheEntry } from "@/db/schema/cache.ts"
 import { apiKey, invitation, member, organization } from "@/db/schema/organizations.ts"
 import { fileObject } from "@/db/schema/files.ts"
 import { ObjectStorage } from "../storage/object-storage.server.ts"
+import { filePreviewObjectKey } from "../storage/file-previews.server.ts"
 import { deleteTenant } from "../tenants/deletion.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
@@ -92,6 +93,7 @@ export const deleteOrganizationFileBatch = Effect.fn("deleteOrganizationFileBatc
     (file) =>
       Effect.gen(function* () {
         yield* storage.remove({ key: file.objectKey })
+        yield* storage.remove({ key: filePreviewObjectKey(file.objectKey) })
         yield* db
           .delete(fileObject)
           .where(and(eq(fileObject.organizationId, organizationId), eq(fileObject.id, file.id)))
