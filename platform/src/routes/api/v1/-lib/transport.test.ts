@@ -797,6 +797,8 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     expect(download.status).toBe(200)
     expect(download.headers.get("content-type")).toBe("image/png")
+    expect(download.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
+    expect(download.headers.get("vary")).toBe("Authorization, X-API-Key")
     expect(await download.text()).toBe("saved image")
     expect(restTestState.threadMessage).toHaveBeenCalledWith({
       scope: restThreadScope,
@@ -1269,10 +1271,21 @@ describe("REST API through the Effect Fetch handler", () => {
   test("previews permit unsent files while retaining conversation access checks", async () => {
     const headers = { Authorization: "Bearer chat-token" }
     const previewPath = `/chat/files?fileId=${restUserId}&preview=true`
-    expect((await restRequest(previewPath, { headers })).status).toBe(204)
+    const missing = await restRequest(previewPath, { headers })
+    expect(missing.status).toBe(204)
+    expect(missing.headers.get("cache-control")).toBe("no-store")
     expect(restTestState.thread).not.toHaveBeenCalled()
+    restTestState.readFile.mockReturnValue(
+      Effect.succeed({ bytes: new Uint8Array([1]), mimeType: "image/webp" }),
+    )
+    const preview = await restRequest(previewPath, { headers })
+    expect(preview.status).toBe(200)
+    expect(preview.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
+    expect(preview.headers.get("vary")).toBe("Authorization, X-API-Key")
     restTestState.readFile.mockReturnValue(Effect.fail(new ChatThreadInvalid()))
-    expect((await restRequest(previewPath, { headers })).status).toBe(404)
+    const denied = await restRequest(previewPath, { headers })
+    expect(denied.status).toBe(404)
+    expect(denied.headers.get("cache-control")).toBe("no-store")
     restTestState.readFile.mockClear()
     restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
     expect((await restRequest(`${previewPath}&threadId=${restOtherId}`, { headers })).status).toBe(

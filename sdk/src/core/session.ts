@@ -1537,7 +1537,7 @@ export function createAstralBeamChat(
             ...(thread ? { threadId: thread.id } : {}),
             ...(options?.preview ? { preview: "true" } : {}),
           },
-          await requestOptions(!options?.preview),
+          { ...(await requestOptions(!options?.preview)), cache: "default" },
         )
       ).blob()
     },
@@ -1550,7 +1550,7 @@ export function createAstralBeamChat(
           messageId,
           partId,
           options?.preview ? { preview: "true" } : {},
-          await requestOptions(),
+          { ...(await requestOptions()), cache: "default" },
         )
       ).blob()
     },

@@ -33,7 +33,10 @@ export function chatArtifactResponse({
           path,
         ),
         "content-length": String(bytes.byteLength),
-        "cache-control": "private, no-store",
+        "cache-control": isInlineArtifactMimeType(mimeType)
+          ? "private, max-age=60, must-revalidate"
+          : "private, no-store",
+        vary: "Authorization, X-API-Key",
         "x-content-type-options": "nosniff",
         "content-security-policy": "sandbox; default-src 'none'",
       },
