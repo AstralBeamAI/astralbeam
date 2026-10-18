@@ -112,6 +112,11 @@ const typeAwareRules: RuleMap = {
   "typescript/restrict-plus-operands": "error",
 }
 
+const restrictedBunProperties = {
+  object: "Bun",
+  allowProperties: ["isStandaloneExecutable", "embeddedFiles"],
+}
+
 // Additional correctness and JSX rules without an imported preset owner.
 // https://oxc.rs/docs/guide/usage/linter/rules.html
 const additionalRules: RuleMap = {
@@ -122,6 +127,7 @@ const additionalRules: RuleMap = {
   "no-inner-declarations": "error",
   "no-prototype-builtins": "error",
   "no-redeclare": "error",
+  "no-restricted-properties": ["error", restrictedBunProperties],
   "typescript/adjacent-overload-signatures": "error",
   "typescript/ban-ts-comment": "error",
   "typescript/no-empty-interface": "error",
@@ -154,7 +160,7 @@ const baseRules: RuleMap = {
   ...recommendedRules.regexp,
   ...typeAwareRules,
   ...additionalRules,
-  "no-restricted-imports": ["error", { patterns: [projectPathImportPattern] }],
+  "no-restricted-imports": ["error", { patterns: ["bun", "bun:*", projectPathImportPattern] }],
   // regexp-js owns these specialized equivalents.
   // https://github.com/ota-meshi/eslint-plugin-regexp/blob/master/lib/configs/flat/recommended.ts
   "no-empty-character-class": "off",
@@ -186,6 +192,8 @@ const baseRules: RuleMap = {
 }
 
 const deepImportPatterns = [
+  "bun",
+  "bun:*",
   projectPathImportPattern,
   {
     // Keep two-parent route helpers and Scalar's unexported browser entry relative.
@@ -252,6 +260,7 @@ export default defineConfig({
         ],
         "no-restricted-properties": [
           "error",
+          restrictedBunProperties,
           {
             property: "foreignKey",
             message: "Use deferrableForeignKey from src/db/lib/columns.ts.",

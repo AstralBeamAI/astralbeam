@@ -105,7 +105,9 @@ program
       for (const file of Bun.embeddedFiles) {
         const { name } = file as Blob & { name: string }
         if (name.startsWith("server/") || name.startsWith("public/")) {
-          await Bun.write(join(directory, name), file)
+          const destination = join(directory, name)
+          mkdirSync(dirname(destination), { recursive: true })
+          writeFileSync(destination, new Uint8Array(await file.arrayBuffer()))
         }
       }
       serverUrl = pathToFileURL(join(directory, "server/index.mjs"))

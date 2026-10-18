@@ -180,10 +180,10 @@ platform_database_url() {
   return 1
 }
 
-# Probe connectivity without platform-specific nc flags. https://bun.sh/docs/api/tcp
+# Probe connectivity without platform-specific nc flags. https://nodejs.org/api/net.html
 endpoint_is_reachable() {
   ENDPOINT_PROBE_URL="$1" bun --no-env-file -e \
-    'const { hostname, port } = new URL(process.env.ENDPOINT_PROBE_URL); const socket = await Bun.connect({ hostname, port: Number(port) || 5432, socket: { data() {} } }); socket.end()' \
+    'import { createConnection } from "node:net"; const { hostname, port } = new URL(process.env.ENDPOINT_PROBE_URL); createConnection({ host: hostname, port: Number(port) || 5432 }).once("connect", function () { this.end() }).once("error", () => { process.exitCode = 1 })' \
     >/dev/null 2>&1
 }
 

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks"
+import dgram from "node:dgram"
 import http from "node:http"
 import https from "node:https"
 import net from "node:net"
@@ -174,6 +175,14 @@ function installTransactionTransportGuards() {
     "TCP connect",
   )
   tls.connect = guardedTransactionTransport(tls.connect, "TLS connect")
+  for (const method of ["bind", "connect", "send"] as const) {
+    Object.assign(dgram.Socket.prototype, {
+      [method]: guardedTransactionTransport(
+        Reflect.get(dgram.Socket.prototype, method),
+        `UDP ${method}`,
+      ),
+    })
+  }
   globalThis.WebSocket = new Proxy(globalThis.WebSocket, {
     construct(target, args, constructor) {
       assertTransactionNetworkAllowed("WebSocket")
