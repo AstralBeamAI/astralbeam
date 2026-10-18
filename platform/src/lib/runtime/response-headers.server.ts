@@ -23,6 +23,9 @@ export function applyResponseSecurityHeaders(
   request: Request,
   pathname: string,
 ): void {
+  // Vary on encoding even when Nitro serves the uncompressed representation.
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
+  headers.append("Vary", "Accept-Encoding")
   if (pathname === "/api/openapi.json") {
     headers.set("Cache-Control", "public, no-cache")
     headers.set("Access-Control-Allow-Origin", "*")

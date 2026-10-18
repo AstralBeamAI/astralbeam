@@ -12,6 +12,34 @@ index 91b723f0804e10a919004798e6909844f1273cec..8fa4d920e2f93a7a42ba76e1b1f36af1
  	plugins: [...tracingSrvxPlugins]
  });
  setupCloseHooks(server);
+diff --git a/dist/runtime/internal/static.mjs b/dist/runtime/internal/static.mjs
+index d942003403adc1287ace15839d8f7df077118c26..75d7715dad3ca75dbf260cdad1ad6ddd0ab84e7a 100644
+--- a/dist/runtime/internal/static.mjs
++++ b/dist/runtime/internal/static.mjs
+@@ -17 +17,15 @@
+-	const encodings = [...encodingHeader.split(",").map((e) => EncodingMap[e.trim()]).filter(Boolean).sort(), ""];
++	// Upgrade Nitro when https://github.com/nitrojs/nitro/issues/4457 is released. Remove this hunk once negotiation checks pass.
++	// Based on https://github.com/nitrojs/nitro/commit/2bf002a6941933ce26b42a7b401a049a4fb04c38, including identity preferences.
++	const weights = new Map(encodingHeader.split(",").map((entry) => {
++		const [name, ...parameters] = entry.split(";");
++		const quality = parameters.map((parameter) => parameter.trim().split("=")).find(([key]) => key.toLowerCase() === "q")?.[1];
++		const weight = quality === undefined ? 1 : Number.parseFloat(quality);
++		return [name.trim().toLowerCase(), Number.isNaN(weight) ? 1 : weight];
++	}));
++	const encodings = Object.entries({ ...EncodingMap, identity: "" })
++		.map(([name, ext]) => ({ ext, weight: weights.get(name) ?? (name === "identity" ? 0 : weights.get("*") ?? 0) }))
++		.filter((entry) => entry.weight > 0)
++		.sort((a, b) => b.weight - a.weight || (a.ext < b.ext ? -1 : a.ext > b.ext ? 1 : 0))
++		.map((entry) => entry.ext);
++	// An implicit identity is the fallback unless excluded. https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3
++	if (!weights.has("identity") && weights.get("*") !== 0) encodings.push("");
+@@ -26,0 +41 @@
++		if (asset) break;
+@@ -28,0 +44,4 @@
++		if (getAsset(id) || getAsset(joinURL(id, "index.html"))) {
++			event.res.headers.delete("Cache-Control");
++			throw new HTTPError({ status: 406 });
++		}
 diff --git a/dist/runtime/internal/vite/dev-worker.mjs b/dist/runtime/internal/vite/dev-worker.mjs
 index 3ced9371804165a184fbed4a1d5256537ab734f1..4b6478541d465fac17998b591ddf4ef082e4f19a 100644
 --- a/dist/runtime/internal/vite/dev-worker.mjs
