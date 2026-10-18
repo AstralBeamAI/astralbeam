@@ -49,9 +49,6 @@ function isWebsitePath(request: Request, pathname: string): boolean {
 
 function websiteResponse(upstream: Response, pathname: string): Response {
   const headers = new Headers(upstream.headers)
-  // fetch decodes the body, so the upstream encoding and length no longer describe it.
-  headers.delete("content-encoding")
-  headers.delete("content-length")
   if (pathname === "/") {
     // Signed-in visitors get the dashboard at this URL, so shared caches must not keep this page.
     headers.set("Cache-Control", "private, no-cache")
@@ -85,9 +82,18 @@ export function rewriteToWebsite(
         const value = request.headers.get(name)
         if (value !== null) headers.set(name, value)
       }
+      headers.set("accept-encoding", request.headers.get("accept-encoding") ?? "identity")
       return yield* Effect.tryPromise({
         try: (signal) =>
-          fetch(url, { method: request.method, headers, redirect: "manual", signal }),
+          // Preserve negotiated bytes and headers through the proxy without recompression.
+          // https://bun.sh/docs/runtime/networking/fetch#content-encoding
+          fetch(url, {
+            method: request.method,
+            headers,
+            redirect: "manual",
+            signal,
+            decompress: false,
+          }),
         catch: (cause) => cause,
       }).pipe(
         Effect.map((upstream) => websiteResponse(upstream, pathname)),

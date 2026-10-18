@@ -10,9 +10,10 @@ function securityHeaders(url: string, pathname: string, requestHeaders: HeadersI
 
 describe("response security headers", () => {
   test("preserves private cache policy for personalized docs responses", () => {
-    const headers = new Headers({ "Cache-Control": "private, no-store" })
+    const headers = new Headers({ "Cache-Control": "private, no-store", Vary: "Cookie" })
     applyResponseSecurityHeaders(headers, new Request("https://app.example/docs/sdk"), "/docs/sdk")
     expect(headers.get("cache-control")).toBe("private, no-store")
+    expect(headers.get("vary")).toBe("Cookie, Accept-Encoding")
   })
 
   test.each(["/organization", "/api/v1/tenants", "/api/v1/chat", "/api/chat"])(
