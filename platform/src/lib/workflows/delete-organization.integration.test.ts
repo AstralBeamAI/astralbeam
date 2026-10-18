@@ -1,4 +1,5 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, getTableName, sql } from "drizzle-orm"
+import { getTableConfig } from "drizzle-orm/pg-core"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
@@ -18,6 +19,7 @@ const deleteOrganizationIntegration = vi.hoisted(() => {
 })
 
 import { Database, getAuthDatabase } from "@/db/database"
+import { getForeignKeyDeferrability } from "@/db/lib/columns"
 import { sqlState } from "@/db/lib/sqlstate"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { Mailer } from "@/lib/email/email.server"
@@ -47,6 +49,7 @@ import {
   sandboxProvider,
   tenant,
   tenantUser,
+  tables,
   usageLimit,
   usageLimitCounter,
   user,
@@ -289,6 +292,97 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         } as unknown as ObjectStorage["Service"]),
       )
   }
+
+  test("keeps all foreign keys deferrable and bound to complete primary keys", async () => {
+    const expectedReferences = new Map(
+      Object.values(tables).flatMap((table) => {
+        const config = getTableConfig(table)
+        return config.foreignKeys.map((constraint) => {
+          const reference = constraint.reference()
+          return [
+            JSON.stringify([config.name, reference.columns.map((column) => column.name)]),
+            {
+              table: getTableName(reference.foreignTable),
+              columns: reference.foreignColumns.map((column) => column.name),
+              deferrable: getForeignKeyDeferrability(constraint),
+              onDelete: constraint.onDelete,
+              onUpdate: constraint.onUpdate,
+            },
+          ] as const
+        })
+      }),
+    )
+    const { rows } = await db.execute<{
+      tableName: string
+      localColumns: string[]
+      foreignTable: string
+      foreignColumns: string[]
+      deferrable: boolean
+      initiallyDeferred: boolean
+      validated: boolean
+      enforced: boolean
+      deleteAction: string
+      updateAction: string
+      referencesPrimaryKey: boolean
+      usesPrimaryKeyIndex: boolean
+    }>(sql`select table_row.relname as "tableName",
+      array(select column_row.attname::text
+        from unnest(constraint_row.conkey) with ordinality as key_column(attnum, position)
+        join pg_attribute column_row on column_row.attrelid = constraint_row.conrelid
+          and column_row.attnum = key_column.attnum
+        order by key_column.position) as "localColumns",
+      referenced_table.relname as "foreignTable",
+      array(select column_row.attname::text
+        from unnest(constraint_row.confkey) with ordinality as key_column(attnum, position)
+        join pg_attribute column_row on column_row.attrelid = constraint_row.confrelid
+          and column_row.attnum = key_column.attnum
+        order by key_column.position) as "foreignColumns",
+      constraint_row.condeferrable as deferrable,
+      constraint_row.condeferred as "initiallyDeferred",
+      constraint_row.convalidated as validated,
+      constraint_row.conenforced as enforced,
+      constraint_row.confdeltype as "deleteAction",
+      constraint_row.confupdtype as "updateAction",
+      constraint_row.confkey = referenced_key.conkey as "referencesPrimaryKey",
+      constraint_row.conindid = referenced_key.conindid as "usesPrimaryKeyIndex"
+    from pg_constraint constraint_row
+    join pg_class table_row on table_row.oid = constraint_row.conrelid
+    join pg_class referenced_table on referenced_table.oid = constraint_row.confrelid
+    join pg_namespace namespace_row on namespace_row.oid = table_row.relnamespace
+    left join pg_constraint referenced_key on referenced_key.conrelid = constraint_row.confrelid
+      and referenced_key.contype = 'p'
+    where constraint_row.contype = 'f' and namespace_row.nspname = 'public'
+      and table_row.relname !~ '^effect_'`)
+    expect(rows).toHaveLength(expectedReferences.size)
+    expect(
+      rows.filter(
+        (row) =>
+          !row.deferrable ||
+          !row.validated ||
+          !row.enforced ||
+          row.deleteAction === "r" ||
+          row.updateAction === "r" ||
+          !row.referencesPrimaryKey ||
+          !row.usesPrimaryKeyIndex,
+      ),
+    ).toEqual([])
+    const actions: Record<string, string> = {
+      a: "no action",
+      c: "cascade",
+      n: "set null",
+      d: "set default",
+    }
+    for (const row of rows) {
+      const reference = expectedReferences.get(JSON.stringify([row.tableName, row.localColumns]))
+      expect(reference).toEqual({
+        table: row.foreignTable,
+        columns: row.foreignColumns,
+        deferrable: row.initiallyDeferred ? "deferred" : "immediate",
+        onDelete: actions[row.deleteAction],
+        onUpdate: actions[row.updateAction],
+      })
+    }
+  })
 
   test("rolls back unresolved deferred deletion, then commits parent-first deletion", async () => {
     const deleted = await createOrganization("deleted")
