@@ -1,6 +1,6 @@
 # SDK development
 
-When changing chat persistence or recovery, read the [chat lifecycle and failure contracts](../platform/src/lib/chat/README.md). Consumer setup and behavior belong in [README.md](README.md) and the [SDK guides](../platform/src/routes/docs/-content/sdk), not implementation policy.
+When changing chat persistence or recovery, read the [chat lifecycle and failure contracts](../platform/src/lib/chat/README.md).
 
 ## Package boundaries
 
@@ -36,4 +36,4 @@ When changing chat persistence or recovery, read the [chat lifecycle and failure
 - Preserve loaded transcript pages and scroll position after transient pagination failures, but hide administrative history after access failures. Administrative transcripts never render host widgets or accept questionnaires.
 - Use MCP server for endpoint configuration and MCP connection for credentials. Keep management UI in the SDK with authorized host callbacks, without prescribing ownership. Include MCP in standalone labels and reserve Allowed MCP servers for agent permissions.
 - Verify directories in existing examples across vanilla/React mounts, scope and denial, search, wildcard literals, pagination, metadata, theming, and remounting. For API-key or chat-auth changes, use a dashboard-created key and verify a real assistant tool changes the Todos host, capturing the browser evidence required by the project skill.
-- Keep README and hosted SDK guides aligned, concise, and focused on tenant-scoped embedding. Put breaking changes and replacements in the PR. Follow each example's AGENTS file when changing its integration.
+- Keep [README.md](README.md) and the [SDK guides](../platform/src/routes/docs/-content/sdk) aligned and focused on tenant-scoped embedding. Put breaking changes and replacements in the PR. Follow each example's AGENTS file when changing its integration.

@@ -1,6 +1,6 @@
 # Platform development
 
-- Before changing routes or services, follow the [code map](src/README.md). Read the [database guide](src/db/README.md) for database work and [browser guide](e2e/README.md) for e2e work.
+- Follow the [code map](src/README.md) for route/service changes, the [database guide](src/db/README.md) for database work, and the [browser guide](e2e/README.md) for e2e work.
 - Read the [authentication instructions](src/lib/auth/AGENTS.md) for authentication, API-key lifecycle and dashboard credentials, including callers outside that directory, and [API instructions](src/routes/api/v1/AGENTS.md) for public APIs, repositories and OpenAPI changes.
 
 ## Server code
@@ -11,13 +11,13 @@
 - Build server logic with the existing runtime, naming Effect services `astralbeam/<module>/<Service>` and tracing methods with `Effect.fn("<Service>.<method>")`. Wrap Promise APIs once in their owning service. Use `ServerRequest` for request/response access and `tryPromiseInServerRequest` for Better Auth calls. Library callbacks use `runAppEffect`, never imports that cycle back through `runtime.server.ts`.
 - Keep service errors domain-specific. Map constraints with `mapDatabaseErrors`, treat other database/decode failures as defects unless callers recover, and expose only fixed safe messages. Inspect wrapped SQL errors through Effect `Cause` utilities then standard `cause` links, never arbitrary fields or message parsing. Log unexpected failures once with safe metadata and a reference, never raw messages or values.
 - Prefer Effect's scoped resources, clocks, scheduling and concurrency over custom infrastructure. Reuse database cache, idempotency and locking helpers. Keep sandbox package-facing adapters independent of Platform services. Check maintained TanStack adapters and vendor SDKs before custom provider implementations.
-- Keep the Bun binary working, including database-independent version/migration commands. For dependency, build or server changes, run `bun run --cwd platform build` and `bun run --cwd platform binary:check`. Retain the Nitro idle-timeout patch until [upstream supports Bun server options](https://github.com/nitrojs/nitro/discussions/2989).
+- Keep the Bun binary working, with version/migration commands that do not initialize the server. For dependency, build or server changes, run `bun run --cwd platform build` and `bun run --cwd platform binary:check`. Retain the Nitro idle-timeout patch until [upstream supports Bun server options](https://github.com/nitrojs/nitro/discussions/2989).
 - Protect the highest wholly server-only directory in `vite.config.ts`. Use `.server.ts` elsewhere, or the server-only marker for unsuffixed entrypoints. Preserve required `migration.ts` names. Browser imports from protected modules must be type-only. Never expose server environment variables.
 - Apply global framing CSP to every path, including embedded APIs, as an additional policy so route restrictions remain enforced. Cross-origin fetch permissions belong to CORS.
 
 ## Database
 
-- Use PostgreSQL 18+ and database commands through `bun run --cwd platform db <command>`. After schema changes run `generate --name <description>`, review SQL, run `check`, and commit schema with migrations. Apply only checked-in migrations with `migrate`, never Drizzle `push`, including `--explain`.
+- Use PostgreSQL 18+ and commit schema changes with reviewed migrations.
 - Use PostgreSQL `uuid` keys with database-generated `uuidv7()`, `citext` email identity, and `timestamp with time zone` without forced precision. Keep SQL identifiers lower snake case, text unconstrained, and timestamp ranges half-open. Follow PostgreSQL's [Don't Do This](https://wiki.postgresql.org/wiki/Don't_Do_This) guidance.
 - Preserve separate Promise and Effect pools, shared runtime lifecycle, five-second connection timeouts, `prepare: false`, and the Promise pool error listener. Do not add extra pools, `allowExitOnIdle`, global type parsers, `postgres`/postgres-js clients or separate database signal handlers. Never initialize resources during import or shutdown. Keep Drizzle adapters module-local and CLI migrations independent of Effect.
 - Transactions may perform only SQL on their current connection. Put all other network I/O outside them, including raw transactions and work through sockets, subprocesses or workers. Never bypass guards, detach work or catch a guard error and continue. Keep provisioning's advisory-lock fiber separate from its external work.
