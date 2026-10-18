@@ -4,14 +4,14 @@
 
 - Before non-trivial work, inspect applicable instructions, the current Git base and diff, source, generated artifacts, and installed APIs. Research large changes first, then batch open design decisions with recommendations.
 - Keep changes narrow and convention-aligned. Prefer supported defaults, existing infrastructure, top-level imports when initialization is safe, and fewer total lines. Keep dynamic imports for bootstrap availability and intentional lazy loading. A deduplication refactor must not increase total lines.
-- Implement and verify the smallest useful slice, normally one PR per area. Fix defects in the path being changed, but ask before unrelated changes or third-party issues and PRs. Research and plans do not authorize implementation or resuming paused work.
+- Implement and verify the smallest useful slice, normally one PR per area. Fix defects in the path being changed, but ask before unrelated changes or third-party issues and PRs. Research, plans and instruction updates do not authorize implementation or resuming paused work.
 - Keep tests for security, persistence, concurrency, cancellation, recovery, and observed regressions. Remove redundant tests, fixtures, speculative handling, and one-use abstractions. Fix missing operator inputs through prompts, defaults, or flags instead of manual workarounds.
 - Verify uncertain tooling behavior with a small experiment. Stop a third-party CLI blocked for more than two minutes and report how to test it. Link unavoidable upstream workarounds and their removal conditions.
 - Before completion, review correctness, scope, complexity, and all still-applicable user requests. Finish authorized omissions, identify anything deferred or unverified, and disclose instruction edits that permit the change. Incorporate durable corrections into an existing instruction when possible, without accumulating incident narratives.
 
 ## Tooling and validation
 
-- Use Bun through `bun run --cwd <project> <task>` or from the affected project directory. On macOS run application code natively, using a devcontainer only when requested. Do not install or invoke Node, npm, npx, or ESLint directly. SDK consumers may use their host's package manager, and the Rails example follows its own instructions and `bin/ci`.
+- Use Bun through `bun run --cwd <project> <task>` or from the affected project directory. On macOS run application code natively, using a devcontainer only when requested. Do not install or invoke Node, npm, npx, or ESLint directly, or declare or configure ESLint. SDK consumers may use their host's package manager, and the Rails example follows its own instructions and `bin/ci`.
 - Commit only reviewed non-secret environment defaults, never credentials, deployment values, or `*.local`. Preserve `env = false` in every Bun configuration, shell/CI/deployment precedence over files, and standalone environment loading local to its tool.
 - Keep root `package.json` a launcher for six explicit workspaces. Preserve `check`, `test`, and `build` meanings, compose `ready` through `scripts/ready.ts`, and put reusable gates in `check` rather than CI-only steps.
 - Root `tsconfig.base.json` holds shared compiler defaults, including `lib: ["ES2025"]`. Each project's `tsconfig.json` extends it, overrides `lib` when needed, and keeps its own `jsx`, `types`, `paths`, and file globs.

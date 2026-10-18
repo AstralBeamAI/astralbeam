@@ -1,6 +1,6 @@
 # CLI development
 
-- Keep the CLI a thin shell over the SDK's generated `api` client, `server` token minting, and `core` chat session. Add missing public operations to Platform `/api/v1` first. Keep one `src` module per command group, registered through `program.ts`.
+- Keep the CLI a thin shell over the SDK's generated `api` client, `server` token minting, and `core` chat session. Add missing public operations to Platform `/api/v1` first. Keep one `src` module per command group, exporting a `register*` function wired through `program.ts`.
 - Published code must run unchanged on Node 22.12+ and Bun, using `node:` built-ins and web APIs.
 - Preserve `--json`: API records/pages go unchanged to stdout. Stderr contains exactly one object, `{"context"}` on success or `{"error": <problem details>, "context"}` on failure. Exit `0` for success, `1` for API/runtime failures, and `2` for usage errors.
 - Never accept API keys as flags or print them unmasked. Read from `ASTRALBEAM_API_KEY`, a hidden prompt, or stdin. Send keys only to HTTPS or loopback URLs. Report the resolved organization on every keyed command, in leading stderr text or JSON `context`.
