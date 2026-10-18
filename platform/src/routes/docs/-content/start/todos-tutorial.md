@@ -42,9 +42,11 @@ Your own route must authenticate its own session first and derive the tenant and
 A tool is a name, a description, a JSON schema for its input, and a function that runs in the page. Here is how the example declares the tool that creates a todo:
 
 ```tsx
-const tools: Record<string, ToolDefinition> = {
+import type { ToolRegistry } from "@astralbeam/sdk/react"
+
+const tools: ToolRegistry = {
   create_todo: {
-    metadata: { title: "Create a todo" },
+    title: "Create a todo",
     description: "Create a new todo and append it to the list.",
     parameters: {
       type: "object",
@@ -62,7 +64,7 @@ const tools: Record<string, ToolDefinition> = {
 
 The agent can only do what you declare. There is no ambient access to your application, so a tool you remove is a capability the agent loses immediately.
 
-`execute` runs with the agent's authority in the user's page, and its input is model-chosen rather than user-typed, so validate it and reject what does not make sense, as the example does before it touches state. Whatever `execute` returns goes back into the conversation, so return the minimum the agent needs rather than your whole store.
+`execute` runs with the agent's authority in the user's page, and its input is model-chosen rather than user-typed, so validate it and reject what does not make sense, as the example does before it touches state. Return model-safe content and structured data, and reserve `uiData` for presentation details.
 
 **TIP**: Read current state through a ref rather than a captured closure, or a long conversation will act on a stale snapshot.
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { toolResult } from "../lib/define.ts"
 
 import { RENDER_WIDGET_TOOL } from "./protocol.ts"
 import type { WidgetRenderRequest } from "./session.ts"
@@ -145,6 +146,7 @@ test("hydration restores distinct widget calls and skips missing or incompatible
           "~standard": {
             version: 1,
             vendor: "test",
+            jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
             validate: () => ({ issues: [{ message: "Required field missing" }] }),
           },
         },
@@ -257,7 +259,14 @@ test.each(["saved", "live"])(
     const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
     const card = {
       description: "A host card",
-      parameters: { "~standard": { version: 1 as const, vendor: "test", validate } },
+      parameters: {
+        "~standard": {
+          version: 1 as const,
+          vendor: "test",
+          jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
+          validate,
+        },
+      },
     }
     const chat = createTestSession({
       threadId: thread.id,
@@ -274,8 +283,8 @@ test.each(["saved", "live"])(
     const execution =
       mode === "live"
         ? mocked.tools
-            .find((tool) => tool.name === RENDER_WIDGET_TOOL)
-            ?.execute?.({ widget: "card", props: {} }, { toolCallId: "call" })
+            .find((tool) => tool.name === "show_card")
+            ?.execute?.({}, { toolCallId: "call" })
         : undefined
     await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
     chat.updateOptions({
@@ -301,6 +310,7 @@ test("an old async restoration cannot release a newly selected thread's pending 
           "~standard": {
             version: 1,
             vendor: "test",
+            jsonSchema: { input: () => ({ type: "object" }), output: () => ({ type: "object" }) },
             validate: () => new Promise((resolve) => complete.push(resolve)),
           },
         },
@@ -455,9 +465,9 @@ test("a released render leaves no cleanup behind in the session", async () => {
     saved: true,
     executableToolCallIds: Array.from({ length: 21 }, (_, index) => `call-${index}`),
   })
-  const renderWidget = mocked.tools.find((tool) => tool.name === RENDER_WIDGET_TOOL)
+  const renderWidget = mocked.tools.find((tool) => tool.name === "show_card")
   for (let call = 0; call < 21; call += 1) {
-    await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: `call-${call}` })
+    await renderWidget?.execute?.({}, { toolCallId: `call-${call}` })
   }
 
   // What eviction past the render cap does: the host disposed its own DOM and forgets the cleanup.
@@ -488,12 +498,167 @@ test("a late release keeps the cleanup of the render that took over the tool cal
     saved: true,
     executableToolCallIds: Array.from({ length: 21 }, (_, index) => `call-${index}`),
   })
-  const renderWidget = mocked.tools.find((tool) => tool.name === RENDER_WIDGET_TOOL)
-  await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: "call-1" })
-  await renderWidget?.execute?.({ widget: "card", props: {} }, { toolCallId: "call-1" })
+  const renderWidget = mocked.tools.find((tool) => tool.name === "show_card")
+  await renderWidget?.execute?.({}, { toolCallId: "call-1" })
+  await renderWidget?.execute?.({}, { toolCallId: "call-1" })
 
   releases[0]?.()
   chat.reset()
 
   expect(cleanupsRun).toEqual(["call-1", "call-1"])
 })
+
+test.each(["update", "definition", "renderer", "stop"])(
+  "attached widgets share app controls and dispose unavailable %s without remounting",
+  async (unavailable) => {
+    const result = {
+      content: [{ type: "text", text: "Updated" }],
+      structuredContent: { updated: true },
+      uiData: { label: "For the widget" },
+    }
+    const pending = Promise.withResolvers<ReturnType<typeof toolResult>>()
+    const action = vi.fn(() => Promise.resolve({ updated: true }))
+    const updates = vi.fn<(context: WidgetRenderRequest["context"]) => void>()
+    const dispose = vi.fn()
+    const render = vi.fn((_request: WidgetRenderRequest) => ({ update: updates, dispose }))
+    const chat = createTestSession({
+      threadId: thread.id,
+      widgets: { card: { description: "Card" } },
+      tools: {
+        change: { description: "Change", widget: "card", execute: () => pending.promise },
+        action: { description: "Widget action", visibility: ["app"], execute: action },
+        model_only: { description: "Model action", visibility: ["model"], execute: action },
+      },
+      onRenderWidget: render,
+    })
+    expect(mocked.tools.map((tool) => tool.name)).not.toContain("action")
+    await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
+    mocked.onCustomEvent?.("astralbeam_thread", {
+      threadId: thread.id,
+      version: 1,
+      saved: true,
+      executableToolCallIds: ["attached-call"],
+    })
+    const execution = mocked.tools.find((tool) => tool.name === "change")!.execute!(
+      {},
+      { toolCallId: "attached-call" },
+    )
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const context = render.mock.calls[0]![0].context
+    expect(context).toMatchObject({ invocationId: "attached-call", status: "pending", input: {} })
+    await expect(context.callTool("model_only", {})).rejects.toThrow("unavailable")
+    await expect(context.callTool("toString")).rejects.toThrow("unavailable")
+    await expect(context.callTool("action")).resolves.toEqual({ updated: true })
+    expect(action).toHaveBeenCalledTimes(1)
+    if (unavailable === "definition") chat.updateOptions({ widgets: {}, tools: {} })
+    else if (unavailable === "renderer") chat.updateOptions({ onRenderWidget: undefined })
+    else if (unavailable === "stop") chat.stop()
+    else
+      updates.mockImplementationOnce(() => {
+        throw new Error("Update failed")
+      })
+    pending.resolve(toolResult(result))
+    await execution
+    expect(updates.mock.calls.at(-1)?.[0].status).toBe(
+      unavailable === "stop" ? "cancelled" : unavailable === "update" ? "complete" : undefined,
+    )
+    expect(render).toHaveBeenCalledTimes(1)
+    await expect(context.callTool("action", {})).rejects.toThrow()
+    expect(action).toHaveBeenCalledTimes(1)
+    chat.reset()
+    expect(dispose).toHaveBeenCalledTimes(1)
+  },
+)
+
+test("saved attached widgets hydrate UI data without replaying their business action", async () => {
+  const result = {
+    content: [{ type: "text", text: "Found" }],
+    structuredContent: { id: "record" },
+    uiData: { label: "UI only" },
+  }
+  const [call, output] = savedWidget("card", "attached")
+  savedMessages = [
+    {
+      ...call,
+      parts: [
+        {
+          ...call!.parts[0],
+          name: "lookup",
+          input: {},
+          arguments: "{}",
+          declaration: { resultVersion: 1, widget: "card" },
+        },
+      ],
+    },
+    { ...output, parts: [{ ...output!.parts[0], resultVersion: 1, output: result }] },
+  ]
+  const execute = vi.fn()
+  const render = vi.fn<(request: WidgetRenderRequest) => void>()
+  const chat = createTestSession({
+    threadId: thread.id,
+    widgets: { card: { description: "Card" } },
+    tools: { lookup: { description: "Lookup", execute } },
+    onRenderWidget: render,
+  })
+  await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+  expect(render.mock.calls[0]![0].context).toMatchObject({
+    input: {},
+    result,
+    status: "complete",
+  })
+  expect(execute).not.toHaveBeenCalled()
+  await chat.refreshThread()
+  expect(render).toHaveBeenCalledTimes(1)
+  expect(execute).not.toHaveBeenCalled()
+})
+
+test.each(["removed", "replaced", "hidden"])(
+  "app calls recheck their %s registration after async validation",
+  async (change) => {
+    savedMessages = savedWidget("card", "app")
+    const validation = Promise.withResolvers<{ value: object }>()
+    const execute = vi.fn()
+    const replacement = vi.fn(() => ({ updated: true }))
+    const render = vi.fn<(request: WidgetRenderRequest) => void>()
+    const chat = createTestSession({
+      threadId: thread.id,
+      widgets: { card: { description: "Card" } },
+      tools: {
+        action: {
+          description: "Action",
+          parameters: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              jsonSchema: { input: () => ({ type: "object" }) },
+              validate: () => validation.promise,
+            },
+          },
+          execute,
+        },
+      },
+      onRenderWidget: render,
+    })
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1))
+    const call = render.mock.calls[0]![0].context.callTool("action")
+    chat.updateOptions({
+      tools:
+        change === "removed"
+          ? {}
+          : {
+              action: {
+                description: "Current",
+                visibility: change === "hidden" ? ["model"] : ["app"],
+                execute: replacement,
+              },
+            },
+    })
+    const outcome = call.catch((error: Error) => error.message)
+    validation.resolve({ value: {} })
+    await expect(outcome).resolves.toEqual(
+      change === "replaced" ? { updated: true } : 'Tool "action" is unavailable to widgets',
+    )
+    expect(execute).not.toHaveBeenCalled()
+    expect(replacement).toHaveBeenCalledTimes(change === "replaced" ? 1 : 0)
+  },
+)

@@ -35,6 +35,8 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
   applicationPartId?: string
   sourceMessageId?: string
   responseTargetId?: string
+  widget?: string
+  resultVersion?: number
   widgetRenderId?: string
   artifactMessageId?: string
   artifactPartId?: string
@@ -136,7 +138,7 @@ export function projectThreadMessages(
           call.artifactMessageId = message.id
           call.artifactPartId = String(part.id)
         }
-        Object.assign(call, { resultOutcome: part.outcome })
+        Object.assign(call, { resultOutcome: part.outcome, resultVersion: part.resultVersion })
         call.state = part.outcome === "succeeded" ? "complete" : "error"
       }
       continue
@@ -162,6 +164,10 @@ export function projectThreadMessages(
       if (part.type !== "tool-call") return [part]
       if (part.executionLocation === "provider") return [part]
       const toolCallId = String(part.toolCallId)
+      const declaration =
+        part.declaration && typeof part.declaration === "object" && !Array.isArray(part.declaration)
+          ? (part.declaration as Record<string, unknown>)
+          : undefined
       const targets = Array.isArray(part.targets)
         ? part.targets.flatMap((target: unknown) =>
             target &&
@@ -182,6 +188,8 @@ export function projectThreadMessages(
         const savedId = savedToolCallId(message.id, String(part.id), responseTargetId)
         const call = {
           ...part,
+          widget: declaration?.widget,
+          resultVersion: declaration?.resultVersion,
           savedToolTitle:
             part.declaration &&
             typeof part.declaration === "object" &&

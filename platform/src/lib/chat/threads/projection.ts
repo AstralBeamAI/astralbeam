@@ -95,6 +95,12 @@ function portableChatWebEvidence(part: Schema.JsonObject, key: "sources" | "cita
   return Array.isArray(evidence) && evidence.length ? JSON.stringify(evidence) : ""
 }
 
+function modelToolPart(part: typeof Schema.JsonObject.Type) {
+  if (part.resultVersion !== 1 || !Schema.is(Schema.JsonObject)(part.output)) return part
+  const { content, structuredContent, isError } = part.output
+  return { ...part, output: chatStoredJson({ content, structuredContent, isError }) }
+}
+
 function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatProjectionRecord[] {
   const results = new Map<string, ChatProjectionRecord>()
   for (const record of records) {
@@ -131,7 +137,9 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
           arguments: part.arguments!,
           responses: targets.map((recipient, index) => ({
             recipient,
-            result: accepted[index]?.payload.parts[0] ?? null,
+            result: accepted[index]?.payload.parts[0]
+              ? modelToolPart(accepted[index].payload.parts[0])
+              : null,
           })),
         })
         continue
@@ -144,7 +152,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
           ...(recipient.tenantUserId ? { tenantUserId: recipient.tenantUserId } : {}),
           ...(recipient.clientId ? { clientId: recipient.clientId } : {}),
           outcome: accepted[index]!.payload.parts[0]!.outcome!,
-          output: accepted[index]!.payload.parts[0]!.output ?? null,
+          output: modelToolPart(accepted[index]!.payload.parts[0]!).output ?? null,
         }))
         outputs.push({
           ...first,
@@ -167,7 +175,7 @@ function completeChatExchanges(records: readonly ChatProjectionRecord[]): ChatPr
       const visible = record.payload.parts.filter(
         (part) => part.type !== "tool-call" || part.executionLocation === "provider",
       )
-      const settled = outputs.map((result) => result.payload.parts[0]!)
+      const settled = outputs.map((result) => modelToolPart(result.payload.parts[0]!))
       return [
         {
           ...record,
@@ -207,7 +215,7 @@ export function projectChatModelHistory(
       (target.webAccessEnabled !== false ||
         !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]
-    if (compatible && record.payload.modelMessages) {
+    if (record.role !== "tool" && compatible && record.payload.modelMessages) {
       messages = structuredClone(record.payload.modelMessages).map((message) => ({
         ...message,
         ...(typeof message.createdAt === "string"
@@ -215,7 +223,7 @@ export function projectChatModelHistory(
           : {}),
       })) as unknown as ModelMessage[]
     } else if (record.role === "tool") {
-      messages = record.payload.parts.map((part) => ({
+      messages = record.payload.parts.map(modelToolPart).map((part) => ({
         id: Schema.decodeUnknownSync(Schema.String)(part.id),
         role: "tool" as const,
         toolCallId: Schema.decodeUnknownSync(Schema.String)(part.toolCallId),
