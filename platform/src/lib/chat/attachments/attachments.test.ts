@@ -7,7 +7,7 @@ import {
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments"
-import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS } from "./constants"
+import { CHAT_ATTACHMENT_MAX_COUNT } from "./constants"
 import type { ChatMessages } from "../types"
 
 const base64 = (text: string) => btoa(text)
@@ -45,10 +45,10 @@ test("keeps original files behind handles, outside the user's message", () => {
   ])
   expect(files).toMatchObject([
     { handle: "notes.md", text: "hello from a file" },
-    { handle: "payload.csv", mimeType: "text/csv", text: csv },
+    { handle: "payload.csv", mimeType: "text/csv", bytes: new TextEncoder().encode(csv) },
     { handle: "book.xlsx", bytes: new TextEncoder().encode("PK\x03\x04opaque") },
   ])
-  expect(files[2]?.text).toBeUndefined()
+  expect(files.slice(1).every((file) => file.text === undefined)).toBe(true)
   expect(attachments.map((attachment) => attachment.result)).toEqual(["text", "data", "office"])
 })
 
@@ -67,16 +67,6 @@ test("caller metadata never reaches a provider block beside an image", () => {
   const [text, image] = contentOf(messages)
   expect(text).toEqual({ type: "text", text: "Summarize" })
   expect(image?.["metadata"]).toEqual({ filename: "chart.png" })
-})
-
-test("CSV text is capped while the original file remains available for sandbox analysis", () => {
-  const csv = "column\n" + "a\n".repeat(CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS / 2)
-  const { files } = normalizeChatAttachments(
-    userMessage([documentEntry("rows.csv", "text/csv", base64(csv))]),
-  )
-  expect(files[0]?.text).toHaveLength(CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS)
-  expect(files[0]?.truncated).toBe(true)
-  expect(new TextDecoder().decode(files[0]?.bytes)).toBe(csv)
 })
 
 test("passes images and PDFs through with repaired types and sanitized filenames", () => {

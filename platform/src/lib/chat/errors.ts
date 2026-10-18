@@ -77,5 +77,5 @@ export class ChatAttachmentSandboxRequired extends Schema.TaggedError<ChatAttach
   { httpApiStatus: 400 },
 ) {
   override readonly message =
-    "Office, Parquet, and SQLite attachments require an agent with a sandbox."
+    "CSV, TSV, Office, Parquet, and SQLite attachments require an agent with a sandbox."
 }

@@ -25,42 +25,30 @@ async function read(
   return (await tool?.execute?.(input)) as Record<string, unknown>
 }
 
-test("reads text by handle and reports truncation without advertising an unavailable sandbox", async () => {
-  const result = await read([{ ...file(), truncated: true }], { file: "notes.md" }, false)
-  expect(result).toMatchObject({
-    file: "notes.md",
-    content: "hello",
-    offset: 0,
-    totalCharacters: 5,
-    end: true,
-    readableTextTruncated: true,
-  })
-  expect(result.nextOffset).toBeUndefined()
-  expect(result.sandboxPath).toBeUndefined()
-})
-
-test("pages a long file and reports where to continue", async () => {
+test("pages a long text file without a sandbox and reports where to continue", async () => {
   const files = [file(LONG_TEXT)]
-  const first = await read(files, {
-    file: "notes.md",
-    limit: CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10,
-  })
+  const first = await read(
+    files,
+    { file: "notes.md", limit: CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10 },
+    false,
+  )
   expect(first.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
   expect(first.end).toBe(false)
   expect(first.nextOffset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+  expect(first.sandboxPath).toBeUndefined()
 
-  const second = await read(files, { file: "notes.md", offset: first.nextOffset as number })
+  const second = await read(files, { file: "notes.md", offset: first.nextOffset as number }, false)
   expect(second.offset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
   expect(second.content).toBe(LONG_TEXT.slice(CHAT_ATTACHMENT_READ_MAX_CHARACTERS))
   expect(second.end).toBe(true)
 })
 
 test("names the available handles when the agent guesses one wrong", async () => {
-  const result = await read([file("hello", "a.csv"), file("hello", "b.csv")], {
-    file: "sales.csv",
+  const result = await read([file("hello", "a.md"), file("hello", "b.md")], {
+    file: "notes.md",
   })
-  expect(result.refusal).toContain('no attached file with the handle "sales.csv"')
-  expect(result.refusal).toContain('"a.csv", "b.csv"')
+  expect(result.refusal).toContain('no attached file with the handle "notes.md"')
+  expect(result.refusal).toContain('"a.md", "b.md"')
 })
 
 test("sends the agent to the sandbox for a file with no text view", async () => {

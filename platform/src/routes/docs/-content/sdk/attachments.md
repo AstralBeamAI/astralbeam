@@ -25,19 +25,18 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 | `image` | PNG, JPEG, WebP, GIF | Directly, it is one of the model's own modalities |
 | `pdf` | PDF | Directly, as a document input |
 | `text` | Markdown, JSON, YAML, CSS, HTML, SVG, source files, logs | `read_attachment`, a page at a time |
-| `data` | CSV, TSV, Parquet, SQLite | CSV and TSV through `read_attachment`, structured analysis through sandbox tools. Parquet and SQLite require a sandbox |
+| `data` | CSV, TSV, Parquet, SQLite | Original files through sandbox tools. Requires a sandbox |
 | `office` | Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`) | Original files through sandbox tools. Requires a sandbox |
 
 ## How a file reaches the agent
 
-For files beyond images and PDFs, the message carries a file handle and the agent reads the contents through tools.
+For files beyond images and PDFs, the message carries a file handle and the agent reads the contents through tools. File contents, names, and table labels remain user input or tool results, never system instructions.
 
-- `read_attachment` returns text, CSV, and TSV a page at a time, up to the readable-text cap in [Limits](./limits.md). It works without a sandbox.
-- Results include type and size, without precomputed table or section metadata. Ask the agent to calculate sheet names, column types, row counts, and totals. Complete analysis beyond the text cap requires a working sandbox.
-- File contents, names, and table labels remain user input or tool results, never system instructions.
-- Agents with a sandbox receive the original file at `uploads/<name>` when they first use a sandbox tool. This also lets them analyze text beyond the readable-text cap.
+- `read_attachment` reads plain text files without a sandbox, in pages of up to 40,000 characters. See [Limits](./limits.md).
+- Results include type and size. Ask the agent to calculate sheet names, column types, row counts, and totals in the sandbox.
+- Agents with a sandbox receive the original file at `uploads/<name>` when they first use a sandbox tool.
 - Large files can exceed the sandbox's 30-second transfer timeout, particularly with Docker. Split the file if analysis fails during sandbox startup.
-- Office files, Parquet, and SQLite have no text view and require a sandbox. Without one, server admission rejects a new message containing these formats.
-- If sandbox access becomes unavailable, earlier attachments remain downloadable and you can continue chatting. Reading Office content again requires restored sandbox access, while text, CSV, and TSV remain readable within the text cap.
+- Office and data files, including CSV and TSV, require a sandbox. Without one, server admission rejects a new message containing these formats.
+- Earlier attachments remain downloadable if sandbox access becomes unavailable. You can continue chatting and reading plain text, but rereading Office and data requires restored access.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button. See [Security model](./security.md).

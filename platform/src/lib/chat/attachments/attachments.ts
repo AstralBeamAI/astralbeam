@@ -18,16 +18,14 @@ import type { MessageRecord } from "../threads/threads.ts"
 import { APP_HANDLE } from "@/lib/constants"
 
 import {
-  CHAT_ATTACHMENT_DELIMITED_MIME_TYPES,
+  CHAT_ATTACHMENT_DATA_MIME_TYPES,
   CHAT_ATTACHMENT_IMAGE_MIME_TYPES,
   CHAT_ATTACHMENT_MAGIC_BYTES,
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
   CHAT_ATTACHMENT_MAX_FILENAME_LENGTH,
-  CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
   CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
   CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION,
-  CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES,
   CHAT_ATTACHMENT_OFFICE_MIME_TYPES,
   CHAT_ATTACHMENT_PDF_MIME_TYPE,
   CHAT_ATTACHMENT_TEXT_MIME_TYPES,
@@ -99,8 +97,7 @@ function resolveMimeType(declared: string, filename: string): string {
   if (byExtension === undefined) return declared
   const trusted =
     CHAT_ATTACHMENT_OFFICE_MIME_TYPES.includes(declared) ||
-    CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(declared) ||
-    CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(declared)
+    CHAT_ATTACHMENT_DATA_MIME_TYPES.includes(declared)
   return trusted ? declared : byExtension
 }
 
@@ -108,11 +105,7 @@ function attachmentKind(mimeType: string): ChatAttachmentKind | undefined {
   if (CHAT_ATTACHMENT_IMAGE_MIME_TYPES.includes(mimeType)) return "image"
   if (mimeType === CHAT_ATTACHMENT_PDF_MIME_TYPE) return "pdf"
   if (CHAT_ATTACHMENT_OFFICE_MIME_TYPES.includes(mimeType)) return "office"
-  if (
-    CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType) ||
-    CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)
-  )
-    return "data"
+  if (CHAT_ATTACHMENT_DATA_MIME_TYPES.includes(mimeType)) return "data"
   if (isTextualMimeType(mimeType)) return "text"
   return undefined
 }
@@ -272,9 +265,8 @@ export function normalizeChatAttachments(messages: ChatMessages): {
         },
       }
     }
-    const textual = kind === "text" || CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType)
-    const text = textual ? decodeUtf8(bytes) : undefined
-    if (textual && text === undefined) return refuse("it is not valid UTF-8 text.")
+    const text = kind === "text" ? decodeUtf8(bytes) : undefined
+    if (kind === "text" && text === undefined) return refuse("it is not valid UTF-8 text.")
     totalBytes += size
     const handle = attachmentHandle(filename, handles)
     const file: ChatAttachmentFile = {
@@ -282,12 +274,7 @@ export function normalizeChatAttachments(messages: ChatMessages): {
       filename,
       mimeType,
       bytes,
-      ...(text === undefined
-        ? {}
-        : {
-            text: text.slice(0, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS),
-            ...(text.length > CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS ? { truncated: true } : {}),
-          }),
+      ...(text === undefined ? {} : { text }),
     }
     files.push(file)
     attachments.push({ filename, mimeType, bytes: size, result: kind, handle })
