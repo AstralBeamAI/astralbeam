@@ -751,18 +751,6 @@ export type ListThreadMessagesParams = {
   page_before?: string
 }
 
-export type GetThreadAttachmentParams = {
-  preview?: GetThreadAttachmentPreview
-}
-
-export type GetThreadAttachmentPreview =
-  (typeof GetThreadAttachmentPreview)[keyof typeof GetThreadAttachmentPreview]
-
-export const GetThreadAttachmentPreview = {
-  true: "true",
-  false: "false",
-} as const
-
 export type UploadChatFileBodyType =
   (typeof UploadChatFileBodyType)[keyof typeof UploadChatFileBodyType]
 
@@ -799,15 +787,7 @@ export type GetChatFileParams = {
   threadId?: string
   fileId: string
   filename?: string
-  preview?: GetChatFilePreview
 }
-
-export type GetChatFilePreview = (typeof GetChatFilePreview)[keyof typeof GetChatFilePreview]
-
-export const GetChatFilePreview = {
-  true: "true",
-  false: "false",
-} as const
 
 export type GetChatConfigParams = {
   agentId?: string
@@ -908,18 +888,6 @@ export type SearchChatTenantUsersParams = {
 export type RemoveChatParticipantParams = {
   expected_version: string
 }
-
-export type GetChatAttachmentParams = {
-  preview?: GetChatAttachmentPreview
-}
-
-export type GetChatAttachmentPreview =
-  (typeof GetChatAttachmentPreview)[keyof typeof GetChatAttachmentPreview]
-
-export const GetChatAttachmentPreview = {
-  true: "true",
-  false: "false",
-} as const
 
 export type PersonalMcpGetCatalog200 = {
   servers: McpServerEncoded[]
@@ -1314,25 +1282,12 @@ export const getGetThreadAttachmentUrl = (
   id: string,
   messageId: string,
   partId: string,
-  params: GetThreadAttachmentParams,
 ) => {
-  const normalizedParams = new URLSearchParams()
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value))
-    }
-  })
-
-  const stringifiedParams = normalizedParams.toString()
-
-  return stringifiedParams.length > 0
-    ? `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}?${stringifiedParams}`
-    : `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}`
+  return `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}`
 }
 
 /**
- * Set preview=true for a cached thumbnail, or 204 when no preview is available.
+ * Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.
  * @summary Download a saved conversation upload for administration
  */
 export const getThreadAttachment = (
@@ -1340,11 +1295,10 @@ export const getThreadAttachment = (
   id: string,
   messageId: string,
   partId: string,
-  params: GetThreadAttachmentParams,
   options: Parameters<typeof astralBeamResourceFetch>[1],
 ) => {
   return astralBeamResourceFetch<Blob | void>(
-    getGetThreadAttachmentUrl(tenantId, id, messageId, partId, params),
+    getGetThreadAttachmentUrl(tenantId, id, messageId, partId),
     {
       ...options,
       method: "GET",
@@ -1408,7 +1362,7 @@ export const getGetChatFileUrl = (params: GetChatFileParams) => {
 }
 
 /**
- * Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Set preview=true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.
+ * Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.
  * @summary Download a chat artifact
  */
 export const getChatFile = (
@@ -1878,39 +1832,21 @@ export const resolveChatToolResult = (
   )
 }
 
-export const getGetChatAttachmentUrl = (
-  id: string,
-  messageId: string,
-  partId: string,
-  params: GetChatAttachmentParams,
-) => {
-  const normalizedParams = new URLSearchParams()
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value))
-    }
-  })
-
-  const stringifiedParams = normalizedParams.toString()
-
-  return stringifiedParams.length > 0
-    ? `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}?${stringifiedParams}`
-    : `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}`
+export const getGetChatAttachmentUrl = (id: string, messageId: string, partId: string) => {
+  return `/api/v1/chat/threads/${encodeURIComponent(String(id))}/messages/${encodeURIComponent(String(messageId))}/attachments/${encodeURIComponent(String(partId))}`
 }
 
 /**
- * Set preview=true for a cached thumbnail, or 204 when no preview is available.
+ * Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.
  * @summary Download a saved attachment
  */
 export const getChatAttachment = (
   id: string,
   messageId: string,
   partId: string,
-  params: GetChatAttachmentParams,
   options: Parameters<typeof astralBeamChatFetch>[1],
 ) => {
-  return astralBeamChatFetch<Blob | void>(getGetChatAttachmentUrl(id, messageId, partId, params), {
+  return astralBeamChatFetch<Blob | void>(getGetChatAttachmentUrl(id, messageId, partId), {
     ...options,
     method: "GET",
   })

@@ -125,14 +125,13 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
         threadId: Schema.optionalKey(ApiUuidSchema),
         fileId: ApiUuidSchema,
         filename: Schema.optionalKey(Schema.String),
-        preview: Schema.optionalKey(Schema.Boolean),
       }),
       success: chatFileSuccess,
     })
       .annotate(OpenApi.Summary, "Download a chat artifact")
       .annotate(
         OpenApi.Description,
-        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Set preview=true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
+        "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -293,7 +292,7 @@ export function chatHandlers(api: typeof ApiV1) {
               scope.tenantId,
               scope.tenantUserId,
             ]).pipe(Effect.provideContext(services))
-            const preview = query.preview ?? false
+            const preview = request.headers["x-file-preview"] === "true"
             if (query.threadId) yield* threads.get({ scope, id: query.threadId })
             else if (!preview) return yield* new ChatThreadInvalid()
             const file = yield* files

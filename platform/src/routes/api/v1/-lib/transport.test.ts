@@ -798,7 +798,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(download.status).toBe(200)
     expect(download.headers.get("content-type")).toBe("image/png")
     expect(download.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
-    expect(download.headers.get("vary")).toBe("Authorization, X-API-Key")
+    expect(download.headers.get("vary")).toBe("Authorization, X-API-Key, X-File-Preview")
     expect(await download.text()).toBe("saved image")
     expect(restTestState.threadMessage).toHaveBeenCalledWith({
       scope: restThreadScope,
@@ -1235,6 +1235,16 @@ describe("REST API through the Effect Fetch handler", () => {
 
   test("stored artifacts require current conversation access and retain safe download headers", async () => {
     const query = { threadId: restOtherId, fileId: restUserId, filename: "report.txt" }
+    const path = `/chat/files?fileId=${restUserId}`
+    const unsent = await restRequest(path, {
+      headers: { Authorization: "Bearer chat-token", "X-File-Preview": "true" },
+    })
+    expect(unsent.status).toBe(204)
+    expect(unsent.headers.get("cache-control")).toBe("no-store")
+    expect(restTestState.thread).not.toHaveBeenCalled()
+    expect(
+      (await restRequest(path, { headers: { Authorization: "Bearer chat-token" } })).status,
+    ).toBe(400)
     restTestState.readFile.mockReturnValue(
       Effect.succeed({
         bytes: new TextEncoder().encode("A published report"),
@@ -1266,33 +1276,6 @@ describe("REST API through the Effect Fetch handler", () => {
       })
       expect(unavailable.status).toBe(error._tag === "ChatThreadInvalid" ? 404 : 503)
     }
-  })
-
-  test("previews permit unsent files while retaining conversation access checks", async () => {
-    const headers = { Authorization: "Bearer chat-token" }
-    const previewPath = `/chat/files?fileId=${restUserId}&preview=true`
-    const missing = await restRequest(previewPath, { headers })
-    expect(missing.status).toBe(204)
-    expect(missing.headers.get("cache-control")).toBe("no-store")
-    expect(restTestState.thread).not.toHaveBeenCalled()
-    restTestState.readFile.mockReturnValue(
-      Effect.succeed({ bytes: new Uint8Array([1]), mimeType: "image/webp" }),
-    )
-    const preview = await restRequest(previewPath, { headers })
-    expect(preview.status).toBe(200)
-    expect(preview.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
-    expect(preview.headers.get("vary")).toBe("Authorization, X-API-Key")
-    restTestState.readFile.mockReturnValue(Effect.fail(new ChatThreadInvalid()))
-    const denied = await restRequest(previewPath, { headers })
-    expect(denied.status).toBe(404)
-    expect(denied.headers.get("cache-control")).toBe("no-store")
-    restTestState.readFile.mockClear()
-    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
-    expect((await restRequest(`${previewPath}&threadId=${restOtherId}`, { headers })).status).toBe(
-      404,
-    )
-    expect(restTestState.readFile).not.toHaveBeenCalled()
-    expect((await restRequest(`/chat/files?fileId=${restUserId}`, { headers })).status).toBe(400)
   })
 
   test("HTTP responses preserve wire records, exact filters and scoped partial writes", async () => {

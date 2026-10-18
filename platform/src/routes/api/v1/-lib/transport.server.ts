@@ -115,7 +115,7 @@ const REST_CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "authorization, content-type, x-api-key, last-event-id, x-run-id, idempotency-key",
+    "authorization, content-type, x-api-key, x-file-preview, last-event-id, x-run-id, idempotency-key",
   "Access-Control-Expose-Headers":
     "Location, Link, Retry-After, Content-Disposition, WWW-Authenticate",
   "Access-Control-Max-Age": "86400",

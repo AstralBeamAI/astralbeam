@@ -43,48 +43,50 @@ export function SentAttachment({
     }
   }
   return (
-    <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
-      <AttachmentPreview
-        id={attachmentId}
-        messageId={messageId}
-        src={kind === "image" ? href : undefined}
-        title={title}
-        kind={kind}
-        mimeType={part.source.mimeType}
-      />
-      <AttachmentContent>
-        <AttachmentTitle title={title}>{title}</AttachmentTitle>
-        {(failed || description) && (
-          <AttachmentDescription>
-            {failed ? "File unavailable. Try again." : description}
-          </AttachmentDescription>
-        )}
-      </AttachmentContent>
-      {attachmentId ? (
-        <AttachmentTrigger
-          aria-label={`Download ${title}`}
-          title={`Download ${title}`}
-          disabled={downloading}
-          onClick={() => void download()}
+    <div className="max-w-full">
+      <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
+        <AttachmentPreview
+          id={attachmentId}
+          messageId={messageId}
+          src={kind === "image" ? href : undefined}
+          title={title}
+          kind={kind}
+          mimeType={part.source.mimeType}
         />
-      ) : href ? (
-        // The trigger covers the whole chip, making it the download control. `download` is
-        // honored for the inline `data:` source; a remote one, where browsers ignore it, opens
-        // in its own tab rather than navigating the host page away.
-        <AttachmentTrigger
-          render={
-            <a
-              href={href}
-              download={title}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Download ${title}`}
-              title={`Download ${title}`}
-            />
-          }
-        />
-      ) : null}
-    </Attachment>
+        <AttachmentContent>
+          <AttachmentTitle title={title}>{title}</AttachmentTitle>
+          {(failed || description) && (
+            <AttachmentDescription>
+              {failed ? "File unavailable. Try again." : description}
+            </AttachmentDescription>
+          )}
+        </AttachmentContent>
+        {attachmentId ? (
+          <AttachmentTrigger
+            aria-label={`Download ${title}`}
+            title={`Download ${title}`}
+            disabled={downloading}
+            onClick={() => void download()}
+          />
+        ) : href ? (
+          // The trigger covers the whole chip, making it the download control. `download` is
+          // honored for the inline `data:` source; a remote one, where browsers ignore it, opens
+          // in its own tab rather than navigating the host page away.
+          <AttachmentTrigger
+            render={
+              <a
+                href={href}
+                download={title}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Download ${title}`}
+                title={`Download ${title}`}
+              />
+            }
+          />
+        ) : null}
+      </Attachment>
+    </div>
   )
 }
 

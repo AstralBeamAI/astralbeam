@@ -312,14 +312,13 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
       "/chat/threads/:id/messages/:messageId/attachments/:partId",
       {
         params: { ...threadParams, messageId: ApiUuidSchema, partId: NonEmptyStringSchema },
-        query: Schema.Struct({ preview: Schema.optionalKey(Schema.Boolean) }),
         success: chatFileSuccess,
       },
     )
       .annotate(OpenApi.Summary, "Download a saved attachment")
       .annotate(
         OpenApi.Description,
-        "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+        "Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.",
       ),
   )
   .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
@@ -634,14 +633,18 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               lockVersion: query.expected_version,
             })
           }),
-          getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params, query }) {
+          getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params }) {
             const scope = yield* scopeFor(request)
             const message = yield* threads.getMessage({
               scope,
               id: params.id,
               messageId: params.messageId,
             })
-            return yield* savedChatAttachmentResponse(message, params.partId, query.preview)
+            return yield* savedChatAttachmentResponse(
+              message,
+              params.partId,
+              request.headers["x-file-preview"] === "true",
+            )
           }),
         })
     }),

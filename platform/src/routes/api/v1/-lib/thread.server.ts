@@ -102,14 +102,13 @@ export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLeve
           messageId: ApiUuidSchema,
           partId: NonEmptyStringSchema,
         },
-        query: Schema.Struct({ preview: Schema.optionalKey(Schema.Boolean) }),
         success: chatFileSuccess,
       },
     )
       .annotate(OpenApi.Summary, "Download a saved conversation upload for administration")
       .annotate(
         OpenApi.Description,
-        "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+        "Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.",
       ),
   )
   .annotateEndpoints(OpenApi.Override, restResourceSecurity)
@@ -187,9 +186,13 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
             headers: response.headers,
           })
         }),
-        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params, query }) {
+        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params, request }) {
           const message = yield* threads.directoryMessage({ ...params, scope: yield* RestScope })
-          return yield* savedChatAttachmentResponse(message, params.partId, query.preview)
+          return yield* savedChatAttachmentResponse(
+            message,
+            params.partId,
+            request.headers["x-file-preview"] === "true",
+          )
         }),
       })
     }),

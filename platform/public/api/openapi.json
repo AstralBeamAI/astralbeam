@@ -3725,18 +3725,6 @@
               "minLength": 1
             },
             "required": true
-          },
-          {
-            "name": "preview",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            },
-            "required": false
           }
         ],
         "security": [
@@ -4047,7 +4035,7 @@
             }
           }
         },
-        "description": "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+        "description": "Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.",
         "summary": "Download a saved conversation upload for administration"
       }
     },
@@ -4436,18 +4424,6 @@
               "type": "string"
             },
             "required": false
-          },
-          {
-            "name": "preview",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            },
-            "required": false
           }
         ],
         "security": [
@@ -4752,7 +4728,7 @@
             }
           }
         },
-        "description": "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Set preview=true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
+        "description": "Download a stored file using a tenant JWT and current conversation membership. Pass its fileId, conversation threadId, and optional download filename. Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available. Preview requests may omit threadId for the uploader's unsent files. Published artifacts survive sandbox shutdown. Original downloads verify stored bytes before returning them.",
         "summary": "Download a chat artifact"
       }
     },
@@ -9250,18 +9226,6 @@
               "minLength": 1
             },
             "required": true
-          },
-          {
-            "name": "preview",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            },
-            "required": false
           }
         ],
         "security": [
@@ -9566,7 +9530,7 @@
             }
           }
         },
-        "description": "Set preview=true for a cached thumbnail, or 204 when no preview is available.",
+        "description": "Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.",
         "summary": "Download a saved attachment"
       }
     },

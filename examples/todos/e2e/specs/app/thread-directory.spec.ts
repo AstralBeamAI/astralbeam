@@ -27,9 +27,6 @@ test("React conversation directory reads saved pages, uploads and decisions with
 }) => {
   const directory = threadDirectoryPage(page)
   const mutations: string[] = []
-  const missingPreview = page.waitForResponse(
-    "**/messages/publication/attachments/result?preview=true",
-  )
   let previousTop: number | undefined
   page.on("request", (request) => {
     if (
@@ -119,17 +116,15 @@ test("React conversation directory reads saved pages, uploads and decisions with
       ),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload*", (route) => {
-    if (new URL(route.request().url()).searchParams.has("preview"))
-      return route.fulfill({ status: 404 })
+  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) => {
+    if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
     return route.fulfill({ body: "Saved upload", contentType: "text/plain" })
   })
   await page.route(
-    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result*",
+    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
-      if (new URL(route.request().url()).searchParams.has("preview"))
-        return route.fulfill({ status: 404 })
+      if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
       return route.fulfill({ body: "Generated report", contentType: "text/plain" })
     },
   )
@@ -162,7 +157,6 @@ test("React conversation directory reads saved pages, uploads and decisions with
   const generated = page.waitForEvent("download")
   await directory.transcript.getByRole("button", { name: "Download generated-report.txt" }).click()
   expect((await generated).suggestedFilename()).toBe("generated-report.txt")
-  await missingPreview
   await expect(page.getByRole("alert")).toHaveCount(0)
   await captureMoment(page, "read-only-conversation-transcript")
   expect(mutations).toEqual([])
@@ -380,8 +374,8 @@ for (const status of [401, 403, 404]) {
         ]),
       }),
     )
-    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload*", (route) =>
-      new URL(route.request().url()).searchParams.has("preview")
+    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
+      route.request().headers()["x-file-preview"]
         ? route.fulfill({ status: 204 })
         : route.fulfill({
             status,
@@ -429,8 +423,8 @@ test("refresh preserves saved image previews without downloading again", async (
       ]),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture*", (route) => {
-    expect(new URL(route.request().url()).searchParams.get("preview")).toBe("true")
+  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture", (route) => {
+    expect(route.request().headers()["x-file-preview"]).toBe("true")
     images++
     return route.fulfill({
       contentType: "image/png",

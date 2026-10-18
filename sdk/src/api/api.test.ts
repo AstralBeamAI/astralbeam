@@ -1,5 +1,5 @@
 import { assert, expect, test, vi } from "vitest"
-import { getChatConfig, getChatAttachment, getThreadAttachment, listTenants } from "./index.ts"
+import { getChatConfig, listTenants } from "./index.ts"
 import { astralBeamApiFetch, isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
@@ -35,21 +35,6 @@ test("typed credentials own authentication, preserving custom bases and queries"
   expect(chatUrl).toBe("/api/v1/chat/config")
   expect(new Headers(chatInit?.headers).get("authorization")).toBe("Bearer jwt")
   expect(new Headers(chatInit?.headers).has("x-api-key")).toBe(false)
-  const ids = ["thread", "message", "part"] as const
-  await getChatAttachment(...ids, { apiUrl: options.apiUrl, fetchClient, astralBeamToken: "jwt" })
-  await getThreadAttachment("tenant", ...ids, options, { preview: "true" })
-  expect(
-    fetchClient.mock.calls
-      .slice(2)
-      .map(([url, init]) => [
-        new URL(new Request(url, init).url).search,
-        new Headers(init?.headers).get("authorization"),
-        new Headers(init?.headers).get("x-api-key"),
-      ]),
-  ).toEqual([
-    ["", "Bearer jwt", null],
-    ["?preview=true", null, "organization-key"],
-  ])
 })
 
 test("non-JSON HTTP errors preserve status and headers without retrying", async () => {

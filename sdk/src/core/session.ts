@@ -1527,17 +1527,17 @@ export function createAstralBeamChat(
       )
     },
     getFile: async (fileId, options) => {
-      const thread = state.thread
-      if (!thread && !options?.preview)
+      const threadId = state.thread?.id
+      if (!threadId && !options?.preview)
         throw new Error("Open a conversation before downloading files.")
       return (
         await getChatFile(
+          { fileId, ...(threadId ? { threadId } : {}) },
           {
-            fileId,
-            ...(thread ? { threadId: thread.id } : {}),
-            ...(options?.preview ? { preview: "true" } : {}),
+            ...(await requestOptions(!options?.preview)),
+            cache: "default",
+            headers: options?.preview ? { "X-File-Preview": "true" } : {},
           },
-          { ...(await requestOptions(!options?.preview)), cache: "default" },
         )
       ).blob()
     },
@@ -1545,13 +1545,11 @@ export function createAstralBeamChat(
       const thread = state.thread
       if (!thread) throw new Error("Open a conversation before downloading attachments.")
       return (
-        await getChatAttachment(
-          thread.id,
-          messageId,
-          partId,
-          options?.preview ? { preview: "true" } : {},
-          { ...(await requestOptions()), cache: "default" },
-        )
+        await getChatAttachment(thread.id, messageId, partId, {
+          ...(await requestOptions()),
+          cache: "default",
+          headers: options?.preview ? { "X-File-Preview": "true" } : {},
+        })
       ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),

@@ -36,7 +36,7 @@ export function chatArtifactResponse({
         "cache-control": isInlineArtifactMimeType(mimeType)
           ? "private, max-age=60, must-revalidate"
           : "private, no-store",
-        vary: "Authorization, X-API-Key",
+        vary: "Authorization, X-API-Key, X-File-Preview",
         "x-content-type-options": "nosniff",
         "content-security-policy": "sandbox; default-src 'none'",
       },
