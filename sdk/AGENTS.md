@@ -26,6 +26,7 @@ When changing chat persistence or recovery, read the [chat lifecycle and failure
 
 ## Presentation and verification
 
+- Numbered citation badges have no arrows. Consulted-source titles get smaller arrows through CSS.
 - Share semantic theme tokens and `applyWidgetTheme` across chat and directories. Keep host styling in `theme` and `customCss` with stable `data-slot` hooks, without changing SDK defaults or adding directory palettes.
 - Keep chat compact and keyboard focus visible within paint containment. Give actions 44px touch targets whenever any pointer is coarse, without inflating every button. Mount transcript items only when visible content exists, keep the latest turn outside `content-visibility` placeholders, and preserve stable message props. Do not adopt React Compiler.
 - Resize chat horizontally and fill its parent's height. Persist only user width overrides, scoped by mount and agent IDs or `astralbeam:chat-size:v1` when both are absent.
@@ -34,4 +35,4 @@ When changing chat persistence or recovery, read the [chat lifecycle and failure
 - Preserve loaded transcript pages and scroll position after transient pagination failures, but hide administrative history after access failures. Administrative transcripts never render host widgets or accept questionnaires.
 - Use MCP server for endpoint configuration and MCP connection for credentials. Keep management UI in the SDK with authorized host callbacks, without prescribing ownership. Include MCP in standalone labels and reserve Allowed MCP servers for agent permissions.
 - Verify directories in existing examples across vanilla/React mounts, scope and denial, search, wildcard literals, pagination, metadata, theming, and remounting. For API-key or chat-auth changes, use a dashboard-created key and verify a real assistant tool changes the Todos host, capturing the browser evidence required by the project skill.
-- Keep README and hosted SDK guides aligned, concise, and focused on tenant-scoped embedding. Put breaking changes and replacements in the PR. Keep examples on built SDK workspace dependencies with independent host styling, and preserve the Todos examples' lack of Tailwind and shadcn.
+- Keep README and hosted SDK guides aligned, concise, and focused on tenant-scoped embedding. Put breaking changes and replacements in the PR. Follow each example's AGENTS file when changing its integration.
