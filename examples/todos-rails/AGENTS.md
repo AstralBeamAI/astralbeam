@@ -1,9 +1,8 @@
 # Todos Rails example development
 
-- Keep this a canonical Rails 8 app without Hotwire: Propshaft, import maps, SQLite, Minitest, and the generator's RuboCop, Brakeman, and bundler-audit setup. Page behavior is one plain ES module per page. Add no Turbo, Stimulus, Node, npm, JavaScript bundler, or CSS framework.
-- Load the SDK only through the jsDelivr URL pinned in `config/importmap.rb`, never `bin/importmap pin`, because vendoring drops the loader's lazy chunks. `ASTRALBEAM_SDK_URL` overrides it for local SDK builds.
-- Keep `lib/astral_beam.rb` a dependency-light, copy-pasteable token minter that matches `createAstralBeamToken` and the authentication guide's wire format.
-- The page and the agent's tools change todos only through the app's JSON actions and update the DOM in place, because a full page load can interrupt the current response. Saved history is restored by default in the same tab.
-- Prefix page CSS custom properties with `--app-` and set them on `[slot]` containers too, because widget cards inherit through the widget's shadow tree.
-- Keep the demo identity in `AstralBeamTokensController` matched to `platform/scripts/seed/fixtures.ts`, and keep that action disabled in production.
-- Validate with `bin/ci`, which CI runs.
+- Keep canonical Rails 8 with Propshaft, import maps, SQLite, Minitest, RuboCop, Brakeman, and bundler-audit. Use one plain ES module per page. Add no Hotwire, Node, npm, JavaScript bundler, or CSS framework. Validate with `bin/ci`.
+- Load the SDK through the jsDelivr URL pinned in `config/importmap.rb`, never `bin/importmap pin`, whose vendoring drops lazy chunks. Use `ASTRALBEAM_SDK_URL` for local builds.
+- Keep `lib/astral_beam.rb` a dependency-light, copy-pasteable token minter matching `createAstralBeamToken` and the authentication guide's wire format.
+- Pages and tools mutate todos only through JSON actions and update the DOM in place so navigation cannot interrupt responses. Restore saved history by default in the same tab.
+- Prefix page CSS variables with `--app-` and set them on `[slot]` containers so widget cards inherit them through the shadow tree.
+- Match the demo identity in `AstralBeamTokensController` to `platform/scripts/seed/fixtures.ts`. Keep that action disabled in production.

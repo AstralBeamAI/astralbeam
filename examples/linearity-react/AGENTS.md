@@ -1,11 +1,10 @@
 # Linearity example development
 
-- Keep this app a standalone TanStack Start consumer of the built SDK through `link:../../sdk`. Use Bun for all commands.
-- Keep mock product data in the browser. Both workspaces are available to every visitor. Basic Auth protects the playground, not membership in real Tenants.
-- Keep issue validation and workspace membership checks shared between manual edits, Astro tools, and localStorage loading. Tool mutations must update the readable store before returning, so consecutive tool calls see each other's changes.
-- Remount Astro on workspace switches and reject tool calls captured for a workspace that is no longer active. On Reset, retain the current workspace and mounted assistant, and call the SDK's reset method to clear saved selection. Closing the panel should preserve its conversation.
-- Keep secrets in server environment variables without a `VITE_` prefix. Missing Basic Auth credentials must fail closed in development and production.
-- This example owns its shadcn components under `src/components/ui`. Add them with `bun run ui add <component>` and record the registry item and intentional changes in each generated file. Keep generated export noise out of Knip while retaining unused-file discovery.
-- Keep browser specs under `e2e` and run them with `bun run e2e`. Save screenshots, videos, and reports outside the worktree. Live Astro tests require explicit `E2E_LIVE_ASTRO=true` and a configured local platform.
-- Keep views and individual issues on workspace-scoped URLs. Route changes within a workspace must preserve Astro's conversation, and agent navigation must validate the destination against that workspace.
-- Verify the host and sidebar together at 140% zoom. Customer recordings should tell one real-world story with deliberate reading time. Narrate product capabilities while app-specific actions provide the visual examples. Reuse website copy for titles, feature labels, and calls to action. Keep resets, reloads, and other test mechanics in the functional suite.
+- Keep this a standalone TanStack Start consumer of the built SDK. Mock product data stays in the browser, and both workspaces are public. Basic Auth protects the playground, not real Tenant membership.
+- Share issue validation and workspace checks across manual edits, Astro tools, and localStorage loading. Tool mutations update the readable store before returning.
+- Remount Astro on workspace switches and reject stale-workspace tool calls. Reset retains the workspace and mounted assistant, using SDK reset to clear saved selection. Closing the panel preserves its conversation.
+- Keep secrets in server environment variables without `VITE_`. Missing Basic Auth credentials fail closed in development and production.
+- Own shadcn components locally and follow the root registry-provenance requirements. Keep generated export noise out of Knip without excluding unused-file discovery.
+- Browser specs live in `e2e`. Live Astro tests require explicit `E2E_LIVE_ASTRO=true` and a configured local platform.
+- Keep views and issues on workspace-scoped URLs. In-workspace navigation preserves Astro's conversation, and agent navigation validates the destination against that workspace.
+- Verify host and sidebar together at 140% zoom. Recordings tell one real-world story with reading time and product narration. Reuse website titles, feature labels, and CTAs. Keep resets, reloads, and test mechanics in the functional suite.

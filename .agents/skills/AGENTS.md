@@ -1,5 +1,4 @@
 # Agent skills
 
-- Before creating a skill, follow `skill-creator` and research current registries, relevant repositories, local skills, and primary documentation. Prefer reuse or improvement over duplication.
-- Keep one portable project copy at `.agents/skills/<name>` and link maintained remote references instead of copying them locally. Retain only durable instructions and optional client metadata that does not alter core behavior.
-- Install reviewed skills project-scoped with `DISABLE_TELEMETRY=1 bunx --bun skills@latest add <source> --skill <name> --agent universal -y`. Do not install the CLI or skills globally.
+- Follow `skill-creator` before creating skills. Research registries, repositories, local skills, and primary docs, preferring reuse. Keep one portable `.agents/skills/<name>` copy with durable instructions and behavior-neutral optional metadata. Link maintained remote references.
+- Install only reviewed, project-scoped skills with `DISABLE_TELEMETRY=1 bunx --bun skills@latest add <source> --skill <name> --agent universal -y`. Never install globally.
