@@ -344,7 +344,7 @@ for (const status of [503, 403]) {
     } else {
       expect(await viewport.evaluate((element) => element.isConnected)).toBe(true)
       await expect(directory.transcript).toContainText("Saved context 19")
-      expect(await directory.messages.evaluate((element) => element.scrollTop)).toBe(0)
+      await expect.poll(() => directory.messages.evaluate((element) => element.scrollTop)).toBe(0)
       await captureMoment(page, "Pagination failure retains saved history")
       await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
       await expect(directory.transcript).toContainText("Older context 0")
