@@ -35,11 +35,9 @@ A file rejected by the composer never reaches the agent. Server validation can r
 
 | Limit | Value | What happens at the limit |
 | --- | --- | --- |
-| Office archive | 96 MB declared uncompressed, 2,048 kept parts, 4,096 entries walked | "it declares more content than this assistant will unpack." |
-| Table shape | 50,000 rows, 512 columns, 200,000 cells per sheet | cells outside the bounds are skipped and the table is reported as truncated |
-| Column type profile | the first 50 data rows | types stay a hint the agent should confirm against the file itself |
-| Readable text per file | 2,000,000 characters | `read_attachment` returns `readableTextTruncated: true` |
 | One `read_attachment` page | 40,000 characters, whatever `limit` asks for | the result carries `nextOffset` to read on from |
+
+Paging applies only to plain text files, whose upload limit is 1 MiB. Office and data files, including CSV and TSV, require a sandbox and have no text view. Upload admission checks Office file size and signature without inspecting archive contents. Structure and decompression failures surface during sandbox analysis.
 
 ## Sandbox and artifacts
 

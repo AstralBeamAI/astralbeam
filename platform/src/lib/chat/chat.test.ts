@@ -1,7 +1,12 @@
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
-import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
+import {
+  chatParamsFromRequestBody,
+  EventType,
+  type AnyServerTool,
+  type ChatMiddleware,
+} from "@tanstack/ai"
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
 
@@ -489,12 +494,20 @@ describe("Chat.run", () => {
     ),
   )
 
-  it.effect("replays saved attachments after uploads are disabled, including context refresh", () =>
+  it.effect.each(["removed", "unreadable", "malformed"])("saved attachments: %s", (state) =>
     Effect.gen(function* () {
+      if (state === "malformed") {
+        const failure = yield* Effect.flip(runChat())
+        assert.strictEqual(failure._tag, "ChatThreadInvalid")
+        assert.isEmpty(chatRunTest.options)
+        return
+      }
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
-      assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
-      assert.include(JSON.stringify(options.messages), "[Attached: notes.txt]")
+      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv]")
+      assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
+      assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
+      assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
       const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
       const refreshed = yield* Effect.promise(async () =>
         gate.onConfig!(
@@ -502,12 +515,22 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes.txt]")
-      assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
+      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
+      for (const tools of [options.tools, refreshed?.tools]) {
+        const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
+        const result = yield* Effect.promise(() =>
+          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+        )
+        assert.notProperty(result, "sandboxPath")
+        assert.notProperty(result, "content")
+      }
     }).pipe(
       Effect.provide(
         chatTestLayer({
-          agent: sandboxedAgent,
+          agent: {
+            ...sandboxedAgent,
+            sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
+          },
           model: CHAT_TEST_MODEL,
           history: [
             {
@@ -520,8 +543,12 @@ describe("Chat.run", () => {
                   {
                     id: "document",
                     type: "document",
-                    source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
-                    metadata: { filename: "notes.txt" },
+                    source: {
+                      type: "data",
+                      value: btoa(state === "malformed" ? "invalid" : "name\tamount\nSaved\t12"),
+                      mimeType: "application/octet-stream",
+                    },
+                    metadata: { filename: state === "malformed" ? "sales.xlsx" : "sales.tsv" },
                   },
                 ],
               },
@@ -530,19 +557,6 @@ describe("Chat.run", () => {
         }),
       ),
     ),
-  )
-
-  it.effect(
-    "drops the sandbox tools and prompts together when its configuration is unreadable",
-    () =>
-      Effect.gen(function* () {
-        const events = yield* runChat()
-        yield* Stream.runCollect(Stream.take(events, 1))
-        const [options] = chatRunTest.options
-        assert.isFalse(options?.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
-        assert.isFalse(options?.tools.some((tool) => tool.name.startsWith("sandbox_")))
-        assert.include(options?.systemPrompts, sandboxedAgent.systemPrompt)
-      }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>

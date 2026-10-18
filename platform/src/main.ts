@@ -12,7 +12,7 @@ import {
 import { homedir, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
-import { pathToFileURL } from "node:url"
+import { pathToFileURL, URL } from "node:url"
 
 import { Command } from "commander"
 
