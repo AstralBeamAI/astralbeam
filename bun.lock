@@ -5,6 +5,7 @@
     "": {
       "name": "astralbeam-repository",
       "devDependencies": {
+        "@types/bun": "1.4.3",
         "oxfmt": "0.73.0",
       },
     },

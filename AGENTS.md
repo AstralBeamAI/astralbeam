@@ -13,7 +13,8 @@
 
 - Use Bun through `bun run --cwd <project> <task>` or from the affected project directory. On macOS run application code natively, using a devcontainer only when requested. Do not install or invoke Node, npm, npx, or ESLint directly. SDK consumers may use their host's package manager, and the Rails example follows its own instructions and `bin/ci`.
 - Commit only reviewed non-secret environment defaults, never credentials, deployment values, or `*.local`. Preserve `env = false` in every Bun configuration, shell/CI/deployment precedence over files, and standalone environment loading local to its tool.
-- Keep root `package.json` a launcher for six explicit workspaces, shared compiler options in `tsconfig.base.json`, and project-specific configuration in each project. Preserve `check`, `test`, and `build` meanings, compose `ready` through `scripts/ready.ts`, and put reusable gates in `check` rather than CI-only steps.
+- Keep root `package.json` a launcher for six explicit workspaces. Preserve `check`, `test`, and `build` meanings, compose `ready` through `scripts/ready.ts`, and put reusable gates in `check` rather than CI-only steps.
+- Root `tsconfig.base.json` holds shared compiler defaults, including `lib: ["ES2025"]`. Each project's `tsconfig.json` extends it, overrides `lib` when needed, and keeps its own `jsx`, `types`, `paths`, and file globs.
 - Use project Oxlint and oxfmt tasks. Keep lint configurations structurally aligned, retain preset options, and assign each rule one owner. Fix findings in code without suppressions or overrides. Exclude only generated or registry-vendored sources, disable rules only for linked upstream defects, and re-audit presets, compatibility issues, and plugin loaders on upgrades.
 - Before `bun run knip:fix`, commit or back up untracked work, then inspect the full diff before `check:fix`. Knip entries must be real execution roots. Keep application entry exports checked and SDK public exports exempt. Ignore registry export noise without excluding unreachable files from discovery.
 - Run `scripts/setup.sh` once after pulling. Otherwise choose the smallest relevant validation. Do not automatically run `check`, `test`, or `ready`. Run `ready` once before creating a PR or when requested, without separate check/test runs except to diagnose failures. Version-only bumps may skip it. For documentation and instruction changes, pre-PR validation is source review and `git diff --check`.
@@ -28,7 +29,7 @@
 - An Organization is an AstralBeam customer, organization users are its dashboard users, Tenants are its customers, and TenantUsers interact with the embedded sidebar. The dashboard assistant is Astro. Keep organization, tenant, and tenant-user authority distinct.
 - Organization UUIDs are immutable and slugs are editable URL identifiers only. Never use slugs as credential, token, relationship, or seed identity.
 - Entity IDs are opaque UUIDs. Public IDs are `agent_<organizationId>_<id>` and `key_<organizationId>_<id>`.
-- Follow [Platform instructions](platform/AGENTS.md) for Platform, database, and theme work, including changes to shared setup scripts, Compose, and local resources outside that directory.
+- Follow [Platform instructions](platform/AGENTS.md) for Platform, database, and theme work, including shared repository scripts, Compose, and local resources outside that directory.
 
 ## UI and documentation
 

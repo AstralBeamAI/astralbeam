@@ -1,3 +1,5 @@
+import { execFileSync, execSync, spawn, spawnSync } from "node:child_process"
+import dgram from "node:dgram"
 import http, { createServer } from "node:http"
 import { createHash } from "node:crypto"
 import type { Socket } from "node:net"
@@ -8,7 +10,11 @@ import type { SqlClient, SqlConnection } from "effect/sql"
 import { Pool } from "pg"
 import { afterAll, beforeAll, expect, test } from "vitest"
 
-import { guardPromisePool, withGuardedSqlTransaction } from "./transaction-guard.ts"
+import {
+  guardPromisePool,
+  runGuardedPromiseTransaction,
+  withGuardedSqlTransaction,
+} from "./transaction-guard.ts"
 
 const guardTestConnection = {} as SqlConnection.Connection
 const guardTestService = Context.Service<
@@ -126,20 +132,36 @@ test("blocks sends through an already-open WebSocket", async () => {
   }
 })
 
-test("blocks Bun network entry points inside transactions", async () => {
-  await Effect.runPromise(
-    withGuardedSqlTransaction(
-      guardTestSql,
-      Effect.sync(() => {
-        expect(() =>
-          Bun.connect({ hostname: "127.0.0.1", port: 1, socket: { data() {} } }),
-        ).toThrow("Bun.connect is forbidden")
-        expect(() => Bun.udpSocket({ socket: { data() {} } })).toThrow("Bun.udpSocket is forbidden")
-        expect(() => Bun.spawn([process.execPath, "--version"])).toThrow("Bun.spawn is forbidden")
-        expect(() => Bun.spawnSync([process.execPath, "--version"])).toThrow(
-          "Bun.spawnSync is forbidden",
-        )
-      }),
-    ),
-  )
+test("blocks Bun and Node transports inside Effect and Promise transactions", async () => {
+  const socket = dgram.createSocket("udp4")
+  await new Promise<void>((resolve) => socket.bind(0, "127.0.0.1", resolve))
+  const args = ["--version"]
+  const assertBlocked = () => {
+    for (const command of [
+      () => socket.send("forbidden", 9, "127.0.0.1"),
+      () => spawn(process.execPath, args),
+      () => execSync("echo forbidden"),
+      () => execFileSync(process.execPath, args),
+    ]) {
+      expect(command).toThrow("is forbidden inside a database transaction")
+    }
+    expect(spawnSync(process.execPath, args).error?.message).toContain("Bun.spawnSync is forbidden")
+    for (const [method, options] of [
+      ["connect", { hostname: "127.0.0.1", port: 9, socket: { data() {} } }],
+      ["udpSocket", { socket: { data() {} } }],
+      ["spawn", { cmd: [process.execPath, ...args] }],
+      ["spawnSync", { cmd: [process.execPath, ...args] }],
+    ] as const) {
+      expect(() => {
+        Reflect.apply(Bun[method], Bun, [options])
+      }).toThrow(`Bun.${method} is forbidden`)
+    }
+  }
+  try {
+    await Effect.runPromise(withGuardedSqlTransaction(guardTestSql, Effect.sync(assertBlocked)))
+    await runGuardedPromiseTransaction({}, () => Promise.resolve().then(assertBlocked))
+    expect(spawnSync(process.execPath, args).status).toBe(0)
+  } finally {
+    await new Promise<void>((resolve) => socket.close(resolve))
+  }
 })

@@ -6,6 +6,7 @@ import { dirname, join } from "node:path"
 import { env as processEnvironment, kill as killProcess } from "node:process"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
+import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
 
 import { Client } from "pg"
 
@@ -36,13 +37,14 @@ async function reserveBinaryCheckPort() {
   return port
 }
 
-async function fetchBinaryCheckResponse(url: URL) {
+async function fetchBinaryCheckResponse(url: URL, options?: BunFetchRequestInit) {
   const deadline = Date.now() + BINARY_CHECK_START_TIMEOUT_MS
   let lastError: unknown
 
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, {
+        ...options,
         signal: AbortSignal.timeout(BINARY_CHECK_FETCH_TIMEOUT_MS),
       })
       if (response.ok) return response
@@ -57,6 +59,58 @@ async function fetchBinaryCheckResponse(url: URL) {
   throw new Error(`Binary did not serve ${url.pathname} within 20 seconds`, {
     cause: lastError,
   })
+}
+
+async function checkBinaryAssetCompression(url: URL) {
+  let identity: Buffer | undefined
+  for (const [acceptEncoding, encoding, decode] of [
+    ["identity", null, null],
+    ["gzip, deflate, br, zstd", "br", brotliDecompressSync],
+    ["br;q=1, identity;q=0", "br", brotliDecompressSync],
+    ["br;q=0.5, gzip;q=1", "gzip", gunzipSync],
+    ["br;q=0, zstd;q=1, identity;q=0", "zstd", zstdDecompressSync],
+    ["br;q=0.5, identity;q=1", null, null],
+    ["*;q=0, identity;q=1", null, null],
+    ["*;q=1, br;q=0, gzip;q=0, identity;q=0", "zstd", zstdDecompressSync],
+  ] as const) {
+    const response = await fetchBinaryCheckResponse(url, {
+      headers: { "Accept-Encoding": acceptEncoding },
+      decompress: false,
+    })
+    const bytes = Buffer.from(await response.arrayBuffer())
+    if (
+      response.headers.get("content-encoding") !== encoding ||
+      !response.headers
+        .get("vary")
+        ?.toLowerCase()
+        .split(",")
+        .some((value) => value.trim() === "accept-encoding")
+    ) {
+      throw new Error(
+        `Binary served incorrect compression headers for ${url.pathname} (${acceptEncoding})`,
+      )
+    }
+    if (identity === undefined) {
+      identity = bytes
+    } else if (
+      !(decode ? decode(bytes) : bytes).equals(identity) ||
+      (encoding !== null && bytes.length >= identity.length)
+    ) {
+      throw new Error(
+        `Binary served invalid compressed bytes for ${url.pathname} (${acceptEncoding})`,
+      )
+    }
+  }
+  for (const acceptEncoding of ["br;q=0, gzip;q=0, zstd;q=0, identity;q=0", "*;q=0"]) {
+    const response = await fetch(url, {
+      headers: { "Accept-Encoding": acceptEncoding },
+      signal: AbortSignal.timeout(BINARY_CHECK_FETCH_TIMEOUT_MS),
+    })
+    await response.body?.cancel()
+    if (response.status !== 406) {
+      throw new Error(`Binary ignored rejected encodings for ${url.pathname} (${acceptEncoding})`)
+    }
+  }
 }
 
 async function checkBinaryDocsDiscovery(baseUrl: URL) {
@@ -173,14 +227,11 @@ async function runBinaryCheck() {
   }
 
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
-  let stylesheetName: string | undefined
-  for (const entry of await readdir(publicAssetsDirectory, { withFileTypes: true })) {
-    if (entry.isFile() && /^styles-.+\.css$/.test(entry.name)) {
-      stylesheetName = entry.name
-      break
-    }
-  }
-  if (!stylesheetName) throw new Error("Build output did not contain a stylesheet")
+  const assetNames = await readdir(publicAssetsDirectory)
+  const stylesheetName = assetNames.find((name) => /^styles-.+\.css$/.test(name))
+  const scriptName = assetNames.find((name) => name.endsWith(".js.br"))?.slice(0, -3)
+  if (!stylesheetName || !scriptName)
+    throw new Error("Build output did not contain CSS and JavaScript")
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
   const port = await reserveBinaryCheckPort()
@@ -201,11 +252,13 @@ async function runBinaryCheck() {
   const status = waitForBinaryCheckProcess(binaryProcess)
 
   try {
-    const stylesheetResponse = await fetchBinaryCheckResponse(
-      new URL(`/assets/${stylesheetName}`, baseUrl),
-    )
-    if (!(await stylesheetResponse.text())) {
-      throw new Error("Binary served an empty stylesheet")
+    for (const path of [
+      `/assets/${stylesheetName}`,
+      `/assets/${scriptName}`,
+      "/docs/sdk/getting-started",
+      "/api/openapi.json",
+    ]) {
+      await checkBinaryAssetCompression(new URL(path, baseUrl))
     }
 
     const docsUrl = new URL("/docs/sdk/getting-started", baseUrl)

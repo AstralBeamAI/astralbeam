@@ -129,6 +129,7 @@ const viteConfig = defineConfig(({ mode }) => {
         ? []
         : nitro({
             preset: "bun",
+            compressPublicAssets: true,
             // Trace Daytona's dynamic busboy import and every installed native Sharp package.
             // https://nitro.build/config#tracedeps
             traceDeps: ["busboy", "@img", "@img/sharp-win32-x64*"],
