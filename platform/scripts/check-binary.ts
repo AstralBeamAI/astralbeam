@@ -64,11 +64,14 @@ async function fetchBinaryCheckResponse(url: URL, options?: BunFetchRequestInit)
 async function checkBinaryAssetCompression(url: URL) {
   let identity: Buffer | undefined
   for (const [acceptEncoding, encoding, decode] of [
-    ["identity", null, (bytes: Buffer) => bytes],
+    ["identity", null, null],
     ["gzip, deflate, br, zstd", "br", brotliDecompressSync],
     ["br;q=1, identity;q=0", "br", brotliDecompressSync],
     ["br;q=0.5, gzip;q=1", "gzip", gunzipSync],
     ["br;q=0, zstd;q=1, identity;q=0", "zstd", zstdDecompressSync],
+    ["br;q=0.5, identity;q=1", null, null],
+    ["*;q=0, identity;q=1", null, null],
+    ["*;q=1, br;q=0, gzip;q=0, identity;q=0", "zstd", zstdDecompressSync],
   ] as const) {
     const response = await fetchBinaryCheckResponse(url, {
       headers: { "Accept-Encoding": acceptEncoding },
@@ -87,12 +90,25 @@ async function checkBinaryAssetCompression(url: URL) {
         `Binary served incorrect compression headers for ${url.pathname} (${acceptEncoding})`,
       )
     }
-    if (encoding === null) {
+    if (identity === undefined) {
       identity = bytes
-    } else if (!identity || bytes.length >= identity.length || !decode(bytes).equals(identity)) {
+    } else if (
+      !(decode ? decode(bytes) : bytes).equals(identity) ||
+      (encoding !== null && bytes.length >= identity.length)
+    ) {
       throw new Error(
         `Binary served invalid compressed bytes for ${url.pathname} (${acceptEncoding})`,
       )
+    }
+  }
+  for (const acceptEncoding of ["br;q=0, gzip;q=0, zstd;q=0, identity;q=0", "*;q=0"]) {
+    const response = await fetch(url, {
+      headers: { "Accept-Encoding": acceptEncoding },
+      signal: AbortSignal.timeout(BINARY_CHECK_FETCH_TIMEOUT_MS),
+    })
+    await response.body?.cancel()
+    if (response.status !== 406) {
+      throw new Error(`Binary ignored rejected encodings for ${url.pathname} (${acceptEncoding})`)
     }
   }
 }
