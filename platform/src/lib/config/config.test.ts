@@ -91,12 +91,25 @@ function configLayer(state: { rows: StoredRow[]; reads: number; gate?: Effect.Ef
 }
 
 describe("configuration registry", () => {
-  it.each(["false", "true"])("requires an explicit opt-in for remote HTTP origins (%s)", (flag) => {
-    vi.stubEnv("ALLOW_INSECURE", flag)
-    const origin = findConfigDefinition("app_base_url")!
+  it.each([undefined, "false", "true"])(
+    "requires an explicit opt-in for remote HTTP origins (%s)",
+    (flag) => {
+      vi.stubEnv("ALLOW_INSECURE", flag)
+      const origin = findConfigDefinition("app_base_url")!
+      assert.strictEqual(
+        Result.isSuccess(decodeConfigValue(origin, "http://app.example")),
+        flag === "true",
+      )
+    },
+  )
+
+  it.each([false, true])("preserves default origin errors with PROD=%s", (production) => {
+    vi.stubEnv("PROD", production)
+    vi.stubEnv("ALLOW_INSECURE", undefined)
+    const decoded = decodeConfigValue(findConfigDefinition("app_base_url")!, "http://app.example")
     assert.strictEqual(
-      Result.isSuccess(decodeConfigValue(origin, "http://app.example")),
-      flag === "true",
+      Result.isFailure(decoded) ? decoded.failure.message : null,
+      "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development",
     )
   })
 

@@ -36,10 +36,13 @@ function isServerOrigin(url: URL): boolean {
 }
 
 const ServerOriginSchema = Schema.URLFromString.check(
-  Schema.makeFilter(isServerOrigin, {
-    message:
-      "Use an HTTP(S) origin without credentials, path, query, or fragment. HTTP outside localhost requires ALLOW_INSECURE=true",
-  }),
+  Schema.makeFilter(
+    (url) =>
+      isServerOrigin(url) ||
+      (allowInsecure()
+        ? "Use an HTTP(S) origin without credentials, path, query, or fragment"
+        : "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development"),
+  ),
 ).pipe(
   Schema.decodeTo(Schema.String, {
     decode: SchemaGetter.transform((url) => url.origin),

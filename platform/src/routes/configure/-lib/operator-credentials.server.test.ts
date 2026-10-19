@@ -82,10 +82,14 @@ describe("operator request boundary", () => {
     },
   )
 
-  test.each(["", "true"])(
-    "keeps cookie issue and clearing security consistent (%s)",
-    async (flag) => {
-      vi.stubEnv("PROD", true)
+  test.each<[boolean, string | undefined, boolean]>([
+    [false, undefined, false],
+    [true, undefined, true],
+    [true, "true", false],
+  ])(
+    "keeps cookie issue and clearing security consistent (PROD=%s, ALLOW_INSECURE=%s)",
+    async (production, flag, secure) => {
+      vi.stubEnv("PROD", production)
       vi.stubEnv("ALLOW_INSECURE", flag)
       for (const effect of [setOperatorSessionCookie("token"), clearOperatorSessionCookie()]) {
         const response = await serveConfigureBoundary(
@@ -94,7 +98,7 @@ describe("operator request boundary", () => {
         )
         const cookie = response.headers.get("set-cookie")
         expect(cookie).toContain("operator_session=")
-        expect(cookie?.includes("Secure")).toBe(flag !== "true")
+        expect(cookie?.includes("Secure")).toBe(secure)
       }
     },
   )
