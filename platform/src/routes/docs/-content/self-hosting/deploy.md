@@ -27,6 +27,8 @@ If startup fails, inspect `docker logs astralbeam-platform`. The server needs a 
 
 Images use release version tags. To upgrade, [back up the database, storage, and keyring](./operations.md#backups-and-restore), stop and remove the old container, then repeat steps 2 and 3 with the new image. Recreate containers after environment changes. The binary's `upgrade` command does not upgrade containers, and older images cannot undo migrations.
 
+To build from a checkout, run `docker build -f platform/Dockerfile -t astralbeam-platform .` from the repository root. Docker builds for the host architecture, or select one with `--platform linux/amd64` or `--platform linux/arm64`.
+
 ## 1. Get a release binary
 
 Every tagged release from v0.13.0 publishes prebuilt platform assets named `astralbeam-platform-<target>`, where `<target>` is `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, or `windows-x86_64.exe`. The `astralbeam-<target>` assets beside them are the [CLI](/docs/cli/getting-started), not the server. Earlier releases put the version in each asset name, such as `astralbeam-platform-v0.12.2-linux-x86_64`.
