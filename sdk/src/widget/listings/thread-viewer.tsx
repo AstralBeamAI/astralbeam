@@ -133,5 +133,5 @@ export function ThreadViewer({
       ) : null}
     </section>
   )
-  return <AttachmentFileContext value={files}>{content}</AttachmentFileContext>
+  return <AttachmentFileContext.Provider value={files}>{content}</AttachmentFileContext.Provider>
 }

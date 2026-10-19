@@ -118,14 +118,14 @@ test("React conversation directory reads saved pages, uploads and decisions with
     })
   })
   await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) => {
-    if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
+    if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 204 })
     return route.fulfill({ body: "Saved upload", contentType: "text/plain" })
   })
   await page.route(
     "**/api/v1/chat/files?*fileId=019a0800-0000-7000-8000-000000000099*",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
-      if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
+      if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 204 })
       return route.fulfill({ body: "Generated report", contentType: "text/plain" })
     },
   )
@@ -349,9 +349,17 @@ for (const status of [503, 403]) {
   })
 }
 
-for (const status of [401, 403, 404]) {
-  test(`attachment denial ${status} hides cached administrative history`, async ({ page }) => {
+for (const [status, preview] of [
+  [401, false],
+  [403, false],
+  [404, false],
+  [404, true],
+] as const) {
+  test(`${preview ? "Preview" : "Download"} attachment denial ${status} hides cached administrative history`, async ({
+    page,
+  }) => {
     const directory = threadDirectoryPage(page)
+    let denied = true
     await page.route("**/api/v1/threads?*", (route) =>
       route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
     )
@@ -376,7 +384,7 @@ for (const status of [401, 403, 404]) {
       }),
     )
     await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) =>
-      route.request().headers()["x-file-preview"]
+      !denied || (route.request().headers()["x-file-preview"] && !preview)
         ? route.fulfill({ status: 204 })
         : route.fulfill({
             status,
@@ -385,11 +393,14 @@ for (const status of [401, 403, 404]) {
     )
     await directory.openReact()
     await directory.conversation(savedThread.title).click()
-    await expect(directory.transcript).toContainText("Private saved context")
-    await directory.transcript.getByRole("button", { name: "Download support-notes.txt" }).click()
+    if (!preview) {
+      await expect(directory.transcript).toContainText("Private saved context")
+      await directory.transcript.getByRole("button", { name: "Download support-notes.txt" }).click()
+    }
     await expect(directory.transcript.getByRole("alert")).toContainText("Access denied")
     await expect(directory.messages).toHaveCount(0)
     await expect(directory.transcript).not.toContainText("Private saved context")
+    denied = false
     await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
     await expect(directory.transcript).toContainText("Private saved context")
     await expect(directory.transcript.getByRole("alert")).toHaveCount(0)

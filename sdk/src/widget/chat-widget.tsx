@@ -537,5 +537,5 @@ export function ChatWidget({
       </CardFooter>
     </Card>
   )
-  return <AttachmentFileContext value={files}>{content}</AttachmentFileContext>
+  return <AttachmentFileContext.Provider value={files}>{content}</AttachmentFileContext.Provider>
 }

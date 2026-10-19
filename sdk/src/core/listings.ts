@@ -268,7 +268,10 @@ export function loadDirectoryThreadFile(
       })
       return await response.blob()
     } catch (error) {
-      if (options?.preview && !(isAstralBeamApiError(error) && [401, 403].includes(error.status)))
+      if (
+        options?.preview &&
+        !(isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
+      )
         return new Blob()
       throw error
     }
