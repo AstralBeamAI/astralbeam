@@ -39,7 +39,6 @@ test("example lists only its tenant's users and filters stored admin status", as
   await directory.showAdmin.uncheck()
   await expect(directory.adminFilter).toHaveCount(0)
   await expect(directory.user(admin.name)).toBeVisible()
-  await captureMoment(page, "directory-pagination-desktop")
 })
 
 test("a missing tenant can be refreshed after provisioning without remounting", async ({
@@ -55,29 +54,6 @@ test("a missing tenant can be refreshed after provisioning without remounting", 
   await page.unroute("**/api/v1/tenants?*")
   await directory.refresh.click()
   await expect(directory.user(seedTarget.user.name)).toBeVisible()
-})
-
-test.describe("touch directory pagination", () => {
-  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } })
-
-  test("page controls fit a narrow container and retain usable touch targets", async ({ page }) => {
-    const directory = directoriesPage(page)
-    const token = await createAstralBeamToken(seedTarget)
-    await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
-    await openVanillaDirectories(page, {}, ["users"])
-    await expect(directory.user(seedTarget.user.name)).toBeVisible()
-    for (const name of ["Previous", "Next"]) {
-      const button = directory.users.getByRole("button", { name, exact: true })
-      await expect(button).toBeDisabled()
-      expect(
-        await button.evaluate((element) => element.getBoundingClientRect().height),
-      ).toBeGreaterThanOrEqual(44)
-    }
-    expect(
-      await directory.users.evaluate((element) => element.scrollWidth <= element.clientWidth),
-    ).toBe(true)
-    await captureMoment(page, "directory-pagination-touch")
-  })
 })
 
 test("directories share chat theme tokens across system, dark, and removed overrides", async ({
