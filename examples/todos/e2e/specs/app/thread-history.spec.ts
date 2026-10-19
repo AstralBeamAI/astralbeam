@@ -4,9 +4,11 @@ import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
-test("chat history search, selection, and new chat preserve the correct local state", async ({
+test("chat history refresh, search, selection, and new chat preserve local state", async ({
   page,
+  context,
 }) => {
+  await page.clock.install()
   const recent = {
     id: "00000000-0000-4000-8000-000000000001",
     title: "Recent conversation",
@@ -86,6 +88,22 @@ test("chat history search, selection, and new chat preserve the correct local st
   await expect(chat.conversationOption(recent.title)).toBeVisible()
   await expect(chat.historyPopup).not.toHaveAttribute("aria-busy", "true")
   expect(listRequests).toBe(1)
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await context.setOffline(true)
+  await context.setOffline(false)
+  await page.clock.runFor(100)
+  expect(listRequests).toBe(1)
+  await page.clock.fastForward(31_000)
+  recent.title = "Updated recent conversation"
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await expect(chat.conversationOption(recent.title)).toBeVisible()
+  expect(listRequests).toBe(2)
+  await context.setOffline(true)
+  await page.clock.fastForward(31_000)
+  await context.setOffline(false)
+  await expect.poll(() => listRequests).toBe(3)
+  await expect(chat.historyPopup).not.toHaveAttribute("aria-busy", "true")
+  await captureMoment(page, "history-refreshed-after-focus-and-reconnect")
   await page.getByRole("option", { name: recent.title, exact: true }).click()
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(recent.title)
   await picker.click()

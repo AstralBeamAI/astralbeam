@@ -77,7 +77,13 @@ export function ThreadHistory({
   const [boundary, setBoundary] = useState<Element>()
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
   const [client] = useState(() => new QueryClient())
-  useEffect(() => () => client.clear(), [client])
+  useEffect(() => {
+    client.mount()
+    return () => {
+      client.unmount()
+      client.clear()
+    }
+  }, [client])
   const authenticated = state.auth.status === "ready"
   const query = useInfiniteQuery(
     {
