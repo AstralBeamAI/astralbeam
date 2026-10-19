@@ -1,4 +1,6 @@
 import { StartClient } from "@tanstack/react-start/client"
+import { PostHogProvider } from "@posthog/react"
+import posthog from "posthog-js"
 import { StrictMode, startTransition } from "react"
 import { hydrateRoot } from "react-dom/client"
 
@@ -8,7 +10,9 @@ startTransition(() => {
   hydrateRoot(
     document,
     <StrictMode>
-      <StartClient />
+      <PostHogProvider client={posthog}>
+        <StartClient />
+      </PostHogProvider>
     </StrictMode>,
   )
 })

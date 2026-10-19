@@ -21,6 +21,7 @@ import type { Agent } from "@/lib/agents/agents.server"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { deleteAgent } from "../../-functions/delete-agent"
 import { setDefaultAgent } from "../../-functions/set-default-agent"
+import { useInvalidateOrganizationPages } from "@/routes/_authenticated/$orgSlug/-lib/page-query"
 
 export type AgentActionsProps = {
   organizationSlug: string
@@ -39,6 +40,7 @@ export function AgentActions({
 }: AgentActionsProps) {
   const navigate = useNavigate()
   const router = useRouter()
+  const invalidatePages = useInvalidateOrganizationPages()
   const [busy, setBusy] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -50,6 +52,7 @@ export function AgentActions({
     } catch (error) {
       toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
+      await invalidatePages()
       await router.invalidate()
       setBusy(false)
     }
@@ -62,6 +65,7 @@ export function AgentActions({
         data: { organizationSlug, agentId: agent.id, lockVersion: agent.lockVersion },
       })
       toast.add({ title: `${agent.name} deleted`, type: "success" })
+      await invalidatePages()
       await navigate({ to: "/$orgSlug/agents", params: { orgSlug: organizationSlug } })
     } catch (error) {
       setDeleteOpen(false)

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/licenses.txt")({
         new Response(licenseText, {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": import.meta.env.DEV ? "no-cache" : "public, max-age=300",
           },
         }),
     },

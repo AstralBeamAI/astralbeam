@@ -1,6 +1,8 @@
 // Added from @better-auth-ui/auth
-// Local changes: Keep failed sign-outs retryable with a non-sensitive inline error state, and destructure the mutate function for exhaustive effect dependencies.
+// Local changes: Keep failed sign-outs retryable, clear all cached page data on success, and destructure the mutate function for exhaustive effect dependencies.
 import { useAuth, useSignOut } from "@better-auth-ui/react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,13 +21,18 @@ export type SignOutProps = {
  */
 export function SignOut({ className }: SignOutProps) {
   const { authClient, basePaths, localization, navigate, viewPaths } = useAuth()
+  const queryClient = useQueryClient()
+  const router = useRouter()
 
   const signOutMutation = useSignOut(authClient, {
-    onSuccess: () =>
+    onSuccess: () => {
+      queryClient.clear()
+      router.clearCache()
       navigate({
         to: `${basePaths.auth}/${viewPaths.auth.signIn}`,
         replace: true,
-      }),
+      })
+    },
   })
   const { mutate: signOut } = signOutMutation
 

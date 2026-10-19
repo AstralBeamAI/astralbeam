@@ -25,7 +25,7 @@ export function createPngHandler(render: () => Promise<Uint8Array>) {
     new Response(new Uint8Array(await render()), {
       headers: {
         "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": import.meta.env.DEV ? "no-cache" : "public, max-age=300",
       },
     })
 }

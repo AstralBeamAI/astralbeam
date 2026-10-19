@@ -12,34 +12,25 @@
 /website-assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Match public files exactly so missing paths do not inherit a fresh cache lifetime.
+/blog/images/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+# Match other public files exactly so missing paths do not inherit a fresh cache lifetime.
 # https://developers.cloudflare.com/workers/static-assets/headers/
-/blog/images/agentic-chat-failures.png
-  Cache-Control: public, max-age=3600, must-revalidate
-
-/blog/images/agentic-chat-failures.svg
-  Cache-Control: public, max-age=3600, must-revalidate
-
-/blog/images/chat-state-map.png
-  Cache-Control: public, max-age=3600, must-revalidate
-
-/blog/images/chat-state-map.svg
-  Cache-Control: public, max-age=3600, must-revalidate
-
 /demo/returns-q3.csv
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /demo/unpaid-returns.xlsx
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /favicon.png
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /og-image.png
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /licenses.txt
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /site.webmanifest
   Cache-Control: public, max-age=300, must-revalidate

@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type ComponentType } from "react"
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react"
 import { parsePartialJSON } from "@tanstack/ai-client"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeftIcon } from "@phosphor-icons/react"
 import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
@@ -36,14 +36,34 @@ export function ThreadViewer({
   ErrorFeedback: ComponentType<{ error: Error; retry: () => void }>
   LoadingFeedback: ComponentType
 }) {
-  const [attachmentError, setAttachmentError] = useState<Error | null>(null)
+  const client = useQueryClient()
+  const [accessError, setAccessError] = useState<Error | null>(null)
+  const hideInaccessibleHistory = useCallback((error: unknown) => {
+    if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)) setAccessError(error)
+  }, [])
+  const clearAccessError = () =>
+    setAccessError((current) => (current === accessError ? null : current))
   const query = useInfiniteQuery({
     queryKey: ["directory-history", thread.tenant_id, thread.id],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      loadDirectoryThreadHistory(session, thread.tenant_id, thread.id, pageParam, signal),
+      loadDirectoryThreadHistory(session, thread.tenant_id, thread.id, pageParam, signal)
+        .then((page) => {
+          clearAccessError()
+          return page
+        })
+        .catch((error: unknown) => {
+          hideInaccessibleHistory(error)
+          throw error
+        }),
     getNextPageParam: (page) => page.page_after ?? undefined,
+    // Explicit invalidation retries denied history: https://tanstack.com/query/latest/docs/framework/react/reference/useQuery
+    enabled: (query) => !accessError || query.state.isInvalidated,
   })
+  useEffect(() => {
+    if (accessError)
+      void client.resetQueries({ queryKey: ["directory-history", thread.tenant_id, thread.id] })
+  }, [client, accessError, thread.tenant_id, thread.id])
   const getThreadAttachment = useCallback<AstralBeamChatCore["getThreadAttachment"]>(
     async (params, options) => {
       try {
@@ -54,12 +74,11 @@ export function ThreadViewer({
           options,
         )
       } catch (error) {
-        if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
-          setAttachmentError(error)
+        hideInaccessibleHistory(error)
         throw error
       }
     },
-    [session, thread.tenant_id],
+    [session, thread.tenant_id, hideInaccessibleHistory],
   )
   const files = useMemo(
     () => ({ getThreadAttachment, threadId: thread.id }),
@@ -79,7 +98,7 @@ export function ThreadViewer({
     }
     return projected
   }, [query.data])
-  const error = attachmentError ?? query.error
+  const error = accessError ?? query.error
   const inaccessible = isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
   const content = (
@@ -106,17 +125,13 @@ export function ThreadViewer({
         <ErrorFeedback
           error={error}
           retry={() => {
-            void (
-              attachmentError || !query.isFetchNextPageError
-                ? query.refetch()
-                : query.fetchNextPage()
-            ).then((result) => {
-              if (result.isSuccess) setAttachmentError(null)
-            })
+            void (accessError || !query.isFetchNextPageError
+              ? query.refetch()
+              : query.fetchNextPage())
           }}
         />
       )}
-      {query.isPending ? (
+      {query.isPending && !accessError ? (
         <LoadingFeedback />
       ) : query.data && !inaccessible ? (
         <div className="h-[32rem] min-h-64 overflow-hidden rounded-lg border border-foreground/10 bg-background text-foreground [--card-spacing:--spacing(4)]">

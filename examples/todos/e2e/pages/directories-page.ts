@@ -43,9 +43,10 @@ export function directoriesPage(page: Page) {
 
 export async function openVanillaDirectories(
   page: Page,
-  options: { scope?: "tenant" | "organization"; tenantExternalId?: string } = {},
+  options: { scope?: "tenant" | "organization"; tenantExternalId?: string; cache?: boolean } = {},
   kinds: ("tenants" | "users" | "threads")[] = ["tenants", "users"],
 ) {
+  const { cache = false, ...listingOptions } = options
   await page.route("**/__listing-sdk/*.js", (route) =>
     route.fulfill({
       path: fileURLToPath(
@@ -70,7 +71,8 @@ export async function openVanillaDirectories(
           import { mountAstralBeamTenantList, mountAstralBeamTenantUserList, mountAstralBeamThreadList } from '/__listing-sdk/client.js';
           const options = { apiUrl: ${JSON.stringify(
             `${platformUrl}/api`,
-          )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(options)},
+          )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(listingOptions)},
+            cacheKey: ${cache ? "{}" : "undefined"},
             onTenantChange: (tenant) => {
               if (tenant) return;
               const output = document.getElementById('clear-count');

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
+import { organizationPageLoader } from "../-lib/page-query"
 import { ModelProviderListCard } from "./-components/model-provider-list-card"
 import { getModelsPageData } from "./-functions/get-models-page-data"
 
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/models/")({
     if (!context.organization.permissions.readConfiguration)
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
   },
-  loader: ({ params }) => getModelsPageData({ data: { organizationSlug: params.orgSlug } }),
+  loader: organizationPageLoader("models", getModelsPageData),
   component: ModelsPage,
   pendingComponent: ModelsPageSkeleton,
   head: () => ({ meta: [{ title: `Models · ${APP_NAME}` }] }),

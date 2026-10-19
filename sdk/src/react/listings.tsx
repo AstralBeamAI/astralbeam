@@ -60,6 +60,7 @@ function useListingMount<
   const handle = useRef<AstralBeamListingHandle<T> | null>(null)
   const {
     apiUrl,
+    cacheKey,
     fetchAstralBeamToken,
     scope,
     tenantId,
@@ -80,6 +81,7 @@ function useListingMount<
     () =>
       ({
         apiUrl,
+        cacheKey,
         fetchAstralBeamToken,
         scope,
         tenantId,
@@ -98,6 +100,7 @@ function useListingMount<
       }) as T,
     [
       apiUrl,
+      cacheKey,
       fetchAstralBeamToken,
       scope,
       tenantId,

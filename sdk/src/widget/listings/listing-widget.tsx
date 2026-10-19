@@ -33,6 +33,7 @@ import {
   loadTenantChoices,
   resolveListingTenant,
 } from "../../core/listings.ts"
+import { ThreadDirectoryPage } from "./thread-directory.tsx"
 import { DirectoryTable } from "./table.tsx"
 
 const listingKinds = {
@@ -68,13 +69,6 @@ interface WidgetProps {
 type Cursor = ListingPageOptions["cursor"]
 
 export function ListingWidget({ options, kind, session }: WidgetProps) {
-  const threadDirectory = useQuery({
-    queryKey: ["thread-directory"],
-    queryFn: () => import("./thread-directory.tsx"),
-    enabled: kind === "threads",
-    staleTime: Infinity,
-  })
-  const ThreadDirectoryPage = threadDirectory.data?.ThreadDirectoryPage
   const config = listingKinds[kind]
   const { Icon } = config
   const requiresTenant = config.tenantPrompt !== null
@@ -184,7 +178,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             size="icon"
             tooltip="Refresh directory"
             disabled={fetching > 0}
-            onClick={() => void queryClient.refetchQueries({ type: "active" })}
+            onClick={() => void queryClient.invalidateQueries()}
           >
             <ArrowClockwiseIcon
               aria-hidden
@@ -209,26 +203,17 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           </p>
         </div>
       ) : kind === "threads" ? (
-        threadDirectory.isError ? (
-          <ListingError
-            error={threadDirectory.error}
-            retry={() => void threadDirectory.refetch()}
-          />
-        ) : ThreadDirectoryPage ? (
-          <ThreadDirectoryPage
-            key={JSON.stringify([tenantId, q, size])}
-            session={session}
-            tenantId={tenantId}
-            q={q}
-            size={size}
-            onSize={setSize}
-            ErrorFeedback={ListingError}
-            LoadingFeedback={ListingLoading}
-            Pagination={PageNavigation}
-          />
-        ) : (
-          <ListingLoading />
-        )
+        <ThreadDirectoryPage
+          key={JSON.stringify([tenantId, q, size])}
+          session={session}
+          tenantId={tenantId}
+          q={q}
+          size={size}
+          onSize={setSize}
+          ErrorFeedback={ListingError}
+          LoadingFeedback={ListingLoading}
+          Pagination={PageNavigation}
+        />
       ) : (
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}

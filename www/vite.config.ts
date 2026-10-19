@@ -1,14 +1,9 @@
 import { readdirSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
-import mdx from "@mdx-js/rollup"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import remarkFrontmatter from "remark-frontmatter"
-import remarkMdxFrontmatter from "remark-mdx-frontmatter"
-import remarkReadingTime from "remark-reading-time"
-import remarkMdxReadingTime from "remark-reading-time/mdx"
 import { defineConfig } from "vite"
 
 const workspaceDirectory = fileURLToPath(new URL("../", import.meta.url))
@@ -74,18 +69,6 @@ export default defineConfig(({ mode }) => ({
           }),
         ]),
     tanstackStart(),
-    {
-      ...mdx({
-        format: "md",
-        remarkPlugins: [
-          remarkFrontmatter,
-          remarkMdxFrontmatter,
-          remarkReadingTime,
-          remarkMdxReadingTime,
-        ],
-      }),
-      enforce: "pre",
-    },
     viteReact(),
   ],
 }))

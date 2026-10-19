@@ -2,6 +2,7 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useInvalidateOrganizationPages } from "@/routes/_authenticated/$orgSlug/-lib/page-query"
 import { useState } from "react"
 
 import {
@@ -30,6 +31,7 @@ export function UsageLimitActions({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
+  const invalidatePages = useInvalidateOrganizationPages()
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -44,6 +46,7 @@ export function UsageLimitActions({
         },
       })
       toast.add({ title: `${usageLimit.name} deleted`, type: "success" })
+      await invalidatePages()
       await navigate({ to: "/$orgSlug/usage-limits", params: { orgSlug: organizationSlug } })
     } catch (error) {
       setOpen(false)

@@ -4,7 +4,7 @@ import {
   AstralBeamTenantUserList,
 } from "@astralbeam/sdk/react"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useContext, useState } from "react"
 import { useTheme } from "tanstack-router-theme-provider"
 import { cn } from "cn"
 
@@ -14,10 +14,12 @@ import {
   widgetThemeStyle,
 } from "../../-lib/widget-theme"
 import directoryCss from "./organization-directory.css?inline"
+import { DirectoryCacheContext } from "../../-lib/directory-cache"
 
 const organizationDirectoryRoute = getRouteApi("/_authenticated/$orgSlug")
 export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-users" | "threads" }) {
   const { access, organization } = organizationDirectoryRoute.useRouteContext()
+  const cacheKey = useContext(DirectoryCacheContext)
   const { theme } = useTheme()
   const [missingApiKeys, setMissingApiKeys] = useState(false)
   const Directory =
@@ -39,6 +41,7 @@ export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-user
         </header>
         <Directory
           key={`${access.userId}:${organization.organizationId}`}
+          cacheKey={cacheKey}
           apiUrl="/api"
           scope="organization"
           showHeader={false}

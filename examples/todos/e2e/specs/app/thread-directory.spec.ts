@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer"
 import { expect, test, savedUserMessage, savedDirectoryMessages } from "../../fixtures.ts"
 import { threadDirectoryPage } from "../../pages/thread-directory.ts"
-import { openVanillaDirectories } from "../../pages/directories-page.ts"
+import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { captureMoment } from "../../capture.ts"
 import { seedTarget } from "../../worktree.ts"
 import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
@@ -28,6 +28,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
 }) => {
   const directory = threadDirectoryPage(page)
   const mutations: string[] = []
+  let histories = 0
   let previousTop: number | undefined
   page.on("request", (request) => {
     if (
@@ -41,6 +42,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
     route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
   )
   await page.route("**/api/v1/tenants/*/threads/*/messages?*", async (route) => {
+    histories++
     const earlier = new URL(route.request().url()).searchParams.has("page_after")
     if (earlier && previousTop === undefined) {
       await expect(directory.messages).toHaveJSProperty("scrollTop", 0)
@@ -132,6 +134,10 @@ test("React conversation directory reads saved pages, uploads and decisions with
   await directory.openReact()
   await directory.conversation(savedThread.title).click()
   await expect(directory.transcript).toContainText("Saved partial response")
+  await directory.back.click()
+  await directory.conversation(savedThread.title).click()
+  await expect(directory.transcript).toContainText("Saved partial response")
+  expect(histories).toBe(1)
   await expect(directory.transcript.getByRole("textbox")).toHaveCount(0)
   await expect(directory.transcript.getByRole("radio")).toHaveCount(0)
   await directory.transcript.getByRole("button", { name: "Saved ask_questionnaire" }).click()
@@ -244,7 +250,44 @@ test("non-admin Tenant credentials cannot browse conversations", async ({ page }
   await expect(directory.directory.getByRole("table")).toHaveCount(0)
 })
 
-test("scrolling during refresh waits without canceling the latest history", async ({ page }) => {
+test("empty projected history pages automatically load earlier messages", async ({ page }) => {
+  const directory = threadDirectoryPage(page)
+  const thread = savedThread
+  let earlierRequests = 0
+  await page.route("**/api/v1/threads?*", (route) =>
+    route.fulfill({ json: { items: [thread], page_after: null, page_before: null } }),
+  )
+  await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) => {
+    const earlier = new URL(route.request().url()).searchParams.has("page_after")
+    if (earlier) earlierRequests++
+    return route.fulfill({
+      json: savedDirectoryMessages(
+        thread,
+        earlierRequests === 2
+          ? [savedUserMessage("earlier", "Earlier context")]
+          : Array.from({ length: 100 }, (_, i) => ({
+              id: `result-${earlierRequests}-${i}`,
+              role: "tool",
+              state: "complete",
+              source_assistant_message_id: "assistant",
+              source_tool_part_id: "call",
+              response_target_id: `target-${i}`,
+              parts: [
+                { id: "result", type: "tool-result", output: { ok: true }, outcome: "succeeded" },
+              ],
+            })),
+        earlierRequests === 2 ? null : `earlier-${earlierRequests}`,
+      ),
+    })
+  })
+  await directory.openReact()
+  await directory.conversation(thread.title).click()
+  await expect(directory.transcript).toBeVisible()
+  await expect(directory.transcript).toContainText("Earlier context")
+  expect(earlierRequests).toBe(2)
+})
+
+test("refresh updates active and reopened history without canceling a scroll", async ({ page }) => {
   const directory = threadDirectoryPage(page)
   const thread = savedThread
   let firstRequests = 0,
@@ -271,7 +314,9 @@ test("scrolling during refresh waits without canceling the latest history", asyn
           : Array.from({ length: 20 }, (_, i) =>
               savedUserMessage(
                 `context-${i}`,
-                firstRequests > 1 && i === 19 ? "Updated latest message" : `Saved context ${i}`,
+                firstRequests > 1 && i === 19
+                  ? `Updated latest message ${firstRequests}`
+                  : `Saved context ${i}`,
               ),
             ),
         earlier ? null : "earlier",
@@ -289,6 +334,12 @@ test("scrolling during refresh waits without canceling the latest history", asyn
   await expect(directory.transcript).toContainText("Updated latest message")
   await expect(directory.transcript).toContainText("Older context")
   expect(earlierRequests).toBe(1)
+  await directory.back.click()
+  await directory.refresh.click()
+  await directory.conversation(thread.title).click()
+  await expect(directory.transcript).toContainText("Updated latest message 3")
+  expect(firstRequests).toBe(3)
+  await captureMoment(page, "refreshed-reopened-history")
 })
 
 for (const status of [503, 403]) {
@@ -297,12 +348,14 @@ for (const status of [503, 403]) {
   }) => {
     const directory = threadDirectoryPage(page)
     let earlierRequests = 0
+    const scrollSettled = Promise.withResolvers<void>()
     await page.route("**/api/v1/threads?*", (route) =>
       route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
     )
-    await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) => {
+    await page.route("**/api/v1/tenants/*/threads/*/messages?*", async (route) => {
       const earlier = new URL(route.request().url()).searchParams.has("page_after")
-      if (earlier && ++earlierRequests === 1)
+      if ((status === 403 && earlierRequests > 0) || (earlier && ++earlierRequests === 1)) {
+        await scrollSettled.promise
         return route.fulfill({
           status,
           json: {
@@ -312,6 +365,7 @@ for (const status of [503, 403]) {
             detail: "Earlier history unavailable",
           },
         })
+      }
       return route.fulfill({
         json: savedDirectoryMessages(
           savedThread,
@@ -330,11 +384,19 @@ for (const status of [503, 403]) {
     await expect(directory.transcript).toContainText("Saved context 19")
     const viewport = await directory.messages.elementHandle()
     await directory.messages.press("Home")
+    await expect.poll(() => directory.messages.evaluate((element) => element.scrollTop)).toBe(0)
+    scrollSettled.resolve()
     await expect(directory.transcript.getByRole("alert")).toContainText(
       "Earlier history unavailable",
     )
     if (status === 403) {
       await expect(directory.messages).toHaveCount(0)
+      await expect(directory.transcript).not.toContainText("Saved context 19")
+      await directory.back.click()
+      await directory.conversation(savedThread.title).click()
+      await expect(directory.transcript.getByRole("alert")).toContainText(
+        "Earlier history unavailable",
+      )
       await expect(directory.transcript).not.toContainText("Saved context 19")
     } else {
       expect(await viewport.evaluate((element) => element.isConnected)).toBe(true)
@@ -355,23 +417,40 @@ for (const [status, preview] of [
   [404, false],
   [404, true],
 ] as const) {
-  test(`${preview ? "Preview" : "Download"} attachment denial ${status} hides cached administrative history`, async ({
+  test(`${preview ? "Preview" : "Download"} attachment denial ${status} hides cached administrative history and permits recovery`, async ({
     page,
   }) => {
     const directory = threadDirectoryPage(page)
-    let denied = true
+    let denied = false
+    let fileDenied = true
+    let context = "Private saved context"
+    let checkingAccess = false
+    const accessCheck = Promise.withResolvers<void>()
+    const restoredAccess = Promise.withResolvers<void>()
     await page.route("**/api/v1/threads?*", (route) =>
       route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
     )
-    await page.route("**/api/v1/tenants/*/threads/*/messages?*", (route) =>
-      route.fulfill({
+    await page.route("**/api/v1/tenants/*/threads/*/messages?*", async (route) => {
+      if (denied) {
+        checkingAccess = true
+        await accessCheck.promise
+        return route.fulfill({
+          status,
+          json: { type: "about:blank", title: "Access denied", status, detail: "Access denied" },
+        })
+      }
+      if (context === "Restored saved context") {
+        checkingAccess = true
+        await restoredAccess.promise
+      }
+      return route.fulfill({
         json: savedDirectoryMessages(savedThread, [
           {
             id: "input",
             role: "user",
             state: "complete",
             parts: [
-              { id: "text", type: "text", content: "Private saved context" },
+              { id: "text", type: "text", content: context },
               {
                 id: "upload",
                 type: "document",
@@ -381,17 +460,21 @@ for (const [status, preview] of [
             ],
           },
         ]),
-      }),
-    )
+      })
+    })
     await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) =>
-      !denied || (route.request().headers()["x-file-preview"] && !preview)
+      !fileDenied || (route.request().headers()["x-file-preview"] && !preview)
         ? route.fulfill({ status: 204 })
         : route.fulfill({
             status,
             json: { type: "about:blank", title: "Access denied", status, detail: "Access denied" },
           }),
     )
-    await directory.openReact()
+    if (status === 404) {
+      const token = await createAstralBeamToken(seedTarget)
+      await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+      await openVanillaDirectories(page, { scope: "tenant" }, ["threads"])
+    } else await directory.openReact()
     await directory.conversation(savedThread.title).click()
     if (!preview) {
       await expect(directory.transcript).toContainText("Private saved context")
@@ -400,10 +483,27 @@ for (const [status, preview] of [
     await expect(directory.transcript.getByRole("alert")).toContainText("Access denied")
     await expect(directory.messages).toHaveCount(0)
     await expect(directory.transcript).not.toContainText("Private saved context")
+    denied = true
+    await directory.back.click()
+    await directory.conversation(savedThread.title).click()
+    await expect.poll(() => checkingAccess).toBe(true)
+    await expect(directory.transcript).not.toContainText("Private saved context")
+    accessCheck.resolve()
+    await expect(directory.transcript.getByRole("alert")).toContainText("Access denied")
     denied = false
-    await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
-    await expect(directory.transcript).toContainText("Private saved context")
+    fileDenied = false
+    checkingAccess = false
+    context = "Restored saved context"
+    if (status === 401)
+      await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
+    else if (status === 403) await directory.refresh.click()
+    else await directoriesPage(page).refreshMounted.click()
+    await expect.poll(() => checkingAccess).toBe(true)
+    await expect(directory.transcript).not.toContainText("Private saved context")
+    restoredAccess.resolve()
+    await expect(directory.transcript).toContainText("Restored saved context")
     await expect(directory.transcript.getByRole("alert")).toHaveCount(0)
+    await captureMoment(page, `conversation-access-restored-${status}`)
   })
 }
 

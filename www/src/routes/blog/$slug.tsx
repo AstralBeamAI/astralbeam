@@ -1,11 +1,13 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
+import Markdown from "react-markdown"
+import type { Components } from "react-markdown"
 
-import { blogDate, blogModules, blogPosts } from "@/lib/blog"
+import { blogDate, blogPosts } from "@/lib/blog"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata, siteUrl } from "@/lib/site"
 
 import { BlogShell } from "./-components/blog-shell"
-import { markdownComponents } from "./-components/markdown"
+import { FailureDemo } from "./-components/failure-demo"
 
 export const Route = createFileRoute("/blog/$slug")({
   codeSplitGroupings: [["loader", "component"]],
@@ -52,9 +54,41 @@ export const Route = createFileRoute("/blog/$slug")({
   component: BlogPost,
 })
 
+const markdownComponents: Components = {
+  a({ href, title, children }) {
+    const external =
+      href &&
+      /^(?:https?:)?\/\//i.test(href) &&
+      new URL(href, siteMetadata.origin).origin !== siteMetadata.origin
+    return (
+      <a
+        href={href}
+        title={title}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+    )
+  },
+  pre({ node, children }) {
+    const code = node?.children[0]
+    if (
+      code?.type === "element" &&
+      Array.isArray(code.properties.className) &&
+      code.properties.className.includes("language-demo")
+    ) {
+      const text = code.children[0]
+      if (text?.type === "text") return <FailureDemo kind={text.value.trim()} />
+    }
+    return <pre>{children}</pre>
+  },
+  img({ src, alt }) {
+    return <img src={src} alt={alt ?? ""} loading="lazy" decoding="async" />
+  },
+}
+
 function BlogPost() {
   const post = Route.useLoaderData()
-  const Content = blogModules[`../content/blog/${post.slug}.md`]!.default
   return (
     <BlogShell>
       <article className="blog-article">
@@ -82,7 +116,9 @@ function BlogPost() {
           fetchPriority="high"
         />
         <div className="blog-prose">
-          <Content components={markdownComponents} />
+          <Markdown components={markdownComponents} skipHtml>
+            {post.body}
+          </Markdown>
         </div>
         <a className="blog-back blog-end" href="/blog">
           ← Back to the blog

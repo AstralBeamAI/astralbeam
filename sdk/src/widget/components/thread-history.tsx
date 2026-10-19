@@ -4,6 +4,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer"
 import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
 import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } from "react"
 import { cn } from "cn"
+import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
 import type { ChatThread } from "../../core/threads.ts"
 import { DeleteConversationDialog } from "./delete-conversation-dialog.tsx"
@@ -72,26 +73,44 @@ export function ThreadHistory({
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
+  const [accessError, setAccessError] = useState<Error | null>(null)
   const [boundary, setBoundary] = useState<Element>()
-  // Each opening fetches afresh, since the title bar can rename or delete chats while it is closed.
-  const [openings, setOpenings] = useState(0)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
   const sharedClient = useContext(QueryClientContext)
-  const [client] = useState(() => new QueryClient())
+  const [localClient] = useState(() => new QueryClient())
+  useEffect(() => () => localClient.clear(), [localClient])
+  const client = sharedClient ?? localClient
   const queryId = useId()
+  const authenticated = state.auth.status === "ready"
   const query = useInfiniteQuery(
     {
-      queryKey: ["thread-history", queryId, openings, search],
-      enabled: open,
+      queryKey: ["thread-history", queryId, search],
+      enabled: open && authenticated && !accessError,
       initialPageParam: undefined as string | undefined,
-      queryFn: ({ signal, pageParam }) => chat.searchThreads(search, pageParam, signal),
+      queryFn: ({ signal, pageParam }) =>
+        chat.searchThreads(search, pageParam, signal).catch((error: unknown) => {
+          if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
+            setAccessError(error)
+          throw error
+        }),
       getNextPageParam: (page) => page.page_after ?? undefined,
       retry: false,
-      gcTime: 0,
+      staleTime: 30_000,
+      gcTime: 300_000,
     },
-    sharedClient ?? client,
+    client,
   )
-  const searching = text.trim() !== search || query.isPending
+  const currentId = state.thread?.id
+  const version = state.thread?.version
+  const writing = state.status === "submitted" || state.status === "streaming"
+  useEffect(() => {
+    if (state.auth.status === "error" || accessError)
+      client.removeQueries({ queryKey: ["thread-history", queryId] })
+  }, [client, queryId, state.auth.status, accessError])
+  useEffect(() => {
+    if (!writing) void client.invalidateQueries({ queryKey: ["thread-history", queryId] })
+  }, [client, queryId, currentId, version, writing])
+  const searching = !accessError && (text.trim() !== search || query.isPending)
   const { hasNextPage, isFetching, isError, fetchNextPage } = query
   useEffect(() => {
     const element = list.current
@@ -105,11 +124,10 @@ export function ThreadHistory({
     element.addEventListener("scroll", loadNextPage)
     return () => element.removeEventListener("scroll", loadNextPage)
   }, [open, searching, hasNextPage, isFetching, isError, fetchNextPage, query.data])
-  const groups = searching
-    ? []
-    : groupThreads(query.data?.pages.flatMap((page) => page.items) ?? [])
-  const currentId = state.thread?.id
-  const writing = state.status === "submitted" || state.status === "streaming"
+  const groups =
+    !authenticated || accessError || searching
+      ? []
+      : groupThreads(query.data?.pages.flatMap((page) => page.items) ?? [])
   return (
     <div ref={container} data-slot="thread-history">
       {deletingThread && (
@@ -122,7 +140,7 @@ export function ThreadHistory({
             const deleted = await chat.deleteThread(deletingThread)
             if (deleted) {
               onDelete(deletingThread.id)
-              void query.refetch()
+              void client.invalidateQueries({ queryKey: ["thread-history", queryId] })
             }
             return deleted
           }}
@@ -146,14 +164,21 @@ export function ThreadHistory({
         onOpenChange={(next) => {
           setOpen(next)
           if (next) {
+            setAccessError(null)
             setBoundary(container.current?.closest('[data-slot="chat"]') ?? undefined)
-            setOpenings((count) => count + 1)
           } else setText("")
         }}
       >
         <ComboboxPrimitive.Trigger
           ref={trigger}
-          render={<TooltipButton tooltip="Show older chats" variant="ghost" size="icon-sm" />}
+          render={
+            <TooltipButton
+              tooltip="Show older chats"
+              variant="ghost"
+              size="icon-sm"
+              disabled={!authenticated}
+            />
+          }
         >
           <ClockCounterClockwiseIcon />
         </ComboboxPrimitive.Trigger>
@@ -172,9 +197,13 @@ export function ThreadHistory({
             showTrigger={false}
           />
           <ComboboxStatus className="text-center text-sm text-muted-foreground [&:not(:empty)]:py-2">
-            {searching || query.isFetchingNextPage ? "Loading…" : null}
+            {!accessError && (searching || query.isFetchingNextPage) ? "Loading…" : null}
           </ComboboxStatus>
-          <ComboboxEmpty>{!searching && !query.isError ? "No chats found." : null}</ComboboxEmpty>
+          <ComboboxEmpty>
+            {authenticated && !accessError && !searching && !query.isError
+              ? "No chats found."
+              : null}
+          </ComboboxEmpty>
           <ComboboxList
             ref={list}
             className="max-h-[min(24rem,calc(var(--available-height)---spacing(9)))]"
@@ -224,7 +253,7 @@ export function ThreadHistory({
               </ComboboxGroup>
             )}
           </ComboboxList>
-          {!searching && query.isError && (
+          {(accessError || (!searching && query.isError)) && (
             <div className="p-2 text-xs" role="alert">
               Could not load chats.
               <TooltipButton
@@ -233,7 +262,13 @@ export function ThreadHistory({
                 tooltip="Retry"
                 disabled={query.isFetching}
                 onClick={() =>
-                  void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
+                  void (
+                    !accessError && query.isFetchNextPageError
+                      ? query.fetchNextPage()
+                      : query.refetch()
+                  ).then((result) => {
+                    if (result.isSuccess) setAccessError(null)
+                  })
                 }
               >
                 <ArrowClockwiseIcon />

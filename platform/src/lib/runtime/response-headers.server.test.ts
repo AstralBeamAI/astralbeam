@@ -1,8 +1,20 @@
-import { describe, expect, test } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import { APP_HANDLE } from "@/lib/constants"
 
 import { applyResponseSecurityHeaders } from "./response-headers.server"
+
+const cacheHeaderEnvironment = vi.hoisted(() => ({ development: false }))
+vi.mock(import("./environment.server"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  get IS_DEVELOPMENT_SERVER() {
+    return cacheHeaderEnvironment.development
+  },
+}))
+
+beforeEach(() => {
+  cacheHeaderEnvironment.development = false
+})
 
 function securityHeaders(url: string, pathname: string, requestHeaders: HeadersInit = {}): Headers {
   const headers = new Headers()
@@ -17,18 +29,26 @@ function securityHeaders(url: string, pathname: string, requestHeaders: HeadersI
 
 describe("response security headers", () => {
   test.each([
-    [`/${APP_HANDLE}-logo-dark.svg`, "GET", 200, 3600],
-    ["/api/openapi.json", "HEAD", 304, 300],
-  ])("allows bounded browser caching for %s", (pathname, method, status, seconds) => {
-    const headers = new Headers()
-    applyResponseSecurityHeaders(
-      headers,
-      new Request(`https://app.example${pathname}`, { method }),
-      pathname,
-      status,
-    )
-    expect(headers.get("cache-control")).toBe(`public, max-age=${seconds}, must-revalidate`)
-  })
+    [`/${APP_HANDLE}-logo-dark.svg`, "GET", 200, false],
+    ["/api/openapi.json", "HEAD", 304, false],
+    [`/${APP_HANDLE}-logo-dark.svg`, "GET", 200, true],
+    ["/api/openapi.json", "HEAD", 304, true],
+  ])(
+    "sets cache freshness for %s %s %i (development=%s)",
+    (pathname, method, status, development) => {
+      cacheHeaderEnvironment.development = development
+      const headers = new Headers()
+      applyResponseSecurityHeaders(
+        headers,
+        new Request(`https://app.example${pathname}`, { method }),
+        pathname,
+        status,
+      )
+      expect(headers.get("cache-control")).toBe(
+        development ? "no-cache" : "public, max-age=300, must-revalidate",
+      )
+    },
+  )
 
   test.each([
     ["private, no-store", "GET", 200],

@@ -43,8 +43,8 @@ test("UX evidence: a restricted member sees permitted navigation and setup guida
   auth,
   shell,
 }) => {
-  await page.goto("/auth/sign-out")
-  await page.waitForURL(/\/auth\/sign-in/)
+  await page.context().clearCookies()
+  await auth.open("sign-in")
   await auth.signIn(SEED_USERS[2].email, SEED_PASSWORD)
   await page.waitForURL((url) => !url.pathname.startsWith("/auth/"))
   await page.goto(`/${SEED_ORGANIZATIONS[0].slug}`)

@@ -1,6 +1,7 @@
 import type { NitroAppPlugin } from "nitro/types"
 
 import { APP_HANDLE } from "@/lib/constants"
+import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { resolveAppOrigin } from "@/routes/-lib/app-origin.server"
 
 const PUBLIC_LOGO_PATH = new RegExp(
@@ -37,17 +38,17 @@ export function applyResponseSecurityHeaders(
     headers.set("Access-Control-Allow-Origin", "*")
   }
   if (
+    (PUBLIC_LOGO_PATH.test(pathname) || pathname === "/api/openapi.json") &&
     (status === 200 || status === 304) &&
     (request.method === "GET" || request.method === "HEAD") &&
     !headers.has("Cache-Control")
   ) {
     // Stable URLs can change between releases, so revalidate after their short freshness window.
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#must-revalidate
-    if (PUBLIC_LOGO_PATH.test(pathname)) {
-      headers.set("Cache-Control", "public, max-age=3600, must-revalidate")
-    } else if (pathname === "/api/openapi.json") {
-      headers.set("Cache-Control", "public, max-age=300, must-revalidate")
-    }
+    headers.set(
+      "Cache-Control",
+      IS_DEVELOPMENT_SERVER ? "no-cache" : "public, max-age=300, must-revalidate",
+    )
   }
   if ((pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")) {
     headers.set("Cache-Control", "public, no-cache")

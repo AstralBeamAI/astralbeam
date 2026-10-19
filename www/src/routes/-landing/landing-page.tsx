@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { ScriptOnce } from "@tanstack/react-router"
 
 import { DiscordIcon, GithubIcon } from "@/components/icons"
 import { SiteHeader } from "@/components/site-header"
@@ -6,7 +7,7 @@ import { SiteFooter } from "@/components/site-footer"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
-import { startSiteEffects } from "@/scripts/main"
+import { reveal, startSiteEffects } from "@/scripts/main"
 
 import { AgentDemo } from "./agent-demo"
 import { highlight, integrations, steps } from "./content"
@@ -49,23 +50,52 @@ export function LandingPage() {
         <section className="hero" id="top">
           <div className="hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow">
+              <p className="eyebrow reveal" suppressHydrationWarning>
                 OPEN SOURCE · <span>SELF-HOSTED</span> OR MANAGED
               </p>
               <h1 className="display hero-title">
-                ADD AN AGENT
+                <span className="reveal scramble" data-text="ADD AN AGENT" suppressHydrationWarning>
+                  ADD AN AGENT
+                </span>
                 <br />
-                <span className="beam-text">TO YOUR APP</span>
+                <span
+                  className="reveal scramble beam-text"
+                  data-text="TO YOUR APP"
+                  style={cssVars({ "--reveal-delay": ".12s" })}
+                  suppressHydrationWarning
+                >
+                  TO YOUR APP
+                </span>
                 <br />
-                IN MINUTES
+                <span
+                  className="reveal scramble"
+                  data-text="IN MINUTES"
+                  style={cssVars({ "--reveal-delay": ".24s" })}
+                  suppressHydrationWarning
+                >
+                  IN MINUTES
+                </span>
               </h1>
-              <p className="hero-sub">{siteMetadata.description}</p>
-              <div className="hero-ctas">
+              <p
+                className="hero-sub reveal"
+                style={cssVars({ "--reveal-delay": ".36s" })}
+                suppressHydrationWarning
+              >
+                {siteMetadata.description}
+              </p>
+              <div
+                className="hero-ctas reveal"
+                style={cssVars({ "--reveal-delay": ".48s" })}
+                suppressHydrationWarning
+              >
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
                   GET STARTED
                 </a>
                 <CopyPrompt />
               </div>
+              {/* Keep reveal self-contained so this script can animate the hero before hydration.
+              https://tanstack.com/router/latest/docs/framework/react/guide/document-head-management */}
+              <ScriptOnce>{`document.querySelectorAll('.hero-copy .reveal').forEach(el=>(${reveal.toString()})(el,!matchMedia('(prefers-reduced-motion: reduce)').matches))`}</ScriptOnce>
             </div>
 
             <div className="hero-demo reveal" style={cssVars({ "--reveal-delay": ".3s" })}>

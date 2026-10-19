@@ -2,6 +2,7 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useInvalidateOrganizationPages } from "@/routes/_authenticated/$orgSlug/-lib/page-query"
 import { useState } from "react"
 
 import {
@@ -37,6 +38,7 @@ export function SandboxProviderActions({
 }: SandboxProviderActionsProps) {
   const navigate = useNavigate()
   const router = useRouter()
+  const invalidatePages = useInvalidateOrganizationPages()
   const [busy, setBusy] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -59,6 +61,7 @@ export function SandboxProviderActions({
         title: succeeded ? "Provider connection succeeded" : "The provider connection test failed",
         type: succeeded ? "success" : "error",
       })
+      await invalidatePages()
       await router.invalidate()
     } catch (error) {
       await showFailure(error)
@@ -74,6 +77,7 @@ export function SandboxProviderActions({
         data: { organizationSlug, id: provider.id, lockVersion: provider.lockVersion },
       })
       toast.add({ title: `${provider.name} deleted`, type: "success" })
+      await invalidatePages()
       await navigate({ to: "/$orgSlug/sandboxes", params: { orgSlug: organizationSlug } })
     } catch (error) {
       setDeleteOpen(false)

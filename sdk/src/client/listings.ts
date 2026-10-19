@@ -10,6 +10,8 @@ import type { AstralBeamListingCoreOptions } from "../core/listings.ts"
 
 export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
   fetchAstralBeamToken: NonNullable<AstralBeamListingCoreOptions["fetchAstralBeamToken"]>
+  /** Stable host-session object to reuse directory data across mounts. Replace it on sign-out. */
+  cacheKey?: object | undefined
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
   showHeader?: boolean | undefined

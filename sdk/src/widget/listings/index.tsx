@@ -7,7 +7,7 @@ import {
   updateAuthentication,
 } from "../../core/auth.ts"
 import { createRoot, type Root } from "react-dom/client"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type {
   MountAstralBeamTenantListOptions,
   MountAstralBeamTenantUserListOptions,
@@ -15,6 +15,12 @@ import type {
 import { chatStyles } from "../styles.generated.ts"
 import { disposeListingSession, type ListingSession, listingSession } from "../../core/listings.ts"
 import { ListingWidget } from "./listing-widget.tsx"
+import {
+  claimListingQueryClient,
+  clearListingCache,
+  createListingQueryClient,
+  retainListingQueryClient,
+} from "./query-cache.ts"
 
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
 export interface ListingRenderer {
@@ -27,6 +33,7 @@ export interface ListingRenderer {
   unsubscribeAuthentication?: (() => void) | undefined
   revision: number
   session: ListingSession
+  cacheIdentity?: string | undefined
 }
 
 export function renderListing(
@@ -39,11 +46,7 @@ export function renderListing(
   style.textContent = chatStyles + (options.customCss ?? "")
   shadow.append(style)
   const root = createRoot(container)
-  const client = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false, gcTime: 0 },
-    },
-  })
+  const client = createListingQueryClient()
   const state: ListingRenderer = {
     root,
     style,
@@ -69,6 +72,10 @@ function renderListingState(state: ListingRenderer) {
             Retry authentication
           </button>
         </div>
+      ) : auth.status === "loading" && state.cacheIdentity === undefined ? (
+        <div role="status" aria-label="Loading directory" className="p-4 text-sm">
+          Loading directory…
+        </div>
       ) : (
         <ListingWidget
           key={state.revision}
@@ -93,7 +100,9 @@ export function resetListing(state: ListingRenderer) {
   state.unsubscribeAuthentication?.()
   state.stopAuthentication?.()
   disposeListingSession(state.session)
+  clearListingCache(state.options.cacheKey)
   state.client.clear()
+  state.cacheIdentity = undefined
   state.session = listingSession(state.options, () => resetListing(state))
   state.revision++
   watchListingAuthentication(state)
@@ -105,9 +114,12 @@ export function updateListing(state: ListingRenderer, next: Options) {
   if (previous.customCss !== next.customCss) {
     state.style.textContent = chatStyles + (next.customCss ?? "")
   }
-  const changed = previous.apiUrl !== next.apiUrl
+  const changed = previous.apiUrl !== next.apiUrl || previous.cacheKey !== next.cacheKey
   state.options = next
-  if (changed) return resetListing(state)
+  if (changed) {
+    clearListingCache(previous.cacheKey)
+    return resetListing(state)
+  }
   state.session.options = next
   updateAuthentication(state.session.auth, {
     apiUrl: next.apiUrl,
@@ -128,31 +140,35 @@ export function disposeListing(state: ListingRenderer) {
   state.unsubscribeAuthentication?.()
   state.stopAuthentication?.()
   disposeListingSession(state.session)
-  state.client.clear()
   state.root.unmount()
+  retainListingQueryClient(state.options, state.kind, state.cacheIdentity, state.client)
   state.style.remove()
 }
 
 function watchListingAuthentication(state: ListingRenderer) {
-  let identity: string | undefined
   state.unsubscribeAuthentication = subscribeAuthentication(state.session.auth, () => {
     const auth = authenticationState(state.session.auth)
     if (auth.status === "error") {
+      clearListingCache(state.options.cacheKey)
       state.client.clear()
+      state.cacheIdentity = undefined
       state.revision++
     } else if (auth.status === "ready") {
-      const next = authenticationIdentity(
-        auth.currentUser,
-        state.session.auth.session.cached!.tenantAdmin,
-      )
-      if (identity !== undefined && identity !== next) {
+      const next = JSON.stringify([
+        state.options.apiUrl,
+        authenticationIdentity(auth.currentUser, state.session.auth.session.cached!.tenantAdmin),
+      ])
+      if (state.cacheIdentity !== undefined && state.cacheIdentity !== next) {
         state.session.abortController.abort()
         state.session.abortController = new AbortController()
         state.session.identity = undefined
         state.client.clear()
         state.revision++
       }
-      identity = next
+      if (state.cacheIdentity !== next) {
+        state.cacheIdentity = next
+        state.client = claimListingQueryClient(state.options, state.kind, next)
+      }
     }
     renderListingState(state)
   })
