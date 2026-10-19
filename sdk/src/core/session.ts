@@ -11,8 +11,8 @@ import { DEFAULT_API_URL, DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.t
 import {
   createChatThread,
   deleteChatThread,
-  getChatFile,
-  type GetChatFileParams,
+  getThreadAttachment,
+  type GetThreadAttachmentParams,
   getChatConfig,
   uploadChatFile,
   type UploadedChatFile,
@@ -245,7 +245,10 @@ export interface AstralBeamChatCore {
     filename: string
     mimeType: string
   }) => Promise<UploadedChatFile>
-  getChatFile: (params: GetChatFileParams, options?: { preview?: boolean }) => Promise<Blob>
+  getThreadAttachment: (
+    params: GetThreadAttachmentParams,
+    options?: { preview?: boolean },
+  ) => Promise<Blob>
   getMcpCatalog: () => Promise<McpCatalog>
   manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
   authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
@@ -1521,11 +1524,11 @@ export function createAstralBeamChat(
         options,
       )
     },
-    getChatFile: async (params, options) => {
+    getThreadAttachment: async (params, options) => {
       if (!params.threadId && !options?.preview)
         throw new Error("A conversation ID is required to download files.")
       return (
-        await getChatFile(params, {
+        await getThreadAttachment(params, {
           ...(await requestOptions(!!params.threadId || !options?.preview)),
           cache: "default",
           headers: options?.preview ? { "X-File-Preview": "true" } : {},

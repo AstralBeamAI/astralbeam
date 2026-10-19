@@ -5,7 +5,8 @@ import type { AttachmentKind } from "../lib/types.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
 export const AttachmentFileContext = createContext<
-  { getChatFile: AstralBeamChatCore["getChatFile"]; threadId: string | undefined } | undefined
+  | { getThreadAttachment: AstralBeamChatCore["getThreadAttachment"]; threadId: string | undefined }
+  | undefined
 >(undefined)
 
 export function AttachmentPreview({
@@ -38,7 +39,7 @@ export function AttachmentPreview({
         if (!entries.some((entry) => entry.isIntersecting)) return
         observer.disconnect()
         void files
-          .getChatFile(
+          .getThreadAttachment(
             { fileId: id, ...(files.threadId ? { threadId: files.threadId } : {}) },
             { preview: true },
           )

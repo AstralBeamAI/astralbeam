@@ -34,7 +34,7 @@ export default defineConfig({
           uploadChatFile: { mutator: mutator("astralBeamJwtFetch") },
           runChat: { mutator: mutator("astralBeamChatFetch") },
           resolveChatToolResult: { mutator: mutator("astralBeamChatFetch") },
-          getChatFile: { mutator: mutator("astralBeamResourceFetch") },
+          getThreadAttachment: { mutator: mutator("astralBeamResourceFetch") },
         },
       },
     },

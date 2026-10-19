@@ -41,7 +41,7 @@ import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { organization } from "@/db/schema/organizations"
 import {
-  getChatFile as sdkGetChatFile,
+  getThreadAttachment as sdkGetThreadAttachment,
   getCurrentUser as sdkGetCurrentUser,
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
@@ -1237,7 +1237,7 @@ describe("REST API through the Effect Fetch handler", () => {
         mimeType: "text/plain",
       }),
     )
-    const response = await sdkGetChatFile(query, {
+    const response = await sdkGetThreadAttachment(query, {
       apiUrl: "http://localhost/api",
       astralBeamToken: "chat-token",
       fetchClient: restSdkFetch,

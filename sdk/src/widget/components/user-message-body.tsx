@@ -28,7 +28,7 @@ export function SentAttachment({ part }: { part: MediaPart }) {
     try {
       saveBlob(
         title,
-        await files.getChatFile({ fileId, threadId: files.threadId, filename: title }),
+        await files.getThreadAttachment({ fileId, threadId: files.threadId, filename: title }),
       )
       setFailed(false)
     } catch {

@@ -783,7 +783,7 @@ export type UploadChatFileBody = {
   metadata: UploadChatFileBodyMetadata
 }
 
-export type GetChatFileParams = {
+export type GetThreadAttachmentParams = {
   threadId?: string
   tenantId?: string
   fileId: string
@@ -1317,7 +1317,7 @@ export const uploadChatFile = (
   })
 }
 
-export const getGetChatFileUrl = (params: GetChatFileParams) => {
+export const getGetThreadAttachmentUrl = (params: GetThreadAttachmentParams) => {
   const normalizedParams = new URLSearchParams()
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -1337,11 +1337,11 @@ export const getGetChatFileUrl = (params: GetChatFileParams) => {
  * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.
  * @summary Download a chat file
  */
-export const getChatFile = (
-  params: GetChatFileParams,
+export const getThreadAttachment = (
+  params: GetThreadAttachmentParams,
   options: Parameters<typeof astralBeamResourceFetch>[1],
 ) => {
-  return astralBeamResourceFetch<Blob | void>(getGetChatFileUrl(params), {
+  return astralBeamResourceFetch<Blob | void>(getGetThreadAttachmentUrl(params), {
     ...options,
     method: "GET",
   })

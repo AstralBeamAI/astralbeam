@@ -4041,7 +4041,7 @@
         "tags": [
           "chat"
         ],
-        "operationId": "getChatFile",
+        "operationId": "getThreadAttachment",
         "parameters": [
           {
             "name": "threadId",

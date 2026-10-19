@@ -104,7 +104,7 @@ export function ChatWidget({
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
   const files = useMemo(
-    () => ({ getChatFile: chat.getChatFile, threadId: chatState.thread?.id }),
+    () => ({ getThreadAttachment: chat.getThreadAttachment, threadId: chatState.thread?.id }),
     [chat, chatState.thread?.id],
   )
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState

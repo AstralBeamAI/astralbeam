@@ -124,7 +124,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
   .add(
-    HttpApiEndpoint.get("getChatFile", "/chat/files", {
+    HttpApiEndpoint.get("getThreadAttachment", "/chat/files", {
       query: Schema.Struct({
         threadId: Schema.optionalKey(ApiUuidSchema),
         tenantId: Schema.optionalKey(ApiUuidSchema),
@@ -291,8 +291,8 @@ export function chatHandlers(api: typeof ApiV1) {
           }),
         )
         .handle(
-          "getChatFile",
-          Effect.fn("getChatFile")(function* ({ query, request }) {
+          "getThreadAttachment",
+          Effect.fn("getThreadAttachment")(function* ({ query, request }) {
             const preview = request.headers["x-file-preview"] === "true"
             let scope: Parameters<typeof files.read>[0]["scope"]
             if (query.tenantId) {
