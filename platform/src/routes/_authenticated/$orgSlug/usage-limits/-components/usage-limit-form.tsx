@@ -1,7 +1,6 @@
 "use client"
 
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useInvalidateOrganizationPages } from "../../-lib/page-query"
 import { type SyntheticEvent, useMemo, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
@@ -132,7 +131,6 @@ export function UsageLimitForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const [appliesByDefault, setAppliesByDefault] = useState(existing?.appliesByDefault ?? true)
   const [name, setName] = useState(existing?.name ?? "")
   const [scope, setScope] = useState<UsageLimitFields["scope"]>(existing?.scope ?? "tenant_user")
@@ -204,7 +202,6 @@ export function UsageLimitForm({
           },
         })
         toast.add({ title: "Usage limit saved", type: "success" })
-        await invalidatePages()
         await router.invalidate()
         return
       }
@@ -212,7 +209,6 @@ export function UsageLimitForm({
         data: { organizationSlug, fields: input.success },
       })
       toast.add({ title: "Usage limit created", type: "success" })
-      await invalidatePages()
       await navigate({
         to: "/$orgSlug/usage-limits/$usageLimitId",
         params: { orgSlug: organizationSlug, usageLimitId },

@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
-import { organizationPageLoader } from "../-lib/page-query"
 import { SandboxProviderListCard } from "./-components/sandbox-provider-list-card"
 import { getSandboxesPageData } from "./-functions/get-sandboxes-page-data"
 
@@ -22,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/sandboxes/")({
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
-  loader: organizationPageLoader("sandboxes", getSandboxesPageData),
+  loader: ({ params }) => getSandboxesPageData({ data: { organizationSlug: params.orgSlug } }),
   component: SandboxesPage,
   pendingComponent: SandboxesPageSkeleton,
   head: () => ({ meta: [{ title: `Sandboxes · ${APP_NAME}` }] }),

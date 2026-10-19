@@ -128,6 +128,7 @@ export function SearchDropdown<T extends { id: string }>({
           input
         )}
         <ComboboxContent
+          anchor={container}
           container={container}
           aria-label={popup ? label : undefined}
           aria-busy={searching || query.isFetching ? true : undefined}

@@ -2,7 +2,6 @@
 
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useInvalidateOrganizationPages } from "../../-lib/page-query"
 import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
@@ -64,7 +63,6 @@ export function ModelProviderForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const testing = useIsMutating({ mutationKey: ["test-model-provider", existing?.id] }) > 0
   const [name, setName] = useState(existing?.name ?? "")
   const [providerType, setProviderType] = useState<ModelProviderType>(
@@ -148,7 +146,6 @@ export function ModelProviderForm({
     setSaveError(null)
     try {
       const modelProviderId = await saveModelProvider({ data: input.success })
-      await invalidatePages()
       toast.add({ title: "Provider saved", type: "success" })
       if (existing) {
         await router.invalidate()

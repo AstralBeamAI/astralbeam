@@ -6,7 +6,6 @@ import { APP_NAME } from "@/lib/constants"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { McpServerWriteSchema } from "@/lib/mcp/schemas"
 import { validationParseOptions } from "@/lib/schemas"
-import { organizationPageLoader, useInvalidateOrganizationPages } from "../-lib/page-query"
 import {
   widgetDashboardTheme,
   widgetThemeClassName,
@@ -19,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/mcp/")({
     if (!context.organization.permissions.readConfiguration)
       throw redirect({ to: "/$orgSlug", params, replace: true })
   },
-  loader: organizationPageLoader("mcp", getMcpServersData),
+  loader: ({ params }) => getMcpServersData({ data: { organizationSlug: params.orgSlug } }),
   component: McpDashboardPage,
   head: () => ({ meta: [{ title: `MCP servers · ${APP_NAME}` }] }),
 })
@@ -29,12 +28,10 @@ function McpDashboardPage() {
   const data = Route.useLoaderData()
   const { access, organization } = Route.useRouteContext()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const { theme } = useTheme()
   const mutate = async (operation: Parameters<typeof mutateMcpServer>[0]["data"]["operation"]) => {
     try {
       await mutateMcpServer({ data: { organizationSlug: orgSlug, operation } })
-      await invalidatePages()
       await router.invalidate()
     } catch (failure) {
       throw new Error(parseServerFnError(failure).message)

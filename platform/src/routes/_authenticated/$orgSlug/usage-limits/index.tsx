@@ -21,7 +21,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { APP_NAME } from "@/lib/constants"
-import { organizationPageLoader } from "../-lib/page-query"
 import { UsageLimitEnabledSwitch } from "./-components/usage-limit-enabled-switch"
 import { getUsageLimitsPageData } from "./-functions/get-usage-limits-page-data"
 import { usageLimitScopeItems } from "./-lib/constants"
@@ -33,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/usage-limits/")({
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
-  loader: organizationPageLoader("usage-limits", getUsageLimitsPageData),
+  loader: ({ params }) => getUsageLimitsPageData({ data: { organizationSlug: params.orgSlug } }),
   component: UsageLimitsPage,
   pendingComponent: UsageLimitsPageSkeleton,
   head: () => ({ meta: [{ title: `Usage Limits · ${APP_NAME}` }] }),

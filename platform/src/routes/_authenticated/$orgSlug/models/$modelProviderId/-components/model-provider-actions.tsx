@@ -2,7 +2,6 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useInvalidateOrganizationPages } from "@/routes/_authenticated/$orgSlug/-lib/page-query"
 import { useState } from "react"
 
 import {
@@ -31,7 +30,6 @@ export function ModelProviderActions({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const removeModelProvider = async () => {
@@ -41,7 +39,6 @@ export function ModelProviderActions({
         data: { organizationSlug, id: provider.id, lockVersion: provider.lockVersion },
       })
       toast.add({ title: "Provider deleted", type: "success" })
-      await invalidatePages()
       await navigate({ to: "/$orgSlug/models", params: { orgSlug: organizationSlug } })
     } catch (error) {
       toast.add({ title: parseServerFnError(error).message, type: "error" })

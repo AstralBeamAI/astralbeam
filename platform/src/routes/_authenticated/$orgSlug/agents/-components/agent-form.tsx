@@ -46,7 +46,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { createAgent } from "../-functions/create-agent"
 import { updateAgent } from "../-functions/update-agent"
 import { AgentModelFields } from "./agent-model-fields"
-import { useInvalidateOrganizationPages } from "../../-lib/page-query"
 
 /** Stands in for a null provider, which the Select cannot represent with an empty value. */
 const NO_SANDBOX_PROVIDER = "none"
@@ -72,7 +71,6 @@ export function AgentForm({
 }: AgentFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
@@ -135,12 +133,10 @@ export function AgentForm({
           },
         })
         toast.add({ title: "Agent saved", type: "success" })
-        await invalidatePages()
         await router.invalidate()
         return
       }
       const agentId = await createAgent({ data: { organizationSlug, fields } })
-      await invalidatePages()
       toast.add({ title: "Agent created", type: "success" })
       await navigate({
         to: "/$orgSlug/agents/$agentId",

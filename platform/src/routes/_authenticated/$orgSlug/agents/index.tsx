@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
-import { organizationPageLoader } from "../-lib/page-query"
 import { AgentListCard } from "./-components/agent-list-card"
 import { getAgentsPageData } from "./-functions/get-agents-page-data"
 
@@ -22,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/agents/")({
       throw redirect({ to: "/$orgSlug", params: { orgSlug: params.orgSlug }, replace: true })
     }
   },
-  loader: organizationPageLoader("agents", getAgentsPageData),
+  loader: ({ params }) => getAgentsPageData({ data: { organizationSlug: params.orgSlug } }),
   component: AgentsPage,
   pendingComponent: AgentsPageSkeleton,
   head: () => ({ meta: [{ title: `Agents · ${APP_NAME}` }] }),

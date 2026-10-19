@@ -2,7 +2,6 @@
 
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useInvalidateOrganizationPages } from "../../-lib/page-query"
 import { useState } from "react"
 import { Equal, Result, Schema, SchemaIssue } from "effect"
 
@@ -66,7 +65,6 @@ export function SandboxProviderForm({
 }: SandboxProviderFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const initialProviderType = existing?.providerType ?? "daytona"
   const initialSecret = existingSecret(existing)
   const [name, setName] = useState(existing?.name ?? "")
@@ -127,7 +125,6 @@ export function SandboxProviderForm({
     setNameError(null)
     try {
       const sandboxProviderId = await saveSandboxProvider({ data: input.success })
-      await invalidatePages()
       toast.add({
         title: requiresConnectionTest ? "Provider tested and saved" : "Provider saved",
         type: "success",

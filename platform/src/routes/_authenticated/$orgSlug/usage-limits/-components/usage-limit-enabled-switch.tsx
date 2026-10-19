@@ -1,7 +1,6 @@
 "use client"
 
 import { useRouter } from "@tanstack/react-router"
-import { useInvalidateOrganizationPages } from "../../-lib/page-query"
 import { useState } from "react"
 
 import { Switch } from "@/components/ui/switch"
@@ -21,7 +20,6 @@ export function UsageLimitEnabledSwitch({
   readOnly: boolean
 }) {
   const router = useRouter()
-  const invalidatePages = useInvalidateOrganizationPages()
   const [saving, setSaving] = useState(false)
 
   const toggle = async (enabled: boolean) => {
@@ -42,7 +40,6 @@ export function UsageLimitEnabledSwitch({
     } catch (error) {
       toast.add({ title: parseServerFnError(error).message, type: "error" })
     } finally {
-      await invalidatePages()
       await router.invalidate()
       setSaving(false)
     }
