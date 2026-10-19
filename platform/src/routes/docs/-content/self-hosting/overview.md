@@ -24,7 +24,7 @@ Each tagged release publishes prebuilt platform binaries for Linux, macOS, and W
 - A transaction-pooling connection pooler such as PgBouncer. The native Effect client uses unnamed queries. The reference Compose setup sets `MAX_PREPARED_STATEMENTS: 200` for clients that use named prepared statements.
 - A private S3-compatible bucket and credentials. Configure and test them in **File storage** at `/configure`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
-- A reverse proxy that terminates TLS. Production requires HTTPS.
+- A reverse proxy that terminates TLS, unless explicitly opting into HTTP with `ALLOW_INSECURE=true`.
 - A model provider for each organization. Owners or developers add connections in **Models**, enable models, and assign them to agents. Each connection stores its own credentials and API URL.
 
 Nothing else is required. There is no queue or separate cache server.

@@ -38,7 +38,7 @@ You do not need to recover a value to replace it. Type a new one over the field 
 
 Operator sign-in at `/configure` compares the submitted value against the first entry of `DATABASE_ENCRYPTION_KEY`, using a constant-time comparison. Dashboard accounts and database credentials give no access to this page, and neither does a fallback keyring entry.
 
-- Sessions last 15 minutes and are carried in an `HttpOnly`, `SameSite=Strict` cookie that is `Secure` in production. **Sign out** and **Go to app** both end the session immediately.
+- Sessions last 15 minutes and are carried in an `HttpOnly`, `SameSite=Strict` cookie that is `Secure` in production, unless `ALLOW_INSECURE=true`. **Sign out** and **Go to app** both end the session immediately.
 - Sign-in is throttled to 5 attempts per minute for the whole deployment. Over the limit, the response carries `Retry-After` and reports `Too many sign-in attempts; try again in <n> seconds.`. A wrong value reports `Invalid encryption key`.
 - Page responses are `Cache-Control: no-store` with `Referrer-Policy: no-referrer`.
 
@@ -46,7 +46,7 @@ The encryption key grants access to every encrypted value in the database, so th
 
 ## HTTPS and response headers
 
-In production, `/configure` requires HTTPS. A `GET` or `HEAD` over plain HTTP is redirected to the HTTPS URL with `307`, and any other method is refused with `400` and `HTTPS is required`. Mutations must also be same origin, which the page checks against `Sec-Fetch-Site` and the `Origin` or `Referer` header, and a cross-origin attempt gets `403`.
+Production builds require HTTPS on `/configure` unless `ALLOW_INSECURE=true`. Plain HTTP carries credentials unencrypted, so keep this flag unset for TLS deployments. Without the flag, plain-HTTP `GET` or `HEAD` requests redirect to HTTPS with `307`, and other methods are refused with `400` and `HTTPS is required`. Mutations must also be same origin, which the page checks against `Sec-Fetch-Site` and the `Origin` or `Referer` header, and a cross-origin attempt gets `403`.
 
 Every response, on every route, carries these headers:
 

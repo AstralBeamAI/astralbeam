@@ -6,3 +6,7 @@ export const IS_DEVELOPMENT_SERVER =
 
 /** A Vitest or `NODE_ENV=test` run, which must not call external breach-lookup services. */
 export const IS_TEST_RUNTIME = process.env.VITEST === "true" || process.env.NODE_ENV === "test"
+
+export function allowInsecure(): boolean {
+  return process.env.ALLOW_INSECURE === "true"
+}
