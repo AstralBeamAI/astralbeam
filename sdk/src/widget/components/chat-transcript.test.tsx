@@ -10,7 +10,6 @@ test("loading saved history does not show the new conversation invitation", () =
       toolTitles={{}}
       activeSlots={new Map()}
       interactiveToolIds={new Set()}
-      getAttachment={() => Promise.resolve(new Blob())}
       hasOlder={false}
       loadingHistory
       loadingOlder={false}
@@ -41,7 +40,6 @@ test("an empty saved reply keeps its interruption warning", () => {
       toolTitles={{}}
       activeSlots={new Map()}
       interactiveToolIds={new Set()}
-      getAttachment={() => Promise.resolve(new Blob())}
       hasOlder={false}
       loadingOlder={false}
       onLoadOlder={() => Promise.resolve()}

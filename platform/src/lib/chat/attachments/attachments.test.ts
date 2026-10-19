@@ -453,7 +453,7 @@ test("restores the user's own attachments in a messages snapshot", () => {
       {
         parts: [
           {
-            savedAttachmentId: "file-part",
+            fileId: "00000000-0000-4000-8000-000000000001",
             source: { type: "file", value: "00000000-0000-4000-8000-000000000001" },
           },
         ],

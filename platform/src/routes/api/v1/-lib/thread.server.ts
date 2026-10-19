@@ -16,14 +16,8 @@ import {
   restResourceSecurity,
 } from "./shared.server"
 import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
-import { NonEmptyStringSchema } from "@/lib/schemas.ts"
-import {
-  chatMessageRecord,
-  messageResource,
-  savedChatAttachmentResponse,
-} from "../chat/-lib/threads.server"
+import { chatMessageRecord, messageResource } from "../chat/-lib/threads.server"
 import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
-import { chatFileSuccess } from "../chat/-lib/files.server"
 
 const directoryThreadDate = Schema.DateFromString.pipe(
   Schema.annotateEncoded({ format: "date-time" }),
@@ -93,23 +87,6 @@ export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLeve
         restPageHeaders,
       ),
     }).annotate(OpenApi.Summary, "Read conversation history for administration"),
-    HttpApiEndpoint.get(
-      "getThreadAttachment",
-      "/tenants/:tenantId/threads/:id/messages/:messageId/attachments/:partId",
-      {
-        params: {
-          ...directoryThreadParams,
-          messageId: ApiUuidSchema,
-          partId: NonEmptyStringSchema,
-        },
-        success: chatFileSuccess,
-      },
-    )
-      .annotate(OpenApi.Summary, "Download a saved conversation upload for administration")
-      .annotate(
-        OpenApi.Description,
-        "Send X-File-Preview: true for a cached thumbnail, or 204 when no preview is available.",
-      ),
   )
   .annotateEndpoints(OpenApi.Override, restResourceSecurity)
   .annotate(
@@ -185,14 +162,6 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
             },
             headers: response.headers,
           })
-        }),
-        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params, request }) {
-          const message = yield* threads.directoryMessage({ ...params, scope: yield* RestScope })
-          return yield* savedChatAttachmentResponse(
-            message,
-            params.partId,
-            request.headers["x-file-preview"] === "true",
-          )
         }),
       })
     }),

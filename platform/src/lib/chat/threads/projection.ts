@@ -267,7 +267,7 @@ export function chatPublicParts(parts: ChatMessagePayload["parts"]) {
             value: "",
             mimeType: part.source.mimeType ?? "application/octet-stream",
           },
-          savedAttachmentId: part.id,
+          fileId: part.source.id,
         }
       : {}),
     ...(part.type === "tool-call" && part.executionLocation !== "provider"

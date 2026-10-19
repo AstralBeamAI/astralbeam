@@ -1,8 +1,4 @@
-import { HttpServerResponse } from "effect/http"
-import {
-  savedChatAttachmentResponse,
-  messageResource,
-} from "@/routes/api/v1/chat/-lib/threads.server"
+import { messageResource } from "@/routes/api/v1/chat/-lib/threads.server"
 import { deleteTenant } from "@/lib/tenants/deletion"
 import { APP_HANDLE } from "@/lib/constants"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
@@ -309,9 +305,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     }
     const snapshot = await runtime.runPromise(service.directorySnapshot(input))
     expect(snapshot.messages.items.map((message) => message.role)).toEqual(["user", "assistant"])
-    const message = await runtime.runPromise(
-      service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
-    )
+    expect((await runtime.runPromise(service.directoryGet(input))).id).toBe(thread.id)
+    const message = snapshot.messages.items[0]!
     expect(messageResource(message).parts[1]).toMatchObject({
       source: { type: "attachment", byteSize: 5 },
     })
@@ -327,13 +322,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       { source: { type: "data", value: "SGVsbG8=", byteSize: 5 } },
     ])
     expect(hydrated[0]!.createdAt).toEqual(new Date("2026-01-01"))
-    const response = HttpServerResponse.toWeb(
-      await runtime.runPromise(
-        savedChatAttachmentResponse(message, String(message.payload.parts[1]!.id)),
-      ),
-    )
-    expect(await response.text()).toBe("Hello")
     const source = message.payload.parts[1]!.source as { id: string }
+    const file = await runtime.runPromise(
+      files.read({ scope: { ...scope, threadId: thread.id }, fileId: source.id }),
+    )
+    expect(new TextDecoder().decode(file.bytes)).toBe("Hello")
     expect(await db.select().from(chatFile)).toMatchObject([
       { messageId: message.id, fileObjectId: source.id },
     ])
@@ -349,7 +342,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ...input,
         scope: { organizationId: scope.organizationId, tenantId: foreign.tenantId },
       }),
-      service.directoryMessage({ ...input, tenantId: foreign.tenantId, messageId: message.id }),
+      service.directoryGet({ ...input, tenantId: foreign.tenantId }),
       service.get({ scope: other, id: thread.id }),
       service.admit({ scope: other, id: thread.id, payload }),
       service.rename({ scope: other, id: thread.id, title: "Forbidden", lockVersion: 1 }),

@@ -66,7 +66,7 @@ const restTestState = vi.hoisted(() => ({
   readFile: vi.fn(),
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
-  directoryMessage: vi.fn(),
+  directoryGet: vi.fn(),
   threadCreate: vi.fn(),
   threadScope: vi.fn(),
   threadList: vi.fn(),
@@ -227,7 +227,7 @@ const restTestServices = Layer.mergeAll(
   Layer.succeed(ChatThreads, {
     directoryList: (input: unknown) => restTestState.directoryList(input) as never,
     directorySnapshot: (input: unknown) => restTestState.directorySnapshot(input) as never,
-    directoryMessage: (input: unknown) => restTestState.directoryMessage(input) as never,
+    directoryGet: (input: unknown) => restTestState.directoryGet(input) as never,
     create: (input: unknown) => restTestState.threadCreate(input) as never,
     resolveScope: (input: unknown) => restTestState.threadScope(input) as never,
     list: (input: unknown) => restTestState.threadList(input) as never,
@@ -710,7 +710,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.threadCreate).toHaveBeenCalledTimes(1)
     for (const path of [
       `/chat/threads/${restOtherId}/messages`,
-      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+      `/chat/files?threadId=${restOtherId}&fileId=${restUserId}`,
     ]) {
       const response = await restRequest(path, {
         headers: { Authorization: `Bearer ${restTenantJwt}` },
@@ -719,7 +719,7 @@ describe("REST API through the Effect Fetch handler", () => {
       expect(response.headers.get("retry-after")).toBe("5")
     }
     expect(restTestState.threadSnapshot).not.toHaveBeenCalled()
-    expect(restTestState.threadMessage).not.toHaveBeenCalled()
+    expect(restTestState.readFile).not.toHaveBeenCalled()
     expect(restTestState.consume.mock.calls.at(-1)![0].key).toBe(
       restTestState.consume.mock.calls[0]![0].key,
     )
@@ -774,7 +774,10 @@ describe("REST API through the Effect Fetch handler", () => {
           parent_message_id: null,
           parts: [
             ...restSavedMessage.payload.parts,
-            { ...attachment, source: { type: "attachment", mimeType: "image/png", byteSize: 11 } },
+            {
+              ...attachment,
+              source: { type: "attachment", id: restUserId, mimeType: "image/png", byteSize: 11 },
+            },
           ],
           author_tenant_user_id: restUserId,
           source_assistant_message_id: null,
@@ -790,43 +793,26 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.threadSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ scope: restThreadScope, id: restOtherId }),
     )
-    restTestState.threadMessage.mockReturnValue(Effect.succeed(savedMessage))
-    const download = await restRequest(
-      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
-      { headers },
-    )
+    const download = await restRequest(`/chat/files?threadId=${restOtherId}&fileId=${restUserId}`, {
+      headers,
+    })
     expect(download.status).toBe(200)
     expect(download.headers.get("content-type")).toBe("image/png")
     expect(download.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
     expect(download.headers.get("vary")).toBe("Authorization, X-API-Key, X-File-Preview")
     expect(await download.text()).toBe("saved image")
-    expect(restTestState.threadMessage).toHaveBeenCalledWith({
-      scope: restThreadScope,
-      id: restOtherId,
-      messageId: restUserId,
+    expect(restTestState.readFile).toHaveBeenCalledWith({
+      scope: { organizationId: restOrgId, tenantId: restTenantId, threadId: restOtherId },
+      fileId: restUserId,
     })
-    for (const fileId of [restUserId, "invoice-123"]) {
-      restTestState.threadMessage.mockReturnValue(
-        Effect.succeed({
-          ...savedMessage,
-          payload: { parts: [{ id: "upload", type: "tool-result", output: { fileId } }] },
-        }),
-      )
-      restTestState.readFile.mockClear()
-      const artifact = await restRequest(
-        `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
-        { headers },
-      )
-      expect(artifact.status).toBe(fileId === restUserId ? 200 : 404)
-      expect(restTestState.readFile).toHaveBeenCalledTimes(fileId === restUserId ? 1 : 0)
-    }
-    restTestState.threadMessage.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    restTestState.readFile.mockClear()
     const deniedDownload = await restRequest(
-      `/chat/threads/${restOtherId}/messages/${restUserId}/attachments/upload`,
+      `/chat/files?threadId=${restOtherId}&fileId=${restUserId}`,
       { headers },
     )
     expect(deniedDownload.status).toBe(404)
-    restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
+    expect(restTestState.readFile).not.toHaveBeenCalled()
     const inaccessible = await restRequest(`/chat/threads/${restOtherId}`, { headers })
     expect(inaccessible.status).toBe(404)
     expect(await inaccessible.text()).not.toContain(restThread.title)
@@ -1767,22 +1753,7 @@ describe("administrative conversation reads", () => {
         messages: { ...emptyPage, items: [restSavedMessage] },
       }),
     )
-    restTestState.directoryMessage.mockReturnValue(
-      Effect.succeed({
-        ...restSavedMessage,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "upload",
-              type: "document",
-              source: { type: APP_HANDLE, id: restTenantId, mimeType: "text/plain", byteSize: 5 },
-              metadata: { filename: "note.txt" },
-            },
-          ],
-        },
-      }),
-    )
+    restTestState.directoryGet.mockReturnValue(Effect.succeed(directoryThread))
   })
   test.each(["api-key", "owner", "developer", "viewer", "tenant-admin"])(
     "%s can read listings, history and uploads without participant grants",
@@ -1820,9 +1791,12 @@ describe("administrative conversation reads", () => {
       expect(await history.json()).toMatchObject({
         messages: [{ parts: [{ content: "Saved history" }] }],
       })
-      const upload = await restRequest(`${paths}/messages/${restUserId}/attachments/upload`, {
-        headers,
-      })
+      const upload = await restRequest(
+        `/chat/files?tenantId=${restTenantId}&threadId=${restOtherId}&fileId=${restTenantId}`,
+        {
+          headers,
+        },
+      )
       expect(upload.status).toBe(200)
       expect(await upload.text()).toBe("Hello")
       expect(upload.headers.get("cache-control")).toContain("no-store")
@@ -1853,6 +1827,17 @@ describe("administrative conversation reads", () => {
     ).toBe(403)
     expect(restTestState.directoryList).not.toHaveBeenCalled()
     expect(restTestState.directorySnapshot).not.toHaveBeenCalled()
+    for (const token of [tenantJwt, organizationJwt]) {
+      const download = await restRequest(
+        `/chat/files?tenantId=${restTenantId}&threadId=${restOtherId}&fileId=${restTenantId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      )
+      expect(download.status).toBe(403)
+    }
+    expect(restTestState.directoryGet).not.toHaveBeenCalled()
+    expect(restTestState.readFile).not.toHaveBeenCalled()
   })
   test("activity cursors bind collection, title search and Tenant filter", async () => {
     restTestState.directoryList.mockReturnValue(

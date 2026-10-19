@@ -1,5 +1,5 @@
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
-import { useState } from "react"
+import { useContext, useState } from "react"
 import {
   Attachment,
   AttachmentContent,
@@ -10,31 +10,23 @@ import {
 import { Bubble, BubbleContent } from "@/widget/components/ui/bubble"
 import { describeSentAttachment } from "../lib/attachments.ts"
 import { getMessageText, saveBlob } from "../lib/utils.ts"
-import { AttachmentPreview } from "./attachment-preview.tsx"
+import { AttachmentFileContext, AttachmentPreview } from "./attachment-preview.tsx"
 
 type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "video" }> & {
-  savedAttachmentId?: string | undefined
+  fileId?: string | undefined
 }
-type GetAttachment = (messageId: string, partId: string) => Promise<Blob>
 
-export function SentAttachment({
-  part,
-  messageId,
-  getAttachment,
-}: {
-  part: MediaPart
-  messageId: string
-  getAttachment: GetAttachment
-}) {
+export function SentAttachment({ part }: { part: MediaPart }) {
+  const getFile = useContext(AttachmentFileContext)
   const { kind, title, description, href } = describeSentAttachment(part)
-  const attachmentId = part.savedAttachmentId
+  const fileId = part.fileId
   const [failed, setFailed] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const download = async () => {
-    if (!attachmentId) return
+    if (!fileId || !getFile) return
     setDownloading(true)
     try {
-      saveBlob(title, await getAttachment(messageId, attachmentId))
+      saveBlob(title, await getFile([fileId], { filename: title }))
       setFailed(false)
     } catch {
       setFailed(true)
@@ -46,8 +38,7 @@ export function SentAttachment({
     <div className="max-w-full">
       <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
         <AttachmentPreview
-          id={attachmentId}
-          messageId={messageId}
+          id={fileId}
           src={kind === "image" ? href : undefined}
           title={title}
           kind={kind}
@@ -61,7 +52,7 @@ export function SentAttachment({
             </AttachmentDescription>
           )}
         </AttachmentContent>
-        {attachmentId ? (
+        {fileId ? (
           <AttachmentTrigger
             aria-label={`Download ${title}`}
             title={`Download ${title}`}
@@ -90,13 +81,7 @@ export function SentAttachment({
   )
 }
 
-export function UserMessageBody({
-  message,
-  getAttachment,
-}: {
-  message: UIMessage
-  getAttachment: GetAttachment
-}) {
+export function UserMessageBody({ message }: { message: UIMessage }) {
   const text = getMessageText(message)
   // Attachments read above the text, as they do in the composer that sent them.
   const media = message.parts.filter((part): part is MediaPart =>
@@ -109,12 +94,7 @@ export function UserMessageBody({
         // every attachment should be visible without scrolling a narrow sidebar sideways.
         <div className="flex w-full flex-wrap justify-end gap-2">
           {media.map((part, partIndex) => (
-            <SentAttachment
-              key={partIndex}
-              part={part}
-              messageId={message.id}
-              getAttachment={getAttachment}
-            />
+            <SentAttachment key={partIndex} part={part} />
           ))}
         </div>
       )}

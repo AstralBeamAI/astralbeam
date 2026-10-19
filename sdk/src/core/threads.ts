@@ -36,8 +36,6 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
   sourceMessageId?: string
   responseTargetId?: string
   widgetRenderId?: string
-  artifactMessageId?: string
-  artifactPartId?: string
   savedToolTitle?: string
   resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
 }
@@ -132,10 +130,6 @@ export function projectThreadMessages(
         )
         if (!call) continue
         call.output = part.output ?? null
-        if (call.name === "sandbox_publish_artifact") {
-          call.artifactMessageId = message.id
-          call.artifactPartId = String(part.id)
-        }
         Object.assign(call, { resultOutcome: part.outcome })
         call.state = part.outcome === "succeeded" ? "complete" : "error"
       }
@@ -156,7 +150,7 @@ export function projectThreadMessages(
           {
             ...part,
             source: { ...source, type: "url", value: "" },
-            savedAttachmentId: part.id,
+            fileId: "id" in source && typeof source.id === "string" ? source.id : undefined,
           },
         ]
       if (part.type !== "tool-call") return [part]

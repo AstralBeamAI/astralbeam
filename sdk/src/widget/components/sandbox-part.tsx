@@ -6,7 +6,7 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react"
 import type { ChatToolCallPart } from "../../core/threads.ts"
-import { useCallback, type ReactNode } from "react"
+import type { ReactNode } from "react"
 import { Spinner } from "@/widget/components/ui/spinner"
 import {
   SANDBOX_LIST_FILES_TOOL,
@@ -33,22 +33,7 @@ import { ToolDisclosure } from "./tool-disclosure.tsx"
  * a host tool the widget knows exactly what their input and output mean and can show the file it
  * wrote as a file and the command it ran as a terminal, instead of both as pretty-printed JSON.
  */
-export function SandboxPart({
-  part,
-  getFile,
-  getAttachment,
-}: {
-  part: ChatToolCallPart
-  getFile?: ((id: string) => Promise<Blob>) | undefined
-  getAttachment: (messageId: string, partId: string) => Promise<Blob>
-}) {
-  const readFile = useCallback(
-    (messageId: string, fileId: string) => {
-      if (messageId) return getAttachment(messageId, fileId)
-      return getFile ? getFile(fileId) : Promise.reject(new Error("File unavailable"))
-    },
-    [getAttachment, getFile],
-  )
+export function SandboxPart({ part }: { part: ChatToolCallPart }) {
   const failed = part.state === "error"
   const refusal = sandboxRefusal(part)
   const running = !failed && !isSettledToolCall(part)
@@ -70,8 +55,6 @@ export function SandboxPart({
   if (artifact?.published && !failed) {
     return (
       <SentAttachment
-        messageId={part.artifactMessageId ?? ""}
-        getAttachment={readFile}
         part={{
           type: artifact.mimeType?.startsWith("image/") ? "image" : "document",
           source: {
@@ -80,7 +63,7 @@ export function SandboxPart({
             mimeType: artifact.mimeType ?? "application/octet-stream",
           },
           metadata: { filename: artifact.path.split("/").at(-1), size: artifact.size },
-          savedAttachmentId: part.artifactPartId ?? artifact.fileId,
+          fileId: artifact.fileId,
         }}
       />
     )

@@ -292,8 +292,9 @@ test("accepted uploads preview and download before reload and survive stream sna
 }) => {
   const messageId = "00000000-0000-4000-8000-000000000083"
   const partId = "00000000-0000-4000-8000-000000000084"
+  const fileId = "00000000-0000-4000-8000-000000000085"
   let failedDownload = true
-  await page.route(`**/messages/${messageId}/attachments/${partId}`, (route) => {
+  await page.route(`**/api/v1/chat/files?*fileId=${fileId}*`, (route) => {
     if (failedDownload && !route.request().headers()["x-file-preview"])
       return route.fulfill({ status: 503 })
     return route.fulfill({ contentType: image.mimeType, body: image.buffer })
@@ -312,7 +313,12 @@ test("accepted uploads preview and download before reload and survive stream sna
       {
         id: partId,
         type: "image",
-        source: { type: "attachment", mimeType: image.mimeType, byteSize: image.buffer.length },
+        source: {
+          type: "attachment",
+          id: fileId,
+          mimeType: image.mimeType,
+          byteSize: image.buffer.length,
+        },
         metadata: { filename: image.name },
       },
     ],

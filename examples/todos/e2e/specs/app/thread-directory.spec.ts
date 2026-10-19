@@ -21,6 +21,7 @@ const savedThread = {
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-06T00:00:00Z",
 }
+const uploadedFileId = "019a0800-0000-7000-8000-000000000098"
 
 test("React conversation directory reads saved pages, uploads and decisions without executing actions", async ({
   page,
@@ -64,7 +65,7 @@ test("React conversation directory reads saved pages, uploads and decisions with
                   {
                     id: "upload",
                     type: "document",
-                    source: { type: "attachment", mimeType: "text/plain" },
+                    source: { type: "attachment", id: uploadedFileId, mimeType: "text/plain" },
                     metadata: { filename: "support-notes.txt" },
                   },
                 ],
@@ -116,12 +117,12 @@ test("React conversation directory reads saved pages, uploads and decisions with
       ),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) => {
+  await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) => {
     if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
     return route.fulfill({ body: "Saved upload", contentType: "text/plain" })
   })
   await page.route(
-    "**/api/v1/tenants/*/threads/*/messages/publication/attachments/result",
+    "**/api/v1/chat/files?*fileId=019a0800-0000-7000-8000-000000000099*",
     (route) => {
       expect(route.request().headers().authorization?.startsWith("Bearer ")).toBe(true)
       if (route.request().headers()["x-file-preview"]) return route.fulfill({ status: 404 })
@@ -366,7 +367,7 @@ for (const status of [401, 403, 404]) {
               {
                 id: "upload",
                 type: "document",
-                source: { type: "attachment", mimeType: "text/plain" },
+                source: { type: "attachment", id: uploadedFileId, mimeType: "text/plain" },
                 metadata: { filename: "support-notes.txt" },
               },
             ],
@@ -374,7 +375,7 @@ for (const status of [401, 403, 404]) {
         ]),
       }),
     )
-    await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/upload", (route) =>
+    await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) =>
       route.request().headers()["x-file-preview"]
         ? route.fulfill({ status: 204 })
         : route.fulfill({
@@ -415,7 +416,7 @@ test("refresh preserves saved image previews without downloading again", async (
             {
               id: "picture",
               type: "image",
-              source: { type: "attachment", mimeType: "image/png" },
+              source: { type: "attachment", id: uploadedFileId, mimeType: "image/png" },
               metadata: { filename: "picture.png" },
             },
           ],
@@ -423,7 +424,7 @@ test("refresh preserves saved image previews without downloading again", async (
       ]),
     })
   })
-  await page.route("**/api/v1/tenants/*/threads/*/messages/input/attachments/picture", (route) => {
+  await page.route(`**/api/v1/chat/files?*fileId=${uploadedFileId}*`, (route) => {
     expect(route.request().headers()["x-file-preview"]).toBe("true")
     images++
     return route.fulfill({

@@ -13,7 +13,7 @@ import { isAstralBeamApiError, type JwtOptions } from "../api/api.ts"
 import {
   listThreads,
   listThreadMessages,
-  getThreadAttachment,
+  getChatFile,
   getTenant,
   listTenants,
   type ListTenantsParams,
@@ -253,21 +253,25 @@ export function loadDirectoryThreadHistory(
   )
 }
 
-export function loadDirectoryThreadAttachment(
+export function loadDirectoryThreadFile(
   session: ListingSession,
   tenantId: string,
   id: string,
-  messageId: string,
-  partId: string,
+  fileId: string,
   signal: AbortSignal,
-  options?: { preview: true },
+  options?: { preview?: boolean; filename?: string },
 ) {
   return listingRequest(session, signal, async (auth) => {
     try {
-      const response = await getThreadAttachment(tenantId, id, messageId, partId, {
-        ...auth,
-        headers: options?.preview ? { "X-File-Preview": "true" } : {},
-      })
+      const response = await getChatFile(
+        {
+          tenantId,
+          threadId: id,
+          fileId,
+          ...(options?.filename ? { filename: options.filename } : {}),
+        },
+        { ...auth, headers: options?.preview ? { "X-File-Preview": "true" } : {} },
+      )
       return await response.blob()
     } catch (error) {
       if (options?.preview && !(isAstralBeamApiError(error) && [401, 403].includes(error.status)))

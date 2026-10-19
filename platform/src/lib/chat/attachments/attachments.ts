@@ -522,7 +522,7 @@ export function createChatAttachmentSnapshotMiddleware(
                 mimeType: file.mimeType,
                 byteSize: file.byteSize,
               },
-              savedAttachmentId: part.id,
+              fileId: file.id,
             }
           : part
       })

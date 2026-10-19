@@ -928,9 +928,9 @@ export class ChatThreads extends Context.Service<
       { thread: DirectoryThreadRecord; messages: DatabasePage<MessageRecord> },
       ChatThreadNotFound
     >
-    readonly directoryMessage: (
-      input: DirectoryThreadInput & { messageId: string },
-    ) => Effect.Effect<MessageRecord, ChatThreadNotFound>
+    readonly directoryGet: (
+      input: DirectoryThreadInput,
+    ) => Effect.Effect<DirectoryThreadRecord, ChatThreadNotFound>
     readonly resolveScope: (input: {
       principal: ChatPrincipal
     }) => Effect.Effect<ChatThreadScope, ChatIdentityNotSynchronized>
@@ -1067,21 +1067,8 @@ export class ChatThreads extends Context.Service<
             }),
           ),
       )
-      const directoryMessage = Effect.fn("ChatThreads.directoryMessage")(
-        (input: DirectoryThreadInput & { messageId: string }) =>
-          readSnapshot((tx) =>
-            Effect.gen(function* () {
-              const thread = yield* readDirectoryThread(tx, input)
-              return yield* readMessage(
-                tx,
-                {
-                  id: thread.id,
-                  scope: thread,
-                },
-                input.messageId,
-              )
-            }),
-          ),
+      const directoryGet = Effect.fn("ChatThreads.directoryGet")((input: DirectoryThreadInput) =>
+        readDirectoryThread(db, input).pipe(mapDatabaseErrors()),
       )
 
       const resolveScope = Effect.fn("ChatThreads.resolveScope")(function* ({
@@ -1829,7 +1816,7 @@ export class ChatThreads extends Context.Service<
       return ChatThreads.of({
         directoryList,
         directorySnapshot,
-        directoryMessage,
+        directoryGet,
         resolveScope,
         create,
         list,

@@ -6,13 +6,14 @@ import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import {
   loadDirectoryThreadHistory,
-  loadDirectoryThreadAttachment,
+  loadDirectoryThreadFile,
   type ListingSession,
 } from "../../core/listings.ts"
 import { projectThreadMessages } from "../../core/threads.ts"
+import type { AstralBeamChatCore } from "../../core/session.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
-import { AttachmentPreviewContext } from "../components/attachment-preview.tsx"
+import { AttachmentFileContext } from "../components/attachment-preview.tsx"
 
 export function ThreadViewer({
   session,
@@ -35,15 +36,14 @@ export function ThreadViewer({
       loadDirectoryThreadHistory(session, thread.tenant_id, thread.id, pageParam, signal),
     getNextPageParam: (page) => page.page_after ?? undefined,
   })
-  const getAttachment = useCallback(
-    async (messageId: string, partId: string, options?: { preview: true }) => {
+  const getFile = useCallback<AstralBeamChatCore["getFile"]>(
+    async ([fileId], options) => {
       try {
-        return await loadDirectoryThreadAttachment(
+        return await loadDirectoryThreadFile(
           session,
           thread.tenant_id,
           thread.id,
-          messageId,
-          partId,
+          fileId,
           session.abortController.signal,
           options,
         )
@@ -54,11 +54,6 @@ export function ThreadViewer({
       }
     },
     [session, thread.tenant_id, thread.id],
-  )
-  const loadPreview = useCallback(
-    (messageId: string | undefined, id: string) =>
-      messageId ? getAttachment(messageId, id, { preview: true }) : Promise.resolve(new Blob()),
-    [getAttachment],
   )
   const messages = useMemo(() => {
     const projected = projectThreadMessages(
@@ -122,7 +117,6 @@ export function ThreadViewer({
             activeSlots={new Map()}
             interactiveToolIds={new Set()}
             readOnly
-            getAttachment={getAttachment}
             hasOlder={query.hasNextPage && !query.isError}
             loadingHistory={query.isFetching}
             loadingOlder={query.isFetchingNextPage}
@@ -137,5 +131,5 @@ export function ThreadViewer({
       ) : null}
     </section>
   )
-  return <AttachmentPreviewContext value={loadPreview}>{content}</AttachmentPreviewContext>
+  return <AttachmentFileContext value={getFile}>{content}</AttachmentFileContext>
 }

@@ -11,7 +11,6 @@ import { DEFAULT_API_URL, DEFAULT_CHAT_AUTH_TOKEN_URL } from "../lib/constants.t
 import {
   createChatThread,
   deleteChatThread,
-  getChatAttachment,
   getChatFile,
   getChatConfig,
   uploadChatFile,
@@ -245,15 +244,13 @@ export interface AstralBeamChatCore {
     filename: string
     mimeType: string
   }) => Promise<UploadedChatFile>
-  getFile: (fileId: string, options?: { preview?: boolean }) => Promise<Blob>
+  getFile: (
+    key: readonly [fileId: string],
+    options?: { preview?: boolean; filename?: string },
+  ) => Promise<Blob>
   getMcpCatalog: () => Promise<McpCatalog>
   manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
   authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
-  getAttachment: (
-    messageId: string,
-    partId: string,
-    options?: { preview?: boolean },
-  ) => Promise<Blob>
   /** Tears the session down: the connection, authentication, and widget renders. */
   dispose: () => void
 }
@@ -957,7 +954,7 @@ export function createAstralBeamChat(
         for (const message of messages) {
           if (message.role !== "user") continue
           const saved = state.messages.find((previous) => previous.id === message.id)
-          if (saved?.parts.some((part) => "savedAttachmentId" in part)) message.parts = saved.parts
+          if (saved?.parts.some((part) => "fileId" in part)) message.parts = saved.parts
         }
         update({ messages, sandbox: collectSandboxActivity(messages) })
       },
@@ -1526,30 +1523,23 @@ export function createAstralBeamChat(
         options,
       )
     },
-    getFile: async (fileId, options) => {
+    getFile: async ([fileId], options) => {
       const threadId = state.thread?.id
       if (!threadId && !options?.preview)
         throw new Error("Open a conversation before downloading files.")
       return (
         await getChatFile(
-          { fileId, ...(threadId ? { threadId } : {}) },
           {
-            ...(await requestOptions(!options?.preview)),
+            fileId,
+            ...(threadId ? { threadId } : {}),
+            ...(options?.filename ? { filename: options.filename } : {}),
+          },
+          {
+            ...(await requestOptions(!!threadId || !options?.preview)),
             cache: "default",
             headers: options?.preview ? { "X-File-Preview": "true" } : {},
           },
         )
-      ).blob()
-    },
-    getAttachment: async (messageId, partId, options) => {
-      const thread = state.thread
-      if (!thread) throw new Error("Open a conversation before downloading attachments.")
-      return (
-        await getChatAttachment(thread.id, messageId, partId, {
-          ...(await requestOptions()),
-          cache: "default",
-          headers: options?.preview ? { "X-File-Preview": "true" } : {},
-        })
       ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),

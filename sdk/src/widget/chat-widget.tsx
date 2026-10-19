@@ -15,7 +15,7 @@ import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatResizeHandle } from "./components/chat-resize-handle.tsx"
 import { useChatWidth } from "./use-chat-width.ts"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
-import { AttachmentPreviewContext } from "./components/attachment-preview.tsx"
+import { AttachmentFileContext } from "./components/attachment-preview.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
@@ -94,13 +94,6 @@ export function ChatWidget({
   // One session per committed mount, retuned in place, though Strict Mode's render probe can
   // still build a discarded second.
   const [chat] = useState(() => createAstralBeamChat(sessionOptions, true))
-  const loadPreview = useCallback(
-    (messageId: string | undefined, id: string) =>
-      messageId
-        ? chat.getAttachment(messageId, id, { preview: true })
-        : chat.getFile(id, { preview: true }),
-    [chat],
-  )
   // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
   useEffect(() => {
     chat.updateOptions(sessionOptions)
@@ -422,13 +415,11 @@ export function ChatWidget({
         <ChatTranscript
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
-          getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
           loadingHistory={history === "loading"}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
-          getFile={chat.getFile}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyHeadline={options.emptyHeadline}
           emptyDescription={options.emptyDescription}
@@ -542,5 +533,5 @@ export function ChatWidget({
       </CardFooter>
     </Card>
   )
-  return <AttachmentPreviewContext value={loadPreview}>{content}</AttachmentPreviewContext>
+  return <AttachmentFileContext value={chat.getFile}>{content}</AttachmentFileContext>
 }

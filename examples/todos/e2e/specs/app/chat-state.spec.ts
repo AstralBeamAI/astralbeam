@@ -74,7 +74,7 @@ async function stubChat(page: Page) {
           | Array<{
               type: string
               text?: string
-              source?: { mimeType: string }
+              source?: { value: string; mimeType: string }
               metadata?: { filename?: string; size?: number }
             }>
       }>
@@ -98,6 +98,7 @@ async function stubChat(page: Page) {
                     type: part.type,
                     source: {
                       type: "attachment",
+                      id: part.source?.value,
                       mimeType: part.source?.mimeType,
                       byteSize: part.metadata?.size,
                     },
