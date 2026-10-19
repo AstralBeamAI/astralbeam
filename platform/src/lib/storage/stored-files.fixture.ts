@@ -37,10 +37,12 @@ const storedFileStorage = ObjectStorage.of({
           }),
     ),
   head: ({ key }) =>
-    Effect.succeed({
-      size: storedFileFixture.objects.get(key)?.length ?? 0,
-      contentType: "image/png",
-    }),
+    storedFileFixture.objects.has(key)
+      ? Effect.succeed({
+          size: storedFileFixture.objects.get(key)!.length,
+          contentType: "image/png",
+        })
+      : Effect.fail(new StorageObjectMissing()),
   testConnection: () => Effect.void,
   signedUrl: ({ key }) => Effect.succeed(`https://storage.example/${key}`),
 })

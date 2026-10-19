@@ -823,7 +823,9 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await db.select().from(fileObject).where(eq(fileObject.organizationId, deletedId)),
     ).toEqual([])
     expect(removedOrganizationFiles).toContain(`workflow-logo:${deletedId}`)
+    expect(removedOrganizationFiles).toContain(`workflow-logo:${deletedId}.preview.webp`)
     expect(removedOrganizationFiles).not.toContain(`workflow-logo:${keptId}`)
+    expect(removedOrganizationFiles).not.toContain(`workflow-logo:${keptId}.preview.webp`)
     expect(
       (
         await db

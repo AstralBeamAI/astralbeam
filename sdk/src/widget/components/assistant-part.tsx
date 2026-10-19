@@ -30,10 +30,7 @@ import { citedWebText, webPartMetadata } from "../../core/web.ts"
 
 interface AssistantPartProps {
   readOnly?: boolean | undefined
-  messageId: string
-  getAttachment: (messageId: string, partId: string) => Promise<Blob>
   part: MessagePart
-  getFile?: ((id: string) => Promise<Blob>) | undefined
   widgets: Record<string, WidgetDefinition>
   /** Transcript labels for tools that declared a title, keyed by tool name. */
   toolTitles: Record<string, string>
@@ -208,10 +205,7 @@ function QuestionnaireCallPart({
 
 export function AssistantPart({
   readOnly = false,
-  messageId,
-  getAttachment,
   part,
-  getFile,
   widgets,
   toolTitles,
   serverToolTitles,
@@ -226,7 +220,7 @@ export function AssistantPart({
     case "document":
     case "audio":
     case "video":
-      return <SentAttachment part={part} messageId={messageId} getAttachment={getAttachment} />
+      return <SentAttachment part={part} />
 
     case "text":
       // Ghost, per the docs: assistant replies are unframed and take the container's full width.
@@ -250,8 +244,7 @@ export function AssistantPart({
         (part as ChatToolCallPart).savedToolTitle ??
         (Object.hasOwn(toolTitles, part.name) ? toolTitles[part.name] : undefined)
       if (readOnly) {
-        if (isSandboxTool(part.name) && isSettledToolCall(part))
-          return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
+        if (isSandboxTool(part.name) && isSettledToolCall(part)) return <SandboxPart part={part} />
         return (
           <ToolCallDisclosure part={part} title={title} failed={part.state === "error"} readOnly />
         )
@@ -280,7 +273,7 @@ export function AssistantPart({
       // Before the failure branch: a sandbox step that threw still reads better as "could not
       // write app.py" than as a generic tool failure.
       if (isSandboxTool(part.name)) {
-        return <SandboxPart part={part} getFile={getFile} getAttachment={getAttachment} />
+        return <SandboxPart part={part} />
       }
       if (part.state === "error") {
         return <ToolCallDisclosure part={part} title={title} failed />

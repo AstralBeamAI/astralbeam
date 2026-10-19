@@ -6,14 +6,11 @@ import {
   AttachmentContent,
   AttachmentDescription,
   AttachmentGroup,
-  AttachmentMedia,
   AttachmentTitle,
 } from "@/widget/components/ui/attachment"
-import { Spinner } from "@/widget/components/ui/spinner"
-import { attachmentDataUri } from "../lib/attachments.ts"
 import type { DraftAttachment } from "../lib/types.ts"
 import { formatByteSize } from "../lib/utils.ts"
-import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
+import { AttachmentPreview } from "./attachment-preview.tsx"
 import { TooltipButton } from "./tooltip-button.tsx"
 
 // Reading and uploading share the chip's busy state until the server returns a file reference.
@@ -69,10 +66,6 @@ export function ComposerAttachments({
       )}
       <AttachmentGroup ref={group} className="w-full">
         {attachments.map((attachment) => {
-          const thumbnail =
-            attachment.kind === "image" && attachment.data !== undefined
-              ? attachmentDataUri(attachment.mimeType, attachment.data)
-              : undefined
           return (
             <Attachment
               key={attachment.id}
@@ -81,17 +74,14 @@ export function ComposerAttachments({
               // The reason a file was refused lives only in this chip, so it has to be announced.
               role={attachment.status === "error" ? "alert" : undefined}
             >
-              <AttachmentMedia variant={thumbnail ? "image" : "icon"}>
-                {thumbnail ? (
-                  <img src={thumbnail} alt="" />
-                ) : attachment.status === "reading" ? (
-                  <Spinner />
-                ) : (
-                  <AttachmentKindIcon kind={attachment.kind} mimeType={attachment.mimeType} />
-                )}
-              </AttachmentMedia>
+              <AttachmentPreview
+                id={attachment.fileId}
+                title={attachment.name}
+                kind={attachment.kind}
+                mimeType={attachment.mimeType}
+              />
               <AttachmentContent>
-                <AttachmentTitle>{attachment.name}</AttachmentTitle>
+                <AttachmentTitle title={attachment.name}>{attachment.name}</AttachmentTitle>
                 <AttachmentDescription>
                   {attachment.error ?? formatByteSize(attachment.size)}
                 </AttachmentDescription>

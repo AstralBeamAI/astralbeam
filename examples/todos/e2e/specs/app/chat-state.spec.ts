@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer"
 import type { Page } from "@playwright/test"
-import { expect, savedUserMessage, test } from "../../fixtures.ts"
+import { expect, test } from "../../fixtures.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
 
@@ -68,13 +68,44 @@ async function stubChat(page: Page) {
       })
     const body = route.request().postDataJSON() as {
       threadId: string
-      messages: Array<{ content: string | Array<{ type: string; text?: string }> }>
+      messages: Array<{
+        content:
+          | string
+          | Array<{
+              type: string
+              text?: string
+              source?: { value: string; mimeType: string }
+              metadata?: { filename?: string; size?: number }
+            }>
+      }>
     }
     const content = body.messages.at(-1)!.content
     const text =
       typeof content === "string" ? content : (content.find((part) => part.text)?.text ?? "")
     const saved = threads.get(body.threadId)!
-    const user = savedUserMessage(`user-${control.sends}`, text)
+    const user = {
+      id: `user-${control.sends}`,
+      role: "user",
+      state: "complete",
+      parts:
+        typeof content === "string"
+          ? [{ id: "text", type: "text", content }]
+          : content.map((part, index) =>
+              part.type === "text"
+                ? { id: `part-${index}`, type: "text", content: part.text ?? "" }
+                : {
+                    id: `part-${index}`,
+                    type: part.type,
+                    source: {
+                      type: "attachment",
+                      id: part.source?.value,
+                      mimeType: part.source?.mimeType,
+                      byteSize: part.metadata?.size,
+                    },
+                    metadata: part.metadata,
+                  },
+            ),
+    }
     const reply = {
       id: `reply-${control.sends}`,
       role: "assistant",

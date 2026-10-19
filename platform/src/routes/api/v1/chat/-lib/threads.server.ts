@@ -306,17 +306,6 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
         ChatToolResultReceiptSchema,
       ]),
     }).annotate(OpenApi.Summary, "Submit a pending tool result"),
-    HttpApiEndpoint.get(
-      "getChatAttachment",
-      "/chat/threads/:id/messages/:messageId/attachments/:partId",
-      {
-        params: { ...threadParams, messageId: ApiUuidSchema, partId: NonEmptyStringSchema },
-        success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-          "Content-Disposition": Schema.String,
-          "Content-Length": Schema.String,
-        }),
-      },
-    ).annotate(OpenApi.Summary, "Download a saved attachment"),
   )
   .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -366,6 +355,7 @@ export function messageResource(row: MessageRecord) {
           ...part,
           source: {
             type: "attachment",
+            ...(typeof source.id === "string" ? { id: source.id } : {}),
             ...(typeof source.mimeType === "string" ? { mimeType: source.mimeType } : {}),
             ...(typeof source.byteSize === "number" ? { byteSize: source.byteSize } : {}),
           },
@@ -630,57 +620,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
               lockVersion: query.expected_version,
             })
           }),
-          getChatAttachment: Effect.fn("getChatAttachment")(function* ({ request, params }) {
-            const scope = yield* scopeFor(request)
-            const message = yield* threads.getMessage({
-              scope,
-              id: params.id,
-              messageId: params.messageId,
-            })
-            return yield* savedChatAttachmentResponse(message, params.partId)
-          }),
         })
     }),
   )
 }
-
-export const savedChatAttachmentResponse = Effect.fn("savedChatAttachmentResponse")(function* (
-  message: MessageRecord,
-  partId: string,
-) {
-  const { ChatFiles } = yield* Effect.promise(() => import("@/lib/chat/attachments/attachments"))
-  const { chatArtifactResponse } = yield* Effect.promise(() => import("./files.server"))
-  const { ChatThreadNotFound } = yield* Effect.promise(() => import("@/lib/chat/threads/errors"))
-  const saved = message.payload.parts.find((entry) => entry.id === partId)
-  if (!saved) return yield* new ChatThreadNotFound()
-  const output =
-    saved.type === "tool-result" && Schema.is(Schema.JsonObject)(saved.output)
-      ? saved.output
-      : undefined
-  const source =
-    output && typeof output.fileId === "string"
-      ? { type: APP_HANDLE, id: output.fileId }
-      : saved.source
-  if (
-    !Schema.is(Schema.JsonObject)(source) ||
-    source.type !== APP_HANDLE ||
-    !Schema.is(ApiUuidSchema)(source.id)
-  )
-    return yield* new ChatThreadNotFound()
-  const file = yield* (yield* ChatFiles).read({
-    scope: {
-      organizationId: message.organizationId,
-      tenantId: message.tenantId,
-      threadId: message.threadId,
-    },
-    fileId: source.id,
-  })
-  const metadata = saved.metadata
-  const path =
-    Schema.is(Schema.JsonObject)(metadata) && typeof metadata.filename === "string"
-      ? metadata.filename
-      : output && typeof output.path === "string"
-        ? output.path
-        : "attachment"
-  return chatArtifactResponse({ ...file, path })
-})

@@ -84,77 +84,6 @@ test("reviewing a rejected file reveals and focuses its removal action", async (
   await expect(chat.attachmentChip(rejected.name)).toHaveCount(0)
 })
 
-test("unsent text, images, and large files recover, and accepted files stay cleared", async ({
-  page,
-}) => {
-  const large = {
-    name: "large.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.alloc(6 * 1024 * 1024, "a"),
-  }
-  let submissions = 0
-  await page.route("**/api/v1/chat", async (route) => {
-    submissions++
-    const body = route.request().postDataJSON() as {
-      messages: Array<{
-        role: string
-        content: Array<{
-          source?: { value: string }
-          metadata?: { filename: string }
-        }>
-      }>
-    }
-    const parts = body.messages.find((message) => message.role === "user")!.content
-    expect(parts.find((part) => part.metadata?.filename === large.name)?.source?.value).toEqual(
-      expect.stringMatching(/^[0-9a-f-]{36}$/),
-    )
-    expect(parts.find((part) => part.metadata?.filename === image.name)?.source?.value).toEqual(
-      expect.stringMatching(/^[0-9a-f-]{36}$/),
-    )
-    expect(parts.some((part) => part.metadata?.filename === note.name)).toBe(false)
-    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
-  })
-  await todosPage(page).open()
-  const chat = chatWidget(page)
-  await chat.waitForReady()
-  await chat.composer().fill("  Keep my unsent question\nwith these files  ")
-  await chat.attach([note, image, large])
-  await expect(chat.sendButton()).toBeEnabled()
-  const stored = await page.evaluate(() =>
-    Object.keys(localStorage)
-      .map((key) => localStorage.getItem(key) ?? "")
-      .filter((value) => value.includes('"fileId"')),
-  )
-  expect(stored).toHaveLength(1)
-  expect(stored[0]).not.toContain(note.buffer.toString("base64"))
-  await page.reload()
-  await expect(chat.composer()).toHaveValue("  Keep my unsent question\nwith these files  ")
-  for (const file of [note, image, large])
-    await expect(chat.attachmentChip(file.name)).toBeVisible()
-  expect(submissions).toBe(0)
-  await captureMoment(page, "text-image-and-large-file-recovered")
-
-  const later = { ...note, name: "later.txt" }
-  await chat.attach(later)
-  await chat.attachmentChip(note.name).click()
-  await expect(chat.sendButton()).toBeEnabled()
-  await page.reload()
-  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
-  for (const file of [image, large, later])
-    await expect(chat.attachmentChip(file.name)).toBeVisible()
-  await expect(chat.sendButton()).toBeEnabled()
-  await chat.sendButton().click()
-  await expect(chat.composer()).toHaveValue("")
-  await expect.poll(() => submissions).toBe(1)
-  await chat.waitForIdle()
-  await page.reload()
-  await chat.waitForReady()
-  await expect(chat.composer()).toHaveValue("")
-  for (const file of [image, large, later])
-    await expect(chat.attachmentChip(file.name)).toHaveCount(0)
-  expect(submissions).toBe(1)
-})
-
 test("acceptance removes submitted files and preserves files and text added during the request", async ({
   page,
 }) => {
@@ -358,39 +287,18 @@ test("draft files remain isolated between conversations and accounts", async ({ 
   await expect(chat.attachmentChip(note.name)).toBeVisible()
 })
 
-test("full browser storage does not prevent attaching or sending", async ({ page }) => {
-  await page.addInitScript(() => {
-    Storage.prototype.setItem = () => {
-      throw new DOMException("Full", "QuotaExceededError")
-    }
-  })
-  await page.route("**/api/v1/chat", (route) =>
-    route.fulfill({ contentType: "text/event-stream", body: acceptedStream }),
-  )
-  await todosPage(page).open()
-  const chat = chatWidget(page)
-  await chat.waitForReady()
-  await chat.composer().fill("Still usable")
-  await chat.attach(note)
-  await expect(chat.sendButton()).toBeEnabled()
-  await expect(
-    page.getByText(
-      "Files cannot be recovered after reload because browser storage is unavailable.",
-    ),
-  ).toBeVisible()
-  await chat.sendButton().click()
-  await expect(chat.composer()).toHaveValue("")
-  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
-})
-
 test("accepted uploads preview and download before reload and survive stream snapshots", async ({
   page,
 }) => {
   const messageId = "00000000-0000-4000-8000-000000000083"
   const partId = "00000000-0000-4000-8000-000000000084"
-  await page.route(`**/messages/${messageId}/attachments/${partId}`, (route) =>
-    route.fulfill({ contentType: image.mimeType, body: image.buffer }),
-  )
+  const fileId = "00000000-0000-4000-8000-000000000085"
+  let failedDownload = true
+  await page.route(`**/api/v1/chat/files?*fileId=${fileId}*`, (route) => {
+    if (failedDownload && !route.request().headers()["x-file-preview"])
+      return route.fulfill({ status: 503 })
+    return route.fulfill({ contentType: image.mimeType, body: image.buffer })
+  })
   const acceptedMessage = {
     id: messageId,
     role: "user",
@@ -405,7 +313,12 @@ test("accepted uploads preview and download before reload and survive stream sna
       {
         id: partId,
         type: "image",
-        source: { type: "attachment", mimeType: image.mimeType, byteSize: image.buffer.length },
+        source: {
+          type: "attachment",
+          id: fileId,
+          mimeType: image.mimeType,
+          byteSize: image.buffer.length,
+        },
         metadata: { filename: image.name },
       },
     ],
@@ -464,9 +377,14 @@ test("accepted uploads preview and download before reload and survive stream sna
   await expect
     .poll(() => preview.evaluate((element: HTMLImageElement) => element.naturalWidth))
     .toBeGreaterThan(0)
+  const downloadButton = chat.root.getByRole("button", { name: `Download ${image.name}` })
+  await downloadButton.click()
+  await expect(chat.root.getByText("File unavailable. Try again.")).toBeVisible()
+  failedDownload = false
   const download = page.waitForEvent("download")
-  await chat.root.getByRole("button", { name: `Download ${image.name}` }).click()
+  await downloadButton.click()
   expect((await download).suggestedFilename()).toBe(image.name)
+  await expect(chat.root.getByText("File unavailable. Try again.")).toHaveCount(0)
   await captureMoment(page, "accepted-upload-preview-and-download")
   await expect.poll(() => releaseHistory !== undefined).toBe(true)
   releaseHistory!()

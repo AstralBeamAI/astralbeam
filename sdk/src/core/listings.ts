@@ -14,6 +14,7 @@ import {
   listThreads,
   listThreadMessages,
   getThreadAttachment,
+  type GetThreadAttachmentParams,
   getTenant,
   listTenants,
   type ListTenantsParams,
@@ -253,16 +254,26 @@ export function loadDirectoryThreadHistory(
   )
 }
 
-export function loadDirectoryThreadAttachment(
+export function loadDirectoryThreadFile(
   session: ListingSession,
-  tenantId: string,
-  id: string,
-  messageId: string,
-  partId: string,
+  params: GetThreadAttachmentParams,
   signal: AbortSignal,
+  options?: { preview?: boolean },
 ) {
   return listingRequest(session, signal, async (auth) => {
-    const response = await getThreadAttachment(tenantId, id, messageId, partId, auth)
-    return response.blob()
+    try {
+      const response = await getThreadAttachment(params, {
+        ...auth,
+        headers: options?.preview ? { "X-File-Preview": "true" } : {},
+      })
+      return await response.blob()
+    } catch (error) {
+      if (
+        options?.preview &&
+        !(isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
+      )
+        return new Blob()
+      throw error
+    }
   })
 }

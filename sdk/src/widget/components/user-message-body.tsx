@@ -1,72 +1,35 @@
 import type { MessagePart, UIMessage } from "@tanstack/ai-client"
-import { useEffect, useRef, useState } from "react"
+import { useContext, useState } from "react"
 import {
   Attachment,
   AttachmentContent,
   AttachmentDescription,
-  AttachmentMedia,
   AttachmentTitle,
   AttachmentTrigger,
 } from "@/widget/components/ui/attachment"
 import { Bubble, BubbleContent } from "@/widget/components/ui/bubble"
 import { describeSentAttachment } from "../lib/attachments.ts"
 import { getMessageText, saveBlob } from "../lib/utils.ts"
-import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
+import { AttachmentFileContext, AttachmentPreview } from "./attachment-preview.tsx"
 
 type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "video" }> & {
-  savedAttachmentId?: string | undefined
+  fileId?: string | undefined
 }
-type GetAttachment = (messageId: string, partId: string) => Promise<Blob>
 
-export function SentAttachment({
-  part,
-  messageId,
-  getAttachment,
-  expanded = false,
-}: {
-  part: MediaPart
-  messageId: string
-  getAttachment: GetAttachment
-  expanded?: boolean
-}) {
+export function SentAttachment({ part }: { part: MediaPart }) {
+  const files = useContext(AttachmentFileContext)
   const { kind, title, description, href } = describeSentAttachment(part)
-  const attachmentId = part.savedAttachmentId
-  const element = useRef<HTMLDivElement>(null)
-  const [preview, setPreview] = useState<string>()
+  const fileId = part.fileId
   const [failed, setFailed] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  useEffect(() => {
-    if (kind !== "image" || !attachmentId || !element.current) return
-    let objectUrl: string | undefined
-    let cancelled = false
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return
-        observer.disconnect()
-        void getAttachment(messageId, attachmentId)
-          .then((blob) => {
-            if (cancelled) return
-            objectUrl = URL.createObjectURL(blob)
-            setPreview(objectUrl)
-          })
-          .catch(() => {
-            if (!cancelled) setFailed(true)
-          })
-      },
-      { rootMargin: "200px" },
-    )
-    observer.observe(element.current)
-    return () => {
-      cancelled = true
-      observer.disconnect()
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [attachmentId, getAttachment, kind, messageId])
   const download = async () => {
-    if (!attachmentId) return
+    if (!fileId || !files?.threadId) return
     setDownloading(true)
     try {
-      saveBlob(title, await getAttachment(messageId, attachmentId))
+      saveBlob(
+        title,
+        await files.getThreadAttachment({ fileId, threadId: files.threadId, filename: title }),
+      )
       setFailed(false)
     } catch {
       setFailed(true)
@@ -74,33 +37,25 @@ export function SentAttachment({
       setDownloading(false)
     }
   }
-  const thumbnail = kind === "image" ? (preview ?? href) : undefined
   return (
-    <div ref={element} className="max-w-full">
-      {expanded && thumbnail && (
-        <img
-          src={thumbnail}
-          alt={title}
-          className="mb-1 max-h-80 max-w-full rounded-md border object-contain"
-        />
-      )}
+    <div className="max-w-full">
       <Attachment size="sm" state={failed ? "error" : downloading ? "processing" : "done"}>
-        <AttachmentMedia variant={thumbnail && !expanded ? "image" : "icon"}>
-          {thumbnail && !expanded ? (
-            <img src={thumbnail} alt="" />
-          ) : (
-            <AttachmentKindIcon kind={kind} mimeType={part.source.mimeType} />
-          )}
-        </AttachmentMedia>
+        <AttachmentPreview
+          id={fileId}
+          src={kind === "image" ? href : undefined}
+          title={title}
+          kind={kind}
+          mimeType={part.source.mimeType}
+        />
         <AttachmentContent>
-          <AttachmentTitle>{title}</AttachmentTitle>
+          <AttachmentTitle title={title}>{title}</AttachmentTitle>
           {(failed || description) && (
             <AttachmentDescription>
               {failed ? "File unavailable. Try again." : description}
             </AttachmentDescription>
           )}
         </AttachmentContent>
-        {attachmentId ? (
+        {fileId ? (
           <AttachmentTrigger
             aria-label={`Download ${title}`}
             title={`Download ${title}`}
@@ -117,7 +72,7 @@ export function SentAttachment({
                 href={href}
                 download={title}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label={`Download ${title}`}
                 title={`Download ${title}`}
               />
@@ -129,13 +84,7 @@ export function SentAttachment({
   )
 }
 
-export function UserMessageBody({
-  message,
-  getAttachment,
-}: {
-  message: UIMessage
-  getAttachment: GetAttachment
-}) {
+export function UserMessageBody({ message }: { message: UIMessage }) {
   const text = getMessageText(message)
   // Attachments read above the text, as they do in the composer that sent them.
   const media = message.parts.filter((part): part is MediaPart =>
@@ -148,12 +97,7 @@ export function UserMessageBody({
         // every attachment should be visible without scrolling a narrow sidebar sideways.
         <div className="flex w-full flex-wrap justify-end gap-2">
           {media.map((part, partIndex) => (
-            <SentAttachment
-              key={partIndex}
-              part={part}
-              messageId={message.id}
-              getAttachment={getAttachment}
-            />
+            <SentAttachment key={partIndex} part={part} />
           ))}
         </div>
       )}

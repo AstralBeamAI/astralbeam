@@ -6,12 +6,14 @@ import type { DirectoryThreadEncoded } from "../../api/generated/api.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import {
   loadDirectoryThreadHistory,
-  loadDirectoryThreadAttachment,
+  loadDirectoryThreadFile,
   type ListingSession,
 } from "../../core/listings.ts"
 import { projectThreadMessages } from "../../core/threads.ts"
+import type { AstralBeamChatCore } from "../../core/session.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
+import { AttachmentFileContext } from "../components/attachment-preview.tsx"
 
 export function ThreadViewer({
   session,
@@ -34,16 +36,14 @@ export function ThreadViewer({
       loadDirectoryThreadHistory(session, thread.tenant_id, thread.id, pageParam, signal),
     getNextPageParam: (page) => page.page_after ?? undefined,
   })
-  const getAttachment = useCallback(
-    async (messageId: string, partId: string) => {
+  const getThreadAttachment = useCallback<AstralBeamChatCore["getThreadAttachment"]>(
+    async (params, options) => {
       try {
-        return await loadDirectoryThreadAttachment(
+        return await loadDirectoryThreadFile(
           session,
-          thread.tenant_id,
-          thread.id,
-          messageId,
-          partId,
+          { ...params, tenantId: thread.tenant_id },
           session.abortController.signal,
+          options,
         )
       } catch (error) {
         if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
@@ -51,7 +51,11 @@ export function ThreadViewer({
         throw error
       }
     },
-    [session, thread.tenant_id, thread.id],
+    [session, thread.tenant_id],
+  )
+  const files = useMemo(
+    () => ({ getThreadAttachment, threadId: thread.id }),
+    [getThreadAttachment, thread.id],
   )
   const messages = useMemo(() => {
     const projected = projectThreadMessages(
@@ -70,7 +74,7 @@ export function ThreadViewer({
   const error = attachmentError ?? query.error
   const inaccessible = isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
-  return (
+  const content = (
     <section
       data-slot="directory-transcript"
       aria-label="Saved conversation"
@@ -115,7 +119,6 @@ export function ThreadViewer({
             activeSlots={new Map()}
             interactiveToolIds={new Set()}
             readOnly
-            getAttachment={getAttachment}
             hasOlder={query.hasNextPage && !query.isError}
             loadingHistory={query.isFetching}
             loadingOlder={query.isFetchingNextPage}
@@ -130,4 +133,5 @@ export function ThreadViewer({
       ) : null}
     </section>
   )
+  return <AttachmentFileContext.Provider value={files}>{content}</AttachmentFileContext.Provider>
 }

@@ -344,7 +344,7 @@ All endpoints below are relative to `/api/v1` and require the TenantUser Bearer 
 | `PUT /chat/threads/{id}/participants/{tenant_user_id}` | Set `role` with `expected_version`. |
 | `DELETE /chat/threads/{id}/participants/{tenant_user_id}?expected_version=N` | Remove a grant. |
 | `POST /chat/threads/{id}/tool-results` | Accept a batch of pending outcomes and possibly stream a continuation. |
-| `GET /chat/threads/{id}/messages/{message_id}/attachments/{part_id}` | Read original stored upload bytes after authorization. |
+| `GET /chat/files?threadId={id}&fileId={file_id}` | Read stored upload bytes using the file ID from saved history. |
 
 Paginated endpoints accept `page_size` and one of `page_after` or `page_before`. Use returned opaque cursors rather than deriving positions from UUIDs or timestamps. Cursors do not grant access, and each request is reauthorized.
 
@@ -449,7 +449,7 @@ If acknowledgment is lost, repost the known result without rerunning the busines
 
 ## Administrative browsing
 
-The dashboard's Conversations directory and the SDK's `AstralBeamThreadList` use read-only management endpoints. Let's list saved conversations with `GET /api/v1/threads`, then read its metadata and messages through `/api/v1/tenants/{tenantId}/threads/{id}/messages`. Saved uploads use the same scoped message and attachment path beneath that resource.
+The dashboard's Conversations directory and the SDK's `AstralBeamThreadList` use read-only management endpoints. Let's list saved conversations with `GET /api/v1/threads`, then read its metadata and messages through `/api/v1/tenants/{tenantId}/threads/{id}/messages`. Saved uploads use `/api/v1/chat/files` with `tenantId`, `threadId`, and the file ID from the message.
 
 Organization API keys and management tokens with current directory-read permission can read their Organization. Signed Tenant admins can read their Tenant. These reads do not insert participant grants or permit sending, renaming, deleting, sharing or resolving tools. The existing participant endpoints retain their independent authorization.
 

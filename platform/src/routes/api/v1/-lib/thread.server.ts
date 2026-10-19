@@ -16,12 +16,7 @@ import {
   restResourceSecurity,
 } from "./shared.server"
 import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
-import { NonEmptyStringSchema } from "@/lib/schemas.ts"
-import {
-  chatMessageRecord,
-  messageResource,
-  savedChatAttachmentResponse,
-} from "../chat/-lib/threads.server"
+import { chatMessageRecord, messageResource } from "../chat/-lib/threads.server"
 import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
 
 const directoryThreadDate = Schema.DateFromString.pipe(
@@ -92,21 +87,6 @@ export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLeve
         restPageHeaders,
       ),
     }).annotate(OpenApi.Summary, "Read conversation history for administration"),
-    HttpApiEndpoint.get(
-      "getThreadAttachment",
-      "/tenants/:tenantId/threads/:id/messages/:messageId/attachments/:partId",
-      {
-        params: {
-          ...directoryThreadParams,
-          messageId: ApiUuidSchema,
-          partId: NonEmptyStringSchema,
-        },
-        success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-          "Content-Disposition": Schema.String,
-          "Content-Length": Schema.String,
-        }),
-      },
-    ).annotate(OpenApi.Summary, "Download a saved conversation upload for administration"),
   )
   .annotateEndpoints(OpenApi.Override, restResourceSecurity)
   .annotate(
@@ -182,10 +162,6 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
             },
             headers: response.headers,
           })
-        }),
-        getThreadAttachment: Effect.fn("getThreadAttachment")(function* ({ params }) {
-          const message = yield* threads.directoryMessage({ ...params, scope: yield* RestScope })
-          return yield* savedChatAttachmentResponse(message, params.partId)
         }),
       })
     }),

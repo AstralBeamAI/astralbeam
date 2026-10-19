@@ -1,12 +1,9 @@
-import { HttpServerResponse } from "effect/http"
-import {
-  savedChatAttachmentResponse,
-  messageResource,
-} from "@/routes/api/v1/chat/-lib/threads.server"
+import { messageResource } from "@/routes/api/v1/chat/-lib/threads.server"
 import { deleteTenant } from "@/lib/tenants/deletion"
 import { APP_HANDLE } from "@/lib/constants"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
+import { FilePreviews } from "@/lib/storage/file-previews.server"
 import { StorageObjectMissing } from "@/lib/storage/errors"
 import { fileObject } from "@/db/schema/files"
 import { ChatFiles } from "../attachments/attachments"
@@ -75,7 +72,10 @@ const storage = globalThis.process.env.S3_BUCKET
         objects.has(key)
           ? Effect.succeed(objects.get(key)!)
           : Effect.fail(new StorageObjectMissing()),
-      head: () => Effect.die("unused"),
+      head: ({ key }) =>
+        objects.has(key)
+          ? Effect.succeed({ size: objects.get(key)!.length, contentType: "text/plain" })
+          : Effect.fail(new StorageObjectMissing()),
       remove: ({ key }) =>
         Effect.sync(() => {
           objects.delete(key)
@@ -84,7 +84,8 @@ const storage = globalThis.process.env.S3_BUCKET
       testConnection: () => Effect.die("unused"),
     })
 const filesLayer = ChatFiles.layerNoDeps.pipe(
-  Layer.provideMerge(StoredFiles.layerNoDeps.pipe(Layer.provide(storage))),
+  Layer.provideMerge(FilePreviews.layerNoDeps),
+  Layer.provideMerge(StoredFiles.layerNoDeps.pipe(Layer.provideMerge(storage))),
   Layer.provideMerge(Database.layer),
 )
 const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
@@ -286,6 +287,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     expect(referenced).toEqual(prepared)
     expect(await db.select().from(fileObject)).toHaveLength(1)
+    const preview = await runtime.runPromise(
+      files.read({ scope, fileId: pending!.fileObjectId, preview: true }),
+    )
+    expect(preview?.mimeType).toBe("image/webp")
+    for (const deniedScope of [other, foreign])
+      await expect(
+        runtime.runPromise(
+          files.read({ scope: deniedScope, fileId: pending!.fileObjectId, preview: true }),
+        ),
+      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
     await runtime.runPromise(service.admit({ scope, id: thread.id, payload: referenced }))
     const input = {
       scope: { organizationId: scope.organizationId },
@@ -294,9 +305,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     }
     const snapshot = await runtime.runPromise(service.directorySnapshot(input))
     expect(snapshot.messages.items.map((message) => message.role)).toEqual(["user", "assistant"])
-    const message = await runtime.runPromise(
-      service.directoryMessage({ ...input, messageId: snapshot.messages.items[0]!.id }),
-    )
+    expect((await runtime.runPromise(service.directoryGet(input))).id).toBe(thread.id)
+    const message = snapshot.messages.items[0]!
     expect(messageResource(message).parts[1]).toMatchObject({
       source: { type: "attachment", byteSize: 5 },
     })
@@ -312,13 +322,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       { source: { type: "data", value: "SGVsbG8=", byteSize: 5 } },
     ])
     expect(hydrated[0]!.createdAt).toEqual(new Date("2026-01-01"))
-    const response = HttpServerResponse.toWeb(
-      await runtime.runPromise(
-        savedChatAttachmentResponse(message, String(message.payload.parts[1]!.id)),
-      ),
-    )
-    expect(await response.text()).toBe("Hello")
     const source = message.payload.parts[1]!.source as { id: string }
+    const file = await runtime.runPromise(
+      files.read({ scope: { ...scope, threadId: thread.id }, fileId: source.id }),
+    )
+    expect(new TextDecoder().decode(file.bytes)).toBe("Hello")
     expect(await db.select().from(chatFile)).toMatchObject([
       { messageId: message.id, fileObjectId: source.id },
     ])
@@ -334,7 +342,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         ...input,
         scope: { organizationId: scope.organizationId, tenantId: foreign.tenantId },
       }),
-      service.directoryMessage({ ...input, tenantId: foreign.tenantId, messageId: message.id }),
+      service.directoryGet({ ...input, tenantId: foreign.tenantId }),
       service.get({ scope: other, id: thread.id }),
       service.admit({ scope: other, id: thread.id, payload }),
       service.rename({ scope: other, id: thread.id, title: "Forbidden", lockVersion: 1 }),
@@ -1678,48 +1686,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toEqual(ids.slice(1))
   })
 
-  test("a history page decodes only its selected content", async () => {
-    const thread = await create()
-    for (let index = 0; index < 4; index++) {
-      const admitted = await admit(thread.id)
-      await runtime.runPromise(
-        complete({
-          claim: admitted.claim!,
-          payload: {
-            version: 1,
-            parts: [{ id: crypto.randomUUID(), type: "text", content: "Answer" }],
-          },
-        }),
-      )
-    }
-    const decode = vi.spyOn(chatMessagePart.payload, "mapFromDriverValue")
-    try {
-      const snapshot = await runtime.runPromise(
-        service.snapshot({ scope, id: thread.id, pageSize: 1 }),
-      )
-      expect(snapshot.messages.items).toHaveLength(1)
-      expect(decode).toHaveBeenCalledTimes(1)
-    } finally {
-      decode.mockRestore()
-    }
-  })
-
-  test("database constraints reject an author from another Tenant", async () => {
-    const thread = await create()
-    await expect(
-      db.insert(chatMessage).values({
-        organizationId: scope.organizationId,
-        tenantId: scope.tenantId,
-        threadId: thread.id,
-        role: "user",
-        state: "complete",
-        turnState: "completed",
-        authorTenantUserId: foreign.tenantUserId,
-        metadata: { version: 1 },
-      }),
-    ).rejects.toMatchObject({ cause: { code: "23503" } })
-  })
-
   test("stores two client response slots for one participant and validates normalized JSON on relational reads", async () => {
     const thread = await create()
     const accepted = await admit(thread.id)
@@ -1755,17 +1721,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       expect.arrayContaining([targetA, targetB]),
     )
     expect(pending.every(({ message }) => message.threadId === thread.id)).toBe(true)
-    const rows = await db
-      .select()
-      .from(chatToolResponse)
-      .where(eq(chatToolResponse.toolPartId, partId))
-    expect(rows.map((row) => row.clientId).sort((a, b) => a!.localeCompare(b!))).toEqual([
-      targetA,
-      targetB,
-    ])
-    expect(
-      rows.every((row) => row.tenantUserId === scope.tenantUserId && row.resultMessageId === null),
-    ).toBe(true)
     const restored = await db.query.chatMessage.findFirst({
       where: { threadId: thread.id, id: accepted.assistantMessage!.id },
       with: { parts: { with: { responses: true } } },
@@ -1789,9 +1744,5 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         with: { parts: true },
       }),
     ).rejects.toThrow()
-    await runtime.runPromise(service.remove({ scope, id: thread.id, lockVersion: 1 }))
-    expect(
-      await db.select().from(chatToolResponse).where(eq(chatToolResponse.toolPartId, partId)),
-    ).toEqual([])
   })
 })

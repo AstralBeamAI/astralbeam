@@ -24,7 +24,6 @@ import { UserMessageBody } from "./user-message-body.tsx"
 interface ChatTranscriptProps {
   readOnly?: boolean | undefined
   messages: UIMessage[]
-  getFile?: ((id: string) => Promise<Blob>) | undefined
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_HEADLINE`. */
@@ -38,7 +37,6 @@ interface ChatTranscriptProps {
   streaming?: boolean | undefined
   activeSlots: ReadonlyMap<string, string>
   interactiveToolIds: ReadonlySet<string>
-  getAttachment: (messageId: string, partId: string) => Promise<Blob>
   currentTenantUserId?: string | undefined
   hasOlder: boolean
   loadingHistory?: boolean | undefined
@@ -75,8 +73,6 @@ const TranscriptMessage = memo(function TranscriptMessage({
   readOnly,
   latestTurn,
   currentTenantUserId,
-  getAttachment,
-  getFile,
   widgets,
   toolTitles,
   serverToolTitles,
@@ -86,8 +82,6 @@ const TranscriptMessage = memo(function TranscriptMessage({
 }: Pick<
   ChatTranscriptProps,
   | "currentTenantUserId"
-  | "getAttachment"
-  | "getFile"
   | "widgets"
   | "toolTitles"
   | "serverToolTitles"
@@ -109,16 +103,13 @@ const TranscriptMessage = memo(function TranscriptMessage({
         <MessageContent className="gap-1">
           {anotherParticipant && <span className="text-xs text-muted-foreground">Participant</span>}
           {message.role === "user" ? (
-            <UserMessageBody message={message} getAttachment={getAttachment} />
+            <UserMessageBody message={message} />
           ) : (
             message.parts.map((part, partIndex) => (
               <PartErrorBoundary key={part.type === "tool-call" ? part.id : partIndex}>
                 <AssistantPart
                   readOnly={readOnly}
                   part={part}
-                  messageId={message.id}
-                  getAttachment={getAttachment}
-                  getFile={getFile}
                   widgets={widgets}
                   toolTitles={toolTitles}
                   serverToolTitles={serverToolTitles}
@@ -162,7 +153,6 @@ const TranscriptMessage = memo(function TranscriptMessage({
 export function ChatTranscript({
   readOnly = false,
   messages,
-  getFile,
   emptySlot,
   emptyHeadline,
   emptyDescription,
@@ -172,7 +162,6 @@ export function ChatTranscript({
   streaming = false,
   activeSlots,
   interactiveToolIds,
-  getAttachment,
   currentTenantUserId,
   hasOlder,
   loadingHistory = false,
@@ -263,8 +252,6 @@ export function ChatTranscript({
                 streaming={streaming && message === messages.at(-1)}
                 readOnly={readOnly}
                 currentTenantUserId={currentTenantUserId}
-                getAttachment={getAttachment}
-                getFile={getFile}
                 widgets={widgets}
                 toolTitles={toolTitles}
                 serverToolTitles={serverToolTitles}

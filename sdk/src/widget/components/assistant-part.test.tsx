@@ -45,7 +45,6 @@ test.each([
         toolTitles={{}}
         activeSlots={new Map([[slotNameForToolCall("saved:decision"), "card"]])}
         interactiveToolIds={new Set(["saved:decision"])}
-        getAttachment={vi.fn()}
         hasOlder={false}
         loadingOlder={false}
         onLoadOlder={vi.fn()}

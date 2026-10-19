@@ -15,6 +15,7 @@ import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatResizeHandle } from "./components/chat-resize-handle.tsx"
 import { useChatWidth } from "./use-chat-width.ts"
 import { ChatTranscript } from "./components/chat-transcript.tsx"
+import { AttachmentFileContext } from "./components/attachment-preview.tsx"
 import { ConversationTitle } from "./components/conversation-title.tsx"
 import { McpConnectionsPanel } from "./components/mcp-connections.tsx"
 import { ThreadHistory } from "./components/thread-history.tsx"
@@ -102,6 +103,10 @@ export function ChatWidget({
     return () => chat.dispose()
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
+  const files = useMemo(
+    () => ({ getThreadAttachment: chat.getThreadAttachment, threadId: chatState.thread?.id }),
+    [chat, chatState.thread?.id],
+  )
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
   const { history, submission } = chatState
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
@@ -243,13 +248,12 @@ export function ChatWidget({
       const data = readAttachmentData(file)
       void chat
         .uploadAttachment({ data, filename: pick.name, mimeType: pick.mimeType })
-        .then(async (uploaded) => {
+        .then((uploaded) => {
           composer.settleAttachment(pick.id, {
             status: "ready",
             fileId: uploaded.fileId,
             mimeType: uploaded.mimeType,
             size: uploaded.byteSize,
-            ...(pick.kind === "image" ? { data: await data } : {}),
           })
         })
         .catch((error: unknown) => {
@@ -336,7 +340,7 @@ export function ChatWidget({
       <XIcon />
     </TooltipButton>
   )
-  return (
+  const content = (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
     <Card
@@ -415,13 +419,11 @@ export function ChatWidget({
         <ChatTranscript
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
-          getAttachment={chat.getAttachment}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
           hasOlder={chatState.messagesCursor !== undefined}
           loadingHistory={history === "loading"}
           loadingOlder={chatState.olderMessagesLoading}
           onLoadOlder={chat.loadOlderMessages}
-          getFile={chat.getFile}
           emptySlot={hostSlots.has("empty") ? hostSlotName("empty") : undefined}
           emptyHeadline={options.emptyHeadline}
           emptyDescription={options.emptyDescription}
@@ -535,4 +537,5 @@ export function ChatWidget({
       </CardFooter>
     </Card>
   )
+  return <AttachmentFileContext.Provider value={files}>{content}</AttachmentFileContext.Provider>
 }

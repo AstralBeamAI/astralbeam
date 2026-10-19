@@ -159,16 +159,16 @@ The API helpers accept a token string and do not maintain a session. Tokens defa
 
 ## Chat and downloads
 
-Use the [headless chat SDK](./headless.md) for event parsing, tools, cancellation, and token refresh. For direct HTTP access, `getChatConfig` returns JSON, while `runChat` and `getChatFile` return native, unread `Response` objects.
+Use the [headless chat SDK](./headless.md) for event parsing, tools, cancellation, and token refresh. For direct HTTP access, `getChatConfig` returns JSON, while `runChat` and `getThreadAttachment` return native, unread `Response` objects.
 
 ```ts
-import { getChatConfig, getChatFile, runChat } from "@astralbeam/sdk/api"
+import { getChatConfig, getThreadAttachment, runChat } from "@astralbeam/sdk/api"
 
 const config = await getChatConfig({ agentId }, { astralBeamToken: token })
 const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
 // Consume response.body as an SSE stream. No events are buffered by the helper.
 
-const file = await getChatFile(
+const file = await getThreadAttachment(
   { threadId, fileId, filename: "report.csv" },
   { astralBeamToken: token },
 )
