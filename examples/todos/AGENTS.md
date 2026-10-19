@@ -1,19 +1,9 @@
 # Todos example development
 
-- Use Bun for every command and keep this app a standalone consumer of the built SDK through its `link:../../sdk` dependency.
-- Keep the host app on plain CSS with no Tailwind or shadcn/ui so it continues to demonstrate the SDK shadow-root boundary.
-- Keep Todos, Users, and Conversations in one shared layout with a persistent assistant and appearance controls. Keep TodosPage, UsersPage, and ConversationsPage separate. Customize SDK styling through existing props in this app, and change the SDK only when an additional prop is needed.
-- Use plain data and helper functions with explicit options objects for application logic. Do not use classes or closure-based state factories.
-- Keep TanStack page and server entries under `src/routes`. Route files should select or compose components rather than accumulating unrelated application logic.
-- Keep reusable UI one component per file under `src/components` and reusable browser subscriptions under `src/hooks`.
-- Keep shared configuration in `src/lib/config.ts`, server environment access in `src/lib/config.server.ts`, constants in `src/lib/constants.ts` or `constants.server.ts`, shared types in `src/lib/types.ts`, and general helpers in `src/lib/utils.ts`.
-- When a cohesive helper group would make `utils.ts` exceed roughly 100 lines, use a responsibility-named file under `src/lib` instead.
-- Keep server-only code in `*.server.ts` files and never import server configuration into client-rendered modules.
-- Do not hardcode AstralBeam brand text outside `src/lib/config.ts` or `src/lib/config.server.ts`. Import centralized labels and identifiers instead.
-- Colocate unit tests under `src`. Keep `vitest.config.ts` scoped to them so it does not collect Playwright specs under `e2e`.
-- Run `bun run ready` before publishing changes to this example.
-- Browser tests live in `e2e`, run with Playwright through `bun run e2e`, as permitted by the root test policy. Read `e2e/README.md` before changing them. Keep selectors in `e2e/pages`, identities in `platform/scripts/seed/fixtures.ts`, and assertions on observable side effects rather than on an assistant's wording.
-- Keep deterministic specs in `e2e/specs/app` and specs that drive a real agent in `e2e/specs/agent`, because the latter spend model credits on every run.
-- Keep `mintSeedChatAuthToken(apiKey: string)` fixed to the default seed identity. Tests needing another user must select an existing seeded identity and use the built server SDK, without adding identity or permission overrides to this helper.
-- Keep the example's user listing tenant-scoped and reuse its chat token endpoint. Exercise organization scope in browser fixtures, without adding an organization-token endpoint or tenant directory page to this app.
-- Browser tests use the built SDK’s server helpers for token minting. Keep configuration loading independent of application startup.
+- Keep this a standalone consumer of the built SDK through `workspace:*`, with plain CSS, no Tailwind or shadcn. Customize through existing SDK props, extending them only when necessary.
+- Keep Todos, Users, and Conversations as separate pages in one shared layout with a persistent assistant and appearance controls.
+- Use plain data and helpers with explicit options, not classes or closure-based state factories. Routes compose components. Keep reusable UI one component per file in `src/components`, subscriptions in `src/hooks`, and cohesive helpers in responsibility-named files.
+- Centralize configuration and brand labels in `src/lib/config.ts` or `config.server.ts`. Keep all server-only code in `*.server.ts` and out of client modules. Colocate unit tests under `src`.
+- Before editing browser tests, follow [e2e/README.md](e2e/README.md). Keep configuration loading independent of application startup.
+- Keep `mintSeedChatAuthToken(apiKey: string)` fixed to the default seed identity. Other users must select existing fixtures and use the built server SDK, never identity or permission overrides on this helper.
+- Keep user listing tenant-scoped and reuse the chat token endpoint. Exercise organization scope only in browser fixtures, without adding an organization-token endpoint or tenant directory page.

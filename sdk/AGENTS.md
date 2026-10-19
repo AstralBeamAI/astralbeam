@@ -1,142 +1,39 @@
 # SDK development
 
-Author guide for `@astralbeam/sdk`. Consumer documentation is the `README.md` quick start plus the platform-hosted guides. Neither carries internals.
+When changing chat persistence or recovery, read the [chat lifecycle and failure contracts](../platform/src/lib/chat/README.md).
 
-## Layout and entry points
+## Package boundaries
 
-Each folder under `src/` with an `index.ts(x)` named in `tsdown.config.ts` is a public entry point and maps 1:1 to the `exports` field in `package.json`. Add new entry points in both places.
+- Mirror public entry points in `tsdown.config.ts`, `exports`, and `typesVersions`. Keep the classic TypeScript resolution fallback, which some consumer templates still require.
+- Keep `src/core` and `src/lib` free of React and widget imports. Core owns authentication, transport, sessions, and directory loading. Adapters bind and render it. Keep React wrappers' convenience surface small and expose conversation actions through `core`, without duplicating session methods. Load chat and directories independently through dynamic imports in `src/client`, never public widget exports.
+- The widget bundles its own React, while the React entry uses the host's. Keep all bundled libraries as devDependencies, with only optional React and React DOM peers and no runtime dependencies. Only Effect Schema belongs in the SDK, not Effect's runtime, scheduling, or concurrency APIs.
+- Keep the CDN loader and its chunks free of bare imports and Node globals. Do not add `jsdelivr`, `unpkg`, or `browser` package fields. Document the exact-version `/dist/client.js` URL. Keep tests browser-portable without `node:` builtins.
+- Generate API code with `bun run generate:api` and embedded styles with `bun run generate:styles`, never hand-edit their output. Keep `/api` free of third-party runtime imports and bundled validation. Preserve TanStack SSE parsing and bounded authentication refresh outside the generated transport.
+- Use plain data and helpers with options objects, not classes or closure-based state factories, except framework-required classes. Colocate hand-written types with their implementation. Keep widget-only helpers in `src/widget/lib`, components one per file, and import `cn` directly from its package.
 
-Mirror every entry point in `typesVersions` as well. `exports` is invisible to TypeScript's classic `"moduleResolution": "node"`, which Ionic, Capacitor, and Create React App templates still ship, and without the [`typesVersions`](https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#version-selection-with-typesversions) fallback those hosts get `Cannot find module "@astralbeam/sdk/react"`. The declarations themselves need TypeScript 5.0 for `const` type parameters, so 4.x hosts must upgrade. The fallback cannot help them.
+## Sessions and credentials
 
-- `src/client/`, the vanilla loader entry. No React, tiny by design.
-- `src/core/`, the headless session and chat protocol. Framework-free, bundled into `core.js` and into the React entry.
-- `src/react/`, the React wrapper. Binds to the host's React.
-- `src/server/`, token minting. No framework imports.
-- `src/api/` owns the browser-safe, server-compatible generated HTTP client, exported as `/api`.
-- `src/widget/`, the lazily loaded chat chunk with its own bundled React. Not an entry point.
-- `src/lib/`, shared eager-safe modules: public option types, defaults, and the debug logger.
+- Keep one AstralBeam `apiUrl`, using generated URL helpers with `resolveApiUrl`. Token acquisition uses `fetchAstralBeamToken`, standard `RequestInit` fields, and the session abort signal. Preserve chat's `/api/astralbeam/token` default and require explicit directory token sources.
+- Update options and callbacks in place without remounting or clearing state on reference changes. Read current values per request. Account and API changes clear scoped authentication and data. Refresh must recover failed authentication, with shared failures reported once through the latest `onError`.
+- Keep one `ChatClient` per selected conversation. Separate submission acceptance, run status, and history ownership. Admit an attempt only when no submission is active. A declined attempt resolves `refused` without replacing `state.submission`. Change phases only through the session's transition table. Stop, navigation, identity changes, and disposal settle pending sends. Undispatched input is refused, while uncertain delivery remains failed with Retry.
+- A retry retains the submission identity, key, content, and tool declarations, but each delivery attempt has fresh authority. Fence all delayed work, including thread creation, by current client, selection, and attempt. Stop cancels that authority. Full history reads gate sends, and only the latest read replaces thread state.
+- Hydration uses canonical server ancestry and never executes business tools. Live execution requires committed grants and source-message, part, and response-target identities. Recheck client identity, selection, disposal, and authorization after asynchronous validation. Resolve current callbacks against the declared schema, reject removed tools, and preserve native run IDs for continuations.
+- Recover accepted input by hydration without regeneration. A browser-tool exception leaves an unknown outcome, so retry result delivery without repeating its business action. Refresh only reloads history, Retry submits unacknowledged input, and an empty hydration clears rejected optimistic messages. Saved partial output does not prove a live producer or resumable stream.
+- Preserve drafts and admission keys within verified account, API, and conversation scope. Restore without sending, recover refused input from the submission, and clear only accepted files. Apply file-ID changes and moves transactionally, keep pre-thread drafts per tab, and merge destination drafts. Capability changes must not discard another conversation's files.
+- Preserve `threadId: "auto"` restoration within the current tab, `"new"` bypass, and UUID selection. Do not add stateless modes, legacy transcript fallbacks, sharing UI, or participant-management actions. Hydrate only saved threads. Host apps own sidebar visibility, and `onClose` requests dismissal.
+- Use typed API-key options on servers and JWT options in browsers, retaining each endpoint's credential contract. Reject redirects on API-key requests. JWT requests retain native Fetch defaults and explicit redirect options. Hash the complete Better Auth raw key, including `abo_`, not its suffix.
+- Preserve separate user and tenant token identities, omitted optional claims, the `astralbeam` audience without feature scopes, and caller-owned metadata keys. Do not duplicate tenant identity into `sub`. Organization-management tokens carry email and organization ID without `sub` or roles. SDK names stay camelCase and AstralBeam-owned wire claims snake_case. Do not expose a deployment-handle option.
 
-## The lazy chat boundary
+## Presentation and verification
 
-The chat widget must stay inside the client entry's lazy chunk so `dist/client.js` remains a small loader.
-
-- Never export `src/widget/` from an entry point. Load widgets only through dynamic imports in `src/client/`, with chat and directories independently lazy.
-- Everything the widget imports must be a devDependency so tsdown inlines it. A `dependencies` entry would force hosts to install it.
-- `src/lib/` must not import React or any `src/widget/` module. The widget may import it (types and small helpers).
-- `src/core/` must not import React or any `src/widget/` module either. The widget and the React entry build on it, never the reverse.
-- The widget renders `createAstralBeamChat`: extend the core session rather than re-implementing authentication, transport, the tool protocol, or transcript derivations in `src/widget/`.
-- Keep the React hook's convenience surface small. Expose conversation actions through its existing `core` handle rather than duplicating every session method.
-- Keep directory authentication, identity resolution, and resource loading in `src/core/listings.ts`. Framework adapters own rendering and reactive bindings, consume the same core functions, and must not duplicate those contracts. Keep styled DOM mounts available independently of host frameworks.
-- Follow chat's live-option lifecycle for directory wrappers: mount once and update callbacks and token sources without clearing state on reference changes. Unmount during sign-out or account transitions. Reset reloads immediately and requires a ready host session. API-base changes clear directory authentication and rows. Keep public refresh able to recover failed authentication, and report shared authentication failures once through the latest `onError` callback.
-- Widget-only code, including stream debug callbacks, attachments, and sandbox parsing, lives in `src/widget/lib/`.
-- `cn` comes from the [`cn` package](https://ui.shadcn.com/docs/changelog/2026-09-cn), import it as `from "cn"`, never re-export it from `src/widget/lib/utils.ts`, and keep it a devDependency so tsdown inlines it.
-- `react` and `react-dom` are the only peer dependencies, both optional, and the package ships no runtime `dependencies`: keep framework imports confined to their entry points and validation hand-written.
-
-## CDN delivery
-
-Script-tag hosts import `dist/client.js` straight from jsDelivr, and it imports its lazy chunks relative to its own URL.
-
-- Keep `dist/client.js` and every chunk it imports free of bare import specifiers and Node globals such as `process`, so the files load in a browser unmodified.
-- Do not add `jsdelivr`, `unpkg`, or `browser` fields. A bare package URL would resolve the loader's relative chunk imports against the wrong directory.
-- Document the full `/dist/client.js` path at an exact version. Each version bump updates that pin in the docs, READMEs, and `examples/todos-rails/config/importmap.rb`.
-
-## Styles
-
-The widget carries its compiled stylesheet as a string injected into its shadow root.
-
-Chat and directories share the semantic CSS variables in `src/styles.css` and `applyWidgetTheme` in `src/lib/theme.ts`. Reuse the same `theme` and `colorScheme` options rather than adding directory-specific palette tokens.
-
-- `src/widget/styles.generated.ts` is gitignored, never edited by hand, and regenerated by `bun run generate:styles` (run first by `build`, `check`, and `dev`).
-- `bun run dev` runs `generate:styles` once, then Tailwind, the style embedder, and tsdown in watch mode, so new classes and `src/styles.css` edits reach `dist`. It rebuilds with `--no-clean`, because emptying `dist` breaks the running platform and example dev servers until they restart. Stale chunks accumulate until the next `build`.
-- A fresh checkout needs `build` or `check` once before a standalone `typecheck` or `knip` can resolve it.
-
-## UI components
-
-Generate shadcn components with `bun run ui add <component>` and allow only minimal typed fixups.
-
-- Keep `components.json` on `b0`/`base-nova`/`neutral`/RTL with Phosphor, independent of the platform.
-- Keep keyboard focus visible inside paint-contained transcript items. Use inset focus styling or internal spacing instead of removing focus indicators or `content-visibility`.
-- Keep chat spacing compact, with smaller gaps within a reply than between messages. Give chat actions at least 44px touch targets whenever any available pointer is coarse, including hybrid devices, without blanket height overrides that inflate every button.
-- Resize chat horizontally and fill the parent's height. Persist only user width overrides, using mount and agent IDs when available or the shared `astralbeam:chat-size:v1` fallback when both are omitted.
-- Mount a transcript item only once it has visible content and keep the latest turn out of `content-visibility` placeholders, so the latest turn only grows. The todos `chat-state.spec.ts` frame sampler guards this.
-- Keep `TranscriptMessage` props identity-stable across streamed chunks so memoized messages skip unchanged history. Do not adopt React Compiler, which needs a Babel pass in tsdown, cannot cover the React wrapper that runs on host React 18, and still needs this stability.
-- Follow `components.json` aliases for registry files: UI components under `src/widget/components/ui`, hooks under `src/widget/hooks`, and helpers under `src/widget/lib`. Hand-written chat components live one per file under `src/widget/components`.
-- Use `SearchDropdown` with official shadcn Combobox primitives for resource pickers, with server search and pagination. Let Base UI manage selected labels and input reset, keep its live regions mounted, and reuse the widget's QueryClient so refresh reaches resource choices. Keep small fixed choices, such as admin status and page size, in native selects.
-- Preserve native dropdown scrollbars and load additional pages as the list scrolls. Keep loading and error-retry feedback without a separate Load more button.
-- In TenantUser labels, prefer the full email and truncate it and the name to fit, retaining full values in a title. When shortening a fallback UUID, show `...` followed by its final seven hexadecimal characters.
-
-## Code conventions
-
-- Define hand-written types alongside the implementation that owns them, not in separate `*-types.ts` files. Use type-only imports across runtime boundaries.
-- Use plain data and helper functions with explicit options objects. No classes or closure-based state factories, except framework-required classes such as React error boundaries.
-- Avoid catch-and-rethrow wrappers used only for observation. Share repeated request setup at the request boundary and retain catches that perform recovery or isolate host callback failures.
-- Put non-obvious structural reasoning in comments beside the affected code, within the root comment-length limit. Keep longer explanations here.
-- Address AstralBeam through the single `apiUrl` base option and use generated URL helpers with `resolveApiUrl`. A new AstralBeam API becomes another path under the base, never another endpoint option. The host's own token endpoint is the separate `fetchAstralBeamToken`.
-- Acquire chat auth tokens only through `fetchAstralBeamToken`: a `{ url, ...RequestInit }` object handed to `fetch` as-is, or a host function returning `{ token }`. Express new token-request knobs through standard `RequestInit` fields rather than new options, and keep the session's abort signal attached even when the host supplies its own.
-- Preserve chat's existing `/api/astralbeam/token` default. Directories require an explicit token prop. All components use the shared current-user synchronization and refresh lifecycle for endpoint and function token sources.
-- Keep every option updatable in place: read the agent, the API base, and the token source per request through live options or a getter rather than capturing them, so no option needs a remount. Preserve the transcript within its verified identity and API scope, and clear the prior session when that scope changes. Resolve current host callbacks using the run's declared schema, and reject removed tools.
-- Treat a copied API key as its public ID plus the exact Better Auth raw key. Hash the complete `abo_<secret>` value, never only its random suffix.
-- Model token identities as separate `user` and `tenant` objects with a required stable Tenant ID plus a stable tenant-local TenantUser ID. The host authenticates once and derives both objects from that same session. Preserve omitted optional names and admin claims, and put custom JSON fields in the respective explicit `metadata` object.
-- Keep SDK option and model names camelCase, map AstralBeam-owned multiword JWT claim names to snake_case on the wire, and preserve caller-owned `metadata` keys verbatim.
-- Every chat uses server-persisted threads. Use `threadId` for saved-thread selection and identity across SDK options and chat events. Do not add a stateless fallback or persistence mode option. Hydrating saved history must never execute business tools. Authorize live browser execution only from committed server grants, bind saved results to their source message and part, and isolate reused provider tool IDs from earlier turns. After asynchronous validation, recheck client identity, conversation generation, disposal, and authorization before host execution. Preserve request run IDs on continuations because native interrupt bindings include the interrupted run ID.
-- Keep sidebar visibility in the host app. The SDK owns responsive fullscreen layout and the close icon when `onClose` is supplied, and that callback requests host dismissal. `threadId` defaults to `"auto"`, restoring an authorized selection from account/API-scoped session storage within the current tab, or starting fresh when none exists. `"new"` bypasses restoration and a UUID selects that thread. Unsent text drafts and uploaded attachment references remain in local storage under the same verified account, API, and thread scope. Restore them without sending automatically, and clear only submitted files when the server accepts a message.
-- Read-only transcript presentation shows saved tool information without projecting host widgets or accepting questionnaire answers. Saved partial output does not imply a live producer.
-- Keep conversation-sharing UI and headless participant-management actions deferred. Do not expose a sharing option in the SDK.
-- Use `ChatClient` server hydration and pagination through a scoped `ConnectionAdapter.hydrate`. Disable transport hydration until a saved thread exists, so a fresh local chat does not request history or report a spurious error. Keep authorization, rich-content projection, and multiplayer waiting state in the application adapter. Do not advertise a resumable active run until stream replay exists.
-- Consume the canonical saved-history format directly. Do not add legacy transcript or tool-result fallbacks before persistence has shipped.
-- Preserve the server's ancestry order when hydrating messages. Normal sends and tool results do not carry conversation-version preconditions or wait for other clients' active responses. Metadata and participant edits still use optimistic concurrency.
-- Hydrated tool IDs identify their source message, part, and response target. Keep provider IDs separately and preserve native IDs only for the originating live stream, so concurrent pending calls cannot resolve each other's results.
-- Preserve conversation drafts and their admission keys within the verified identity and API scope. Retry the same draft with its original key and tool declarations, and accept replay receipts without generating again. Reload saved history without resubmitting uncertain user input. A browser-tool exception cannot prove an external action failed, so retain its outcome as unknown and retry only result delivery.
-- Label history-only recovery as Refresh. Retry submits unacknowledged input, and an empty server hydration must clear rejected optimistic messages.
-- Keep three owners separate: `submission` for one input's identity, acceptance, and retry, `status` for the response run, and `history` for loading and reconciling saved data. Accepted does not mean the response finished.
-- Admit an attempt only while no submission is active. A declined attempt resolves `refused` to its caller and never replaces `state.submission`. Change phases only through the session's transition table.
-- Every owner change, whether Stop, navigation, an account or API change, or disposal, settles the send before dropping it. An input never dispatched is `refused` back to its sender at once, and one the server may have stays `failed` with Retry.
-- A submission keeps its identity and key across Retry, but each delivery attempt has its own authority. An attempt's pending work, thread creation included, continues, settles, or refreshes only while it is the current attempt, and Stop ends it. A send waits for a full history read in flight.
-- Guard delayed client work by client identity and session work by selection. The latest full history read owns thread-wide state, and older pages only add messages.
-- Recover refused input from the submission's content and the files handed to the send. Local storage is only the reload backup.
-- Build a future queue on these contracts. Each queued input is a submission with its own ID in a `queued` phase that moves to `submitting` at a turn boundary, including pending tool runs, and keeps its content, callbacks, and key. Persist queued input per submission rather than in the composer. Steering a running response needs a server contract that names its target turn.
-- Keep one `ChatClient` per selected conversation, because TanStack fixes its thread ID. Refresh through `detach()` and `attach()`, and derive `status` in the session so a replaced client's reports are ignored.
-- Gate attachment display and sending by the selected agent's capability without discarding files from another conversation's draft.
-- Apply draft attachment changes and moves transactionally by file ID so stale tabs cannot overwrite newer files or restore accepted files. Scope pre-thread drafts to independent browser tabs and merge them into a hydrated destination rather than skipping the move. Accept cloned session storage sharing the initial draft rather than adding cross-tab coordination.
-- Generated API types retain OpenAPI field names. Generate with `bun run generate:api` from the committed `platform/public/api/openapi.json`. Never hand-edit `src/api/generated`. Orval is development-only, and `/api` must contain no third-party runtime imports or bundled transport/validation dependencies.
-- Use typed `apiKey` options on servers and `astralBeamToken` options in browsers. Chat and thread helpers accept only JWTs, other resource helpers support either, and files use current conversation authorization. Keep TanStack's SSE parsing and the existing one-time 401 refresh outside the generated transport.
-- Reject redirects for API-key requests so custom credential headers cannot reach another origin. For JWT requests, preserve native Fetch defaults and honor an explicit caller-provided `redirect` option.
-- Mint organization-issued tokens for the `astralbeam` audience without duplicating tenant identity into the optional JWT subject. Do not expose a deployment-handle option while `APP_HANDLE` remains a source constant.
-- Organization-management tokens use authenticated operator `email` and explicit `organizationId` SDK inputs, encoded as `email` and `organization_id` without `sub`. Require the Organization to match the API key. Never encode roles: organization membership and roles are resolved from the database on every resource request.
-
-## Directory verification
-
-Verify embedded directories through the existing consumer examples and their browser-test infrastructure. Do not add a separate SDK preview server or token endpoint.
-
-- Verify vanilla and React mounts, tenant and organization scope, non-admin denial, search beyond page one, literal wildcard search, cursors, metadata, theme isolation, and unmount/remount.
-- Keep directory-kind presentation in one mapping at the top of `listing-widget.tsx` rather than repeating kind conditionals.
-- Directory queries use TanStack Query/Table. Only Effect Schema is allowed in the SDK. Keep the Effect runtime, scheduling, and concurrency APIs on the server, where Drizzle queries use native Effects.
-- Use TanStack Table's built-in state and APIs for supported table behavior instead of parallel React state. Keep opaque API cursors outside page-index pagination.
-- Directory pagination caps rendering at 100 records, so virtualization is unnecessary.
-- Preserve loaded transcript pages and scroll position when earlier-message loading fails transiently. Hide administrative history when authentication, authorization, or resource access fails.
-- Display metadata in its directory column or labeled field in stacked records. Tenant and TenantUser names do not expand duplicate metadata details.
-- Display customer-provided external IDs as the first table column labeled "ID" in Tenant and TenantUser directories. Conversation directories show participants, titles, and activity because threads have no external IDs. Do not display AstralBeam's internal record or tenant UUIDs.
-- Base directory layouts on container width so they work on mobile and inside chat. Stack records with names first and labeled fields at narrow widths, wrapping identifiers and metadata without horizontal scrolling, with ellipsis allowed for unusually long content. Keep search inputs and tenant pickers within that same container.
-- Keep host-specific directory styling in consumer props (`theme` and `customCss`). Preserve SDK defaults and expose stable `data-slot` hooks instead of importing a consumer's design preferences into widget primitives.
-
-- Use MCP server for endpoint configuration and MCP connection for credential access. Include MCP in standalone labels, such as Configured MCP servers, and reserve Allowed MCP servers for agent permissions. Keep server-management UI in the SDK with authorized host callbacks, so presentation does not prescribe Organization, Tenant, or personal ownership.
-
-## Testing
-
-- For API-key or chat-auth changes, test the todos example in a browser with a dashboard-created API key, verify a real assistant tool changes the host todo list, and include the flow in the verification GIF.
-- `tsconfig.json` includes the tests, so `bun run typecheck` covers them with the same options as `src`. Keep them off `node:` builtins so the SDK remains portable to browser consumers.
-
-## Documentation
-
-`README.md` is the quick start. Full guides live under `platform/src/routes/docs/-content/sdk/`, served at `/docs/sdk`. Apply the section-length guidance below to both.
-
-- Keep every section scannable: one or two intro sentences (at most 30–40 words), then at most 6–8 bullets of 20–25 words each, with short code examples.
-- The README links to the hosted guides at `https://astralbeam.ai/docs/sdk/<page>`. Keep both in step with SDK behavior changes.
-- Document a release's breaking changes and their replacements in the pull request body, not in a migration section of `README.md`.
-- Lead consumer examples with tenant-scoped embeddings. Mention organization scope and management tokens briefly as uncommon internal-tool options, linking to the API guide for their full authorization contract.
-
-## Build and publish
-
-- Leave version bumps and release tags to maintainers, following [`CONTRIBUTING.md`](../CONTRIBUTING.md). The package version must match the release tag before publishing.
-- Build with `bun run build` before an authorized npm release. The package ships only `dist`, `README.md`, `LICENSE`, and `package.json`.
-- Keep top-level `../examples/*` as standalone consumer apps on the built `dist` via `workspace:*` dependencies, with independent host styling. The todos examples stay free of Tailwind and shadcn, while `linearity-react` owns its shadcn components and demonstrates coexistence with the SDK shadow root.
+- Numbered citation badges have no arrows. Consulted-source titles get smaller arrows through CSS.
+- Share semantic theme tokens and `applyWidgetTheme` across chat and directories. Keep host styling in `theme` and `customCss` with stable `data-slot` hooks, without changing SDK defaults or adding directory palettes.
+- Keep chat compact and keyboard focus visible within paint containment. Give actions 44px touch targets whenever any pointer is coarse, without inflating every button. Mount transcript items only when visible content exists, keep the latest turn outside `content-visibility` placeholders, and preserve stable message props. Do not adopt React Compiler.
+- Resize chat horizontally and fill its parent's height. Persist only user width overrides, scoped by mount and agent IDs or `astralbeam:chat-size:v1` when both are absent.
+- Use `SearchDropdown` with shadcn Combobox for paged resource choices and native selects for small fixed choices. Let Base UI own labels and input reset, retain live regions, and share the widget QueryClient. Preserve native scrollbars, loading and retry feedback, and scroll-driven pagination without a Load more button.
+- For TenantUser labels, prefer full email, truncate email/name to fit with full values in titles, and shorten fallback UUIDs to `...` plus their final seven hexadecimal characters.
+- Use TanStack Query/Table and its built-in state, keeping API cursors separate from page indexes. Adapt directories to container width without horizontal scrolling. Show external IDs as the first ID column and metadata in labeled fields, never internal UUIDs or duplicate expanded metadata. Keep presentation by directory kind centralized.
+- Preserve loaded transcript pages and scroll position after transient pagination failures, but hide administrative history after access failures. Administrative transcripts never render host widgets or accept questionnaires.
+- Use MCP server for endpoint configuration and MCP connection for credentials. Keep management UI in the SDK with authorized host callbacks, without prescribing ownership. Include MCP in standalone labels and reserve Allowed MCP servers for agent permissions.
+- Verify directories in existing examples across vanilla/React mounts, scope and denial, search, wildcard literals, pagination, metadata, theming, and remounting. For API-key or chat-auth changes, use a dashboard-created key and verify a real assistant tool changes the Todos host, capturing the browser evidence required by the project skill.
+- Keep [README.md](README.md) and the [SDK guides](../platform/src/routes/docs/-content/sdk) aligned and focused on tenant-scoped embedding. Put breaking changes and replacements in the PR. Follow each example's AGENTS file when changing its integration.

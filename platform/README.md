@@ -18,7 +18,7 @@ Run `bun run --cwd platform dev` from the repository root, then open http://loca
 
 ## Theme
 
-Choose system, light, or dark mode in the app. The selection is saved locally. Follow the root [theme instructions](../AGENTS.md#theme-and-brand) when changing theme inputs or logo masters:
+Choose system, light, or dark mode in the app. The selection is saved locally. Follow the [theme instructions](AGENTS.md#theme-and-brand) when changing theme inputs or logo masters:
 
 ```sh
 bun run --cwd platform generate:theme
