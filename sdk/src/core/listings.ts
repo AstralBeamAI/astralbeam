@@ -14,6 +14,7 @@ import {
   listThreads,
   listThreadMessages,
   getChatFile,
+  type GetChatFileParams,
   getTenant,
   listTenants,
   type ListTenantsParams,
@@ -255,23 +256,16 @@ export function loadDirectoryThreadHistory(
 
 export function loadDirectoryThreadFile(
   session: ListingSession,
-  tenantId: string,
-  id: string,
-  fileId: string,
+  params: GetChatFileParams,
   signal: AbortSignal,
-  options?: { preview?: boolean; filename?: string },
+  options?: { preview?: boolean },
 ) {
   return listingRequest(session, signal, async (auth) => {
     try {
-      const response = await getChatFile(
-        {
-          tenantId,
-          threadId: id,
-          fileId,
-          ...(options?.filename ? { filename: options.filename } : {}),
-        },
-        { ...auth, headers: options?.preview ? { "X-File-Preview": "true" } : {} },
-      )
+      const response = await getChatFile(params, {
+        ...auth,
+        headers: options?.preview ? { "X-File-Preview": "true" } : {},
+      })
       return await response.blob()
     } catch (error) {
       if (options?.preview && !(isAstralBeamApiError(error) && [401, 403].includes(error.status)))

@@ -103,6 +103,10 @@ export function ChatWidget({
     return () => chat.dispose()
   }, [chat])
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
+  const files = useMemo(
+    () => ({ getChatFile: chat.getChatFile, threadId: chatState.thread?.id }),
+    [chat, chatState.thread?.id],
+  )
   const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
   const { history, submission } = chatState
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
@@ -533,5 +537,5 @@ export function ChatWidget({
       </CardFooter>
     </Card>
   )
-  return <AttachmentFileContext value={chat.getFile}>{content}</AttachmentFileContext>
+  return <AttachmentFileContext value={files}>{content}</AttachmentFileContext>
 }

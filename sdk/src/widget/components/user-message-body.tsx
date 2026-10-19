@@ -17,16 +17,19 @@ type MediaPart = Extract<MessagePart, { type: "image" | "document" | "audio" | "
 }
 
 export function SentAttachment({ part }: { part: MediaPart }) {
-  const getFile = useContext(AttachmentFileContext)
+  const files = useContext(AttachmentFileContext)
   const { kind, title, description, href } = describeSentAttachment(part)
   const fileId = part.fileId
   const [failed, setFailed] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const download = async () => {
-    if (!fileId || !getFile) return
+    if (!fileId || !files?.threadId) return
     setDownloading(true)
     try {
-      saveBlob(title, await getFile([fileId], { filename: title }))
+      saveBlob(
+        title,
+        await files.getChatFile({ fileId, threadId: files.threadId, filename: title }),
+      )
       setFailed(false)
     } catch {
       setFailed(true)

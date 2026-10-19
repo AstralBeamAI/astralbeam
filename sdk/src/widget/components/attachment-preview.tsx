@@ -4,9 +4,9 @@ import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { AttachmentKind } from "../lib/types.ts"
 import { AttachmentKindIcon } from "./attachment-kind-icon.tsx"
 
-export const AttachmentFileContext = createContext<AstralBeamChatCore["getFile"] | undefined>(
-  undefined,
-)
+export const AttachmentFileContext = createContext<
+  { getChatFile: AstralBeamChatCore["getChatFile"]; threadId: string | undefined } | undefined
+>(undefined)
 
 export function AttachmentPreview({
   id,
@@ -21,27 +21,31 @@ export function AttachmentPreview({
   kind: AttachmentKind | undefined
   mimeType?: string | undefined
 }) {
-  const getFile = useContext(AttachmentFileContext)
+  const files = useContext(AttachmentFileContext)
   const element = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<{
     id: string
-    load: AstralBeamChatCore["getFile"]
+    load: NonNullable<typeof files>
     url: string
   }>()
   const [rejected, setRejected] = useState<string>()
   useEffect(() => {
-    if (!id || !getFile || !element.current) return
+    if (!id || !files || !element.current) return
     let objectUrl: string | undefined
     let cancelled = false
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         observer.disconnect()
-        void getFile([id], { preview: true })
+        void files
+          .getChatFile(
+            { fileId: id, ...(files.threadId ? { threadId: files.threadId } : {}) },
+            { preview: true },
+          )
           .then((blob) => {
             if (cancelled || !blob.size) return
             objectUrl = URL.createObjectURL(blob)
-            setPreview({ id, load: getFile, url: objectUrl })
+            setPreview({ id, load: files, url: objectUrl })
           })
           .catch(() => undefined)
       },
@@ -53,8 +57,8 @@ export function AttachmentPreview({
       observer.disconnect()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [id, getFile])
-  const url = preview && preview.id === id && preview.load === getFile ? preview.url : src
+  }, [id, files])
+  const url = preview && preview.id === id && preview.load === files ? preview.url : src
   const thumbnail = url === rejected ? undefined : url
   return (
     <AttachmentMedia ref={element} variant={thumbnail ? "image" : "icon"}>

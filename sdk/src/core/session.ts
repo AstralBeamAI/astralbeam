@@ -12,6 +12,7 @@ import {
   createChatThread,
   deleteChatThread,
   getChatFile,
+  type GetChatFileParams,
   getChatConfig,
   uploadChatFile,
   type UploadedChatFile,
@@ -244,10 +245,7 @@ export interface AstralBeamChatCore {
     filename: string
     mimeType: string
   }) => Promise<UploadedChatFile>
-  getFile: (
-    key: readonly [fileId: string],
-    options?: { preview?: boolean; filename?: string },
-  ) => Promise<Blob>
+  getChatFile: (params: GetChatFileParams, options?: { preview?: boolean }) => Promise<Blob>
   getMcpCatalog: () => Promise<McpCatalog>
   manageMcpConnection: (operation: McpConnectionOperation) => ReturnType<typeof manageMcpConnection>
   authorizeMcpConnection: (input: Parameters<typeof authorizeMcpConnection>[0]) => Promise<void>
@@ -1523,23 +1521,15 @@ export function createAstralBeamChat(
         options,
       )
     },
-    getFile: async ([fileId], options) => {
-      const threadId = state.thread?.id
-      if (!threadId && !options?.preview)
-        throw new Error("Open a conversation before downloading files.")
+    getChatFile: async (params, options) => {
+      if (!params.threadId && !options?.preview)
+        throw new Error("A conversation ID is required to download files.")
       return (
-        await getChatFile(
-          {
-            fileId,
-            ...(threadId ? { threadId } : {}),
-            ...(options?.filename ? { filename: options.filename } : {}),
-          },
-          {
-            ...(await requestOptions(!!threadId || !options?.preview)),
-            cache: "default",
-            headers: options?.preview ? { "X-File-Preview": "true" } : {},
-          },
-        )
+        await getChatFile(params, {
+          ...(await requestOptions(!!params.threadId || !options?.preview)),
+          cache: "default",
+          headers: options?.preview ? { "X-File-Preview": "true" } : {},
+        })
       ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),

@@ -115,6 +115,8 @@ Conversations are saved automatically and start private. The widget searches sav
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 
+Download an attachment with `chat.core.getChatFile({ threadId, fileId })`, which returns a `Blob`. Organization and participant tenant scope come from your credentials. Administrative downloads also pass `tenantId`. Use `{ preview: true }` as the second argument for a thumbnail. Only previews of your unsent uploads may omit `threadId`.
+
 By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
 ## Tools and widgets

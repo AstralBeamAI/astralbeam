@@ -36,14 +36,12 @@ export function ThreadViewer({
       loadDirectoryThreadHistory(session, thread.tenant_id, thread.id, pageParam, signal),
     getNextPageParam: (page) => page.page_after ?? undefined,
   })
-  const getFile = useCallback<AstralBeamChatCore["getFile"]>(
-    async ([fileId], options) => {
+  const getChatFile = useCallback<AstralBeamChatCore["getChatFile"]>(
+    async (params, options) => {
       try {
         return await loadDirectoryThreadFile(
           session,
-          thread.tenant_id,
-          thread.id,
-          fileId,
+          { ...params, tenantId: thread.tenant_id },
           session.abortController.signal,
           options,
         )
@@ -53,8 +51,9 @@ export function ThreadViewer({
         throw error
       }
     },
-    [session, thread.tenant_id, thread.id],
+    [session, thread.tenant_id],
   )
+  const files = useMemo(() => ({ getChatFile, threadId: thread.id }), [getChatFile, thread.id])
   const messages = useMemo(() => {
     const projected = projectThreadMessages(
       query.data?.pages.toReversed().flatMap((page) => page.messages) ?? [],
@@ -131,5 +130,5 @@ export function ThreadViewer({
       ) : null}
     </section>
   )
-  return <AttachmentFileContext value={getFile}>{content}</AttachmentFileContext>
+  return <AttachmentFileContext value={files}>{content}</AttachmentFileContext>
 }
