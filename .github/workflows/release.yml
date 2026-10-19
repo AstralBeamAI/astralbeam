@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: Build and verify everything without creating the release or staging the SDK
+        description: Build and verify everything without publishing images, creating the release, or staging npm packages
         type: boolean
         default: true
 
@@ -15,10 +15,6 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-
-env:
-  # A tag push carries no inputs, so an absent `dry-run` means a real release.
-  DRY_RUN: ${{ inputs.dry-run || false }}
 
 jobs:
   verify:
@@ -53,7 +49,7 @@ jobs:
           fi
 
       - name: Verify publishing target
-        if: ${{ env.DRY_RUN != 'true' }}
+        if: ${{ !inputs.dry-run }}
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -168,12 +164,21 @@ jobs:
           path: npm-packages/*.tgz
           if-no-files-found: error
 
+      - name: Collect image licenses
+        run: |
+          mkdir -p platform-binaries/licenses
+          cp LICENSE-AGPL LICENSE-MIT docs/legal/THIRD_PARTY_NOTICES.md platform-binaries/licenses/
+          cp -R docs/legal/LICENSES platform-binaries/licenses/
+          cp platform/.output/public/THIRD_PARTY_LICENSES.md platform-binaries/licenses/CLIENT_THIRD_PARTY_LICENSES.md
+          cp platform/.output/server/THIRD_PARTY_LICENSES.md platform-binaries/licenses/SERVER_THIRD_PARTY_LICENSES.md
+
       - name: Upload the Platform binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: platform-binaries
           path: platform-binaries
           if-no-files-found: error
+          compression-level: 1
 
   github-release:
     name: Create the GitHub release
@@ -214,6 +219,63 @@ jobs:
             exit 1
           fi
           gh release create "$tag" --verify-tag --latest --generate-notes astralbeam-* SHA256SUMS
+
+  docker-image:
+    name: Build and publish the Docker image
+    needs: [verify, build, github-release]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.github-release.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the Platform binaries and image licenses
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: platform-binaries
+          path: ${{ runner.temp }}/image-context
+
+      - name: Select the Linux image binaries
+        run: |
+          mv "$RUNNER_TEMP/image-context/astralbeam-platform-linux-x86_64" "$RUNNER_TEMP/image-context/astralbeam-platform-amd64"
+          mv "$RUNNER_TEMP/image-context/astralbeam-platform-linux-arm64" "$RUNNER_TEMP/image-context/astralbeam-platform-arm64"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        if: ${{ !inputs.dry-run }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ runner.temp }}/image-context
+          file: platform/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          pull: true
+          push: ${{ !inputs.dry-run }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.verify.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ghcr.io/astralbeamai/astralbeam-platform:${{ needs.verify.outputs.version }}
+          sbom: true
+          provenance: mode=max
 
   stage-npm:
     name: Stage the SDK and CLI on npm

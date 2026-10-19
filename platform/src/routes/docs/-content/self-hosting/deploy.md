@@ -1,6 +1,31 @@
 # Deploy
 
-Let's install AstralBeam on a Linux host, with PostgreSQL behind a connection pooler and a reverse proxy in front. Basic knowledge of Linux, systemd, and TLS termination is assumed here. [Overview](./overview.md) describes what the finished deployment consists of.
+AstralBeam runs from a container image or standalone binary. Let's start a local container deployment, or install the binary on Linux.
+
+## Containers
+
+The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18 and a transaction pooler](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
+
+1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file such as `/etc/astralbeam/env`, following [the bootstrap settings](#3-set-the-bootstrap-environment). Use a database hostname reachable from the container, since `localhost` refers to the container. For local HTTP, include `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
+2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
+
+   ```sh
+   docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
+     --env-file /etc/astralbeam/env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+   ```
+
+3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `/etc/astralbeam/env` and set `APP_BASE_URL` there to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over trusted loopback:
+
+   ```sh
+   docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
+     --env-file /etc/astralbeam/env --network host --env HOST=127.0.0.1 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+   ```
+
+   Configure the [host Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
+
+If startup fails, inspect `docker logs astralbeam-platform`. The server needs a writable, executable `/tmp`.
+
+Images use release version tags. To upgrade, [back up the database, storage, and keyring](./operations.md#backups-and-restore), stop and remove the old container, then repeat steps 2 and 3 with the new image. Recreate containers after environment changes. The binary's `upgrade` command does not upgrade containers, and older images cannot undo migrations.
 
 ## 1. Get a release binary
 
@@ -153,8 +178,9 @@ Open your deployment's `/configure` page in a browser. Every other page redirect
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
 2. On a new database, the page shows the pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
-3. Fill in the required settings: the application base URL, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery and OAuth clients as needed. Each organization configures its model connections in **Models**, then assigns enabled models to its agents. Every deployment setting is described in [Configuration](./configuration.md).
-4. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
+3. Fill in the required settings: the application base URL, support email address, private file storage, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery and OAuth clients as needed. Each organization configures its model connections in **Models**, then assigns enabled models to its agents. Every deployment setting is described in [Configuration](./configuration.md).
+4. Under **Owner onboarding**, invite the first owner, then use the invitation email to set their password.
+5. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
 
 Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.
 
@@ -171,7 +197,7 @@ Run each of these against the public origin:
 
 `/api/status` counts organization rows and answers `{"status":"ok"}` when that query succeeds. A database failure returns `503` with an `error` field, without the count. There is no separate readiness endpoint, so to check API readiness, call an API route and treat `503` as not ready.
 
-## Upgrade
+## Upgrade the binary
 
 Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 

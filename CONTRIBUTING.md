@@ -139,11 +139,11 @@ Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, a
 
 1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if any version disagrees.
 2. Push the tag by running `bun run release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
-3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets and smoke-tests their Linux x86_64 builds, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build.
+3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets and smoke-tests their Linux x86_64 builds, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build. After npm staging and GitHub release creation succeed, it builds and pushes Linux AMD64 and ARM64 images to GHCR.
 4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.
 
-Run the workflow manually from the Actions tab with the `dry-run` input to exercise the builds without creating a release or staging anything.
+Run the workflow manually from the Actions tab with the `dry-run` input to exercise the builds without publishing images, creating a release, or staging anything.
 
 Both packages publish through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no npm token in the repository. Each package's trusted publisher on npmjs.com names this repository and the workflow filename `release.yml` exactly, both case-sensitive. It leaves the "Allowed actions" setting unchecked, which is the stage-only default and keeps the 2FA approval gate in place.
