@@ -209,6 +209,15 @@ test("vanilla conversation directory follows cursors, filters Tenants and clears
   await expect(directory.conversation("Earlier review")).toBeVisible()
   await directory.previous.click()
   await expect(directory.conversation(savedThread.title)).toBeVisible()
+  await directory.next.click()
+  await expect(directory.conversation("Earlier review")).toBeVisible()
+  const resized = page.waitForRequest((request) => {
+    const url = new URL(request.url())
+    return url.pathname === "/api/v1/threads" && url.searchParams.get("page_size") === "50"
+  })
+  await directory.directory.getByRole("combobox", { name: "Rows per page" }).selectOption("50")
+  expect(new URL((await resized).url()).searchParams.has("page_after")).toBe(false)
+  await expect(directory.conversation(savedThread.title)).toBeVisible()
   expect(filters.at(-1)).not.toBeNull()
   await directory.clearTenant.click()
   await expect(directory.directory).toContainText("Select a tenant to view its conversations.")

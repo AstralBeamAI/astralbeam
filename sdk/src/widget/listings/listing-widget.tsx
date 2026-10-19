@@ -4,8 +4,6 @@ import { useDebouncedValue } from "@tanstack/react-pacer"
 import {
   ArrowClockwiseIcon,
   BuildingsIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
   ChatsIcon,
   FunnelXIcon,
   UsersIcon,
@@ -21,6 +19,7 @@ import type {
 } from "../../client/listings.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
+import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
 import { SearchDropdown } from "../components/search-dropdown.tsx"
 import { NativeSelect, NativeSelectOption } from "../components/ui/native-select.tsx"
@@ -173,6 +172,19 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           data-slot="directory-page-controls"
           className="ms-auto flex shrink-0 items-center gap-2"
         >
+          <NativeSelect
+            disabled={awaitingTenant || fetching > 0}
+            aria-label="Rows per page"
+            className="min-w-32"
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value) as 20 | 50 | 100)}
+          >
+            {[20, 50, 100].map((value) => (
+              <NativeSelectOption key={value} value={value}>
+                {value} per page
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
           <TooltipButton
             variant="outline"
             size="icon"
@@ -209,7 +221,6 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           tenantId={tenantId}
           q={q}
           size={size}
-          onSize={setSize}
           ErrorFeedback={ListingError}
           LoadingFeedback={ListingLoading}
           Pagination={PageNavigation}
@@ -219,7 +230,6 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
           {...{ options, kind, session, tenantId, q, size }}
-          onSize={setSize}
         />
       )}
     </section>
@@ -276,14 +286,12 @@ function DirectoryPage({
   q,
   admin,
   size,
-  onSize,
 }: Omit<WidgetProps, "kind"> & {
   kind: "tenants" | "users"
   tenantId: string | undefined
   q: string
   admin: "all" | "true" | "false"
   size: number
-  onSize: (size: 20 | 50 | 100) => void
 }) {
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
@@ -316,8 +324,6 @@ function DirectoryPage({
           page={query.isError ? undefined : query.data}
           busy={query.isFetching}
           onPage={setCursor}
-          size={size}
-          onSize={onSize}
         />
       </div>
     </div>
@@ -328,50 +334,34 @@ function PageNavigation({
   page,
   busy,
   onPage,
-  size,
-  onSize,
 }: {
-  size: number
-  onSize: (size: 20 | 50 | 100) => void
   page: { page_before: string | null; page_after: string | null } | undefined
   busy: boolean
   onPage: (cursor: Cursor) => void
 }) {
   return (
-    <nav aria-label="Directory pages" className="flex flex-wrap items-center justify-end gap-2">
-      <div className="me-auto">
-        <NativeSelect
-          disabled={busy}
-          aria-label="Rows per page"
-          className="min-w-32"
-          value={size}
-          onChange={(e) => onSize(Number(e.target.value) as 20 | 50 | 100)}
-        >
-          {[20, 50, 100].map((value) => (
-            <NativeSelectOption key={value} value={value}>
-              {value} per page
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-      <TooltipButton
+    <nav
+      aria-label="Directory pages"
+      className="grid grid-cols-2 gap-2 @lg/directory:flex @lg/directory:justify-end"
+    >
+      <Button
         variant="outline"
-        size="icon-sm"
-        tooltip="Previous"
+        size="sm"
+        className="any-pointer-coarse:min-h-11"
         disabled={busy || !page?.page_before}
         onClick={() => onPage({ page_before: page!.page_before! })}
       >
-        <CaretLeftIcon aria-hidden className="rtl:rotate-180" />
-      </TooltipButton>
-      <TooltipButton
+        Previous
+      </Button>
+      <Button
         variant="outline"
-        size="icon-sm"
-        tooltip="Next"
+        size="sm"
+        className="any-pointer-coarse:min-h-11"
         disabled={busy || !page?.page_after}
         onClick={() => onPage({ page_after: page!.page_after! })}
       >
-        <CaretRightIcon aria-hidden className="rtl:rotate-180" />
-      </TooltipButton>
+        Next
+      </Button>
     </nav>
   )
 }
