@@ -24,6 +24,7 @@ const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL connection URL (required)
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
+  ALLOW_INSECURE           set to true to allow HTTP and non-Secure operator cookies
   PORT                     port the server listens on (default 3000)
 
 Missing database variables are prompted for once and saved to ~/.astralbeam/platform.json.`

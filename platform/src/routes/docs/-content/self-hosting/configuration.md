@@ -37,7 +37,7 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 | `website_url` | No | none | Origin of a separately hosted website to serve under this deployment's origin |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 
-The base URL must be an origin and nothing more: no path, query, fragment, or embedded credentials. HTTPS is required unless the host is loopback (`localhost`, `127.0.0.1`, or `[::1]`), which keeps plain HTTP available for local development only. A rejected value reports `Application base URL must be an HTTP(S) origin without credentials, path, query, or fragment, and must use HTTPS outside local development`.
+The base URL must be an HTTP(S) origin without a path, query, fragment, or embedded credentials. HTTP is accepted for loopback hosts (`localhost`, `127.0.0.1`, or `[::1]`) or when `ALLOW_INSECURE=true`. Production HTTP deployments, including localhost, need this environment flag to access `/configure`.
 
 When `website_url` is set, signed-out visitors to `/` and everyone at `/home` see the website's home page, and the website's own pages such as `/terms` and `/privacy` are served under the deployment's origin. Signed-in visitors to `/` still go to their organization.
 

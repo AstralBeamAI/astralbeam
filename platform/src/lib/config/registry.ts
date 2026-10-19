@@ -8,6 +8,7 @@ import {
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret } from "@/lib/utils.server"
+import { allowInsecure } from "@/lib/runtime/environment.server"
 import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
@@ -24,7 +25,8 @@ function isLoopbackHost(hostname: string): boolean {
 
 function isServerOrigin(url: URL): boolean {
   return (
-    (url.protocol === "https:" || (url.protocol === "http:" && isLoopbackHost(url.hostname))) &&
+    (url.protocol === "https:" ||
+      (url.protocol === "http:" && (isLoopbackHost(url.hostname) || allowInsecure()))) &&
     !url.username &&
     !url.password &&
     url.pathname === "/" &&
@@ -34,10 +36,13 @@ function isServerOrigin(url: URL): boolean {
 }
 
 const ServerOriginSchema = Schema.URLFromString.check(
-  Schema.makeFilter(isServerOrigin, {
-    message:
-      "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development",
-  }),
+  Schema.makeFilter(
+    (url) =>
+      isServerOrigin(url) ||
+      (allowInsecure()
+        ? "Use an HTTP(S) origin without credentials, path, query, or fragment"
+        : "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development"),
+  ),
 ).pipe(
   Schema.decodeTo(Schema.String, {
     decode: SchemaGetter.transform((url) => url.origin),

@@ -5,6 +5,7 @@ import { jwtVerify, SignJWT } from "jose"
 
 import { getActiveDatabaseEncryptionRoot } from "@/db/lib/database-credentials"
 import { generateSecret } from "@/lib/utils.server"
+import { allowInsecure } from "@/lib/runtime/environment.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 
 const OPERATOR_SESSION_COOKIE = "operator_session"
@@ -84,13 +85,16 @@ export const setOperatorSessionCookie = Effect.fn("setOperatorSessionCookie")(fu
     sameSite: "strict",
     path: "/",
     maxAge: OPERATOR_SESSION_TTL_SECONDS,
-    secure: import.meta.env.PROD,
+    secure: import.meta.env.PROD && !allowInsecure(),
   })
 })
 
 export const clearOperatorSessionCookie = Effect.fn("clearOperatorSessionCookie")(function* () {
   const server = yield* ServerRequest
-  yield* server.deleteCookie(OPERATOR_SESSION_COOKIE, { path: "/", secure: import.meta.env.PROD })
+  yield* server.deleteCookie(OPERATOR_SESSION_COOKIE, {
+    path: "/",
+    secure: import.meta.env.PROD && !allowInsecure(),
+  })
 })
 
 /** The session the request's cookie carries, when it verifies. */

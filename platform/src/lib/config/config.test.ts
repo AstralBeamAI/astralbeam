@@ -43,6 +43,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   migrations.pending = false
+  vi.stubEnv("ALLOW_INSECURE", "")
   // A developer's own shell must not leak into what the tests expect.
   for (const definition of CONFIG_DEFINITIONS) {
     vi.stubEnv(configEnvironmentVariable(definition.key), "")
@@ -90,6 +91,28 @@ function configLayer(state: { rows: StoredRow[]; reads: number; gate?: Effect.Ef
 }
 
 describe("configuration registry", () => {
+  it.each([undefined, "false", "true"])(
+    "requires an explicit opt-in for remote HTTP origins (%s)",
+    (flag) => {
+      vi.stubEnv("ALLOW_INSECURE", flag)
+      const origin = findConfigDefinition("app_base_url")!
+      assert.strictEqual(
+        Result.isSuccess(decodeConfigValue(origin, "http://app.example")),
+        flag === "true",
+      )
+    },
+  )
+
+  it.each([false, true])("preserves default origin errors with PROD=%s", (production) => {
+    vi.stubEnv("PROD", production)
+    vi.stubEnv("ALLOW_INSECURE", undefined)
+    const decoded = decodeConfigValue(findConfigDefinition("app_base_url")!, "http://app.example")
+    assert.strictEqual(
+      Result.isFailure(decoded) ? decoded.failure.message : null,
+      "Use an HTTP(S) origin without credentials, path, query, or fragment, and HTTPS outside local development",
+    )
+  })
+
   it("rejects invalid values without repeating them", () => {
     const secret = "private-test-secret"
     for (const [key, value] of [
