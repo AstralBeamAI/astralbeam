@@ -100,18 +100,13 @@ export function rewriteToWebsite(
           }),
         catch: (cause) => cause,
       }).pipe(
-        Effect.map((upstream) => websiteResponse(upstream, pathname)),
         Effect.catch((error) =>
           Effect.logWarning("Website request failed").pipe(
             Effect.annotateLogs({ reason: errorReason(error) }),
-            Effect.as(
-              new Response("Bad Gateway", {
-                status: 502,
-                headers: { "Cache-Control": "no-store" },
-              }),
-            ),
+            Effect.as(new Response("Bad Gateway", { status: 502 })),
           ),
         ),
+        Effect.map((upstream) => websiteResponse(upstream, pathname)),
       )
     }),
   )

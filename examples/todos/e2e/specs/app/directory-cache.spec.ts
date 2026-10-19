@@ -5,6 +5,50 @@ import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { seedTarget } from "../../worktree.ts"
 
+test("directories refresh stale data on focus and reconnect without refetching fresh data", async ({
+  page,
+  context,
+}) => {
+  await page.clock.install()
+  const directory = directoriesPage(page)
+  const token = await createAstralBeamToken(seedTarget)
+  let lists = 0
+  await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+  await page.route("**/api/v1/tenants/*/tenant_users?*", async (route) => {
+    lists++
+    const response = await route.fetch()
+    const data = (await response.json()) as TenantUserPage
+    data.items.find((item) => item.name === seedTarget.user.name)!.name = `Updated user ${lists}`
+    await route.fulfill({ response, json: data })
+  })
+  await openVanillaDirectories(page, { scope: "tenant", cache: true }, ["users"])
+  await expect(directory.user("Updated user 1")).toBeVisible()
+
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await context.setOffline(true)
+  await context.setOffline(false)
+  await page.clock.runFor(100)
+  expect(lists).toBe(1)
+
+  await page.clock.fastForward(31_000)
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await expect(directory.user("Updated user 2")).toBeVisible()
+  expect(lists).toBe(2)
+
+  await context.setOffline(true)
+  await page.clock.fastForward(31_000)
+  await context.setOffline(false)
+  await expect(directory.user("Updated user 3")).toBeVisible()
+  expect(lists).toBe(3)
+
+  await directory.unmount.click()
+  await page.clock.fastForward(31_000)
+  await context.setOffline(true)
+  await context.setOffline(false)
+  await page.clock.runFor(100)
+  expect(lists).toBe(3)
+})
+
 test("retained directories reuse data after authentication, refresh and isolate identities", async ({
   page,
 }) => {

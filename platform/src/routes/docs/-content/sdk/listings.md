@@ -121,7 +121,7 @@ export function CustomerUsers({ accountId }: { accountId: string | null }) {
 
 Use an `accountId` that changes with either the signed-in user or tenant, and set it to `null` during transitions. Vanilla hosts call `unmount()` instead.
 
-Directory results stay fresh for 30 seconds and unused queries expire after five minutes. For reuse across mounts, keep a stable session `cacheKey`, replacing it on sign-out or account changes. Each mount still authenticates. Use `refresh()` after writes.
+Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused queries expire after five minutes. For reuse across mounts, keep a stable session `cacheKey`, replacing it on sign-out or account changes. Each mount still authenticates. Use `refresh()` after writes.
 
 - React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
 - React refs and vanilla handles expose `refresh()` to reload queries and `reset()` to clear state and immediately reacquire authentication.

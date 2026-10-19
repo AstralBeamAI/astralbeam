@@ -1,8 +1,8 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 import { ArrowClockwiseIcon, ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
-import { type SyntheticEvent, useContext, useEffect, useId, useRef, useState } from "react"
+import { QueryClient, useInfiniteQuery } from "@tanstack/react-query"
+import { type SyntheticEvent, useEffect, useRef, useState } from "react"
 import { cn } from "cn"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore, AstralBeamChatState } from "../../core/session.ts"
@@ -73,24 +73,21 @@ export function ThreadHistory({
   const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
-  const [accessError, setAccessError] = useState<Error | null>(null)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [boundary, setBoundary] = useState<Element>()
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
-  const sharedClient = useContext(QueryClientContext)
-  const [localClient] = useState(() => new QueryClient())
-  useEffect(() => () => localClient.clear(), [localClient])
-  const client = sharedClient ?? localClient
-  const queryId = useId()
+  const [client] = useState(() => new QueryClient())
+  useEffect(() => () => client.clear(), [client])
   const authenticated = state.auth.status === "ready"
   const query = useInfiniteQuery(
     {
-      queryKey: ["thread-history", queryId, search],
-      enabled: open && authenticated && !accessError,
+      queryKey: ["thread-history", search],
+      enabled: open && authenticated && !accessDenied,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ signal, pageParam }) =>
         chat.searchThreads(search, pageParam, signal).catch((error: unknown) => {
           if (isAstralBeamApiError(error) && [401, 403, 404].includes(error.status))
-            setAccessError(error)
+            setAccessDenied(true)
           throw error
         }),
       getNextPageParam: (page) => page.page_after ?? undefined,
@@ -104,13 +101,14 @@ export function ThreadHistory({
   const version = state.thread?.version
   const writing = state.status === "submitted" || state.status === "streaming"
   useEffect(() => {
-    if (state.auth.status === "error" || accessError)
-      client.removeQueries({ queryKey: ["thread-history", queryId] })
-  }, [client, queryId, state.auth.status, accessError])
+    if (state.auth.status === "error" || accessDenied)
+      client.removeQueries({ queryKey: ["thread-history"] })
+  }, [client, state.auth.status, accessDenied])
   useEffect(() => {
-    if (!writing) void client.invalidateQueries({ queryKey: ["thread-history", queryId] })
-  }, [client, queryId, currentId, version, writing])
-  const searching = !accessError && (text.trim() !== search || query.isPending)
+    if (!writing) void client.invalidateQueries({ queryKey: ["thread-history"] })
+  }, [client, currentId, version, writing])
+  const searching = !accessDenied && (text.trim() !== search || query.isPending)
+  const failed = accessDenied || (!searching && query.isError)
   const { hasNextPage, isFetching, isError, fetchNextPage } = query
   useEffect(() => {
     const element = list.current
@@ -125,7 +123,7 @@ export function ThreadHistory({
     return () => element.removeEventListener("scroll", loadNextPage)
   }, [open, searching, hasNextPage, isFetching, isError, fetchNextPage, query.data])
   const groups =
-    !authenticated || accessError || searching
+    !authenticated || accessDenied || searching
       ? []
       : groupThreads(query.data?.pages.flatMap((page) => page.items) ?? [])
   return (
@@ -140,7 +138,7 @@ export function ThreadHistory({
             const deleted = await chat.deleteThread(deletingThread)
             if (deleted) {
               onDelete(deletingThread.id)
-              void client.invalidateQueries({ queryKey: ["thread-history", queryId] })
+              void client.invalidateQueries({ queryKey: ["thread-history"] })
             }
             return deleted
           }}
@@ -164,7 +162,7 @@ export function ThreadHistory({
         onOpenChange={(next) => {
           setOpen(next)
           if (next) {
-            setAccessError(null)
+            setAccessDenied(false)
             setBoundary(container.current?.closest('[data-slot="chat"]') ?? undefined)
           } else setText("")
         }}
@@ -197,12 +195,10 @@ export function ThreadHistory({
             showTrigger={false}
           />
           <ComboboxStatus className="text-center text-sm text-muted-foreground [&:not(:empty)]:py-2">
-            {!accessError && (searching || query.isFetchingNextPage) ? "Loading…" : null}
+            {!failed && (searching || query.isFetchingNextPage) ? "Loading…" : null}
           </ComboboxStatus>
           <ComboboxEmpty>
-            {authenticated && !accessError && !searching && !query.isError
-              ? "No chats found."
-              : null}
+            {authenticated && !searching && !failed ? "No chats found." : null}
           </ComboboxEmpty>
           <ComboboxList
             ref={list}
@@ -253,7 +249,7 @@ export function ThreadHistory({
               </ComboboxGroup>
             )}
           </ComboboxList>
-          {(accessError || (!searching && query.isError)) && (
+          {failed && (
             <div className="p-2 text-xs" role="alert">
               Could not load chats.
               <TooltipButton
@@ -263,11 +259,11 @@ export function ThreadHistory({
                 disabled={query.isFetching}
                 onClick={() =>
                   void (
-                    !accessError && query.isFetchNextPageError
+                    !accessDenied && query.isFetchNextPageError
                       ? query.fetchNextPage()
                       : query.refetch()
                   ).then((result) => {
-                    if (result.isSuccess) setAccessError(null)
+                    if (result.isSuccess) setAccessDenied(false)
                   })
                 }
               >

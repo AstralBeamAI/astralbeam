@@ -13,8 +13,6 @@ export function createListingQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
         staleTime: 30_000,
         gcTime: 300_000,
       },
