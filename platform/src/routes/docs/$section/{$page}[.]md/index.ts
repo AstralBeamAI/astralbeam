@@ -36,7 +36,9 @@ export const Route = createFileRoute("/docs/$section/{$page}.md/")({
         return new Response(`${markdown.trimEnd()}\n\n---\n\n${footer.join("\n")}\n`, {
           headers: {
             "Content-Type": "text/markdown; charset=utf-8",
-            "Cache-Control": "public, no-cache",
+            "Cache-Control": import.meta.env.DEV
+              ? "no-cache"
+              : "public, max-age=300, must-revalidate",
           },
         })
       },

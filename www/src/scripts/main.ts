@@ -141,51 +141,51 @@ function initStarfield() {
 
 /* ============ scramble-in headlines ============ */
 
-const SCRAMBLE_CHARS = "▓▒░<>/\\|=+*ASTRLBEM0123456789"
+export function reveal(el: HTMLElement, animate: boolean) {
+  if (el.classList.contains("in-view")) return
+  const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
+  el.classList.add("in-view")
+  if (!animate || !el.classList.contains("scramble")) return
 
-function scramble(el: HTMLElement) {
-  const finalText = el.dataset.text ?? el.textContent ?? ""
-  const duration = 260
-  const start = performance.now()
+  setTimeout(() => {
+    const chars = "▓▒░<>/\\|=+*ASTRLBEM0123456789"
+    const finalText = el.dataset.text ?? el.textContent ?? ""
+    const duration = 260
+    const start = performance.now()
 
-  function frame(now: number) {
-    const t = Math.min(1, (now - start) / duration)
-    const settled = Math.floor(finalText.length * t)
-    let out = finalText.slice(0, settled)
-    for (let i = settled; i < finalText.length; i++) {
-      const ch = finalText[i]
-      out += ch === " " ? " " : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]
+    function frame(now: number) {
+      const t = Math.min(1, (now - start) / duration)
+      const settled = Math.floor(finalText.length * t)
+      let out = finalText.slice(0, settled)
+      for (let i = settled; i < finalText.length; i++) {
+        const ch = finalText[i]
+        out += ch === " " ? " " : chars[Math.floor(Math.random() * chars.length)]
+      }
+      el.textContent = out
+      if (t < 1) requestAnimationFrame(frame)
     }
-    el.textContent = out
-    if (t < 1) requestAnimationFrame(frame)
-  }
 
-  requestAnimationFrame(frame)
+    requestAnimationFrame(frame)
+  }, delay * 1000)
 }
 
 /* ============ scroll reveals ============ */
 
 function initReveals() {
-  const revealEls = document.querySelectorAll<HTMLElement>(".reveal")
+  const revealEls = document.querySelectorAll<HTMLElement>(".reveal:not(.in-view)")
 
   if (reducedMotion) {
     revealEls.forEach((el) => el.classList.add("in-view"))
     return
   }
 
-  const scrambled = new WeakSet<HTMLElement>()
   const io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue
         const el = entry.target
         if (!(el instanceof HTMLElement)) continue
-        el.classList.add("in-view")
-        if (el.classList.contains("scramble") && !scrambled.has(el)) {
-          scrambled.add(el)
-          const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
-          setTimeout(() => scramble(el), delay * 1000)
-        }
+        reveal(el, true)
         io.unobserve(el)
       }
     },

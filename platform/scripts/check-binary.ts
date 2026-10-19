@@ -266,7 +266,7 @@ async function runBinaryCheck() {
     const specification = (await openapi.json()) as { paths: Record<string, unknown> }
     if (
       openapi.headers.get("access-control-allow-origin") !== "*" ||
-      openapi.headers.get("cache-control") !== "public, no-cache" ||
+      openapi.headers.get("cache-control") !== "public, max-age=300, must-revalidate" ||
       !openapi.headers.get("etag") ||
       !specification.paths["/api/v1/tenants"]
     ) {

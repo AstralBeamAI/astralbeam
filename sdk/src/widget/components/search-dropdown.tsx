@@ -53,6 +53,7 @@ export function SearchDropdown<T extends { id: string }>({
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
   const sharedClient = useContext(QueryClientContext)
   const [client] = useState(() => new QueryClient())
+  useEffect(() => () => client.clear(), [client])
   const queryId = useId()
   const query = useInfiniteQuery(
     {
@@ -62,7 +63,6 @@ export function SearchDropdown<T extends { id: string }>({
       queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
       getNextPageParam: (page) => page.page_after ?? undefined,
       retry: false,
-      gcTime: 0,
     },
     sharedClient ?? client,
   )
@@ -128,6 +128,7 @@ export function SearchDropdown<T extends { id: string }>({
           input
         )}
         <ComboboxContent
+          anchor={container}
           container={container}
           aria-label={popup ? label : undefined}
           aria-busy={searching || query.isFetching ? true : undefined}

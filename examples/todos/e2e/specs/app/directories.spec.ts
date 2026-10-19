@@ -202,6 +202,15 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.previous.click()
   await expect(directory.tenant(first.name)).toBeVisible()
   await expect(directory.tenant(second.name)).toHaveCount(0)
+  await directory.next.click()
+  await expect(directory.tenant(second.name)).toBeVisible()
+  const resized = page.waitForRequest((request) => {
+    const url = new URL(request.url())
+    return url.pathname === "/api/v1/tenants" && url.searchParams.get("page_size") === "50"
+  })
+  await directory.tenants.getByRole("combobox", { name: "Rows per page" }).selectOption("50")
+  expect(new URL((await resized).url()).searchParams.has("page_after")).toBe(false)
+  await expect(directory.tenant(first.name)).toBeVisible()
   const searched = page.waitForResponse(
     (response) => new URL(response.url()).searchParams.get("q") === "o",
   )
@@ -211,7 +220,7 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.retry.click()
   await expect(directory.tenantOption(second.name)).toBeVisible()
   expect(searchCursors[1]).not.toBe("")
-  expect(searchCursors).toEqual(["", searchCursors[1], searchCursors[1]])
+  expect(searchCursors.slice(0, 3)).toEqual(["", searchCursors[1], searchCursors[1]])
   await directory.tenantOption(second.name).click()
   await expect(directory.user(second.users[0].name)).toBeVisible()
   const selectedLabel = `${second.name} · ${second.externalId}`

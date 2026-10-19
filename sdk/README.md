@@ -173,6 +173,8 @@ Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/re
 
 Read-only Tenant, TenantUser and conversation widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
+Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused queries expire after five minutes. For reuse across mounts, keep a stable session `cacheKey`, replacing it on sign-out or account changes. Each mount still authenticates. Use `refresh()` after writes.
+
 There is no root export.
 
 | Entry point              | Contents                                     | Peer dependency      |

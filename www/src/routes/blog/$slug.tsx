@@ -10,6 +10,13 @@ import { BlogShell } from "./-components/blog-shell"
 import { FailureDemo } from "./-components/failure-demo"
 
 export const Route = createFileRoute("/blog/$slug")({
+  codeSplitGroupings: [["loader", "component"]],
+  // Reject missing posts before loading split chunks so the static 404 can hydrate.
+  // https://tanstack.com/router/latest/docs/framework/react/guide/not-found-errors
+  beforeLoad: ({ params }) => {
+    const files = Object.keys(import.meta.glob("../../content/blog/*.md"))
+    if (!files.includes(`../../content/blog/${params.slug}.md`)) throw notFound()
+  },
   loader: ({ params }) => {
     const post = blogPosts.find((entry) => entry.slug === params.slug)
     if (!post) throw notFound()

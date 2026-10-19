@@ -4,9 +4,11 @@ import { chatWidget } from "../../pages/chat-widget.ts"
 import { seedTarget } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
-test("chat history search, selection, and new chat preserve the correct local state", async ({
+test("chat history refresh, search, selection, and new chat preserve local state", async ({
   page,
+  context,
 }) => {
+  await page.clock.install()
   const recent = {
     id: "00000000-0000-4000-8000-000000000001",
     title: "Recent conversation",
@@ -24,12 +26,20 @@ test("chat history search, selection, and new chat preserve the correct local st
     title: "Older launch plan",
   }
   let deleted = false
+  let listRequests = 0
+  await page.route(`**/api/v1/chat/threads/${recent.id}`, (route) => {
+    if (route.request().method() !== "PATCH") return route.continue()
+    recent.title = (route.request().postDataJSON() as { title: string }).title
+    recent.version++
+    return route.fulfill({ json: recent })
+  })
   await page.route(`**/api/v1/chat/threads/${recent.id}?*`, (route) => {
     if (route.request().method() !== "DELETE") return route.continue()
     deleted = true
     return route.fulfill({ status: 204 })
   })
   await page.route(/\/api\/v1\/chat\/threads\?/, (route) => {
+    listRequests++
     const params = new URL(route.request().url()).searchParams
     const q = params.get("q") ?? ""
     const cursor = params.get("page_after") ?? ""
@@ -66,11 +76,34 @@ test("chat history search, selection, and new chat preserve the correct local st
       },
     })
   })
-  await todosPage(page).open()
-  await chatWidget(page).waitForReady()
-  const picker = page.getByRole("combobox", { name: "Show older chats", exact: true })
-  const search = page.getByRole("combobox", { name: "Search chats", exact: true })
+  const chat = chatWidget(page)
+  await chat.openNarrowHost()
+  await chat.waitForReady()
+  const picker = chat.history
+  const search = chat.historySearch
   await picker.click()
+  await expect(chat.conversationOption(recent.title)).toBeVisible()
+  await search.press("Escape")
+  await picker.click()
+  await expect(chat.conversationOption(recent.title)).toBeVisible()
+  await expect(chat.historyPopup).not.toHaveAttribute("aria-busy", "true")
+  expect(listRequests).toBe(1)
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await context.setOffline(true)
+  await context.setOffline(false)
+  await page.clock.runFor(100)
+  expect(listRequests).toBe(1)
+  await page.clock.fastForward(31_000)
+  recent.title = "Updated recent conversation"
+  await page.evaluate(() => globalThis.dispatchEvent(new Event("visibilitychange")))
+  await expect(chat.conversationOption(recent.title)).toBeVisible()
+  expect(listRequests).toBe(2)
+  await context.setOffline(true)
+  await page.clock.fastForward(31_000)
+  await context.setOffline(false)
+  await expect.poll(() => listRequests).toBe(3)
+  await expect(chat.historyPopup).not.toHaveAttribute("aria-busy", "true")
+  await captureMoment(page, "history-refreshed-after-focus-and-reconnect")
   await page.getByRole("option", { name: recent.title, exact: true }).click()
   await expect(page.getByRole("region", { name: "Messages" })).toContainText(recent.title)
   await picker.click()
@@ -101,6 +134,14 @@ test("chat history search, selection, and new chat preserve the correct local st
   await expect(search).toHaveValue("")
   await expect(page.getByRole("option", { name: recent.title, exact: true })).toBeVisible()
   await expect(page.locator('[role="option"][aria-current="true"]')).toHaveCount(0)
+  await chat.conversationOption(recent.title).click()
+  await chat.conversationActions.click()
+  await chat.renameConversation.click()
+  await chat.conversationTitle.fill("Renamed conversation")
+  await chat.conversationTitle.press("Enter")
+  await expect(chat.conversationActions).toBeFocused()
+  await picker.click()
+  await expect(chat.conversationOption("Renamed conversation")).toBeVisible()
   const deleteButton = page.getByRole("button", { name: `Delete ${recent.title}`, exact: true })
   await page.getByRole("option", { name: recent.title, exact: true }).hover()
   await deleteButton.click()
@@ -117,6 +158,58 @@ test("chat history search, selection, and new chat preserve the correct local st
   await expect.poll(() => deleted).toBe(true)
   await expect(confirmation).toHaveCount(0)
   await expect(picker).toBeFocused()
+  await picker.click()
+  await expect(page.getByText("No chats found.", { exact: true })).toBeVisible()
+})
+
+test("chat history denial removes cached titles before reopening and permits retry", async ({
+  page,
+}) => {
+  const thread = {
+    id: "00000000-0000-4000-8000-000000000004",
+    title: "Private conversation",
+    agent_id: null,
+    version: 1,
+    role: "manager",
+    writer_active: false,
+    current_leaf_message_id: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  let requests = 0
+  let recovered = false
+  const denied = Promise.withResolvers<void>()
+  const recheck = Promise.withResolvers<void>()
+  await page.route(/\/api\/v1\/chat\/threads\?/, async (route) => {
+    requests++
+    if (requests === 1 || recovered)
+      return route.fulfill({
+        json: { items: [thread], page_after: recovered ? null : "older", page_before: null },
+      })
+    await (requests === 2 ? denied.promise : recheck.promise)
+    return route.fulfill({
+      status: 403,
+      json: { type: "about:blank", title: "Access denied", status: 403, detail: "Access denied" },
+    })
+  })
+  const chat = chatWidget(page)
+  await chat.openNarrowHost()
+  await chat.waitForReady()
+  await chat.history.click()
+  await expect(chat.conversationOption(thread.title)).toBeVisible()
+  await expect.poll(() => requests).toBe(2)
+  denied.resolve()
+  await expect(chat.historyPopup.getByRole("alert")).toBeVisible()
+  await expect(chat.conversationOption(thread.title)).toHaveCount(0)
+  await chat.historySearch.press("Escape")
+  await chat.history.click()
+  await expect.poll(() => requests).toBe(3)
+  await expect(chat.conversationOption(thread.title)).toHaveCount(0)
+  recheck.resolve()
+  await expect(chat.historyPopup.getByRole("alert")).toBeVisible()
+  recovered = true
+  await chat.historyPopup.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(chat.conversationOption(thread.title)).toBeVisible()
 })
 
 for (const role of ["member", "manager", "viewer"]) {

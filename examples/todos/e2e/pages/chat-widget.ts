@@ -48,6 +48,8 @@ export function chatWidget(page: Page) {
     historySearch: root.getByRole("combobox", { name: "Search chats", exact: true }),
     historyPopup: root.locator('[data-slot="combobox-content"]'),
     conversationActions: root.getByRole("button", { name: "Conversation actions", exact: true }),
+    renameConversation: root.getByRole("menuitem", { name: "Rename", exact: true }),
+    conversationTitle: root.getByRole("textbox", { name: "Conversation title", exact: true }),
     deleteConversation: root.getByRole("menuitem", { name: "Delete", exact: true }),
     deleteConfirmation: root.getByRole("alertdialog"),
     confirmDeletion: root.getByRole("button", { name: "Delete conversation", exact: true }),

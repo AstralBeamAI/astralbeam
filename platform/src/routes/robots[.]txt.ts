@@ -25,7 +25,9 @@ export const Route = createFileRoute("/robots.txt")({
         return new Response(body, {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "public, no-cache",
+            "Cache-Control": import.meta.env.DEV
+              ? "no-cache"
+              : "public, max-age=300, must-revalidate",
           },
         })
       },

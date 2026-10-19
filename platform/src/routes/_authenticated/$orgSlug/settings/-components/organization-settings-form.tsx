@@ -69,12 +69,13 @@ export function OrganizationSettingsForm({
         queryKey: organizationQueryKeys.lists(session?.user.id),
       })
       toast.add({ title: "Organization saved", type: "success" })
-      await navigate({
-        to: "/$orgSlug/settings",
-        params: { orgSlug: normalizedSlug },
-        replace: true,
-      })
-      await router.invalidate()
+      if (normalizedSlug === organizationSlug) await router.invalidate()
+      else
+        await navigate({
+          to: "/$orgSlug/settings",
+          params: { orgSlug: normalizedSlug },
+          replace: true,
+        })
     } catch (error) {
       const failure = parseServerFnError(error)
       if (failure.tag === "OrganizationSlugTaken") setSlugError(failure.message)
