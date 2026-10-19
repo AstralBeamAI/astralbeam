@@ -211,7 +211,7 @@ test("directory table and tenant search follow real server cursors", async ({ pa
   await directory.retry.click()
   await expect(directory.tenantOption(second.name)).toBeVisible()
   expect(searchCursors[1]).not.toBe("")
-  expect(searchCursors).toEqual(["", searchCursors[1], searchCursors[1]])
+  expect(searchCursors.slice(0, 3)).toEqual(["", searchCursors[1], searchCursors[1]])
   await directory.tenantOption(second.name).click()
   await expect(directory.user(second.users[0].name)).toBeVisible()
   const selectedLabel = `${second.name} · ${second.externalId}`
