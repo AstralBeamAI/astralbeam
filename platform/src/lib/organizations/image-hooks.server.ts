@@ -7,7 +7,7 @@ import { Effect, Result, Schema } from "effect"
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { fileObject } from "@/db/schema/files"
-import { organization } from "@/db/schema/organizations"
+import { member, organization } from "@/db/schema/organizations"
 import { enqueueGravatar } from "@/lib/auth/profile-images.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import type { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
@@ -88,6 +88,31 @@ async function imageApiEffect<A, E extends { _tag: string; message: string }>(
 
 export const organizationImageHooks = {
   ...organizationRoleHooks,
+  beforeAcceptInvitation: async (input) => {
+    await organizationRoleHooks.beforeAcceptInvitation(input)
+    // Remove this precheck when https://github.com/better-auth/better-auth/pull/9193 ships
+    // and the installed acceptInvitation reuses existing memberships. Keep the unique index.
+    const existing = await runAppEffect(
+      Effect.flatMap(Database, (db) =>
+        db
+          .select({ id: member.id })
+          .from(member)
+          .where(
+            and(
+              eq(member.organizationId, input.invitation.organizationId),
+              eq(member.userId, input.user.id),
+            ),
+          )
+          .limit(1)
+          .pipe(Effect.orDie),
+      ),
+    )
+    if (existing.length)
+      throw new APIError("BAD_REQUEST", {
+        code: "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION",
+        message: "User is already a member of this organization",
+      })
+  },
   afterAddMember: enqueueGravatar,
   afterAcceptInvitation: enqueueGravatar,
   afterRemoveMember: ({
