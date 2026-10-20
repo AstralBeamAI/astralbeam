@@ -90,6 +90,8 @@ export const organizationImageHooks = {
   ...organizationRoleHooks,
   beforeAcceptInvitation: async (input) => {
     await organizationRoleHooks.beforeAcceptInvitation(input)
+    // Remove this precheck when https://github.com/better-auth/better-auth/pull/9193 ships
+    // and the installed acceptInvitation reuses existing memberships. Keep the unique index.
     const existing = await runAppEffect(
       Effect.flatMap(Database, (db) =>
         db
