@@ -1,9 +1,0 @@
-.git
-**/node_modules
-**/.env*
-**/*.local
-**/dist
-**/.output
-**/.generated
-**/.nitro
-**/.tanstack

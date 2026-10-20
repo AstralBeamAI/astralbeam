@@ -1,7 +1,13 @@
+# syntax=docker/dockerfile:1
+
+# Keep build tools out of the runtime: https://docs.docker.com/build/building/multi-stage/
 FROM oven/bun:1.4.3 AS build
 
 WORKDIR /app
-COPY . .
+# Exclude local secrets and host artifacts: https://docs.docker.com/reference/dockerfile/#copy---exclude
+COPY --exclude=.git --exclude=**/node_modules --exclude=**/.env* --exclude=**/*.local \
+    --exclude=**/dist --exclude=**/.output --exclude=**/.generated \
+    --exclude=**/.nitro --exclude=**/.tanstack . .
 RUN test "$(bun --version)" = "$(cat .bun-version)" \
     && bun install --frozen-lockfile \
     && bun run --cwd sdk build \
@@ -9,6 +15,7 @@ RUN test "$(bun --version)" = "$(cat .bun-version)" \
 
 FROM debian:bookworm
 
+# Update and clean APT in one layer: https://docs.docker.com/build/building/best-practices/#apt-get
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
@@ -20,12 +27,11 @@ LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbea
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 COPY --from=build --chmod=755 /app/platform/.output/astralbeam-platform /usr/local/bin/astralbeam-platform
-COPY --from=build /app/LICENSE-AGPL /app/LICENSE-MIT /app/docs/legal/THIRD_PARTY_NOTICES.md /usr/share/doc/astralbeam/
-COPY --from=build /app/docs/legal/LICENSES/ /usr/share/doc/astralbeam/LICENSES/
-COPY --from=build /app/platform/.output/public/THIRD_PARTY_LICENSES.md /usr/share/doc/astralbeam/CLIENT_THIRD_PARTY_LICENSES.md
-COPY --from=build /app/platform/.output/server/THIRD_PARTY_LICENSES.md /usr/share/doc/astralbeam/SERVER_THIRD_PARTY_LICENSES.md
+# Other notices are embedded. Preserve the SDK's separate notice: https://opensource.org/license/mit
+COPY --from=build /app/LICENSE-MIT /usr/share/doc/astralbeam/
 
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+# Run without root. The binary unpacks assets and native libraries into writable, executable /tmp.
 USER 10001:10001
 WORKDIR /tmp
 EXPOSE 3000
