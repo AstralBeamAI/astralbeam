@@ -47,6 +47,8 @@ import {
   mcpAuthorizationFetch,
   mcpDiscoveryBinding,
   mcpOAuthCredential,
+  mcpOAuthBindingIsValid,
+  MCP_GOOGLE_ISSUER,
   mcpRunAuthorization,
 } from "./provider.server.ts"
 
@@ -156,6 +158,15 @@ const makeMcpAuthorization = Effect.gen(function* () {
       selected.server.authConfig.kind !== "oauth"
     )
       return yield* new McpChanged()
+    if (
+      payload.discovery &&
+      !mcpOAuthBindingIsValid(
+        selected.server.authConfig,
+        payload.clientInformation,
+        payload.discovery,
+      )
+    )
+      return yield* new McpAuthorizationRequired()
     return selected
   })
   const start = Effect.fn("McpAuthorization.start")(function* (
@@ -198,6 +209,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       clientInformation: client
         ? {
             client_id: client.clientId,
+            ...(authConfig.profile === "google" ? { issuer: MCP_GOOGLE_ISSUER } : {}),
             ...(client.clientSecret ? { client_secret: client.clientSecret } : {}),
           }
         : null,
@@ -333,10 +345,18 @@ const makeMcpAuthorization = Effect.gen(function* () {
       input.reference,
       Effect.gen(function* () {
         const payload = yield* readAttempt(input.reference)
-        const { connection } = yield* attemptConnection(input.actor, payload)
+        const { connection, server } = yield* attemptConnection(input.actor, payload)
         if (payload.status === "authorizing" || payload.status === "exchanging") return false
-        if (payload.status !== "awaiting_completion" || !payload.pendingCredential)
+        if (payload.status !== "awaiting_completion" || payload.pendingCredential?.kind !== "oauth")
           return yield* new McpAuthorizationFailed()
+        if (
+          !mcpOAuthBindingIsValid(
+            server.authConfig,
+            payload.pendingCredential.clientInformation,
+            payload.pendingCredential.discovery,
+          )
+        )
+          return yield* new McpAuthorizationRequired()
         const envelope: McpCredentialEnvelope = {
           version: 1,
           ...input.actor,
@@ -484,6 +504,13 @@ const makeMcpAuthorization = Effect.gen(function* () {
       )
         return yield* new McpAuthorizationRequired()
       const value = envelope.credential
+      if (
+        server.authConfig.kind === "oauth" &&
+        server.authConfig.profile === "google" &&
+        (value.kind !== "oauth" ||
+          !mcpOAuthBindingIsValid(server.authConfig, value.clientInformation, value.discovery))
+      )
+        return yield* new McpAuthorizationRequired()
       if (
         value.kind !== "oauth" ||
         (input.rejectedToken !== value.tokens.access_token &&

@@ -16,6 +16,11 @@ type RenderWidget = (
 
 /** What declaring a widget to the agent needs; `render` stays with whoever draws it. */
 export type WidgetDeclaration = Pick<WidgetDefinition, "description" | "parameters">
+type HostExecutionGuard = (
+  name: string,
+  declaration: HostToolDefinition,
+  toolCallId?: string,
+) => () => HostToolDefinition
 
 /** The full tool set declared to the agent; `render_widget` only when widgets are registered. */
 export function buildAgentTools(
@@ -23,11 +28,12 @@ export function buildAgentTools(
   hostTools: Record<string, HostToolDefinition>,
   renderWidget: RenderWidget,
   debug?: DebugLogger,
+  guardHostExecution?: HostExecutionGuard,
 ) {
   return [
     ...(Object.keys(widgets).length > 0 ? [buildRenderWidgetTool(widgets, renderWidget)] : []),
     buildAskQuestionnaireTool(),
-    ...buildHostTools(hostTools, debug),
+    ...buildHostTools(hostTools, debug, guardHostExecution),
   ]
 }
 
@@ -128,14 +134,19 @@ function buildAskQuestionnaireTool() {
 }
 
 /** Wraps the host's mount-time tools as client tools the agent can call. */
-function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: DebugLogger) {
+function buildHostTools(
+  tools: Record<string, HostToolDefinition>,
+  debug?: DebugLogger,
+  guardHostExecution?: HostExecutionGuard,
+) {
   return Object.entries(tools).map(([name, tool]) =>
     toolDefinition({
       name,
       description: tool.description,
       inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
       ...(tool.metadata ? { metadata: tool.metadata } : {}),
-    }).client(async (input: unknown) => {
+    }).client(async (input: unknown, context) => {
+      const resolve = guardHostExecution?.(name, tool, context?.toolCallId)
       debug?.("tool", `executing host tool "${name}"`, { input })
       const validated = await validateParameters(
         tool.parameters,
@@ -145,8 +156,10 @@ function buildHostTools(tools: Record<string, HostToolDefinition>, debug?: Debug
         debug?.("error", `input for host tool "${name}" failed schema validation`, { input })
         throw new Error(`Input for tool "${name}" failed schema validation`)
       }
+      context?.abortSignal?.throwIfAborted()
+      const current = resolve?.() ?? tool
       try {
-        const output = await tool.execute(validated)
+        const output = await current.execute(validated)
         try {
           canonicalInterruptJson(output)
         } catch {

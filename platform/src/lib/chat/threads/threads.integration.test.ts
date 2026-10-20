@@ -26,7 +26,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
-import { prepareManagedChat } from "./commands"
+import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
   agent,
@@ -1225,6 +1225,66 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         (message) => message.id === next.assistantMessage!.id,
       )!.state,
     ).toBe("interrupted")
+  })
+
+  test("response preflight rejects viewer, client and target mismatches before validating output", async () => {
+    const thread = await create()
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 0,
+        tenantUserId: other.tenantUserId,
+        role: "viewer",
+      }),
+    )
+    const admitted = await admit(thread.id)
+    const claim = admitted.claim!
+    const partId = "019a0800-0000-7000-8000-000000000003"
+    await runtime.runPromise(
+      service.checkpoint({
+        claim,
+        state: "complete",
+        payload: chatTestToolPayload({
+          id: partId,
+          type: "tool-call",
+          toolCallId: "preflight-call",
+          name: "update_record",
+          arguments: "{}",
+          executionLocation: "browser",
+          declaration: { outputSchema: { type: "integer", minimum: 1, maximum: 5 } },
+          targets: [{ id: targetA, tenantUserId: scope.tenantUserId, clientId: targetA }],
+        }),
+      }),
+    )
+    await runtime.runPromise(service.finish({ claim }))
+    const result = {
+      sourceMessageId: claim.assistantMessageId,
+      sourcePartId: partId,
+      responseTargetId: targetA,
+      outcome: "succeeded" as const,
+      output: 100,
+    }
+    const submit = (selectedScope: ChatThreadScope, clientId: string, changed = result) =>
+      runtime.runPromise(
+        resolveManagedChatTools({
+          scope: selectedScope,
+          id: thread.id,
+          clientId,
+          results: [changed],
+        }),
+      )
+    await expect(submit(other, targetA)).rejects.toMatchObject({ _tag: "ChatThreadForbidden" })
+    await expect(submit(scope, "wrong-client")).rejects.toMatchObject({
+      _tag: "ChatThreadForbidden",
+    })
+    await expect(
+      submit(scope, targetA, { ...result, responseTargetId: targetB }),
+    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    await expect(submit(scope, targetA)).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    expect(await submit(scope, targetA, { ...result, output: 3 })).toMatchObject({
+      claim: { threadId: thread.id },
+    })
   })
 
   test("resolves earlier tools during newer execution and continues once after all response targets answer", async () => {

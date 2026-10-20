@@ -106,6 +106,12 @@ export interface ResolveToolsInput extends ThreadInput {
   readonly results: readonly ChatToolResolution[]
   readonly clientId: string
 }
+interface ToolResponseAuthority {
+  partId: string
+  targetId: string
+  clientId: string
+  outcome: "succeeded" | "failed" | "skipped" | "unknown"
+}
 
 type Executor = Pick<EffectDatabase, "select" | "insert" | "update" | "delete" | "execute">
 const threadExecutionActive = sql<boolean>`exists (
@@ -769,6 +775,33 @@ const unresolvedCalls = Effect.fnUntraced(function* (
 
 export type PendingChatInteraction = Effect.Success<ReturnType<typeof unresolvedCalls>>[number]
 
+function authorizeChatToolResponse(input: {
+  scope: ChatThreadScope
+  role: ChatParticipantRole
+  part: Schema.JsonObject
+  target: Schema.JsonObject
+  server: boolean
+  clientId?: string | undefined
+  outcome: unknown
+}) {
+  const targetUser = input.target.tenantUserId === input.scope.tenantUserId
+  const interaction = input.part.name === "ask_questionnaire" || input.part.name === "render_widget"
+  const abandon = input.outcome === "unknown" && (targetUser || input.role === "manager")
+  const denied =
+    input.part.executionLocation === "browser"
+      ? input.server
+        ? input.outcome !== "failed"
+        : !(
+            abandon ||
+            (targetUser &&
+              (interaction ||
+                input.target.clientId === undefined ||
+                input.target.clientId === input.clientId))
+          )
+      : !input.server && !abandon
+  return denied ? Effect.fail(new ChatThreadForbidden()) : Effect.succeed(abandon)
+}
+
 const appendResults = Effect.fnUntraced(function* (
   db: Executor,
   input: ThreadInput,
@@ -819,21 +852,15 @@ const appendResults = Effect.fnUntraced(function* (
         ),
       )
       .for("update")
-    const targetUser = target.tenantUserId === input.scope.tenantUserId
-    const interaction = part.name === "ask_questionnaire" || part.name === "render_widget"
-    const abandon =
-      result.payload.parts[0]?.outcome === "unknown" && (targetUser || row.role === "manager")
-    const browserDenied =
-      part.executionLocation === "browser" &&
-      (server
-        ? result.payload.parts[0]?.outcome !== "failed"
-        : !(
-            abandon ||
-            (targetUser &&
-              (interaction || target.clientId === undefined || target.clientId === clientId))
-          ))
-    const serverDenied = part.executionLocation !== "browser" && !server && !abandon
-    if (browserDenied || serverDenied) return yield* new ChatThreadForbidden()
+    const abandon = yield* authorizeChatToolResponse({
+      scope: input.scope,
+      role: row.role,
+      part,
+      target,
+      server,
+      clientId,
+      outcome: result.payload.parts[0]?.outcome,
+    })
     if (existing) {
       const accepted = existing.payload.parts[0]
       const submitted = result.payload.parts[0]
@@ -955,7 +982,7 @@ export class ChatThreads extends Context.Service<
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
     readonly getMessage: (
-      input: ThreadInput & { messageId: string },
+      input: ThreadInput & { messageId: string; response?: ToolResponseAuthority },
     ) => Effect.Effect<MessageRecord, ChatThreadError>
     readonly rename: (
       input: ThreadInput & { lockVersion: number; title: string },
@@ -1231,12 +1258,58 @@ export class ChatThreads extends Context.Service<
             }),
           ),
       )
-      const getMessage = Effect.fn("ChatThreads.getMessage")(function* (
-        input: ThreadInput & { messageId: string },
-      ) {
-        yield* readThread(db, input)
-        return yield* readMessage(db, input, input.messageId)
-      }, mapDatabaseErrors())
+      const getMessage = Effect.fn("ChatThreads.getMessage")(
+        (input: ThreadInput & { messageId: string; response?: ToolResponseAuthority }) =>
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              const row = yield* readThread(tx, input)
+              if (input.response) yield* requireRole(row)
+              const source = yield* readMessage(tx, input, input.messageId)
+              if (input.response) {
+                const { partId, targetId, clientId, outcome } = input.response
+                const part = source.payload.parts.find(
+                  (entry) => entry.type === "tool-call" && entry.id === partId,
+                )
+                const target = part && toolTargets(part).find((entry) => entry.id === targetId)
+                const [response] = yield* tx
+                  .select()
+                  .from(chatToolResponse)
+                  .where(
+                    and(
+                      chatResponseWhere(input.scope, input.id),
+                      eq(chatToolResponse.id, targetId),
+                      eq(chatToolResponse.toolPartId, partId),
+                    ),
+                  )
+                if (
+                  source.role !== "assistant" ||
+                  source.state !== "complete" ||
+                  !part ||
+                  !target ||
+                  !response
+                )
+                  return yield* new ChatThreadInvalid()
+                yield* authorizeChatToolResponse({
+                  scope: input.scope,
+                  role: row.role,
+                  part,
+                  target,
+                  server: false,
+                  clientId,
+                  outcome,
+                })
+                if (
+                  !response.resultMessageId &&
+                  !(yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)).some(
+                    (entry) => entry.id === source.id,
+                  )
+                )
+                  return yield* new ChatThreadConflict()
+              }
+              return source
+            }),
+          ),
+      )
 
       const rename = Effect.fn("ChatThreads.rename")(
         (input: ThreadInput & { lockVersion: number; title: string }) =>

@@ -38,7 +38,7 @@ import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
 import { McpConnections } from "./mcp.server.ts"
 import { McpAuthorization } from "./authorization.server.ts"
-import { decryptDatabaseValue } from "@/db/lib/encryption"
+import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { McpAttemptEnvelopeSchema } from "./schemas.ts"
 import { startMcpFixture } from "./fixture.ts"
@@ -122,7 +122,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           endpointUrl: "https://fixture.example/mcp",
           authConfig: {
             kind: "oauth",
-            profile: "standard",
+            profile: manual ? "google" : "standard",
             requestedScopes: ["read"],
             ...(manual
               ? {
@@ -216,6 +216,100 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .set({ credentials: { ...envelope, credential: { ...envelope.credential, expiresAt: 0 } } })
         .where(eq(mcpConnection.id, reference.id))
     }
+    test.each([false, true])(
+      "Google rejects an untrusted initial authority, spoofed metadata=%s",
+      async (spoofed) => {
+        const { reference } = await createOAuth(false, true)
+        fixture.state.issuer = "https://attacker.example"
+        if (spoofed) fixture.state.metadataIssuer = "https://accounts.google.com"
+        await expect(authorize(reference)).rejects.toThrow()
+        expect(fixture.state.tokenRequests).toBe(0)
+        expect(fixture.state.registrations).toBe(0)
+      },
+    )
+    test.each([false, true])(
+      "Google refuses invalid cached issuer binding before token use or refresh, expired=%s",
+      async (expired) => {
+        const { reference } = await connectedOAuth(true)
+        if (expired) await expire(reference)
+        const [row] = await db
+          .select()
+          .from(mcpConnection)
+          .where(eq(mcpConnection.id, reference.id))
+        const envelope = row!.credentials!
+        if (envelope.credential.kind !== "oauth") throw new Error("OAuth fixture required")
+        const credential = envelope.credential
+        for (const changed of [
+          { ...credential, clientInformation: { ...credential.clientInformation, issuer: null } },
+          {
+            ...credential,
+            discovery: {
+              ...credential.discovery,
+              authorizationServerUrl: "https://attacker.example",
+            },
+          },
+        ]) {
+          await db
+            .update(mcpConnection)
+            .set({ credentials: { ...envelope, credential: changed } })
+            .where(eq(mcpConnection.id, reference.id))
+          await expect(
+            authority((service) => service.getCredential({ actor, reference })),
+          ).rejects.toThrow()
+          expect(
+            (await connections((service) => service.catalog(actor))).connections[0]!.authState,
+          ).toBe("reauthorization_required")
+          expect(fixture.state.tokenRequests).toBe(1)
+          expect(fixture.state.refreshes).toBe(0)
+        }
+        await db
+          .update(mcpConnection)
+          .set({ credentials: envelope })
+          .where(eq(mcpConnection.id, reference.id))
+        expect(
+          Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
+        ).toMatchObject({ kind: "oauth" })
+        expect(fixture.state.refreshes).toBe(expired ? 1 : 0)
+      },
+    )
+    test.each([false, true])(
+      "Google rejects legacy unbound attempts before callback or completion, exchanged=%s",
+      async (exchanged) => {
+        const { reference } = await createOAuth(false, true)
+        const flow = await authorize(reference)
+        if (exchanged) await callback(flow)
+        const [entry] = await db
+          .select()
+          .from(cacheEntry)
+          .where(eq(cacheEntry.namespace, "mcp-oauth"))
+        const decoded = Result.getOrThrow(
+          decryptDatabaseValue({
+            storedValue: JSON.parse(entry!.value),
+            schema: McpAttemptEnvelopeSchema,
+            keyring: getDatabaseEncryptionKeyring(),
+          }),
+        ).value
+        const encrypted = Result.getOrThrow(
+          encryptDatabaseValue({
+            value: {
+              ...decoded,
+              clientInformation: { ...decoded.clientInformation, issuer: null },
+            },
+            schema: McpAttemptEnvelopeSchema,
+            keyring: getDatabaseEncryptionKeyring(),
+          }),
+        )
+        await db
+          .update(cacheEntry)
+          .set({ value: JSON.stringify(encrypted) })
+          .where(eq(cacheEntry.id, entry!.id))
+        const rejected = exchanged
+          ? authority((service) => service.complete({ actor, reference: flow.started.attempt }))
+          : callback(flow)
+        await expect(rejected).rejects.toThrow()
+        expect(fixture.state.tokenRequests).toBe(exchanged ? 1 : 0)
+      },
+    )
     test.each([
       [false, false, true],
       [false, false, false],

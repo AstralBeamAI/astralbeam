@@ -365,6 +365,7 @@ export function createAstralBeamChat(
   let identity: string | undefined
   let started = false
   let selectionGeneration = 0
+  let toolExecutionGeneration = 0
   let historyGeneration = 0
   let hydration: Promise<unknown> = Promise.resolve()
   let requestController = new AbortController()
@@ -581,8 +582,38 @@ export function createAstralBeamChat(
     }
   }
 
-  const buildTools = () =>
-    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug).map((tool) => {
+  const buildTools = () => {
+    const selection = selectionGeneration
+    return buildAgentTools(
+      live.widgets ?? {},
+      live.tools ?? {},
+      renderWidget,
+      debug,
+      (name, declaration, toolCallId) => {
+        const execution = toolExecutionGeneration
+        const executingClient = client
+        const executingIdentity = identity
+        const apiUrl = authentication.apiUrl
+        return () => {
+          const current =
+            live.tools && Object.hasOwn(live.tools, name) ? live.tools[name] : undefined
+          if (
+            selection !== selectionGeneration ||
+            execution !== toolExecutionGeneration ||
+            executingClient !== client ||
+            executingIdentity !== identity ||
+            apiUrl !== authentication.apiUrl ||
+            state.thread?.role === "viewer" ||
+            !toolCallId ||
+            !liveToolCalls.has(toolCallId) ||
+            !current ||
+            current.parameters !== declaration.parameters
+          )
+            throw new DOMException("Host tool authority changed", "AbortError")
+          return current
+        }
+      },
+    ).map((tool) => {
       if (!tool.execute) return tool
       const execute = tool.execute
       return {
@@ -620,6 +651,7 @@ export function createAstralBeamChat(
         },
       }
     })
+  }
   // Published as state so a UI can label a tool's transcript entry with its own title, including
   // the widget and questionnaire tools this session declares itself.
   const declareTools = () => {
@@ -1474,6 +1506,7 @@ export function createAstralBeamChat(
     // Stop ends the active attempt: a never-dispatched input returns to its sender, and one the
     // server may have stays failed with its key for Retry.
     stop: () => {
+      toolExecutionGeneration++
       if (submission?.phase === "submitting") endUnaccepted(submission)
       client.stop()
     },

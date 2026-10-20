@@ -331,6 +331,12 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
       scope: input.scope,
       id: input.id,
       messageId: result.sourceMessageId,
+      response: {
+        partId: result.sourcePartId,
+        targetId: result.responseTargetId,
+        clientId: input.clientId,
+        outcome: result.outcome,
+      },
     })
     const part = source.payload.parts.find(
       (entry) => entry.type === "tool-call" && entry.id === result.sourcePartId,

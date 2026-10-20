@@ -133,10 +133,12 @@ start_native_storage() {
   mkdir -p "$data_dir" "${log%/*}"
   # Like Compose, the console is enabled through the environment. The `--console-enable` flag
   # takes no value, so a following argument would be read as the data directory.
+  set +x
   RUSTFS_ACCESS_KEY="${RUSTFS_ACCESS_KEY:-development}" \
     RUSTFS_SECRET_KEY="${RUSTFS_SECRET_KEY:-development-only-storage-key}" \
     RUSTFS_CONSOLE_ENABLE=true RUSTFS_CONSOLE_ADDRESS="127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}" \
     nohup rustfs server --address "127.0.0.1:$port" "$data_dir" >"$log" 2>&1 &
+  set -x
   for _ in $(seq 30); do
     if endpoint_is_reachable "http://127.0.0.1:$port"; then return 0; fi
     sleep 1

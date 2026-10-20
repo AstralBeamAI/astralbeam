@@ -7,6 +7,7 @@ import { Agents } from "@/lib/agents/agents.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
+import { ChatThreadForbidden } from "./errors"
 
 const commandOrgId = "019a0000-0000-7000-8000-000000000001"
 const commandTenantId = "019a0000-0000-7000-8000-000000000002"
@@ -29,6 +30,45 @@ const commandParams: ChatParams = {
 }
 
 describe("managed conversation commands", () => {
+  it.effect("authorizes the response target before traversing output or stored schemas", () => {
+    let traversed = 0
+    const output = Object.defineProperty({}, "value", {
+      enumerable: true,
+      get: () => {
+        traversed++
+        return 3
+      },
+    })
+    const layer = Layer.succeed(ChatThreads, {
+      getMessage: ({ response }: Parameters<typeof ChatThreads.Service.getMessage>[0]) => {
+        assert.deepStrictEqual(response, {
+          partId: "part",
+          targetId: commandTenantId,
+          clientId: commandUserId,
+          outcome: "succeeded",
+        })
+        return Effect.fail(new ChatThreadForbidden())
+      },
+    } as unknown as typeof ChatThreads.Service)
+    return Effect.gen(function* () {
+      const error = yield* resolveManagedChatTools({
+        scope: commandScope,
+        id: commandThreadId,
+        clientId: commandUserId,
+        results: [
+          {
+            sourceMessageId: commandThreadId,
+            sourcePartId: "part",
+            responseTargetId: commandTenantId,
+            outcome: "succeeded",
+            output,
+          },
+        ],
+      }).pipe(Effect.flip)
+      assert.equal(error._tag, "ChatThreadForbidden")
+      assert.equal(traversed, 0)
+    }).pipe(Effect.provide(layer))
+  })
   it.effect("validates uploaded content before accepting input", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
