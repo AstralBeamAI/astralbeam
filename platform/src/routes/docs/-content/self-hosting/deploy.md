@@ -115,7 +115,7 @@ For a new installation, run this from its configuration directory with your data
 NODE_ENV=production DATABASE_URL='postgresql://user:password@host:5432/database' astralbeam-platform bootstrap
 ```
 
-`bootstrap` reuses a configured encryption key or appends a generated key to the private environment file. It then migrates and starts the server.
+`bootstrap` reuses a configured encryption key or appends a generated key to the private environment file. It applies migrations and exits. Start the server separately as described below.
 
 When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
 

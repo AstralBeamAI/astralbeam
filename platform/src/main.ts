@@ -88,29 +88,6 @@ function loadBootstrapEnvironment(names: BootstrapVariable[], { promptMissing = 
   }
 }
 
-async function startPlatformServer(): Promise<void> {
-  loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
-  getDatabaseEncryptionKeyring()
-  // Keep server initialization lazy so version and migration commands need no running server.
-  let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
-  if (Bun.isStandaloneExecutable) {
-    // Nitro's traced packages need real paths for package exports and native libraries.
-    // https://bun.sh/docs/bundler/executables#listing-embedded-files
-    const directory = mkdtempSync(join(tmpdir(), "astralbeam-platform-"))
-    process.once("exit", () => rmSync(directory, { recursive: true, force: true }))
-    for (const file of Bun.embeddedFiles) {
-      const { name } = file as Blob & { name: string }
-      if (name.startsWith("server/") || name.startsWith("public/")) {
-        const destination = join(directory, name)
-        mkdirSync(dirname(destination), { recursive: true })
-        writeFileSync(destination, new Uint8Array(await file.arrayBuffer()))
-      }
-    }
-    serverUrl = pathToFileURL(join(directory, "server/index.mjs"))
-  }
-  await import(serverUrl.href)
-}
-
 async function migratePlatformDatabase(dryRun: boolean): Promise<void> {
   const names = await migrateDatabase({ dryRun })
   if (names.length === 0) return console.log("No pending migrations")
@@ -128,11 +105,32 @@ const program = new Command(`${APP_HANDLE}-platform`)
 program
   .command("start", { isDefault: true })
   .description("start the server (the default command)")
-  .action(startPlatformServer)
+  .action(async () => {
+    loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
+    getDatabaseEncryptionKeyring()
+    // Keep server initialization lazy so version and migration commands need no running server.
+    let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
+    if (Bun.isStandaloneExecutable) {
+      // Nitro's traced packages need real paths for package exports and native libraries.
+      // https://bun.sh/docs/bundler/executables#listing-embedded-files
+      const directory = mkdtempSync(join(tmpdir(), "astralbeam-platform-"))
+      process.once("exit", () => rmSync(directory, { recursive: true, force: true }))
+      for (const file of Bun.embeddedFiles) {
+        const { name } = file as Blob & { name: string }
+        if (name.startsWith("server/") || name.startsWith("public/")) {
+          const destination = join(directory, name)
+          mkdirSync(dirname(destination), { recursive: true })
+          writeFileSync(destination, new Uint8Array(await file.arrayBuffer()))
+        }
+      }
+      serverUrl = pathToFileURL(join(directory, "server/index.mjs"))
+    }
+    await import(serverUrl.href)
+  })
 
 program
   .command("bootstrap")
-  .description("generate a missing encryption key, migrate, and start the server")
+  .description("generate a missing encryption key and apply pending migrations")
   .action(async () => {
     getDatabaseUrl()
     loadBootstrapEnvironment(["DATABASE_ENCRYPTION_KEY"], { promptMissing: false })
@@ -149,7 +147,6 @@ program
     }
     getDatabaseEncryptionKeyring()
     await migratePlatformDatabase(false)
-    await startPlatformServer()
   })
 
 program

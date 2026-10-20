@@ -267,7 +267,7 @@ async function runBinaryCheck() {
   await writeFile(join(temporaryDirectory, ".env"), "PORT=1\n")
   const environmentContents = `PORT=${port}\nAPP_BASE_URL=https://dotenv.invalid\nCI=true\nTEST=true\n`
   await writeFile(environmentFile, environmentContents)
-  const binaryProcess = spawn(binaryPath, migrateDatabaseUrl ? ["bootstrap"] : [], {
+  const launchOptions = {
     cwd: temporaryDirectory,
     env: {
       ...binaryEnvironment,
@@ -282,6 +282,15 @@ async function runBinaryCheck() {
         : processEnvironment.DATABASE_ENCRYPTION_KEY,
       PORT: undefined,
     },
+  }
+  if (migrateDatabaseUrl) {
+    await runBinaryCheckCommand(binaryPath, ["bootstrap"], {
+      ...launchOptions,
+      timeout: BINARY_CHECK_START_TIMEOUT_MS,
+    })
+  }
+  const binaryProcess = spawn(binaryPath, [], {
+    ...launchOptions,
     stdio: ["ignore", "inherit", "inherit"],
   })
   const status = once(binaryProcess, "exit")
