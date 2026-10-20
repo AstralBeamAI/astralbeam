@@ -47,10 +47,7 @@ type AccessFailure = SignInRequired | OrganizationNotFound | OrganizationAccessD
 export class Organizations extends Context.Service<
   Organizations,
   {
-    /**
-     * Turns a URL slug into the organization the user actually belongs to, or `null`. Better
-     * Auth's `member` has no `(organization_id, user_id)` uniqueness, so the order is explicit.
-     */
+    /** Turns a URL slug into the organization the user actually belongs to, or `null`. */
     readonly membership: (input: {
       readonly organizationSlug: string
       readonly userId: string

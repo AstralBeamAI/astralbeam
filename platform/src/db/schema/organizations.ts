@@ -390,8 +390,7 @@ export const member = snakeCase.table(
       columns: [table.organizationId, table.avatarFileId],
       foreignColumns: [fileObject.organizationId, fileObject.id],
     }),
-    // Keep Better Auth's generated member shape: organization and user are referenced independently, while its official APIs enforce membership creation. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/better-auth/src/plugins/organization/schema.ts#L140-L166
-    index("member_organization_id_idx").on(table.organizationId),
+    uniqueIndex("member_organization_user_uidx").on(table.organizationId, table.userId),
     index("member_user_id_idx").on(table.userId),
     deferrableForeignKey({
       columns: [table.organizationId],
