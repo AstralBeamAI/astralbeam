@@ -90,7 +90,7 @@ Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL d
 
 ## 3. Set the bootstrap environment
 
-Only two variables are required. Both are read once per process, so changing either needs a restart.
+Set `NODE_ENV=production` when launching standalone binaries in production. The Docker image already sets it. Database variables are read once per process, so changing either needs a restart.
 
 | Variable | Required | Notes |
 | --- | --- | --- |
@@ -107,7 +107,17 @@ Each process starts an embedded cluster runner and lets Effect initialize or mig
 
 Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
-When either database variable is missing from the environment, `astralbeam-platform` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
+The binary loads [Bun's standard environment files](https://bun.com/docs/runtime/environment-variables) from the current working directory according to `NODE_ENV`. Existing environment variables take precedence.
+
+For a new installation, run this from its configuration directory with your database URL:
+
+```sh
+NODE_ENV=production DATABASE_URL='postgresql://user:password@host:5432/database' astralbeam-platform bootstrap
+```
+
+`bootstrap` reuses a configured encryption key or appends a generated key to the private environment file. It then migrates and starts the server.
+
+When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
 
 Run this command to generate a high-entropy encryption value:
 
@@ -117,7 +127,7 @@ openssl rand -base64 32
 
 Keep it in your deployment's secret manager. The keyring is hashed into key material, so length and hashing do not rescue a weak passphrase, and losing the first entry means losing every stored secret.
 
-A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. With either variable missing or invalid, `/configure` renders a "Server restart required" page naming the offending variables instead of the editor.
+A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. The binary exits before server startup when the key is missing or invalid. Development servers show the "Server restart required" page at `/configure` when either variable is missing or invalid.
 
 ## 4. Start the server
 
@@ -133,7 +143,7 @@ After=network-online.target
 [Service]
 User=astralbeam
 EnvironmentFile=/etc/astralbeam/env
-Environment=PORT=3000
+Environment=NODE_ENV=production PORT=3000
 ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
 
@@ -179,7 +189,7 @@ The encryption key grants access to every encrypted value in the database, so `/
 Open your deployment's `/configure` page in a browser. Every other page redirects there until setup is complete.
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
-2. On a new database, the page shows the pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
+2. The page shows any pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
 3. Fill in the required settings: the application base URL, support email address, private file storage, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery and OAuth clients as needed. Each organization configures its model connections in **Models**, then assigns enabled models to its agents. Every deployment setting is described in [Configuration](./configuration.md).
 4. Under **Owner onboarding**, invite the first owner, then use the invitation email to set their password.
 5. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
@@ -216,10 +226,10 @@ Let's move a running deployment to a newer release. Read the release notes first
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
    ```sh
-   astralbeam-platform migrate
+   NODE_ENV=production astralbeam-platform migrate
    ```
 
-   It prompts for `DATABASE_URL` when neither the environment nor [the saved file](#3-set-the-bootstrap-environment) has it. You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
+   It fails if `DATABASE_URL` is missing from the environment, including [automatically loaded files](#3-set-the-bootstrap-environment). You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
 
 3. Run this command to restart the service, since the running process keeps serving the old binary until then:
 

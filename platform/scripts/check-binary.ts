@@ -1,9 +1,12 @@
-import { type ChildProcess, execFile, spawn } from "node:child_process"
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises"
+import { type ChildProcess, execFile, spawn, spawnSync } from "node:child_process"
+import { once } from "node:events"
+import { rmSync } from "node:fs"
+import { mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { env as processEnvironment, kill as killProcess } from "node:process"
+import process, { env as processEnvironment, platform } from "node:process"
+import { setTimeout as delay } from "node:timers/promises"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
@@ -53,7 +56,7 @@ async function fetchBinaryCheckResponse(url: URL, options?: BunFetchRequestInit)
     } catch (error) {
       lastError = error
     }
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await delay(100)
   }
 
   throw new Error(`Binary did not serve ${url.pathname} within 20 seconds`, {
@@ -141,38 +144,21 @@ async function checkBinaryDocsDiscovery(baseUrl: URL) {
   }
 }
 
-function waitForBinaryCheckProcess(binaryProcess: ChildProcess) {
-  if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
-    return Promise.resolve()
-  }
-  return new Promise<void>((resolve, reject) => {
-    binaryProcess.once("error", reject)
-    binaryProcess.once("exit", () => resolve())
-  })
-}
-
-function signalBinaryCheckProcess(binaryProcess: ChildProcess, signal: NodeJS.Signals) {
-  const processId = binaryProcess.pid
-  if (processId === undefined) throw new Error("Binary process did not start")
-  killProcess(processId, signal)
-}
-
-async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promise<void>) {
+async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promise<unknown>) {
   if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
     throw new Error("Binary exited before completing its smoke check")
   }
-  signalBinaryCheckProcess(binaryProcess, "SIGTERM")
-  const stopped = await Promise.race([
-    status.then(() => true),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), 5_000)),
-  ])
+  const processId = binaryProcess.pid
+  if (processId === undefined) throw new Error("Binary process did not start")
+  process.kill(processId, "SIGTERM")
+  const stopped = await Promise.race([status.then(() => true), delay(5_000, false)])
   if (stopped) {
     if (binaryProcess.exitCode !== 0) {
       throw new Error("Binary did not exit cleanly after SIGTERM")
     }
     return
   }
-  signalBinaryCheckProcess(binaryProcess, "SIGKILL")
+  process.kill(processId, "SIGKILL")
   await status
   throw new Error("Binary did not exit within 5 seconds of SIGTERM")
 }
@@ -234,22 +220,71 @@ async function runBinaryCheck() {
     throw new Error("Build output did not contain CSS and JavaScript")
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
+  process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
+  const unreachableDatabaseUrl = "postgres://localhost:1/binary_check_test"
+  const binaryEnvironment: Record<string, string | undefined> = {
+    ...processEnvironment,
+    HOME: temporaryDirectory,
+    USERPROFILE: temporaryDirectory,
+    NODE_ENV: "production",
+    DATABASE_URL: unreachableDatabaseUrl,
+    DATABASE_ENCRYPTION_KEY: undefined,
+  }
+  function checkBinaryFailure(
+    args: readonly string[],
+    environment: Record<string, string | undefined>,
+    expectedError = "DATABASE_ENCRYPTION_KEY must",
+  ) {
+    const rejected = spawnSync(binaryPath, args, {
+      cwd: temporaryDirectory,
+      env: { ...binaryEnvironment, ...environment },
+      encoding: "utf8",
+      timeout: 5_000,
+      killSignal: "SIGKILL",
+    })
+    if (rejected.status !== 1 || !rejected.stderr.includes(expectedError)) {
+      throw new Error(`Binary ${args[0] ?? "start"} did not reject ${expectedError}`)
+    }
+  }
+  const environmentFile = join(temporaryDirectory, ".env.local")
+  for (const value of [undefined, ""]) {
+    checkBinaryFailure([], { DATABASE_ENCRYPTION_KEY: value })
+    for (const command of ["migrate", "bootstrap"]) {
+      checkBinaryFailure([command], { DATABASE_URL: value }, "DATABASE_URL")
+    }
+  }
+  await writeFile(
+    join(temporaryDirectory, ".env.development.local"),
+    `DATABASE_URL=${unreachableDatabaseUrl}\n`,
+  )
+  checkBinaryFailure(["bootstrap"], {
+    DATABASE_URL: undefined,
+    DATABASE_ENCRYPTION_KEY: "invalid",
+    NODE_ENV: "development",
+  })
   const port = await reserveBinaryCheckPort()
   const baseUrl = new URL(`http://127.0.0.1:${port}`)
-  const binaryProcess = spawn(binaryPath, [], {
+  await writeFile(join(temporaryDirectory, ".env"), "PORT=1\n")
+  const environmentContents = `PORT=${port}\nAPP_BASE_URL=https://dotenv.invalid\nCI=true\nTEST=true\n`
+  await writeFile(environmentFile, environmentContents)
+  const binaryProcess = spawn(binaryPath, migrateDatabaseUrl ? ["bootstrap"] : [], {
     cwd: temporaryDirectory,
     env: {
-      ...processEnvironment,
+      ...binaryEnvironment,
       // Exercise production shutdown. srvx skips signal handlers when CI or TEST is set.
       // https://github.com/h3js/srvx/blob/v1.0.5/src/_plugins.ts
       CI: "",
       TEST: "",
       APP_BASE_URL: baseUrl.href,
-      PORT: String(port),
+      DATABASE_URL: migrateDatabaseUrl ?? processEnvironment.DATABASE_URL,
+      DATABASE_ENCRYPTION_KEY: migrateDatabaseUrl
+        ? undefined
+        : processEnvironment.DATABASE_ENCRYPTION_KEY,
+      PORT: undefined,
     },
-    stdio: "inherit",
+    stdio: ["ignore", "inherit", "inherit"],
   })
-  const status = waitForBinaryCheckProcess(binaryProcess)
+  const status = once(binaryProcess, "exit")
 
   try {
     for (const path of [
@@ -259,6 +294,18 @@ async function runBinaryCheck() {
       "/api/openapi.json",
     ]) {
       await checkBinaryAssetCompression(new URL(path, baseUrl))
+    }
+    if (migrateDatabaseUrl) {
+      const environment = await readFile(environmentFile, "utf8")
+      if (
+        !environment.startsWith(environmentContents) ||
+        !/^DATABASE_ENCRYPTION_KEY=\S{32,}$/m.test(environment) ||
+        (platform !== "win32" && ((await stat(environmentFile)).mode & 0o777) !== 0o600)
+      ) {
+        throw new Error("Bootstrap did not preserve the environment and securely save its key")
+      }
+      const status = await fetchBinaryCheckResponse(new URL("/api/status", baseUrl))
+      await status.body?.cancel()
     }
 
     const docsUrl = new URL("/docs/sdk/getting-started", baseUrl)
@@ -289,13 +336,8 @@ async function runBinaryCheck() {
     }
     await checkBinaryDocsDiscovery(baseUrl)
   } finally {
-    try {
-      await stopBinaryCheckProcess(binaryProcess, status)
-    } finally {
-      await rm(temporaryDirectory, { recursive: true })
-    }
+    await stopBinaryCheckProcess(binaryProcess, status)
   }
-
   console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }
 

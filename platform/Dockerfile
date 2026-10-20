@@ -11,6 +11,7 @@ RUN test "$(bun --version)" = "$(cat .bun-version)" && bun install --frozen-lock
 COPY --exclude=.git --exclude=**/node_modules --exclude=**/.env* --exclude=**/*.local \
     --exclude=**/dist --exclude=**/.output --exclude=**/.generated \
     --exclude=**/.nitro --exclude=**/.tanstack . .
+ENV NODE_ENV=production
 RUN bun run --cwd sdk build && bun run --cwd platform build
 
 FROM debian:bookworm
