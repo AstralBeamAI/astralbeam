@@ -243,7 +243,11 @@ export function ChatComposer({
               size="icon"
               className="ml-auto"
               tooltip="Stop"
-              onClick={onStop}
+              onClick={(event) => {
+                // A second Send click can land on Stop. Keep keyboard and single-click stops.
+                // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/detail
+                if (event.detail < 2) onStop()
+              }}
             >
               <StopIcon />
             </TooltipButton>

@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, and reset closed-dialog state during render.
+// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, explain its URL role, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, reset closed-dialog state during render, and keep pointer clicks outside the form from dismissing it.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -51,7 +51,7 @@ export function CreateOrganizationDialog({
   const submissionLocked = useRef(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  const { mutate: createOrganization, isPending: isCreating } = useCreateOrganization(authClient, {
+  const { mutate: createOrganization, isPending } = useCreateOrganization(authClient, {
     onSuccess: (organization) => {
       onOpenChange(false)
       return onOrganizationCreated?.(organization)
@@ -89,8 +89,6 @@ export function CreateOrganizationDialog({
     createOrganization({ name, slug })
   }
 
-  const isPending = isCreating
-
   const [prevOpen, setPrevOpen] = useState(open)
   const [prevInitialName, setPrevInitialName] = useState(initialName)
   if (open !== prevOpen || initialName !== prevInitialName) {
@@ -105,7 +103,7 @@ export function CreateOrganizationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} disablePointerDismissal>
       <DialogContent initialFocus={nameInputRef}>
         <form onSubmit={submitOrganizationCreation} className="flex flex-col gap-6">
           <DialogHeader>
@@ -150,7 +148,7 @@ export function CreateOrganizationDialog({
             <GeneratedSlugField
               key={String(open)}
               id="create-organization-slug"
-              label="Slug"
+              label="Organization slug"
               sourceValue={name}
               checkAvailability={checkOrganizationSlug}
               unavailableValue={takenSlug}

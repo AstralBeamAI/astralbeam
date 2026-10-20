@@ -558,11 +558,14 @@ html:has(.prompt-dialog[open]) {
 /* ---------- reveal / scramble ---------- */
 
 .reveal {
-  opacity: 0;
-  transform: translateY(26px);
   transition:
     opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s),
     transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s);
+}
+
+.reveal.reveal-pending {
+  opacity: 0;
+  transform: translateY(26px);
 }
 
 .reveal.in-view {
@@ -953,16 +956,14 @@ main {
   display: block;
   white-space: pre;
   min-height: 1.4em;
-  opacity: 0;
-  transform: translateX(-6px);
   transition:
     opacity 0.25s,
     transform 0.25s;
 }
 
-.t-line.typed {
-  opacity: 1;
-  transform: none;
+.terminal.reveal-pending .t-line:not(.typed) {
+  opacity: 0;
+  transform: translateX(-6px);
 }
 
 .t-line[data-type="out"] {

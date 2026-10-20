@@ -11,6 +11,6 @@ describe("GeneratedSlugField", () => {
     expect(render("Acme Logistics")).toContain('value="acme-logistics"')
     const blank = render("")
     expect(blank).toContain('value=""')
-    expect(blank).not.toContain("Identifier is required")
+    expect(blank).not.toContain("Organization slug is required")
   })
 })

@@ -80,6 +80,22 @@ export function mountAstralBeamChat(
   container.className = WIDGET_CONTAINER_CLASS
   container.style.height = "100%"
   shadowRoot.append(container)
+  const loading = document.createElement("div")
+  loading.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;font:14px system-ui"
+  const status = document.createElement("span")
+  status.setAttribute("role", "status")
+  status.textContent = "Loading chat…"
+  const close = document.createElement("button")
+  close.type = "button"
+  close.textContent = "Close chat"
+  close.style.cssText = "min-width:44px;min-height:44px;padding:8px;font:inherit;cursor:pointer"
+  close.hidden = !live.onClose
+  close.onclick = (event) => {
+    if (event.detail < 2) live.onClose?.()
+  }
+  loading.append(status, close)
+  container.append(loading)
 
   const systemDark = matchMedia("(prefers-color-scheme: dark)")
   // Inline custom properties on the container override the sheet's `:host`/`.dark` blocks by
@@ -103,10 +119,14 @@ export function mountAstralBeamChat(
 
   let unmounted = false
   let chat: ChatHandle | undefined
-  void import("../widget/index.tsx").then(({ renderChat }) => {
-    debug?.("mount", "chat chunk loaded")
-    if (!unmounted) chat = renderChat(shadowRoot, container, live)
-  })
+  void import("../widget/index.tsx")
+    .then(({ renderChat }) => {
+      debug?.("mount", "chat chunk loaded")
+      if (!unmounted) chat = renderChat(shadowRoot, container, live)
+    })
+    .catch(() => {
+      if (!unmounted) status.textContent = "Could not load chat. Reload this page to try again."
+    })
   return {
     update: (next) => {
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
@@ -115,6 +135,7 @@ export function mountAstralBeamChat(
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
       applyTheme()
+      close.hidden = !live.onClose
       chat?.update(live)
     },
     // No-ops until the lazy chunk resolves: with no chat there is nothing to reset or stop.

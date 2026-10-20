@@ -5,7 +5,7 @@ import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { useEffect, useRef, useState } from "react"
 import { useTheme } from "tanstack-router-theme-provider"
 
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { usePublicConfig } from "@/components/public-config-provider"
 
 export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRenderProps) {
@@ -13,6 +13,7 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
   const { theme } = useTheme()
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined)
   const [error, setError] = useState<string>()
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setReset(() => turnstileRef.current?.reset())
@@ -21,15 +22,22 @@ export function TurnstileCaptcha({ setToken, clearToken, setReset }: CaptchaRend
 
   const clearTurnstile = (message: string) => {
     clearToken()
+    setLoading(false)
     setError(message)
   }
 
   return (
     <Field data-invalid={error ? true : undefined}>
       <FieldLabel>Human verification</FieldLabel>
+      {loading && <FieldDescription role="status">Loading human verification…</FieldDescription>}
       <Turnstile
         ref={turnstileRef}
         siteKey={turnstileSiteKey}
+        onWidgetLoad={() => setLoading(false)}
+        scriptOptions={{
+          onError: () =>
+            clearTurnstile("Human verification could not load. Reload this page to try again."),
+        }}
         options={{
           theme: theme === "system" ? "auto" : theme,
           size: "flexible",

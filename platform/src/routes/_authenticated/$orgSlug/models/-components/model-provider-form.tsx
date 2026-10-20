@@ -247,11 +247,12 @@ export function ModelProviderForm({
                   : undefined
               }
               description={
-                existing?.credentialsReadable
+                `Get an API key from your ${modelProviderDescriptors[providerType].label} account, or from the service behind a custom API URL. Organization API keys cannot connect model providers. ` +
+                (existing?.credentialsReadable
                   ? baseUrlChanged
                     ? `Stored key ends in ${existing.apiKeyHint}. It applies only to the saved API URL.`
                     : `Stored key ends in ${existing.apiKeyHint}. Leave blank to keep it.`
-                  : "Encrypted when saved. The stored key is never returned to your browser."
+                  : "Encrypted when saved. The stored key is never returned to your browser.")
               }
             />
             <Collapsible

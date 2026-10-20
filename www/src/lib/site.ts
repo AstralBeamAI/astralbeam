@@ -9,9 +9,9 @@ export const siteMetadata = {
     "Embed a Cursor-style agent in your product. It answers questions, takes action in your app, renders your UI components, and works with users' files.",
   email: "hello@astralbeam.ai",
   links: {
-    signUp: `${origin}/auth/sign-up`,
-    logIn: `${origin}/auth/sign-in`,
-    docs: `${origin}/docs`,
+    signUp: "/auth/sign-up",
+    logIn: "/auth/sign-in",
+    docs: "/docs",
     github: "https://github.com/astralbeamai/astralbeam",
     discord: "https://discord.gg/suehFycUvW",
     x: "https://x.com/AstralBeamAI",

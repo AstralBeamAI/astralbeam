@@ -32,7 +32,6 @@ export type GeneratedSlugFieldProps = {
   /** A value the server has since rejected as taken, overriding an earlier availability check. */
   unavailableValue?: string | undefined
   onAvailabilityChange?: ((availability: SlugAvailability) => void) | undefined
-  formatPreview?: ((value: string) => string) | undefined
   disabled?: boolean | undefined
 }
 
@@ -43,7 +42,6 @@ export function GeneratedSlugField({
   checkAvailability,
   unavailableValue,
   onAvailabilityChange,
-  formatPreview,
   disabled,
 }: GeneratedSlugFieldProps) {
   const [manualValue, setManualValue] = useState<string | null>(null)
@@ -99,11 +97,11 @@ export function GeneratedSlugField({
     value.length === 0
       ? manualValue === null
         ? undefined
-        : "Identifier is required"
+        : "Organization slug is required"
       : !valid
         ? SLUG_VALIDATION_MESSAGE
         : availability === "unavailable"
-          ? "This identifier is not available"
+          ? "This organization slug is not available"
           : undefined
 
   return (
@@ -119,6 +117,7 @@ export function GeneratedSlugField({
           required
           disabled={disabled}
           aria-invalid={!!error}
+          aria-describedby={`${id}-description${error ? ` ${id}-error` : ""}`}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
@@ -130,16 +129,10 @@ export function GeneratedSlugField({
           {availability === "unavailable" && <XIcon className="text-destructive" />}
         </InputGroupAddon>
       </InputGroup>
-      <FieldDescription>
-        {formatPreview && valid ? (
-          <>
-            Public ID: <span className="font-mono">{formatPreview(value)}</span>.
-          </>
-        ) : (
-          "Use lowercase letters, numbers, and hyphens only."
-        )}
+      <FieldDescription id={`${id}-description`}>
+        Used in your dashboard URL. Use lowercase letters, numbers, and hyphens.
       </FieldDescription>
-      <FieldError>{error}</FieldError>
+      <FieldError id={`${id}-error`}>{error}</FieldError>
     </Field>
   )
 }

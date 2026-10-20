@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and read the stored email during render once hydrated.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated.
 
 "use client"
 
@@ -80,10 +80,13 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
 
       <CardContent>
         <div className="flex flex-col gap-4">
-          <FieldDescription>{localization.auth.checkYourEmail}</FieldDescription>
+          <FieldDescription>
+            {localization.auth.checkYourEmail}. Check your spam folder if it is missing.
+          </FieldDescription>
 
           {email && (
             <div className="flex flex-col gap-3">
+              <p className="break-all text-sm font-medium">{email}</p>
               <OpenEmailButton email={email} />
 
               <Button
@@ -111,6 +114,12 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
         </div>
 
         <div className="flex flex-col gap-3 items-center w-full mt-4">
+          <Link
+            href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signUp}`, redirectTo)}
+            className="text-sm underline underline-offset-4"
+          >
+            Use a different email
+          </Link>
           <FieldDescription className="text-center">
             {localization.auth.alreadyVerifiedYourEmail}{" "}
             <Link

@@ -1,11 +1,11 @@
 import { type MouseEvent, useRef } from "react"
 
 import { CheckIcon, CloseIcon, CopyIcon } from "@/components/icons"
-import { siteMetadata } from "@/lib/site"
+import { siteMetadata, siteUrl } from "@/lib/site"
 
 const { signUp: signUpUrl, docs: docsUrl } = siteMetadata.links
 
-const agentPrompt = `Add an AstralBeam agent sidebar/screen to this app by following ${docsUrl}/start/quickstart.md and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount the chat where the sidebar/screen belongs (<AstralBeamChat /> from @astralbeam/sdk/react in React apps, or mountAstralBeamChat from @astralbeam/sdk/client otherwise). Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
+const agentPrompt = `Add an AstralBeam agent sidebar/screen to this app by following ${siteUrl(`${docsUrl}/start/quickstart.md`)} and these steps: install @astralbeam/sdk, add a server endpoint that mints a chat token with createAstralBeamToken for the signed-in user and their tenant, and mount the chat where the sidebar/screen belongs (<AstralBeamChat /> from @astralbeam/sdk/react in React apps, or mountAstralBeamChat from @astralbeam/sdk/client otherwise). Read ASTRALBEAM_API_KEY from the server environment and never expose it to browser code.`
 
 // Toggles the label with a data attribute because nothing on this page re-renders.
 function copyPrompt(event: MouseEvent<HTMLButtonElement>) {

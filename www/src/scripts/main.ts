@@ -192,7 +192,10 @@ function initReveals() {
     { threshold: 0.25, rootMargin: "0px 0px -8% 0px" },
   )
 
-  revealEls.forEach((el) => io.observe(el))
+  revealEls.forEach((el) => {
+    if (el.getBoundingClientRect().top >= window.innerHeight) el.classList.add("reveal-pending")
+    io.observe(el)
+  })
 }
 
 /* ============ terminal typing ============ */
