@@ -5,6 +5,7 @@ import { useState } from "react"
 
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
+import { useIsHydrated } from "@/components/auth/use-is-hydrated"
 import { Button } from "@/components/ui/button"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
@@ -21,6 +22,7 @@ export function OrganizationOnboarding({
   onOrganizationCreated,
 }: OrganizationOnboardingProps) {
   const [createOpen, setCreateOpen] = useState(false)
+  const hydrated = useIsHydrated()
   const suggestedName = suggestOrganizationNameFromEmail(email)
 
   return (
@@ -43,8 +45,8 @@ export function OrganizationOnboarding({
       <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
 
       <div className="flex flex-col items-stretch gap-2 sm:items-start">
-        <Button type="button" onClick={() => setCreateOpen(true)}>
-          Create a new organization
+        <Button type="button" disabled={!hydrated} onClick={() => setCreateOpen(true)}>
+          {hydrated ? "Create a new organization" : "Loading organization setup…"}
         </Button>
         <p className="text-xs text-muted-foreground">
           You will be the organization owner and can add members afterward.

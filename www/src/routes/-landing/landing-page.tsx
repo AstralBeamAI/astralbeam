@@ -95,7 +95,7 @@ export function LandingPage() {
               </div>
               {/* Keep reveal self-contained so this script can animate the hero before hydration.
               https://tanstack.com/router/latest/docs/framework/react/guide/document-head-management */}
-              <ScriptOnce>{`document.querySelectorAll('.hero-copy .reveal').forEach(el=>(${reveal.toString()})(el,!matchMedia('(prefers-reduced-motion: reduce)').matches))`}</ScriptOnce>
+              <ScriptOnce>{`{const els=document.querySelectorAll('.hero-copy .reveal'),animate=!matchMedia('(prefers-reduced-motion: reduce)').matches;if(animate)els.forEach(el=>el.classList.add('reveal-pending'));els.forEach(el=>(${reveal.toString()})(el,animate))}`}</ScriptOnce>
             </div>
 
             <div className="hero-demo reveal" style={cssVars({ "--reveal-delay": ".3s" })}>

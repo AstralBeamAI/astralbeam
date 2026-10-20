@@ -1,12 +1,12 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls.
+// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements.
 
 "use client"
 
 import { authMutationKeys, getAuthLinkURL, isPasswordCompromisedError } from "@better-auth-ui/core"
 import { AuthPrompts, useAuth, useFetchOptions, useSignUpEmail } from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
-import { type SyntheticEvent, useState } from "react"
+import { type SyntheticEvent, useRef, useState } from "react"
 import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +27,7 @@ import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
+import { useIsHydrated } from "./use-is-hydrated"
 
 export type SignUpProps = {
   className?: string
@@ -83,6 +84,8 @@ export function SignUp({
   const invitation = getInvitationContext(redirectTo)
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const isHydrated = useIsHydrated()
+  const signUpSubmitting = useRef(false)
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -120,15 +123,15 @@ export function SignUp({
         navigate({ to: redirectTo })
       }
     },
+    onSettled: () => {
+      signUpSubmitting.current = false
+    },
   })
 
   const signInMutating = useIsMutating({
     mutationKey: authMutationKeys.signIn.all,
   })
-  const signUpMutating = useIsMutating({
-    mutationKey: authMutationKeys.signUp.all,
-  })
-  const isPending = signInMutating + signUpMutating > 0
+  const isPending = !isHydrated || signUpEmailPending || signInMutating > 0
 
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string | undefined
@@ -140,6 +143,8 @@ export function SignUp({
   const submitSignUp = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
 
+    if (isPending || signUpSubmitting.current) return
+
     if (!legalAccepted) {
       globalThis.document.querySelector<HTMLElement>("#accept-legal")?.focus()
       return
@@ -147,7 +152,7 @@ export function SignUp({
 
     const formData = new FormData(e.currentTarget)
     // `emailAndPassword.name === false` hides the name field and submits "".
-    const name = (formData.get("name") as string | null) ?? ""
+    const name = ((formData.get("name") as string | null) ?? "").trim()
     const email = formData.get("email") as string
 
     if (emailAndPassword?.confirmPassword && password !== confirmPassword) {
@@ -157,6 +162,7 @@ export function SignUp({
       return
     }
 
+    signUpSubmitting.current = true
     signUpEmail({
       name,
       email,
@@ -172,7 +178,7 @@ export function SignUp({
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
   const providerButtons = socialProviders?.length ? (
     <ProviderButtons
-      disabled={!legalAccepted}
+      disabled={isPending || !legalAccepted}
       {...(socialLayout === undefined ? {} : { socialLayout })}
       {...(legalAcceptanceRequired ? { termsAccepted } : {})}
       view="signUp"
@@ -196,6 +202,7 @@ export function SignUp({
 
       <CardContent>
         <div className="flex flex-col gap-6">
+          {!isHydrated && <p role="status">Loading sign-up form…</p>}
           {socialPosition === "top" && (
             <>
               {providerButtons}
@@ -222,6 +229,7 @@ export function SignUp({
                       autoComplete="name"
                       placeholder={localization.auth.namePlaceholder}
                       required
+                      pattern=".*\S.*"
                       disabled={isPending}
                       onChange={() => {
                         setFieldErrors((prev) => ({
@@ -238,9 +246,10 @@ export function SignUp({
                         }))
                       }}
                       aria-invalid={!!fieldErrors.name}
+                      aria-describedby={fieldErrors.name ? "signup-name-error" : undefined}
                     />
 
-                    <FieldError>{fieldErrors.name}</FieldError>
+                    <FieldError id="signup-name-error">{fieldErrors.name}</FieldError>
                   </Field>
                 )}
 
@@ -317,8 +326,13 @@ export function SignUp({
                       }))
                     }}
                     aria-invalid={!!fieldErrors.password}
+                    aria-describedby="signup-password-requirements"
                   />
 
+                  <FieldDescription id="signup-password-requirements">
+                    Use {emailAndPassword.minPasswordLength}–{emailAndPassword.maxPasswordLength}{" "}
+                    characters.
+                  </FieldDescription>
                   <FieldError>{fieldErrors.password}</FieldError>
 
                   <PasswordStrengthMeter password={password} />

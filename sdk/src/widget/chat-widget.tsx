@@ -336,7 +336,16 @@ export function ChatWidget({
   // Closable chat fills the mobile viewport without changing its preferred desktop width.
   const showHeader = options.showHeader !== false
   const closeButton = options.onClose && (
-    <TooltipButton variant="ghost" size="icon-sm" tooltip="Close chat" onClick={options.onClose}>
+    <TooltipButton
+      variant="ghost"
+      size="icon-sm"
+      tooltip="Close chat"
+      onClick={(event) => {
+        // The second click on a host's opener can land on the newly rendered close control.
+        // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/detail
+        if (event.detail < 2) options.onClose?.()
+      }}
+    >
       <XIcon />
     </TooltipButton>
   )
@@ -377,7 +386,8 @@ export function ChatWidget({
             size="icon-sm"
             tooltip="New chat"
             disabled={!chatState.thread && messages.length === 0}
-            onClick={() => {
+            onClick={(event) => {
+              if (event.detail > 1) return
               resetThread()
               focusComposer()
             }}
