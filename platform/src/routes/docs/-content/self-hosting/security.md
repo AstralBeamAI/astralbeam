@@ -65,7 +65,7 @@ Framing is denied everywhere, including the API paths, because the embedded widg
 
 `X-Forwarded-Host` and `X-Forwarded-Proto` are honored on `/configure` only when the request's own peer is a loopback address. That is the rule the deployment topology has to satisfy.
 
-- Run the reverse proxy on the same host as the application and have it connect over loopback.
+- Connect the reverse proxy over loopback in the application's network namespace. A host-published container port does not satisfy this.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
 - Prevent any other client from reaching the application port directly. A remote caller cannot satisfy the HTTPS requirement with a forged header, but it should not be able to try either.
 

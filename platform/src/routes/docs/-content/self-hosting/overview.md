@@ -16,7 +16,7 @@ bun run --cwd platform build
 
 Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.
 
-**NOTE**: There is no Dockerfile for the application and no published container image.
+Linux AMD64 and ARM64 images are available at `ghcr.io/astralbeamai/astralbeam-platform`. [Deploy](./deploy.md#containers) covers running or building an image with your own database and storage.
 
 ## What you need alongside it
 

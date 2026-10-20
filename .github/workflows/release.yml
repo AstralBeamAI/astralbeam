@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: Build and verify everything without creating the release or staging the SDK
+        description: Build and verify everything without publishing images, creating the release, or staging npm packages
         type: boolean
         default: true
 
@@ -15,10 +15,6 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-
-env:
-  # A tag push carries no inputs, so an absent `dry-run` means a real release.
-  DRY_RUN: ${{ inputs.dry-run || false }}
 
 jobs:
   verify:
@@ -53,7 +49,7 @@ jobs:
           fi
 
       - name: Verify publishing target
-        if: ${{ env.DRY_RUN != 'true' }}
+        if: ${{ !inputs.dry-run }}
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -214,6 +210,34 @@ jobs:
             exit 1
           fi
           gh release create "$tag" --verify-tag --latest --generate-notes astralbeam-* SHA256SUMS
+
+  docker-image:
+    name: Build and publish the Docker image
+    needs: [verify, build, github-release]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.github-release.result == 'success') }}
+    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      output: image
+      push: ${{ !inputs.dry-run }}
+      file: platform/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      cache: true
+      cache-mode: max
+      meta-images: ghcr.io/astralbeamai/astralbeam-platform
+      meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
+      labels: |
+        org.opencontainers.image.version=${{ needs.verify.outputs.version }}
+        org.opencontainers.image.revision=${{ github.sha }}
+      sbom: true
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
   stage-npm:
     name: Stage the SDK and CLI on npm
