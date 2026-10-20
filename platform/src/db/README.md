@@ -100,8 +100,6 @@ The seed skips configuration keys with an uppercase environment override. When `
 
 ## Drizzle migration workflow
 
-The unique-membership migration stops when duplicate Organization/user rows disagree on roles. Before upgrading, privately review `SELECT organization_id, user_id, array_agg(id ORDER BY id) AS member_ids, array_agg(role ORDER BY id) AS roles FROM member GROUP BY organization_id, user_id HAVING count(*) > 1;` and have the Organization owner reconcile the intended existing role set. Do not combine privileges to resolve a conflict. Equal-role duplicates are consolidated while preserving avatars. The migration briefly blocks Organization, membership, and chat-file writes and retires only unreferenced displaced avatars. Back up before applying it and retain the unique index on application rollback.
-
 Drizzle is schema-first: `src/db/schema.ts` is the hand-authored schema entrypoint, and `generate` compares it with the latest existing Drizzle snapshot rather than the live database. Out-of-band database changes are therefore invisible to generation.
 
 Each generated `src/db/migrations/<timestamp>_<name>/` directory is one migration unit:
