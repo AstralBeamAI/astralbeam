@@ -34,8 +34,8 @@ function readEmbeddedMigrations(): BundledMigration[] {
 
 /** Applies each pending migration atomically, or only lists them, and returns their names. */
 export async function migrateDatabase(options: { dryRun: boolean }): Promise<string[]> {
-  const migrations = readEmbeddedMigrations()
   if (!process.env.DATABASE_URL) throw new Error("'DATABASE_URL' environment variable is not set")
+  const migrations = readEmbeddedMigrations()
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     application_name: `${APP_HANDLE}-platform-migrate`,

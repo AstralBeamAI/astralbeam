@@ -30,7 +30,7 @@
     "ready": "bun run ../scripts/ready.ts check test build count-lines",
     "test": "vitest run",
     "ui": "shadcn",
-    "compile": "bun build --compile --compile-autoload-package-json --no-compile-autoload-dotenv --no-compile-autoload-bunfig --asset .output/server --asset .output/public --asset src/db/migrations --outfile .output/astralbeam-platform src/main.ts"
+    "compile": "NODE_ENV=production bun build --compile --compile-autoload-package-json --compile-autoload-dotenv --no-compile-autoload-bunfig --asset .output/server --asset .output/public --asset src/db/migrations --outfile .output/astralbeam-platform src/main.ts"
   },
   "dependencies": {
     "@astralbeam/sdk": "workspace:*",

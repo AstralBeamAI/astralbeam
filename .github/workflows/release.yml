@@ -174,7 +174,7 @@ jobs:
   github-release:
     name: Create the GitHub release
     # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
-    needs: [verify, build, stage-npm]
+    needs: [verify, build, stage-npm, docker-image]
     if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -213,8 +213,8 @@ jobs:
 
   docker-image:
     name: Build and publish the Docker image
-    needs: [verify, build, github-release]
-    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.github-release.result == 'success') }}
+    needs: [verify, build, stage-npm]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.stage-npm.result == 'success') }}
     uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
     permissions:
       contents: read

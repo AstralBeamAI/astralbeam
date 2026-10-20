@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
 import {
   chmodSync,
   existsSync,
@@ -17,6 +17,7 @@ import { pathToFileURL } from "node:url"
 import { Command } from "commander"
 
 import packageJson from "../package.json" with { type: "json" }
+import { getDatabaseEncryptionKeyring, getDatabaseUrl } from "./db/lib/database-credentials.ts"
 import { migrateDatabase } from "./db/migrate-command.ts"
 import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
 
@@ -24,10 +25,14 @@ const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL connection URL (required)
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
+  NODE_ENV                 set to production for production deployments
   ALLOW_INSECURE           set to true to allow HTTP and non-Secure operator cookies
   PORT                     port the server listens on (default 3000)
 
-Missing database variables are prompted for once and saved to ~/.astralbeam/platform.json.`
+Environment files load from the current working directory.
+Existing environment variables win.
+Start prompts for missing database variables and saves them to ~/.astralbeam/platform.json.
+Bootstrap and migrate require DATABASE_URL in the environment.`
 
 const BOOTSTRAP_ENVIRONMENT_FILE = join(homedir(), ".astralbeam", "platform.json")
 
@@ -54,13 +59,14 @@ type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
 
 // Fills unset variables from the saved file, prompts on a terminal for any still missing, and
 // reports where each value came from.
-function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
+function loadBootstrapEnvironment(names: BootstrapVariable[], { promptMissing = true } = {}): void {
+  const unset = names.filter((name) => process.env[name] === undefined)
   const saved = (
-    existsSync(BOOTSTRAP_ENVIRONMENT_FILE)
+    unset.length && existsSync(BOOTSTRAP_ENVIRONMENT_FILE)
       ? JSON.parse(readFileSync(BOOTSTRAP_ENVIRONMENT_FILE, "utf8"))
       : {}
   ) as Partial<Record<BootstrapVariable, string>>
-  const missing = names.filter((name) => !process.env[name] && !saved[name])
+  const missing = promptMissing ? unset.filter((name) => !saved[name]) : []
   for (const name of missing) {
     const value = prompt(BOOTSTRAP_PROMPTS[name])?.trim()
     if (value) saved[name] = value
@@ -73,7 +79,7 @@ function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
     console.error(`Saved to ${BOOTSTRAP_ENVIRONMENT_FILE}`)
   }
   for (const name of names) {
-    if (process.env[name]) {
+    if (process.env[name] !== undefined) {
       console.error(`Using ${name} from the environment`)
     } else if (saved[name]) {
       process.env[name] = saved[name]
@@ -82,8 +88,13 @@ function loadBootstrapEnvironment(names: BootstrapVariable[]): void {
   }
 }
 
-function pluralMigrations(count: number): string {
-  return `${count} migration${count === 1 ? "" : "s"}`
+async function migratePlatformDatabase(dryRun: boolean): Promise<void> {
+  const names = await migrateDatabase({ dryRun })
+  if (names.length === 0) return console.log("No pending migrations")
+  console.log(
+    `${dryRun ? "Pending" : "Applied"} ${names.length} migration${names.length === 1 ? "" : "s"}:`,
+  )
+  for (const name of names) console.log(`  ${name}`)
 }
 
 const program = new Command(`${APP_HANDLE}-platform`)
@@ -96,6 +107,7 @@ program
   .description("start the server (the default command)")
   .action(async () => {
     loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
+    getDatabaseEncryptionKeyring()
     // Keep server initialization lazy so version and migration commands need no running server.
     let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
     if (Bun.isStandaloneExecutable) {
@@ -117,6 +129,27 @@ program
   })
 
 program
+  .command("bootstrap")
+  .description("generate a missing encryption key and apply pending migrations")
+  .action(async () => {
+    getDatabaseUrl()
+    loadBootstrapEnvironment(["DATABASE_ENCRYPTION_KEY"], { promptMissing: false })
+    if (process.env.DATABASE_ENCRYPTION_KEY === undefined) {
+      const environmentPath = join(process.cwd(), ".env.local")
+      const key = randomBytes(32).toString("base64url")
+      if (existsSync(environmentPath)) chmodSync(environmentPath, 0o600)
+      writeFileSync(environmentPath, `\nDATABASE_ENCRYPTION_KEY=${key}\n`, {
+        flag: "a",
+        mode: 0o600,
+      })
+      process.env.DATABASE_ENCRYPTION_KEY = key
+      console.error(`Saved DATABASE_ENCRYPTION_KEY to ${environmentPath}`)
+    }
+    getDatabaseEncryptionKeyring()
+    await migratePlatformDatabase(false)
+  })
+
+program
   .command("version")
   .description("print the version")
   .action(() => console.log(VERSION_OUTPUT))
@@ -125,18 +158,7 @@ program
   .command("migrate")
   .description("apply pending database migrations, committing each separately")
   .option("--dry-run", "list pending migrations without applying them")
-  .action(async (options: { dryRun?: boolean }) => {
-    loadBootstrapEnvironment(["DATABASE_URL"])
-    const dryRun = options.dryRun ?? false
-    try {
-      const names = await migrateDatabase({ dryRun })
-      if (names.length === 0) return console.log("No pending migrations")
-      console.log(`${dryRun ? "Pending" : "Applied"} ${pluralMigrations(names.length)}:`)
-      for (const name of names) console.log(`  ${name}`)
-    } catch (error) {
-      program.error(`error: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  })
+  .action((options: { dryRun?: boolean }) => migratePlatformDatabase(options.dryRun ?? false))
 
 program
   .command("upgrade")
@@ -233,4 +255,6 @@ program
     }
   })
 
-await program.parseAsync(process.argv)
+await program.parseAsync(process.argv).catch((error: unknown) => {
+  program.error(`error: ${error instanceof Error ? error.message : String(error)}`)
+})
