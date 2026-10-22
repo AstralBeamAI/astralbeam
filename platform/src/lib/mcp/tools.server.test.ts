@@ -108,7 +108,7 @@ describe("request-oriented MCP tools", () => {
                   clientInformation: {},
                   tokens: { access_token: `account-${generation}`, token_type: "Bearer" },
                   expiresAt: null,
-                  discovery: {},
+                  discovery: { authorizationServerUrl: "https://fixture.example" },
                 }
           },
           authConfig:
@@ -228,7 +228,7 @@ describe("request-oriented MCP tools", () => {
               clientInformation: {},
               tokens: { access_token: `access-${refreshes}`, token_type: "Bearer" },
               expiresAt: null,
-              discovery: {},
+              discovery: { authorizationServerUrl: "https://fixture.example" },
             }
           },
         },
