@@ -139,13 +139,16 @@ test("vanilla tenant directories enforce admin authority across reset and remoun
   const denied = page.waitForResponse(
     (response) => response.url().includes("/api/v1/tenants") && response.status() === 403,
   )
-  await directory.reset.click()
+  const reset = await directory.runCommand("reset")
   await denied
+  await expect(reset).toHaveText("AstralBeamApiError")
+  await expect(directory.hostErrors).toHaveText("2")
   await expect(directory.users).toContainText("Access denied")
   await expect(directory.user(admin.name)).toHaveCount(0)
   token = await createAstralBeamToken(adminTarget)
-  await directory.reset.click()
+  await expect(await directory.runCommand("reset")).toHaveText("fulfilled")
   await expect(directory.user(admin.name)).toBeVisible()
+  await expect(directory.hostErrors).toHaveText("2")
   await captureMoment(page, "vanilla-tenant-directories")
 })
 

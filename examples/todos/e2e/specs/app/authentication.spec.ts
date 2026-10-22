@@ -16,12 +16,18 @@ async function openAuthentication(page: Page) {
   )
 }
 
-test("standalone function props synchronize current user and refresh on rejection", async ({
+test("React layout refresh under Strict Mode waits for rows and renews rejected identity", async ({
   page,
 }) => {
   let admin: boolean | undefined = true
   let issued = 0
   let synchronized = 0
+  const rows = Promise.withResolvers<void>()
+  const requested = page.waitForRequest("**/api/v1/tenants/*/tenant_users?*")
+  await page.route("**/api/v1/tenants/*/tenant_users?*", async (route) => {
+    await rows.promise
+    await route.continue()
+  })
   await page.route("**/__authentication-token", async (route) => {
     issued++
     const token = await createAstralBeamToken({
@@ -38,6 +44,11 @@ test("standalone function props synchronize current user and refresh on rejectio
       : route.continue()
   })
   await openAuthentication(page)
+  await requested
+  await expect(page.getByLabel("Host refresh")).toHaveText("pending")
+  rows.resolve()
+  await expect(page.getByLabel("Host refresh")).toHaveText("fulfilled")
+  await expect(page.getByLabel("Host errors")).toHaveText("0")
   await expect(page.getByText(seedTarget.user.name, { exact: true })).toBeVisible()
   expect(issued).toBe(2)
   expect(synchronized).toBe(2)
@@ -80,9 +91,11 @@ test("host callbacks and refresh recover initial and background authentication f
   const errors = page.getByLabel("Host errors")
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(errors).toHaveText("1")
+  await expect(page.getByLabel("Host refresh")).toHaveText("AstralBeamApiError")
   denied = false
   await page.getByRole("button", { name: "Refresh from host", exact: true }).click()
   await expect(row).toBeVisible()
+  await expect(page.getByLabel("Host refresh")).toHaveText("fulfilled")
   denied = true
   await page.clock.fastForward(61_000)
   await page.evaluate(() => globalThis.dispatchEvent(new Event("focus")))
@@ -92,4 +105,11 @@ test("host callbacks and refresh recover initial and background authentication f
   await page.getByRole("button", { name: "Refresh from host", exact: true }).click()
   await expect(row).toBeVisible()
   await expect(errors).toHaveText("2")
+  await expect(page.getByLabel("Host refresh")).toHaveText("fulfilled")
+  await page.route("**/api/v1/tenants/*/tenant_users?*", (route) =>
+    route.fulfill({ status: 403, json: {} }),
+  )
+  await page.getByRole("button", { name: "Refresh from host", exact: true }).click()
+  await expect(page.getByLabel("Host refresh")).toHaveText("AstralBeamApiError")
+  await expect(errors).toHaveText("3")
 })

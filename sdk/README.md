@@ -173,7 +173,11 @@ Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/re
 
 Read-only Tenant, TenantUser and conversation widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
-Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused queries expire after five minutes. For reuse across mounts, keep a stable session `cacheKey`, replacing it on sign-out or account changes. Each mount still authenticates. Use `refresh()` after writes.
+Directory results stay fresh for 30 seconds, then refresh when the tab becomes visible or the network reconnects. Unused data expires after five minutes. The optional `cacheKey` is an opaque host-session object for remount reuse. Keep it stable during the session and replace it on sign-out or account changes. Changing it clears authentication and the view. Each mount owns its authentication, requests, cancellation, and refresh, independently of concurrent directories.
+
+Directory `refresh()` and `reset()` return `Promise<void>` and wait for renderer loading, authentication, and the current directory rows or open conversation messages. Attachment previews load independently. Refresh may reuse the JWT. Reset clears this mount's state and retained data for its key, then reacquires authentication from a ready host session. Unmount during sign-out. See the <a href="https://astralbeam.ai/docs/sdk/listings#account-changes-and-lifecycle" target="_blank" rel="noopener noreferrer">lifecycle contract</a> for remount reuse, failure, and cancellation.
+
+**Breaking migration**: React directory refs now expose only `refresh()` and `reset()`. Replace the removed `/react` `*ListHandle` exports with `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef`. Use props for updates and conditional rendering to unmount. Vanilla `/client` handles retain `update()` and `unmount()`. Await or handle rejection from refresh/reset calls that previously returned `void`.
 
 There is no root export.
 
