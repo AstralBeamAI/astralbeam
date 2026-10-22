@@ -9,6 +9,9 @@ test("private MCP connections connect, replace and clear credentials without ret
   chat,
   request,
 }) => {
+  // Dashboard sign-in, server provisioning and widget recovery share the test's timeout.
+  // https://playwright.dev/docs/test-timeouts#test-timeout
+  test.setTimeout(90_000)
   await chat.waitForReady()
   const endpoint = `https://private-${crypto.randomUUID()}.example.test/mcp`
   const cleanup = await prepareMcpDefinition(page, endpoint)
