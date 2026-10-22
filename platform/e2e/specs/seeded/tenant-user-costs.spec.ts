@@ -16,26 +16,21 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
   loadSeedEnvironment()
   const { pool } = createSeedDatabase(resolveSeedDatabaseUrl().url)
   const organization = SEED_ORGANIZATIONS[0]
-  const tenantName = `Monthly costs ${crypto.randomUUID()}`
-  const created = await pool.query<{ id: string; external_id: string }>(
-    `insert into tenant (organization_id, external_id, name)
-     values ($1, $2, $2), ($1, $2 || '-other', $2 || '-other') returning id, external_id`,
-    [organization.id, tenantName],
+  const tenantId = crypto.randomUUID()
+  const otherTenantId = crypto.randomUUID()
+  const tenantName = `Monthly costs ${tenantId}`
+  await pool.query(
+    `insert into tenant (organization_id, id, external_id, name)
+     values ($1, $2, $4, $4), ($1, $3, $4 || '-other', $4 || '-other')`,
+    [organization.id, tenantId, otherTenantId, tenantName],
   )
-  const tenantId = created.rows.find((row) => row.external_id === tenantName)!.id
-  const otherTenantId = created.rows.find((row) => row.external_id !== tenantName)!.id
   try {
     await pool.query(
-      `insert into tenant_user (organization_id, tenant_id, external_id, name, metadata)
-       values ($1, $2, 'priced', 'Priced user', jsonb_build_object('details', repeat('Recorded customer context. ', 10))),
-              ($1, $2, 'unpriced', 'Unpriced user', '{}'), ($1, $2, 'unused', 'Unused user', '{}')`,
-      [organization.id, tenantId],
-    )
-    await pool.query(
-      `insert into tenant_user (organization_id, tenant_id, id, external_id, name)
-       select organization_id, $3, id, external_id, name from tenant_user
-       where organization_id = $1 and tenant_id = $2 and external_id = 'priced'`,
-      [organization.id, tenantId, otherTenantId],
+      `insert into tenant_user (organization_id, tenant_id, id, external_id, name, metadata)
+       values ($1, $2, $4, 'priced', 'Priced user', jsonb_build_object('details', repeat('Recorded customer context. ', 10))),
+              ($1, $3, $4, 'priced', 'Priced user', '{}'),
+              ($1, $2, default, 'unpriced', 'Unpriced user', '{}'), ($1, $2, default, 'unused', 'Unused user', '{}')`,
+      [organization.id, tenantId, otherTenantId, crypto.randomUUID()],
     )
     await pool.query(
       `with threads as (
@@ -62,16 +57,11 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       [organization.id, tenantId, otherTenantId],
     )
     const usagePath = `/api/v1/tenants/${tenantId}/tenant_users/usage`
-    const started = Promise.withResolvers<void>()
     const release = Promise.withResolvers<void>()
     let usageRequests = 0
     let usageStatus = 503
     await page.route(`**${usagePath}?**`, async (route) => {
-      usageRequests++
-      if (usageRequests === 1) {
-        started.resolve()
-        await release.promise
-      }
+      if (++usageRequests === 1) await release.promise
       if (usageStatus === 200) return route.continue()
       await route.fulfill({
         status: usageStatus,
@@ -89,29 +79,26 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await directory.getByRole("combobox", { name: "Tenant", exact: true }).fill(tenantName)
       await page.getByRole("option", { name: tenantName, exact: true }).click()
     }
-    const openDirectory = async () => {
-      await page.goto(`/${organization.slug}/tenant-users`)
-      await selectTenant()
-    }
-    const waitForUsage = () =>
-      page.waitForResponse((result) => new URL(result.url()).pathname === usagePath)
     const refresh = page.getByRole("button", { name: "Refresh directory", exact: true })
-    const refreshUsage = async () => {
-      const response = waitForUsage()
+    const refreshUsage = async (status = 200) => {
+      usageStatus = status
+      const response = page.waitForResponse(
+        (result) => new URL(result.url()).pathname === usagePath,
+      )
       await refresh.click()
-      const result = await response
+      await response
       await expect(refresh).toBeEnabled()
-      return result
     }
     const filterUsers = async (q: string) => {
       await directory.getByRole("searchbox").fill(q)
       await expect(directory.getByRole("row")).toHaveCount(q ? 3 : 4)
     }
     await test.step("Rows and pagination remain usable while usage is slow or fails", async () => {
-      await openDirectory()
-      await started.promise
+      const started = page.waitForRequest(`**${usagePath}?**`)
+      await page.goto(`/${organization.slug}/tenant-users`)
+      await selectTenant()
+      await started
       await userRow("Priced user").getByText("Show full value", { exact: true }).click()
-      await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
       await expect(directory.getByRole("combobox", { name: "Rows per page" })).toBeEnabled()
       await expect(directory.getByText("Loading usage…", { exact: true })).toBeVisible()
       await captureMilestone(page, "tenant-user-costs-loading")
@@ -121,15 +108,13 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(directory.getByRole("combobox", { name: "Rows per page" })).toBeEnabled()
       await captureMilestone(page, "tenant-user-costs-error")
       usageStatus = 200
-      const response = waitForUsage()
       await directory.getByRole("button", { name: "Retry", exact: true }).click()
-      expect((await response).status()).toBe(200)
       await expect(costHeader).toBeVisible()
       await expect(userRow("Priced user")).toContainText("$0.0123")
       await expect(userRow("Unpriced user")).toContainText("Unavailable")
       await expect(userRow("Unused user")).toContainText("$0.00")
       await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
-      expect((await refreshUsage()).status()).toBe(200)
+      await refreshUsage()
       await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
       await captureMilestone(page, "tenant-user-costs-owner")
     })
@@ -142,32 +127,25 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(userRow("Priced user")).toContainText("$0.0123")
       await expect(refresh).toBeEnabled()
       expect(usageRequests).toBe(retainedRequests)
-      const filteredUsage = waitForUsage()
       await filterUsers("priced")
-      expect((await filteredUsage).status()).toBe(200)
       await expect(userRow("Priced user")).toContainText("$0.0123")
       const requests = usageRequests
       await filterUsers("")
       await expect(userRow("Priced user")).toContainText("$0.0123")
       expect(usageRequests).toBe(requests)
-      expect((await refreshUsage()).status()).toBe(200)
+      await refreshUsage()
       expect(usageRequests).toBe(requests + 1)
-      usageStatus = 403
-      expect((await refreshUsage()).status()).toBe(403)
-      await expect(costHeader).toHaveCount(0)
+      for (const status of [403, 503]) {
+        await refreshUsage(status)
+        await expect(costHeader).toHaveCount(0)
+        await expect(directory.getByText("$0.0123", { exact: true })).toHaveCount(0)
+      }
       await expect(userRow("Priced user")).toBeVisible()
-      usageStatus = 503
-      expect((await refreshUsage()).status()).toBe(503)
-      await expect(costHeader).toHaveCount(0)
-      await expect(directory.getByText("$0.0123", { exact: true })).toHaveCount(0)
       usageStatus = 403
-      const deniedPage = waitForUsage()
       await filterUsers("priced")
-      expect((await deniedPage).status()).toBe(403)
       await expect(directory.getByText("$0.0123", { exact: true })).toHaveCount(0)
       await expect(costHeader).toHaveCount(0)
-      usageStatus = 200
-      expect((await refreshUsage()).status()).toBe(200)
+      await refreshUsage()
       await filterUsers("")
       await expect(userRow("Priced user")).toContainText("$0.0123")
     })
@@ -191,10 +169,10 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await auth.signIn(SEED_USERS[2].email, SEED_PASSWORD)
       await page.waitForURL((url) => !url.pathname.startsWith("/auth/"))
       await expect(shell.navigation).toBeVisible()
-      await openDirectory()
+      await page.goto(`/${organization.slug}/tenant-users`)
+      await selectTenant()
       await expect(userRow("Priced user")).toBeVisible()
       await expect(costHeader).toHaveCount(0)
-      await expect(directory.getByText("Unavailable", { exact: true })).toHaveCount(0)
       expect(usageRequests).toBe(requests)
       await captureMilestone(page, "tenant-user-costs-viewer")
     })

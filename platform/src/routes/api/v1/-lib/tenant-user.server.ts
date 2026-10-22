@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Schema, SchemaGetter } from "effect"
+import { DateTime, Duration, Effect, Option, Schema, SchemaGetter } from "effect"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -79,10 +79,9 @@ const tenantUserUsageQuery = Schema.Struct({
   .check(
     Schema.makeFilter(
       ({ start, end }) => {
-        const days =
-          (DateTime.toEpochMillis(DateTime.makeUnsafe(end)) -
-            DateTime.toEpochMillis(DateTime.makeUnsafe(start))) /
-          86_400_000
+        const days = Duration.toDays(
+          DateTime.distance(DateTime.makeUnsafe(start), DateTime.makeUnsafe(end)),
+        )
         return days > 0 && days <= 93
       },
       { message: "The usage range must span 1 to 93 days." },

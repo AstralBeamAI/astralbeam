@@ -316,12 +316,11 @@ function DirectoryPage({
   const auth = authenticationState(session.auth)
   const userIds = query.data?.items.map(({ id }) => id).toSorted() ?? []
   const now = new Date()
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-    .toISOString()
-    .slice(0, 10)
+  const start = `${now.toISOString().slice(0, 7)}-01`
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
     .toISOString()
     .slice(0, 10)
+  const params = { user_ids: userIds.join(","), start, end }
   const usageEnabled =
     kind === "users" &&
     !!tenantId &&
@@ -331,25 +330,12 @@ function DirectoryPage({
     auth.currentUser.scope === "organization" &&
     auth.currentUser.user.role.split(",").some((role) => role === "owner" || role === "developer")
   const usage = useQuery({
-    queryKey: [
-      "tenant-user-usage",
-      session.auth.apiUrl,
-      session.identity,
-      tenantId,
-      userIds,
-      start,
-      end,
-    ],
+    queryKey: ["tenant-user-usage", session.auth.apiUrl, session.identity, tenantId, params],
     enabled: usageEnabled,
     gcTime: 60_000,
     queryFn: async ({ signal, client }) => {
       try {
-        return await loadTenantUserUsage(
-          session,
-          tenantId!,
-          { user_ids: userIds.join(","), start, end },
-          signal,
-        )
+        return await loadTenantUserUsage(session, tenantId!, params, signal)
       } catch (error) {
         if (isAstralBeamApiError(error) && [401, 403].includes(error.status))
           client.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })

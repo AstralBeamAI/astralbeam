@@ -177,15 +177,11 @@ test("host refresh waits for authentication, directory rows and their changed us
     ["users"],
   )
   const command = directory.commands.first()
-  await expect.poll(() => stage).toBe("authentication")
-  await expect(command).toHaveText("pending")
-  authentication.resolve()
-  await expect.poll(() => stage).toBe("tenant")
-  await expect(command).toHaveText("pending")
-  tenant.resolve()
-  await expect.poll(() => stage).toBe("rows")
-  await expect(command).toHaveText("pending")
-  rows.resolve()
+  for (const [expected, gate] of Object.entries({ authentication, tenant, rows })) {
+    await expect.poll(() => stage).toBe(expected)
+    await expect(command).toHaveText("pending")
+    gate.resolve()
+  }
   await expect(command).toHaveText("fulfilled")
   await expect(directory.user(seedTarget.user.name)).toBeVisible()
   refresh = true
