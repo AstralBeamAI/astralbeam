@@ -488,6 +488,7 @@ test.each<
     delayed?: string
     validation?: string
     restart?: boolean
+    thrownName?: string
   }
 >([
   ...[
@@ -518,9 +519,14 @@ test.each<
   { ...browserEffectDefaults, failOnce: true },
   { ...browserEffectDefaults, failOnce: true, navigate: true },
   { ...browserEffectDefaults, failOnce: true, advance: true },
-  { ...browserEffectDefaults, failOnce: true, throwsAfterCommit: true },
+  ...["Error", "AbortError"].map((name) => ({
+    ...browserEffectDefaults,
+    failOnce: true,
+    throwsAfterCommit: true,
+    thrownName: name,
+  })),
 ])(
-  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart",
+  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart thrown=$thrownName",
   async ({
     grant,
     saved,
@@ -533,6 +539,7 @@ test.each<
     delayed,
     validation,
     restart,
+    thrownName,
   }) => {
     const toolName = questionnaire ? "ask_questionnaire" : "change_data"
     let chatRequests = 0
@@ -546,7 +553,10 @@ test.each<
     const execute = vi.fn(async () => {
       mutations++
       if (delayed) await toolFinished
-      if (throwsAfterCommit) throw new TypeError("Response lost after mutation")
+      if (throwsAfterCommit)
+        throw thrownName === "AbortError"
+          ? new DOMException("Response lost after mutation", "AbortError")
+          : new TypeError("Response lost after mutation")
       return { changed: true }
     })
     const pendingValidation = Promise.withResolvers<unknown>()
@@ -821,8 +831,10 @@ test.each<
     expect(replacement).toHaveBeenCalledTimes(validation === "current-callback" ? 1 : 0)
     expect(mutations).toBe(expectedExecutions)
     expect(chatRequests).toBe(1)
-    if (validation) return
+    if (validation && expectedExecutions === 0 && chat.getState().thread?.id === thread.id)
+      await chat.reload()
     await vi.waitFor(() => expect(resultRequests).toBe(failOnce || delivered ? 1 : 0))
+    if (validation) return
     if (failOnce) {
       if (navigate) await chat.openThread(thread.id)
       else if (advance) await chat.sendMessage("An independent input")

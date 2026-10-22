@@ -21,6 +21,7 @@ type HostExecutionGuard = (
   declaration: HostToolDefinition,
   toolCallId?: string,
 ) => () => HostToolDefinition
+export const HOST_TOOL_NOT_EXECUTED = Symbol("Host tool was not executed")
 
 /** The full tool set declared to the agent; `render_widget` only when widgets are registered. */
 export function buildAgentTools(
@@ -146,19 +147,21 @@ function buildHostTools(
       inputSchema: toJsonSchema(tool.parameters) as SchemaInput,
       ...(tool.metadata ? { metadata: tool.metadata } : {}),
     }).client(async (input: unknown, context) => {
-      const resolve = guardHostExecution?.(name, tool, context?.toolCallId)
-      debug?.("tool", `executing host tool "${name}"`, { input })
-      const validated = await validateParameters(
-        tool.parameters,
-        (input ?? {}) as Record<string, unknown>,
-      )
-      if (validated == null) {
-        debug?.("error", `input for host tool "${name}" failed schema validation`, { input })
-        throw new Error(`Input for tool "${name}" failed schema validation`)
-      }
-      context?.abortSignal?.throwIfAborted()
-      const current = resolve?.() ?? tool
+      let started = false
       try {
+        const resolve = guardHostExecution?.(name, tool, context?.toolCallId)
+        debug?.("tool", `executing host tool "${name}"`, { input })
+        const validated = await validateParameters(
+          tool.parameters,
+          (input ?? {}) as Record<string, unknown>,
+        )
+        if (validated == null) {
+          debug?.("error", `input for host tool "${name}" failed schema validation`, { input })
+          throw new Error(`Input for tool "${name}" failed schema validation`)
+        }
+        context?.abortSignal?.throwIfAborted()
+        const current = resolve?.() ?? tool
+        started = true
         const output = await current.execute(validated)
         try {
           canonicalInterruptJson(output)
@@ -171,6 +174,14 @@ function buildHostTools(
         return output
       } catch (error) {
         debug?.("error", `host tool "${name}" threw`, { error })
+        if (!started)
+          throw Object.assign(
+            new Error(error instanceof Error ? error.message : String(error), { cause: error }),
+            {
+              name: error instanceof Error ? error.name : "Error",
+              [HOST_TOOL_NOT_EXECUTED]: true,
+            },
+          )
         throw error
       }
     }),

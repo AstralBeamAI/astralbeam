@@ -31,7 +31,7 @@ import {
 } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
-import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
+import { buildAgentTools, HOST_TOOL_NOT_EXECUTED, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   authenticationIdentity,
   authenticationState,
@@ -641,7 +641,11 @@ export function createAstralBeamChat(
               })
             return output
           } catch (error) {
-            if (identity === resultIdentity && authentication.apiUrl === apiUrl)
+            if (
+              !(error instanceof Error && HOST_TOOL_NOT_EXECUTED in error) &&
+              identity === resultIdentity &&
+              authentication.apiUrl === apiUrl
+            )
               results.set(key, {
                 outcome: "unknown",
                 output: { error: error instanceof Error ? error.message : String(error) },
