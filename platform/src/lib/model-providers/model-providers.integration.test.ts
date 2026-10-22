@@ -55,8 +55,10 @@ function saveIntegrationProvider(
   organizationId: string,
   fields: Partial<SaveModelProviderInput> = {},
 ) {
-  return Effect.flatMap(ModelProviders, (providers) =>
-    providers.save({
+  return Effect.gen(function* () {
+    const providers = yield* ModelProviders
+    const existing = fields.id ? yield* providers.get({ organizationId, id: fields.id }) : null
+    const input: SaveModelProviderInput = {
       organizationId,
       id: null,
       lockVersion: null,
@@ -73,8 +75,18 @@ function saveIntegrationProvider(
         },
       ],
       ...fields,
-    }),
-  )
+    }
+    return yield* providers.save({
+      ...input,
+      models: input.models.map((model) => ({
+        ...model,
+        priceVersionId:
+          model.priceVersionId ??
+          existing?.models.find((saved) => saved.modelId === model.modelId)?.priceVersionId ??
+          null,
+      })),
+    })
+  })
 }
 
 function refreshIntegrationCatalog(response: Response) {
@@ -158,6 +170,97 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+  })
+
+  test("rereads scheduled and changed manual prices for each request without repricing captured history", async () => {
+    const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    const service = await runAppEffect(ModelProviders)
+    const saved = (await runAppEffect(service.get({ organizationId, id })))!
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: saved.models[0]!.id, position: 0 })
+    const model = (await runAppEffect(service.resolveForAgent({ organizationId, agentId })))!
+    const future = {
+      id: crypto.randomUUID(),
+      effectiveFrom: new Date(Date.now() + 86_400_000).toISOString(),
+      rates: {
+        currency: "USD" as const,
+        pricingSource: { kind: "manual" as const },
+        prices: { inputPerMillion: "3", outputPerMillion: "12" },
+        contextTiers: [],
+      },
+    }
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id,
+        lockVersion: 0,
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: modelTestConfiguration,
+            scheduledPrices: [future],
+          },
+        ],
+      }),
+    )
+    const before = await runAppEffect(
+      service.pricing({
+        ...model,
+        timestamp: new Date(new Date(future.effectiveFrom).getTime() - 1),
+      }),
+    )
+    expect(before!.prices).toEqual(modelTestConfiguration.prices)
+    expect(
+      (await runAppEffect(
+        service.pricing({ ...model, timestamp: new Date(future.effectiveFrom) }),
+      ))!.prices,
+    ).toEqual(future.rates.prices)
+    expect(
+      (await runAppEffect(service.get({ organizationId, id })))!.models[0]!.scheduledPrices,
+    ).toEqual([future])
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id,
+        lockVersion: 1,
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: {
+              ...modelTestConfiguration,
+              prices: { inputPerMillion: "4", outputPerMillion: "16" },
+            },
+            scheduledPrices: [],
+          },
+        ],
+      }),
+    )
+    expect((await runAppEffect(service.pricing(model)))!.prices.inputPerMillion).toBe("4")
+    expect(before!.prices).toEqual(modelTestConfiguration.prices)
+    expect(
+      await runAppEffect(
+        service.pricing({
+          ...model,
+          pricingModel: { ...model.pricingModel!, organizationId: crypto.randomUUID() },
+        }),
+      ),
+    ).toBeNull()
+    await expect(
+      runAppEffect(
+        service.save({
+          organizationId,
+          id,
+          lockVersion: 2,
+          name: "Production",
+          providerType: "openai",
+          api: "responses",
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: null,
+          models: [{ ...saved.models[0]!, configuration: modelTestConfiguration }],
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ModelProviderChanged" })
   })
 
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {

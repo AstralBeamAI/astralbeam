@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest"
+import { Schema } from "effect"
 
 import { catalogModelConfiguration, effectiveModelConfiguration } from "./pricing-catalog.server.ts"
-import type { ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
+import { ModelPriceCatalogSchema, type ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
 import { modelInputAllowance, type ModelConfiguration } from "./schemas.ts"
 
 const modelTestConfiguration: ModelConfiguration = {
@@ -44,6 +45,49 @@ const testPriceCatalog: ModelPriceCatalog = {
 }
 
 describe("model pricing catalog", () => {
+  test("selects dated rates at the request start, including the exact boundary", () => {
+    const catalog: ModelPriceCatalog = {
+      providers: [
+        {
+          ...testPriceCatalog.providers[0]!,
+          models: [
+            {
+              ...testPriceCatalog.providers[0]!.models[0]!,
+              prices: [
+                { prices: { input_mtok: 2, output_mtok: 8 } },
+                {
+                  constraint: { type: "start_date", start_date: "2026-10-22" },
+                  prices: { input_mtok: 3, output_mtok: 12 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const lookup = { catalog, providerType: "openai" as const, modelId: "test-model" }
+    for (const invalid of ["2026-02-30", "2026-10-22T12:00:00Z"]) {
+      expect(
+        Schema.is(ModelPriceCatalogSchema)(
+          JSON.parse(JSON.stringify(catalog).replace("2026-10-22", invalid)),
+        ),
+      ).toBe(false)
+    }
+    expect(
+      catalogModelConfiguration({
+        ...lookup,
+        timestamp: new Date("2026-10-21T23:59:59.999Z"),
+      })?.prices,
+    ).toEqual({ inputPerMillion: "2", outputPerMillion: "8" })
+    expect(
+      effectiveModelConfiguration({
+        ...lookup,
+        configured: null,
+        timestamp: new Date("2026-10-22T00:00:00Z"),
+      })?.prices,
+    ).toEqual({ inputPerMillion: "3", outputPerMillion: "12" })
+  })
+
   test("maps supported prices and preserves manual overrides during catalog updates", () => {
     const lookup = {
       catalog: testPriceCatalog,

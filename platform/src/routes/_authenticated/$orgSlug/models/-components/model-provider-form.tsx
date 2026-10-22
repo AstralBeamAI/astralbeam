@@ -72,11 +72,15 @@ export function ModelProviderForm({
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? "https://api.openai.com/v1")
   const [apiKey, setApiKey] = useState("")
   const [models, setModels] = useState<ProviderModelFields[]>(
-    existing?.models.map(({ modelId, name: modelName, configuration }) => ({
-      modelId,
-      name: modelName,
-      configuration,
-    })) ?? [],
+    existing?.models.map(
+      ({ modelId, name: modelName, configuration, priceVersionId, scheduledPrices }) => ({
+        modelId,
+        name: modelName,
+        configuration,
+        priceVersionId,
+        scheduledPrices,
+      }),
+    ) ?? [],
   )
   const [overridesOpen, setOverridesOpen] = useState(
     existing !== null &&
@@ -329,6 +333,23 @@ export function ModelProviderForm({
                     ?.configuration ?? null
                 }
                 disabled={disabled}
+                scheduleErrors={
+                  submitted
+                    ? issues.filter(
+                        (issue) =>
+                          issue.path?.[0] === "models" &&
+                          issue.path?.[1] === index &&
+                          issue.path?.[2] === "scheduledPrices",
+                      )
+                    : []
+                }
+                onScheduleChange={(scheduledPrices) =>
+                  setModels((current) =>
+                    current.map((item) =>
+                      item.modelId === model.modelId ? { ...item, scheduledPrices } : item,
+                    ),
+                  )
+                }
                 errors={(field) =>
                   submitted
                     ? issues.filter(
@@ -343,7 +364,15 @@ export function ModelProviderForm({
                 onChange={(configuration) =>
                   setModels((current) =>
                     current.map((item) =>
-                      item.modelId === model.modelId ? { ...item, configuration } : item,
+                      item.modelId === model.modelId
+                        ? {
+                            ...item,
+                            configuration,
+                            ...(configuration?.pricingSource.kind !== "manual"
+                              ? { scheduledPrices: [] }
+                              : {}),
+                          }
+                        : item,
                     ),
                   )
                 }
@@ -395,11 +424,21 @@ export function ModelProviderForm({
                         setBaseUrl(existing.baseUrl)
                         setApiKey("")
                         setModels(
-                          existing.models.map(({ modelId, name: modelName, configuration }) => ({
-                            modelId,
-                            name: modelName,
-                            configuration,
-                          })),
+                          existing.models.map(
+                            ({
+                              modelId,
+                              name: modelName,
+                              configuration,
+                              priceVersionId,
+                              scheduledPrices,
+                            }) => ({
+                              modelId,
+                              name: modelName,
+                              configuration,
+                              priceVersionId,
+                              scheduledPrices,
+                            }),
+                          ),
                         )
                         setSubmitted(false)
                         setServerFieldError(null)

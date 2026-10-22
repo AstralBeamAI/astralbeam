@@ -3,7 +3,7 @@ import { Effect, Exit } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
 import type { ModelConfiguration } from "@/lib/model-providers/schemas"
-import { modelUsageCost } from "@/lib/model-providers/usage-cost"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import type { UsageSubject } from "@/lib/usage-limits/counters"
 import type { UsageLimitReached } from "@/lib/usage-limits/errors"
@@ -20,7 +20,7 @@ export function chatUsageLimitGuard(options: {
   readonly usageLimits: UsageLimits["Service"]
   readonly limits: readonly UsageLimit[]
   readonly subject: UsageSubject
-  readonly pricing: ModelConfiguration | null
+  readonly pricing: () => ModelConfiguration | null | undefined
   readonly execute: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>
 }) {
   const { usageLimits, limits, subject } = options
@@ -28,7 +28,7 @@ export function chatUsageLimitGuard(options: {
   const middleware: ChatMiddleware = {
     name: "usage-limits",
     async onUsage(_ctx, usage) {
-      const spend = options.pricing ? modelUsageCost(options.pricing, usage) : "0"
+      const spend = modelRequestCost({ usage, configuration: options.pricing() }) ?? "0"
       const tokens = Math.max(usage.totalTokens, usage.promptTokens + usage.completionTokens)
       await options.execute(
         usageLimits.record({ limits, subject, usage: { tokens, spend } }).pipe(

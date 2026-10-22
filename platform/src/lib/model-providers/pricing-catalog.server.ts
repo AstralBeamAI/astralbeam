@@ -11,7 +11,9 @@ import {
   ModelConfigurationSchema,
   type ModelConfiguration,
   type ModelProviderType,
+  type ModelPriceVersion,
 } from "./schemas.ts"
+import { activeModelPrice } from "./pricing-history.server.ts"
 
 // Catalog provider IDs. https://github.com/pydantic/genai-prices/tree/main/prices/providers
 export const modelPriceCatalogProviderIds: Record<ModelProviderType, string> = {
@@ -60,12 +62,16 @@ export function catalogModelConfiguration(input: {
   catalog: ModelPriceCatalog
   providerType: ModelProviderType
   modelId: string
+  timestamp?: Date | undefined
 }): ModelConfiguration | null {
   const provider = input.catalog.providers.find(
     (item) => item.id === modelPriceCatalogProviderIds[input.providerType],
   )
   if (!provider) return null
-  const result = calcPrice({}, input.modelId, { provider: provider as Provider })
+  const result = calcPrice({}, input.modelId, {
+    provider: provider as Provider,
+    ...(input.timestamp ? { timestamp: input.timestamp } : {}),
+  })
   if (!result?.model.context_window) return null
   const prices = result.model_price
   // Native provider tools are excluded from this rate card. Chat declares function tools only.
@@ -119,9 +125,23 @@ export function effectiveModelConfiguration(input: {
   catalog: ModelPriceCatalog
   providerType: ModelProviderType
   modelId: string
+  timestamp?: Date | undefined
   configured: ModelConfiguration | null | undefined
+  history?: readonly ModelPriceVersion[] | undefined
 }) {
   const configured = input.configured
+  if (input.history?.length) {
+    const active = activeModelPrice({
+      history: input.history,
+      timestamp: input.timestamp ?? new Date(),
+    })
+    if (!active) return null
+    if (active.rates && configured) return { ...configured, ...active.rates }
+    return (
+      catalogModelConfiguration(input) ??
+      (configured?.pricingSource.kind === "catalog" ? configured : null)
+    )
+  }
   if (configured?.pricingSource.kind === "manual") return configured
   return catalogModelConfiguration(input) ?? configured ?? null
 }

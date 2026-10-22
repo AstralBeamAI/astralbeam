@@ -4,13 +4,14 @@ import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
+import type { createChatAdapter } from "./adapter"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
     messages: unknown[]
     systemPrompts: string[]
     tools: Array<{ name: string }>
-    adapter: { model: string }
+    adapter: ReturnType<typeof createChatAdapter>
     modelOptions?: unknown
     toolExecution?: string
     middleware: ChatMiddleware[]
@@ -27,7 +28,7 @@ vi.mock("@tanstack/ai", async (original) => ({
     messages: unknown[]
     systemPrompts: string[]
     tools: Array<{ name: string }>
-    adapter: { model: string }
+    adapter: ReturnType<typeof createChatAdapter>
     abortController: AbortController
     middleware: ChatMiddleware[]
   }) => {
@@ -108,6 +109,7 @@ function chatTestLayer(options: {
   readonly history?: MessageRecord[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
+  readonly recordRequest?: typeof ChatThreads.Service.recordRequest
 }) {
   const agents = {
     resolveForChat: () =>
@@ -149,6 +151,7 @@ function chatTestLayer(options: {
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
         assertActive: () => Effect.void,
+        recordRequest: options.recordRequest ?? (() => Effect.void),
         interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
     ]),
@@ -187,6 +190,63 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect.each(["recorded", "failed", "cancelled"])(
+    "requires a durable request snapshot before dispatch: %s",
+    (outcome) => {
+      let recorded = false
+      let dispatched = 0
+      const abortController = new AbortController()
+      return Effect.gen(function* () {
+        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+        const adapter = chatRunTest.options[0]!.adapter
+        yield* Effect.promise(async () => {
+          const { chat } = await vi.importActual<typeof import("@tanstack/ai")>("@tanstack/ai")
+          for await (const _chunk of chat({
+            adapter,
+            abortController,
+            messages: [{ role: "user", content: "Hello" }],
+          })) {
+            // Drain the native adapter against the synthetic HTTP boundary.
+          }
+        })
+        assert.strictEqual(dispatched, outcome === "recorded" ? 1 : 0)
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, sandboxProviderId: null },
+            model: {
+              ...CHAT_TEST_MODEL,
+              fetch: () => {
+                assert.strictEqual(recorded, true)
+                dispatched += 1
+                return Promise.resolve(
+                  Response.json(
+                    { error: { message: "Synthetic unauthorized response" } },
+                    { status: 401 },
+                  ),
+                )
+              },
+            },
+            recordRequest: ({ claim, request }) => {
+              assert.deepStrictEqual(claim, chatTestExecution.claim)
+              assert.strictEqual(request.providerId, CHAT_TEST_MODEL.providerId)
+              assert.strictEqual(request.modelId, CHAT_TEST_MODEL.modelId)
+              assert.strictEqual(new Date(request.startedAt).toISOString(), request.startedAt)
+              assert.strictEqual(JSON.stringify(request).includes(CHAT_TEST_MODEL.apiKey), false)
+              return outcome !== "failed"
+                ? Effect.promise(async () => {
+                    if (outcome === "cancelled") abortController.abort()
+                    await Promise.resolve()
+                    recorded = true
+                  })
+                : Effect.die("Snapshot unavailable")
+            },
+          }),
+        ),
+      )
+    },
+  )
+
   it.effect.each([true, false])(
     "suppresses tools only for this turn's unknown outcome: %s",
     (ownTurn) =>

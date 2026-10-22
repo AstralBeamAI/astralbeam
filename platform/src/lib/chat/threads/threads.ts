@@ -40,6 +40,7 @@ import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants"
 import { fileObject } from "@/db/schema/files"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
 import type { TenantScope } from "@/lib/tenants/tenants"
 import { tenantSearchPattern } from "@/lib/tenants/tenants"
@@ -1015,6 +1016,10 @@ export class ChatThreads extends Context.Service<
     readonly assertActive: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<void, ChatThreadError>
+    readonly recordRequest: (input: {
+      claim: ChatWriterClaim
+      request: ModelRequestSnapshot
+    }) => Effect.Effect<void, ChatThreadError>
     readonly publishArtifact: (input: {
       claim: ChatWriterClaim
       bytes: Uint8Array
@@ -1696,6 +1701,37 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors())
       })
 
+      const recordRequest = Effect.fn("ChatThreads.recordRequest")(
+        (input: { claim: ChatWriterClaim; request: ModelRequestSnapshot }) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const { message } = yield* checkClaim(tx, input.claim)
+                if (message.state !== "draft") return yield* new ChatThreadConflict()
+                const requests = message.requestAccounting?.requests ?? []
+                const existing = requests.find((request) => request.id === input.request.id)
+                if (existing) {
+                  if (!isDeepStrictEqual(existing, input.request))
+                    return yield* new ChatThreadConflict()
+                  return
+                }
+                yield* tx
+                  .update(chatMessage)
+                  .set({
+                    requestAccounting: { version: 1, requests: [...requests, input.request] },
+                  })
+                  .where(
+                    and(
+                      messageWhere(input.claim.scope, input.claim.threadId),
+                      eq(chatMessage.id, input.claim.assistantMessageId),
+                      eq(chatMessage.state, "draft"),
+                    ),
+                  )
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
+      )
+
       const assertActive = Effect.fn("ChatThreads.assertActive")(
         ({ claim }: { claim: ChatWriterClaim }) =>
           db
@@ -1904,6 +1940,7 @@ export class ChatThreads extends Context.Service<
         removeParticipant,
         admit,
         checkpoint,
+        recordRequest,
         assertActive,
         publishArtifact,
         nextDraft,
