@@ -45,14 +45,19 @@ export const TenantUserRecordSchema = Schema.Struct(ManagementTenantUserRecordSc
     examples: [restExampleUser],
   }),
 )
-const tenantUserUsageDate = Schema.String.check(
-  Schema.isPattern(/^(?!0000)\d{4}-\d{2}-\d{2}$/),
+const tenantUserUsageTimestamp = Schema.String.check(
+  Schema.isPattern(
+    /^(?!0000)\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/,
+  ),
   Schema.makeFilter(
     (value) =>
-      DateTime.make(value).pipe(Option.exists((date) => DateTime.formatIsoDateUtc(date) === value)),
+      DateTime.make(value.slice(0, 10)).pipe(
+        Option.exists((date) => DateTime.formatIsoDateUtc(date) === value.slice(0, 10)),
+      ),
     {
-      message: "Expected a valid UTC date in YYYY-MM-DD format.",
-      toJsonSchema: () => [{ format: "date" }, true],
+      message:
+        "Expected an ISO 8601 timestamp with an explicit timezone and at most millisecond precision.",
+      toJsonSchema: () => [{ format: "date-time" }, true],
     },
   ),
 )
@@ -73,8 +78,12 @@ const tenantUserUsageQuery = Schema.Struct({
       description: "Comma-separated internal user UUIDs, 1 to 100 unique IDs.",
     }),
   ),
-  start: tenantUserUsageDate.annotate({ description: "Inclusive start date at midnight UTC." }),
-  end: tenantUserUsageDate.annotate({ description: "Exclusive end date at midnight UTC." }),
+  start: tenantUserUsageTimestamp.annotate({
+    description: "Inclusive start timestamp, with Z or a numeric timezone offset.",
+  }),
+  end: tenantUserUsageTimestamp.annotate({
+    description: "Exclusive end timestamp, with Z or a numeric timezone offset.",
+  }),
 })
   .check(
     Schema.makeFilter(
@@ -84,13 +93,13 @@ const tenantUserUsageQuery = Schema.Struct({
         )
         return days > 0 && days <= 93
       },
-      { message: "The usage range must span 1 to 93 days." },
+      { message: "The usage range must be positive and no longer than 93 days." },
     ),
   )
   .pipe(Schema.encodeKeys({ userIds: "user_ids" }))
 const TenantUserUsageSchema = Schema.Struct({
-  start: tenantUserUsageDate,
-  end: tenantUserUsageDate,
+  start: tenantUserUsageTimestamp,
+  end: tenantUserUsageTimestamp,
   items: Schema.Array(
     Schema.Struct({
       tenantUserId: ApiUuidSchema,
@@ -200,7 +209,7 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
       .annotate(OpenApi.Summary, "Get TenantUser usage")
       .annotate(
         OpenApi.Description,
-        "Read estimated usage in USD for up to 100 users within one Tenant over a UTC date range of 1 to 93 days. start is inclusive and end is exclusive. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.",
+        "Read estimated usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.",
       )
       .annotate(OpenApi.Override, {
         security: [{ OrganizationApiKey: [] }, { organizationToken: [] }],

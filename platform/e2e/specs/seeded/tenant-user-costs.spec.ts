@@ -33,6 +33,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
               ($1, $2, default, 'small', 'Small usage', '{}')`,
       [organization.id, tenantId, otherTenantId, crypto.randomUUID()],
     )
+    const replyTime = new Date()
     await pool.query(
       `with threads as (
          insert into chat_thread (organization_id, tenant_id) values ($1, $2), ($1, $3)
@@ -51,13 +52,20 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
              else jsonb_build_object('cost', c.spend) end)), c.created_at
        from inputs i join tenant_user u on u.organization_id = $1 and u.tenant_id = i.tenant_id and u.id = i.author_tenant_user_id
        join (values
-         ('priced', 0.01, now()), ('priced', 0.0023, now()), ('small', 0.00001, now()), ('unpriced', null, now()),
-         ('priced', 7, (date_trunc('month', now() at time zone 'UTC') - interval '1 microsecond') at time zone 'UTC'),
-         ('priced', 8, (date_trunc('month', now() at time zone 'UTC') + interval '1 month') at time zone 'UTC')
+         ('priced', 0.01, $4::timestamptz), ('priced', 0.0023, $4::timestamptz), ('small', 0.00001, $4::timestamptz), ('unpriced', null, $4::timestamptz),
+         ('priced', 7, (date_trunc('month', $4::timestamptz at time zone 'UTC') - interval '1 microsecond') at time zone 'UTC'),
+         ('priced', 8, (date_trunc('month', $4::timestamptz at time zone 'UTC') + interval '1 month') at time zone 'UTC')
        ) c(external_id, spend, created_at) on c.external_id = u.external_id`,
-      [organization.id, tenantId, otherTenantId],
+      [organization.id, tenantId, otherTenantId, replyTime],
     )
     const usagePath = `/api/v1/tenants/${tenantId}/tenant_users/usage`
+    const now = new Date()
+    await page.clock.setFixedTime(now)
+    let rowRequests = 0
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === `/api/v1/tenants/${tenantId}/tenant_users`)
+        rowRequests++
+    })
     const release = Promise.withResolvers<void>()
     let usageRequests = 0
     let usageStatus = 503
@@ -81,6 +89,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await page.getByRole("option", { name: tenantName, exact: true }).click()
     }
     const refresh = page.getByRole("button", { name: "Refresh directory", exact: true })
+    const period = directory.getByRole("combobox", { name: "Usage period", exact: true })
     const refreshUsage = async (status = 200) => {
       usageStatus = status
       const response = page.waitForResponse(
@@ -89,6 +98,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await refresh.click()
       await response
       await expect(refresh).toBeEnabled()
+      return response
     }
     const filterUsers = async (q: string) => {
       await directory.getByRole("searchbox").fill(q)
@@ -102,14 +112,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await userRow("Priced user").getByText("Show full value", { exact: true }).click()
       await expect(directory.getByRole("combobox", { name: "Rows per page" })).toBeEnabled()
       await expect(directory.getByText("Loading usage…", { exact: true })).toBeVisible()
-      const month = new Date().toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      })
-      await expect(
-        directory.getByText(`Usage (USD) · ${month} · UTC`, { exact: true }),
-      ).toBeVisible()
+      await expect(period).toHaveValue("month")
+      await expect(directory.getByText(/· UTC$/)).toBeVisible()
       await captureMilestone(page, "tenant-user-costs-loading")
       release.resolve()
       await expect(directory.getByText("Unable to load usage", { exact: true })).toBeVisible()
@@ -163,6 +167,48 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await filterUsers("")
       await expect(userRow("Priced user")).toContainText("$0.0123")
     })
+    await test.step("Period changes preserve rows and metadata, isolate caches, and refresh rolling cutoffs", async () => {
+      await userRow("Priced user").getByText("Show full value", { exact: true }).click()
+      const rows = rowRequests
+      for (const value of ["previousMonth", "week", "previousWeek", "last30Days", "last7Days"]) {
+        const response = page.waitForResponse(
+          (result) => new URL(result.url()).pathname === usagePath,
+        )
+        await period.selectOption(value)
+        const result = await response
+        expect(result.status()).toBe(200)
+        if (value === "previousMonth") await expect(userRow("Priced user")).toContainText("$7.00")
+        if (value === "last7Days") {
+          const range: unknown = await result.json()
+          expect(range).toMatchObject({
+            start: new Date(now.getTime() - 7 * 86_400_000).toISOString(),
+            end: now.toISOString(),
+          })
+          await expect(userRow("Priced user")).toContainText(
+            now.getUTCDate() <= 7 ? "$7.0123" : "$0.0123",
+          )
+          await expect(userRow("Unpriced user")).toContainText("Unavailable")
+        }
+      }
+      await expect(refresh).toBeEnabled()
+      expect(rowRequests).toBe(rows)
+      await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
+      await captureMilestone(page, "tenant-user-costs-presets")
+      const requests = usageRequests
+      await period.selectOption("month")
+      await expect(userRow("Priced user")).toContainText("$0.0123")
+      expect(usageRequests).toBe(requests)
+      await period.selectOption("last7Days")
+      await filterUsers("priced")
+      await expect(period).toHaveValue("last7Days")
+      await filterUsers("")
+      const later = new Date(now.getTime() + 60_000)
+      await page.clock.setFixedTime(later)
+      const response = await refreshUsage()
+      expect(await response.json()).toMatchObject({ end: later.toISOString() })
+      await period.selectOption("month")
+      await expect(refresh).toBeEnabled()
+    })
     await test.step("Narrow directory keeps labeled costs within the screen", async () => {
       await page.setViewportSize({ width: 390, height: 844 })
       await expect(userRow("Priced user")).toContainText("Usage (USD)")
@@ -186,6 +232,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await selectTenant()
       await expect(userRow("Priced user")).toBeVisible()
       await expect(costHeader).toHaveCount(0)
+      await expect(period).toHaveCount(0)
       expect(usageRequests).toBe(requests)
       await captureMilestone(page, "tenant-user-costs-viewer")
     })

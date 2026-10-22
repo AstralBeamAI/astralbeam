@@ -37,6 +37,7 @@ import {
 import { ThreadDirectoryPage } from "./thread-directory.tsx"
 import { DirectoryTable } from "./table.tsx"
 import { type ListingCompletion, useListingCompletion } from "../lib/listing-completion.ts"
+import { usagePeriods, usagePeriodRange, type UsagePeriod } from "./usage-period.ts"
 
 const listingKinds = {
   tenants: {
@@ -79,6 +80,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
   const fetching = useIsFetching()
   const fetchingRows = useIsFetching({ queryKey: [kind] })
   const [selectedTenant, setSelectedTenant] = useState<TenantRecordEncoded | null>(null)
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("month")
   const [search, setSearch] = useState("")
   const [q] = useDebouncedValue(search.trim(), { wait: 300 })
   const [admin, setAdmin] = useState<"all" | "true" | "false">("all")
@@ -241,7 +243,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
-          {...{ options, kind, session, tenantId, q, size }}
+          {...{ options, kind, session, tenantId, q, size, usagePeriod, setUsagePeriod }}
           onComplete={pending ? undefined : onComplete}
         />
       )}
@@ -299,6 +301,8 @@ function DirectoryPage({
   q,
   admin,
   size,
+  usagePeriod,
+  setUsagePeriod,
   onComplete,
 }: Omit<WidgetProps, "kind" | "onRefresh"> & {
   kind: "tenants" | "users"
@@ -306,6 +310,8 @@ function DirectoryPage({
   q: string
   admin: "all" | "true" | "false"
   size: number
+  usagePeriod: UsagePeriod
+  setUsagePeriod: (period: UsagePeriod) => void
 }) {
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
@@ -315,12 +321,8 @@ function DirectoryPage({
   })
   const auth = authenticationState(session.auth)
   const userIds = query.data?.items.map(({ id }) => id).toSorted() ?? []
-  const now = new Date()
-  const start = `${now.toISOString().slice(0, 7)}-01`
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-    .toISOString()
-    .slice(0, 10)
-  const params = { user_ids: userIds.join(","), start, end }
+  const currentRange = usagePeriodRange(usagePeriod)
+  const rolling = usagePeriod.startsWith("last")
   const usageEnabled =
     kind === "users" &&
     !!tenantId &&
@@ -330,12 +332,27 @@ function DirectoryPage({
     auth.currentUser.scope === "organization" &&
     auth.currentUser.user.role.split(",").some((role) => role === "owner" || role === "developer")
   const usage = useQuery({
-    queryKey: ["tenant-user-usage", session.auth.apiUrl, session.identity, tenantId, params],
+    // Rolling presets reuse fresh results, while each fetch resolves a new cutoff.
+    // https://tanstack.com/query/latest/docs/framework/react/guides/query-keys
+    queryKey: [
+      "tenant-user-usage",
+      session.auth.apiUrl,
+      session.identity,
+      tenantId,
+      userIds,
+      usagePeriod,
+      rolling ? null : currentRange,
+    ],
     enabled: usageEnabled,
     gcTime: 60_000,
     queryFn: async ({ signal, client }) => {
       try {
-        return await loadTenantUserUsage(session, tenantId!, params, signal)
+        return await loadTenantUserUsage(
+          session,
+          tenantId!,
+          { user_ids: userIds.join(","), ...usagePeriodRange(usagePeriod) },
+          signal,
+        )
       } catch (error) {
         if (isAstralBeamApiError(error) && [401, 403].includes(error.status))
           client.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })
@@ -343,6 +360,7 @@ function DirectoryPage({
       }
     },
   })
+  const range = usage.data ?? currentRange
   const usageDenied = isAstralBeamApiError(usage.error) && [401, 403].includes(usage.error.status)
   useListingCompletion(
     onComplete,
@@ -354,14 +372,30 @@ function DirectoryPage({
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {usageEnabled && !usageDenied && (
-        <p
-          className="text-sm text-muted-foreground"
+        <div
+          className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
           title="Uses provider-reported costs when available, otherwise current configured token rates. Deleted conversations are excluded."
         >
-          Usage (USD) ·{" "}
-          {now.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })} ·
-          UTC
-        </p>
+          <NativeSelect
+            aria-label="Usage period"
+            value={usagePeriod}
+            onChange={(event) => setUsagePeriod(event.target.value as UsagePeriod)}
+          >
+            {Object.entries(usagePeriods).map(([value, label]) => (
+              <NativeSelectOption key={value} value={value}>
+                {label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <span>
+            {new Intl.DateTimeFormat(undefined, {
+              dateStyle: "medium",
+              ...(rolling ? { timeStyle: "short" as const } : {}),
+              timeZone: "UTC",
+            }).formatRange(new Date(range.start), new Date(Date.parse(range.end) - 1))}{" "}
+            · UTC
+          </span>
+        </div>
       )}
       {query.isError ? (
         <ListingError error={query.error} retry={() => void query.refetch()} />

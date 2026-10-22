@@ -1432,7 +1432,7 @@ describe("REST API through the Effect Fetch handler", () => {
       expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
       restTestState.rows.push([restTenantRow], [restUserRow])
       const usage = await restRequest(
-        `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01&end=2026-11-01`,
+        `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01T00:00:00Z&end=2026-11-01T00:00:00Z`,
         { headers },
       )
       expect(usage.status).toBe(writeStatus === 201 ? 200 : 403)
@@ -1464,7 +1464,7 @@ describe("REST API through the Effect Fetch handler", () => {
       tenantUser: { ...restPrincipal.tenantUser, admin },
     })
     const response = await restRequest(
-      `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01&end=2026-11-01`,
+      `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01T00:00:00Z&end=2026-11-01T00:00:00Z`,
       { headers: { Authorization: `Bearer ${restTenantJwt}` } },
     )
     expect(response.status).toBe(403)
@@ -1511,15 +1511,15 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     const query = new URLSearchParams({
       user_ids: [...ids, restOrgId].join(",").toUpperCase(),
-      start: "2024-02-29",
-      end: "2024-06-01",
+      start: "2024-02-29T12:34:56.123+05:30",
+      end: "2024-06-01T07:04:56.123Z",
     })
     const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)
     expect(response.status).toBe(200)
     expect(response.headers.get("cache-control")).toContain("no-store")
     expect(await response.json()).toEqual({
-      start: "2024-02-29",
-      end: "2024-06-01",
+      start: "2024-02-29T12:34:56.123+05:30",
+      end: "2024-06-01T07:04:56.123Z",
       items: ids.map((id, index) => ({
         tenant_user_id: id,
         cost_usd: ["1.494567", null, "0"][index],
@@ -1531,16 +1531,28 @@ describe("REST API through the Effect Fetch handler", () => {
       restOrgId,
       restTenantId,
       "assistant",
-      "2024-02-29T00:00:00.000Z",
-      "2024-06-01T00:00:00.000Z",
+      "2024-02-29T07:04:56.123Z",
+      "2024-06-01T07:04:56.123Z",
       ...ids,
     ])
     expect(savedReplies.sql).toContain('"chat_message"."created_at" >=')
     expect(savedReplies.sql).toContain('"chat_message"."created_at" <')
+    restTestState.rows.push(
+      [restTenantRow],
+      ids.map((id) => ({ id })),
+    )
+    query.set("end", "2024-02-29T07:04:56.124Z")
+    expect((await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)).status).toBe(
+      200,
+    )
   })
 
-  test("usage rejects invalid dates, ranges and user IDs before reading saved replies", async () => {
-    const valid = { user_ids: restUserId, start: "2026-01-01", end: "2026-02-01" }
+  test("usage rejects invalid timestamps, ranges and user IDs before reading saved replies", async () => {
+    const valid = {
+      user_ids: restUserId,
+      start: "2026-01-01T00:00:00Z",
+      end: "2026-02-01T00:00:00Z",
+    }
     const invalid: Record<string, string>[] = [
       { ...valid, user_ids: "invalid" },
       { ...valid, user_ids: `${restUserId},${restUserId.toUpperCase()}` },
@@ -1551,11 +1563,14 @@ describe("REST API through the Effect Fetch handler", () => {
           (_, index) => `019a0000-0000-7000-8000-${index.toString(16).padStart(12, "0")}`,
         ).join(","),
       },
-      { ...valid, start: "2026-02-29", end: "2026-03-01" },
-      { ...valid, start: "2026-01-01T00:00:00Z" },
+      { ...valid, start: "2026-02-29T00:00:00Z", end: "2026-03-01T00:00:00Z" },
+      { ...valid, start: "2026-01-01" },
+      { ...valid, start: "2026-01-01T00:00:00" },
+      { ...valid, start: "2026-01-01T24:00:00Z" },
+      { ...valid, start: "2026-01-01T00:00:00.0001Z" },
       { ...valid, end: valid.start },
-      { ...valid, end: "2025-12-31" },
-      { ...valid, end: "2026-04-05" },
+      { ...valid, end: "2025-12-31T23:59:59Z" },
+      { ...valid, end: "2026-04-04T00:00:00.001Z" },
     ]
     for (const query of invalid) {
       const response = await restRequest(

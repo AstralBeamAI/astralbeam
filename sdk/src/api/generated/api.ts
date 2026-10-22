@@ -727,11 +727,11 @@ export type GetTenantUserUsageParams = {
    */
   user_ids: string
   /**
-   * Inclusive start date at midnight UTC.
+   * Inclusive start timestamp, with Z or a numeric timezone offset.
    */
   start: string
   /**
-   * Exclusive end date at midnight UTC.
+   * Exclusive end timestamp, with Z or a numeric timezone offset.
    */
   end: string
 }
@@ -1242,7 +1242,7 @@ export const getGetTenantUserUsageUrl = (tenantId: string, params: GetTenantUser
 }
 
 /**
- * Read estimated usage in USD for up to 100 users within one Tenant over a UTC date range of 1 to 93 days. start is inclusive and end is exclusive. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.
+ * Read estimated usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.
  * @summary Get TenantUser usage
  */
 export const getTenantUserUsage = (
