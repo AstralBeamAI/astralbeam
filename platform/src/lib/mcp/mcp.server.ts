@@ -12,6 +12,7 @@ import {
   McpForbidden,
   McpInvalidConfiguration,
   McpNotFound,
+  McpServerExists,
   MCP_REFRESH_LEASE_MS,
   McpCredentialEnvelopeSchema,
   McpStoredAuthConfigSchema,
@@ -176,7 +177,7 @@ const makeMcpConnections = Effect.gen(function* () {
         endpointUrl: endpoint.href,
         authConfig: mcpEncodeServer({ organizationId, id, authConfig: fields.authConfig }),
       })
-      .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpChanged() }))
+      .pipe(mapDatabaseErrors({ mcp_server_endpoint_uidx: () => new McpServerExists() }))
     return (yield* listServers(organizationId)).find((entry) => entry.id === id)!
   })
   const removeServer = Effect.fn("McpConnections.removeServer")(function* (
