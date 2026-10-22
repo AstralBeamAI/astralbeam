@@ -82,7 +82,7 @@ export class TenantUsers extends Context.Service<
         readonly end: string
         readonly items: readonly {
           readonly tenantUserId: string
-          readonly costUsd: string | null
+          readonly costUsd: string
         }[]
       },
       TenantNotFound
@@ -197,7 +197,7 @@ export class TenantUsers extends Context.Service<
             ),
           )
           .groupBy(initiator)
-        const costs = new Map<string, BigDecimal.BigDecimal | null>(
+        const costs = new Map<string, BigDecimal.BigDecimal>(
           users.map(({ id }) => [id, BigDecimal.fromNumberUnsafe(0)]),
         )
         for (const total of totals)
@@ -271,24 +271,21 @@ export class TenantUsers extends Context.Service<
             modelId,
             configuration,
           } of replies) {
-            const previous = costs.get(tenantUserId)
-            if (previous === null) continue
-            let cost: BigDecimal.BigDecimal | null = null
-            if (providerType && modelId && Schema.is(ModelRequestUsageSchema)(usage)) {
-              const key = `${providerId}:${modelId}`
-              let pricing = pricingByModel.get(key)
-              if (pricing === undefined) {
-                pricing = effectiveModelConfiguration({
-                  catalog,
-                  providerType,
-                  modelId,
-                  configured: configuration,
-                })
-                pricingByModel.set(key, pricing)
-              }
-              if (pricing) cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
+            if (!providerType || !modelId || !Schema.is(ModelRequestUsageSchema)(usage)) continue
+            const key = `${providerId}:${modelId}`
+            let pricing = pricingByModel.get(key)
+            if (pricing === undefined) {
+              pricing = effectiveModelConfiguration({
+                catalog,
+                providerType,
+                modelId,
+                configured: configuration,
+              })
+              pricingByModel.set(key, pricing)
             }
-            costs.set(tenantUserId, cost === null ? null : BigDecimal.sum(previous!, cost))
+            if (!pricing) continue
+            const cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
+            costs.set(tenantUserId, BigDecimal.sum(costs.get(tenantUserId)!, cost))
           }
           if (replies.length < 5000) break
           cursor = replies.at(-1)!
@@ -298,7 +295,7 @@ export class TenantUsers extends Context.Service<
           end,
           items: Array.from(costs, ([tenantUserId, cost]) => ({
             tenantUserId,
-            costUsd: cost === null ? null : BigDecimal.format(cost),
+            costUsd: BigDecimal.format(cost),
           })),
         }
       }, mapDatabaseErrors())

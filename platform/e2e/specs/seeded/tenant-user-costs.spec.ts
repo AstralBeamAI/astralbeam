@@ -54,7 +54,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
              else jsonb_build_object('cost', c.spend) end)), c.created_at
        from inputs i join tenant_user u on u.organization_id = $1 and u.tenant_id = i.tenant_id and u.id = i.author_tenant_user_id
        join (values
-         ('priced', 0.01, $4::timestamptz), ('priced', 0.0023, $4::timestamptz), ('small', 0.00001, $4::timestamptz), ('unpriced', null, $4::timestamptz),
+         ('priced', 0.01, $4::timestamptz), ('priced', 0.0023, $4::timestamptz), ('priced', null, $4::timestamptz),
+         ('small', 0.00001, $4::timestamptz), ('unpriced', null, $4::timestamptz),
          ('priced', 7, (date_trunc('month', $4::timestamptz at time zone 'UTC') - interval '1 microsecond') at time zone 'UTC'),
          ('priced', 8, (date_trunc('month', $4::timestamptz at time zone 'UTC') + interval '1 month') at time zone 'UTC')
        ) c(external_id, spend, created_at) on c.external_id = u.external_id`,
@@ -135,7 +136,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await directory.getByRole("button", { name: "Retry", exact: true }).click()
       await expect(costHeader).toBeVisible()
       await expect(userRow("Priced user")).toContainText("$0.0123")
-      await expect(userRow("Unpriced user")).toContainText("Unavailable")
+      await expect(userRow("Unpriced user")).toContainText("$0")
       await expect(userRow("Unused user")).toContainText("$0")
       await expect(userRow("Small usage").getByText("$0.00001", { exact: true })).toBeVisible()
       await expect(directory.getByText(/Older replies may use current token rates/)).toBeVisible()
@@ -199,7 +200,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
           await expect(userRow("Priced user")).toContainText(
             now.getUTCDate() <= 7 ? "$7.0123" : "$0.0123",
           )
-          await expect(userRow("Unpriced user")).toContainText("Unavailable")
+          await expect(userRow("Unpriced user")).toContainText("$0")
         }
       }
       await expect(refresh).toBeEnabled()

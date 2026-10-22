@@ -555,8 +555,8 @@ export interface Organization {
 
 export type TenantUserUsageItemsItem = {
   tenant_user_id: string
-  /** USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Null if any settled reply cannot be priced, and zero when there are no settled replies. */
-  cost_usd: string | null
+  /** USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero. */
+  cost_usd: string
 }
 
 export interface TenantUserUsage {

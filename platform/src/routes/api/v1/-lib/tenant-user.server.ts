@@ -103,10 +103,10 @@ const TenantUserUsageSchema = Schema.Struct({
   items: Schema.Array(
     Schema.Struct({
       tenantUserId: ApiUuidSchema,
-      costUsd: Schema.NullOr(Schema.String).annotate({
+      costUsd: Schema.String.annotate({
         description:
-          "USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Null if any settled reply cannot be priced, and zero when there are no settled replies.",
-        examples: ["0.012345", null],
+          "USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero.",
+        examples: ["0.012345", "0"],
       }),
     }).pipe(Schema.encodeKeys({ tenantUserId: "tenant_user_id", costUsd: "cost_usd" })),
   ),

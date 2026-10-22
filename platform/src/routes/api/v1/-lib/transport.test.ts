@@ -1478,7 +1478,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.usagePredicates).toHaveLength(0)
   })
 
-  test("usage batches legacy pricing and preserves unknown or absent costs", async () => {
+  test("usage batches legacy pricing and treats missing costs as zero", async () => {
     const pricedReply = {
       tenantUserId: restUserId,
       id: restUserId,
@@ -1500,6 +1500,7 @@ describe("REST API through the Effect Fetch handler", () => {
       },
     }
     restTestState.usageReplies = [
+      { ...pricedReply, usage: null },
       ...Array.from({ length: 5000 }, () => ({
         ...pricedReply,
         usage: { promptTokens: 1, completionTokens: 0 },
@@ -1537,7 +1538,7 @@ describe("REST API through the Effect Fetch handler", () => {
       end: "2024-06-01T07:04:56.123Z",
       items: ids.map((id, index) => ({
         tenant_user_id: id,
-        cost_usd: ["1.506567", null, "0"][index],
+        cost_usd: ["1.506567", "0.003", "0"][index],
       })),
     })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, ...ids, restOrgId])

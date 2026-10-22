@@ -40,7 +40,7 @@ export function DirectoryTable({
   kind: "tenants" | "users"
   options: Options
   filtered: boolean
-  usage?: { costs: ReadonlyMap<string, string | null>; loading: boolean } | undefined
+  usage?: { costs: ReadonlyMap<string, string>; loading: boolean } | undefined
 }) {
   const { onTenantSelect, onTenantUserSelect, showAdmin } = options
   const baseColumns = useMemo<ColumnDef<typeof features, RecordRow>[]>(

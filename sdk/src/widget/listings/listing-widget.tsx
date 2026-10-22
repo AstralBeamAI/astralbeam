@@ -395,8 +395,8 @@ function DirectoryPage({
             </span>
           </div>
           <p className="max-w-prose">
-            Drafts and deleted conversations are excluded. Older replies may use current token
-            rates. Unavailable means a settled reply cannot be priced.
+            Missing costs count as $0 for now. Older replies may use current token rates. Drafts and
+            deleted conversations are excluded.
           </p>
         </div>
       )}
