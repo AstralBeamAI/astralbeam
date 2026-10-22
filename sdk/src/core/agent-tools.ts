@@ -174,14 +174,8 @@ function buildHostTools(
         return output
       } catch (error) {
         debug?.("error", `host tool "${name}" threw`, { error })
-        if (!started)
-          throw Object.assign(
-            new Error(error instanceof Error ? error.message : String(error), { cause: error }),
-            {
-              name: error instanceof Error ? error.name : "Error",
-              [HOST_TOOL_NOT_EXECUTED]: true,
-            },
-          )
+        if (!started && error instanceof Error)
+          Object.assign(error, { [HOST_TOOL_NOT_EXECUTED]: true })
         throw error
       }
     }),
