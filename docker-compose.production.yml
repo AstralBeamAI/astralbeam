@@ -1,5 +1,9 @@
 name: astralbeam-self-hosted
 
+x-healthcheck-timing: &healthcheck-timing
+  start_period: 60s
+  start_interval: 1s
+
 services:
   platform:
     image: ghcr.io/astralbeamai/astralbeam-platform:0.21.0
@@ -27,19 +31,75 @@ services:
       S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?Set RUSTFS_SECRET_KEY}
       S3_PATH_STYLE: "true"
 
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-astralbeam}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.25.2-p0
+    restart: unless-stopped
+    environment:
+      DB_USER: ${POSTGRES_USER:-astralbeam}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-astralbeam}
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      # Track prepared statements across pooled transactions: https://www.pgbouncer.org/config.html#max_prepared_statements
+      MAX_PREPARED_STATEMENTS: 200
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-timing
+      test:
+        - CMD-SHELL
+        - PGPASSWORD="$${DB_PASSWORD}" psql --host 127.0.0.1 --username "$${DB_USER}" --dbname "$${DB_NAME}" --tuples-only --no-align --command "select 1" | grep -qx 1
+
   rustfs:
+    image: rustfs/rustfs:1.0.1
+    restart: unless-stopped
+    command: ["/data"]
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
       - "127.0.0.1:${STORAGE_PORT:-9000}:${STORAGE_PORT:-9000}"
       - "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"
     environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?Set RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?Set RUSTFS_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "true"
       RUSTFS_ADDRESS: :${STORAGE_PORT:-9000}
+    volumes:
+      - rustfs-data:/data
     healthcheck:
+      <<: *healthcheck-timing
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:${STORAGE_PORT:-9000}/health/ready"]
 
   mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${MAILPIT_WEB_HOST_PORT:-8025}:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 500
+    volumes:
+      - mailpit-data:/data
+    healthcheck:
+      <<: *healthcheck-timing
+      test: ["CMD", "/mailpit", "readyz"]
 
-  valkey:
-    profiles: [development]
+volumes:
+  postgres-data:
+  rustfs-data:
+  mailpit-data:

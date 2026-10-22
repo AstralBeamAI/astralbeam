@@ -6,7 +6,7 @@ AstralBeam runs from a container image or standalone binary. Let's start a local
 
 ### Docker Compose
 
-From a repository checkout, generate a private secrets file once. This refuses to overwrite an existing file:
+Save [docker-compose.production.yml](https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docker-compose.production.yml) in an empty directory. Bootstrap a private `.env` file once. This refuses to overwrite an existing file:
 
 ```sh
 (
@@ -14,17 +14,17 @@ From a repository checkout, generate a private secrets file once. This refuses t
   set -C
   printf 'POSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nRUSTFS_ACCESS_KEY=astralbeam\nRUSTFS_SECRET_KEY=%s\n' \
     "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
-    > platform/.env.compose.local
+    > .env
 )
 ```
 
 Start the stack:
 
 ```sh
-docker compose --env-file platform/.env.compose.local -f docker-compose.yml -f docker-compose.production.yml up --detach --wait
+docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
-1. Open http://localhost:9001/rustfs/console/, sign in with the RustFS credentials from the environment file, and create a private bucket named `astralbeam`.
+1. Open http://localhost:9001/rustfs/console/, sign in with the RustFS credentials from `.env`, and create a private bucket named `astralbeam`.
 2. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Use http://localhost:8025 for the owner invitation email.
 
 The stack binds to localhost and enables HTTP. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Change the image tag in `docker-compose.production.yml`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
