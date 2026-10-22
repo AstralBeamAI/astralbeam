@@ -21,6 +21,19 @@ export type ModelCallUsage = typeof ModelRequestUsageSchema.Type & {
 
 const perMillion = BigDecimal.fromNumberUnsafe(1_000_000)
 
+export function modelRequestCost(input: {
+  usage: ModelCallUsage & { readonly cost?: number | undefined }
+  configuration: ModelConfiguration | null | undefined
+}): string | null {
+  const reported = input.usage.providerUsageDetails?.costUsd
+  if (typeof reported === "string" && /^\d+(?:\.\d+)?$/.test(reported)) return reported
+  return typeof input.usage.cost === "number" && Number.isFinite(input.usage.cost)
+    ? BigDecimal.format(BigDecimal.fromNumberUnsafe(input.usage.cost))
+    : input.configuration
+      ? modelUsageCost(input.configuration, input.usage)
+      : null
+}
+
 /**
  * The US dollar token cost at a configuration's rates, as a decimal string. Context tiers price each
  * underlying request by its prompt size, and missing cache rates fall back to the input rate.

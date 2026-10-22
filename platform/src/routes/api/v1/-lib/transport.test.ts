@@ -344,6 +344,7 @@ const restSavedMessage: MessageRecord = {
   turnMessageId: null,
   turnState: "completed",
   metadata: { version: 1 },
+  requestAccounting: null,
   payload: { version: 1, parts: [{ id: "part", type: "text", content: "Saved history" }] },
   sourceAssistantMessageId: null,
   sourceToolPartId: null,

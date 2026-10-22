@@ -21,7 +21,7 @@ const ModelTokenPricesSchema = Schema.Struct({
   cacheWrite1hPerMillion: Schema.optionalKey(modelPriceSchema),
 })
 
-export const ModelConfigurationSchema = Schema.Struct({
+const ModelRateCardSchema = Schema.Struct({
   currency: Schema.Literal("USD"),
   pricingSource: Schema.Union([
     Schema.Struct({ kind: Schema.Literal("catalog"), modelId: Schema.String }),
@@ -34,6 +34,10 @@ export const ModelConfigurationSchema = Schema.Struct({
       prices: ModelTokenPricesSchema,
     }),
   ).check(Schema.isMaxLength(32)),
+})
+
+export const ModelConfigurationSchema = Schema.Struct({
+  ...ModelRateCardSchema.fields,
   maxInputTokens: Schema.NullOr(modelTokenBoundSchema),
   contextWindowTokens: Schema.NullOr(modelTokenBoundSchema),
   maxOutputTokens: modelTokenBoundSchema,
@@ -67,6 +71,32 @@ export const ModelConfigurationSchema = Schema.Struct({
 
 export type ModelConfiguration = typeof ModelConfigurationSchema.Type
 
+const modelPriceInstant = Schema.String.check(
+  Schema.isPattern(/^\d{4}-/),
+  Schema.makeFilter((value) => {
+    const date = new Date(value)
+    return !Number.isNaN(date.getTime()) && date.toISOString() === value
+  }),
+)
+const ModelPriceVersionSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  effectiveFrom: modelPriceInstant,
+  rates: Schema.NullOr(ModelRateCardSchema),
+}).check(
+  Schema.makeFilter(
+    ({ rates }) =>
+      rates === null || (rates.pricingSource.kind === "manual" && rates.contextTiers.length === 0),
+  ),
+)
+export type ModelPriceVersion = typeof ModelPriceVersionSchema.Type
+export const ModelPriceHistorySchema = Schema.Array(ModelPriceVersionSchema).check(
+  Schema.makeFilter(
+    (versions) =>
+      new Set(versions.map(({ effectiveFrom }) => effectiveFrom)).size === versions.length &&
+      new Set(versions.map(({ id }) => id)).size === versions.length,
+  ),
+)
+
 export function modelInputAllowance(configuration: ModelConfiguration) {
   return Math.min(
     configuration.maxInputTokens ?? Infinity,
@@ -86,6 +116,18 @@ const ModelProviderApiSchema = enumSchema([
   "gemini-generate-content",
 ])
 export type ModelProviderApi = typeof ModelProviderApiSchema.Type
+
+export const ModelRequestSnapshotSchema = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  startedAt: Schema.String,
+  providerId: Schema.String,
+  providerType: ModelProviderTypeSchema,
+  protocol: ModelProviderApiSchema,
+  modelId: Schema.String,
+  rates: Schema.NullOr(ModelRateCardSchema),
+})
+export type ModelRequestSnapshot = typeof ModelRequestSnapshotSchema.Type
+
 const modelProviderApis: Record<ModelProviderType, readonly ModelProviderApi[]> = {
   openai: ["responses", "chat-completions"],
   anthropic: ["anthropic-messages"],
@@ -129,6 +171,13 @@ const ProviderModelFieldsSchema = Schema.Struct({
   ),
   name: DisplayNameSchema,
   configuration: Schema.optionalKey(Schema.NullOr(ModelConfigurationSchema)),
+  priceVersionId: Schema.optionalKey(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
+  scheduledPrices: Schema.optionalKey(
+    ModelPriceHistorySchema.check(
+      Schema.isMaxLength(32),
+      Schema.makeFilter((versions) => versions.every(({ rates }) => rates !== null)),
+    ),
+  ),
 })
 
 export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type

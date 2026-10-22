@@ -24,6 +24,7 @@ import {
 import {
   ModelProviderCredentialsPayloadSchema,
   ModelConfigurationSchema,
+  ModelPriceHistorySchema,
   type ModelProviderType,
   type ModelProviderApi,
 } from "@/lib/model-providers/schemas.ts"
@@ -180,6 +181,7 @@ export const providerModel = snakeCase.table(
     modelId: text().notNull(),
     name: text().notNull(),
     configuration: schemaJsonb(ModelConfigurationSchema),
+    pricingHistory: schemaJsonb(ModelPriceHistorySchema).default([]).notNull(),
     ...timestamps(),
   },
   (table) => [

@@ -254,7 +254,7 @@ export class Chat extends Context.Service<
                   usageLimits,
                   limits,
                   subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
-                  pricing,
+                  pricing: () => managed.state.pricing,
                   execute: Effect.runPromiseWith(services),
                 })
               : undefined
@@ -390,7 +390,48 @@ export class Chat extends Context.Service<
             ]
             return chatEventStream((abortController) => {
               const source = chat({
-                adapter: createChatAdapter(model, web),
+                adapter: createChatAdapter(
+                  {
+                    ...model,
+                    fetch: async (request, init) => {
+                      const signal =
+                        init?.signal ?? (request instanceof Request ? request.signal : undefined)
+                      signal?.throwIfAborted()
+                      const timestamp = new Date()
+                      const rates = await Effect.runPromiseWith(services)(
+                        modelProviders.pricing({ ...model, timestamp }),
+                        signal ? { signal } : undefined,
+                      )
+                      managed.state.pricing = rates
+                      await Effect.runPromiseWith(services)(
+                        threads.recordRequest({
+                          claim: turn.claim,
+                          request: {
+                            id: crypto.randomUUID(),
+                            startedAt: timestamp.toISOString(),
+                            providerId: model.providerId,
+                            providerType: model.providerType,
+                            protocol: model.api,
+                            modelId: model.modelId,
+                            rates: rates
+                              ? {
+                                  currency: rates.currency,
+                                  pricingSource: rates.pricingSource,
+                                  prices: rates.prices,
+                                  contextTiers: rates.contextTiers,
+                                }
+                              : null,
+                          },
+                        }),
+                        signal ? { signal } : undefined,
+                      )
+                      signal?.throwIfAborted()
+                      return model.fetch(request, init)
+                    },
+                  },
+                  web,
+                  () => managed.state.pricing,
+                ),
                 // Undefined still enables TanStack's default error logger.
                 debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
                 messages,

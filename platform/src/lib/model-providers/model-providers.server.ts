@@ -29,6 +29,7 @@ import {
   ModelConfigurationMissing,
 } from "./errors.ts"
 import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import { activeModelPrice, updateModelPriceHistory } from "./pricing-history.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import { modelWebAccess } from "./web.server"
 import {
@@ -37,6 +38,7 @@ import {
   type ModelProviderApi,
   type ModelProviderType,
   type ModelConfiguration,
+  type ModelPriceVersion,
 } from "./schemas.ts"
 
 interface ModelProviderModel {
@@ -44,6 +46,8 @@ interface ModelProviderModel {
   readonly modelId: string
   readonly name: string
   readonly configuration: ModelConfiguration | null
+  readonly priceVersionId: string | null
+  readonly scheduledPrices: readonly ModelPriceVersion[]
 }
 
 export interface OrganizationModelProvider {
@@ -63,7 +67,7 @@ export interface OrganizationModelProvider {
 
 export type ModelProviderListItem = Omit<OrganizationModelProvider, "apiKeyHint" | "organizationId">
 
-export interface ModelChoice extends Omit<ModelProviderModel, "configuration"> {
+export interface ModelChoice extends Pick<ModelProviderModel, "id" | "modelId" | "name"> {
   readonly providerId: string
   readonly providerName: string
   readonly webAccess: boolean | null
@@ -79,6 +83,7 @@ export interface ChatModelConfiguration {
   readonly modelId: string
   /** The model's stored price and limit override, which `ModelProviders.pricing` completes. */
   readonly configured?: ModelConfiguration | null | undefined
+  readonly pricingModel?: { readonly organizationId: string; readonly id: string } | undefined
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
@@ -94,6 +99,13 @@ type TestModelProviderInput = {
   readonly id: string
   readonly lockVersion: number
   readonly modelId: string
+}
+
+type ModelPricingInput = Pick<
+  ChatModelConfiguration,
+  "providerType" | "modelId" | "configured" | "pricingModel"
+> & {
+  readonly timestamp?: Date | undefined
 }
 
 type ModelProviderWriteError =
@@ -175,9 +187,7 @@ export class ModelProviders extends Context.Service<
       readonly agentId: string
     }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
     /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
-    readonly pricing: (
-      model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
-    ) => Effect.Effect<ModelConfiguration | null>
+    readonly pricing: (model: ModelPricingInput) => Effect.Effect<ModelConfiguration | null>
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
@@ -253,6 +263,7 @@ export class ModelProviders extends Context.Service<
 
       const list = Effect.fn("ModelProviders.list")(function* (input: { organizationId: string }) {
         const catalog = yield* readPricing
+        const timestamp = new Date()
         const rows = yield* db
           .select(modelProviderReadColumns)
           .from(modelProvider)
@@ -270,15 +281,22 @@ export class ModelProviders extends Context.Service<
             credentialsReadable: apiKey !== null,
             models: models
               .filter((model) => model.modelProviderId === row.id)
-              .map(({ id, modelId, name, configuration }) => ({
+              .map(({ id, modelId, name, configuration, pricingHistory }) => ({
                 id,
                 modelId,
                 name,
+                priceVersionId:
+                  activeModelPrice({ history: pricingHistory, timestamp })?.id ?? null,
+                scheduledPrices: pricingHistory.filter(
+                  (version) => version.effectiveFrom > timestamp.toISOString(),
+                ),
                 configuration: effectiveModelConfiguration({
                   catalog,
                   providerType: row.providerType,
                   modelId,
                   configured: configuration,
+                  history: pricingHistory,
+                  timestamp,
                 }),
               })),
           }
@@ -293,6 +311,7 @@ export class ModelProviders extends Context.Service<
         if (!stored) return null
         const { storedCredentials: _storedCredentials, ...row } = stored
         const catalog = yield* readPricing
+        const timestamp = new Date()
         const apiKey = readModelProviderKey(stored)
         const models = yield* db
           .select({
@@ -300,6 +319,7 @@ export class ModelProviders extends Context.Service<
             modelId: providerModel.modelId,
             name: providerModel.name,
             configuration: providerModel.configuration,
+            pricingHistory: providerModel.pricingHistory,
           })
           .from(providerModel)
           .where(
@@ -313,13 +333,19 @@ export class ModelProviders extends Context.Service<
           ...row,
           apiKeyHint: apiKey?.slice(-4) ?? null,
           credentialsReadable: apiKey !== null,
-          models: models.map((model) => ({
+          models: models.map(({ pricingHistory, ...model }) => ({
             ...model,
+            priceVersionId: activeModelPrice({ history: pricingHistory, timestamp })?.id ?? null,
+            scheduledPrices: pricingHistory.filter(
+              (version) => version.effectiveFrom > timestamp.toISOString(),
+            ),
             configuration: effectiveModelConfiguration({
               catalog,
               providerType: row.providerType,
               modelId: model.modelId,
               configured: model.configuration,
+              history: pricingHistory,
+              timestamp,
             }),
           })),
         }
@@ -378,6 +404,7 @@ export class ModelProviders extends Context.Service<
                 .select({
                   modelId: providerModel.modelId,
                   configuration: providerModel.configuration,
+                  pricingHistory: providerModel.pricingHistory,
                 })
                 .from(providerModel)
                 .where(
@@ -389,22 +416,39 @@ export class ModelProviders extends Context.Service<
                 .pipe(Effect.orDie)
             : []
         const catalog = yield* readPricing
-        const configuredModels = input.models.map((model) => ({
-          ...model,
-          configuration: effectiveModelConfiguration({
+        const timestamp = new Date()
+        const configuredModels: Array<{
+          modelId: string
+          name: string
+          configuration: ModelConfiguration | null
+          pricingHistory: readonly ModelPriceVersion[]
+        }> = []
+        for (const model of input.models) {
+          const saved = savedModels.find((candidate) => candidate.modelId === model.modelId)
+          const pricingHistory = updateModelPriceHistory({
+            history: saved?.pricingHistory ?? [],
+            model,
+            timestamp,
+          })
+          if (!pricingHistory) return yield* new ModelProviderChanged()
+          const configuration = effectiveModelConfiguration({
             catalog,
             providerType: input.providerType,
             modelId: model.modelId,
             configured:
               model.configuration?.pricingSource.kind === "manual"
                 ? model.configuration
-                : savedModels.find(
-                    (saved) =>
-                      saved.modelId === model.modelId &&
-                      saved.configuration?.pricingSource.kind === "catalog",
-                  )?.configuration,
-          }),
-        }))
+                : saved?.configuration?.pricingSource.kind === "catalog"
+                  ? saved.configuration
+                  : null,
+          })
+          configuredModels.push({
+            modelId: model.modelId,
+            name: model.name,
+            configuration,
+            pricingHistory,
+          })
+        }
         if (configuredModels.some((model) => model.configuration === null))
           return yield* new ModelConfigurationMissing()
         return yield* db
@@ -486,6 +530,7 @@ export class ModelProviders extends Context.Service<
                     set: {
                       name: sql`excluded.name`,
                       configuration: sql`excluded.configuration`,
+                      pricingHistory: sql`excluded.pricing_history`,
                       updatedAt: sql`now()`,
                     },
                   })
@@ -577,6 +622,7 @@ export class ModelProviders extends Context.Service<
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
             configured: providerModel.configuration,
+            pricingModel: { organizationId: providerModel.organizationId, id: providerModel.id },
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
           .from(agentModel)
@@ -675,16 +721,38 @@ export class ModelProviders extends Context.Service<
         if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()
       })
 
-      const pricing = Effect.fn("ModelProviders.pricing")(function* (
-        model: Pick<ChatModelConfiguration, "providerType" | "modelId" | "configured">,
-      ) {
-        if (model.configured?.pricingSource.kind === "manual") return model.configured
-        const { providerType, modelId, configured } = model
+      const pricing = Effect.fn("ModelProviders.pricing")(function* (model: ModelPricingInput) {
+        const [stored] = model.pricingModel
+          ? yield* db
+              .select({
+                configured: providerModel.configuration,
+                history: providerModel.pricingHistory,
+              })
+              .from(providerModel)
+              .where(
+                and(
+                  eq(providerModel.organizationId, model.pricingModel.organizationId),
+                  eq(providerModel.id, model.pricingModel.id),
+                ),
+              )
+              .limit(1)
+              .pipe(Effect.orDie)
+          : []
+        if (model.pricingModel && !stored) return null
+        const configured = stored ? stored.configured : model.configured
+        const timestamp = model.timestamp ?? new Date()
+        const manual = stored?.history.length
+          ? activeModelPrice({ history: stored.history, timestamp })?.rates
+          : configured?.pricingSource.kind === "manual"
+            ? configured
+            : null
+        if (configured && manual) return { ...configured, ...manual }
         return effectiveModelConfiguration({
           catalog: yield* readPricing,
-          providerType,
-          modelId,
-          configured,
+          ...model,
+          configured: model.configured,
+          ...stored,
+          timestamp,
         })
       })
 

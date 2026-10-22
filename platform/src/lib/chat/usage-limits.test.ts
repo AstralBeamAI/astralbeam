@@ -36,7 +36,7 @@ it("stops before the next model call and announces the limit once before the run
     usageLimits,
     limits: [{} as UsageLimit],
     subject: { organizationId: "org", tenantId: "tenant", tenantUserId: "user" },
-    pricing: null,
+    pricing: () => null,
     execute: Effect.runPromise,
   })
   // Managed persistence holds the finish until its delivery ends the stream.
