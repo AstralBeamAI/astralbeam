@@ -9,7 +9,7 @@ AstralBeam runs from a container image or standalone binary. Let's start a local
 Download the pinned Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/8b177f79d5ed1f2f550cfe2379ebaf1aa02cea41/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.21.0/docker-compose.production.yml
 
 (
   umask 077
