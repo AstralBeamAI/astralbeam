@@ -18,6 +18,7 @@ import type {
   MountAstralBeamTenantUserListOptions,
 } from "../../client/listings.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
+import { authenticationState } from "../../core/auth.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
@@ -30,11 +31,13 @@ import {
   type ListingSession,
   loadListingPage,
   loadTenantChoices,
+  loadTenantUserUsage,
   resolveListingTenant,
 } from "../../core/listings.ts"
 import { ThreadDirectoryPage } from "./thread-directory.tsx"
 import { DirectoryTable } from "./table.tsx"
 import { type ListingCompletion, useListingCompletion } from "../lib/listing-completion.ts"
+import { usagePeriods, usagePeriodRange, type UsagePeriod } from "./usage-period.ts"
 
 const listingKinds = {
   tenants: {
@@ -75,7 +78,9 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
   const { Icon } = config
   const requiresTenant = config.tenantPrompt !== null
   const fetching = useIsFetching()
+  const fetchingRows = useIsFetching({ queryKey: [kind] })
   const [selectedTenant, setSelectedTenant] = useState<TenantRecordEncoded | null>(null)
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("month")
   const [search, setSearch] = useState("")
   const [q] = useDebouncedValue(search.trim(), { wait: 300 })
   const [admin, setAdmin] = useState<"all" | "true" | "false">("all")
@@ -181,7 +186,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
           className="ms-auto flex shrink-0 items-center gap-2"
         >
           <NativeSelect
-            disabled={awaitingTenant || fetching > 0}
+            disabled={awaitingTenant || fetchingRows > 0}
             aria-label="Rows per page"
             className="min-w-32"
             value={size}
@@ -238,7 +243,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
-          {...{ options, kind, session, tenantId, q, size }}
+          {...{ options, kind, session, tenantId, q, size, usagePeriod, setUsagePeriod }}
           onComplete={pending ? undefined : onComplete}
         />
       )}
@@ -296,6 +301,8 @@ function DirectoryPage({
   q,
   admin,
   size,
+  usagePeriod,
+  setUsagePeriod,
   onComplete,
 }: Omit<WidgetProps, "kind" | "onRefresh"> & {
   kind: "tenants" | "users"
@@ -303,6 +310,8 @@ function DirectoryPage({
   q: string
   admin: "all" | "true" | "false"
   size: number
+  usagePeriod: UsagePeriod
+  setUsagePeriod: (period: UsagePeriod) => void
 }) {
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
@@ -310,9 +319,87 @@ function DirectoryPage({
     queryFn: ({ signal }) =>
       loadListingPage(session, { kind, tenantId, q, admin, size, cursor }, signal),
   })
-  useListingCompletion(onComplete, query.isPending || query.fetchStatus !== "idle", query.error)
+  const auth = authenticationState(session.auth)
+  const userIds = query.data?.items.map(({ id }) => id).toSorted() ?? []
+  const currentRange = usagePeriodRange(usagePeriod)
+  const rolling = usagePeriod.startsWith("last")
+  const usageEnabled =
+    kind === "users" &&
+    !!tenantId &&
+    userIds.length > 0 &&
+    !query.isError &&
+    auth.status === "ready" &&
+    auth.currentUser.scope === "organization" &&
+    auth.currentUser.user.role.split(",").some((role) => role === "owner" || role === "developer")
+  const usage = useQuery({
+    // Rolling presets reuse fresh results, while each fetch resolves a new cutoff.
+    // https://tanstack.com/query/latest/docs/framework/react/guides/query-keys
+    queryKey: [
+      "tenant-user-usage",
+      session.auth.apiUrl,
+      session.identity,
+      tenantId,
+      userIds,
+      usagePeriod,
+      rolling ? null : currentRange,
+    ],
+    enabled: usageEnabled,
+    gcTime: 60_000,
+    queryFn: async ({ signal, client }) => {
+      try {
+        return await loadTenantUserUsage(
+          session,
+          tenantId!,
+          { user_ids: userIds.join(","), ...usagePeriodRange(usagePeriod) },
+          signal,
+        )
+      } catch (error) {
+        if (isAstralBeamApiError(error) && [401, 403].includes(error.status))
+          client.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })
+        throw error
+      }
+    },
+  })
+  const range = usage.data ?? currentRange
+  const usageDenied = isAstralBeamApiError(usage.error) && [401, 403].includes(usage.error.status)
+  useListingCompletion(
+    onComplete,
+    query.isPending ||
+      query.fetchStatus !== "idle" ||
+      (usageEnabled && (usage.isPending || usage.fetchStatus !== "idle")),
+    query.error ?? (usageEnabled ? usage.error : null),
+  )
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
+      {usageEnabled && !usageDenied && (
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3">
+            <NativeSelect
+              aria-label="Usage period"
+              value={usagePeriod}
+              onChange={(event) => setUsagePeriod(event.target.value as UsagePeriod)}
+            >
+              {Object.entries(usagePeriods).map(([value, label]) => (
+                <NativeSelectOption key={value} value={value}>
+                  {label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <span>
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                ...(rolling ? { timeStyle: "short" as const } : {}),
+                timeZone: "UTC",
+              }).formatRange(new Date(range.start), new Date(Date.parse(range.end) - 1))}{" "}
+              · UTC
+            </span>
+          </div>
+          <p className="max-w-prose">
+            Missing costs count as $0 for now. Older replies may use current token rates. Drafts and
+            deleted conversations are excluded.
+          </p>
+        </div>
+      )}
       {query.isError ? (
         <ListingError error={query.error} retry={() => void query.refetch()} />
       ) : query.isPending ? (
@@ -328,8 +415,32 @@ function DirectoryPage({
             kind={kind}
             options={options}
             filtered={!!q || admin !== "all"}
+            usage={
+              usageEnabled && !usageDenied
+                ? {
+                    costs: new Map(
+                      usage.isError
+                        ? []
+                        : usage.data?.items.map((item) => [item.tenant_user_id, item.cost_usd]),
+                    ),
+                    loading: usage.isPending,
+                  }
+                : undefined
+            }
           />
         </div>
+      )}
+      {usageEnabled && usage.isFetching && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading usage…
+        </p>
+      )}
+      {usageEnabled && usage.isError && (
+        <ListingError
+          title="Unable to load usage"
+          error={usage.error}
+          retry={() => void usage.refetch()}
+        />
       )}
       <div data-slot="directory-pagination">
         <PageNavigation
@@ -388,7 +499,15 @@ function ListingLoading() {
   )
 }
 
-function ListingError({ error, retry }: { error: Error; retry: () => void }) {
+function ListingError({
+  error,
+  retry,
+  title,
+}: {
+  error: Error
+  retry: () => void
+  title?: string
+}) {
   const apiError = isAstralBeamApiError(error) ? error : undefined
   const status = apiError?.status
   const titles: Record<number, string> = {
@@ -400,7 +519,7 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
   const retryAfter = apiError?.headers.get("retry-after")
   return (
     <Alert variant="destructive">
-      <AlertTitle>{titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
+      <AlertTitle>{title ?? titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
       </AlertDescription>

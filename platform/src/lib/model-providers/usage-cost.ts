@@ -2,7 +2,7 @@ import { BigDecimal, Schema } from "effect"
 
 import type { ModelConfiguration } from "./schemas.ts"
 
-const ModelRequestUsageSchema = Schema.Struct({
+export const ModelRequestUsageSchema = Schema.Struct({
   promptTokens: Schema.Number,
   completionTokens: Schema.Number,
   promptTokensDetails: Schema.optional(

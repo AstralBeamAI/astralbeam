@@ -72,10 +72,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
     "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
 }
 
-/**
- * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
- * request and then closes TanStack's iterator, so billing stops with the connection.
- */
+/** Dropping the client stream aborts the provider request before closing TanStack's iterator. */
 function chatEventStream(start: (abortController: AbortController) => AsyncIterable<StreamChunk>) {
   return Stream.unwrap(
     Effect.gen(function* () {
@@ -249,15 +246,6 @@ export class Chat extends Context.Service<
           organizationId: principal.organization.id,
           listedIds: principal.usageLimitIds ?? [],
         })
-        const usageLimitGuard = limits.length
-          ? chatUsageLimitGuard({
-              usageLimits,
-              limits,
-              subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
-              pricing: yield* modelProviders.pricing(model),
-              execute: Effect.runPromiseWith(services),
-            })
-          : undefined
         const events = Stream.unwrap(
           Effect.gen(function* () {
             let turn = { claim: input.managed.claim }
@@ -266,6 +254,16 @@ export class Chat extends Context.Service<
                 .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
+            const pricing = yield* modelProviders.pricing(model)
+            const usageLimitGuard = limits.length
+              ? chatUsageLimitGuard({
+                  usageLimits,
+                  limits,
+                  subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
+                  pricing,
+                  execute: Effect.runPromiseWith(services),
+                })
+              : undefined
             // Resolving the sandbox provisions nothing. An unreadable configuration drops its tools and
             // prompts together, so the agent never offers a capability it does not have.
             const session = agent.sandboxProviderId
@@ -326,6 +324,7 @@ export class Chat extends Context.Service<
               history: convertMessagesToModelMessages(messages),
               tools,
               model,
+              pricing,
               web,
               publicHistory:
                 web ||

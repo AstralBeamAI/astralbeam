@@ -1,7 +1,6 @@
-import { createAstralBeamToken } from "@astralbeam/sdk/server"
+import { createAstralBeamOrganizationToken, createAstralBeamToken } from "@astralbeam/sdk/server"
 import type { TenantUserPage } from "../../../../../sdk/dist/api.js"
-import { SEED_ORGANIZATIONS } from "../../../../../platform/scripts/seed/fixtures.ts"
-import { captureMoment } from "../../capture.ts"
+import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
 import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -118,14 +117,21 @@ test("retained directories reuse data after authentication, refresh and isolate 
   expect({ tokens, sessions, lists }).toEqual({ tokens: 3, sessions: 3, lists: 3 })
 })
 
-test("host refresh waits for lazy loading, authentication and dependent directory rows", async ({
+test("host refresh waits for authentication, directory rows and their changed users' usage", async ({
   page,
 }) => {
   const directory = directoriesPage(page)
-  const token = await createAstralBeamToken(seedTarget)
+  const token = await createAstralBeamOrganizationToken({
+    apiKey: seedTarget.apiKey,
+    organizationId: seedTarget.organizationId,
+    email: SEED_USERS[0].email,
+  })
   const authentication = Promise.withResolvers<void>()
   const tenant = Promise.withResolvers<void>()
   const rows = Promise.withResolvers<void>()
+  const usage = Promise.withResolvers<void>()
+  const changedId = crypto.randomUUID()
+  let refresh = false
   let stage = ""
   await page.route("**/__listing-token", async (route) => {
     stage = "authentication"
@@ -140,22 +146,50 @@ test("host refresh waits for lazy loading, authentication and dependent director
   await page.route("**/api/v1/tenants/*/tenant_users?*", async (route) => {
     stage = "rows"
     await rows.promise
-    await route.continue()
+    const response = await route.fetch()
+    const data = (await response.json()) as TenantUserPage
+    if (refresh) {
+      const user = data.items.find((item) => item.name === seedTarget.user.name)!
+      user.id = changedId
+      user.name = "Refreshed user"
+    }
+    await route.fulfill({ response, json: data })
   })
-  await openVanillaDirectories(page, { initialAction: "refresh" }, ["users"])
+  await page.route("**/api/v1/tenants/*/tenant_users/usage?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    const ids = params.get("user_ids")!.split(",")
+    if (ids.includes(changedId)) {
+      stage = "usage"
+      await usage.promise
+    }
+    await route.fulfill({
+      json: {
+        start: params.get("start"),
+        end: params.get("end"),
+        items: ids.map((id) => ({ tenant_user_id: id, cost_usd: "1.25" })),
+      },
+    })
+  })
+  await openVanillaDirectories(
+    page,
+    { initialAction: "refresh", tenantExternalId: seedTarget.tenant.id },
+    ["users"],
+  )
   const command = directory.commands.first()
-  await expect.poll(() => stage).toBe("authentication")
-  await expect(command).toHaveText("pending")
-  authentication.resolve()
-  await expect.poll(() => stage).toBe("tenant")
-  await expect(command).toHaveText("pending")
-  tenant.resolve()
-  await expect.poll(() => stage).toBe("rows")
-  await expect(command).toHaveText("pending")
-  rows.resolve()
+  for (const [expected, gate] of Object.entries({ authentication, tenant, rows })) {
+    await expect.poll(() => stage).toBe(expected)
+    await expect(command).toHaveText("pending")
+    gate.resolve()
+  }
   await expect(command).toHaveText("fulfilled")
   await expect(directory.user(seedTarget.user.name)).toBeVisible()
-  await captureMoment(page, "host-refresh-completes-after-authentication-and-rows")
+  refresh = true
+  const refreshed = await directory.runCommand("refresh")
+  await expect.poll(() => stage).toBe("usage")
+  await expect(directory.user("Refreshed user")).toBeVisible()
+  await expect(refreshed).toHaveText("pending")
+  usage.resolve()
+  await expect(refreshed).toHaveText("fulfilled")
 })
 
 test("new refreshes, reset and unmount cancel older host commands and discard late rows", async ({

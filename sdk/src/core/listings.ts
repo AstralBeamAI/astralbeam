@@ -19,6 +19,8 @@ import {
   listTenants,
   type ListTenantsParams,
   listUsersForTenant,
+  getTenantUserUsage,
+  type GetTenantUserUsageParams,
   type TenantPage,
   type TenantUserPage,
 } from "../api/generated/api.ts"
@@ -140,6 +142,15 @@ export function loadListingPage(
     }
     return listTenants(params, auth)
   })
+}
+
+export function loadTenantUserUsage(
+  session: ListingSession,
+  tenantId: string,
+  params: GetTenantUserUsageParams,
+  signal: AbortSignal,
+) {
+  return listingRequest(session, signal, (auth) => getTenantUserUsage(tenantId, params, auth))
 }
 
 export async function listingRequest<T>(

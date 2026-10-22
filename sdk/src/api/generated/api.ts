@@ -553,6 +553,18 @@ export interface Organization {
   slug: string
 }
 
+export type TenantUserUsageItemsItem = {
+  tenant_user_id: string
+  /** USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero. */
+  cost_usd: string
+}
+
+export interface TenantUserUsage {
+  start: string
+  end: string
+  items: TenantUserUsageItemsItem[]
+}
+
 /**
  * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
  */
@@ -707,6 +719,22 @@ export const ListUsersForTenantFilterAdmin = {
   true: "true",
   false: "false",
 } as const
+
+export type GetTenantUserUsageParams = {
+  /**
+   * Comma-separated internal user UUIDs, 1 to 100 unique IDs.
+   * @maxLength 3699
+   */
+  user_ids: string
+  /**
+   * Inclusive start timestamp, with Z or a numeric timezone offset.
+   */
+  start: string
+  /**
+   * Exclusive end timestamp, with Z or a numeric timezone offset.
+   */
+  end: string
+}
 
 export type ListThreadsParams = {
   /**
@@ -1194,6 +1222,37 @@ export const updateTenantUser = (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(updateTenantUserInput),
+  })
+}
+
+export const getGetTenantUserUsageUrl = (tenantId: string, params: GetTenantUserUsageParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/usage?${stringifiedParams}`
+    : `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/usage`
+}
+
+/**
+ * Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no settled replies in the range return zero. Results are computed at request time from retained settled replies. Drafts and deleted conversations are excluded, and older replies without saved costs use current rates.
+ * @summary Get TenantUser usage
+ */
+export const getTenantUserUsage = (
+  tenantId: string,
+  params: GetTenantUserUsageParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<TenantUserUsage>(getGetTenantUserUsageUrl(tenantId, params), {
+    ...options,
+    method: "GET",
   })
 }
 
