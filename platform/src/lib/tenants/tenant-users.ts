@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
 import { BigDecimal, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
@@ -165,81 +165,133 @@ export class TenantUsers extends Context.Service<
           .limit(userIds.length)
         if (users.length === 0) return { start, end, items: [] }
         const initiator = sql<string>`${chatMessage.metadata}->'provenance'->>'initiatorTenantUserId'`
-        const replies = yield* db
+        const savedUsage = sql`${chatMessage.metadata}->'provenance'->'usage'`
+        const savedCost = sql`case
+          when ${savedUsage}->>'costUsd' ~ '^-?[0-9]+([.][0-9]+)?$'
+            then (${savedUsage}->>'costUsd')::numeric
+          when jsonb_typeof(${savedUsage}->'cost') = 'number'
+            then (${savedUsage}->>'cost')::numeric
+        end`
+        const range = and(
+          eq(chatMessage.organizationId, scope.organizationId),
+          eq(chatMessage.tenantId, tenantId),
+          eq(chatMessage.role, "assistant"),
+          ne(chatMessage.state, "draft"),
+          gte(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(start))),
+          lt(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(end))),
+        )
+        const totals = yield* db
           .select({
             tenantUserId: initiator,
-            usage: sql<Schema.JsonObject | null>`${chatMessage.metadata}->'provenance'->'usage'`,
-            providerId: modelProvider.id,
-            providerType: modelProvider.providerType,
-            modelId: providerModel.modelId,
-            configuration: providerModel.configuration,
+            cost: sql<string>`coalesce(sum(${savedCost}), 0)::text`,
+            needsPricing: sql<boolean>`bool_or(${savedCost} is null)`,
           })
           .from(chatMessage)
-          .leftJoin(
-            modelProvider,
-            and(
-              eq(modelProvider.organizationId, chatMessage.organizationId),
-              sql`${modelProvider.id}::text = ${chatMessage.metadata}->'provenance'->>'providerId'`,
-              eq(
-                modelProvider.providerType,
-                sql`${chatMessage.metadata}->'provenance'->>'providerType'`,
-              ),
-            ),
-          )
-          .leftJoin(
-            providerModel,
-            and(
-              eq(providerModel.organizationId, chatMessage.organizationId),
-              eq(providerModel.modelProviderId, modelProvider.id),
-              eq(providerModel.modelId, sql`${chatMessage.metadata}->'provenance'->>'modelId'`),
-            ),
-          )
           .where(
             and(
-              eq(chatMessage.organizationId, scope.organizationId),
-              eq(chatMessage.tenantId, tenantId),
-              eq(chatMessage.role, "assistant"),
-              gte(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(start))),
-              lt(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(end))),
+              range,
               inArray(
                 initiator,
                 users.map(({ id }) => id),
               ),
             ),
           )
-        const catalog = yield* readModelPriceCatalog.pipe(Effect.provideService(Config, config))
+          .groupBy(initiator)
         const costs = new Map<string, BigDecimal.BigDecimal | null>(
           users.map(({ id }) => [id, BigDecimal.fromNumberUnsafe(0)]),
         )
+        for (const total of totals)
+          costs.set(total.tenantUserId, BigDecimal.fromStringUnsafe(total.cost))
+        const unpriced = totals
+          .filter((total) => total.needsPricing)
+          .map((total) => total.tenantUserId)
+        const catalog =
+          unpriced.length > 0
+            ? yield* readModelPriceCatalog.pipe(Effect.provideService(Config, config))
+            : undefined
         const pricingByModel = new Map<string, ReturnType<typeof effectiveModelConfiguration>>()
-        for (const {
-          tenantUserId,
-          usage,
-          providerId,
-          providerType,
-          modelId,
-          configuration,
-        } of replies) {
-          const previous = costs.get(tenantUserId)
-          if (previous === null) continue
-          let cost: BigDecimal.BigDecimal | null = null
-          if (typeof usage?.cost === "number" && Number.isFinite(usage.cost)) {
-            cost = BigDecimal.fromNumberUnsafe(usage.cost)
-          } else if (providerType && modelId && Schema.is(ModelRequestUsageSchema)(usage)) {
-            const key = `${providerId}:${modelId}`
-            let pricing = pricingByModel.get(key)
-            if (pricing === undefined) {
-              pricing = effectiveModelConfiguration({
-                catalog,
-                providerType,
-                modelId,
-                configured: configuration,
-              })
-              pricingByModel.set(key, pricing)
+        let cursor:
+          | { tenantUserId: string; createdAt: string; threadId: string; id: string }
+          | undefined
+        while (catalog) {
+          const replies = yield* db
+            .select({
+              id: chatMessage.id,
+              threadId: chatMessage.threadId,
+              createdAt: sql<string>`${chatMessage.createdAt}::text`,
+              tenantUserId: initiator,
+              usage: sql<Schema.JsonObject | null>`${chatMessage.metadata}->'provenance'->'usage'`,
+              providerId: modelProvider.id,
+              providerType: modelProvider.providerType,
+              modelId: providerModel.modelId,
+              configuration: providerModel.configuration,
+            })
+            .from(chatMessage)
+            .leftJoin(
+              modelProvider,
+              and(
+                eq(modelProvider.organizationId, chatMessage.organizationId),
+                sql`${modelProvider.id}::text = ${chatMessage.metadata}->'provenance'->>'providerId'`,
+                eq(
+                  modelProvider.providerType,
+                  sql`${chatMessage.metadata}->'provenance'->>'providerType'`,
+                ),
+              ),
+            )
+            .leftJoin(
+              providerModel,
+              and(
+                eq(providerModel.organizationId, chatMessage.organizationId),
+                eq(providerModel.modelProviderId, modelProvider.id),
+                eq(providerModel.modelId, sql`${chatMessage.metadata}->'provenance'->>'modelId'`),
+              ),
+            )
+            .where(
+              and(
+                range,
+                inArray(initiator, unpriced),
+                sql`${savedCost} is null`,
+                cursor
+                  ? sql`(${initiator}, ${chatMessage.createdAt}, ${chatMessage.threadId}, ${chatMessage.id}) > (${cursor.tenantUserId}, ${cursor.createdAt}::timestamptz, ${cursor.threadId}::uuid, ${cursor.id}::uuid)`
+                  : undefined,
+              ),
+            )
+            .orderBy(
+              asc(initiator),
+              asc(chatMessage.createdAt),
+              asc(chatMessage.threadId),
+              asc(chatMessage.id),
+            )
+            .limit(1000)
+          for (const {
+            tenantUserId,
+            usage,
+            providerId,
+            providerType,
+            modelId,
+            configuration,
+          } of replies) {
+            const previous = costs.get(tenantUserId)
+            if (previous === null) continue
+            let cost: BigDecimal.BigDecimal | null = null
+            if (providerType && modelId && Schema.is(ModelRequestUsageSchema)(usage)) {
+              const key = `${providerId}:${modelId}`
+              let pricing = pricingByModel.get(key)
+              if (pricing === undefined) {
+                pricing = effectiveModelConfiguration({
+                  catalog,
+                  providerType,
+                  modelId,
+                  configured: configuration,
+                })
+                pricingByModel.set(key, pricing)
+              }
+              if (pricing) cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
             }
-            if (pricing) cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
+            costs.set(tenantUserId, cost === null ? null : BigDecimal.sum(previous!, cost))
           }
-          costs.set(tenantUserId, cost === null ? null : BigDecimal.sum(previous!, cost))
+          if (replies.length < 1000) break
+          cursor = replies.at(-1)!
         }
         return {
           start,

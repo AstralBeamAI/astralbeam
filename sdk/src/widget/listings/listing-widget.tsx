@@ -372,29 +372,39 @@ function DirectoryPage({
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {usageEnabled && !usageDenied && (
-        <div
-          className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
-          title="Uses provider-reported costs when available, otherwise current configured token rates. Deleted conversations are excluded."
-        >
-          <NativeSelect
-            aria-label="Usage period"
-            value={usagePeriod}
-            onChange={(event) => setUsagePeriod(event.target.value as UsagePeriod)}
-          >
-            {Object.entries(usagePeriods).map(([value, label]) => (
-              <NativeSelectOption key={value} value={value}>
-                {label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <span>
-            {new Intl.DateTimeFormat(undefined, {
-              dateStyle: "medium",
-              ...(rolling ? { timeStyle: "short" as const } : {}),
-              timeZone: "UTC",
-            }).formatRange(new Date(range.start), new Date(Date.parse(range.end) - 1))}{" "}
-            · UTC
-          </span>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3">
+            <NativeSelect
+              aria-label="Usage period"
+              value={usagePeriod}
+              onChange={(event) => setUsagePeriod(event.target.value as UsagePeriod)}
+            >
+              {Object.entries(usagePeriods).map(([value, label]) => (
+                <NativeSelectOption key={value} value={value}>
+                  {label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <span>
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                ...(rolling ? { timeStyle: "short" as const } : {}),
+                timeZone: "UTC",
+              }).formatRange(new Date(range.start), new Date(Date.parse(range.end) - 1))}{" "}
+              · UTC
+            </span>
+          </div>
+          <details>
+            <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11">
+              About usage
+            </summary>
+            <p className="mt-1 max-w-prose">
+              Totals include retained settled replies. Drafts are excluded. New replies save their
+              resolved USD cost. Older replies may use current token rates. Deleted conversations
+              are excluded. Unavailable means a settled reply cannot be priced. Select an amount to
+              see its exact value.
+            </p>
+          </details>
         </div>
       )}
       {query.isError ? (

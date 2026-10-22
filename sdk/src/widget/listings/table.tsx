@@ -178,16 +178,20 @@ export function DirectoryTable({
         return usage.loading ? (
           <Skeleton className="h-4 w-12" />
         ) : (
-          <span
-            className="tabular-nums whitespace-nowrap"
-            title={cost == null ? undefined : `${cost} USD`}
-          >
-            {cost == null
-              ? "Unavailable"
-              : Number(cost) > 0 && Number(cost) < 0.0001
-                ? `<${usageCostFormat.format(0.0001)}`
-                : usageCostFormat.format(Number(cost))}
-          </span>
+          <div className="tabular-nums">
+            {cost == null ? (
+              "Unavailable"
+            ) : (
+              <details>
+                <summary className="w-fit cursor-pointer rounded-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11">
+                  {Number(cost) > 0 && Number(cost) < 0.0001
+                    ? `<${usageCostFormat.format(0.0001)}`
+                    : usageCostFormat.format(Number(cost))}
+                </summary>
+                <p className="mt-1 text-xs break-all">{cost} USD</p>
+              </details>
+            )}
+          </div>
         )
       },
     })

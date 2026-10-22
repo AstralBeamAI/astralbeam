@@ -274,15 +274,6 @@ export class Chat extends Context.Service<
           organizationId: principal.organization.id,
           listedIds: principal.usageLimitIds ?? [],
         })
-        const usageLimitGuard = limits.length
-          ? chatUsageLimitGuard({
-              usageLimits,
-              limits,
-              subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
-              pricing: yield* modelProviders.pricing(model),
-              execute: Effect.runPromiseWith(services),
-            })
-          : undefined
         const events = Stream.unwrap(
           Effect.gen(function* () {
             let turn = { claim: input.managed.claim }
@@ -291,6 +282,16 @@ export class Chat extends Context.Service<
                 .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
+            const pricing = yield* modelProviders.pricing(model)
+            const usageLimitGuard = limits.length
+              ? chatUsageLimitGuard({
+                  usageLimits,
+                  limits,
+                  subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
+                  pricing,
+                  execute: Effect.runPromiseWith(services),
+                })
+              : undefined
             const mcp = unknownOutcome
               ? { tools: [], presentation: [], unavailable: [] }
               : yield* mcpTools.acquire(input.managed.claim.scope)
@@ -326,6 +327,7 @@ export class Chat extends Context.Service<
               history: convertMessagesToModelMessages(messages),
               tools,
               model,
+              pricing,
               web,
               publicHistory:
                 web ||

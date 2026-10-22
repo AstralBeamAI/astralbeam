@@ -555,7 +555,7 @@ export interface Organization {
 
 export type TenantUserUsageItemsItem = {
   tenant_user_id: string
-  /** Estimated USD total from saved assistant replies. Uses saved reported costs when available, otherwise current configured model-token rates. Deleted conversations are excluded. Null if any saved reply cannot be priced, and zero when there are no matching replies. */
+  /** USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Null if any settled reply cannot be priced, and zero when there are no settled replies. */
   cost_usd: string | null
 }
 
@@ -1242,7 +1242,7 @@ export const getGetTenantUserUsageUrl = (tenantId: string, params: GetTenantUser
 }
 
 /**
- * Read estimated usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.
+ * Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no settled replies in the range return zero. Results are computed at request time from retained settled replies. Drafts and deleted conversations are excluded, and older replies without saved costs use current rates.
  * @summary Get TenantUser usage
  */
 export const getTenantUserUsage = (

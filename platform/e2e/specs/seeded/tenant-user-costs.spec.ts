@@ -46,9 +46,11 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
          returning id, tenant_id, thread_id, author_tenant_user_id
        )
        insert into chat_message (organization_id, tenant_id, thread_id, parent_message_id, turn_message_id, role, state, metadata, created_at)
-       select $1, i.tenant_id, i.thread_id, i.id, i.id, 'assistant', 'complete',
+       select $1, i.tenant_id, i.thread_id, i.id, i.id, 'assistant',
+         case when c.spend is null or c.spend = 0.01 then 'interrupted'::chat_message_state else 'complete'::chat_message_state end,
          jsonb_build_object('version', 1, 'provenance', jsonb_build_object(
            'initiatorTenantUserId', u.id, 'usage', case when c.spend is null then '{}'::jsonb
+             when c.spend = 0.01 then jsonb_build_object('costUsd', '0.01', 'cost', 99)
              else jsonb_build_object('cost', c.spend) end)), c.created_at
        from inputs i join tenant_user u on u.organization_id = $1 and u.tenant_id = i.tenant_id and u.id = i.author_tenant_user_id
        join (values
@@ -57,6 +59,14 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
          ('priced', 8, (date_trunc('month', $4::timestamptz at time zone 'UTC') + interval '1 month') at time zone 'UTC')
        ) c(external_id, spend, created_at) on c.external_id = u.external_id`,
       [organization.id, tenantId, otherTenantId, replyTime],
+    )
+    await pool.query(
+      `insert into chat_message (organization_id, tenant_id, thread_id, parent_message_id, turn_message_id, role, state, metadata, created_at)
+       select m.organization_id, m.tenant_id, m.thread_id, m.id, m.id, 'assistant', 'draft',
+         jsonb_build_object('version', 1, 'provenance', jsonb_build_object('initiatorTenantUserId', u.id)), $3
+       from chat_message m join tenant_user u on u.organization_id = m.organization_id and u.tenant_id = m.tenant_id and u.id = m.author_tenant_user_id
+       where m.organization_id = $1 and m.tenant_id = $2 and m.role = 'user' and u.external_id = 'priced'`,
+      [organization.id, tenantId, replyTime],
     )
     const usagePath = `/api/v1/tenants/${tenantId}/tenant_users/usage`
     const now = new Date()
@@ -127,13 +137,22 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(userRow("Priced user")).toContainText("$0.0123")
       await expect(userRow("Unpriced user")).toContainText("Unavailable")
       await expect(userRow("Unused user")).toContainText("$0.00")
-      await expect(userRow("Small usage").getByText("<$0.0001", { exact: true })).toHaveAttribute(
-        "title",
-        "0.00001 USD",
-      )
-      await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
+      const small = userRow("Small usage").getByText("<$0.0001", { exact: true })
+      await small.focus()
+      await page.keyboard.press("Enter")
+      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
+      const about = directory.getByText("About usage", { exact: true })
+      await about.click()
+      await expect(directory.getByText(/Older replies may use current token rates/)).toBeVisible()
+      await expect(
+        userRow("Priced user").locator('details[class*="group/metadata"]'),
+      ).toHaveJSProperty("open", true)
       await refreshUsage()
-      await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
+      await expect(
+        userRow("Priced user").locator('details[class*="group/metadata"]'),
+      ).toHaveJSProperty("open", true)
+      await small.click()
+      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
       await captureMilestone(page, "tenant-user-costs-owner")
     })
     await test.step("Usage cache reuses pages, refreshes explicitly, and discards denied values", async () => {
@@ -192,7 +211,9 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       }
       await expect(refresh).toBeEnabled()
       expect(rowRequests).toBe(rows)
-      await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
+      await expect(
+        userRow("Priced user").locator('details[class*="group/metadata"]'),
+      ).toHaveJSProperty("open", true)
       await captureMilestone(page, "tenant-user-costs-presets")
       const requests = usageRequests
       await period.selectOption("month")
@@ -219,6 +240,9 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true)
+      await userRow("Small usage").getByText("<$0.0001", { exact: true }).click()
+      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
+      await page.evaluate(() => window.scrollTo(0, 0))
       await captureMilestone(page, "tenant-user-costs-mobile")
     })
     await test.step("Viewer loads users without a usage request or column", async () => {

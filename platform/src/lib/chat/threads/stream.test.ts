@@ -165,6 +165,16 @@ async function exerciseManagedStream(options: {
     history,
     tools: options.refresh ? [] : [tool],
     model,
+    pricing: {
+      currency: "USD",
+      pricingSource: { kind: "manual" },
+      prices: { inputPerMillion: "3", outputPerMillion: "15" },
+      contextTiers: [],
+      maxInputTokens: 100_000,
+      contextWindowTokens: null,
+      maxOutputTokens: 4000,
+      outputCap: 1000,
+    },
     agentId: "agent",
     execute: Effect.runPromise,
     ...(options.refresh
@@ -271,7 +281,7 @@ describe("managed TanStack persistence boundaries", () => {
       ),
     ).toBe(true)
     expect(JSON.stringify(result.saved)).not.toContain("synthetic-test-key")
-    expect(result.saved.some((payload) => payload.provenance?.usage !== undefined)).toBe(true)
+    expect(result.saved.at(-1)?.provenance?.usage).toMatchObject({ costUsd: "0.000105" })
   })
 
   test("refreshes provider context between phases without replacing canonical saved history", async () => {
