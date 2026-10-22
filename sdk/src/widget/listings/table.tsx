@@ -22,7 +22,8 @@ const features = tableFeatures({})
 const usageCostFormat = new Intl.NumberFormat(undefined, {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 4,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 100,
 })
 export type DirectoryColumns<T extends { id: string }> = ColumnDef<typeof features, T>[]
 type RecordRow = TenantRecordEncoded | TenantUserRecordEncoded
@@ -178,20 +179,11 @@ export function DirectoryTable({
         return usage.loading ? (
           <Skeleton className="h-4 w-12" />
         ) : (
-          <div className="tabular-nums">
-            {cost == null ? (
-              "Unavailable"
-            ) : (
-              <details>
-                <summary className="w-fit cursor-pointer rounded-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11">
-                  {Number(cost) > 0 && Number(cost) < 0.0001
-                    ? `<${usageCostFormat.format(0.0001)}`
-                    : usageCostFormat.format(Number(cost))}
-                </summary>
-                <p className="mt-1 text-xs break-all">{cost} USD</p>
-              </details>
-            )}
-          </div>
+          <span className="tabular-nums break-all">
+            {cost == null
+              ? "Unavailable"
+              : usageCostFormat.format(cost as Intl.StringNumericLiteral)}
+          </span>
         )
       },
     })

@@ -136,13 +136,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(costHeader).toBeVisible()
       await expect(userRow("Priced user")).toContainText("$0.0123")
       await expect(userRow("Unpriced user")).toContainText("Unavailable")
-      await expect(userRow("Unused user")).toContainText("$0.00")
-      const small = userRow("Small usage").getByText("<$0.0001", { exact: true })
-      await small.focus()
-      await page.keyboard.press("Enter")
-      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
-      const about = directory.getByText("About usage", { exact: true })
-      await about.click()
+      await expect(userRow("Unused user")).toContainText("$0")
+      await expect(userRow("Small usage").getByText("$0.00001", { exact: true })).toBeVisible()
       await expect(directory.getByText(/Older replies may use current token rates/)).toBeVisible()
       await expect(
         userRow("Priced user").locator('details[class*="group/metadata"]'),
@@ -151,8 +146,6 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(
         userRow("Priced user").locator('details[class*="group/metadata"]'),
       ).toHaveJSProperty("open", true)
-      await small.click()
-      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
       await captureMilestone(page, "tenant-user-costs-owner")
     })
     await test.step("Usage cache reuses pages, refreshes explicitly, and discards denied values", async () => {
@@ -196,7 +189,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
         await period.selectOption(value)
         const result = await response
         expect(result.status()).toBe(200)
-        if (value === "previousMonth") await expect(userRow("Priced user")).toContainText("$7.00")
+        if (value === "previousMonth") await expect(userRow("Priced user")).toContainText("$7")
         if (value === "last7Days") {
           const range: unknown = await result.json()
           expect(range).toMatchObject({
@@ -240,8 +233,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true)
-      await userRow("Small usage").getByText("<$0.0001", { exact: true }).click()
-      await expect(userRow("Small usage").getByText("0.00001 USD", { exact: true })).toBeVisible()
+      await expect(userRow("Small usage").getByText("$0.00001", { exact: true })).toBeVisible()
       await page.evaluate(() => window.scrollTo(0, 0))
       await captureMilestone(page, "tenant-user-costs-mobile")
     })

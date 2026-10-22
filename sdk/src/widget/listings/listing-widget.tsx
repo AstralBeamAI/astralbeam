@@ -394,17 +394,10 @@ function DirectoryPage({
               · UTC
             </span>
           </div>
-          <details>
-            <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11">
-              About usage
-            </summary>
-            <p className="mt-1 max-w-prose">
-              Totals include retained settled replies. Drafts are excluded. New replies save their
-              resolved USD cost. Older replies may use current token rates. Deleted conversations
-              are excluded. Unavailable means a settled reply cannot be priced. Select an amount to
-              see its exact value.
-            </p>
-          </details>
+          <p className="max-w-prose">
+            Drafts and deleted conversations are excluded. Older replies may use current token
+            rates. Unavailable means a settled reply cannot be priced.
+          </p>
         </div>
       )}
       {query.isError ? (
