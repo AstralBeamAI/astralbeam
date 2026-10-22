@@ -18,6 +18,7 @@ import type {
   MountAstralBeamTenantUserListOptions,
 } from "../../client/listings.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
+import { authenticationState } from "../../core/auth.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { Button } from "../components/ui/button.tsx"
 import { Input } from "../components/ui/input.tsx"
@@ -30,6 +31,7 @@ import {
   type ListingSession,
   loadListingPage,
   loadTenantChoices,
+  loadTenantUserUsage,
   resolveListingTenant,
 } from "../../core/listings.ts"
 import { ThreadDirectoryPage } from "./thread-directory.tsx"
@@ -304,6 +306,7 @@ function DirectoryPage({
   admin: "all" | "true" | "false"
   size: number
 }) {
+  const queryClient = useQueryClient()
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
     queryKey: [kind, tenantId, q, admin, size, cursor],
@@ -311,6 +314,51 @@ function DirectoryPage({
       loadListingPage(session, { kind, tenantId, q, admin, size, cursor }, signal),
   })
   useListingCompletion(onComplete, query.isPending || query.fetchStatus !== "idle", query.error)
+  const auth = authenticationState(session.auth)
+  const userIds = query.data?.items.map(({ id }) => id).toSorted() ?? []
+  const now = new Date()
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    .toISOString()
+    .slice(0, 10)
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    .toISOString()
+    .slice(0, 10)
+  const usageEnabled =
+    kind === "users" &&
+    !!tenantId &&
+    userIds.length > 0 &&
+    !query.isError &&
+    auth.status === "ready" &&
+    auth.currentUser.scope === "organization" &&
+    auth.currentUser.user.role.split(",").some((role) => role === "owner" || role === "developer")
+  const usage = useQuery({
+    queryKey: [
+      "tenant-user-usage",
+      session.auth.apiUrl,
+      session.identity,
+      tenantId,
+      userIds,
+      start,
+      end,
+    ],
+    enabled: usageEnabled,
+    staleTime: 30_000,
+    gcTime: 60_000,
+    queryFn: async ({ signal }) => {
+      try {
+        return await loadTenantUserUsage(
+          session,
+          tenantId!,
+          { user_ids: userIds.join(","), start, end },
+          signal,
+        )
+      } catch (error) {
+        if (isAstralBeamApiError(error) && [401, 403].includes(error.status))
+          queryClient.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })
+        throw error
+      }
+    },
+  })
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {query.isError ? (
@@ -328,8 +376,30 @@ function DirectoryPage({
             kind={kind}
             options={options}
             filtered={!!q || admin !== "all"}
+            usage={
+              usageEnabled && !usage.isError
+                ? {
+                    costs: new Map(
+                      usage.data?.items.map((item) => [item.tenant_user_id, item.cost_usd]),
+                    ),
+                    loading: usage.isPending,
+                  }
+                : undefined
+            }
           />
         </div>
+      )}
+      {usageEnabled && usage.isFetching && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading usage…
+        </p>
+      )}
+      {usageEnabled && usage.isError && (
+        <ListingError
+          title="Unable to load usage"
+          error={usage.error}
+          retry={() => void usage.refetch()}
+        />
       )}
       <div data-slot="directory-pagination">
         <PageNavigation
@@ -388,7 +458,15 @@ function ListingLoading() {
   )
 }
 
-function ListingError({ error, retry }: { error: Error; retry: () => void }) {
+function ListingError({
+  error,
+  retry,
+  title,
+}: {
+  error: Error
+  retry: () => void
+  title?: string
+}) {
   const apiError = isAstralBeamApiError(error) ? error : undefined
   const status = apiError?.status
   const titles: Record<number, string> = {
@@ -400,7 +478,7 @@ function ListingError({ error, retry }: { error: Error; retry: () => void }) {
   const retryAfter = apiError?.headers.get("retry-after")
   return (
     <Alert variant="destructive">
-      <AlertTitle>{titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
+      <AlertTitle>{title ?? titles[status ?? 0] ?? "Unable to load directory"}</AlertTitle>
       <AlertDescription>
         {status === 429 ? `Please retry after ${retryAfter ?? "a few"} seconds.` : error.message}
       </AlertDescription>

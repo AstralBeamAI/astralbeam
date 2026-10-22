@@ -1,11 +1,18 @@
-import { and, asc, desc, eq, gt, ilike, lt, or, sql } from "drizzle-orm"
-import { Context, Effect, Layer } from "effect"
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, or, sql } from "drizzle-orm"
+import { BigDecimal, Context, DateTime, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { tenant, tenantUser } from "@/db/schema/organizations"
+import { chatMessage } from "@/db/schema/chat"
+import { modelProvider, providerModel, tenant, tenantUser } from "@/db/schema/organizations"
 import type { ChatPrincipal } from "@/lib/chat/types"
+import { Config } from "@/lib/config/config"
+import {
+  effectiveModelConfiguration,
+  readModelPriceCatalog,
+} from "@/lib/model-providers/pricing-catalog.server"
+import { ModelRequestUsageSchema, modelUsageCost } from "@/lib/model-providers/usage-cost"
 import { TenantExternalIdTaken, TenantNotFound, TenantUserNotFound } from "./errors.ts"
 import type {
   TenantUserPatchSchema,
@@ -28,6 +35,14 @@ export interface TenantUserListInput extends DatabasePageOptions {
   readonly externalId?: string | undefined
   readonly search?: string | undefined
   readonly admin?: boolean | undefined
+}
+
+interface TenantUserUsageInput {
+  readonly scope: TenantScope
+  readonly tenantId: string
+  readonly userIds: readonly string[]
+  readonly start: string
+  readonly end: string
 }
 
 const tenantUserRecordColumns = {
@@ -61,6 +76,17 @@ export class TenantUsers extends Context.Service<
     readonly list: (
       input: TenantUserListInput,
     ) => Effect.Effect<DatabasePage<TenantUserRecord>, TenantNotFound>
+    readonly usage: (input: TenantUserUsageInput) => Effect.Effect<
+      {
+        readonly start: string
+        readonly end: string
+        readonly items: readonly {
+          readonly tenantUserId: string
+          readonly costUsd: string | null
+        }[]
+      },
+      TenantNotFound
+    >
     readonly get: (input: {
       readonly scope: TenantScope
       readonly tenantId: string
@@ -91,6 +117,7 @@ export class TenantUsers extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const tenants = yield* Tenants
+      const config = yield* Config
 
       // A Tenant-scoped credential reaches only its own Tenant, without another query.
       const requireTenant = (scope: TenantScope, tenantId: string) =>
@@ -125,6 +152,109 @@ export class TenantUsers extends Context.Service<
             .limit(limit)
             .pipe(mapDatabaseErrors()),
         )
+      })
+
+      const usage = Effect.fn("TenantUsers.usage")(function* (input: TenantUserUsageInput) {
+        const { scope, tenantId, userIds, start, end } = input
+        yield* requireTenant(scope, tenantId)
+        const users = yield* db
+          .select({ id: tenantUser.id })
+          .from(tenantUser)
+          .where(and(tenantUserWhere(scope, tenantId), inArray(tenantUser.id, userIds)))
+          .orderBy(asc(tenantUser.id))
+          .limit(userIds.length)
+          .pipe(mapDatabaseErrors())
+        if (users.length === 0) return { start, end, items: [] }
+        const initiator = sql<string>`${chatMessage.metadata}->'provenance'->>'initiatorTenantUserId'`
+        const replies = yield* db
+          .select({
+            tenantUserId: initiator,
+            usage: sql<Schema.JsonObject | null>`${chatMessage.metadata}->'provenance'->'usage'`,
+            providerId: modelProvider.id,
+            providerType: modelProvider.providerType,
+            modelId: providerModel.modelId,
+            configuration: providerModel.configuration,
+          })
+          .from(chatMessage)
+          .leftJoin(
+            modelProvider,
+            and(
+              eq(modelProvider.organizationId, chatMessage.organizationId),
+              sql`${modelProvider.id}::text = ${chatMessage.metadata}->'provenance'->>'providerId'`,
+              eq(
+                modelProvider.providerType,
+                sql`${chatMessage.metadata}->'provenance'->>'providerType'`,
+              ),
+            ),
+          )
+          .leftJoin(
+            providerModel,
+            and(
+              eq(providerModel.organizationId, chatMessage.organizationId),
+              eq(providerModel.modelProviderId, modelProvider.id),
+              eq(providerModel.modelId, sql`${chatMessage.metadata}->'provenance'->>'modelId'`),
+            ),
+          )
+          .where(
+            and(
+              eq(chatMessage.organizationId, scope.organizationId),
+              eq(chatMessage.tenantId, tenantId),
+              eq(chatMessage.role, "assistant"),
+              gte(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(start))),
+              lt(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(end))),
+              inArray(
+                initiator,
+                users.map(({ id }) => id),
+              ),
+            ),
+          )
+          .pipe(mapDatabaseErrors())
+        const catalog = yield* readModelPriceCatalog.pipe(Effect.provideService(Config, config))
+        const costs = new Map<string, BigDecimal.BigDecimal | null>()
+        const pricingByModel = new Map<string, ReturnType<typeof effectiveModelConfiguration>>()
+        for (const {
+          tenantUserId,
+          usage,
+          providerId,
+          providerType,
+          modelId,
+          configuration,
+        } of replies) {
+          const previous = costs.get(tenantUserId)
+          if (previous === null) continue
+          let cost: BigDecimal.BigDecimal | null = null
+          if (typeof usage?.cost === "number" && Number.isFinite(usage.cost)) {
+            cost = BigDecimal.fromNumberUnsafe(usage.cost)
+          } else if (providerType && modelId && Schema.is(ModelRequestUsageSchema)(usage)) {
+            const key = `${providerId}:${modelId}`
+            let pricing = pricingByModel.get(key)
+            if (pricing === undefined) {
+              pricing = effectiveModelConfiguration({
+                catalog,
+                providerType,
+                modelId,
+                configured: configuration,
+              })
+              pricingByModel.set(key, pricing)
+            }
+            if (pricing) cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
+          }
+          costs.set(
+            tenantUserId,
+            cost === null ? null : BigDecimal.sum(previous ?? BigDecimal.fromNumberUnsafe(0), cost),
+          )
+        }
+        return {
+          start,
+          end,
+          items: users.map((user) => {
+            const cost = costs.get(user.id)
+            return {
+              tenantUserId: user.id,
+              costUsd: cost === null ? null : cost ? BigDecimal.format(cost) : "0",
+            }
+          }),
+        }
       })
 
       const get = Effect.fn("TenantUsers.get")(function* (input: {
@@ -231,11 +361,11 @@ export class TenantUsers extends Context.Service<
         )
       }, mapDatabaseErrors())
 
-      return TenantUsers.of({ list, get, create, update, syncCurrentUser })
+      return TenantUsers.of({ list, usage, get, create, update, syncCurrentUser })
     }),
   )
 
   static readonly layer = TenantUsers.layerNoDeps.pipe(
-    Layer.provide([Tenants.layer, Database.layer]),
+    Layer.provide([Tenants.layer, Database.layer, Config.layer]),
   )
 }

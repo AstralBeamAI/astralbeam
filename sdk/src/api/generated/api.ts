@@ -553,6 +553,18 @@ export interface Organization {
   slug: string
 }
 
+export type TenantUserUsageItemsItem = {
+  tenant_user_id: string
+  /** Estimated USD total from saved assistant replies. Uses saved reported costs when available, otherwise current configured model-token rates. Deleted conversations are excluded. Null if any saved reply cannot be priced, and zero when there are no matching replies. */
+  cost_usd: string | null
+}
+
+export interface TenantUserUsage {
+  start: string
+  end: string
+  items: TenantUserUsageItemsItem[]
+}
+
 /**
  * Customer-defined JSON object; keys are preserved. Defaults to {} on creation. Updates replace the entire object.
  */
@@ -707,6 +719,22 @@ export const ListUsersForTenantFilterAdmin = {
   true: "true",
   false: "false",
 } as const
+
+export type GetTenantUserUsageParams = {
+  /**
+   * Comma-separated internal user UUIDs, 1 to 100 unique IDs.
+   * @maxLength 3699
+   */
+  user_ids: string
+  /**
+   * Inclusive start date at midnight UTC.
+   */
+  start: string
+  /**
+   * Exclusive end date at midnight UTC.
+   */
+  end: string
+}
 
 export type ListThreadsParams = {
   /**
@@ -1194,6 +1222,37 @@ export const updateTenantUser = (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(updateTenantUserInput),
+  })
+}
+
+export const getGetTenantUserUsageUrl = (tenantId: string, params: GetTenantUserUsageParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/usage?${stringifiedParams}`
+    : `/api/v1/tenants/${encodeURIComponent(String(tenantId))}/tenant_users/usage`
+}
+
+/**
+ * Read estimated usage in USD for up to 100 users within one Tenant over a UTC date range of 1 to 93 days. start is inclusive and end is exclusive. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no saved replies in the range return zero. Results are computed from saved assistant replies at request time and exclude deleted conversations.
+ * @summary Get TenantUser usage
+ */
+export const getTenantUserUsage = (
+  tenantId: string,
+  params: GetTenantUserUsageParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<TenantUserUsage>(getGetTenantUserUsageUrl(tenantId, params), {
+    ...options,
+    method: "GET",
   })
 }
 

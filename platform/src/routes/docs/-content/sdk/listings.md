@@ -239,6 +239,10 @@ Conversation views also expose `directory-transcript`. The directory styling slo
 - Rows show external IDs under **ID**, names, metadata, and creation dates. Names do not expand rows. Internal UUIDs are not displayed.
 - Tokens refresh once on HTTP `401`. Other failures offer explicit retry.
 
+Organization owners and developers see **Usage (USD)** in the user directory, independently of `showAdmin`. Usage loads separately, so users and pagination remain available while costs load or fail. The directory requests the current UTC calendar month and reuses the same users' usage for 30 seconds. Refresh reloads both users and usage. Viewers and Tenant administrators do not request usage.
+
+Usage is estimated from retained assistant messages, preferring saved provider-reported cost and otherwise using current configured rates. Users without retained assistant messages have zero usage. Missing message usage or pricing appears as **Unavailable**. Deleted conversations are excluded. Server integrations can use `getTenantUserUsage` with an Organization API key, a comma-separated `user_ids` list, and UTC `start` and `end` dates. The start is inclusive and the end is exclusive, with up to 100 users and 93 days per request.
+
 **NOTE**: For uncommon internal-management use cases, all three directories also support `scope="organization"` with an [organization-management token](./api.md). The user directory then offers a searchable Tenant picker. Set `tenantId` or `tenantExternalId` to pin one Tenant, or when using that token with tenant scope. Tokens retain their delegated permissions even though the UI is read-only.
 
 ## Troubleshooting

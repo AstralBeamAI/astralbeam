@@ -40,6 +40,7 @@ import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { organization } from "@/db/schema/organizations"
+import { chatMessage } from "@/db/schema/chat"
 import {
   getThreadAttachment as sdkGetThreadAttachment,
   getCurrentUser as sdkGetCurrentUser,
@@ -54,6 +55,8 @@ const restTestState = vi.hoisted(() => ({
   writes: [] as unknown[],
   order: [] as SQL[],
   limits: [] as number[],
+  usageReplies: [] as unknown[],
+  usagePredicates: [] as SQL[],
   keyRows: [] as { id: string; name?: string; slug?: string }[],
   logs: [] as string[],
   verify: vi.fn(),
@@ -142,7 +145,14 @@ function restTestDatabase(): EffectDatabase {
     innerJoin() {
       return this
     },
+    leftJoin() {
+      return this
+    },
     where(predicate: SQL) {
+      if (this.table === chatMessage) {
+        restTestState.usagePredicates.push(predicate)
+        return Effect.succeed(restTestState.usageReplies)
+      }
       restTestState.predicates.push(predicate)
       return this
     },
@@ -258,6 +268,7 @@ const restTestServices = Layer.mergeAll(
       } as unknown as Context.Service.Shape<typeof Auth>),
       Layer.succeed(Config, {
         setupState: Effect.suspend(() => restTestState.setupState()),
+        readStoredValue: () => Effect.succeed(null),
       } as unknown as Context.Service.Shape<typeof Config>),
     ),
   ),
@@ -411,6 +422,8 @@ beforeEach(() => {
     writes: [],
     order: [],
     limits: [],
+    usageReplies: [],
+    usagePredicates: [],
     logs: [],
     keyRows: [{ id: restOrgId }],
   })
@@ -1437,6 +1450,169 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.predicates).toEqual([])
   })
 
+  test.each([
+    "api-key",
+    "owner",
+    "developer",
+    "viewer,developer",
+    "viewer",
+    "tenant-admin",
+    "tenant-user",
+  ])("%s can only read user usage with organization management permissions", async (role) => {
+    const organizationJwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+    const tenantToken = role.startsWith("tenant-")
+    const headers =
+      role === "api-key"
+        ? { "X-API-Key": restTestApiKey }
+        : {
+            Authorization: `Bearer ${tenantToken ? restTenantJwt : organizationJwt}`,
+          }
+    restTestState.organizationAuth.mockReturnValue(
+      Effect.succeed({
+        organizationId: restOrgId,
+        currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
+      }),
+    )
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin: role === "tenant-admin" },
+    })
+    const pricedReply = {
+      tenantUserId: restUserId,
+      usage: { promptTokens: 1000, completionTokens: 0 },
+      providerId: restOrgId,
+      providerType: "openai",
+      modelId: "custom",
+      configuration: {
+        currency: "USD",
+        pricingSource: { kind: "manual" },
+        prices: { inputPerMillion: "3", outputPerMillion: "15" },
+        contextTiers: [],
+        maxInputTokens: 100_000,
+        contextWindowTokens: null,
+        maxOutputTokens: 4000,
+        outputCap: 1000,
+      },
+    }
+    restTestState.usageReplies = [
+      {
+        ...pricedReply,
+        usage: { ...pricedReply.usage, cost: 1.234567 },
+      },
+      pricedReply,
+      {
+        ...pricedReply,
+        providerId: restOtherId,
+        configuration: {
+          ...pricedReply.configuration,
+          prices: { inputPerMillion: "7", outputPerMillion: "15" },
+        },
+      },
+      { ...pricedReply, tenantUserId: restOtherId, usage: null },
+      { ...pricedReply, tenantUserId: restOtherId },
+    ]
+    restTestState.rows.push(
+      [restTenantRow],
+      [
+        restUserRow,
+        { ...restUserRow, id: restOtherId },
+        { ...restUserRow, id: "019a0000-0000-7000-8000-000000000005" },
+      ],
+    )
+    const ids = [restUserId, restOtherId, "019a0000-0000-7000-8000-000000000005"]
+    const query = new URLSearchParams({
+      user_ids: ids.join(","),
+      start: "2026-10-01",
+      end: "2026-11-01",
+    })
+    const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`, {
+      headers,
+    })
+    const allowed = role !== "viewer" && !tenantToken
+    expect(response.status).toBe(allowed ? 200 : 403)
+    expect(response.headers.get("cache-control")).toContain("no-store")
+    const body = (await response.json()) as { items: Record<string, unknown>[] }
+    const expected = allowed
+      ? ids.map((id, index) => ({ tenant_user_id: id, cost_usd: ["1.244567", null, "0"][index] }))
+      : undefined
+    expect(body.items).toEqual(expected)
+    expect(restTestState.usagePredicates).toHaveLength(allowed ? 1 : 0)
+  })
+
+  test("usage scopes requested users and saved replies to the Tenant and UTC range", async () => {
+    restTestState.rows.push([restTenantRow], [restUserRow])
+    restTestState.usageReplies = [
+      {
+        tenantUserId: restUserId,
+        usage: { cost: 0.25 },
+        providerType: null,
+        modelId: null,
+        configuration: null,
+      },
+    ]
+    const query = new URLSearchParams({
+      user_ids: `${restUserId.toUpperCase()},${restOtherId}`,
+      start: "2024-02-29",
+      end: "2024-06-01",
+    })
+    const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      start: "2024-02-29",
+      end: "2024-06-01",
+      items: [{ tenant_user_id: restUserId, cost_usd: "0.25" }],
+    })
+    expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserId, restOtherId])
+    const savedReplies = new PgDialect().sqlToQuery(restTestState.usagePredicates[0]!)
+    expect(savedReplies.params).toEqual([
+      restOrgId,
+      restTenantId,
+      "assistant",
+      "2024-02-29T00:00:00.000Z",
+      "2024-06-01T00:00:00.000Z",
+      restUserId,
+    ])
+    expect(savedReplies.sql).toContain('"chat_message"."created_at" >=')
+    expect(savedReplies.sql).toContain('"chat_message"."created_at" <')
+    restTestState.rows.push([restTenantRow], [])
+    const missing = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)
+    expect(await missing.json()).toEqual({ start: "2024-02-29", end: "2024-06-01", items: [] })
+    expect(restTestState.usagePredicates).toHaveLength(1)
+  })
+
+  test("usage rejects invalid dates, ranges and user IDs before reading saved replies", async () => {
+    const valid = { user_ids: restUserId, start: "2026-01-01", end: "2026-02-01" }
+    const invalid: Record<string, string>[] = [
+      {},
+      { start: valid.start, end: valid.end },
+      { ...valid, user_ids: "" },
+      { ...valid, user_ids: "invalid" },
+      { ...valid, user_ids: `${restUserId},${restUserId.toUpperCase()}` },
+      {
+        ...valid,
+        user_ids: Array.from(
+          { length: 101 },
+          (_, index) => `019a0000-0000-7000-8000-${index.toString(16).padStart(12, "0")}`,
+        ).join(","),
+      },
+      { ...valid, start: "0000-01-01" },
+      { ...valid, start: "2026-02-29", end: "2026-03-01" },
+      { ...valid, end: "2026-04-31" },
+      { ...valid, start: "2026-01-01T00:00:00Z" },
+      { ...valid, end: valid.start },
+      { ...valid, end: "2025-12-31" },
+      { ...valid, end: "2026-04-05" },
+    ]
+    for (const query of invalid) {
+      const response = await restRequest(
+        `/tenants/${restTenantId}/tenant_users/usage?${new URLSearchParams(query)}`,
+      )
+      expect(response.status).toBe(400)
+    }
+    expect(restTestState.rows).toEqual([])
+    expect(restTestState.usagePredicates).toHaveLength(0)
+  })
+
   test("TenantUser updates preserve scope and lists accept exact filters", async () => {
     restTestState.rows.push([restUserRow])
     await restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
@@ -1452,6 +1628,7 @@ describe("REST API through the Effect Fetch handler", () => {
       query: filter,
     })
     expect(users.items[0]).toMatchObject({ id: restUserId, external_id: restUserRow.externalId })
+    expect(restTestState.usagePredicates).toHaveLength(0)
     expect(users).toMatchObject({ page_after: null, page_before: null })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserRow.externalId])
     expect(restLastPredicate().sql).toContain('"tenant_user"."external_id" =')
@@ -1594,6 +1771,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await restRequest(`/tenants/${restTenantId}/tenant_users`, { headers })).status).toBe(
       403,
     )
+    expect(restTestState.usagePredicates).toHaveLength(0)
     expect(restTestState.writes).toEqual([])
     restTestState.chat.mockResolvedValue(restPrincipal)
     restTestState.rows.push([], [], [])
