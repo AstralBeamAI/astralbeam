@@ -523,9 +523,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         { messageId: accepted.assistantMessage!.id, fileObjectId: rows[0]!.id },
       ])
       const saved = await runtime.runPromise(
-        service.getMessage({ scope, id: thread.id, messageId: accepted.assistantMessage!.id }),
+        service.history({ scope, id: thread.id, messageId: accepted.assistantMessage!.id }),
       )
-      expect(saved.payload).toMatchObject({
+      expect(saved.at(-1)!.payload).toMatchObject({
         parts: [{ source: { type: APP_HANDLE, id: rows[0]!.id } }],
         modelMessages: [
           { providerContext: { signature: "keep-me" }, content: [{ source: { id: rows[0]!.id } }] },
@@ -1433,9 +1433,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(
       (
         await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: admitted.inputMessage.id }),
+          service.history({ scope, id: thread.id, messageId: admitted.inputMessage.id }),
         )
-      ).turnState,
+      ).at(-1)?.turnState,
     ).toBe("interrupted")
     await runtime.runPromise(service.assertActive({ claim: newer.claim! }))
     const current = await runtime.runPromise(service.get({ scope, id: thread.id }))

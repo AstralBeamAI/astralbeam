@@ -76,7 +76,7 @@ const restTestState = vi.hoisted(() => ({
   threadList: vi.fn(),
   thread: vi.fn(),
   threadSnapshot: vi.fn(),
-  threadMessage: vi.fn(),
+  threadToolResponse: vi.fn(),
   threadParticipants: vi.fn(),
   threadSetParticipant: vi.fn(),
   threadResolveTools: vi.fn(),
@@ -249,7 +249,7 @@ const restTestServices = Layer.mergeAll(
     list: (input: unknown) => restTestState.threadList(input) as never,
     get: (input: unknown) => restTestState.thread(input) as never,
     snapshot: (input: unknown) => restTestState.threadSnapshot(input) as never,
-    getMessage: (input: unknown) => restTestState.threadMessage(input) as never,
+    authorizeToolResponse: (input: unknown) => restTestState.threadToolResponse(input) as never,
     participants: (input: unknown) => restTestState.threadParticipants(input) as never,
     setParticipant: (input: unknown) => restTestState.threadSetParticipant(input) as never,
     resolveTools: (input: unknown) => restTestState.threadResolveTools(input) as never,
@@ -983,22 +983,13 @@ describe("REST API through the Effect Fetch handler", () => {
   test("a used-up limit still saves and acknowledges tool results, then skips the model call", async () => {
     const claim = restWriterClaim()
     restTestState.threadScope.mockReturnValue(Effect.succeed(restThreadScope))
-    restTestState.threadMessage.mockReturnValue(
+    restTestState.threadToolResponse.mockReturnValue(
       Effect.succeed({
-        ...restSavedMessage,
-        role: "assistant",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "tool-part",
-              type: "tool-call",
-              toolCallId: "create-todo",
-              name: "create_todo",
-              arguments: "{}",
-            },
-          ],
-        },
+        id: "tool-part",
+        type: "tool-call",
+        toolCallId: "create-todo",
+        name: "create_todo",
+        arguments: "{}",
       }),
     )
     restTestState.threadResolveTools.mockReturnValue(Effect.succeed(restChatAdmission(claim)))
@@ -1114,22 +1105,13 @@ describe("REST API through the Effect Fetch handler", () => {
 
   test("tool-result continuation preserves native run correlation and rejects caller history", async () => {
     const claim = restWriterClaim()
-    restTestState.threadMessage.mockReturnValue(
+    restTestState.threadToolResponse.mockReturnValue(
       Effect.succeed({
-        ...restSavedMessage,
-        role: "assistant",
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "tool-part",
-              type: "tool-call",
-              toolCallId: "provider-call",
-              name: "lookup",
-              arguments: "{}",
-            },
-          ],
-        },
+        id: "tool-part",
+        type: "tool-call",
+        toolCallId: "provider-call",
+        name: "lookup",
+        arguments: "{}",
       }),
     )
     restTestState.threadResolveTools.mockReturnValue(Effect.succeed(restChatAdmission(claim)))

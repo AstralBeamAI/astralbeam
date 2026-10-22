@@ -40,8 +40,13 @@ describe("managed conversation commands", () => {
       },
     })
     const layer = Layer.succeed(ChatThreads, {
-      getMessage: ({ response }: Parameters<typeof ChatThreads.Service.getMessage>[0]) => {
-        assert.deepStrictEqual(response, {
+      authorizeToolResponse: (
+        input: Parameters<typeof ChatThreads.Service.authorizeToolResponse>[0],
+      ) => {
+        assert.deepStrictEqual(input, {
+          scope: commandScope,
+          id: commandThreadId,
+          messageId: commandThreadId,
           partId: "part",
           targetId: commandTenantId,
           clientId: commandUserId,
@@ -162,7 +167,7 @@ describe("managed conversation commands", () => {
         declaration: { outputSchema: { type: "integer", minimum: 1, maximum: 5 } },
       }
       const layer = Layer.succeed(ChatThreads, {
-        getMessage: () => Effect.succeed({ payload: { version: 1, parts: [part] } }),
+        authorizeToolResponse: () => Effect.succeed(part),
         resolveTools: (input: ResolveToolsInput) => {
           resolved.push(input)
           return Effect.succeed({})
@@ -242,20 +247,13 @@ describe("managed conversation commands", () => {
         { name: "extras", question: "Extras?", answers: ["A", "B"] },
       ]
       const layer = Layer.succeed(ChatThreads, {
-        getMessage: () =>
+        authorizeToolResponse: () =>
           Effect.succeed({
-            payload: {
-              version: 1,
-              parts: [
-                {
-                  id: "part",
-                  type: "tool-call",
-                  toolCallId: "questionnaire",
-                  name: "ask_questionnaire",
-                  arguments: JSON.stringify({ items: questions }),
-                },
-              ],
-            },
+            id: "part",
+            type: "tool-call",
+            toolCallId: "questionnaire",
+            name: "ask_questionnaire",
+            arguments: JSON.stringify({ items: questions }),
           }),
         resolveTools: (input: ResolveToolsInput) => {
           resolved.push(input)

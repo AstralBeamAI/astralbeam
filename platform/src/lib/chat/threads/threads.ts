@@ -106,7 +106,8 @@ export interface ResolveToolsInput extends ThreadInput {
   readonly results: readonly ChatToolResolution[]
   readonly clientId: string
 }
-interface ToolResponseAuthority {
+interface ToolResponseInput extends ThreadInput {
+  messageId: string
   partId: string
   targetId: string
   clientId: string
@@ -981,9 +982,9 @@ export class ChatThreads extends Context.Service<
     readonly history: (
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
-    readonly getMessage: (
-      input: ThreadInput & { messageId: string; response?: ToolResponseAuthority },
-    ) => Effect.Effect<MessageRecord, ChatThreadError>
+    readonly authorizeToolResponse: (
+      input: ToolResponseInput,
+    ) => Effect.Effect<Schema.JsonObject & { toolCallId: string }, ChatThreadError>
     readonly rename: (
       input: ThreadInput & { lockVersion: number; title: string },
     ) => Effect.Effect<ThreadRecord, ChatThreadError>
@@ -1258,55 +1259,54 @@ export class ChatThreads extends Context.Service<
             }),
           ),
       )
-      const getMessage = Effect.fn("ChatThreads.getMessage")(
-        (input: ThreadInput & { messageId: string; response?: ToolResponseAuthority }) =>
+      const authorizeToolResponse = Effect.fn("ChatThreads.authorizeToolResponse")(
+        (input: ToolResponseInput) =>
           readSnapshot((tx) =>
             Effect.gen(function* () {
               const row = yield* readThread(tx, input)
-              if (input.response) yield* requireRole(row)
+              yield* requireRole(row)
               const source = yield* readMessage(tx, input, input.messageId)
-              if (input.response) {
-                const { partId, targetId, clientId, outcome } = input.response
-                const part = source.payload.parts.find(
-                  (entry) => entry.type === "tool-call" && entry.id === partId,
+              const { partId, targetId, clientId, outcome } = input
+              const part = source.payload.parts.find(
+                (entry) => entry.type === "tool-call" && entry.id === partId,
+              )
+              const target = part && toolTargets(part).find((entry) => entry.id === targetId)
+              const [response] = yield* tx
+                .select()
+                .from(chatToolResponse)
+                .where(
+                  and(
+                    chatResponseWhere(input.scope, input.id),
+                    eq(chatToolResponse.id, targetId),
+                    eq(chatToolResponse.toolPartId, partId),
+                  ),
                 )
-                const target = part && toolTargets(part).find((entry) => entry.id === targetId)
-                const [response] = yield* tx
-                  .select()
-                  .from(chatToolResponse)
-                  .where(
-                    and(
-                      chatResponseWhere(input.scope, input.id),
-                      eq(chatToolResponse.id, targetId),
-                      eq(chatToolResponse.toolPartId, partId),
-                    ),
-                  )
-                if (
-                  source.role !== "assistant" ||
-                  source.state !== "complete" ||
-                  !part ||
-                  !target ||
-                  !response
+              if (
+                source.role !== "assistant" ||
+                source.state !== "complete" ||
+                !part ||
+                typeof part.toolCallId !== "string" ||
+                !target ||
+                !response
+              )
+                return yield* new ChatThreadInvalid()
+              yield* authorizeChatToolResponse({
+                scope: input.scope,
+                role: row.role,
+                part,
+                target,
+                server: false,
+                clientId,
+                outcome,
+              })
+              if (
+                !response.resultMessageId &&
+                !(yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)).some(
+                  (entry) => entry.id === source.id,
                 )
-                  return yield* new ChatThreadInvalid()
-                yield* authorizeChatToolResponse({
-                  scope: input.scope,
-                  role: row.role,
-                  part,
-                  target,
-                  server: false,
-                  clientId,
-                  outcome,
-                })
-                if (
-                  !response.resultMessageId &&
-                  !(yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)).some(
-                    (entry) => entry.id === source.id,
-                  )
-                )
-                  return yield* new ChatThreadConflict()
-              }
-              return source
+              )
+                return yield* new ChatThreadConflict()
+              return { ...part, toolCallId: part.toolCallId }
             }),
           ),
       )
@@ -1896,7 +1896,7 @@ export class ChatThreads extends Context.Service<
         get,
         snapshot,
         history,
-        getMessage,
+        authorizeToolResponse,
         rename,
         remove,
         participants,
