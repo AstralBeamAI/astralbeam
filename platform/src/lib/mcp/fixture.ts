@@ -48,14 +48,8 @@ export async function startMcpFixture() {
       if (path.includes(".well-known"))
         return json({
           issuer: state.metadataIssuer ?? state.issuer,
-          authorization_endpoint:
-            state.issuer === "https://accounts.google.com"
-              ? "https://accounts.google.com/o/oauth2/v2/auth"
-              : "https://fixture.example/authorize",
-          token_endpoint:
-            state.issuer === "https://accounts.google.com"
-              ? "https://oauth2.googleapis.com/token"
-              : "https://fixture.example/token",
+          authorization_endpoint: "https://fixture.example/authorize",
+          token_endpoint: "https://fixture.example/token",
           registration_endpoint: "https://fixture.example/register",
           response_types_supported: ["code"],
           grant_types_supported: ["authorization_code", "refresh_token"],

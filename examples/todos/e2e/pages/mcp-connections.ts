@@ -5,6 +5,7 @@ import {
   SEED_TODOS_TARGET,
 } from "../../../../platform/scripts/seed/fixtures.ts"
 import { platformUrl } from "../worktree.ts"
+import { captureMoment } from "../capture.ts"
 
 const waitForHydration = (control: Locator) =>
   expect
@@ -16,7 +17,7 @@ const waitForHydration = (control: Locator) =>
     )
     .toBe(true)
 
-export async function prepareMcpDefinition(page: Page, endpoint: string) {
+export async function prepareMcpDefinition(page: Page, endpoint: string, issuer?: string) {
   const dashboard = await page.context().newPage()
   await dashboard.goto(`${platformUrl}/auth/sign-in`)
   await waitForHydration(dashboard.locator("#password"))
@@ -34,13 +35,26 @@ export async function prepareMcpDefinition(page: Page, endpoint: string) {
   await form.getByLabel("Server URL").fill(endpoint)
   await form
     .getByRole("combobox", { name: "Authentication", exact: true })
-    .selectOption("static_headers")
-  await form.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
+    .selectOption(issuer ? "oauth" : "static_headers")
+  if (issuer) {
+    await form.getByRole("combobox", { name: "OAuth setup", exact: true }).selectOption("manual")
+    const issuerField = form.getByLabel("Authorization server issuer", { exact: true })
+    await expect(issuerField).toHaveAttribute("required", "")
+    await form.getByLabel("Client ID", { exact: true }).fill("pre-registered-browser-client")
+    await issuerField.fill("http://issuer.example.test")
+    await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
+    await expect(issuerField).toHaveAttribute("aria-invalid", "true")
+    await captureMoment(dashboard, "pre-registered-oauth-insecure-issuer-refused")
+    await issuerField.fill(issuer)
+  } else {
+    await form.getByLabel("Header names, comma separated").fill("Authorization, X-Api-Key")
+  }
   await form.getByRole("button", { name: "Add MCP server", exact: true }).click()
   const server = dashboard.locator("article").filter({
     has: dashboard.getByRole("heading", { name: new URL(endpoint).hostname, exact: true }),
   })
   await expect(server).toBeVisible()
+  if (issuer) await captureMoment(dashboard, "pre-registered-oauth-issuer-configured")
   return async () => {
     await server
       .getByRole("button", { name: `Remove server: ${new URL(endpoint).hostname}`, exact: true })

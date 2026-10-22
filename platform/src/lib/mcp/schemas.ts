@@ -47,6 +47,21 @@ export function mcpHeadersAreAllowed(headers: Readonly<Record<string, string>>):
 }
 
 const McpManualClientSchema = Schema.Struct({
+  issuer: NonEmptyStringSchema.check(
+    Schema.isMaxLength(2048),
+    Schema.makeFilter(
+      (value) => {
+        if (!URL.canParse(value)) return false
+        const url = new URL(value)
+        return (
+          url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash
+        )
+      },
+      {
+        message: "Enter the trusted HTTPS authorization server issuer without a query or fragment",
+      },
+    ),
+  ),
   clientId: NonEmptyStringSchema.check(Schema.isMaxLength(2048)),
   clientSecret: Schema.optionalKey(NonEmptyStringSchema.check(Schema.isMaxLength(8192))),
 })

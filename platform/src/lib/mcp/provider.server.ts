@@ -19,20 +19,29 @@ import {
 } from "./schemas.ts"
 import { mcpGuardedFetch, mcpUrlIsPublic } from "./network.server.ts"
 
-export const MCP_GOOGLE_ISSUER = "https://accounts.google.com"
+// Match the SDK's single trailing-slash tolerance for issuer identifiers.
+// https://github.com/modelcontextprotocol/typescript-sdk/blob/main/packages/client/src/client/auth.ts
+function mcpIssuersMatch(left: unknown, right: unknown): boolean {
+  return (
+    typeof left === "string" &&
+    left.length > 0 &&
+    typeof right === "string" &&
+    left.replace(/\/$/, "") === right.replace(/\/$/, "")
+  )
+}
 
 export function mcpOAuthBindingIsValid(
   config: McpAuthConfig,
   clientInformation: Schema.JsonObject | null,
   discovery: Schema.JsonObject | null,
 ): boolean {
-  if (config.kind !== "oauth" || config.profile !== "google") return true
+  if (config.kind !== "oauth") return true
+  const issuer = clientInformation?.issuer
   return (
-    clientInformation?.issuer === MCP_GOOGLE_ISSUER &&
-    (discovery?.authorizationServerUrl === MCP_GOOGLE_ISSUER ||
-      discovery?.authorizationServerUrl === `${MCP_GOOGLE_ISSUER}/`) &&
+    (!config.client || mcpIssuersMatch(config.client.issuer, issuer)) &&
+    mcpIssuersMatch(discovery?.authorizationServerUrl, issuer) &&
     Schema.is(Schema.JsonObject)(discovery?.authorizationServerMetadata) &&
-    discovery.authorizationServerMetadata.issuer === MCP_GOOGLE_ISSUER
+    mcpIssuersMatch(discovery.authorizationServerMetadata.issuer, issuer)
   )
 }
 
@@ -91,7 +100,11 @@ export function mcpOAuthCredential(input: {
   previous?: Extract<McpCredential, { kind: "oauth" }> | undefined
 }): Extract<McpCredential, { kind: "oauth" }> {
   const { issuer } = mcpDiscoveryBinding(input.discovery)
-  if (input.tokens.issuer !== issuer || input.tokens.token_type.toLowerCase() !== "bearer")
+  if (
+    !mcpIssuersMatch(input.clientInformation.issuer, issuer) ||
+    input.tokens.issuer !== issuer ||
+    input.tokens.token_type.toLowerCase() !== "bearer"
+  )
     throw new TypeError("MCP OAuth token binding was refused")
   const scope = input.tokens.scope ?? input.previous?.tokens.scope
   const tokens = Schema.decodeUnknownSync(McpOAuthTokensSchema)({
@@ -130,21 +143,14 @@ export async function mcpRunAuthorization(input: {
     state: () => input.payload.state,
     clientInformation: (context) => {
       if (
-        !mcpOAuthBindingIsValid(
-          input.authConfig,
-          input.payload.clientInformation,
-          input.payload.discovery,
-        ) ||
-        (input.authConfig.profile === "google" && context?.issuer !== MCP_GOOGLE_ISSUER)
+        input.payload.clientInformation &&
+        !mcpIssuersMatch(input.payload.clientInformation.issuer, context?.issuer)
       )
         throw new TypeError("MCP OAuth client issuer was refused")
       return (input.payload.clientInformation as StoredOAuthClientInformation | null) ?? undefined
     },
     saveClientInformation(information, context) {
-      if (
-        input.authConfig.profile === "google" &&
-        (information.issuer !== MCP_GOOGLE_ISSUER || context?.issuer !== MCP_GOOGLE_ISSUER)
-      )
+      if (!mcpIssuersMatch(information.issuer, context?.issuer))
         throw new TypeError("MCP OAuth client issuer was refused")
       input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(information)
     },
@@ -181,13 +187,12 @@ export async function mcpRunAuthorization(input: {
       return input.payload.verifier
     },
     saveDiscoveryState(discovery) {
-      mcpDiscoveryBinding(discovery)
-      const stored = Schema.decodeUnknownSync(McpDiscoverySchema)(
+      const { issuer } = mcpDiscoveryBinding(discovery)
+      if (input.authConfig.client && !mcpIssuersMatch(input.authConfig.client.issuer, issuer))
+        throw new TypeError("MCP OAuth discovery issuer was refused")
+      input.payload.discovery = Schema.decodeUnknownSync(McpDiscoverySchema)(
         JSON.parse(JSON.stringify(discovery)),
       )
-      if (!mcpOAuthBindingIsValid(input.authConfig, input.payload.clientInformation, stored))
-        throw new TypeError("MCP OAuth discovery issuer was refused")
-      input.payload.discovery = stored
     },
     discoveryState: () => {
       if (

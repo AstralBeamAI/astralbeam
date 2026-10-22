@@ -48,7 +48,6 @@ import {
   mcpDiscoveryBinding,
   mcpOAuthCredential,
   mcpOAuthBindingIsValid,
-  MCP_GOOGLE_ISSUER,
   mcpRunAuthorization,
 } from "./provider.server.ts"
 
@@ -209,7 +208,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       clientInformation: client
         ? {
             client_id: client.clientId,
-            ...(authConfig.profile === "google" ? { issuer: MCP_GOOGLE_ISSUER } : {}),
+            issuer: client.issuer,
             ...(client.clientSecret ? { client_secret: client.clientSecret } : {}),
           }
         : null,
@@ -506,7 +505,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
       const value = envelope.credential
       if (
         server.authConfig.kind === "oauth" &&
-        server.authConfig.profile === "google" &&
         (value.kind !== "oauth" ||
           !mcpOAuthBindingIsValid(server.authConfig, value.clientInformation, value.discovery))
       )

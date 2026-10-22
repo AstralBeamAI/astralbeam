@@ -228,7 +228,6 @@ const makeMcpConnections = Effect.gen(function* () {
       const config = configured.find((entry) => entry.id === row.mcpServerId)?.config
       const bindingInvalid =
         config?.kind === "oauth" &&
-        config.profile === "google" &&
         (credential?.credential.kind !== "oauth" ||
           !mcpOAuthBindingIsValid(
             config,
@@ -249,7 +248,8 @@ const makeMcpConnections = Effect.gen(function* () {
             ? row.lockVersion > 0
               ? "reauthorization_required"
               : "disconnected"
-            : !credential ||
+            : !config ||
+                !credential ||
                 bindingInvalid ||
                 (credential.refreshStartedAt !== undefined &&
                   credential.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)

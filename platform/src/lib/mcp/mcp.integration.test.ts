@@ -116,17 +116,18 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     async function createOAuth(cimd = false, manual = false) {
       fixture.state.oauth = true
       fixture.state.cimd = cimd
-      fixture.state.issuer = manual ? "https://accounts.google.com" : "https://fixture.example"
+      fixture.state.issuer = "https://fixture.example"
       const server = await connections((service) =>
         service.createServer(actor.organizationId, {
           endpointUrl: "https://fixture.example/mcp",
           authConfig: {
             kind: "oauth",
-            profile: manual ? "google" : "standard",
+            profile: "standard",
             requestedScopes: ["read"],
             ...(manual
               ? {
                   client: {
+                    issuer: fixture.state.issuer,
                     clientId: "manual-client",
                     clientSecret: "manual-secret",
                   },
@@ -217,20 +218,25 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .where(eq(mcpConnection.id, reference.id))
     }
     test.each([false, true])(
-      "Google rejects an untrusted initial authority, spoofed metadata=%s",
+      "Pre-registered clients reject an untrusted initial authority, spoofed metadata=%s",
       async (spoofed) => {
         const { reference } = await createOAuth(false, true)
         fixture.state.issuer = "https://attacker.example"
-        if (spoofed) fixture.state.metadataIssuer = "https://accounts.google.com"
+        if (spoofed) fixture.state.metadataIssuer = "https://fixture.example"
         await expect(authorize(reference)).rejects.toThrow()
         expect(fixture.state.tokenRequests).toBe(0)
         expect(fixture.state.registrations).toBe(0)
       },
     )
-    test.each([false, true])(
-      "Google refuses invalid cached issuer binding before token use or refresh, expired=%s",
-      async (expired) => {
-        const { reference } = await connectedOAuth(true)
+    test.each([
+      [false, false],
+      [false, true],
+      [true, false],
+      [true, true],
+    ])(
+      "OAuth refuses invalid cached issuer binding, manual=%s expired=%s",
+      async (manual, expired) => {
+        const { reference } = await connectedOAuth(manual)
         if (expired) await expire(reference)
         const [row] = await db
           .select()
@@ -272,10 +278,15 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         expect(fixture.state.refreshes).toBe(expired ? 1 : 0)
       },
     )
-    test.each([false, true])(
-      "Google rejects legacy unbound attempts before callback or completion, exchanged=%s",
-      async (exchanged) => {
-        const { reference } = await createOAuth(false, true)
+    test.each([
+      [false, false],
+      [false, true],
+      [true, false],
+      [true, true],
+    ])(
+      "OAuth rejects legacy unbound attempts, manual=%s exchanged=%s",
+      async (manual, exchanged) => {
+        const { reference } = await createOAuth(false, manual)
         const flow = await authorize(reference)
         if (exchanged) await callback(flow)
         const [entry] = await db
@@ -325,8 +336,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const url = new URL(flow.payload.authorizationUrl!)
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
-      expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
-      expect(url.searchParams.get("prompt")).toBe(manual ? "consent" : null)
+      expect(url.searchParams.get("access_type")).toBeNull()
+      expect(url.searchParams.get("prompt")).toBeNull()
       expect(url.searchParams.get("scope")).toBe("read")
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)

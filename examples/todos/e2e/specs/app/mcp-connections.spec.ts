@@ -54,3 +54,16 @@ test("private MCP connections connect, replace and clear credentials without ret
     await cleanup()
   }
 })
+
+test("pre-registered OAuth servers require a trusted HTTPS issuer", async ({ page, chat }) => {
+  await chat.waitForReady()
+  const endpoint = `https://registered-${crypto.randomUUID()}.example.test/mcp`
+  const cleanup = await prepareMcpDefinition(page, endpoint, "https://issuer.example.test/oauth")
+  try {
+    const connections = mcpConnections(page)
+    await connections.open()
+    await expect(connections.connection(new URL(endpoint).hostname)).toContainText("Not connected")
+  } finally {
+    await cleanup()
+  }
+})
