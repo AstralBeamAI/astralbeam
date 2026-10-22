@@ -49,7 +49,7 @@ export const mutateMcpServer = createServerFn({ method: "POST" })
           ? yield* service.createServer(context.organizationId, data.operation.fields)
           : yield* service.removeServer(context.organizationId, data.operation.id)
       }).pipe(
-        Effect.catchTag(["McpChanged", "McpInvalidConfiguration", "McpNotFound"], exposeError),
+        Effect.catchTag(["McpServerExists", "McpInvalidConfiguration", "McpNotFound"], exposeError),
       ),
       serverFnMeta.name,
     ),

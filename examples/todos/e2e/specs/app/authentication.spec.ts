@@ -1,20 +1,8 @@
 import { expect, test } from "../../fixtures.ts"
 import { seedTarget } from "../../worktree.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
-import type { Page } from "@playwright/test"
 
-async function openAuthentication(page: Page) {
-  const fixture = new URL("../../fixtures/authentication.tsx", import.meta.url)
-  const fixturePath = fixture.pathname.slice(new URL("../../../", import.meta.url).pathname.length)
-  await page.route("**/*", (route) =>
-    route.request().resourceType() === "script" ? route.abort() : route.continue(),
-  )
-  await page.goto("/")
-  await page.unroute("**/*")
-  await page.setContent(
-    `<html><title>Standalone authentication</title><div id="authentication-root"></div><script type="module">import RefreshRuntime from "/@react-refresh"; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => type => type; window.__vite_plugin_react_preamble_installed__ = true; await import("/${fixturePath}");</script></html>`,
-  )
-}
+const fixture = new URL("../../fixtures/authentication.html", import.meta.url)
 
 test("React layout refresh under Strict Mode waits for rows and renews rejected identity", async ({
   page,
@@ -43,7 +31,7 @@ test("React layout refresh under Strict Mode waits for rows and renews rejected 
       ? route.fulfill({ status: 401, json: { status: 401, detail: "Renew identity" } })
       : route.continue()
   })
-  await openAuthentication(page)
+  await page.goto(`/@fs${fixture.pathname}`)
   await requested
   await expect(page.getByLabel("Host refresh")).toHaveText("pending")
   rows.resolve()
@@ -86,7 +74,7 @@ test("host callbacks and refresh recover initial and background authentication f
   await page.route("**/api/v1/me", (route) =>
     denied ? route.fulfill({ status: 403, json: {} }) : route.continue(),
   )
-  await openAuthentication(page)
+  await page.goto(`/@fs${fixture.pathname}`)
   const row = page.getByText(seedTarget.user.name, { exact: true })
   const errors = page.getByLabel("Host errors")
   await expect(page.getByRole("alert")).toBeVisible()

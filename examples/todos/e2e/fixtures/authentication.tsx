@@ -1,3 +1,4 @@
+import "@vitejs/plugin-react/preamble"
 import { StrictMode, useLayoutEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { AstralBeamTenantUserList, type AstralBeamTenantUserListRef } from "@astralbeam/sdk/react"
@@ -50,8 +51,10 @@ function Authentication() {
   )
 }
 
-createRoot(document.getElementById("authentication-root")!).render(
-  <StrictMode>
-    <Authentication />
-  </StrictMode>,
-)
+export function mountAuthentication() {
+  createRoot(document.getElementById("authentication-root")!).render(
+    <StrictMode>
+      <Authentication />
+    </StrictMode>,
+  )
+}

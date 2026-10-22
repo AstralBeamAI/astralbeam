@@ -213,6 +213,13 @@ export class McpNotFound extends Schema.TaggedError<McpNotFound>()(
 ) {
   override readonly message = "The MCP server or connection was not found."
 }
+export class McpServerExists extends Schema.TaggedError<McpServerExists>()(
+  "McpServerExists",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "An MCP server with this URL already exists."
+}
 export class McpChanged extends Schema.TaggedError<McpChanged>()(
   "McpChanged",
   {},
@@ -233,6 +240,13 @@ export class McpAuthorizationRequired extends Schema.TaggedError<McpAuthorizatio
   { httpApiStatus: 409 },
 ) {
   override readonly message = "Reconnect to continue using this MCP server."
+}
+export class McpAuthorizationFailed extends Schema.TaggedError<McpAuthorizationFailed>()(
+  "McpAuthorizationFailed",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "Authorization was not completed. Try connecting again."
 }
 export class McpUnavailable extends Schema.TaggedError<McpUnavailable>()(
   "McpUnavailable",

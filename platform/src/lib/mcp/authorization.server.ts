@@ -25,6 +25,7 @@ import {
 } from "./mcp.server.ts"
 import {
   McpAuthorizationRequired,
+  McpAuthorizationFailed,
   McpChanged,
   McpForbidden,
   McpInvalidConfiguration,
@@ -336,7 +337,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
         const { connection } = yield* attemptConnection(input.actor, payload)
         if (payload.status === "authorizing" || payload.status === "exchanging") return false
         if (payload.status !== "awaiting_completion" || !payload.pendingCredential)
-          return yield* new McpChanged()
+          return yield* new McpAuthorizationFailed()
         const envelope: McpCredentialEnvelope = {
           version: 1,
           ...input.actor,
