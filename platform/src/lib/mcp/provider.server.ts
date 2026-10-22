@@ -33,15 +33,14 @@ function mcpIssuersMatch(left: unknown, right: unknown): boolean {
 export function mcpOAuthBindingIsValid(
   config: McpAuthConfig,
   clientInformation: Schema.JsonObject | null,
-  discovery: Schema.JsonObject | null,
+  discovery: McpAttemptEnvelope["discovery"],
 ): boolean {
   if (config.kind !== "oauth") return true
   const issuer = clientInformation?.issuer
   return (
     (!config.client || mcpIssuersMatch(config.client.issuer, issuer)) &&
     mcpIssuersMatch(discovery?.authorizationServerUrl, issuer) &&
-    Schema.is(Schema.JsonObject)(discovery?.authorizationServerMetadata) &&
-    mcpIssuersMatch(discovery.authorizationServerMetadata.issuer, issuer)
+    mcpIssuersMatch(discovery?.authorizationServerMetadata?.issuer, issuer)
   )
 }
 
