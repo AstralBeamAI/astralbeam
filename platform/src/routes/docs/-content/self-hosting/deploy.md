@@ -6,7 +6,7 @@ AstralBeam runs from a container image or standalone binary. Let's start a local
 
 ### Docker Compose
 
-Download the pinned Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+Use Docker Compose 2.30 or later. Download the Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.21.0/docker-compose.production.yml
@@ -26,8 +26,7 @@ Start the stack:
 docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
-1. Open http://localhost:9001/rustfs/console/, sign in with the RustFS credentials from `.env`, and create a private bucket named `astralbeam`.
-2. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
+The private `astralbeam` bucket is created automatically. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
 
 The stack binds to localhost and enables HTTP. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Change the image tag in `docker-compose.production.yml`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
 

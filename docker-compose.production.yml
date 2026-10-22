@@ -44,7 +44,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
   rustfs:
-    image: rustfs/rustfs:1.0.1
+    image: rustfs/rustfs:latest
     restart: unless-stopped
     command: ["/data"]
     ports:
@@ -56,6 +56,14 @@ services:
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?Set RUSTFS_SECRET_KEY}
       RUSTFS_CONSOLE_ENABLE: "true"
       RUSTFS_ADDRESS: :${STORAGE_PORT:-9000}
+    post_start:
+      - command:
+          - sh
+          - -ec
+          - |
+            curl -fsS --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60 \
+              --aws-sigv4 aws:amz:us-east-1:s3 --user "$${RUSTFS_ACCESS_KEY}:$${RUSTFS_SECRET_KEY}" \
+              --request PUT "http://127.0.0.1$${RUSTFS_ADDRESS}/astralbeam"
     volumes:
       - rustfs-data:/data
     healthcheck:

@@ -76,7 +76,7 @@ services:
       test: ["CMD", "/mailpit", "readyz"]
 
   rustfs:
-    image: rustfs/rustfs:1.0.1
+    image: rustfs/rustfs:latest
     restart: unless-stopped
     command: ["/data"]
     environment:
