@@ -6,6 +6,7 @@ export async function startMcpFixture() {
   const state = {
     oauth: false,
     issuer: "https://fixture.example",
+    metadataIssuer: null as string | null,
     resourceMetadataChallenge: true,
     cimd: false,
     sse: false,
@@ -46,7 +47,7 @@ export async function startMcpFixture() {
         })
       if (path.includes(".well-known"))
         return json({
-          issuer: state.issuer,
+          issuer: state.metadataIssuer ?? state.issuer,
           authorization_endpoint: "https://fixture.example/authorize",
           token_endpoint: "https://fixture.example/token",
           registration_endpoint: "https://fixture.example/register",

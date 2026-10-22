@@ -486,8 +486,28 @@ test.each<
     advance?: boolean
     questionnaire?: boolean
     delayed?: string
+    validation?: string
+    restart?: boolean
+    thrownName?: string
   }
 >([
+  ...[
+    "unchanged",
+    "dispose-remount",
+    "dispose-restart",
+    "verified-identity",
+    "selection-reset",
+    "stop",
+    "removed-tool",
+    "changed-schema",
+    "current-callback",
+    "reject-validation",
+  ].map((validation) => ({
+    ...browserEffectDefaults,
+    validation,
+    expectedExecutions: ["unchanged", "current-callback"].includes(validation) ? 1 : 0,
+  })),
+  { ...browserEffectDefaults, restart: true },
   { ...browserEffectDefaults, delayed: "navigation" },
   { ...browserEffectDefaults, delayed: "reopen" },
   { ...browserEffectDefaults, delayed: "api" },
@@ -499,9 +519,14 @@ test.each<
   { ...browserEffectDefaults, failOnce: true },
   { ...browserEffectDefaults, failOnce: true, navigate: true },
   { ...browserEffectDefaults, failOnce: true, advance: true },
-  { ...browserEffectDefaults, failOnce: true, throwsAfterCommit: true },
+  ...["Error", "AbortError"].map((name) => ({
+    ...browserEffectDefaults,
+    failOnce: true,
+    throwsAfterCommit: true,
+    thrownName: name,
+  })),
 ])(
-  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed",
+  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart thrown=$thrownName",
   async ({
     grant,
     saved,
@@ -512,6 +537,9 @@ test.each<
     advance,
     questionnaire,
     delayed,
+    validation,
+    restart,
+    thrownName,
   }) => {
     const toolName = questionnaire ? "ask_questionnaire" : "change_data"
     let chatRequests = 0
@@ -525,7 +553,24 @@ test.each<
     const execute = vi.fn(async () => {
       mutations++
       if (delayed) await toolFinished
-      if (throwsAfterCommit) throw new TypeError("Response lost after mutation")
+      if (throwsAfterCommit)
+        throw thrownName === "AbortError"
+          ? new DOMException("Response lost after mutation", "AbortError")
+          : new TypeError("Response lost after mutation")
+      return { changed: true }
+    })
+    const pendingValidation = Promise.withResolvers<unknown>()
+    const parameters = {
+      "~standard": {
+        version: 1 as const,
+        vendor: "delayed-validator",
+        validate: vi.fn((input: unknown) =>
+          pendingValidation.promise.then((result) => result ?? { value: input }),
+        ),
+      },
+    }
+    const replacement = vi.fn(() => {
+      mutations++
       return { changed: true }
     })
     let phase: "empty" | "decision" | "resolved" = "empty"
@@ -568,6 +613,7 @@ test.each<
       new Request(input, init)
       const path = String(input)
       if (path.endsWith("/me")) return sessionResponse(signedInUser)
+      if (path.endsWith("/threads") && init?.method === "POST") return sessionResponse(thread)
       if (path.includes("/messages?"))
         return sessionResponse({
           ...page([...previous, ...(phase === "empty" ? [] : [assistant])]),
@@ -605,6 +651,8 @@ test.each<
         )
       }
       if (path.endsWith("/chat")) {
+        if (validation && signedInUser.user.id !== currentUser.user.id)
+          throw new Error("A stale tool started a request for another identity")
         chatRequests++
         if (phase === "decision")
           return Promise.resolve(
@@ -702,12 +750,63 @@ test.each<
       return sessionResponse({ capabilities: { attachments: true } })
     })
     const chat = createTestSession({
-      threadId: thread.id,
-      tools: { change_data: { description: "Change data", execute } },
+      threadId: restart ? "new" : thread.id,
+      tools: {
+        change_data: {
+          description: "Change data",
+          ...(validation ? { parameters } : {}),
+          execute,
+        },
+      },
     })
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    if (restart) {
+      await vi.waitUntil(() => chat.getState().auth.status === "ready")
+      chat.dispose()
+      chat.start()
+      await vi.waitUntil(() => chat.getState().auth.status === "ready")
+    } else await vi.waitUntil(() => chat.getState().thread?.id === thread.id)
     const sending = chat.sendMessage("Change it")
-    if (delayed) {
+    let mutationsBeforeValidation: number | undefined
+    if (validation) {
+      await vi.waitUntil(() => parameters["~standard"].validate.mock.calls.length === 1)
+      mutationsBeforeValidation = mutations
+      if (validation === "dispose-remount" || validation === "verified-identity") {
+        signedInUser = { ...currentUser, user: { id: "another-user" } }
+        if (validation === "dispose-remount") {
+          chat.dispose()
+          const remounted = createTestSession({ threadId: "new" })
+          await vi.waitUntil(() => remounted.getState().auth.status === "ready")
+        } else {
+          chat.retryAuthentication()
+          await vi.waitUntil(() => {
+            const auth = chat.getState().auth
+            return auth.status === "ready" && auth.currentUser.user.id === signedInUser.user.id
+          })
+        }
+      } else if (validation === "dispose-restart") {
+        chat.dispose()
+        chat.start()
+        await vi.waitUntil(() => chat.getState().auth.status === "ready")
+      } else if (validation === "selection-reset") chat.reset()
+      else if (validation === "stop") chat.stop()
+      else if (validation === "removed-tool") chat.updateOptions({ tools: {} })
+      else if (validation === "changed-schema" || validation === "current-callback")
+        chat.updateOptions({
+          tools: {
+            change_data: {
+              description: "Change data",
+              parameters: validation === "changed-schema" ? { ...parameters } : parameters,
+              execute: replacement,
+            },
+          },
+        })
+      pendingValidation.resolve(
+        validation === "reject-validation"
+          ? { issues: [{ message: "Rejected input" }] }
+          : undefined,
+      )
+      await sending
+    } else if (delayed) {
       await vi.waitUntil(() => execute.mock.calls.length === 1)
       chat.reset()
       if (delayed === "api") chat.updateOptions({ apiUrl: "https://replacement.example/api" })
@@ -725,7 +824,17 @@ test.each<
       if (delayed !== "reopen") await chat.openThread(thread.id)
       await chat.reload()
     } else await sending
+    expect(mutationsBeforeValidation).toBe(validation ? 0 : undefined)
+    expect(execute).toHaveBeenCalledTimes(
+      validation === "current-callback" ? 0 : expectedExecutions,
+    )
+    expect(replacement).toHaveBeenCalledTimes(validation === "current-callback" ? 1 : 0)
+    expect(mutations).toBe(expectedExecutions)
+    expect(chatRequests).toBe(1)
+    if (validation && expectedExecutions === 0 && chat.getState().thread?.id === thread.id)
+      await chat.reload()
     await vi.waitFor(() => expect(resultRequests).toBe(failOnce || delivered ? 1 : 0))
+    if (validation) return
     if (failOnce) {
       if (navigate) await chat.openThread(thread.id)
       else if (advance) await chat.sendMessage("An independent input")

@@ -327,15 +327,15 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
   const threads = yield* ChatThreads
   const results: ChatToolResolution[] = []
   for (const result of input.results) {
-    const source = yield* threads.getMessage({
+    const part = yield* threads.authorizeToolResponse({
       scope: input.scope,
       id: input.id,
       messageId: result.sourceMessageId,
+      partId: result.sourcePartId,
+      targetId: result.responseTargetId,
+      clientId: input.clientId,
+      outcome: result.outcome,
     })
-    const part = source.payload.parts.find(
-      (entry) => entry.type === "tool-call" && entry.id === result.sourcePartId,
-    )
-    if (!part || typeof part.toolCallId !== "string") return yield* new ChatThreadInvalid()
     const output = yield* decodeChatJson(result.output).pipe(
       Effect.mapError(() => new ChatThreadInvalid()),
     )

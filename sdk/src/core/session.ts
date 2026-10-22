@@ -31,7 +31,7 @@ import {
 } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
-import { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
+import { buildAgentTools, HOST_TOOL_NOT_EXECUTED, type WidgetDeclaration } from "./agent-tools.ts"
 import {
   authenticationIdentity,
   authenticationState,
@@ -365,6 +365,7 @@ export function createAstralBeamChat(
   let identity: string | undefined
   let started = false
   let selectionGeneration = 0
+  let toolExecutionGeneration = 0
   let historyGeneration = 0
   let hydration: Promise<unknown> = Promise.resolve()
   let requestController = new AbortController()
@@ -581,8 +582,38 @@ export function createAstralBeamChat(
     }
   }
 
-  const buildTools = () =>
-    buildAgentTools(live.widgets ?? {}, live.tools ?? {}, renderWidget, debug).map((tool) => {
+  const buildTools = () => {
+    const selection = selectionGeneration
+    return buildAgentTools(
+      live.widgets ?? {},
+      live.tools ?? {},
+      renderWidget,
+      debug,
+      (name, declaration, toolCallId) => {
+        const execution = toolExecutionGeneration
+        const executingClient = client
+        const executingIdentity = identity
+        const apiUrl = authentication.apiUrl
+        return () => {
+          const current =
+            live.tools && Object.hasOwn(live.tools, name) ? live.tools[name] : undefined
+          if (
+            selection !== selectionGeneration ||
+            execution !== toolExecutionGeneration ||
+            executingClient !== client ||
+            executingIdentity !== identity ||
+            apiUrl !== authentication.apiUrl ||
+            state.thread?.role === "viewer" ||
+            !toolCallId ||
+            !liveToolCalls.has(toolCallId) ||
+            !current ||
+            current.parameters !== declaration.parameters
+          )
+            throw new DOMException("Host tool authority changed", "AbortError")
+          return current
+        }
+      },
+    ).map((tool) => {
       if (!tool.execute) return tool
       const execute = tool.execute
       return {
@@ -610,7 +641,11 @@ export function createAstralBeamChat(
               })
             return output
           } catch (error) {
-            if (identity === resultIdentity && authentication.apiUrl === apiUrl)
+            if (
+              !(error instanceof Error && HOST_TOOL_NOT_EXECUTED in error) &&
+              identity === resultIdentity &&
+              authentication.apiUrl === apiUrl
+            )
               results.set(key, {
                 outcome: "unknown",
                 output: { error: error instanceof Error ? error.message : String(error) },
@@ -620,6 +655,7 @@ export function createAstralBeamChat(
         },
       }
     })
+  }
   // Published as state so a UI can label a tool's transcript entry with its own title, including
   // the widget and questionnaire tools this session declares itself.
   const declareTools = () => {
@@ -1425,6 +1461,7 @@ export function createAstralBeamChat(
   const start = () => {
     if (started) return
     started = true
+    client.updateOptions({ tools: declareTools() })
     client.attach()
     if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
@@ -1474,6 +1511,7 @@ export function createAstralBeamChat(
     // Stop ends the active attempt: a never-dispatched input returns to its sender, and one the
     // server may have stays failed with its key for Retry.
     stop: () => {
+      toolExecutionGeneration++
       if (submission?.phase === "submitting") endUnaccepted(submission)
       client.stop()
     },

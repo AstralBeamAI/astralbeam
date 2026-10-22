@@ -27,6 +27,7 @@ import {
   type McpConnectionSummary,
 } from "./schemas.ts"
 import { mcpUrlIsPublic } from "./network.server.ts"
+import { mcpOAuthBindingIsValid } from "./provider.server.ts"
 
 export function mcpConnectionOwner(actor: McpActor) {
   return and(
@@ -127,19 +128,25 @@ export function mcpDecodeCredential(row: McpStoredConnection) {
     : null
 }
 
+function mcpServerSummary(
+  row: { organizationId: string; id: string; endpointUrl: string },
+  config: McpAuthConfig | null,
+): McpServerSummary {
+  return {
+    organizationId: row.organizationId,
+    id: row.id,
+    endpointUrl: row.endpointUrl,
+    authKind: config?.kind ?? null,
+    headerNames: config?.kind === "static_headers" ? [...config.headerNames] : [],
+  }
+}
+
 const makeMcpConnections = Effect.gen(function* () {
   const db = yield* Database
   const listServers = Effect.fn("McpConnections.listServers")(function* (organizationId: string) {
-    return (yield* mcpReadServers(db, organizationId)).map((row): McpServerSummary => {
-      const config = mcpDecodeServer(row)
-      return {
-        organizationId: row.organizationId,
-        id: row.id,
-        endpointUrl: row.endpointUrl,
-        authKind: config?.kind ?? null,
-        headerNames: config?.kind === "static_headers" ? [...config.headerNames] : [],
-      }
-    })
+    return (yield* mcpReadServers(db, organizationId)).map((row) =>
+      mcpServerSummary(row, mcpDecodeServer(row)),
+    )
   })
   const getServer = Effect.fn("McpConnections.getServer")(function* (
     organizationId: string,
@@ -211,9 +218,22 @@ const makeMcpConnections = Effect.gen(function* () {
   })
   const catalog = Effect.fn("McpConnections.catalog")(function* (actor: McpActor) {
     const now = yield* Clock.currentTimeMillis
-    const servers = yield* listServers(actor.organizationId)
+    const configured = (yield* mcpReadServers(db, actor.organizationId)).map((row) => ({
+      ...row,
+      config: mcpDecodeServer(row),
+    }))
+    const servers = configured.map((row) => mcpServerSummary(row, row.config))
     const connections = (yield* mcpReadConnections(db, actor)).map((row): McpConnectionSummary => {
       const credential = mcpDecodeCredential(row)
+      const config = configured.find((entry) => entry.id === row.mcpServerId)?.config
+      const bindingInvalid =
+        config?.kind === "oauth" &&
+        (credential?.credential.kind !== "oauth" ||
+          !mcpOAuthBindingIsValid(
+            config,
+            credential.credential.clientInformation,
+            credential.credential.discovery,
+          ))
       return {
         organizationId: row.organizationId,
         tenantId: row.tenantId,
@@ -228,7 +248,9 @@ const makeMcpConnections = Effect.gen(function* () {
             ? row.lockVersion > 0
               ? "reauthorization_required"
               : "disconnected"
-            : !credential ||
+            : !config ||
+                !credential ||
+                bindingInvalid ||
                 (credential.refreshStartedAt !== undefined &&
                   credential.refreshStartedAt + MCP_REFRESH_LEASE_MS <= now)
               ? "reauthorization_required"

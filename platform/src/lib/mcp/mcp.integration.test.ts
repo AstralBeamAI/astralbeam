@@ -38,7 +38,7 @@ import { mcpConnection } from "@/db/schema/mcp"
 import { Config } from "@/lib/config/config"
 import { McpConnections } from "./mcp.server.ts"
 import { McpAuthorization } from "./authorization.server.ts"
-import { decryptDatabaseValue } from "@/db/lib/encryption"
+import { decryptDatabaseValue, encryptDatabaseValue } from "@/db/lib/encryption"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { McpAttemptEnvelopeSchema } from "./schemas.ts"
 import { startMcpFixture } from "./fixture.ts"
@@ -116,7 +116,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
     async function createOAuth(cimd = false, manual = false) {
       fixture.state.oauth = true
       fixture.state.cimd = cimd
-      fixture.state.issuer = manual ? "https://accounts.google.com" : "https://fixture.example"
+      fixture.state.issuer = "https://fixture.example"
       const server = await connections((service) =>
         service.createServer(actor.organizationId, {
           endpointUrl: "https://fixture.example/mcp",
@@ -127,6 +127,7 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
             ...(manual
               ? {
                   client: {
+                    issuer: fixture.state.issuer,
                     clientId: "manual-client",
                     clientSecret: "manual-secret",
                   },
@@ -216,6 +217,110 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .set({ credentials: { ...envelope, credential: { ...envelope.credential, expiresAt: 0 } } })
         .where(eq(mcpConnection.id, reference.id))
     }
+    test.each([false, true])(
+      "Pre-registered clients reject an untrusted initial authority, spoofed metadata=%s",
+      async (spoofed) => {
+        const { reference } = await createOAuth(false, true)
+        fixture.state.issuer = "https://attacker.example"
+        if (spoofed) fixture.state.metadataIssuer = "https://fixture.example"
+        await expect(authorize(reference)).rejects.toThrow()
+        expect(fixture.state.tokenRequests).toBe(0)
+        expect(fixture.state.registrations).toBe(0)
+      },
+    )
+    test.each([
+      [false, false],
+      [false, true],
+      [true, false],
+      [true, true],
+    ])(
+      "OAuth refuses invalid cached issuer binding, manual=%s expired=%s",
+      async (manual, expired) => {
+        const { reference } = await connectedOAuth(manual)
+        if (expired) await expire(reference)
+        const [row] = await db
+          .select()
+          .from(mcpConnection)
+          .where(eq(mcpConnection.id, reference.id))
+        const envelope = row!.credentials!
+        if (envelope.credential.kind !== "oauth") throw new Error("OAuth fixture required")
+        const credential = envelope.credential
+        for (const changed of [
+          { ...credential, clientInformation: { ...credential.clientInformation, issuer: null } },
+          {
+            ...credential,
+            discovery: {
+              ...credential.discovery,
+              authorizationServerUrl: "https://attacker.example",
+            },
+          },
+        ]) {
+          await db
+            .update(mcpConnection)
+            .set({ credentials: { ...envelope, credential: changed } })
+            .where(eq(mcpConnection.id, reference.id))
+          await expect(
+            authority((service) => service.getCredential({ actor, reference })),
+          ).rejects.toThrow()
+          expect(
+            (await connections((service) => service.catalog(actor))).connections[0]!.authState,
+          ).toBe("reauthorization_required")
+          expect(fixture.state.tokenRequests).toBe(1)
+          expect(fixture.state.refreshes).toBe(0)
+        }
+        await db
+          .update(mcpConnection)
+          .set({ credentials: envelope })
+          .where(eq(mcpConnection.id, reference.id))
+        expect(
+          Redacted.value(await authority((service) => service.getCredential({ actor, reference }))),
+        ).toMatchObject({ kind: "oauth" })
+        expect(fixture.state.refreshes).toBe(expired ? 1 : 0)
+      },
+    )
+    test.each([
+      [false, false],
+      [false, true],
+      [true, false],
+      [true, true],
+    ])(
+      "OAuth rejects legacy unbound attempts, manual=%s exchanged=%s",
+      async (manual, exchanged) => {
+        const { reference } = await createOAuth(false, manual)
+        const flow = await authorize(reference)
+        if (exchanged) await callback(flow)
+        const [entry] = await db
+          .select()
+          .from(cacheEntry)
+          .where(eq(cacheEntry.namespace, "mcp-oauth"))
+        const decoded = Result.getOrThrow(
+          decryptDatabaseValue({
+            storedValue: JSON.parse(entry!.value),
+            schema: McpAttemptEnvelopeSchema,
+            keyring: getDatabaseEncryptionKeyring(),
+          }),
+        ).value
+        const encrypted = Result.getOrThrow(
+          encryptDatabaseValue({
+            value: {
+              ...decoded,
+              clientInformation: { ...decoded.clientInformation, issuer: null },
+            },
+            schema: McpAttemptEnvelopeSchema,
+            keyring: getDatabaseEncryptionKeyring(),
+          }),
+        )
+        await db
+          .update(cacheEntry)
+          .set({ value: JSON.stringify(encrypted) })
+          .where(eq(cacheEntry.id, entry!.id))
+        const rejected = exchanged
+          ? authority((service) => service.complete({ actor, reference: flow.started.attempt }))
+          : callback(flow)
+        await expect(rejected).rejects.toThrow()
+        expect(fixture.state.tokenRequests).toBe(exchanged ? 1 : 0)
+      },
+    )
     test.each([
       [false, false, true],
       [false, false, false],
@@ -231,8 +336,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       const url = new URL(flow.payload.authorizationUrl!)
       expect(url.searchParams.get("code_challenge_method")).toBe("S256")
       expect(url.searchParams.get("resource")).toBe("https://fixture.example/mcp")
-      expect(url.searchParams.get("access_type")).toBe(manual ? "offline" : null)
-      expect(url.searchParams.get("prompt")).toBe(manual ? "consent" : null)
+      expect(url.searchParams.get("access_type")).toBeNull()
+      expect(url.searchParams.get("prompt")).toBeNull()
       expect(url.searchParams.get("scope")).toBe("read")
       expect(fixture.state.registrations).toBe(!cimd && !manual ? 1 : 0)
       await callback(flow)

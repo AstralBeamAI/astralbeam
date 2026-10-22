@@ -71,8 +71,16 @@ With Podman, wait for the services to become healthy before setup. PgBouncer pub
 To run file storage without a container, install the native RustFS binary that matches Compose's version once, so setup can start it:
 
 ```sh
-curl -fL -o /tmp/rustfs.zip https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-macos-aarch64-v1.0.1.zip
-unzip -o /tmp/rustfs.zip -d ~/.local/bin && chmod +x ~/.local/bin/rustfs
+(
+  set -eu
+  rustfs_tmp=$(mktemp -d)
+  trap 'rm -rf "$rustfs_tmp"' EXIT
+  curl -fL -o "$rustfs_tmp/rustfs.zip" https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-macos-aarch64-v1.0.1.zip
+  unzip -p "$rustfs_tmp/rustfs.zip" rustfs > "$rustfs_tmp/rustfs"
+  test -s "$rustfs_tmp/rustfs"
+  mkdir -p "$HOME/.local/bin"
+  install -m 755 "$rustfs_tmp/rustfs" "$HOME/.local/bin/rustfs"
+)
 ```
 
 When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs/data` (or `RUSTFS_DATA_DIR`) and its log in `~/.local/share/rustfs/rustfs.log`. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.

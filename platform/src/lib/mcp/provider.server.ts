@@ -19,6 +19,31 @@ import {
 } from "./schemas.ts"
 import { mcpGuardedFetch, mcpUrlIsPublic } from "./network.server.ts"
 
+// Match the SDK's single trailing-slash tolerance for issuer identifiers.
+// https://github.com/modelcontextprotocol/typescript-sdk/blob/main/packages/client/src/client/auth.ts
+function mcpIssuersMatch(left: unknown, right: unknown): boolean {
+  return (
+    typeof left === "string" &&
+    left.length > 0 &&
+    typeof right === "string" &&
+    left.replace(/\/$/, "") === right.replace(/\/$/, "")
+  )
+}
+
+export function mcpOAuthBindingIsValid(
+  config: McpAuthConfig,
+  clientInformation: Schema.JsonObject | null,
+  discovery: McpAttemptEnvelope["discovery"],
+): boolean {
+  if (config.kind !== "oauth") return true
+  const issuer = clientInformation?.issuer
+  return (
+    (!config.client || mcpIssuersMatch(config.client.issuer, issuer)) &&
+    mcpIssuersMatch(discovery?.authorizationServerUrl, issuer) &&
+    mcpIssuersMatch(discovery?.authorizationServerMetadata?.issuer, issuer)
+  )
+}
+
 export async function mcpAuthorizationFetch(
   dispatcher: Agent,
   url: string | URL | Request,
@@ -74,7 +99,11 @@ export function mcpOAuthCredential(input: {
   previous?: Extract<McpCredential, { kind: "oauth" }> | undefined
 }): Extract<McpCredential, { kind: "oauth" }> {
   const { issuer } = mcpDiscoveryBinding(input.discovery)
-  if (input.tokens.issuer !== issuer || input.tokens.token_type.toLowerCase() !== "bearer")
+  if (
+    !mcpIssuersMatch(input.clientInformation.issuer, issuer) ||
+    input.tokens.issuer !== issuer ||
+    input.tokens.token_type.toLowerCase() !== "bearer"
+  )
     throw new TypeError("MCP OAuth token binding was refused")
   const scope = input.tokens.scope ?? input.previous?.tokens.scope
   const tokens = Schema.decodeUnknownSync(McpOAuthTokensSchema)({
@@ -111,9 +140,17 @@ export async function mcpRunAuthorization(input: {
       : {}),
     clientMetadata: metadata,
     state: () => input.payload.state,
-    clientInformation: () =>
-      (input.payload.clientInformation as StoredOAuthClientInformation | null) ?? undefined,
-    saveClientInformation(information) {
+    clientInformation: (context) => {
+      if (
+        input.payload.clientInformation &&
+        !mcpIssuersMatch(input.payload.clientInformation.issuer, context?.issuer)
+      )
+        throw new TypeError("MCP OAuth client issuer was refused")
+      return (input.payload.clientInformation as StoredOAuthClientInformation | null) ?? undefined
+    },
+    saveClientInformation(information, context) {
+      if (!mcpIssuersMatch(information.issuer, context?.issuer))
+        throw new TypeError("MCP OAuth client issuer was refused")
       input.payload.clientInformation = Schema.decodeUnknownSync(Schema.JsonObject)(information)
     },
     tokens: () => undefined,
@@ -149,12 +186,25 @@ export async function mcpRunAuthorization(input: {
       return input.payload.verifier
     },
     saveDiscoveryState(discovery) {
-      mcpDiscoveryBinding(discovery)
+      const { issuer } = mcpDiscoveryBinding(discovery)
+      if (input.authConfig.client && !mcpIssuersMatch(input.authConfig.client.issuer, issuer))
+        throw new TypeError("MCP OAuth discovery issuer was refused")
       input.payload.discovery = Schema.decodeUnknownSync(McpDiscoverySchema)(
         JSON.parse(JSON.stringify(discovery)),
       )
     },
-    discoveryState: () => input.payload.discovery ?? undefined,
+    discoveryState: () => {
+      if (
+        input.payload.discovery &&
+        !mcpOAuthBindingIsValid(
+          input.authConfig,
+          input.payload.clientInformation,
+          input.payload.discovery,
+        )
+      )
+        throw new TypeError("MCP OAuth discovery issuer was refused")
+      return input.payload.discovery ?? undefined
+    },
   }
   return auth(provider, {
     serverUrl: input.serverUrl,

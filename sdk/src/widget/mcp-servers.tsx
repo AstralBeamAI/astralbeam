@@ -243,6 +243,7 @@ function McpServerForm({
               ...(oauthSetup !== "automatic"
                 ? {
                     client: {
+                      issuer: value("issuer"),
                       clientId: value("clientId"),
                       ...(form.get("clientSecret")
                         ? { clientSecret: form.get("clientSecret") as string }
@@ -338,6 +339,13 @@ function McpServerForm({
                       value: oauthRedirectUri ?? "Configure the application URL first",
                       readOnly: true,
                       onFocus: (event) => event.currentTarget.select(),
+                    })}
+                    {field("issuer", "Authorization server issuer", {
+                      type: "url",
+                      required: true,
+                      maxLength: 2048,
+                      placeholder: "https://auth.example.com",
+                      description: "Use the trusted issuer from your application's OAuth provider.",
                     })}
                     {field("clientId", "Client ID", { required: true, maxLength: 2048 })}
                     {field("clientSecret", "Client secret", {

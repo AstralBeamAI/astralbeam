@@ -13,7 +13,7 @@ export interface McpServerInput {
         profile: "standard" | "google"
         applicationOrigin?: string
         requestedScopes: readonly string[]
-        client?: { clientId: string; clientSecret?: string }
+        client?: { issuer: string; clientId: string; clientSecret?: string }
       }
 }
 

@@ -7,7 +7,7 @@ MCP servers provide tools from remote services. A server definition stores its e
 1. Open **MCP servers** in the Organization dashboard and choose **Add MCP server**.
 2. Enter the public HTTPS endpoint and choose **No authentication**, **API key / headers** or **OAuth**.
 3. For OAuth, enter your embedded application's exact **Application origin**, such as `https://app.example.com`. The dashboard origin is always allowed.
-4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its client ID and secret. Register the exact redirect URI shown in the form with your provider. The OAuth client selects the token authentication method from the provider's metadata.
+4. For providers without automatic registration, select **Pre-registered application** under **OAuth setup** and enter its trusted authorization server issuer, client ID and secret. Obtain the issuer from the application provider, independently of the MCP server. Register the exact redirect URI shown in the form with your provider. The OAuth client selects the token authentication method from the provider's metadata.
 5. Open **MCP connections** in your application's embedded sidebar. Choose **Connect** for OAuth or static authentication, or **Enable** for a public server.
 6. Choose **Test connection** to discover and count the available tools. Connected tools are exposed to the agent when the next conversation run starts.
 
@@ -48,3 +48,5 @@ Organization admins manage the available server definitions. Each TenantUser can
 Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Users must then create new connections. Disconnect deletes the local connection and credentials without revoking provider-wide access. Connecting again creates a new connection.
 
 Configure the OAuth scopes your tools require before connecting. Incremental consent during tool execution is deferred. If a tool requires additional permissions, update the server definition and authorize again.
+
+Pre-registered server definitions created without a trusted issuer must be removed and added again with that issuer before reconnecting. Existing unbound OAuth connections require reauthorization.
