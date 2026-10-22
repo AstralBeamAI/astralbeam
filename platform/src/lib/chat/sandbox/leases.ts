@@ -15,7 +15,7 @@ import {
   CHAT_SANDBOX_SWEEP_INTERVAL_MS,
 } from "./constants"
 import { ChatSandboxUnavailable } from "./errors"
-import { chatSandboxCall, logChatSandboxFailure } from "./operations"
+import { sandboxCall, logSandboxFailure } from "@/lib/sandboxes/operations.server"
 
 interface ChatSandboxLease {
   record: SandboxInstanceRecord | undefined
@@ -37,7 +37,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
 
   const destroyLease = (key: string, lease: ChatSandboxLease, timeout: Duration.Input) =>
     (lease.cleanup ??= runCleanup(
-      chatSandboxCall(async (signal) => {
+      sandboxCall(async (signal) => {
         try {
           if (lease.record) {
             await lease.provider.destroy({ id: lease.record.providerSandboxId, signal })
@@ -50,7 +50,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
         }
       }, timeout).pipe(
         Effect.as(true),
-        Effect.catch((error) => logChatSandboxFailure("destroy", error).pipe(Effect.as(false))),
+        Effect.catch((error) => logSandboxFailure("destroy", error).pipe(Effect.as(false))),
       ),
     ))
 
@@ -137,7 +137,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
       reservation = yield* reserveLease(key, definition.provider)
     }
     const lease = reservation
-    return yield* chatSandboxCall(async (signal) => {
+    return yield* sandboxCall(async (signal) => {
       // Shutdown can run before this callback starts. Check and reserve without yielding.
       if (closed || scope.state._tag === "Closed") throw new ChatSandboxUnavailable()
       lease.pending += 1

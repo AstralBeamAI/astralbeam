@@ -4,6 +4,7 @@ import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { WorkflowEngine } from "effect/workflow"
+import type { SandboxProvider } from "@tanstack/ai-sandbox"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const deleteOrganizationIntegration = vi.hoisted(() => {
@@ -55,6 +56,12 @@ import {
   user,
 } from "@/db/schema"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
+import { SandboxResources } from "@/lib/sandboxes/resources.server"
+import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
+import { sandboxResource } from "@/db/schema/sandboxes"
+import { APP_HANDLE } from "@/lib/constants"
+
+const removedOrganizationSandboxes: string[] = []
 
 const removedOrganizationFiles: string[] = []
 
@@ -290,6 +297,23 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
               removedOrganizationFiles.push(key)
             }),
         } as unknown as ObjectStorage["Service"]),
+        Effect.provide(
+          SandboxResources.layerNoDeps.pipe(
+            Layer.provide([
+              Database.layerNoDeps,
+              Layer.succeed(SandboxProviderFactory, {
+                create: () =>
+                  Effect.succeed({
+                    destroy: ({ id }: { id: string }) => {
+                      removedOrganizationSandboxes.push(id)
+                      return Promise.resolve()
+                    },
+                  } as unknown as SandboxProvider),
+              }),
+            ]),
+            Layer.fresh,
+          ),
+        ),
       )
   }
 
@@ -781,6 +805,26 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       },
     ])
 
+    for (const organizationId of [deletedId, keptId]) {
+      const {
+        rows: [identity],
+      } = await db.execute<{ id: string }>(sql`select uuidv7() as id`)
+      const id = identity!.id
+      await db.insert(sandboxResource).values({
+        organizationId,
+        id,
+        ownerId: crypto.randomUUID(),
+        providerSandboxId: `${APP_HANDLE}-${id}`,
+        configuration: {
+          organizationId,
+          resourceId: id,
+          providerSandboxId: `${APP_HANDLE}-${id}`,
+          configuration: { providerType: "docker", options: { image: "node:22" }, credentials: {} },
+        },
+        settled: true,
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+      })
+    }
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
     expect(await db.select().from(member).where(eq(member.organizationId, deletedId))).toEqual([])
 
@@ -810,6 +854,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
+    const sandboxes = await db.select().from(sandboxResource)
+    expect(sandboxes.map((row) => row.organizationId)).toEqual([keptId])
+    expect(removedOrganizationSandboxes).not.toContain(sandboxes[0]!.providerSandboxId)
+    expect(removedOrganizationSandboxes.length).toBeGreaterThan(0)
     const tenantUsers = await db
       .select({ organizationId: tenantUser.organizationId })
       .from(tenantUser)
