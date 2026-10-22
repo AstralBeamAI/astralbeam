@@ -1,0 +1,45 @@
+name: astralbeam-self-hosted
+
+services:
+  platform:
+    image: ghcr.io/astralbeamai/astralbeam-platform:0.21.0
+    restart: unless-stopped
+    stop_grace_period: 15s
+    # Signed downloads need the same localhost endpoint in Platform and the browser.
+    # https://docs.docker.com/reference/compose-file/services/#network_mode
+    network_mode: service:rustfs
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+        restart: true
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-astralbeam}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@pgbouncer:5432/${POSTGRES_DB:-astralbeam}
+      DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY:?Set DATABASE_ENCRYPTION_KEY}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${APP_PORT:-3000}}
+      ALLOW_INSECURE: ${ALLOW_INSECURE:-true}
+      SMTP_HOST: mailpit
+      S3_ENDPOINT: http://localhost:${STORAGE_PORT:-9000}
+      S3_REGION: us-east-1
+      S3_BUCKET: astralbeam
+      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?Set RUSTFS_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?Set RUSTFS_SECRET_KEY}
+      S3_PATH_STYLE: "true"
+
+  rustfs:
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+      - "127.0.0.1:${STORAGE_PORT:-9000}:${STORAGE_PORT:-9000}"
+      - "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"
+    environment:
+      RUSTFS_ADDRESS: :${STORAGE_PORT:-9000}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:${STORAGE_PORT:-9000}/health/ready"]
+
+  mailpit:
+    ports:
+      - "127.0.0.1:${MAILPIT_WEB_HOST_PORT:-8025}:8025"
+
+  valkey:
+    profiles: [development]

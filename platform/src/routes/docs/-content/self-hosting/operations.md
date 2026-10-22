@@ -111,6 +111,8 @@ The `effect_cluster_*` tables are framework-owned journal and coordination stora
 
 The process writes plain text to stdout and stderr. There is no log file, no log level setting, and no structured logging configuration, so collect the process output with your init system or container runtime.
 
+On Docker hosts, [enable log rotation](https://docs.docker.com/engine/logging/configure/) with the `local` logging driver or bounded `json-file` settings so container logs cannot exhaust the disk.
+
 Cluster readiness logs include the advertised private runner address. Failures on `/configure` and in the config layer omit submitted values and are recorded as a classification plus a PostgreSQL error code, precisely so a submitted secret cannot end up in the log. That is also why a `/configure` error in the log is terse, and why it is worth pairing with the message the page showed the operator.
 
 Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value` carries the affected `key` in its annotations and means the deployment treats that setting as unset. `Request failed` records an unexposed failure with `operation`, `referenceId`, and redacted `reasons`. A chat stream can log it after HTTP headers have already been sent.
