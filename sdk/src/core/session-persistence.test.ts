@@ -26,11 +26,13 @@ const page = (messages: unknown[] = []) => ({
   page_before: null,
 })
 
+function sessionResponse(body: unknown, init?: ResponseInit) {
+  return Promise.resolve(Response.json(body, init))
+}
+
 function stubSessionFetch(handler: (input: string | URL, init?: RequestInit) => Promise<Response>) {
   vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) =>
-    new URL(input).pathname.endsWith("/me")
-      ? Promise.resolve(Response.json(currentUser))
-      : handler(input, init),
+    new URL(input).pathname.endsWith("/me") ? sessionResponse(currentUser) : handler(input, init),
   )
 }
 
@@ -78,11 +80,11 @@ test.each([
       if (url.pathname.endsWith("/messages")) {
         const id = url.pathname.split("/").at(-2)!
         loads.push(id)
-        return Promise.resolve(Response.json({ ...page(), thread: { ...thread, id } }))
+        return sessionResponse({ ...page(), thread: { ...thread, id } })
       }
       if (url.pathname.endsWith("/threads"))
-        return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+        return sessionResponse({ items: [], page_after: null, page_before: null })
+      return sessionResponse({ capabilities: { attachments: true } })
     })
     const chat = createTestSession({ threadId })
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
@@ -103,44 +105,42 @@ test("creates on first send, hides failed empty threads, and lists accepted titl
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.endsWith("/chat/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ capabilities: { attachments: true } })
     if (path.endsWith("/threads") && init?.method === "POST") {
       created++
-      return Promise.resolve(Response.json(empty))
+      return sessionResponse(empty)
     }
     if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: accepted ? [saved] : [], page_after: null, page_before: null }),
-      )
+      return sessionResponse({
+        items: accepted ? [saved] : [],
+        page_after: null,
+        page_before: null,
+      })
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page(
-            accepted
-              ? [
-                  {
-                    id: "accepted",
-                    role: "user",
-                    created_at: thread.created_at,
-                    parts: [{ id: "part", type: "text", content: "First message" }],
-                  },
-                ]
-              : [],
-          ),
-          thread: accepted ? saved : empty,
-        }),
-      )
+      return sessionResponse({
+        ...page(
+          accepted
+            ? [
+                {
+                  id: "accepted",
+                  role: "user",
+                  created_at: thread.created_at,
+                  parts: [{ id: "part", type: "text", content: "First message" }],
+                },
+              ]
+            : [],
+        ),
+        thread: accepted ? saved : empty,
+      })
     if (path.endsWith("/chat")) {
       submissions++
       if (submissions === 1) return Promise.resolve(new Response("Rejected input", { status: 400 }))
       accepted = true
-      return Promise.resolve(
-        Response.json({
-          thread_id: saved.id,
-          accepted_message_id: "accepted",
-          thread_version: 1,
-        }),
-      )
+      return sessionResponse({
+        thread_id: saved.id,
+        accepted_message_id: "accepted",
+        thread_version: 1,
+      })
     }
     return Promise.reject(new Error(`Unexpected request ${path}`))
   })
@@ -178,19 +178,17 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
     new Request(input, init)
     const path = String(input)
     if (path.endsWith("/chat/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ capabilities: { attachments: true } })
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page(),
-          thread: {
-            ...thread,
-            writer_active: true,
-            role: changed && mode === "viewer" ? "viewer" : "manager",
-            agent_id: changed && mode === "deleted" ? null : thread.agent_id,
-          },
-        }),
-      )
+      return sessionResponse({
+        ...page(),
+        thread: {
+          ...thread,
+          writer_active: true,
+          role: changed && mode === "viewer" ? "viewer" : "manager",
+          agent_id: changed && mode === "deleted" ? null : thread.agent_id,
+        },
+      })
     if (path.endsWith("/chat")) {
       if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
       sent.push({
@@ -199,13 +197,11 @@ test.each(["unchanged", "viewer", "deleted"] as const)("uncertain replay: %s", a
       })
       if (sent.length === 1) return Promise.reject(new TypeError("Connection lost after admission"))
       if (sent.length === 2)
-        return Promise.resolve(
-          Response.json({
-            thread_id: thread.id,
-            accepted_message_id: "accepted",
-            thread_version: 2,
-          }),
-        )
+        return sessionResponse({
+          thread_id: thread.id,
+          accepted_message_id: "accepted",
+          thread_version: 2,
+        })
       return Promise.resolve(
         new Response(
           [
@@ -275,24 +271,20 @@ test.each([
     const keys: Array<string | null> = []
     stubSessionFetch((input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
-      if (path.endsWith("/config"))
-        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-      if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
-      if (path.endsWith("/threads"))
-        return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+      if (path.endsWith("/config")) return sessionResponse({ capabilities: { attachments: true } })
+      if (path.endsWith("/messages")) return sessionResponse(page())
+      if (path.endsWith("/threads")) return sessionResponse({ items: [thread], page_after: null })
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
       if (uncertain && keys.length === 1)
         return Promise.reject(new TypeError("Acknowledgment lost"))
-      return Promise.resolve(
-        Response.json(
-          {
-            type: "about:blank",
-            title: "Rejected",
-            status,
-            detail: "Input was not admitted.",
-          },
-          { status },
-        ),
+      return sessionResponse(
+        {
+          type: "about:blank",
+          title: "Rejected",
+          status,
+          detail: "Input was not admitted.",
+        },
+        { status },
       )
     })
     const chat = createTestSession({ threadId: thread.id })
@@ -323,9 +315,9 @@ test("reset before authentication resolves does not restore the previous convers
         resolveIdentity = resolve
       })
     if (path.endsWith("/chat/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ capabilities: { attachments: true } })
     historyReads.push(path)
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -368,8 +360,8 @@ test("opening saved tool calls restores their results without executing host too
   ]
   stubSessionFetch((input: string | URL) => {
     const path = String(input)
-    if (path.includes("/messages?")) return Promise.resolve(Response.json(page(messages)))
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (path.includes("/messages?")) return sessionResponse(page(messages))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -392,21 +384,19 @@ test("changing API scope drops saved history before the replacement account reso
   vi.stubGlobal("fetch", (input: string | URL) => {
     const path = String(input)
     if (path.startsWith("https://replacement.example")) return new Promise<Response>(() => {})
-    if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (path.endsWith("/me")) return sessionResponse(currentUser)
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json(
-          page([
-            {
-              id: "private",
-              role: "user",
-              created_at: thread.created_at,
-              parts: [{ type: "text", content: "Private history" }],
-            },
-          ]),
-        ),
+      return sessionResponse(
+        page([
+          {
+            id: "private",
+            role: "user",
+            created_at: thread.created_at,
+            parts: [{ type: "text", content: "Private history" }],
+          },
+        ]),
       )
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -444,26 +434,22 @@ test("an explicit unknown outcome continues while another response is active wit
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page([assistant]),
-          thread: { ...thread, writer_active: true },
-          pending_interactions: posted ? [] : [pending],
-        }),
-      )
+      return sessionResponse({
+        ...page([assistant]),
+        thread: { ...thread, writer_active: true },
+        pending_interactions: posted ? [] : [pending],
+      })
     if (path.endsWith("/tool-results")) {
       if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
       posted = JSON.parse(init.body) as NonNullable<typeof posted>
-      return Promise.resolve(
-        Response.json({
-          thread_id: thread.id,
-          accepted_message_id: "resolution",
-          thread_version: 2,
-        }),
-      )
+      return sessionResponse({
+        thread_id: thread.id,
+        accepted_message_id: "resolution",
+        thread_version: 2,
+      })
     }
     if (path.endsWith("/chat")) throw new Error("A tool result must not resubmit a user message")
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -581,27 +567,25 @@ test.each<
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       new Request(input, init)
       const path = String(input)
-      if (path.endsWith("/me")) return Promise.resolve(Response.json(signedInUser))
+      if (path.endsWith("/me")) return sessionResponse(signedInUser)
       if (path.includes("/messages?"))
-        return Promise.resolve(
-          Response.json({
-            ...page([...previous, ...(phase === "empty" ? [] : [assistant])]),
-            pending_interactions:
-              phase === "decision"
-                ? [
-                    {
-                      source_message_id: "assistant",
-                      source_part_id: "application-part",
-                      response_target_id: "target",
-                      tool_call_id: "provider-call",
-                      target_tenant_user_id: "user",
-                      target_client_id: targetClientId,
-                      execution_location: "browser",
-                    },
-                  ]
-                : [],
-          }),
-        )
+        return sessionResponse({
+          ...page([...previous, ...(phase === "empty" ? [] : [assistant])]),
+          pending_interactions:
+            phase === "decision"
+              ? [
+                  {
+                    source_message_id: "assistant",
+                    source_part_id: "application-part",
+                    response_target_id: "target",
+                    tool_call_id: "provider-call",
+                    target_tenant_user_id: "user",
+                    target_client_id: targetClientId,
+                    execution_location: "browser",
+                  },
+                ]
+              : [],
+        })
       if (path.endsWith("/tool-results")) {
         if (typeof init?.body !== "string") throw new Error("Expected a tool result body")
         resultBody = JSON.parse(init.body)
@@ -715,7 +699,7 @@ test.each<
           ]),
         )
       }
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ capabilities: { attachments: true } })
     })
     const chat = createTestSession({
       threadId: thread.id,
@@ -790,39 +774,37 @@ test("retained outcomes retry by source without loading older source messages", 
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page(
-            pending.slice(newestPageOnly ? 1 : 0).map((item) => ({
-              id: item.source_message_id,
-              role: "assistant",
-              state: "complete",
-              created_at: thread.created_at,
-              parts: [
-                {
-                  id: "part",
-                  type: "tool-call",
-                  toolCallId: item.tool_call_id,
-                  name: "ask_questionnaire",
-                  arguments: "{}",
-                  input: {},
-                  state: "input-complete",
-                },
-              ],
-            })),
-          ),
-          page_after: newestPageOnly ? "older" : null,
-          pending_interactions: pending.filter((item) => !accepted.has(item.source_message_id)),
-        }),
-      )
+      return sessionResponse({
+        ...page(
+          pending.slice(newestPageOnly ? 1 : 0).map((item) => ({
+            id: item.source_message_id,
+            role: "assistant",
+            state: "complete",
+            created_at: thread.created_at,
+            parts: [
+              {
+                id: "part",
+                type: "tool-call",
+                toolCallId: item.tool_call_id,
+                name: "ask_questionnaire",
+                arguments: "{}",
+                input: {},
+                state: "input-complete",
+              },
+            ],
+          })),
+        ),
+        page_after: newestPageOnly ? "older" : null,
+        pending_interactions: pending.filter((item) => !accepted.has(item.source_message_id)),
+      })
     if (path.endsWith("/tool-results") && typeof init?.body === "string") {
       const body = JSON.parse(init.body) as { results: Array<Record<string, unknown>> }
       requests.push(body.results)
       if (disconnected) return Promise.reject(new TypeError("Disconnected"))
       for (const result of body.results) accepted.add(String(result.source_message_id))
-      return Promise.resolve(Response.json({ thread_version: 2 }))
+      return sessionResponse({ thread_version: 2 })
     }
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().pendingInteractions).toHaveLength(2))
@@ -867,12 +849,9 @@ test("server-side revocation interrupts generation and blocks subsequent sends",
   })
   stubSessionFetch((input: string | URL) => {
     const path = String(input)
-    if (path.includes("/messages?"))
-      return Promise.resolve(Response.json({ ...page(), thread: record }))
+    if (path.includes("/messages?")) return sessionResponse({ ...page(), thread: record })
     if (path.includes("/threads?"))
-      return Promise.resolve(
-        Response.json({ items: [record], page_after: null, page_before: null }),
-      )
+      return sessionResponse({ items: [record], page_after: null, page_before: null })
     if (path.endsWith("/chat")) {
       sends++
       const chunks = [
@@ -889,7 +868,7 @@ test("server-side revocation interrupts generation and blocks subsequent sends",
         new Response(response, { headers: { "Content-Type": "text/event-stream" } }),
       )
     }
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
@@ -1016,36 +995,34 @@ test("a browser tool and widget can continue through consecutive committed turns
     new Request(url, init)
     const path = String(url)
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page(
-            phase > 0
-              ? [
-                  {
-                    id: `assistant-${phase}`,
-                    role: "assistant",
-                    created_at: thread.created_at,
-                    parts: [call(phase)],
-                  },
-                ]
-              : [],
-          ),
-          pending_interactions:
-            phase > 0 && phase < 3
-              ? [
-                  {
-                    source_message_id: `assistant-${phase}`,
-                    source_part_id: `part-${phase}`,
-                    response_target_id: `target-${phase}`,
-                    tool_call_id: "reused-call",
-                    target_tenant_user_id: "user",
-                    target_client_id: null,
-                    execution_location: "browser",
-                  },
-                ]
-              : [],
-        }),
-      )
+      return sessionResponse({
+        ...page(
+          phase > 0
+            ? [
+                {
+                  id: `assistant-${phase}`,
+                  role: "assistant",
+                  created_at: thread.created_at,
+                  parts: [call(phase)],
+                },
+              ]
+            : [],
+        ),
+        pending_interactions:
+          phase > 0 && phase < 3
+            ? [
+                {
+                  source_message_id: `assistant-${phase}`,
+                  source_part_id: `part-${phase}`,
+                  response_target_id: `target-${phase}`,
+                  tool_call_id: "reused-call",
+                  target_tenant_user_id: "user",
+                  target_client_id: null,
+                  execution_location: "browser",
+                },
+              ]
+            : [],
+      })
     if (path.endsWith("/chat")) {
       phase = 1
       if (typeof init?.body !== "string") throw new Error("Expected a chat request body")
@@ -1057,7 +1034,7 @@ test("a browser tool and widget can continue through consecutive committed turns
       outputs.push(body)
       return Promise.resolve(stream(++phase, body.run_id ?? "server-generated-run"))
     }
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1113,17 +1090,15 @@ test("older history is requested explicitly and rejoins tool results across page
     const url = new URL(input)
     if (url.pathname.endsWith("/messages")) {
       pages.push(url.search)
-      return Promise.resolve(
-        Response.json(
-          url.searchParams.has("page_after")
-            ? page([assistant])
-            : { ...page([result, user]), page_after: "older" },
-        ),
+      return sessionResponse(
+        url.searchParams.has("page_after")
+          ? page([assistant])
+          : { ...page([result, user]), page_after: "older" },
       )
     }
     if (url.pathname.endsWith("/threads"))
-      return Promise.resolve(Response.json({ items: [thread], page_after: null }))
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ items: [thread], page_after: null })
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1162,40 +1137,38 @@ test("hydrated results address an unloaded target when concurrent calls reuse a 
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = String(input)
     if (path.includes("/messages?"))
-      return Promise.resolve(
-        Response.json({
-          ...page(
-            sources.slice(1).map(({ message, targets }) => ({
-              id: message,
-              role: "assistant",
-              state: "complete",
-              created_at: thread.created_at,
-              parts: [
-                {
-                  id: "part",
-                  type: "tool-call",
-                  toolCallId: "reused-provider-id",
-                  name: "change_data",
-                  arguments: "{}",
-                  state: "input-complete",
-                  targets: targets.map((id) => ({ id })),
-                },
-              ],
-            })),
-          ),
-          thread: { ...thread, writer_active: true },
-          pending_interactions: pending.filter(
-            (item) =>
-              !submitted.some((result) => result.response_target_id === item.response_target_id),
-          ),
-        }),
-      )
+      return sessionResponse({
+        ...page(
+          sources.slice(1).map(({ message, targets }) => ({
+            id: message,
+            role: "assistant",
+            state: "complete",
+            created_at: thread.created_at,
+            parts: [
+              {
+                id: "part",
+                type: "tool-call",
+                toolCallId: "reused-provider-id",
+                name: "change_data",
+                arguments: "{}",
+                state: "input-complete",
+                targets: targets.map((id) => ({ id })),
+              },
+            ],
+          })),
+        ),
+        thread: { ...thread, writer_active: true },
+        pending_interactions: pending.filter(
+          (item) =>
+            !submitted.some((result) => result.response_target_id === item.response_target_id),
+        ),
+      })
     if (path.endsWith("/tool-results") && typeof init?.body === "string") {
       const body = JSON.parse(init.body) as { results: Array<Record<string, unknown>> }
       submitted.push(...body.results)
-      return Promise.resolve(Response.json({ thread_version: 2 }))
+      return sessionResponse({ thread_version: 2 })
     }
-    return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    return sessionResponse({ capabilities: { attachments: true } })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1228,29 +1201,26 @@ test("a late hydration response cannot replace a newly selected conversation", a
   let resolveFirst: ((response: Response) => void) | undefined
   stubSessionFetch((input: string | URL) => {
     const url = new URL(input)
-    if (url.pathname.endsWith("/config"))
-      return Promise.resolve(Response.json({ attachments: true }))
+    if (url.pathname.endsWith("/config")) return sessionResponse({ attachments: true })
     if (url.pathname.endsWith("/threads"))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+      return sessionResponse({ items: [], page_after: null, page_before: null })
     if (url.pathname.includes(thread.id))
       return new Promise<Response>((resolve) => {
         resolveFirst = resolve
       })
-    return Promise.resolve(
-      Response.json({
-        ...page([
-          {
-            id: "second",
-            role: "user",
-            state: "complete",
-            created_at: next.created_at,
-            author_tenant_user_id: "user",
-            parts: [{ id: "text", type: "text", content: "Second thread" }],
-          },
-        ]),
-        thread: next,
-      }),
-    )
+    return sessionResponse({
+      ...page([
+        {
+          id: "second",
+          role: "user",
+          state: "complete",
+          created_at: next.created_at,
+          author_tenant_user_id: "user",
+          parts: [{ id: "text", type: "text", content: "Second thread" }],
+        },
+      ]),
+      thread: next,
+    })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1269,14 +1239,14 @@ test("a refresh during a first send's conversation creation leaves the session r
   let release: ((response: Response) => void) | undefined
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/threads") && init?.method === "POST")
-      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+      return sessionResponse({ ...thread, title: "", version: 0 })
     if (path.endsWith("/messages") && !release)
       return new Promise<Response>((resolve) => {
         release = resolve
       })
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createTestSession()
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
@@ -1295,9 +1265,9 @@ test("opening a conversation during a background refresh reports only loading", 
   let reads = 0
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (!path.endsWith("/messages"))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+      return sessionResponse({ items: [], page_after: null, page_before: null })
     const response = Response.json({
       ...page([
         {
@@ -1328,34 +1298,34 @@ test("a failed send keeps its Retry after leaving and reopening its conversation
   let accepted = false
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/chat")) {
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
       if (keys.length === 1) return Promise.resolve(new Response("Unavailable", { status: 503 }))
       accepted = true
-      return Promise.resolve(
-        Response.json({ thread_id: thread.id, accepted_message_id: "accepted", thread_version: 2 }),
-      )
+      return sessionResponse({
+        thread_id: thread.id,
+        accepted_message_id: "accepted",
+        thread_version: 2,
+      })
     }
     if (path.endsWith("/messages"))
-      return Promise.resolve(
-        Response.json({
-          ...page(
-            accepted && path.includes(thread.id)
-              ? [
-                  {
-                    id: "accepted",
-                    role: "user",
-                    created_at: thread.created_at,
-                    parts: [{ id: "part", type: "text", content: "Keep this" }],
-                  },
-                ]
-              : [],
-          ),
-          thread: path.includes(next.id) ? next : thread,
-        }),
-      )
-    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+      return sessionResponse({
+        ...page(
+          accepted && path.includes(thread.id)
+            ? [
+                {
+                  id: "accepted",
+                  role: "user",
+                  created_at: thread.created_at,
+                  parts: [{ id: "part", type: "text", content: "Keep this" }],
+                },
+              ]
+            : [],
+        ),
+        thread: path.includes(next.id) ? next : thread,
+      })
+    return sessionResponse({ items: [], page_after: null, page_before: null })
   })
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
@@ -1378,13 +1348,11 @@ test("failed native hydration blocks sends until a successful reload", async () 
   const sends = vi.fn()
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/threads"))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+      return sessionResponse({ items: [], page_after: null, page_before: null })
     if (path.endsWith("/messages"))
-      return failed
-        ? Promise.reject(new TypeError("History unavailable"))
-        : Promise.resolve(Response.json(page()))
+      return failed ? Promise.reject(new TypeError("History unavailable")) : sessionResponse(page())
     sends()
     return Promise.reject(new Error("Generation is not expected"))
   })
@@ -1407,15 +1375,11 @@ test("saved threads use their bound agent capabilities and reset uses the config
     if (url.pathname.endsWith("/config")) {
       const agent = url.searchParams.get("agentId")
       agents.push(agent)
-      return Promise.resolve(
-        Response.json({ capabilities: { attachments: agent !== "saved-agent" } }),
-      )
+      return sessionResponse({ capabilities: { attachments: agent !== "saved-agent" } })
     }
     if (url.pathname.endsWith("/messages"))
-      return Promise.resolve(
-        Response.json({ ...page(), thread: { ...thread, agent_id: "saved-agent" } }),
-      )
-    return Promise.resolve(Response.json({ items: [thread], page_after: null }))
+      return sessionResponse({ ...page(), thread: { ...thread, agent_id: "saved-agent" } })
+    return sessionResponse({ items: [thread], page_after: null })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1446,19 +1410,16 @@ test.each(["auto", thread.id])(
     stubSessionFetch((input: string | URL) => {
       const path = new URL(input).pathname
       if (path.endsWith("/messages"))
-        return Promise.resolve(
-          Response.json(
-            {
-              status: 404,
-              title: "Not found",
-              detail: "Conversation not found.",
-            },
-            { status: 404 },
-          ),
+        return sessionResponse(
+          {
+            status: 404,
+            title: "Not found",
+            detail: "Conversation not found.",
+          },
+          { status: 404 },
         )
-      if (path.endsWith("/config"))
-        return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-      return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+      if (path.endsWith("/config")) return sessionResponse({ capabilities: { attachments: true } })
+      return sessionResponse({ items: [], page_after: null, page_before: null })
     })
     const chat = createTestSession({ threadId })
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
@@ -1475,13 +1436,13 @@ test("a deleted agent disables generation without resolving the default agent", 
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
     if (path.endsWith("/messages"))
-      return Promise.resolve(Response.json({ ...page(), thread: { ...thread, agent_id: null } }))
+      return sessionResponse({ ...page(), thread: { ...thread, agent_id: null } })
     if (path.endsWith("/config")) {
       fallback()
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+      return sessionResponse({ capabilities: { attachments: true } })
     }
     if (path.endsWith("/chat")) send()
-    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+    return sessionResponse({ items: [], page_after: null, page_before: null })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1502,18 +1463,13 @@ test("refresh after membership removal leaves a fresh conversation without an er
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
     if (path.endsWith("/messages") && removed)
-      return Promise.resolve(
-        Response.json(
-          { status: 404, title: "Not found", detail: "Conversation not found." },
-          { status: 404 },
-        ),
+      return sessionResponse(
+        { status: 404, title: "Not found", detail: "Conversation not found." },
+        { status: 404 },
       )
-    if (path.endsWith("/messages")) return Promise.resolve(Response.json(page()))
-    if (path.endsWith("/config"))
-      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
-    return Promise.resolve(
-      Response.json({ items: removed ? [] : [thread], page_after: null, page_before: null }),
-    )
+    if (path.endsWith("/messages")) return sessionResponse(page())
+    if (path.endsWith("/config")) return sessionResponse({ capabilities: { attachments: true } })
+    return sessionResponse({ items: removed ? [] : [thread], page_after: null, page_before: null })
   })
   const chat = createTestSession({
     threadId: thread.id,
@@ -1553,7 +1509,7 @@ test("a send during the refresh after a reply is taken at once and sent when it 
   let release: (() => void) | undefined
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
     const response = Response.json(page())
     if (++reads !== 2) return Promise.resolve(response)
@@ -1581,11 +1537,11 @@ test("a send during the refresh after a reply is taken at once and sent when it 
 test("a first send stays submitted until its reply streams", async () => {
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/threads") && init?.method === "POST")
-      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+      return sessionResponse({ ...thread, title: "", version: 0 })
     if (path.endsWith("/chat")) return Promise.resolve(acceptedStream("1"))
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createTestSession()
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
@@ -1611,8 +1567,8 @@ test.each(["before", "after"] as const)(
     let release: (() => void) | undefined
     stubSessionFetch((input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
-      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
-      if (!path.endsWith("/chat")) return Promise.resolve(Response.json(page()))
+      if (path.endsWith("/config")) return sessionResponse({ attachments: true })
+      if (!path.endsWith("/chat")) return sessionResponse(page())
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
       return new Promise<Response>((resolve) => {
         release = () => resolve(acceptedStream("1"))
@@ -1638,11 +1594,11 @@ test("a session restarted like React Strict Mode keeps loading history and sendi
   let sends = 0
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/threads") && init?.method === "POST")
-      return Promise.resolve(Response.json({ ...thread, title: "", version: 0 }))
+      return sessionResponse({ ...thread, title: "", version: 0 })
     if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createAstralBeamChat({ fetchAstralBeamToken: chatTestToken, threadId: "new" }, true)
   try {
@@ -1664,9 +1620,9 @@ test("a send before the configured conversation opens returns to its caller", as
   const sends = vi.fn()
   stubSessionFetch((input: string | URL) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/chat") || path.endsWith("/threads")) sends(path)
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createTestSession({ threadId: thread.id })
   const outcome = await chat.sendMessage("Too early")
@@ -1688,7 +1644,7 @@ test.each(["history", "thread"] as const)(
     let reads = 0
     stubSessionFetch((input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
-      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (path.endsWith("/config")) return sessionResponse({ attachments: true })
       if (path.endsWith("/chat")) {
         sends()
         return Promise.resolve(acceptedStream(String(sends.mock.calls.length)))
@@ -1720,8 +1676,7 @@ test("an older page adds its messages without replacing the latest thread state"
   const current = { ...thread, title: "Current title", version: 4 }
   stubSessionFetch((input: string | URL) => {
     const url = new URL(input)
-    if (url.pathname.endsWith("/config"))
-      return Promise.resolve(Response.json({ attachments: true }))
+    if (url.pathname.endsWith("/config")) return sessionResponse({ attachments: true })
     const older = url.searchParams.has("page_after")
     const message = (id: string) => ({
       id,
@@ -1729,13 +1684,11 @@ test("an older page adds its messages without replacing the latest thread state"
       created_at: thread.created_at,
       parts: [{ id: "text", type: "text", content: id }],
     })
-    return Promise.resolve(
-      Response.json({
-        ...page([message(older ? "older" : "latest")]),
-        thread: older ? { ...thread, title: "Stale title", version: 1 } : current,
-        page_after: older ? null : "earlier",
-      }),
-    )
+    return sessionResponse({
+      ...page([message(older ? "older" : "latest")]),
+      thread: older ? { ...thread, title: "Stale title", version: 1 } : current,
+      page_after: older ? null : "earlier",
+    })
   })
   const chat = createTestSession({ threadId: thread.id })
   await vi.waitFor(() => expect(chat.getState().thread?.version).toBe(4))
@@ -1753,8 +1706,8 @@ test.each(["account", "api", "dispose"] as const)(
     const posted: unknown[] = []
     vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
       const path = new URL(input).pathname
-      if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
-      if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+      if (path.endsWith("/me")) return sessionResponse(user)
+      if (path.endsWith("/config")) return sessionResponse({ attachments: true })
       if (path.endsWith("/chat")) {
         if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
         posted.push(
@@ -1803,9 +1756,9 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
   const targets: string[] = []
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/threads") && init?.method === "POST") {
-      if (++creations === 2) return Promise.resolve(Response.json(second))
+      if (++creations === 2) return sessionResponse(second)
       return new Promise<Response>((resolve) => {
         release = () => resolve(Response.json({ ...thread, title: "", version: 0 }))
       })
@@ -1817,7 +1770,7 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
       return Promise.resolve(acceptedStream(String(targets.length), threadId))
     }
     const id = path.split("/").at(-2)!
-    return Promise.resolve(Response.json({ ...page(), thread: id === second.id ? second : thread }))
+    return sessionResponse({ ...page(), thread: id === second.id ? second : thread })
   })
   const chat = createTestSession()
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
@@ -1838,7 +1791,7 @@ function stubRetryableChat(onRead?: () => Promise<void> | undefined) {
   const keys: Array<string | null> = []
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/chat")) {
       keys.push(new Headers(init?.headers).get("Idempotency-Key"))
       return Promise.resolve(
@@ -1849,7 +1802,7 @@ function stubRetryableChat(onRead?: () => Promise<void> | undefined) {
     }
     if (path.endsWith("/messages"))
       return (onRead?.() ?? Promise.resolve()).then(() => Response.json(page()))
-    return Promise.resolve(Response.json({ items: [], page_after: null, page_before: null }))
+    return sessionResponse({ items: [], page_after: null, page_before: null })
   })
   return keys
 }
@@ -1922,10 +1875,10 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   const sends = vi.fn()
   vi.stubGlobal("fetch", (input: string | URL) => {
     const path = new URL(input).pathname
-    if (path.endsWith("/me")) return Promise.resolve(Response.json(user))
-    if (path.endsWith("/config")) return Promise.resolve(Response.json({ attachments: true }))
+    if (path.endsWith("/me")) return sessionResponse(user)
+    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
     if (path.endsWith("/chat")) sends()
-    return Promise.resolve(Response.json(page()))
+    return sessionResponse(page())
   })
   const chat = createTestSession({
     threadId: thread.id,

@@ -1,21 +1,22 @@
 diff --git a/dist/_chunks/nitro.mjs b/dist/_chunks/nitro.mjs
-index 9b3436b150ab4c4166dbbcc9be4f98134171fdaf..e76fc379460a4c34ce41edc0da55274b9f8d8624 100644
+index 9b3436b150ab4c4166dbbcc9be4f98134171fdaf..41c5681aba27b814739ccb3a38b48677c60d37d0 100644
 --- a/dist/_chunks/nitro.mjs
 +++ b/dist/_chunks/nitro.mjs
 @@ -749,0 +750,3 @@ async function prerender(nitro) {
-+	// Wait for cold imports. Remove once Nitro awaits worker readiness before prerendering.
-+	// https://github.com/unjs/env-runner#runner-api
++	// Remove when Nitro awaits worker readiness before the first prerender request.
++	// https://github.com/nitrojs/nitro/issues/4901
 +	await prerenderer.waitForReady();
 diff --git a/dist/presets/bun/runtime/bun.mjs b/dist/presets/bun/runtime/bun.mjs
 index 91b723f0804e10a919004798e6909844f1273cec..8fa4d920e2f93a7a42ba76e1b1f36af135804551 100644
 --- a/dist/presets/bun/runtime/bun.mjs
 +++ b/dist/presets/bun/runtime/bun.mjs
-@@ -32,7 +32,8 @@ const server = serve({
+@@ -32,7 +32,9 @@ const server = serve({
  		key
  	} : undefined,
  	fetch: _fetch,
 -	bun: { websocket: import.meta._websocket ? ws?.websocket : undefined },
-+	// Keep quiet chat streams alive. https://bun.sh/docs/runtime/http/server#idletimeout
++	// Keep quiet chat streams alive until server entry Bun options can replace this patch.
++	// https://github.com/nitrojs/nitro/pull/4620
 +	bun: { idleTimeout: 0, websocket: import.meta._websocket ? ws?.websocket : undefined },
  	plugins: [...tracingSrvxPlugins]
  });
@@ -53,8 +54,8 @@ index 3ced9371804165a184fbed4a1d5256537ab734f1..4b6478541d465fac17998b591ddf4ef0
 --- a/dist/runtime/internal/vite/dev-worker.mjs
 +++ b/dist/runtime/internal/vite/dev-worker.mjs
 @@ -1,3 +1,7 @@
-+// Preserve cold SSR loads and quiet streams until Nitro exposes Bun server options.
-+// https://github.com/nitrojs/nitro/discussions/2989
++// Preserve cold SSR loads and quiet streams until worker Bun options can replace this patch.
++// https://github.com/nitrojs/nitro/issues/4874
 +export const bun = { idleTimeout: 0 };
 +
  import { createViteTransport } from "env-runner/vite";

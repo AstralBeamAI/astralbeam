@@ -134,6 +134,27 @@ const McpStaticHeadersSchema = Schema.Record(
     (headers) => new TextEncoder().encode(JSON.stringify(headers)).byteLength <= 16_384,
   ),
 )
+// Keep provider extension metadata while validating the fields required by the SDK's discovery state.
+// https://github.com/modelcontextprotocol/typescript-sdk/blob/main/packages/client/src/client/auth.ts
+export const McpDiscoverySchema = Schema.Struct({
+  authorizationServerUrl: Schema.String,
+  authorizationServerMetadata: Schema.optionalKey(
+    Schema.StructWithRest(
+      Schema.Struct({
+        issuer: Schema.String,
+        authorization_endpoint: Schema.String,
+        token_endpoint: Schema.String,
+        response_types_supported: Schema.mutable(Schema.Array(Schema.String)),
+      }),
+      [Schema.JsonObject],
+    ),
+  ),
+  resourceMetadata: Schema.optionalKey(
+    Schema.StructWithRest(Schema.Struct({ resource: Schema.String }), [Schema.JsonObject]),
+  ),
+  resourceMetadataUrl: Schema.optionalKey(Schema.String),
+})
+
 const McpCredentialSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("none") }),
   Schema.Struct({
@@ -145,7 +166,7 @@ const McpCredentialSchema = Schema.Union([
     clientInformation: Schema.JsonObject,
     tokens: McpOAuthTokensSchema,
     expiresAt: Schema.NullOr(Schema.Number),
-    discovery: Schema.JsonObject,
+    discovery: McpDiscoverySchema,
   }),
 ])
 export type McpCredential = typeof McpCredentialSchema.Type
@@ -169,7 +190,7 @@ export const McpAttemptEnvelopeSchema = Schema.Struct({
   browserBindingHash: Schema.NullOr(Schema.String),
   state: Schema.String,
   verifier: Schema.NullOr(Schema.String),
-  discovery: Schema.NullOr(Schema.JsonObject),
+  discovery: Schema.NullOr(McpDiscoverySchema),
   clientInformation: Schema.NullOr(Schema.JsonObject),
   authorizationUrl: Schema.NullOr(Schema.String),
   pendingCredential: Schema.NullOr(McpCredentialSchema),
@@ -213,6 +234,13 @@ export class McpNotFound extends Schema.TaggedError<McpNotFound>()(
 ) {
   override readonly message = "The MCP server or connection was not found."
 }
+export class McpServerExists extends Schema.TaggedError<McpServerExists>()(
+  "McpServerExists",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "An MCP server with this URL already exists."
+}
 export class McpChanged extends Schema.TaggedError<McpChanged>()(
   "McpChanged",
   {},
@@ -233,6 +261,13 @@ export class McpAuthorizationRequired extends Schema.TaggedError<McpAuthorizatio
   { httpApiStatus: 409 },
 ) {
   override readonly message = "Reconnect to continue using this MCP server."
+}
+export class McpAuthorizationFailed extends Schema.TaggedError<McpAuthorizationFailed>()(
+  "McpAuthorizationFailed",
+  {},
+  { httpApiStatus: 409 },
+) {
+  override readonly message = "Authorization was not completed. Try connecting again."
 }
 export class McpUnavailable extends Schema.TaggedError<McpUnavailable>()(
   "McpUnavailable",

@@ -1,6 +1,7 @@
 import { getOrganization } from "@astralbeam/sdk/api"
 import type { Command } from "commander"
 import { env, stderr, stdin } from "node:process"
+import { text } from "node:stream/consumers"
 import {
   currentDirectory,
   DEFAULT_API_URL,
@@ -52,9 +53,7 @@ function promptSecret(question: string): Promise<string> {
 
 async function readApiKey(): Promise<string> {
   if (stdin.isTTY) return await promptSecret("Paste an organization API key: ")
-  const chunks: Buffer[] = []
-  for await (const chunk of stdin) chunks.push(chunk as Buffer)
-  return Buffer.concat(chunks).toString("utf8").trim()
+  return (await text(stdin)).trim()
 }
 
 // Reading the organization proves the key and API URL work, and names the organization.

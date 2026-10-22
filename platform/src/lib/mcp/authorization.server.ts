@@ -5,7 +5,6 @@ import {
   extractWWWAuthenticateParams,
   OAuthError,
   refreshAuthorization,
-  type OAuthDiscoveryState,
   type OAuthClientInformationMixed,
 } from "@modelcontextprotocol/client"
 import { SqlClient } from "effect/sql"
@@ -25,6 +24,7 @@ import {
 } from "./mcp.server.ts"
 import {
   McpAuthorizationRequired,
+  McpAuthorizationFailed,
   McpChanged,
   McpForbidden,
   McpInvalidConfiguration,
@@ -336,7 +336,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
         const { connection } = yield* attemptConnection(input.actor, payload)
         if (payload.status === "authorizing" || payload.status === "exchanging") return false
         if (payload.status !== "awaiting_completion" || !payload.pendingCredential)
-          return yield* new McpChanged()
+          return yield* new McpAuthorizationFailed()
         const envelope: McpCredentialEnvelope = {
           version: 1,
           ...input.actor,
@@ -395,7 +395,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       .pipe(Effect.orDie)
     if (!claimed.length) return null
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
-    const discovery = credential.discovery as unknown as OAuthDiscoveryState
+    const discovery = credential.discovery
     const binding = mcpDiscoveryBinding(discovery)
     const refreshed = yield* Effect.tryPromise({
       try: () =>
