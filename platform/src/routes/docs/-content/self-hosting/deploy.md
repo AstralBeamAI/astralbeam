@@ -4,7 +4,35 @@ AstralBeam runs from a container image or standalone binary. Let's start a local
 
 ## Containers
 
-The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18 and a transaction pooler](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
+### Docker Compose
+
+Use Docker Compose 2.30 or later. Download the Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.21.0/docker-compose.production.yml
+
+(
+  umask 077
+  set -C
+  printf 'POSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nRUSTFS_ACCESS_KEY=astralbeam\nRUSTFS_SECRET_KEY=%s\n' \
+    "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    > .env
+)
+```
+
+Start the stack:
+
+```sh
+docker compose -f docker-compose.production.yml up --detach --wait
+```
+
+The private `astralbeam` bucket is created automatically. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
+
+The stack binds to localhost and enables HTTP. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
+
+### Existing services
+
+The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
 
 1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file such as `/etc/astralbeam/env`, following [the bootstrap settings](#3-set-the-bootstrap-environment). Use a database hostname reachable from the container, since `localhost` refers to the container. For local HTTP, include `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
@@ -84,7 +112,7 @@ createdb --owner=astralbeam astralbeam
 
 The application owns its schema from there. The first migration creates the `citext` extension, so the role must be permitted to run `CREATE EXTENSION`.
 
-Point `DATABASE_URL` at a transaction-pooling pooler rather than at PostgreSQL directly. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, use `pool_mode = transaction`. The reference Compose setup also sets `max_prepared_statements = 200` for clients that use named prepared statements.
+Point `DATABASE_URL` at PostgreSQL directly or an optional transaction pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, use `pool_mode = transaction` and `max_prepared_statements = 200` for clients that use named prepared statements.
 
 **NOTE**: Clients that use named prepared statements need a non-zero prepared statement allowance in transaction mode.
 
