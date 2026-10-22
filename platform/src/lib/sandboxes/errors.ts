@@ -2,6 +2,11 @@ import { Schema } from "effect"
 
 import { type SandboxConnectionErrorCode, SandboxConnectionErrorCodeSchema } from "./schemas.ts"
 
+export class SandboxResourceUnavailable extends Schema.TaggedError<SandboxResourceUnavailable>()(
+  "SandboxResourceUnavailable",
+  {},
+) {}
+
 // Each message is written for the member who sees it, so handlers may expose it verbatim.
 
 export class SandboxProviderNotFound extends Schema.TaggedError<SandboxProviderNotFound>()(

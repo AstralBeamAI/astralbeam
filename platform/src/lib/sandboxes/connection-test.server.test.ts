@@ -1,6 +1,5 @@
-import { Effect, Fiber } from "effect"
-import { SandboxConnection } from "@astralbeam/sandbox"
-import type { SandboxProvider } from "@tanstack/ai-sandbox"
+import { Effect, Fiber, Layer } from "effect"
+import { SandboxResources } from "./resources.server"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const connectionTestSandbox = vi.hoisted(() => ({
@@ -10,28 +9,31 @@ const connectionTestSandbox = vi.hoisted(() => ({
   destroy: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock("./factory.server.ts", () => ({
-  createSandboxProvider: () =>
-    Effect.succeed(
-      new SandboxConnection(
-        () =>
-          ({
-            create: () =>
-              connectionTestSandbox.pendingCreate ??
-              (connectionTestSandbox.createError === undefined
-                ? Promise.resolve({
-                    process: { exec: connectionTestSandbox.exec },
-                    destroy: connectionTestSandbox.destroy,
-                  })
-                : Promise.reject(connectionTestSandbox.createError)),
-          }) as unknown as SandboxProvider,
-      ),
-    ),
-}))
+const testResources = Layer.succeed(SandboxResources, {
+  provider: () =>
+    Effect.succeed({
+      destroy: connectionTestSandbox.destroy,
+      create: () =>
+        connectionTestSandbox.pendingCreate ??
+        (connectionTestSandbox.createError === undefined
+          ? Promise.resolve({
+              id: "check-sandbox",
+              process: { exec: connectionTestSandbox.exec },
+              destroy: connectionTestSandbox.destroy,
+            })
+          : Promise.reject(connectionTestSandbox.createError)),
+    }),
+} as unknown as SandboxResources["Service"])
 
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 
-const dockerTest = { provider: "docker", options: {}, credentials: {} } as const
+const dockerTest = {
+  organizationId: "01992a80-1d71-7f24-a150-f1177e3f6419",
+  provider: "docker",
+  options: {},
+  credentials: {},
+} as const
+const runTest = () => runSandboxConnectionTest(dockerTest).pipe(Effect.provide(testResources))
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
@@ -45,7 +47,7 @@ afterEach(() => vi.useRealTimers())
 describe("runSandboxConnectionTest", () => {
   test("reports failed cleanup", async () => {
     connectionTestSandbox.destroy.mockRejectedValueOnce(new Error("Cleanup failed"))
-    expect(await Effect.runPromise(runSandboxConnectionTest(dockerTest))).toMatchObject({
+    expect(await Effect.runPromise(runTest())).toMatchObject({
       status: "failure",
       errorCode: "cleanup_failed",
     })
@@ -59,7 +61,7 @@ describe("runSandboxConnectionTest", () => {
       return new Promise(() => {})
     })
     connectionTestSandbox.destroy.mockReturnValueOnce(cleanup.promise)
-    const fiber = Effect.runFork(runSandboxConnectionTest(dockerTest))
+    const fiber = Effect.runFork(runTest())
     await started.promise
     const interrupted = Effect.runPromise(Fiber.interrupt(fiber))
     await vi.advanceTimersByTimeAsync(0)
@@ -71,7 +73,7 @@ describe("runSandboxConnectionTest", () => {
 
   test("cleans up after a command timeout", async () => {
     connectionTestSandbox.exec.mockImplementation(() => new Promise(() => {}))
-    const pending = Effect.runPromise(runSandboxConnectionTest(dockerTest))
+    const pending = Effect.runPromise(runTest())
     await vi.advanceTimersByTimeAsync(15_000)
     expect(await pending).toMatchObject({ status: "failure", errorCode: "timeout" })
     expect(connectionTestSandbox.destroy).toHaveBeenCalledTimes(1)
@@ -82,7 +84,7 @@ describe("runSandboxConnectionTest", () => {
       connectionTestSandbox.destroy.mockClear()
       const late = Promise.withResolvers<unknown>()
       connectionTestSandbox.pendingCreate = late.promise
-      const fiber = Effect.runFork(runSandboxConnectionTest(dockerTest))
+      const fiber = Effect.runFork(runTest())
       await vi.advanceTimersByTimeAsync(31_000)
       expect(fiber.pollUnsafe()).toBeUndefined()
       if (end === "timeout") {
@@ -90,7 +92,7 @@ describe("runSandboxConnectionTest", () => {
         await Effect.runPromise(Fiber.await(fiber))
       } else await Effect.runPromise(Fiber.interrupt(fiber))
       expect(connectionTestSandbox.destroy).not.toHaveBeenCalled()
-      late.resolve({ destroy: connectionTestSandbox.destroy })
+      late.resolve({ id: "late-sandbox" })
       await vi.advanceTimersByTimeAsync(0)
       expect(connectionTestSandbox.destroy).toHaveBeenCalledTimes(1)
     }
@@ -104,7 +106,7 @@ describe("runSandboxConnectionTest", () => {
     ]
     for (const error of errors) {
       connectionTestSandbox.createError = error
-      expect(await Effect.runPromise(runSandboxConnectionTest(dockerTest))).toMatchObject({
+      expect(await Effect.runPromise(runTest())).toMatchObject({
         status: "failure",
         errorCode: "authentication",
       })

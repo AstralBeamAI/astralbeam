@@ -5,8 +5,7 @@ import { Context, Deferred, Effect, Exit, Fiber, Layer, Scheduler, Scope } from 
 import { TestClock } from "effect/testing"
 import { beforeEach } from "vitest"
 
-import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
-import { SandboxConnection } from "@astralbeam/sandbox"
+import { SandboxResources } from "@/lib/sandboxes/resources.server"
 import { SandboxProviderUnavailable } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
@@ -88,14 +87,15 @@ const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
     Layer.succeed(SandboxProviders, {
       resolveConfiguration: () => Effect.succeed(sandboxTest.configuration),
     } as unknown as SandboxProviders["Service"]),
-    Layer.succeed(SandboxProviderFactory, {
-      create: () => {
+    Layer.succeed(SandboxResources, {
+      provider: () => {
         sandboxTest.factories++
         return sandboxTest.providerFails
           ? Effect.fail(new SandboxProviderUnavailable({ cause: new Error("Provider disabled") }))
-          : Effect.succeed(new SandboxConnection(() => fakeSandboxProvider))
+          : Effect.succeed(fakeSandboxProvider)
       },
-    }),
+      touch: () => Effect.void,
+    } as unknown as SandboxResources["Service"]),
   ]),
 )
 

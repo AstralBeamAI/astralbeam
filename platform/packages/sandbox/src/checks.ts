@@ -9,8 +9,16 @@ type CheckOptions = { signal?: AbortSignal }
 
 export class SandboxConnection {
   private resolved?: Promise<SandboxProvider>
+  private resolvedScope?: Promise<string | undefined>
 
-  constructor(private readonly initialize: () => SandboxProvider | Promise<SandboxProvider>) {}
+  constructor(
+    private readonly initialize: () => SandboxProvider | Promise<SandboxProvider>,
+    private readonly identifyScope?: () => Promise<string>,
+  ) {}
+
+  get resourceScope(): Promise<string | undefined> {
+    return (this.resolvedScope ??= this.identifyScope?.() ?? Promise.resolve(undefined))
+  }
 
   static available(): Promise<boolean> {
     return Promise.resolve(true)
@@ -77,7 +85,7 @@ async function testSandboxConnection(
     )
   } catch (error) {
     // Some adapters ignore cancellation and finish creating after the check has ended.
-    void pending?.then((late) => late.destroy()).catch(() => undefined)
+    void pending?.then((late) => provider.destroy({ id: late.id })).catch(() => undefined)
     throw error
   }
   try {
@@ -93,7 +101,11 @@ async function testSandboxConnection(
     )
   } finally {
     // Cleanup must still run after caller cancellation, with its own deadline.
-    await sandboxCheckOperation("destroy-sandbox", () => handle.destroy(), 15_000)
+    await sandboxCheckOperation(
+      "destroy-sandbox",
+      (signal) => provider.destroy({ id: handle.id, signal }),
+      15_000,
+    )
   }
 }
 

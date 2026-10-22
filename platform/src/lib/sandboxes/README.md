@@ -46,7 +46,7 @@ Defaults only populate a new organization form. Once saved, the database values 
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
 4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves the release-tagged default to `.env` when unset and downloads missing images into the native caches. Repeat bootstrap runs and normal sandbox creation reuse those caches. Choose a new version tag or digest to prepare another image.
 
-The image installs commands under `/usr/local/bin` and uses the root/home defaults expected by the stock Docker adapter. The adapter is unmodified.
+The image installs commands under `/usr/local/bin` and uses the root/home defaults expected by the stock Docker adapter. The private package reuses TanStack handles with named Dockerode allocation and force deletion. Named managed sandboxes do not accept host-local workspace sources.
 
 ## Microsandbox setup
 
@@ -92,3 +92,11 @@ See the [chat instructions](../chat/AGENTS.md#tools) for lifecycle, scope, path 
 - Credentials are encrypted with `DATABASE_ENCRYPTION_KEY` and returned only to authorized organization owners and developers on the no-store sandbox provider page, where they are masked by default and can be revealed for editing.
 - **Test and save** creates a real sandbox, runs a harmless command, confirms cleanup, and saves only after success. Vendor or host resource usage may incur cost.
 - Changing a saved row to another provider requires new credentials and removes credentials belonging to the previous provider. Create another named row when both configurations should remain available.
+
+## Recovery after a process stops
+
+`SandboxResources` records cleanup intents in the existing database key-value store under `sandbox-resources:v1`, without automatic expiry. Cleanup credentials are encrypted and bound to the organization and sandbox identity. Allocation records commit before provider calls. Organization access revocation stops new allocations and ownership renewal. Organization deletion leaves the journal for background cleanup.
+
+A running owner renews its 15-minute deadline every minute. After expiry, maintenance retries deletion and keeps failed records. Docker uses a stable daemon ID when available, allowing replacement app containers to recover cleanup. Compatible engines with changing IDs, including current Podman, use a host/endpoint fingerprint and require a stable client host identity across restarts. Microsandbox cleanup requires its original host. Provider outages and revoked credentials retain cleanup records for later recovery. Uncertain creation outcomes are reconciled by their reserved name for one day to catch late creation.
+
+The private package uses public vendor SDK lifecycle APIs with TanStack file, process and port handles. It does not patch installed dependencies. Chat disables forks and snapshots until they can record ownership of their extra resources.

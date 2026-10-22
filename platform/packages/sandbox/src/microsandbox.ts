@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { once } from "node:events"
-import { constants } from "node:os"
+import { constants, hostname } from "node:os"
 import { posix } from "node:path"
 import { PassThrough } from "node:stream"
 import { pathToFileURL } from "node:url"
@@ -262,7 +262,7 @@ async function microsandboxSandbox(config: {
     capabilities: () => microsandboxCapabilities,
     create: async (input) => {
       input.signal?.throwIfAborted()
-      const id = `astralbeam-${randomUUID()}`
+      const id = input.id ?? `astralbeam-${randomUUID()}`
       const pending = (async () => {
         try {
           const sandbox = await sdk.Sandbox.builder(id)
@@ -302,7 +302,10 @@ async function microsandboxSandbox(config: {
 
 export class Microsandbox extends SandboxConnection {
   constructor(config: { sdkPath: string; image: string }) {
-    super(() => microsandboxSandbox(config))
+    super(
+      () => microsandboxSandbox(config),
+      () => Promise.resolve(`microsandbox:${hostname()}`),
+    )
   }
 
   static override available(): Promise<boolean> {

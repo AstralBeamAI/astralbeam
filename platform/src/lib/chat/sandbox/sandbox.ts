@@ -5,7 +5,7 @@ import { Context, Deferred, Effect, Exit, Layer, Option, Ref, Scope } from "effe
 
 import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
-import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
+import { SandboxResources } from "@/lib/sandboxes/resources.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants"
 import { CHAT_SANDBOX_FILE_TIMEOUT_MS } from "./constants"
@@ -76,7 +76,7 @@ export class ChatSandboxes extends Context.Service<
     ChatSandboxes,
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
-      const factory = yield* SandboxProviderFactory
+      const resources = yield* SandboxResources
       const acquireSandbox = yield* makeChatSandboxLeases
       const ownerId = randomUUID()
 
@@ -114,8 +114,7 @@ export class ChatSandboxes extends Context.Service<
               // `ensure` is the whole resume-or-create algorithm and the slowest step of a
               // sandboxed run, which is why the status event goes out before it.
               yield* report({ state: "starting" })
-              const connection = yield* factory.create(configuration.provider, configuration)
-              const provider = yield* Effect.promise(() => connection.provider)
+              const provider = yield* resources.provider({ ...configuration, organizationId })
               const definition = defineSandbox({
                 // Isolate lease owners and configuration changes without exposing credentials.
                 id: `${APP_HANDLE}-chat-${configurationId}-${input.agentId}-${input.sandboxProviderId}`,
@@ -147,6 +146,9 @@ export class ChatSandboxes extends Context.Service<
                 alreadyClaimed
                   ? Deferred.await(started)
                   : start(report).pipe(Effect.onExit((exit) => Deferred.done(started, exit))),
+              ).pipe(
+                Effect.tap((handle) => resources.touch(organizationId, handle.id)),
+                Effect.mapError(() => new ChatSandboxUnavailable()),
               ),
             prepareUploads: (files) =>
               Effect.gen(function* () {
@@ -154,6 +156,7 @@ export class ChatSandboxes extends Context.Service<
                 const handle = yield* Deferred.poll(started)
                 if (Option.isNone(handle)) return
                 const running = yield* handle.value
+                yield* resources.touch(organizationId, running.id)
                 const additions = files.filter((file) => !uploaded.has(file.handle))
                 yield* writeChatSandboxUploads(running, additions)
                 for (const file of additions) uploaded.add(file.handle)
@@ -173,6 +176,6 @@ export class ChatSandboxes extends Context.Service<
   )
 
   static readonly layer = ChatSandboxes.layerNoDeps.pipe(
-    Layer.provide([SandboxProviders.layer, SandboxProviderFactory.layer]),
+    Layer.provide([SandboxProviders.layer, SandboxResources.layer]),
   )
 }

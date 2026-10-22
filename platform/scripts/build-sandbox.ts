@@ -6,6 +6,7 @@ await Bun.build({
   entrypoints: [
     ...new Bun.Glob("src/*.ts").scanSync({ cwd: sandboxDirectory, absolute: true }),
   ].sort(),
+  root: `${sandboxDirectory}/src`,
   outdir: `${sandboxDirectory}/dist`,
   // Node-compatible imports keep CommonJS/ESM chunks resolvable when Platform rebundles them.
   // https://bun.sh/docs/bundler#target
