@@ -72,10 +72,7 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
     "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
 }
 
-/**
- * A run's AG-UI events. Interrupting the stream, as a dropped client does, aborts the provider
- * request and then closes TanStack's iterator, so billing stops with the connection.
- */
+/** Dropping the client stream aborts the provider request before closing TanStack's iterator. */
 function chatEventStream(start: (abortController: AbortController) => AsyncIterable<StreamChunk>) {
   return Stream.unwrap(
     Effect.gen(function* () {
