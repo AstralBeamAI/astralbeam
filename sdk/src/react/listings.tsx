@@ -2,18 +2,15 @@ import {
   type CSSProperties,
   type ForwardedRef,
   forwardRef,
-  useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react"
 import {
   type AstralBeamListingHandle,
-  type AstralBeamTenantListHandle,
-  type AstralBeamTenantUserListHandle,
   mountAstralBeamThreadList,
   type MountAstralBeamThreadListOptions,
-  type AstralBeamThreadListHandle,
   mountAstralBeamTenantList,
   type MountAstralBeamTenantListOptions,
   mountAstralBeamTenantUserList,
@@ -24,16 +21,21 @@ type ContainerProps = { className?: string | undefined; style?: CSSProperties | 
 export type AstralBeamTenantListProps = MountAstralBeamTenantListOptions & ContainerProps
 export type AstralBeamTenantUserListProps = MountAstralBeamTenantUserListOptions & ContainerProps
 
-export const AstralBeamTenantList = forwardRef<
-  AstralBeamTenantListHandle,
-  AstralBeamTenantListProps
->(function AstralBeamTenantList({ className, style, ...options }, ref) {
-  const target = useListingMount(mountAstralBeamTenantList, options, ref)
-  return <div ref={target} className={className} style={style} />
-})
+/** Directory actions. React props and rendering own options and mounting. */
+type AstralBeamListingRef = Pick<AstralBeamListingHandle, "refresh" | "reset">
+export type AstralBeamTenantListRef = AstralBeamListingRef
+export type AstralBeamTenantUserListRef = AstralBeamListingRef
+export type AstralBeamThreadListRef = AstralBeamListingRef
+
+export const AstralBeamTenantList = forwardRef<AstralBeamTenantListRef, AstralBeamTenantListProps>(
+  function AstralBeamTenantList({ className, style, ...options }, ref) {
+    const target = useListingMount(mountAstralBeamTenantList, options, ref)
+    return <div ref={target} className={className} style={style} />
+  },
+)
 
 export const AstralBeamTenantUserList = forwardRef<
-  AstralBeamTenantUserListHandle,
+  AstralBeamTenantUserListRef,
   AstralBeamTenantUserListProps
 >(function AstralBeamTenantUserList({ className, style, ...options }, ref) {
   const target = useListingMount(mountAstralBeamTenantUserList, options, ref)
@@ -41,20 +43,19 @@ export const AstralBeamTenantUserList = forwardRef<
 })
 
 export type AstralBeamThreadListProps = MountAstralBeamThreadListOptions & ContainerProps
-export const AstralBeamThreadList = forwardRef<
-  AstralBeamThreadListHandle,
-  AstralBeamThreadListProps
->(function AstralBeamThreadList({ className, style, ...options }, ref) {
-  const target = useListingMount(mountAstralBeamThreadList, options, ref)
-  return <div ref={target} className={className} style={style} />
-})
+export const AstralBeamThreadList = forwardRef<AstralBeamThreadListRef, AstralBeamThreadListProps>(
+  function AstralBeamThreadList({ className, style, ...options }, ref) {
+    const target = useListingMount(mountAstralBeamThreadList, options, ref)
+    return <div ref={target} className={className} style={style} />
+  },
+)
 
 function useListingMount<
   T extends MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions,
 >(
   mount: (target: HTMLElement, options: T) => AstralBeamListingHandle<T>,
   options: T,
-  ref: ForwardedRef<AstralBeamListingHandle<T>>,
+  ref: ForwardedRef<AstralBeamListingRef>,
 ) {
   const target = useRef<HTMLDivElement>(null)
   const handle = useRef<AstralBeamListingHandle<T> | null>(null)
@@ -119,10 +120,11 @@ function useListingMount<
     ],
   )
   const liveRef = useRef(live)
-  useEffect(() => {
+  useLayoutEffect(() => {
     liveRef.current = live
-  })
-  useEffect(() => {
+    handle.current?.update(live)
+  }, [live])
+  useLayoutEffect(() => {
     const mounted = mount(target.current!, liveRef.current)
     handle.current = mounted
     return () => {
@@ -130,18 +132,10 @@ function useListingMount<
       mounted.unmount()
     }
   }, [mount])
-  useEffect(() => {
-    handle.current?.update(live)
-  }, [live])
-  useImperativeHandle(
-    ref,
-    () => ({
-      update: (next) => handle.current?.update(next),
-      refresh: () => handle.current?.refresh(),
-      reset: () => handle.current?.reset(),
-      unmount: () => handle.current?.unmount(),
-    }),
-    [],
-  )
+  useImperativeHandle(ref, () => {
+    // Bind to this mount so retained refs cannot act on a later mount.
+    const mounted = handle.current!
+    return { refresh: () => mounted.refresh(), reset: () => mounted.reset() }
+  }, [])
   return target
 }

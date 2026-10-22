@@ -1,5 +1,6 @@
 import { WIDGET_CONTAINER_CLASS } from "../lib/constants.ts"
 import { applyWidgetTheme } from "../lib/theme.ts"
+import { waitWithSignal } from "../lib/abort.ts"
 import type {
   TenantRecordEncoded as TenantRecord,
   TenantUserRecordEncoded as TenantUserRecord,
@@ -10,7 +11,7 @@ import type { AstralBeamListingCoreOptions } from "../core/listings.ts"
 
 export interface AstralBeamListingOptions extends AstralBeamListingCoreOptions {
   fetchAstralBeamToken: NonNullable<AstralBeamListingCoreOptions["fetchAstralBeamToken"]>
-  /** Stable host-session object to reuse directory data across mounts. Replace it on sign-out. */
+  /** Host-session boundary for remount reuse. Replacing it resets authentication and view state. */
   cacheKey?: object | undefined
   pageSize?: 20 | 50 | 100 | undefined
   title?: string | undefined
@@ -43,9 +44,10 @@ export interface AstralBeamListingHandle<
   T extends AstralBeamListingOptions = AstralBeamListingOptions,
 > {
   update(options: Partial<T>): void
-  refresh(): void
-  /** Clears state and reloads using the ready host session. Unmount during sign-out or account transitions. */
-  reset(): void
+  /** Waits for this mount's refreshed view, including lazy loading. May reuse valid authentication. */
+  refresh(): Promise<void>
+  /** Clears state, reacquires authentication, and waits for the initial view. Requires a ready host session. */
+  reset(): Promise<void>
   unmount(): void
 }
 
@@ -63,6 +65,8 @@ interface ListingMount {
   media: MediaQueryList
   variables: Set<string>
   disposed: boolean
+  loading?: Promise<void> | undefined
+  action?: AbortController | undefined
   runtime?: ListingRuntime
   renderer?: ListingRenderer
   retryLoad?: HTMLButtonElement
@@ -112,15 +116,11 @@ function mountListing(
   const theme = () => applyListingTheme(state)
   theme()
   media.addEventListener("change", theme)
-  void loadListing(state)
+  void loadListing(state).catch(() => {})
   return {
     update: (next) => updateListingMount(state, next),
-    refresh: () => {
-      if (!state.disposed && state.renderer) state.runtime!.refreshListing(state.renderer)
-    },
-    reset: () => {
-      if (!state.disposed && state.renderer) state.runtime!.resetListing(state.renderer)
-    },
+    refresh: () => runListingAction(state, false),
+    reset: () => runListingAction(state, true),
     unmount: () => unmountListing(state, theme),
   }
 }
@@ -129,7 +129,11 @@ function applyListingTheme({ options, media, container, variables }: ListingMoun
   applyWidgetTheme(container, variables, options, media.matches)
 }
 
-async function loadListing(state: ListingMount) {
+function loadListing(state: ListingMount): Promise<void> {
+  return (state.loading ??= loadListingRenderer(state))
+}
+
+async function loadListingRenderer(state: ListingMount) {
   state.retryLoad?.remove()
   try {
     state.runtime = await import("../widget/listings/index.tsx")
@@ -139,19 +143,45 @@ async function loadListing(state: ListingMount) {
       state.container,
       state.options,
       state.kind,
+      () => runListingAction(state, false),
     )
-  } catch {
-    if (state.disposed) return
+  } catch (error) {
+    state.loading = undefined
+    if (state.disposed) throw error
     state.retryLoad = document.createElement("button")
     state.retryLoad.textContent = "Could not load directory. Retry"
-    state.retryLoad.onclick = () => void loadListing(state)
+    state.retryLoad.onclick = () => void loadListing(state).catch(() => {})
     state.container.append(state.retryLoad)
+    throw error
+  }
+}
+
+async function runListingAction(state: ListingMount, reset: boolean): Promise<void> {
+  if (state.disposed) throw new DOMException("Directory unmounted", "AbortError")
+  state.action?.abort()
+  const action = new AbortController()
+  state.action = action
+  try {
+    if (!state.renderer) await waitWithSignal(loadListing(state), action.signal)
+    action.signal.throwIfAborted()
+    await state.runtime!.refreshListing(state.renderer!, action.signal, reset)
+  } finally {
+    if (state.action === action) state.action = undefined
   }
 }
 
 function updateListingMount(state: ListingMount, next: Partial<ListingOptions>) {
   if (state.disposed) return
-  state.options = { ...state.options, ...next }
+  const options = { ...state.options, ...next }
+  if (
+    options.apiUrl !== state.options.apiUrl ||
+    options.cacheKey !== state.options.cacheKey ||
+    options.scope !== state.options.scope ||
+    options.tenantId !== state.options.tenantId ||
+    options.tenantExternalId !== state.options.tenantExternalId
+  )
+    state.action?.abort()
+  state.options = options
   applyListingTheme(state)
   if (state.renderer) state.runtime!.updateListing(state.renderer, state.options)
 }
@@ -159,6 +189,7 @@ function updateListingMount(state: ListingMount, next: Partial<ListingOptions>) 
 function unmountListing(state: ListingMount, theme: () => void) {
   if (state.disposed) return
   state.disposed = true
+  state.action?.abort()
   state.media.removeEventListener("change", theme)
   if (state.renderer) state.runtime!.disposeListing(state.renderer)
   state.container.remove()

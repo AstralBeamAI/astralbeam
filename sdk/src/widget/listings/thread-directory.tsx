@@ -5,6 +5,7 @@ import { loadThreadDirectory, type ListingSession } from "../../core/listings.ts
 import { Button } from "../components/ui/button.tsx"
 import { ThreadViewer } from "./thread-viewer.tsx"
 import { ListingTable, type DirectoryColumns } from "./table.tsx"
+import { type ListingCompletion, useListingCompletion } from "../lib/listing-completion.ts"
 
 export function ThreadDirectoryPage({
   session,
@@ -14,11 +15,13 @@ export function ThreadDirectoryPage({
   ErrorFeedback,
   LoadingFeedback,
   Pagination,
+  onComplete,
 }: {
   session: ListingSession
   tenantId: string | undefined
   q: string
   size: number
+  onComplete: ListingCompletion
   Pagination: ComponentType<{
     page: { page_before: string | null; page_after: string | null } | undefined
     busy: boolean
@@ -30,7 +33,13 @@ export function ThreadDirectoryPage({
   const query = useQuery({
     queryKey: ["threads", tenantId, q, size, cursor],
     queryFn: ({ signal }) => loadThreadDirectory(session, { tenantId, q, size, cursor }, signal),
+    enabled: !selected,
   })
+  useListingCompletion(
+    selected ? undefined : onComplete,
+    query.isPending || query.fetchStatus !== "idle",
+    query.error,
+  )
   const columns = useMemo<DirectoryColumns<DirectoryThreadEncoded>>(
     () => [
       {
@@ -98,6 +107,7 @@ export function ThreadDirectoryPage({
         onClose={() => setSelected(null)}
         ErrorFeedback={ErrorFeedback}
         LoadingFeedback={LoadingFeedback}
+        onComplete={onComplete}
       />
     )
   return (

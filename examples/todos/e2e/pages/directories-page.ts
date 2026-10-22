@@ -5,6 +5,7 @@ import { platformUrl } from "../worktree.ts"
 export function directoriesPage(page: Page) {
   const tenants = page.getByRole("region", { name: "Tenants", exact: true })
   const users = page.getByRole("region", { name: /^(Users|Tenant users)$/ })
+  const commands = page.locator("#commands output")
   return {
     tenants,
     users,
@@ -21,6 +22,13 @@ export function directoriesPage(page: Page) {
     remount: page.getByRole("button", { name: "Remount", exact: true }),
     clearTenant: users.getByRole("button", { name: "Clear selection" }),
     clearCount: page.locator("#clear-count"),
+    hostErrors: page.locator("#host-errors"),
+    commands,
+    runCommand: async (action: "refresh" | "reset") => {
+      const index = await commands.count()
+      await page.locator(`#${action}`).click()
+      return commands.nth(index)
+    },
     theme: page.getByRole("button", { name: /^Theme:/ }),
     customTheme: page.getByRole("button", { name: /^Custom theme:/ }),
     open: () => page.goto("/tenant-users"),
@@ -43,10 +51,15 @@ export function directoriesPage(page: Page) {
 
 export async function openVanillaDirectories(
   page: Page,
-  options: { scope?: "tenant" | "organization"; tenantExternalId?: string; cache?: boolean } = {},
+  options: {
+    scope?: "tenant" | "organization"
+    tenantExternalId?: string
+    cache?: boolean
+    initialAction?: "refresh" | "reset"
+  } = {},
   kinds: ("tenants" | "users" | "threads")[] = ["tenants", "users"],
 ) {
-  const { cache = false, ...listingOptions } = options
+  const { cache = false, initialAction, ...listingOptions } = options
   await page.route("**/__listing-sdk/*.js", (route) =>
     route.fulfill({
       path: fileURLToPath(
@@ -66,13 +79,18 @@ export async function openVanillaDirectories(
   await page.setContent(`<!doctype html><html lang="en"><title>Vanilla directories</title>
         <button id="reset">Reset</button><button id="refresh">Refresh mounts</button>
         <button id="unmount">Unmount</button><button id="remount">Remount</button>
-        <output id="clear-count">0</output><div id="tenants"></div><div id="users"></div><div id="threads"></div>
+        <output id="clear-count">0</output><output id="host-errors">0</output><div id="commands"></div>
+        <div id="tenants"></div><div id="users"></div><div id="threads"></div>
         <script type="module">
           import { mountAstralBeamTenantList, mountAstralBeamTenantUserList, mountAstralBeamThreadList } from '/__listing-sdk/client.js';
           const options = { apiUrl: ${JSON.stringify(
             `${platformUrl}/api`,
           )}, fetchAstralBeamToken: { url: '/__listing-token' }, ...${JSON.stringify(listingOptions)},
             cacheKey: ${cache ? "{}" : "undefined"},
+            onError: () => {
+              const output = document.getElementById('host-errors');
+              output.textContent = String(Number(output.textContent) + 1);
+            },
             onTenantChange: (tenant) => {
               if (tenant) return;
               const output = document.getElementById('clear-count');
@@ -82,8 +100,18 @@ export async function openVanillaDirectories(
           const mounts = { tenants: mountAstralBeamTenantList, users: mountAstralBeamTenantUserList, threads: mountAstralBeamThreadList };
           const mount = () => ${JSON.stringify(kinds)}.map(kind => mounts[kind](document.getElementById(kind), options));
           let handles = mount();
-          document.getElementById('reset').onclick = () => handles.forEach(handle => handle.reset());
-          document.getElementById('refresh').onclick = () => handles.forEach(handle => handle.refresh());
+          const run = (action) => {
+            const result = document.createElement('output');
+            document.getElementById('commands').append(result);
+            result.textContent = 'pending';
+            Promise.all(handles.map(handle => handle[action]())).then(
+              () => { result.textContent = 'fulfilled'; },
+              error => { result.textContent = error.name; },
+            );
+          };
+          ${initialAction ? `run('${initialAction}');` : ""}
+          document.getElementById('reset').onclick = () => run('reset');
+          document.getElementById('refresh').onclick = () => run('refresh');
           document.getElementById('unmount').onclick = () => { handles.forEach(handle => handle.unmount()); handles = []; };
           document.getElementById('remount').onclick = () => { handles.forEach(handle => handle.unmount()); handles = mount(); };
         </script></html>`)

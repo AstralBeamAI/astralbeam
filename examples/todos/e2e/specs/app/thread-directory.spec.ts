@@ -425,11 +425,13 @@ for (const [status, preview] of [
     let fileDenied = true
     let context = "Private saved context"
     let checkingAccess = false
+    let listRequests = 0
     const accessCheck = Promise.withResolvers<void>()
     const restoredAccess = Promise.withResolvers<void>()
-    await page.route("**/api/v1/threads?*", (route) =>
-      route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } }),
-    )
+    await page.route("**/api/v1/threads?*", (route) => {
+      listRequests++
+      return route.fulfill({ json: { items: [savedThread], page_after: null, page_before: null } })
+    })
     await page.route("**/api/v1/tenants/*/threads/*/messages?*", async (route) => {
       if (denied) {
         checkingAccess = true
@@ -494,15 +496,19 @@ for (const [status, preview] of [
     fileDenied = false
     checkingAccess = false
     context = "Restored saved context"
+    const listRequestsBeforeRefresh = listRequests
     if (status === 401)
       await directory.transcript.getByRole("button", { name: "Retry", exact: true }).click()
     else if (status === 403) await directory.refresh.click()
     else await directoriesPage(page).refreshMounted.click()
     await expect.poll(() => checkingAccess).toBe(true)
     await expect(directory.transcript).not.toContainText("Private saved context")
+    if (status === 404) await expect(directoriesPage(page).commands.last()).toHaveText("pending")
     restoredAccess.resolve()
     await expect(directory.transcript).toContainText("Restored saved context")
     await expect(directory.transcript.getByRole("alert")).toHaveCount(0)
+    if (status === 404) await expect(directoriesPage(page).commands.last()).toHaveText("fulfilled")
+    expect(listRequests).toBe(listRequestsBeforeRefresh)
     await captureMoment(page, `conversation-access-restored-${status}`)
   })
 }
