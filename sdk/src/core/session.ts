@@ -1457,6 +1457,7 @@ export function createAstralBeamChat(
   const start = () => {
     if (started) return
     started = true
+    client.updateOptions({ tools: declareTools() })
     client.attach()
     if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)

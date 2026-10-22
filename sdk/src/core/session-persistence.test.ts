@@ -487,11 +487,13 @@ test.each<
     questionnaire?: boolean
     delayed?: string
     validation?: string
+    restart?: boolean
   }
 >([
   ...[
     "unchanged",
     "dispose-remount",
+    "dispose-restart",
     "verified-identity",
     "selection-reset",
     "stop",
@@ -504,6 +506,7 @@ test.each<
     validation,
     expectedExecutions: ["unchanged", "current-callback"].includes(validation) ? 1 : 0,
   })),
+  { ...browserEffectDefaults, restart: true },
   { ...browserEffectDefaults, delayed: "navigation" },
   { ...browserEffectDefaults, delayed: "reopen" },
   { ...browserEffectDefaults, delayed: "api" },
@@ -517,7 +520,7 @@ test.each<
   { ...browserEffectDefaults, failOnce: true, advance: true },
   { ...browserEffectDefaults, failOnce: true, throwsAfterCommit: true },
 ])(
-  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation",
+  "browser effects require a committed grant and retries preserve outcomes: grant=$grant saved=$saved retry=$failOnce uncertain=$throwsAfterCommit navigation=$navigate advance=$advance questionnaire=$questionnaire delayed=$delayed validation=$validation restart=$restart",
   async ({
     grant,
     saved,
@@ -529,6 +532,7 @@ test.each<
     questionnaire,
     delayed,
     validation,
+    restart,
   }) => {
     const toolName = questionnaire ? "ask_questionnaire" : "change_data"
     let chatRequests = 0
@@ -599,6 +603,7 @@ test.each<
       new Request(input, init)
       const path = String(input)
       if (path.endsWith("/me")) return sessionResponse(signedInUser)
+      if (path.endsWith("/threads") && init?.method === "POST") return sessionResponse(thread)
       if (path.includes("/messages?"))
         return sessionResponse({
           ...page([...previous, ...(phase === "empty" ? [] : [assistant])]),
@@ -735,7 +740,7 @@ test.each<
       return sessionResponse({ capabilities: { attachments: true } })
     })
     const chat = createTestSession({
-      threadId: thread.id,
+      threadId: restart ? "new" : thread.id,
       tools: {
         change_data: {
           description: "Change data",
@@ -744,7 +749,12 @@ test.each<
         },
       },
     })
-    await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+    if (restart) {
+      await vi.waitUntil(() => chat.getState().auth.status === "ready")
+      chat.dispose()
+      chat.start()
+      await vi.waitUntil(() => chat.getState().auth.status === "ready")
+    } else await vi.waitUntil(() => chat.getState().thread?.id === thread.id)
     const sending = chat.sendMessage("Change it")
     let mutationsBeforeValidation: number | undefined
     if (validation) {
@@ -763,6 +773,10 @@ test.each<
             return auth.status === "ready" && auth.currentUser.user.id === signedInUser.user.id
           })
         }
+      } else if (validation === "dispose-restart") {
+        chat.dispose()
+        chat.start()
+        await vi.waitUntil(() => chat.getState().auth.status === "ready")
       } else if (validation === "selection-reset") chat.reset()
       else if (validation === "stop") chat.stop()
       else if (validation === "removed-tool") chat.updateOptions({ tools: {} })
