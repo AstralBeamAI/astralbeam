@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test"
 
+import { expectToast } from "../dialogs.ts"
 import { waitForHydration } from "../hydration.ts"
 
 export type UsageLimitInput = {
@@ -64,7 +65,7 @@ export function usageLimitsPage(page: Page) {
 
     async saveChanges(): Promise<void> {
       await page.getByRole("button", { name: "Save changes" }).click()
-      await expect(page.getByText("Usage limit saved")).toBeVisible()
+      await expectToast(page, "Usage limit saved")
     },
 
     async remove(name: string): Promise<void> {

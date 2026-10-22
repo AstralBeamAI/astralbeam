@@ -16,12 +16,8 @@ import {
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants"
 import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./errors.ts"
-import {
-  chatSandboxCall,
-  type ChatSandboxSession,
-  type ChatSandboxStatus,
-  logChatSandboxFailure,
-} from "./sandbox"
+import { chatSandboxCall, logChatSandboxFailure } from "./operations"
+import type { ChatSandboxSession, ChatSandboxStatus } from "./sandbox"
 import { resolveSandboxPath } from "./paths"
 import { chatToolInputSchema } from "../tool-schema"
 

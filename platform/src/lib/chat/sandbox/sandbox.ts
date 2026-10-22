@@ -1,78 +1,21 @@
-import {
-  defineSandbox,
-  resolveHarnessCwd,
-  type SandboxHandle,
-  type SandboxInstanceRecord,
-  type SandboxInstanceStore,
-  type SandboxProvider,
-} from "@tanstack/ai-sandbox"
-import {
-  Clock,
-  Context,
-  Deferred,
-  type Duration,
-  Effect,
-  FiberHandle,
-  FiberSet,
-  Layer,
-  MutableHashMap,
-  Option,
-  Ref,
-} from "effect"
+import { defineSandbox, resolveHarnessCwd, type SandboxHandle } from "@tanstack/ai-sandbox"
+import { Context, Deferred, Effect, Exit, Layer, Option, Ref, Scope } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
-import { createSandboxProvider } from "@/lib/sandboxes/factory.server"
+import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants"
-import {
-  CHAT_SANDBOX_FILE_TIMEOUT_MS,
-  CHAT_SANDBOX_IDLE_TTL_MS,
-  CHAT_SANDBOX_MAX_LIVE,
-  CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS,
-  CHAT_SANDBOX_START_TIMEOUT_MS,
-  CHAT_SANDBOX_SWEEP_INTERVAL_MS,
-} from "./constants"
-import {
-  ChatSandboxConfigurationUnreadable,
-  ChatSandboxOperationFailed,
-  ChatSandboxUnavailable,
-} from "./errors.ts"
+import { CHAT_SANDBOX_FILE_TIMEOUT_MS } from "./constants"
+import { makeChatSandboxLeases } from "./leases"
+import { chatSandboxCall, logChatSandboxFailure } from "./operations"
+import { ChatSandboxConfigurationUnreadable, ChatSandboxUnavailable } from "./errors.ts"
 import { chatPrincipalScope } from "../identity"
 import type { ChatAttachmentFile } from "../attachments/types"
 import type { ChatPrincipal } from "../types"
 
-/**
- * Sandbox provisioning progress. Streamed as a CUSTOM event because it is the one thing a tool
- * result cannot report in time: the widget needs it while the sandbox is still starting.
- */
+/** CUSTOM events show provisioning progress before a tool can return its result. */
 export type ChatSandboxStatus = { readonly state: "starting" | "ready" | "error" }
-
-// The first sandbox tool a run calls provisions the sandbox, so an ordinary reply costs nothing,
-// and `reuse: "thread"` keeps it for the conversation so the agent builds on its own files.
-
-/** Wraps one vendor sandbox call: a timeout interrupts it, and its error never reaches the agent. */
-export function chatSandboxCall<A>(
-  call: (signal: AbortSignal) => PromiseLike<A>,
-  timeout: Duration.Input,
-) {
-  return Effect.tryPromise({
-    try: call,
-    catch: (cause) => new ChatSandboxOperationFailed({ timedOut: false, cause }),
-  }).pipe(
-    Effect.timeout(timeout),
-    Effect.catchTag("TimeoutError", (cause) =>
-      Effect.fail(new ChatSandboxOperationFailed({ timedOut: true, cause })),
-    ),
-  )
-}
-
-/** Logs why a sandbox call failed with its vendor code or type only. */
-export function logChatSandboxFailure(operation: string, error: ChatSandboxOperationFailed) {
-  return Effect.logWarning("Chat sandbox operation failed").pipe(
-    Effect.annotateLogs({ operation, timedOut: error.timedOut, reason: errorReason(error.cause) }),
-  )
-}
 
 /** One run's sandbox, provisioned on first use and shared by every tool call after it. */
 export interface ChatSandboxSession {
@@ -86,16 +29,7 @@ export interface ChatSandboxSession {
   ) => Effect.Effect<void, ChatSandboxUnavailable>
 }
 
-interface ChatSandboxLease {
-  readonly record: SandboxInstanceRecord
-  /** Kept beside the record so eviction can destroy without re-reading credentials. */
-  readonly provider: SandboxProvider
-}
-
-/**
- * Writes the run's attached files into the workspace as part of starting the sandbox. A failure
- * fails the start: an agent told a file is at `uploads/sales.csv` must not find it missing.
- */
+/** Upload failures fail startup so the agent never receives a workspace missing its attachments. */
 const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   handle: SandboxHandle,
   uploads: readonly ChatAttachmentFile[],
@@ -115,149 +49,55 @@ const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   )
 })
 
+interface ChatSandboxSessionInput {
+  readonly sandboxProviderId: string
+  readonly agentId: string
+  readonly principal: ChatPrincipal
+  readonly threadId: string
+  readonly runId: string
+  readonly uploads: readonly ChatAttachmentFile[]
+}
+
 export class ChatSandboxes extends Context.Service<
   ChatSandboxes,
   {
     /** Resolves the agent's stored provider into a run's session without provisioning anything. */
-    readonly session: (input: {
-      readonly sandboxProviderId: string
-      readonly agentId: string
-      readonly principal: ChatPrincipal
-      readonly threadId: string
-      readonly runId: string
-      readonly uploads: readonly ChatAttachmentFile[]
-    }) => Effect.Effect<ChatSandboxSession, ChatSandboxConfigurationUnreadable>
+    readonly session: (
+      input: ChatSandboxSessionInput,
+    ) => Effect.Effect<ChatSandboxSession, ChatSandboxConfigurationUnreadable, Scope.Scope>
   }
 >()("astralbeam/chat/ChatSandboxes") {
   static readonly layerNoDeps = Layer.effect(
     ChatSandboxes,
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
-      // Process-local, so resume works only within one replica: a conversation that lands on
-      // another instance starts a new sandbox instead, which costs time but is never incorrect.
-      const leases = MutableHashMap.empty<string, ChatSandboxLease>()
-      const destroys = yield* FiberSet.make()
-      const sweeper = yield* FiberHandle.make()
-      const runLeaseEffect = yield* FiberSet.makeRuntimePromise()
-
-      const resolveProvider = (organizationId: string, id: string) =>
-        providers
-          .resolveConfiguration({ organizationId, id })
-          .pipe(
-            Effect.flatMap((configuration) =>
-              createSandboxProvider(configuration.provider, configuration),
-            ),
-          )
-
-      const destroyLease = (lease: ChatSandboxLease, timeout: Duration.Input) =>
-        chatSandboxCall(
-          (signal) => lease.provider.destroy({ id: lease.record.providerSandboxId, signal }),
-          timeout,
-        ).pipe(
-          Effect.catch((error) => logChatSandboxFailure("destroy", error)),
-          Effect.asVoid,
-        )
-
-      // The lease is forgotten before the destroy: a record pointing at a sandbox that is already
-      // gone guarantees a failed resume, which is worse than an orphan the vendor reclaims.
-      const releaseLease = (key: string) =>
-        Effect.suspend(() => {
-          const lease = MutableHashMap.get(leases, key)
-          if (Option.isNone(lease)) return Effect.void
-          MutableHashMap.remove(leases, key)
-          return FiberSet.run(destroys, destroyLease(lease.value, CHAT_SANDBOX_FILE_TIMEOUT_MS))
-        }).pipe(Effect.asVoid)
-
-      const sweepIdleLeases = Effect.gen(function* () {
-        const cutoff = (yield* Clock.currentTimeMillis) - CHAT_SANDBOX_IDLE_TTL_MS
-        const idle = [...leases].filter(([, lease]) => lease.record.updatedAt <= cutoff)
-        yield* Effect.forEach(idle, ([key]) => releaseLease(key), { discard: true })
-        return MutableHashMap.size(leases)
-      })
-
-      const upsertLease = (key: string, lease: ChatSandboxLease) =>
-        Effect.gen(function* () {
-          // Reinserting keeps the map in least recently used order, which the cap evicts from:
-          // a burst of conversations would otherwise hold as many billed sandboxes as threads.
-          MutableHashMap.remove(leases, key)
-          MutableHashMap.set(leases, key, lease)
-          const excess = [...leases].slice(
-            0,
-            Math.max(0, MutableHashMap.size(leases) - CHAT_SANDBOX_MAX_LIVE),
-          )
-          yield* Effect.forEach(excess, ([evicted]) => releaseLease(evicted), { discard: true })
-          // The sweep runs only while a sandbox is live, so an idle deployment holds no timer.
-          yield* FiberHandle.run(
-            sweeper,
-            sweepIdleLeases.pipe(
-              Effect.delay(CHAT_SANDBOX_SWEEP_INTERVAL_MS),
-              Effect.repeat({ while: (live) => live > 0 }),
-            ),
-            { onlyIfMissing: true },
-          )
-        })
-
-      // `computeSandboxKey` is a 64-bit hash over a browser-supplied `threadId`, so lookups are
-      // also namespaced by the verified principal, confining a forged thread to its own sandboxes.
-      const instanceStore = (scope: string, provider: SandboxProvider): SandboxInstanceStore => {
-        const scoped = (key: string) => `${scope}\0${key}`
-        return {
-          get: (key) =>
-            Promise.resolve(
-              Option.getOrNull(
-                Option.map(MutableHashMap.get(leases, scoped(key)), (lease) => lease.record),
-              ),
-            ),
-          upsert: (record) => runLeaseEffect(upsertLease(scoped(record.key), { record, provider })),
-          delete: (key) => Promise.resolve(void MutableHashMap.remove(leases, scoped(key))),
-        }
-      }
-
-      // Leases outlive runs but not the process: shutdown and module reloads destroy them all.
-      yield* Effect.addFinalizer(() =>
-        Effect.all(
-          [
-            Effect.forEach(
-              [...leases],
-              ([key, lease]) => {
-                MutableHashMap.remove(leases, key)
-                return destroyLease(lease, CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS)
-              },
-              { concurrency: "unbounded", discard: true },
-            ),
-            FiberSet.awaitEmpty(destroys),
-          ],
-          { concurrency: 2, discard: true },
-        ).pipe(Effect.timeoutOption(CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS)),
-      )
+      const factory = yield* SandboxProviderFactory
+      const acquireSandbox = yield* makeChatSandboxLeases
 
       const session = Effect.fn("ChatSandboxes.session")(
-        function* (input: {
-          sandboxProviderId: string
-          agentId: string
-          principal: ChatPrincipal
-          threadId: string
-          runId: string
-          uploads: readonly ChatAttachmentFile[]
-        }) {
+        function* (input: ChatSandboxSessionInput) {
           const organizationId = input.principal.organization.id
-          const provider = yield* resolveProvider(organizationId, input.sandboxProviderId)
-          // The agent is part of the sandbox identity, so switching a thread to another agent
-          // starts a clean sandbox rather than resuming one provisioned for other instructions.
+          const configuration = yield* providers.resolveConfiguration({
+            organizationId,
+            id: input.sandboxProviderId,
+          })
+          const provider = yield* factory.create(configuration.provider, configuration)
+          const scope = yield* Scope.fork(yield* Effect.scope)
           const definition = defineSandbox({
-            id: `${APP_HANDLE}-chat-${input.agentId}`,
+            id: `${APP_HANDLE}-chat-${input.agentId}-${input.sandboxProviderId}`,
             provider,
             // No snapshot: the workspace is empty until the agent writes to it, so an after-setup
             // snapshot would cost a round trip per create and restore nothing worth restoring.
             lifecycle: { reuse: "thread", snapshot: "none" },
           })
           const principalScope = chatPrincipalScope(input.principal)
-          const ensureContext = {
+          const context = {
             threadId: input.threadId,
             runId: input.runId,
             tenant: { orgId: organizationId, userId: principalScope },
-            store: instanceStore(principalScope, provider),
           }
+          // The upstream key is a 64-bit hash over a browser-supplied threadId, not a tenant boundary.
+          const key = `${principalScope}\0${definition.key(context)}`
           const started = yield* Deferred.make<SandboxHandle, ChatSandboxUnavailable>()
           const claimed = yield* Ref.make(false)
           const uploads = yield* Ref.make(input.uploads)
@@ -268,9 +108,8 @@ export class ChatSandboxes extends Context.Service<
               // `ensure` is the whole resume-or-create algorithm and the slowest step of a
               // sandboxed run, which is why the status event goes out before it.
               yield* report({ state: "starting" })
-              const handle = yield* chatSandboxCall(
-                (signal) => definition.ensure({ ...ensureContext, signal }),
-                CHAT_SANDBOX_START_TIMEOUT_MS,
+              const handle = yield* acquireSandbox({ key, definition, context }).pipe(
+                Scope.provide(scope),
               )
               const files = yield* Ref.get(uploads)
               yield* writeChatSandboxUploads(handle, files)
@@ -278,25 +117,20 @@ export class ChatSandboxes extends Context.Service<
               yield* report({ state: "ready" })
               return handle
             }).pipe(
-              Effect.catch((error) =>
-                logChatSandboxFailure("start", error).pipe(
-                  Effect.andThen(report({ state: "error" })),
-                  Effect.andThen(Effect.fail(new ChatSandboxUnavailable())),
-                ),
+              Effect.onError(() => Scope.close(scope, Exit.void)),
+              Effect.tapErrorTag("ChatSandboxOperationFailed", (error) =>
+                logChatSandboxFailure("start", error),
               ),
+              Effect.tapError(() => report({ state: "error" })),
+              Effect.mapError(() => new ChatSandboxUnavailable()),
             )
 
           return {
-            // Provisioning is the slowest step of a run, so a failure is kept rather than spent
-            // again on every later tool call.
             acquire: (report) =>
               Effect.flatMap(Ref.getAndSet(claimed, true), (alreadyClaimed) =>
                 alreadyClaimed
                   ? Deferred.await(started)
-                  : start(report).pipe(
-                      Deferred.into(started),
-                      Effect.andThen(Deferred.await(started)),
-                    ),
+                  : start(report).pipe(Effect.onExit((exit) => Deferred.done(started, exit))),
               ),
             prepareUploads: (files) =>
               Effect.gen(function* () {
@@ -322,5 +156,7 @@ export class ChatSandboxes extends Context.Service<
     }),
   )
 
-  static readonly layer = ChatSandboxes.layerNoDeps.pipe(Layer.provide(SandboxProviders.layer))
+  static readonly layer = ChatSandboxes.layerNoDeps.pipe(
+    Layer.provide([SandboxProviders.layer, SandboxProviderFactory.layer]),
+  )
 }

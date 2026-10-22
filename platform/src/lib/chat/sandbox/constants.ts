@@ -24,8 +24,7 @@ export const CHAT_SANDBOX_MAX_PATH_LENGTH = 512
 export const CHAT_SANDBOX_IDLE_TTL_MS = 15 * 60_000
 export const CHAT_SANDBOX_SWEEP_INTERVAL_MS = 60_000
 export const CHAT_SANDBOX_MAX_LIVE = 25
-// Shutdown destroys every live sandbox inside its 5-second cleanup budget. The vendor reclaims
-// any it misses.
+// Leave time for the other shutdown finalizers inside Nitro's five-second budget.
 export const CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS = 3_000
 
 /** CUSTOM stream event carrying provisioning progress, which no tool result can report in time. */

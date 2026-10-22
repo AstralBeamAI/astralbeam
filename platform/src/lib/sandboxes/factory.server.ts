@@ -1,5 +1,5 @@
 import type { SandboxProvider } from "@tanstack/ai-sandbox"
-import * as Effect from "effect/Effect"
+import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
 import {
@@ -59,6 +59,13 @@ export const createSandboxProvider = Effect.fn("createSandboxProvider")(function
   }).pipe(Effect.mapError((cause) => new SandboxProviderUnavailable({ cause })))
   return yield* factories[provider](decoded)
 })
+
+export class SandboxProviderFactory extends Context.Service<
+  SandboxProviderFactory,
+  { readonly create: typeof createSandboxProvider }
+>()("astralbeam/sandboxes/SandboxProviderFactory") {
+  static readonly layer = Layer.succeed(SandboxProviderFactory, { create: createSandboxProvider })
+}
 
 function loadSandboxProviderModule<Module>(
   load: () => Promise<Module>,

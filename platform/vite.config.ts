@@ -32,6 +32,7 @@ const legalAssets = [
 ]
 
 const viteConfig = defineConfig(({ mode }) => {
+  let removeDevelopmentShutdownHandlers: (() => void) | undefined
   return {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
@@ -102,13 +103,17 @@ const viteConfig = defineConfig(({ mode }) => {
               environment.hot.on("astralbeam:closed", closed)
               environment.hot.send("astralbeam:close")
             }))
-          // Vite closes itself only on SIGTERM, so Ctrl-C must request the same worker cleanup.
-          // https://vite.dev/guide/api-javascript#vitedevserver
+          // Keep repeated shutdown signals handled while Vite awaits worker cleanup.
+          // Keep both handlers until teardown finishes: https://vite.dev/guide/api-plugin#closeserver
           let interrupted: Promise<void> | undefined
-          const closeOnInterrupt = () =>
+          const closeOnSignal = () =>
             void (interrupted ??= server.close().finally(() => process.exit()))
-          process.on("SIGINT", closeOnInterrupt)
-          server.httpServer?.once("close", () => process.off("SIGINT", closeOnInterrupt))
+          process.on("SIGINT", closeOnSignal)
+          process.on("SIGTERM", closeOnSignal)
+          removeDevelopmentShutdownHandlers = () => {
+            process.off("SIGINT", closeOnSignal)
+            process.off("SIGTERM", closeOnSignal)
+          }
           for (const serverEnvironment of Object.values(server.environments)) {
             if (serverEnvironment.config.consumer !== "server") continue
             const close = serverEnvironment.close.bind(serverEnvironment)
@@ -122,6 +127,9 @@ const viteConfig = defineConfig(({ mode }) => {
                 }
               })())
           }
+        },
+        closeServer() {
+          removeDevelopmentShutdownHandlers?.()
         },
       },
       devtools(),
