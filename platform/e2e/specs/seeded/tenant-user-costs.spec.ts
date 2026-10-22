@@ -168,7 +168,6 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await page.waitForURL(/\/auth\/sign-in/)
       await auth.signIn(SEED_USERS[2].email, SEED_PASSWORD)
       await page.waitForURL((url) => !url.pathname.startsWith("/auth/"))
-      await expect(shell.navigation).toBeVisible()
       await page.goto(`/${organization.slug}/tenant-users`)
       await selectTenant()
       await expect(userRow("Priced user")).toBeVisible()

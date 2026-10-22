@@ -1,7 +1,6 @@
 import { createAstralBeamOrganizationToken, createAstralBeamToken } from "@astralbeam/sdk/server"
 import type { TenantUserPage } from "../../../../../sdk/dist/api.js"
 import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
-import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -191,7 +190,6 @@ test("host refresh waits for authentication, directory rows and their changed us
   await expect(refreshed).toHaveText("pending")
   usage.resolve()
   await expect(refreshed).toHaveText("fulfilled")
-  await captureMoment(page, "host-refresh-completes-after-dependent-usage")
 })
 
 test("new refreshes, reset and unmount cancel older host commands and discard late rows", async ({

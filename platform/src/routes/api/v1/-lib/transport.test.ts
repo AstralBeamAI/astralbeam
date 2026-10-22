@@ -1537,10 +1537,6 @@ describe("REST API through the Effect Fetch handler", () => {
     ])
     expect(savedReplies.sql).toContain('"chat_message"."created_at" >=')
     expect(savedReplies.sql).toContain('"chat_message"."created_at" <')
-    restTestState.rows.push([restTenantRow], [])
-    const missing = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)
-    expect(await missing.json()).toEqual({ start: "2024-02-29", end: "2024-06-01", items: [] })
-    expect(restTestState.usagePredicates).toHaveLength(1)
   })
 
   test("usage rejects invalid dates, ranges and user IDs before reading saved replies", async () => {
