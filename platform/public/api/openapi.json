@@ -2675,6 +2675,344 @@
         }
       }
     },
+    "/api/v1/tenants/{tenant_id}/tenant_users/usage": {
+      "get": {
+        "tags": [
+          "tenant_users"
+        ],
+        "operationId": "getTenantUserUsage",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "examples": [
+                "019eed68-fd00-7c42-9a61-53b3a890d276"
+              ]
+            },
+            "required": true
+          },
+          {
+            "name": "user_ids",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 3699,
+              "description": "Comma-separated internal user UUIDs, 1 to 100 unique IDs."
+            },
+            "required": true
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Inclusive start timestamp, with Z or a numeric timezone offset."
+            },
+            "required": true
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Exclusive end timestamp, with Z or a numeric timezone offset."
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "OrganizationApiKey": []
+          },
+          {
+            "organizationToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TenantUserUsage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantUserUsage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "401": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "403": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "404": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "409": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "413": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "415": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "422": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "429": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "500": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          },
+          "503": {
+            "description": "AstralBeamApiError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AstralBeamApiError"
+                }
+              }
+            },
+            "headers": {
+              "retry-after": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              },
+              "www-authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
+          }
+        },
+        "description": "Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no settled replies in the range return zero. Results are computed at request time from retained settled replies. Drafts and deleted conversations are excluded, and older replies without saved costs use current rates.",
+        "summary": "Get TenantUser usage"
+      }
+    },
     "/api/v1/organization": {
       "get": {
         "tags": [
@@ -13286,6 +13624,50 @@
             "slug": "acme"
           }
         ]
+      },
+      "TenantUserUsage": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant_user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "cost_usd": {
+                  "type": "string",
+                  "description": "USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero.",
+                  "examples": [
+                    "0.012345",
+                    "0"
+                  ]
+                }
+              },
+              "required": [
+                "tenant_user_id",
+                "cost_usd"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "items"
+        ],
+        "additionalProperties": false
       },
       "UpdateTenantUserInput": {
         "type": "object",

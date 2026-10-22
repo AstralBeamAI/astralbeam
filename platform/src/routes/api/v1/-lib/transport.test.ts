@@ -40,6 +40,7 @@ import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { organization } from "@/db/schema/organizations"
+import { chatMessage } from "@/db/schema/chat"
 import {
   getThreadAttachment as sdkGetThreadAttachment,
   getCurrentUser as sdkGetCurrentUser,
@@ -54,6 +55,9 @@ const restTestState = vi.hoisted(() => ({
   writes: [] as unknown[],
   order: [] as SQL[],
   limits: [] as number[],
+  usageReplies: [] as unknown[],
+  usageTotals: [] as unknown[],
+  usagePredicates: [] as SQL[],
   keyRows: [] as { id: string; name?: string; slug?: string }[],
   logs: [] as string[],
   verify: vi.fn(),
@@ -142,7 +146,14 @@ function restTestDatabase(): EffectDatabase {
     innerJoin() {
       return this
     },
+    leftJoin() {
+      return this
+    },
     where(predicate: SQL) {
+      if (this.table === chatMessage) {
+        restTestState.usagePredicates.push(predicate)
+        return this
+      }
       restTestState.predicates.push(predicate)
       return this
     },
@@ -150,7 +161,12 @@ function restTestDatabase(): EffectDatabase {
       restTestState.order = order
       return this
     },
+    groupBy() {
+      return Effect.succeed(restTestState.usageTotals)
+    },
     limit(limit: number) {
+      if (this.table === chatMessage)
+        return Effect.succeed(restTestState.usageReplies.splice(0, limit))
       if (this.table === organization) return Effect.succeed(restTestState.keyRows)
       restTestState.limits.push(limit)
       return result()
@@ -258,6 +274,7 @@ const restTestServices = Layer.mergeAll(
       } as unknown as Context.Service.Shape<typeof Auth>),
       Layer.succeed(Config, {
         setupState: Effect.suspend(() => restTestState.setupState()),
+        readStoredValue: () => Effect.succeed(null),
       } as unknown as Context.Service.Shape<typeof Config>),
     ),
   ),
@@ -411,6 +428,9 @@ beforeEach(() => {
     writes: [],
     order: [],
     limits: [],
+    usageReplies: [],
+    usageTotals: [],
+    usagePredicates: [],
     logs: [],
     keyRows: [{ id: restOrgId }],
   })
@@ -1417,7 +1437,14 @@ describe("REST API through the Effect Fetch handler", () => {
         ).status,
       ).toBe(writeStatus === 201 ? 200 : 403)
       expect(restTestState.writes).toHaveLength(writeStatus === 201 ? 2 : 0)
-      expect(restTestState.consume).toHaveBeenCalledTimes(3)
+      restTestState.rows.push([restTenantRow], [restUserRow])
+      const usage = await restRequest(
+        `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01T00:00:00Z&end=2026-11-01T00:00:00Z`,
+        { headers },
+      )
+      expect(usage.status).toBe(writeStatus === 201 ? 200 : 403)
+      expect(restTestState.usagePredicates).toHaveLength(writeStatus === 201 ? 1 : 0)
+      expect(restTestState.consume).toHaveBeenCalledTimes(4)
     },
   )
 
@@ -1437,6 +1464,143 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.predicates).toEqual([])
   })
 
+  test.each([true, false])("Tenant credentials cannot read usage (admin=%s)", async (admin) => {
+    restTestState.rows.push([restTenantRow])
+    restTestState.chat.mockResolvedValue({
+      ...restPrincipal,
+      tenantUser: { ...restPrincipal.tenantUser, admin },
+    })
+    const response = await restRequest(
+      `/tenants/${restTenantId}/tenant_users/usage?user_ids=${restUserId}&start=2026-10-01T00:00:00Z&end=2026-11-01T00:00:00Z`,
+      { headers: { Authorization: `Bearer ${restTenantJwt}` } },
+    )
+    expect(response.status).toBe(403)
+    expect(restTestState.usagePredicates).toHaveLength(0)
+  })
+
+  test("usage batches legacy pricing and treats missing costs as zero", async () => {
+    const pricedReply = {
+      tenantUserId: restUserId,
+      id: restUserId,
+      threadId: restTenantId,
+      createdAt: "2024-02-29 07:04:56.123456+00",
+      usage: { promptTokens: 1000, completionTokens: 0 },
+      providerId: restOrgId,
+      providerType: "openai",
+      modelId: "custom",
+      configuration: {
+        currency: "USD",
+        pricingSource: { kind: "manual" },
+        prices: { inputPerMillion: "3", outputPerMillion: "15" },
+        contextTiers: [],
+        maxInputTokens: 100_000,
+        contextWindowTokens: null,
+        maxOutputTokens: 4000,
+        outputCap: 1000,
+      },
+    }
+    restTestState.usageReplies = [
+      { ...pricedReply, usage: null },
+      ...Array.from({ length: 5000 }, () => ({
+        ...pricedReply,
+        usage: { promptTokens: 1, completionTokens: 0 },
+      })),
+      {
+        ...pricedReply,
+        providerId: restOtherId,
+        configuration: {
+          ...pricedReply.configuration,
+          prices: { inputPerMillion: "7", outputPerMillion: "15" },
+        },
+      },
+      { ...pricedReply, tenantUserId: restOtherId, usage: null },
+      { ...pricedReply, tenantUserId: restOtherId },
+    ]
+    restTestState.usageTotals = [
+      { tenantUserId: restUserId, cost: "1.484567", needsPricing: true },
+      { tenantUserId: restOtherId, cost: "0", needsPricing: true },
+    ]
+    const ids = [restUserId, restOtherId, restTenantId]
+    restTestState.rows.push(
+      [restTenantRow],
+      ids.map((id) => ({ id })),
+    )
+    const query = new URLSearchParams({
+      user_ids: [...ids, restOrgId].join(",").toUpperCase(),
+      start: "2024-02-29T12:34:56.123+05:30",
+      end: "2024-06-01T07:04:56.123Z",
+    })
+    const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("cache-control")).toContain("no-store")
+    expect(await response.json()).toEqual({
+      start: "2024-02-29T12:34:56.123+05:30",
+      end: "2024-06-01T07:04:56.123Z",
+      items: ids.map((id, index) => ({
+        tenant_user_id: id,
+        cost_usd: ["1.506567", "0.003", "0"][index],
+      })),
+    })
+    expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, ...ids, restOrgId])
+    const savedReplies = new PgDialect().sqlToQuery(restTestState.usagePredicates[0]!)
+    expect(savedReplies.params).toEqual([
+      restOrgId,
+      restTenantId,
+      "assistant",
+      "draft",
+      "2024-02-29T07:04:56.123Z",
+      "2024-06-01T07:04:56.123Z",
+      ...ids,
+    ])
+    expect(savedReplies.sql).toContain('"chat_message"."created_at" >=')
+    expect(savedReplies.sql).toContain('"chat_message"."created_at" <')
+    expect(new PgDialect().sqlToQuery(restTestState.usagePredicates[2]!).params).toContain(
+      pricedReply.createdAt,
+    )
+    restTestState.rows.push(
+      [restTenantRow],
+      ids.map((id) => ({ id })),
+    )
+    query.set("end", "2024-02-29T07:04:56.124Z")
+    expect((await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`)).status).toBe(
+      200,
+    )
+  })
+
+  test("usage rejects invalid timestamps, ranges and user IDs before reading saved replies", async () => {
+    const valid = {
+      user_ids: restUserId,
+      start: "2026-01-01T00:00:00Z",
+      end: "2026-02-01T00:00:00Z",
+    }
+    const invalid: Record<string, string>[] = [
+      { ...valid, user_ids: "invalid" },
+      { ...valid, user_ids: `${restUserId},${restUserId.toUpperCase()}` },
+      {
+        ...valid,
+        user_ids: Array.from(
+          { length: 101 },
+          (_, index) => `019a0000-0000-7000-8000-${index.toString(16).padStart(12, "0")}`,
+        ).join(","),
+      },
+      { ...valid, start: "2026-02-29T00:00:00Z", end: "2026-03-01T00:00:00Z" },
+      { ...valid, start: "2026-01-01" },
+      { ...valid, start: "2026-01-01T00:00:00" },
+      { ...valid, start: "2026-01-01T24:00:00Z" },
+      { ...valid, start: "2026-01-01T00:00:00.0001Z" },
+      { ...valid, end: valid.start },
+      { ...valid, end: "2025-12-31T23:59:59Z" },
+      { ...valid, end: "2026-04-04T00:00:00.001Z" },
+    ]
+    for (const query of invalid) {
+      const response = await restRequest(
+        `/tenants/${restTenantId}/tenant_users/usage?${new URLSearchParams(query)}`,
+      )
+      expect(response.status).toBe(400)
+    }
+    expect(restTestState.usagePredicates).toHaveLength(0)
+  })
+
   test("TenantUser updates preserve scope and lists accept exact filters", async () => {
     restTestState.rows.push([restUserRow])
     await restJson(TenantUserRecordSchema, `/tenants/${restTenantId}/tenant_users/${restUserId}`, {
@@ -1452,6 +1616,7 @@ describe("REST API through the Effect Fetch handler", () => {
       query: filter,
     })
     expect(users.items[0]).toMatchObject({ id: restUserId, external_id: restUserRow.externalId })
+    expect(restTestState.usagePredicates).toHaveLength(0)
     expect(users).toMatchObject({ page_after: null, page_before: null })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, restUserRow.externalId])
     expect(restLastPredicate().sql).toContain('"tenant_user"."external_id" =')

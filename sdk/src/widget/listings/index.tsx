@@ -191,17 +191,18 @@ function watchListingAuthentication(state: ListingRenderer) {
       state.cacheIdentity = undefined
       state.revision++
     } else if (auth.status === "ready") {
-      const next = JSON.stringify([
-        state.options.apiUrl,
-        authenticationIdentity(auth.currentUser, state.session.auth.session.cached!.tenantAdmin),
-      ])
+      const identity = authenticationIdentity(
+        auth.currentUser,
+        state.session.auth.session.cached!.tenantAdmin,
+      )
+      const next = JSON.stringify([state.options.apiUrl, identity])
       if (state.cacheIdentity !== undefined && state.cacheIdentity !== next) {
         state.session.abortController.abort()
         state.session.abortController = new AbortController()
-        state.session.identity = undefined
         state.client.clear()
         state.revision++
       }
+      state.session.identity = identity
       if (state.cacheIdentity !== next) {
         state.cacheIdentity = next
         state.client = claimListingQueryClient(state.options, state.kind, next)

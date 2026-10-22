@@ -16,8 +16,15 @@ import {
 } from "../components/ui/table.tsx"
 import { Button } from "../components/ui/button.tsx"
 import { Badge } from "../components/ui/badge.tsx"
+import { Skeleton } from "../components/ui/skeleton.tsx"
 
 const features = tableFeatures({})
+const usageCostFormat = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 100,
+})
 export type DirectoryColumns<T extends { id: string }> = ColumnDef<typeof features, T>[]
 type RecordRow = TenantRecordEncoded | TenantUserRecordEncoded
 type Options = MountAstralBeamTenantListOptions & MountAstralBeamTenantUserListOptions
@@ -27,14 +34,16 @@ export function DirectoryTable({
   kind,
   options,
   filtered,
+  usage,
 }: {
   rows: RecordRow[]
   kind: "tenants" | "users"
   options: Options
   filtered: boolean
+  usage?: { costs: ReadonlyMap<string, string>; loading: boolean } | undefined
 }) {
   const { onTenantSelect, onTenantUserSelect, showAdmin } = options
-  const columns = useMemo<ColumnDef<typeof features, RecordRow>[]>(
+  const baseColumns = useMemo<ColumnDef<typeof features, RecordRow>[]>(
     () => [
       {
         accessorKey: "external_id",
@@ -157,6 +166,28 @@ export function DirectoryTable({
     ],
     [kind, onTenantSelect, onTenantUserSelect, showAdmin],
   )
+  const columns = [...baseColumns]
+  if (usage) {
+    const metadata = columns.findIndex(
+      (column) => "accessorKey" in column && column.accessorKey === "metadata",
+    )
+    columns.splice(metadata, 0, {
+      id: "usage",
+      header: "Usage (USD)",
+      cell: ({ row }) => {
+        const cost = usage.costs.get(row.original.id)
+        return usage.loading ? (
+          <Skeleton className="h-4 w-12" />
+        ) : (
+          <span className="tabular-nums break-all">
+            {cost == null
+              ? "Unavailable"
+              : usageCostFormat.format(cost as Intl.StringNumericLiteral)}
+          </span>
+        )
+      },
+    })
+  }
   return (
     <ListingTable
       rows={rows}

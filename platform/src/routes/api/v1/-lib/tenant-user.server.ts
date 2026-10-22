@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { DateTime, Duration, Effect, Option, Schema, SchemaGetter } from "effect"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -7,6 +7,7 @@ import {
   OpenApi,
 } from "effect/http-api"
 import type { ApiV1 } from "./contract.server"
+import { authorizeOrganizationRole } from "@/lib/organizations/access"
 import {
   restEmptyPage,
   restPageFields,
@@ -23,6 +24,7 @@ import {
   TenantUserWriteSchema,
 } from "@/lib/tenants/schemas.ts"
 import { restExampleTenant, restMemberParams } from "./tenant.server"
+import { RestRoleForbidden } from "./errors.ts"
 
 const restExampleUser = {
   ...restExampleTenant,
@@ -43,6 +45,72 @@ export const TenantUserRecordSchema = Schema.Struct(ManagementTenantUserRecordSc
     examples: [restExampleUser],
   }),
 )
+const tenantUserUsageTimestamp = Schema.String.check(
+  Schema.isPattern(
+    /^(?!0000)\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/,
+  ),
+  Schema.makeFilter(
+    (value) =>
+      DateTime.make(value.slice(0, 10)).pipe(
+        Option.exists((date) => DateTime.formatIsoDateUtc(date) === value.slice(0, 10)),
+      ),
+    {
+      message:
+        "Expected an ISO 8601 timestamp with an explicit timezone and at most millisecond precision.",
+      toJsonSchema: () => [{ format: "date-time" }, true],
+    },
+  ),
+)
+const tenantUserUsageQuery = Schema.Struct({
+  userIds: Schema.String.check(Schema.isMaxLength(3699)).pipe(
+    Schema.decodeTo(
+      Schema.Array(ApiUuidSchema).check(
+        Schema.isMinLength(1),
+        Schema.isMaxLength(100),
+        Schema.isUnique(),
+      ),
+      {
+        decode: SchemaGetter.transform((value) => value.toLowerCase().split(",")),
+        encode: SchemaGetter.transform((value) => value.join(",")),
+      },
+    ),
+    Schema.annotateEncoded({
+      description: "Comma-separated internal user UUIDs, 1 to 100 unique IDs.",
+    }),
+  ),
+  start: tenantUserUsageTimestamp.annotate({
+    description: "Inclusive start timestamp, with Z or a numeric timezone offset.",
+  }),
+  end: tenantUserUsageTimestamp.annotate({
+    description: "Exclusive end timestamp, with Z or a numeric timezone offset.",
+  }),
+})
+  .check(
+    Schema.makeFilter(
+      ({ start, end }) => {
+        const days = Duration.toDays(
+          DateTime.distance(DateTime.makeUnsafe(start), DateTime.makeUnsafe(end)),
+        )
+        return days > 0 && days <= 93
+      },
+      { message: "The usage range must be positive and no longer than 93 days." },
+    ),
+  )
+  .pipe(Schema.encodeKeys({ userIds: "user_ids" }))
+const TenantUserUsageSchema = Schema.Struct({
+  start: tenantUserUsageTimestamp,
+  end: tenantUserUsageTimestamp,
+  items: Schema.Array(
+    Schema.Struct({
+      tenantUserId: ApiUuidSchema,
+      costUsd: Schema.String.annotate({
+        description:
+          "USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero.",
+        examples: ["0.012345", "0"],
+      }),
+    }).pipe(Schema.encodeKeys({ tenantUserId: "tenant_user_id", costUsd: "cost_usd" })),
+  ),
+}).annotate({ identifier: "TenantUserUsage" })
 const CreateTenantUserSchema = TenantUserWriteSchema.pipe(
   Schema.encodeKeys({ externalId: "external_id" }),
 ).pipe(
@@ -132,6 +200,21 @@ export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true 
       ),
   )
   .annotateEndpoints(OpenApi.Override, restResourceSecurity)
+  .add(
+    HttpApiEndpoint.get("getTenantUserUsage", "/tenants/:tenant_id/tenant_users/usage", {
+      params: { tenant_id: restUserParams.tenant_id },
+      query: tenantUserUsageQuery,
+      success: TenantUserUsageSchema,
+    })
+      .annotate(OpenApi.Summary, "Get TenantUser usage")
+      .annotate(
+        OpenApi.Description,
+        "Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no settled replies in the range return zero. Results are computed at request time from retained settled replies. Drafts and deleted conversations are excluded, and older replies without saved costs use current rates.",
+      )
+      .annotate(OpenApi.Override, {
+        security: [{ OrganizationApiKey: [] }, { organizationToken: [] }],
+      }),
+  )
   .annotate(
     OpenApi.Description,
     "A TenantUser is a user of one of your Organization's Tenants, not an employee using the dashboard. All routes use internal UUID tenant_id and user id values. External IDs are unique within the organization and Tenant; the same external user ID may exist in another Tenant. Creation returns 201 and Location; reads and updates return 200. PATCH changes only supplied fields. IDs, external IDs, ownership, and timestamps are immutable; users cannot move between Tenants. Updates use last-write-wins. Responses never expose organization_id; timestamps are ISO-8601 strings. Stored admin does not change signed JWT authority. Creation does not issue tokens or upsert identities. See [Errors](/docs/api#description/errors) for shared error handling.",
@@ -159,6 +242,16 @@ export function tenantUserHandlers(api: typeof ApiV1) {
             scope: tenantScope,
             url: request.url,
           })
+        }),
+        getTenantUserUsage: Effect.fn("getTenantUserUsage")(function* ({ params, query }) {
+          const scope = yield* RestScope
+          if (
+            scope.tenantId !== undefined ||
+            (scope.currentUser &&
+              !authorizeOrganizationRole(scope.currentUser.role, { tenantManagement: ["write"] }))
+          )
+            return yield* new RestRoleForbidden()
+          return yield* tenantUsers.usage({ ...query, scope, tenantId: params.tenant_id })
         }),
         getTenantUser: Effect.fn("getTenantUser")(function* ({ params }) {
           return yield* tenantUsers.get({

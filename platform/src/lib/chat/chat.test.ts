@@ -134,6 +134,7 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
+        pricing: () => Effect.succeed(null),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
