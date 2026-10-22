@@ -14,7 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Publishing and cleanup share one registry package, including releases from different refs.
+  group: ${{ github.workflow }}
 
 jobs:
   verify:
@@ -174,7 +175,7 @@ jobs:
   github-release:
     name: Create the GitHub release
     # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
-    needs: [verify, build, stage-npm, docker-image]
+    needs: [verify, build, stage-npm, docker-image, docker-cleanup]
     if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -238,6 +239,50 @@ jobs:
         - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-cleanup:
+    name: Remove redundant Docker build indexes
+    needs: docker-image
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_DIGEST: ${{ needs.docker-image.outputs.digest }}
+      VERIFY_COMMANDS: ${{ needs.docker-image.outputs.cosign-verify-commands }}
+    steps:
+      - name: Install the builder's Cosign version
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ needs.docker-image.outputs.cosign-version }}
+
+      - name: Verify signatures before cleanup
+        env:
+          IMAGE_SIGNED: ${{ needs.docker-image.outputs.signed }}
+        # Use the verification commands emitted by the pinned Docker builder.
+        # https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml#L181
+        run: |
+          test "$IMAGE_SIGNED" = true
+          test -n "$VERIFY_COMMANDS"
+          bash -euo pipefail -c "$VERIFY_COMMANDS"
+
+      - name: Remove unreferenced build indexes
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          token: ${{ github.token }}
+          package: astralbeam-platform
+          delete-untagged: true
+          validate: true
+
+      - name: Verify both architectures and signatures after cleanup
+        shell: bash
+        # The cleanup action's validation only warns, so make missing manifests or signatures fatal.
+        run: |
+          docker buildx imagetools inspect "ghcr.io/astralbeamai/astralbeam-platform@$IMAGE_DIGEST" \
+            --format '{{json .Image}}' | jq -e 'keys == ["linux/amd64", "linux/arm64"]'
+          bash -euo pipefail -c "$VERIFY_COMMANDS"
 
   stage-npm:
     name: Stage the SDK and CLI on npm
