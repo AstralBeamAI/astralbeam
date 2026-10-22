@@ -55,9 +55,7 @@ services:
       RUSTFS_ADDRESS: :${STORAGE_PORT:-9000}
     post_start:
       - command: >-
-          sh -ec 'curl -fsS --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60
-          --aws-sigv4 aws:amz:us-east-1:s3 -u "$${RUSTFS_ACCESS_KEY}:$${RUSTFS_SECRET_KEY}"
-          -X PUT "http://127.0.0.1$${RUSTFS_ADDRESS}/astralbeam"'
+          sh -ec 'curl -fsS --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60 --aws-sigv4 aws:amz:us-east-1:s3 -u "$${RUSTFS_ACCESS_KEY}:$${RUSTFS_SECRET_KEY}" -X PUT "http://127.0.0.1$${RUSTFS_ADDRESS}/astralbeam"'
     volumes:
       - rustfs-data:/data
     healthcheck:
