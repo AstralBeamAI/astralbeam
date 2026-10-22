@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
 import type { SandboxHandle, SandboxProvider } from "@tanstack/ai-sandbox"
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Scheduler, Scope } from "effect"
 import { TestClock } from "effect/testing"
 import { beforeEach } from "vitest"
 
@@ -132,6 +132,38 @@ describe("ChatSandboxes", () => {
       destroy.resolve()
       yield* Effect.yieldNow
       assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-1", "sandbox-2"])
+    }).pipe(Effect.scoped),
+  )
+
+  it.effect("refuses a start when shutdown wins the scheduling race", () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.fork(yield* Effect.scope)
+      const context = yield* Layer.buildWithScope(sandboxesLayer, scope)
+      const caller = yield* Effect.withFiber(Effect.succeed)
+      const closed = yield* Deferred.make<void>()
+      const scheduler = new Scheduler.MixedScheduler()
+      let shuttingDown = false
+      scheduler.shouldYield = (fiber) => {
+        if (fiber === caller || shuttingDown) return false
+        shuttingDown = true
+        Effect.runFork(
+          Scope.close(scope, Exit.void).pipe(Effect.andThen(Deferred.succeed(closed, undefined))),
+        )
+        return true
+      }
+      const result = yield* acquireFor(Context.get(context, ChatSandboxes)).pipe(
+        Effect.provideService(Scheduler.Scheduler, scheduler),
+        Effect.exit,
+      )
+      yield* Deferred.await(closed)
+      assert.deepStrictEqual(
+        {
+          failed: Exit.isFailure(result),
+          created: sandboxTest.created,
+          destroyed: sandboxTest.destroyed,
+        },
+        { failed: true, created: 0, destroyed: [] },
+      )
     }).pipe(Effect.scoped),
   )
 

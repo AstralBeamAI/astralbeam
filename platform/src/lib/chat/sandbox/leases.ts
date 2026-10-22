@@ -131,8 +131,9 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
       reservation = yield* reserveLease(key, definition.provider)
     }
     const lease = reservation
-    if (closed || scope.state._tag === "Closed") return yield* new ChatSandboxUnavailable()
     return yield* chatSandboxCall(async (signal) => {
+      // Shutdown can run before this callback starts. Check and reserve without yielding.
+      if (closed || scope.state._tag === "Closed") throw new ChatSandboxUnavailable()
       lease.pending += 1
       try {
         return await definition.ensure({
