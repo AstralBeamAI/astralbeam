@@ -51,9 +51,9 @@ export function updateWithOptimisticLock<TTable extends LockedTable>(
           lockVersion: sql`${options.table.lockVersion} + 1`,
         })
         .where(lockedWhere(options))
-        .returning(),
+        .returning({ row: options.table }),
     ),
-    Effect.flatMap((rows) => mutationResult(rows, options)),
+    Effect.flatMap((rows) => mutationResult(rows[0]?.row, options)),
   )
 }
 
@@ -100,33 +100,28 @@ function lockedWhere<TTable extends LockedTable>(options: {
     eq(options.table.id, options.id),
     options.scope,
     eq(options.table.lockVersion, options.expectedLockVersion),
-  )!
+  )
 }
 
-// Tables are module constants, so each row decoder is built once rather than per mutation.
-const lockedRowDecoders = new WeakMap<LockedTable, (row: unknown) => Effect.Effect<unknown>>()
+// Tables are module constants, so each row schema is built once rather than per mutation.
+const lockedRowSchemas = new WeakMap<LockedTable, Schema.Codec<InferSelectModel<LockedTable>>>()
 
-function lockedRowDecoder(table: LockedTable) {
-  let decode = lockedRowDecoders.get(table)
-  if (!decode) {
-    const rowSchema = createSelectSchema(table).pipe(
-      Schema.fieldsAssign({ lockVersion: LockVersionSchema }),
-    )
-    const decodeRow = Schema.decodeUnknownEffect(rowSchema)
-    decode = (row) => decodeRow(row).pipe(Effect.orDie)
-    lockedRowDecoders.set(table, decode)
+function lockedRowSchema(table: LockedTable) {
+  let schema = lockedRowSchemas.get(table)
+  if (!schema) {
+    schema = createSelectSchema(table).pipe(Schema.fieldsAssign({ lockVersion: LockVersionSchema }))
+    lockedRowSchemas.set(table, schema)
   }
-  return decode
+  return schema
 }
 
 function mutationResult<TTable extends LockedTable>(
-  rows: readonly unknown[],
+  row: InferSelectModel<TTable> | undefined,
   options: {
     expectedLockVersion: number
     table: TTable
   },
 ): Effect.Effect<InferSelectModel<TTable>, OptimisticLockError> {
-  const row = rows[0]
   if (!row) {
     return Effect.fail(
       new OptimisticLockError({
@@ -135,5 +130,5 @@ function mutationResult<TTable extends LockedTable>(
       }),
     )
   }
-  return lockedRowDecoder(options.table)(row) as Effect.Effect<InferSelectModel<TTable>>
+  return Schema.decodeEffect(lockedRowSchema(options.table))(row).pipe(Effect.orDie, Effect.as(row))
 }

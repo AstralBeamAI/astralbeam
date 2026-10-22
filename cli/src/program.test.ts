@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, realpath, stat } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
-import { configPath, writeConfig } from "./config.ts"
+import { configPath, readConfig, writeConfig } from "./config.ts"
 import { run } from "./program.ts"
 
 const ORGANIZATION_ID = "01990a5d-0000-7000-8000-000000000011"
@@ -168,4 +168,28 @@ test("human-readable output escapes terminal control sequences from API data", a
   expect(await cli("tenants", "get", "t1")).toBe(0)
   expect(stdout).not.toContain("\u001b")
   expect(stdout).toContain("Acme\\u001b]52;c;cHduZWQ=\\u0007")
+})
+
+test("missing config files and empty objects retain the empty-binding default", async () => {
+  expect(await readConfig()).toEqual({ bindings: {} })
+  await writeFile(configPath(), "{}")
+  expect(await readConfig()).toEqual({ bindings: {} })
+})
+
+test.each([
+  "null",
+  "[]",
+  '{"bindings":[]}',
+  '{"bindings":null}',
+  '{"bindings":{"/tmp":{"api_key":"private-key"}}}',
+  '{"bindings": {"/tmp": "private-key"}}',
+  '{"private-key":',
+])("invalid saved bindings fail without leaking or rewriting the config", async (source) => {
+  await writeFile(configPath(), source)
+  expect(await cli("--json", "auth", "logout")).toBe(1)
+  expect(JSON.parse(stderr)).toMatchObject({
+    error: { detail: `Invalid AstralBeam login bindings in ${configPath()}` },
+  })
+  expect(stderr).not.toContain("private-key")
+  expect(await readFile(configPath(), "utf8")).toBe(source)
 })

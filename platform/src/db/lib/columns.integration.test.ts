@@ -13,6 +13,7 @@ const jsonbIntegration = vi.hoisted(() => {
 
 import { Database, getAuthDatabase } from "../database.ts"
 import { organization, sandboxProvider, tenant } from "../schema.ts"
+import { updateWithOptimisticLock } from "./optimistic-locking.ts"
 
 describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
   const runtime = ManagedRuntime.make(Database.layer)
@@ -55,6 +56,34 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
       ),
     )
     expect(restored!.tenants[0]!.metadata).toEqual(metadata)
+  })
+
+  test("optimistic updates return decoded rows and reject stale versions", async () => {
+    const [row] = await db
+      .insert(sandboxProvider)
+      .values({
+        organizationId,
+        name: "Original",
+        providerType: "docker",
+        options: { image: "test-image" },
+      })
+      .returning()
+    const update = Effect.flatMap(Database, (executor) =>
+      updateWithOptimisticLock({
+        executor,
+        table: sandboxProvider,
+        id: row!.id,
+        scope: eq(sandboxProvider.organizationId, organizationId),
+        expectedLockVersion: row!.lockVersion,
+        set: { name: "Updated" },
+      }),
+    )
+    await expect(runtime.runPromise(update)).resolves.toMatchObject({
+      name: "Updated",
+      lockVersion: row!.lockVersion + 1,
+      options: { image: "test-image" },
+    })
+    await expect(runtime.runPromise(update)).rejects.toMatchObject({ _tag: "OptimisticLockError" })
   })
 
   test("rejects invalid writes and corrupted reads without silently stripping fields", async () => {

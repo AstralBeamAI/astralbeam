@@ -3,6 +3,7 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import type { Command } from "commander"
 import { stderr, stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
+import { text } from "node:stream/consumers"
 import { globalOptions, resolveCredentials } from "./config.ts"
 import { printJson, terminalSafe } from "./output.ts"
 import { addIdentityOptions, chatIdentity, type IdentityOptions } from "./token.ts"
@@ -49,12 +50,6 @@ async function sendChatMessage(chat: AstralBeamChatCore, content: string, json: 
   else if (!printed.endsWith("\n")) stdout.write("\n")
 }
 
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = []
-  for await (const chunk of stdin) chunks.push(chunk as Buffer)
-  return Buffer.concat(chunks).toString("utf8").trim()
-}
-
 async function chatInteractively(chat: AstralBeamChatCore) {
   const prompt = createInterface({ input: stdin, output: stdout })
   stderr.write("Type a message, or /exit to quit.\n")
@@ -98,7 +93,7 @@ export function registerChatCommand(program: Command): void {
       })
       try {
         if (message !== undefined) await sendChatMessage(chat, message, json)
-        else if (!stdin.isTTY) await sendChatMessage(chat, await readStdin(), json)
+        else if (!stdin.isTTY) await sendChatMessage(chat, (await text(stdin)).trim(), json)
         else if (json) command.error("Pass a message or pipe one on stdin with --json.")
         else await chatInteractively(chat)
       } finally {

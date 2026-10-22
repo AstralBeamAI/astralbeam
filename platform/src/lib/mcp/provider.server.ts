@@ -11,6 +11,7 @@ import type { Agent } from "undici"
 import { APP_NAME } from "@/lib/constants"
 import {
   McpOAuthTokensSchema,
+  McpDiscoverySchema,
   MCP_AUTH_TIMEOUT_MS,
   type McpAttemptEnvelope,
   type McpAuthConfig,
@@ -58,9 +59,9 @@ export function mcpClientMetadata(baseUrl: string) {
   }
 }
 
-export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState) {
-  const issuer = discovery.authorizationServerMetadata?.issuer
-  const resource = discovery.resourceMetadata?.resource
+export function mcpDiscoveryBinding(discovery: OAuthDiscoveryState | null) {
+  const issuer = discovery?.authorizationServerMetadata?.issuer
+  const resource = discovery?.resourceMetadata?.resource
   if (!issuer || !resource) throw new TypeError("MCP OAuth discovery is incomplete")
   return { issuer, resource }
 }
@@ -85,7 +86,7 @@ export function mcpOAuthCredential(input: {
     clientInformation: input.clientInformation,
     tokens,
     expiresAt: tokens.expires_in === undefined ? null : input.now + tokens.expires_in * 1000,
-    discovery: Schema.decodeUnknownSync(Schema.JsonObject)(
+    discovery: Schema.decodeUnknownSync(McpDiscoverySchema)(
       JSON.parse(JSON.stringify(input.discovery)),
     ),
   }
@@ -121,7 +122,7 @@ export async function mcpRunAuthorization(input: {
         throw new TypeError("MCP authorization is incomplete")
       input.payload.pendingCredential = mcpOAuthCredential({
         tokens,
-        discovery: input.payload.discovery as unknown as OAuthDiscoveryState,
+        discovery: input.payload.discovery,
         clientInformation: input.payload.clientInformation,
         now: await input.now(),
       })
@@ -130,8 +131,7 @@ export async function mcpRunAuthorization(input: {
       if (!mcpUrlIsPublic(url)) throw new TypeError("MCP authorization endpoint was refused")
       if (
         input.authConfig.profile === "google" ||
-        mcpDiscoveryBinding(input.payload.discovery as unknown as OAuthDiscoveryState).issuer ===
-          "https://accounts.google.com"
+        mcpDiscoveryBinding(input.payload.discovery).issuer === "https://accounts.google.com"
       ) {
         url.searchParams.set("access_type", "offline")
         url.searchParams.set("include_granted_scopes", "true")
@@ -150,12 +150,11 @@ export async function mcpRunAuthorization(input: {
     },
     saveDiscoveryState(discovery) {
       mcpDiscoveryBinding(discovery)
-      input.payload.discovery = Schema.decodeUnknownSync(Schema.JsonObject)(
+      input.payload.discovery = Schema.decodeUnknownSync(McpDiscoverySchema)(
         JSON.parse(JSON.stringify(discovery)),
       )
     },
-    discoveryState: () =>
-      (input.payload.discovery as unknown as OAuthDiscoveryState | undefined) ?? undefined,
+    discoveryState: () => input.payload.discovery ?? undefined,
   }
   return auth(provider, {
     serverUrl: input.serverUrl,

@@ -130,7 +130,7 @@ function createExecutor(rows: unknown[]) {
           return {
             where: (where: SQL) => {
               call.where = where
-              return { returning: () => result }
+              return { returning: () => Effect.succeed(rows.map((row) => ({ row }))) }
             },
           }
         },

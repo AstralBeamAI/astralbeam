@@ -5,7 +5,6 @@ import {
   extractWWWAuthenticateParams,
   OAuthError,
   refreshAuthorization,
-  type OAuthDiscoveryState,
   type OAuthClientInformationMixed,
 } from "@modelcontextprotocol/client"
 import { SqlClient } from "effect/sql"
@@ -396,7 +395,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
       .pipe(Effect.orDie)
     if (!claimed.length) return null
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
-    const discovery = credential.discovery as unknown as OAuthDiscoveryState
+    const discovery = credential.discovery
     const binding = mcpDiscoveryBinding(discovery)
     const refreshed = yield* Effect.tryPromise({
       try: () =>

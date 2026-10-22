@@ -76,8 +76,9 @@ export async function assertSeedMigrationsApplied(database: SeedDatabase): Promi
   try {
     const result = await database.execute<{ name: string }>(
       sql`select name from drizzle.__drizzle_migrations`,
+      "objects",
     )
-    applied = new Set(result.rows.map((row) => row.name))
+    applied = new Set(result.map((row) => row.name))
   } catch {
     applied = new Set()
   }
