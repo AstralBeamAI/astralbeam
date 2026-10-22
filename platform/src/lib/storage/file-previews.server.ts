@@ -26,7 +26,11 @@ const textTypes = [
 ]
 
 const renderPreview = Effect.fn("FilePreviews.render")(
-  (file: StoredFile, bytes: Uint8Array, signal: AbortSignal) =>
+  (
+    file: StoredFile,
+    bytes: Uint8Array,
+    signal: AbortSignal,
+  ): Effect.Effect<Uint8Array | undefined> =>
     Effect.tryPromise(async () => {
       signal.throwIfAborted()
       let image: Sharp
@@ -65,6 +69,10 @@ const renderPreview = Effect.fn("FilePreviews.render")(
     }).pipe(Effect.catch(() => Effect.succeed(undefined))),
 )
 
+export const FilePreviewRenderer = Context.Reference("astralbeam/storage/FilePreviewRenderer", {
+  defaultValue: () => renderPreview,
+})
+
 export class FilePreviews extends Context.Service<
   FilePreviews,
   {
@@ -78,6 +86,7 @@ export class FilePreviews extends Context.Service<
     Effect.gen(function* () {
       const files = yield* StoredFiles
       const storage = yield* ObjectStorage
+      const render = yield* FilePreviewRenderer
       const renders = yield* Semaphore.make(2)
       const scope = yield* Effect.scope
       const read = Effect.fn("FilePreviews.read")(function* ({ file }: { file: StoredFile }) {
@@ -103,7 +112,7 @@ export class FilePreviews extends Context.Service<
           files.read({ file }).pipe(
             // Native work cannot be interrupted. Its service-owned fiber retains the permit.
             Effect.flatMap((source) =>
-              renderPreview(file, source, controller.signal).pipe(Effect.uninterruptible),
+              render(file, source, controller.signal).pipe(Effect.uninterruptible),
             ),
             Semaphore.withPermit(renders),
             Effect.forkIn(scope, { uninterruptible: false }),

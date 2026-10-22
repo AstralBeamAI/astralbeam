@@ -1,42 +1,10 @@
-import { Effect, Layer, ManagedRuntime } from "effect"
-import { afterEach, expect, test, vi } from "vitest"
+import { Context, Effect, Fiber, Layer } from "effect"
+import { expect, it, vi } from "@effect/vitest"
 import type { fileObject } from "@/db/schema/files"
-import { FilePreviews } from "./file-previews.server"
+import { FilePreviews, FilePreviewRenderer } from "./file-previews.server"
 import { ObjectStorage } from "./object-storage.server"
 import { StoredFiles } from "./stored-files.server"
 import { StorageObjectMissing } from "./errors"
-
-const native = vi.hoisted(() => ({
-  draining: false,
-  metadata: [] as Array<() => void>,
-  output: [] as Array<{ resolve: () => void; reject: () => void }>,
-}))
-vi.mock("sharp", () => ({
-  default: () => {
-    const image = {
-      metadata: () =>
-        native.draining
-          ? Promise.resolve({ format: "png" })
-          : new Promise((resolve) => {
-              native.metadata.push(() => resolve({ format: "png" }))
-            }),
-      rotate: () => image,
-      timeout: () => image,
-      resize: () => image,
-      webp: () => image,
-      toBuffer: () =>
-        native.draining
-          ? Promise.resolve(Uint8Array.of(1))
-          : new Promise((resolve, reject) => {
-              native.output.push({
-                resolve: () => resolve(Uint8Array.of(1)),
-                reject: () => reject(new Error("native failure")),
-              })
-            }),
-    }
-    return image
-  },
-}))
 
 const previewFile = {
   organizationId: "019a0000-0000-7000-8000-000000000001",
@@ -49,82 +17,108 @@ const previewFile = {
   createdAt: new Date(0),
   updatedAt: new Date(0),
 } satisfies typeof fileObject.$inferSelect
-const writes = vi.fn(() => Effect.void)
-const previewTestLayer = FilePreviews.layerNoDeps.pipe(
-  Layer.provide([
-    Layer.succeed(StoredFiles, {
-      read: () => Effect.succeed(Uint8Array.of(1)),
-      upload: () => Effect.die("unused"),
+
+const previewTest = Effect.gen(function* () {
+  const native = {
+    draining: false,
+    writes: 0,
+    metadata: [] as Array<() => void>,
+    output: [] as Array<{ resolve: () => void; reject: () => void }>,
+  }
+  const layer = FilePreviews.layerNoDeps.pipe(
+    Layer.provide([
+      Layer.succeed(FilePreviewRenderer, (_file, _bytes, signal) =>
+        Effect.tryPromise(async () => {
+          await new Promise<void>((resolve) =>
+            native.draining ? resolve() : native.metadata.push(resolve),
+          )
+          signal.throwIfAborted()
+          const output = await new Promise<Uint8Array>((resolve, reject) => {
+            if (native.draining) return resolve(Uint8Array.of(1))
+            native.output.push({
+              resolve: () => resolve(Uint8Array.of(1)),
+              reject: () => reject(new Error("native failure")),
+            })
+          })
+          signal.throwIfAborted()
+          return output
+        }).pipe(Effect.catch(() => Effect.succeed(undefined))),
+      ),
+      Layer.succeed(StoredFiles, {
+        read: () => Effect.succeed(Uint8Array.of(1)),
+        upload: () => Effect.die("unused"),
+      }),
+      Layer.succeed(ObjectStorage, {
+        get: () => Effect.fail(new StorageObjectMissing()),
+        put: () =>
+          Effect.sync(() => {
+            native.writes++
+          }),
+        head: () => Effect.succeed({ size: 1, contentType: "image/png" }),
+        remove: () => Effect.void,
+        testConnection: () => Effect.void,
+        signedUrl: () => Effect.die("unused"),
+      }),
+    ]),
+  )
+  const previews = Context.get(yield* Layer.build(layer), FilePreviews)
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      native.draining = true
+      for (const resolve of native.metadata) resolve()
+      for (const output of native.output) output.resolve()
     }),
-    Layer.succeed(ObjectStorage, {
-      get: () => Effect.fail(new StorageObjectMissing()),
-      put: writes,
-      head: () => Effect.succeed({ size: 1, contentType: "image/png" }),
-      remove: () => Effect.void,
-      testConnection: () => Effect.void,
-      signedUrl: () => Effect.die("unused"),
-    }),
-  ]),
-)
-let runtime: ManagedRuntime.ManagedRuntime<
-  Layer.Success<typeof previewTestLayer>,
-  Layer.Error<typeof previewTestLayer>
->
-afterEach(async () => {
-  native.draining = true
-  for (const resolve of native.metadata) resolve()
-  for (const output of native.output) output.resolve()
-  await runtime.dispose()
-  native.metadata.length = 0
-  native.output.length = 0
-  writes.mockClear()
-  native.draining = false
+  )
+  return { native, read: previews.read({ file: previewFile }) }
 })
 
-test.each(["metadata", "output"] as const)(
+it.effect.each(["metadata", "output"] as const)(
   "canceling %s retains native capacity until settlement",
-  async (phase) => {
-    runtime = ManagedRuntime.make(previewTestLayer)
-    const read = Effect.flatMap(FilePreviews, (service) => service.read({ file: previewFile }))
-    const first = new AbortController()
-    const firstRead = runtime.runPromiseExit(read, { signal: first.signal })
-    const secondRead = runtime.runPromise(read)
-    await vi.waitFor(() => expect(native.metadata).toHaveLength(2))
-    if (phase === "output") {
-      native.metadata[0]!()
-    }
-    await vi.waitFor(() => expect(native.output).toHaveLength(phase === "output" ? 1 : 0))
-    first.abort()
-    expect((await firstRead)._tag).toBe("Failure")
-    const thirdRead = runtime.runPromise(read)
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    expect(native.metadata).toHaveLength(2)
-    if (phase === "metadata") native.metadata[0]!()
-    else native.output[0]!.reject()
-    await vi.waitFor(() => expect(native.metadata).toHaveLength(3))
-    expect(native.output).toHaveLength(phase === "metadata" ? 0 : 1)
-    native.metadata[1]!()
-    native.metadata[2]!()
-    await vi.waitFor(() => expect(native.output).toHaveLength(phase === "metadata" ? 2 : 3))
-    for (const output of native.output) output.resolve()
-    expect(await secondRead).toMatchObject({ mimeType: "image/webp" })
-    expect(await thirdRead).toMatchObject({ mimeType: "image/webp" })
-    expect(writes).toHaveBeenCalledTimes(2)
-  },
+  (phase) =>
+    Effect.gen(function* () {
+      const { native, read } = yield* previewTest
+      const first = yield* Effect.forkChild(read)
+      const second = yield* Effect.forkChild(read)
+      yield* Effect.promise(() => vi.waitUntil(() => native.metadata.length === 2))
+      if (phase === "output") native.metadata[0]!()
+      yield* Effect.promise(() =>
+        vi.waitUntil(() => native.output.length === (phase === "output" ? 1 : 0)),
+      )
+      yield* Fiber.interrupt(first)
+      expect((yield* Fiber.await(first))._tag).toBe("Failure")
+      const third = yield* Effect.forkChild(read)
+      yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 10)))
+      expect(native.metadata).toHaveLength(2)
+      if (phase === "metadata") native.metadata[0]!()
+      else native.output[0]!.reject()
+      yield* Effect.promise(() => vi.waitUntil(() => native.metadata.length === 3))
+      expect(native.output).toHaveLength(phase === "metadata" ? 0 : 1)
+      native.metadata[1]!()
+      native.metadata[2]!()
+      yield* Effect.promise(() =>
+        vi.waitUntil(() => native.output.length === (phase === "metadata" ? 2 : 3)),
+      )
+      for (const output of native.output) output.resolve()
+      expect(yield* Fiber.join(second)).toMatchObject({ mimeType: "image/webp" })
+      expect(yield* Fiber.join(third)).toMatchObject({ mimeType: "image/webp" })
+      expect(native.writes).toBe(2)
+    }),
 )
 
-test("canceling queued work never starts a native operation", async () => {
-  runtime = ManagedRuntime.make(previewTestLayer)
-  const read = Effect.flatMap(FilePreviews, (service) => service.read({ file: previewFile }))
-  const active = [runtime.runPromise(read), runtime.runPromise(read)]
-  await vi.waitFor(() => expect(native.metadata).toHaveLength(2))
-  const canceled = new AbortController()
-  const queued = runtime.runPromiseExit(read, { signal: canceled.signal })
-  canceled.abort()
-  expect((await queued)._tag).toBe("Failure")
-  for (const resolve of native.metadata) resolve()
-  await vi.waitFor(() => expect(native.output).toHaveLength(2))
-  for (const output of native.output) output.resolve()
-  await Promise.all(active)
-  expect(native.metadata).toHaveLength(2)
-})
+it.effect("canceling queued work never starts a native operation", () =>
+  Effect.gen(function* () {
+    const { native, read } = yield* previewTest
+    const first = yield* Effect.forkChild(read)
+    const second = yield* Effect.forkChild(read)
+    yield* Effect.promise(() => vi.waitUntil(() => native.metadata.length === 2))
+    const queued = yield* Effect.forkChild(read)
+    yield* Fiber.interrupt(queued)
+    expect((yield* Fiber.await(queued))._tag).toBe("Failure")
+    for (const resolve of native.metadata) resolve()
+    yield* Effect.promise(() => vi.waitUntil(() => native.output.length === 2))
+    for (const output of native.output) output.resolve()
+    yield* Fiber.join(first)
+    yield* Fiber.join(second)
+    expect(native.metadata).toHaveLength(2)
+  }),
+)
