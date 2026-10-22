@@ -18,6 +18,7 @@ function freshChatSandboxTestState() {
   return {
     created: 0,
     createFails: false,
+    destroyFails: false,
     destroyed: [] as string[],
     createGate: undefined as Promise<void> | undefined,
     createStarted: undefined as Deferred.Deferred<void> | undefined,
@@ -48,6 +49,7 @@ const fakeSandboxProvider = {
     sandboxTest.destroyed.push(id)
     sandboxTest.destroySignal = signal
     if (sandboxTest.destroyStarted) Deferred.doneUnsafe(sandboxTest.destroyStarted, Effect.void)
+    if (sandboxTest.destroyFails) throw new Error("provider unavailable")
     await sandboxTest.destroyGate
   },
 } as unknown as SandboxProvider
@@ -175,6 +177,14 @@ describe("ChatSandboxes", () => {
       }
       yield* TestClock.adjust(1)
       yield* acquireFor(sandboxes, { threadId: "thread-0" }).pipe(Effect.scoped)
+      sandboxTest.destroyFails = true
+      assert.strictEqual(
+        (yield* Effect.flip(acquireFor(sandboxes, { threadId: "new-thread" })))._tag,
+        "ChatSandboxUnavailable",
+      )
+      assert.strictEqual(sandboxTest.created, CHAT_SANDBOX_MAX_LIVE)
+      sandboxTest.destroyFails = false
+      sandboxTest.destroyed = []
       const destroy = Promise.withResolvers<void>()
       sandboxTest.destroyGate = destroy.promise
       sandboxTest.destroyStarted = yield* Deferred.make<void>()
@@ -229,7 +239,7 @@ describe("ChatSandboxes", () => {
       }).pipe(Effect.scoped, Effect.provide(sandboxesLayer)),
   )
 
-  it.effect("keeps overlapping runs alive and starts idle expiry after the final run closes", () =>
+  it.effect("keeps active runs alive and retries failed cleanup after idle expiry", () =>
     Effect.gen(function* () {
       const sandboxes = yield* ChatSandboxes
       const firstScope = yield* Scope.fork(yield* Effect.scope)
@@ -245,8 +255,14 @@ describe("ChatSandboxes", () => {
       yield* Scope.close(secondScope, Exit.void)
       yield* TestClock.adjust(CHAT_SANDBOX_IDLE_TTL_MS - CHAT_SANDBOX_SWEEP_INTERVAL_MS)
       assert.deepStrictEqual(sandboxTest.destroyed, [])
+      sandboxTest.destroyFails = true
       yield* TestClock.adjust(2 * CHAT_SANDBOX_SWEEP_INTERVAL_MS)
       assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-1"])
+      sandboxTest.destroyFails = false
+      yield* TestClock.adjust(CHAT_SANDBOX_SWEEP_INTERVAL_MS)
+      assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-1", "sandbox-1"])
+      yield* TestClock.adjust(CHAT_SANDBOX_IDLE_TTL_MS)
+      assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-1", "sandbox-1"])
     }).pipe(Effect.scoped, Effect.provide(sandboxesLayer)),
   )
 

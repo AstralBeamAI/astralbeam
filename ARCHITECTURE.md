@@ -165,7 +165,7 @@ Execution remains attached to its foreground request. Process crashes can leave 
 
 ## Known hosted runtime limits
 
-Sandbox reuse omits the configured provider connection ID, so switching connections to the same vendor can resume the previous workspace. The shared 25-workspace cap applies after provisioning. Eviction and idle cleanup can destroy active workspaces, and filesystem activity does not refresh leases.
+Sandbox identity includes the configured provider connection and authenticated principal. Each process reserves at most 25 leases before provisioning, protects active runs, and expires workspaces 15 minutes after the final run closes. Reported deletion failures retain their lease for retry. Cleanup remains best effort: abrupt process termination loses these records, and the installed Docker, Daytona, and Vercel adapters suppress deletion errors. Guaranteed eventual cleanup would require provider expiry or external reconciliation.
 
 Sandbox files and command output are buffered before size checks or truncation, and wrapper timeouts may not stop transfers. Sparse XLSX worksheets are padded and rendered synchronously before text truncation, without a document-wide work budget. Both paths can exhaust replica resources.
 

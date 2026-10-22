@@ -24,7 +24,7 @@ interface ChatSandboxLease {
   users: number
   pending: number
   idleSince: number
-  cleanup: Promise<void> | undefined
+  cleanup: Promise<boolean> | undefined
 }
 
 // Only this scoped owner mutates lease state. Callers receive a handle held until their scope closes.
@@ -40,13 +40,16 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
       Effect.gen(function* () {
         if (lease.record) {
           const id = lease.record.providerSandboxId
-          yield* chatSandboxCall((signal) => lease.provider.destroy({ id, signal }), timeout).pipe(
-            Effect.catch((error) => logChatSandboxFailure("destroy", error)),
-          )
+          yield* chatSandboxCall((signal) => lease.provider.destroy({ id, signal }), timeout)
         }
         leases.delete(key)
-      }),
-    ))
+        return true
+      }).pipe(
+        Effect.catch((error) => logChatSandboxFailure("destroy", error).pipe(Effect.as(false))),
+      ),
+    ).finally(() => {
+      lease.cleanup = undefined
+    }))
 
   const sweepIdleLeases = Effect.gen(function* () {
     const cutoff = (yield* Clock.currentTimeMillis) - CHAT_SANDBOX_IDLE_TTL_MS
@@ -100,7 +103,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
       return lease
     }).pipe(Effect.uninterruptible)
 
-  // Leases outlive runs but not the process: shutdown and module reloads destroy them all.
+  // Shutdown and module reloads attempt bounded cleanup of every settled lease.
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
       closed = true
@@ -127,7 +130,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
     let reservation = yield* reserveLease(key, definition.provider)
     while (reservation instanceof Promise) {
       const cleanup = reservation
-      yield* Effect.promise(() => cleanup)
+      if (!(yield* Effect.promise(() => cleanup))) return yield* new ChatSandboxUnavailable()
       reservation = yield* reserveLease(key, definition.provider)
     }
     const lease = reservation
