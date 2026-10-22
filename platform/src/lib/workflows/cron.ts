@@ -4,16 +4,8 @@ import { ClusterCron } from "effect/cluster"
 import fileMaintenance from "./file-maintenance.ts"
 import expiredCacheCleanup from "./expired-cache-cleanup.ts"
 import modelPriceCatalogRefresh from "./model-price-catalog-refresh.ts"
-import sandboxMaintenance from "./sandbox-maintenance.ts"
 
 export const scheduledWorkflowsLayer = Layer.mergeAll(
-  ClusterCron.make({
-    name: "SandboxMaintenance/v1",
-    cron: Cron.parseUnsafe("0 * * * * *", "UTC"),
-    calculateNextRunFromPrevious: false,
-    skipIfOlderThan: "10 minutes",
-    execute: sandboxMaintenance,
-  }),
   ClusterCron.make({
     name: "ExpiredCacheCleanup/v1",
     cron: Cron.parseUnsafe("0 */5 * * * *", "UTC"),

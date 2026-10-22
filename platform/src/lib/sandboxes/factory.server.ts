@@ -13,9 +13,6 @@ import {
 // `tail` as PID 1 ignores SIGTERM, so without the trap every destroy waits out Docker's stop timeout.
 const DOCKER_KEEP_ALIVE_COMMAND = ["sh", "-c", "trap 'exit 0' TERM; tail -f /dev/null & wait"]
 
-// Local adapter patches preserve named creation and surface cleanup failures for durable retries.
-// https://github.com/TanStack/ai/tree/main/packages
-
 type ProviderConfiguration<Provider extends SandboxProviderId> = {
   options: SandboxProviderOptions[Provider]
   credentials: SandboxProviderCredentials[Provider]

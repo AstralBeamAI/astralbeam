@@ -22,7 +22,6 @@ import { McpTools } from "@/lib/mcp/tools.server"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Organizations } from "@/lib/organizations/organizations.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
-import { SandboxResources } from "@/lib/sandboxes/resources.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -58,7 +57,6 @@ function makeAppLayer() {
     McpAuthorization.layer,
     McpTools.layer,
     SandboxProviders.layer,
-    SandboxResources.layer,
     Tenants.layer,
     TenantUsers.layer,
     UsageLimits.layer,

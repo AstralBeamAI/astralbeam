@@ -1,8 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Deferred, Effect, Fiber, Layer } from "effect"
+import { Deferred, Effect, Fiber } from "effect"
 import { TestClock } from "effect/testing"
 import { vi } from "vitest"
-import { SandboxResources } from "./resources.server"
 
 const connectionTestSandbox = vi.hoisted(() => ({
   createError: undefined as Error | undefined,
@@ -11,8 +10,8 @@ const connectionTestSandbox = vi.hoisted(() => ({
   destroy: vi.fn(() => Promise.resolve()),
 }))
 
-const testResources = Layer.succeed(SandboxResources, {
-  provider: () =>
+vi.mock("./factory.server.ts", () => ({
+  createSandboxProvider: () =>
     Effect.succeed({
       create: () =>
         connectionTestSandbox.pendingCreate ??
@@ -23,17 +22,11 @@ const testResources = Layer.succeed(SandboxResources, {
             })
           : Promise.reject(connectionTestSandbox.createError)),
     }),
-} as unknown as SandboxResources["Service"])
+}))
 
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 
-const dockerTest = {
-  organizationId: "01992a80-1d71-7f24-a150-f1177e3f6419",
-  provider: "docker",
-  options: { image: "node:22" },
-  credentials: {},
-} as const
-const runTest = () => runSandboxConnectionTest(dockerTest).pipe(Effect.provide(testResources))
+const dockerTest = { provider: "docker", options: { image: "node:22" }, credentials: {} } as const
 
 describe("runSandboxConnectionTest", () => {
   it.effect("destroys a created sandbox when the test is interrupted", () =>
@@ -44,7 +37,7 @@ describe("runSandboxConnectionTest", () => {
         Deferred.doneUnsafe(started, Effect.void)
         return new Promise(() => {})
       })
-      const fiber = yield* Effect.forkChild(runTest())
+      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
       yield* Deferred.await(started)
       yield* Fiber.interrupt(fiber)
       assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1)
@@ -55,7 +48,7 @@ describe("runSandboxConnectionTest", () => {
     Effect.gen(function* () {
       connectionTestSandbox.destroy.mockClear()
       connectionTestSandbox.exec.mockImplementation(() => new Promise(() => {}))
-      const fiber = yield* Effect.forkChild(runTest())
+      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
       yield* TestClock.adjust("15 seconds")
       const result = yield* Fiber.join(fiber)
       assert.deepInclude(result, { status: "failure", errorCode: "timeout" })
@@ -70,7 +63,7 @@ describe("runSandboxConnectionTest", () => {
         connectionTestSandbox.destroy.mockClear()
         const late = Promise.withResolvers<unknown>()
         connectionTestSandbox.pendingCreate = late.promise
-        const fiber = yield* Effect.forkChild(runTest())
+        const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
         if (end === "timeout") {
           yield* TestClock.adjust("30 seconds")
           assert.deepInclude(yield* Fiber.join(fiber), { status: "failure", errorCode: "timeout" })
@@ -95,7 +88,7 @@ describe("runSandboxConnectionTest", () => {
       const sprites = new Error("Sprites API POST https://api.sprites.dev failed: 403 Forbidden")
       for (const error of [vercel, sprites]) {
         connectionTestSandbox.createError = error
-        const result = yield* runTest()
+        const result = yield* runSandboxConnectionTest(dockerTest)
         assert.deepInclude(result, { status: "failure", errorCode: "authentication" })
       }
       connectionTestSandbox.createError = undefined

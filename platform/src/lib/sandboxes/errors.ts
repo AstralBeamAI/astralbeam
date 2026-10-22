@@ -2,21 +2,6 @@ import { Schema } from "effect"
 
 import { type SandboxConnectionErrorCode, SandboxConnectionErrorCodeSchema } from "./schemas.ts"
 
-/** A vendor sandbox call that failed or timed out. The cause stays server-side for diagnostics. */
-export class SandboxOperationFailed extends Schema.TaggedError<SandboxOperationFailed>()(
-  "SandboxOperationFailed",
-  { timedOut: Schema.Boolean, cause: Schema.Unknown },
-) {
-  override readonly message: string = this.timedOut
-    ? "The sandbox did not respond in time"
-    : "The sandbox operation failed"
-}
-
-export class SandboxResourceUnavailable extends Schema.TaggedError<SandboxResourceUnavailable>()(
-  "SandboxResourceUnavailable",
-  {},
-) {}
-
 // Each message is written for the member who sees it, so handlers may expose it verbatim.
 
 export class SandboxProviderNotFound extends Schema.TaggedError<SandboxProviderNotFound>()(

@@ -3,12 +3,12 @@ import { Context, Deferred, Effect, Exit, Layer, Option, Ref, Scope } from "effe
 
 import { APP_HANDLE } from "@/lib/constants"
 import { errorReason } from "@/lib/runtime/failure-report.server"
-import { SandboxResources } from "@/lib/sandboxes/resources.server"
+import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "../attachments/constants"
 import { CHAT_SANDBOX_FILE_TIMEOUT_MS } from "./constants"
 import { makeChatSandboxLeases } from "./leases"
-import { sandboxCall, logSandboxFailure } from "@/lib/sandboxes/operations.server"
+import { chatSandboxCall, logChatSandboxFailure } from "./operations"
 import { ChatSandboxConfigurationUnreadable, ChatSandboxUnavailable } from "./errors.ts"
 import { chatPrincipalScope } from "../identity"
 import type { ChatAttachmentFile } from "../attachments/types"
@@ -37,11 +37,11 @@ const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   if (uploads.length === 0) return
   const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
   // One level below a workspace that already exists, so this needs no recursive `mkdir`.
-  yield* sandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
+  yield* chatSandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
   yield* Effect.forEach(
     uploads,
     (upload) =>
-      sandboxCall(
+      chatSandboxCall(
         () => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
         CHAT_SANDBOX_FILE_TIMEOUT_MS,
       ),
@@ -71,7 +71,7 @@ export class ChatSandboxes extends Context.Service<
     ChatSandboxes,
     Effect.gen(function* () {
       const providers = yield* SandboxProviders
-      const resources = yield* SandboxResources
+      const factory = yield* SandboxProviderFactory
       const acquireSandbox = yield* makeChatSandboxLeases
 
       const session = Effect.fn("ChatSandboxes.session")(
@@ -81,10 +81,10 @@ export class ChatSandboxes extends Context.Service<
             organizationId,
             id: input.sandboxProviderId,
           })
-          const provider = yield* resources.provider({ ...configuration, organizationId })
+          const provider = yield* factory.create(configuration.provider, configuration)
           const scope = yield* Scope.fork(yield* Effect.scope)
           const definition = defineSandbox({
-            id: `${APP_HANDLE}-chat-${input.agentId}-${input.sandboxProviderId}-${configuration.lockVersion}`,
+            id: `${APP_HANDLE}-chat-${input.agentId}-${input.sandboxProviderId}`,
             provider,
             // No snapshot: the workspace is empty until the agent writes to it, so an after-setup
             // snapshot would cost a round trip per create and restore nothing worth restoring.
@@ -118,8 +118,8 @@ export class ChatSandboxes extends Context.Service<
               return handle
             }).pipe(
               Effect.onError(() => Scope.close(scope, Exit.void)),
-              Effect.tapErrorTag("SandboxOperationFailed", (error) =>
-                logSandboxFailure("start", error),
+              Effect.tapErrorTag("ChatSandboxOperationFailed", (error) =>
+                logChatSandboxFailure("start", error),
               ),
               Effect.tapError(() => report({ state: "error" })),
               Effect.mapError(() => new ChatSandboxUnavailable()),
@@ -131,9 +131,6 @@ export class ChatSandboxes extends Context.Service<
                 alreadyClaimed
                   ? Deferred.await(started)
                   : start(report).pipe(Effect.onExit((exit) => Deferred.done(started, exit))),
-              ).pipe(
-                Effect.tap((handle) => resources.touch(organizationId, handle.id)),
-                Effect.mapError(() => new ChatSandboxUnavailable()),
               ),
             prepareUploads: (files) =>
               Effect.gen(function* () {
@@ -141,7 +138,6 @@ export class ChatSandboxes extends Context.Service<
                 const handle = yield* Deferred.poll(started)
                 if (Option.isNone(handle)) return
                 const running = yield* handle.value
-                yield* resources.touch(organizationId, running.id)
                 const additions = files.filter((file) => !uploaded.has(file.handle))
                 yield* writeChatSandboxUploads(running, additions)
                 for (const file of additions) uploaded.add(file.handle)
@@ -161,6 +157,6 @@ export class ChatSandboxes extends Context.Service<
   )
 
   static readonly layer = ChatSandboxes.layerNoDeps.pipe(
-    Layer.provide([SandboxProviders.layer, SandboxResources.layer]),
+    Layer.provide([SandboxProviders.layer, SandboxProviderFactory.layer]),
   )
 }
