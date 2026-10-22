@@ -42,9 +42,9 @@ test.describe("with a Docker daemon", () => {
         chat.toolRow(/Could not write/),
         "The sandbox refused a file write, which usually means the server could not reach Docker",
       ).toHaveCount(0)
-      await expect(chat.toolRow(/^Wrote /)).toBeVisible()
+      await expect(chat.toolRow(/^Wrote /).first()).toBeVisible()
       // A finished command only prints its exit status when it actually ran.
-      await expect(chat.toolRow(/exit 0/)).toBeVisible()
+      await expect(chat.toolRow(/exit 0/).first()).toBeVisible()
     })
 
     await test.step("open the sandbox panel and check the written file is listed", async () => {

@@ -1,3 +1,11 @@
+diff --git a/dist/_chunks/nitro.mjs b/dist/_chunks/nitro.mjs
+index 9b3436b150ab4c4166dbbcc9be4f98134171fdaf..e76fc379460a4c34ce41edc0da55274b9f8d8624 100644
+--- a/dist/_chunks/nitro.mjs
++++ b/dist/_chunks/nitro.mjs
+@@ -749,0 +750,3 @@ async function prerender(nitro) {
++	// Wait for cold imports. Remove once Nitro awaits worker readiness before prerendering.
++	// https://github.com/unjs/env-runner#runner-api
++	await prerenderer.waitForReady();
 diff --git a/dist/presets/bun/runtime/bun.mjs b/dist/presets/bun/runtime/bun.mjs
 index 91b723f0804e10a919004798e6909844f1273cec..8fa4d920e2f93a7a42ba76e1b1f36af135804551 100644
 --- a/dist/presets/bun/runtime/bun.mjs

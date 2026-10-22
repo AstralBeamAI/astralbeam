@@ -107,14 +107,16 @@ function chatTestLayer(options: {
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
+  readonly sandboxSession?: typeof ChatSandboxes.Service.session
 }) {
   const agents = {
     resolveForChat: () =>
       options.agent ? Effect.succeed(options.agent) : Effect.fail(new AgentNotFound()),
   } as unknown as Agents["Service"]
   const sandboxes = {
-    session: () => Effect.fail(new ChatSandboxConfigurationUnreadable()),
-  } as unknown as ChatSandboxes["Service"]
+    session:
+      options.sandboxSession ?? (() => Effect.fail(new ChatSandboxConfigurationUnreadable())),
+  }
   return Chat.layerNoDeps.pipe(
     Layer.provide([
       Layer.succeed(ChatFiles, {
@@ -567,9 +569,11 @@ describe("Chat.run", () => {
     }),
   )
 
-  it.effect("aborts the provider request before closing the run when the client goes away", () =>
+  it.effect("releases the sandbox after aborting a disconnected run", () =>
     Effect.gen(function* () {
-      const iterable = yield* Stream.toAsyncIterableEffect(yield* runChat())
+      const events = yield* runChat()
+      assert.isEmpty(chatRunTest.order)
+      const iterable = yield* Stream.toAsyncIterableEffect(events)
       const iterator = iterable[Symbol.asyncIterator]()
       const first = yield* Effect.promise(() => iterator.next())
       assert.strictEqual((first.value as { type: string }).type, "RUN_STARTED")
@@ -577,7 +581,30 @@ describe("Chat.run", () => {
       const pending = iterator.next()
       yield* Effect.promise(() => iterator.return!())
       yield* Effect.promise(() => pending)
-      assert.deepStrictEqual(chatRunTest.order, ["aborted", "closed", "interrupted"])
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+      assert.deepStrictEqual(chatRunTest.order, [
+        "sandbox-created",
+        "aborted",
+        "closed",
+        "sandbox-released",
+        "interrupted",
+      ])
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: sandboxedAgent,
+          model: CHAT_TEST_MODEL,
+          sandboxSession: () =>
+            Effect.acquireRelease(
+              Effect.sync(() => chatRunTest.order.push("sandbox-created")),
+              () => Effect.sync(() => chatRunTest.order.push("sandbox-released")),
+            ).pipe(
+              Effect.as({
+                acquire: () => Effect.die("unused"),
+                prepareUploads: () => Effect.void,
+              }),
+            ),
+        }),
+      ),
+    ),
   )
 })

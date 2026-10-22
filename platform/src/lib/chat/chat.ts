@@ -244,31 +244,6 @@ export class Chat extends Context.Service<
         if (log && attachments.length > 0) {
           yield* log("attachment", `${attachments.length} attachment(s) normalized`, attachments)
         }
-        // Resolving the sandbox provisions nothing. An unreadable configuration drops its tools and
-        // prompts together, so the agent never offers a capability it does not have.
-        const session = agent.sandboxProviderId
-          ? yield* sandboxes
-              .session({
-                sandboxProviderId: agent.sandboxProviderId,
-                agentId: agent.id,
-                principal,
-                threadId: params.threadId,
-                runId: params.runId,
-                uploads: files,
-              })
-              .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
-          : undefined
-        const systemPrompts = [
-          CHAT_SYSTEM_PROMPT,
-          ...(unknownOutcome
-            ? [
-                "An earlier action in this turn has an unknown outcome. It may already have taken effect. Explain the uncertainty and ask the user to verify it before requesting another action. Do not assert failure.",
-              ]
-            : []),
-          ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
-          ...(session ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT] : []),
-          agent.systemPrompt,
-        ]
         const services = yield* Effect.context<never>()
         const limits = yield* usageLimits.applicable({
           organizationId: principal.organization.id,
@@ -291,6 +266,31 @@ export class Chat extends Context.Service<
                 .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
+            // Resolving the sandbox provisions nothing. An unreadable configuration drops its tools and
+            // prompts together, so the agent never offers a capability it does not have.
+            const session = agent.sandboxProviderId
+              ? yield* sandboxes
+                  .session({
+                    sandboxProviderId: agent.sandboxProviderId,
+                    agentId: agent.id,
+                    principal,
+                    threadId: params.threadId,
+                    runId: params.runId,
+                    uploads: files,
+                  })
+                  .pipe(Effect.catchTag("ChatSandboxConfigurationUnreadable", () => Effect.void))
+              : undefined
+            const systemPrompts = [
+              CHAT_SYSTEM_PROMPT,
+              ...(unknownOutcome
+                ? [
+                    "An earlier action in this turn has an unknown outcome. It may already have taken effect. Explain the uncertainty and ask the user to verify it before requesting another action. Do not assert failure.",
+                  ]
+                : []),
+              ...(files.length > 0 ? [CHAT_ATTACHMENT_SYSTEM_PROMPT] : []),
+              ...(session ? [CHAT_SANDBOX_SYSTEM_PROMPT, CHAT_SANDBOX_ARTIFACT_SYSTEM_PROMPT] : []),
+              agent.systemPrompt,
+            ]
             const mcp = unknownOutcome
               ? { tools: [], presentation: [], unavailable: [] }
               : yield* mcpTools.acquire(input.managed.claim.scope)

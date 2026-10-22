@@ -12,10 +12,12 @@ export function openAlertDialog(page: Page): Locator {
   return page.locator('[data-slot="alert-dialog-content"]')
 }
 
-/**
- * Waits for a success toast. A mutation's own controls are disabled while it runs and enabled
- * again afterwards, so only the toast tells a caller the write actually landed.
- */
+/** Verifies and dismisses the expected toast so a later action cannot reuse it. */
 export async function expectToast(page: Page, title: string): Promise<void> {
-  await expect(page.locator('[data-slot="toast-title"]').filter({ hasText: title })).toBeVisible()
+  const toast = page.locator('[data-slot="toast"]').filter({
+    has: page.getByText(title, { exact: true }),
+  })
+  await expect(toast).toBeVisible()
+  await toast.locator('[data-slot="toast-close"]').click()
+  await expect(toast).toHaveCount(0)
 }
