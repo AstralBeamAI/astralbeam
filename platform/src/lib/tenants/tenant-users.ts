@@ -262,7 +262,7 @@ export class TenantUsers extends Context.Service<
               asc(chatMessage.threadId),
               asc(chatMessage.id),
             )
-            .limit(1000)
+            .limit(5000)
           for (const {
             tenantUserId,
             usage,
@@ -290,7 +290,7 @@ export class TenantUsers extends Context.Service<
             }
             costs.set(tenantUserId, cost === null ? null : BigDecimal.sum(previous!, cost))
           }
-          if (replies.length < 1000) break
+          if (replies.length < 5000) break
           cursor = replies.at(-1)!
         }
         return {

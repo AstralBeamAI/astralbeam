@@ -1500,7 +1500,7 @@ describe("REST API through the Effect Fetch handler", () => {
       },
     }
     restTestState.usageReplies = [
-      ...Array.from({ length: 1000 }, () => ({
+      ...Array.from({ length: 5000 }, () => ({
         ...pricedReply,
         usage: { promptTokens: 1, completionTokens: 0 },
       })),
@@ -1537,7 +1537,7 @@ describe("REST API through the Effect Fetch handler", () => {
       end: "2024-06-01T07:04:56.123Z",
       items: ids.map((id, index) => ({
         tenant_user_id: id,
-        cost_usd: ["1.494567", null, "0"][index],
+        cost_usd: ["1.506567", null, "0"][index],
       })),
     })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, ...ids, restOrgId])
