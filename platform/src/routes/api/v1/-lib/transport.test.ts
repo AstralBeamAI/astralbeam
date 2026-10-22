@@ -1450,90 +1450,85 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.predicates).toEqual([])
   })
 
-  test.each([
-    "api-key",
-    "owner",
-    "developer",
-    "viewer,developer",
-    "viewer",
-    "tenant-admin",
-    "tenant-user",
-  ])("%s can only read user usage with organization management permissions", async (role) => {
-    const organizationJwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
-    const tenantToken = role.startsWith("tenant-")
-    const headers =
-      role === "api-key"
-        ? { "X-API-Key": restTestApiKey }
-        : {
-            Authorization: `Bearer ${tenantToken ? restTenantJwt : organizationJwt}`,
-          }
-    restTestState.organizationAuth.mockReturnValue(
-      Effect.succeed({
-        organizationId: restOrgId,
-        currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
-      }),
-    )
-    restTestState.chat.mockResolvedValue({
-      ...restPrincipal,
-      tenantUser: { ...restPrincipal.tenantUser, admin: role === "tenant-admin" },
-    })
-    const pricedReply = {
-      tenantUserId: restUserId,
-      usage: { promptTokens: 1000, completionTokens: 0 },
-      providerId: restOrgId,
-      providerType: "openai",
-      modelId: "custom",
-      configuration: {
-        currency: "USD",
-        pricingSource: { kind: "manual" },
-        prices: { inputPerMillion: "3", outputPerMillion: "15" },
-        contextTiers: [],
-        maxInputTokens: 100_000,
-        contextWindowTokens: null,
-        maxOutputTokens: 4000,
-        outputCap: 1000,
-      },
-    }
-    restTestState.usageReplies = [
-      {
-        ...pricedReply,
-        usage: { ...pricedReply.usage, cost: 1.234567 },
-      },
-      pricedReply,
-      {
-        ...pricedReply,
-        providerId: restOtherId,
+  test.each(["api-key", "owner", "developer", "viewer", "tenant-admin", "tenant-user"])(
+    "%s can only read user usage with organization management permissions",
+    async (role) => {
+      const organizationJwt = `${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`
+      const tenantToken = role.startsWith("tenant-")
+      const headers =
+        role === "api-key"
+          ? { "X-API-Key": restTestApiKey }
+          : {
+              Authorization: `Bearer ${tenantToken ? restTenantJwt : organizationJwt}`,
+            }
+      restTestState.organizationAuth.mockReturnValue(
+        Effect.succeed({
+          organizationId: restOrgId,
+          currentUser: { id: restUserId, name: "Operator", email: "operator@example.com", role },
+        }),
+      )
+      restTestState.chat.mockResolvedValue({
+        ...restPrincipal,
+        tenantUser: { ...restPrincipal.tenantUser, admin: role === "tenant-admin" },
+      })
+      const pricedReply = {
+        tenantUserId: restUserId,
+        usage: { promptTokens: 1000, completionTokens: 0 },
+        providerId: restOrgId,
+        providerType: "openai",
+        modelId: "custom",
         configuration: {
-          ...pricedReply.configuration,
-          prices: { inputPerMillion: "7", outputPerMillion: "15" },
+          currency: "USD",
+          pricingSource: { kind: "manual" },
+          prices: { inputPerMillion: "3", outputPerMillion: "15" },
+          contextTiers: [],
+          maxInputTokens: 100_000,
+          contextWindowTokens: null,
+          maxOutputTokens: 4000,
+          outputCap: 1000,
         },
-      },
-      { ...pricedReply, tenantUserId: restOtherId, usage: null },
-      { ...pricedReply, tenantUserId: restOtherId },
-    ]
-    const ids = [restUserId, restOtherId, "019a0000-0000-7000-8000-000000000005"]
-    restTestState.rows.push(
-      [restTenantRow],
-      ids.map((id) => ({ ...restUserRow, id })),
-    )
-    const query = new URLSearchParams({
-      user_ids: ids.join(","),
-      start: "2026-10-01",
-      end: "2026-11-01",
-    })
-    const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`, {
-      headers,
-    })
-    const allowed = role !== "viewer" && !tenantToken
-    expect(response.status).toBe(allowed ? 200 : 403)
-    expect(response.headers.get("cache-control")).toContain("no-store")
-    const body = (await response.json()) as { items: Record<string, unknown>[] }
-    const expected = allowed
-      ? ids.map((id, index) => ({ tenant_user_id: id, cost_usd: ["1.244567", null, "0"][index] }))
-      : undefined
-    expect(body.items).toEqual(expected)
-    expect(restTestState.usagePredicates).toHaveLength(allowed ? 1 : 0)
-  })
+      }
+      restTestState.usageReplies = [
+        {
+          ...pricedReply,
+          usage: { ...pricedReply.usage, cost: 1.234567 },
+        },
+        pricedReply,
+        {
+          ...pricedReply,
+          providerId: restOtherId,
+          configuration: {
+            ...pricedReply.configuration,
+            prices: { inputPerMillion: "7", outputPerMillion: "15" },
+          },
+        },
+        { ...pricedReply, tenantUserId: restOtherId, usage: null },
+        { ...pricedReply, tenantUserId: restOtherId },
+      ]
+      const ids = [restUserId, restOtherId, "019a0000-0000-7000-8000-000000000005"]
+      restTestState.rows.push(
+        [restTenantRow],
+        ids.map((id) => ({ ...restUserRow, id })),
+      )
+      const query = new URLSearchParams({
+        user_ids: ids.join(","),
+        start: "2026-10-01",
+        end: "2026-11-01",
+      })
+      const response = await restRequest(`/tenants/${restTenantId}/tenant_users/usage?${query}`, {
+        headers,
+      })
+      const allowed = role !== "viewer" && !tenantToken
+      expect(response.status).toBe(allowed ? 200 : 403)
+      expect(response.headers.get("cache-control")).toContain("no-store")
+      const body = (await response.json()) as { items: Record<string, unknown>[] }
+      const expected = allowed
+        ? ids.map((id, index) => ({ tenant_user_id: id, cost_usd: ["1.244567", null, "0"][index] }))
+        : undefined
+      expect(body.items).toEqual(expected)
+      expect(restTestState.usagePredicates).toHaveLength(allowed ? 1 : 0)
+    },
+  )
 
   test("usage scopes requested users and saved replies to the Tenant and UTC range", async () => {
     restTestState.rows.push([restTenantRow], [restUserRow])

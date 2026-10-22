@@ -77,6 +77,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
   const { Icon } = config
   const requiresTenant = config.tenantPrompt !== null
   const fetching = useIsFetching()
+  const fetchingRows = useIsFetching({ queryKey: [kind] })
   const [selectedTenant, setSelectedTenant] = useState<TenantRecordEncoded | null>(null)
   const [search, setSearch] = useState("")
   const [q] = useDebouncedValue(search.trim(), { wait: 300 })
@@ -183,7 +184,7 @@ export function ListingWidget({ options, kind, session, onRefresh, onComplete }:
           className="ms-auto flex shrink-0 items-center gap-2"
         >
           <NativeSelect
-            disabled={awaitingTenant || fetching > 0}
+            disabled={awaitingTenant || fetchingRows > 0}
             aria-label="Rows per page"
             className="min-w-32"
             value={size}
@@ -306,14 +307,12 @@ function DirectoryPage({
   admin: "all" | "true" | "false"
   size: number
 }) {
-  const queryClient = useQueryClient()
   const [cursor, setCursor] = useState<Cursor>({})
   const query = useQuery<TenantPage | TenantUserPage>({
     queryKey: [kind, tenantId, q, admin, size, cursor],
     queryFn: ({ signal }) =>
       loadListingPage(session, { kind, tenantId, q, admin, size, cursor }, signal),
   })
-  useListingCompletion(onComplete, query.isPending || query.fetchStatus !== "idle", query.error)
   const auth = authenticationState(session.auth)
   const userIds = query.data?.items.map(({ id }) => id).toSorted() ?? []
   const now = new Date()
@@ -342,9 +341,8 @@ function DirectoryPage({
       end,
     ],
     enabled: usageEnabled,
-    staleTime: 30_000,
     gcTime: 60_000,
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ signal, client }) => {
       try {
         return await loadTenantUserUsage(
           session,
@@ -354,11 +352,18 @@ function DirectoryPage({
         )
       } catch (error) {
         if (isAstralBeamApiError(error) && [401, 403].includes(error.status))
-          queryClient.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })
+          client.removeQueries({ queryKey: ["tenant-user-usage"], type: "inactive" })
         throw error
       }
     },
   })
+  useListingCompletion(
+    onComplete,
+    query.isPending ||
+      query.fetchStatus !== "idle" ||
+      (usageEnabled && (usage.isPending || usage.fetchStatus !== "idle")),
+    query.error ?? (usageEnabled ? usage.error : null),
+  )
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {query.isError ? (

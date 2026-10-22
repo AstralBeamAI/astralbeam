@@ -163,7 +163,6 @@ export class TenantUsers extends Context.Service<
           .where(and(tenantUserWhere(scope, tenantId), inArray(tenantUser.id, userIds)))
           .orderBy(asc(tenantUser.id))
           .limit(userIds.length)
-          .pipe(mapDatabaseErrors())
         if (users.length === 0) return { start, end, items: [] }
         const initiator = sql<string>`${chatMessage.metadata}->'provenance'->>'initiatorTenantUserId'`
         const replies = yield* db
@@ -208,9 +207,10 @@ export class TenantUsers extends Context.Service<
               ),
             ),
           )
-          .pipe(mapDatabaseErrors())
         const catalog = yield* readModelPriceCatalog.pipe(Effect.provideService(Config, config))
-        const costs = new Map<string, BigDecimal.BigDecimal | null>()
+        const costs = new Map<string, BigDecimal.BigDecimal | null>(
+          users.map(({ id }) => [id, BigDecimal.fromNumberUnsafe(0)]),
+        )
         const pricingByModel = new Map<string, ReturnType<typeof effectiveModelConfiguration>>()
         for (const {
           tenantUserId,
@@ -239,23 +239,17 @@ export class TenantUsers extends Context.Service<
             }
             if (pricing) cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
           }
-          costs.set(
-            tenantUserId,
-            cost === null ? null : BigDecimal.sum(previous ?? BigDecimal.fromNumberUnsafe(0), cost),
-          )
+          costs.set(tenantUserId, cost === null ? null : BigDecimal.sum(previous!, cost))
         }
         return {
           start,
           end,
-          items: users.map((user) => {
-            const cost = costs.get(user.id)
-            return {
-              tenantUserId: user.id,
-              costUsd: cost === null ? null : cost ? BigDecimal.format(cost) : "0",
-            }
-          }),
+          items: Array.from(costs, ([tenantUserId, cost]) => ({
+            tenantUserId,
+            costUsd: cost === null ? null : BigDecimal.format(cost),
+          })),
         }
-      })
+      }, mapDatabaseErrors())
 
       const get = Effect.fn("TenantUsers.get")(function* (input: {
         scope: TenantScope
