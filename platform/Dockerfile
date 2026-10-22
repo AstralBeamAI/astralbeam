@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Keep build tools out of the runtime: https://docs.docker.com/build/building/multi-stage/
-FROM oven/bun:1.4.3 AS build
+FROM oven/bun:1.4.4 AS build
 
 WORKDIR /app
 # Source edits reuse dependency installation: https://docs.docker.com/build/cache/optimize/#order-your-layers
