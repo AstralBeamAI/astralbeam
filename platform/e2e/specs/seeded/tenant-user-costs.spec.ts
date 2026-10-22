@@ -29,7 +29,8 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       `insert into tenant_user (organization_id, tenant_id, id, external_id, name, metadata)
        values ($1, $2, $4, 'priced', 'Priced user', jsonb_build_object('details', repeat('Recorded customer context. ', 10))),
               ($1, $3, $4, 'priced', 'Priced user', '{}'),
-              ($1, $2, default, 'unpriced', 'Unpriced user', '{}'), ($1, $2, default, 'unused', 'Unused user', '{}')`,
+              ($1, $2, default, 'unpriced', 'Unpriced user', '{}'), ($1, $2, default, 'unused', 'Unused user', '{}'),
+              ($1, $2, default, 'small', 'Small usage', '{}')`,
       [organization.id, tenantId, otherTenantId, crypto.randomUUID()],
     )
     await pool.query(
@@ -50,7 +51,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
              else jsonb_build_object('cost', c.spend) end)), c.created_at
        from inputs i join tenant_user u on u.organization_id = $1 and u.tenant_id = i.tenant_id and u.id = i.author_tenant_user_id
        join (values
-         ('priced', 0.01, now()), ('priced', 0.0023, now()), ('unpriced', null, now()),
+         ('priced', 0.01, now()), ('priced', 0.0023, now()), ('small', 0.00001, now()), ('unpriced', null, now()),
          ('priced', 7, (date_trunc('month', now() at time zone 'UTC') - interval '1 microsecond') at time zone 'UTC'),
          ('priced', 8, (date_trunc('month', now() at time zone 'UTC') + interval '1 month') at time zone 'UTC')
        ) c(external_id, spend, created_at) on c.external_id = u.external_id`,
@@ -91,7 +92,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
     }
     const filterUsers = async (q: string) => {
       await directory.getByRole("searchbox").fill(q)
-      await expect(directory.getByRole("row")).toHaveCount(q ? 3 : 4)
+      await expect(directory.getByRole("row")).toHaveCount(q ? 3 : 5)
     }
     await test.step("Rows and pagination remain usable while usage is slow or fails", async () => {
       const started = page.waitForRequest(`**${usagePath}?**`)
@@ -101,9 +102,18 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await userRow("Priced user").getByText("Show full value", { exact: true }).click()
       await expect(directory.getByRole("combobox", { name: "Rows per page" })).toBeEnabled()
       await expect(directory.getByText("Loading usage…", { exact: true })).toBeVisible()
+      const month = new Date().toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+      await expect(
+        directory.getByText(`Usage (USD) · ${month} · UTC`, { exact: true }),
+      ).toBeVisible()
       await captureMilestone(page, "tenant-user-costs-loading")
       release.resolve()
       await expect(directory.getByText("Unable to load usage", { exact: true })).toBeVisible()
+      await expect(costHeader).toBeVisible()
       await expect(userRow("Priced user")).toBeVisible()
       await expect(directory.getByRole("combobox", { name: "Rows per page" })).toBeEnabled()
       await captureMilestone(page, "tenant-user-costs-error")
@@ -113,6 +123,10 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       await expect(userRow("Priced user")).toContainText("$0.0123")
       await expect(userRow("Unpriced user")).toContainText("Unavailable")
       await expect(userRow("Unused user")).toContainText("$0.00")
+      await expect(userRow("Small usage").getByText("<$0.0001", { exact: true })).toHaveAttribute(
+        "title",
+        "0.00001 USD",
+      )
       await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
       await refreshUsage()
       await expect(userRow("Priced user").locator("details")).toHaveJSProperty("open", true)
@@ -137,7 +151,7 @@ test("TenantUser monthly costs are visible to owners and omitted for viewers", a
       expect(usageRequests).toBe(requests + 1)
       for (const status of [403, 503]) {
         await refreshUsage(status)
-        await expect(costHeader).toHaveCount(0)
+        await expect(costHeader).toHaveCount(status === 403 ? 0 : 1)
         await expect(directory.getByText("$0.0123", { exact: true })).toHaveCount(0)
       }
       await expect(userRow("Priced user")).toBeVisible()

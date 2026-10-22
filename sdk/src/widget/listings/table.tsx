@@ -180,9 +180,13 @@ export function DirectoryTable({
         ) : (
           <span
             className="tabular-nums whitespace-nowrap"
-            title="Current UTC month. Uses provider-reported costs when available, otherwise current configured token rates. Deleted conversations are excluded."
+            title={cost == null ? undefined : `${cost} USD`}
           >
-            {cost == null ? "Unavailable" : usageCostFormat.format(Number(cost))}
+            {cost == null
+              ? "Unavailable"
+              : Number(cost) > 0 && Number(cost) < 0.0001
+                ? `<${usageCostFormat.format(0.0001)}`
+                : usageCostFormat.format(Number(cost))}
           </span>
         )
       },

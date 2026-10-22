@@ -343,6 +343,7 @@ function DirectoryPage({
       }
     },
   })
+  const usageDenied = isAstralBeamApiError(usage.error) && [401, 403].includes(usage.error.status)
   useListingCompletion(
     onComplete,
     query.isPending ||
@@ -352,6 +353,16 @@ function DirectoryPage({
   )
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
+      {usageEnabled && !usageDenied && (
+        <p
+          className="text-sm text-muted-foreground"
+          title="Uses provider-reported costs when available, otherwise current configured token rates. Deleted conversations are excluded."
+        >
+          Usage (USD) ·{" "}
+          {now.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })} ·
+          UTC
+        </p>
+      )}
       {query.isError ? (
         <ListingError error={query.error} retry={() => void query.refetch()} />
       ) : query.isPending ? (
@@ -368,10 +379,12 @@ function DirectoryPage({
             options={options}
             filtered={!!q || admin !== "all"}
             usage={
-              usageEnabled && !usage.isError
+              usageEnabled && !usageDenied
                 ? {
                     costs: new Map(
-                      usage.data?.items.map((item) => [item.tenant_user_id, item.cost_usd]),
+                      usage.isError
+                        ? []
+                        : usage.data?.items.map((item) => [item.tenant_user_id, item.cost_usd]),
                     ),
                     loading: usage.isPending,
                   }
