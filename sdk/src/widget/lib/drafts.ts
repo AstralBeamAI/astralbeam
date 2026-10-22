@@ -19,6 +19,31 @@ function draftStorageKey(apiUrl: string, identity: string, threadId: string): st
   return JSON.stringify([apiUrl.replace(/\/+$/, ""), identity, threadId])
 }
 
+function isStoredDraftAttachment(file: unknown): file is DraftAttachment {
+  return (
+    typeof file === "object" &&
+    file !== null &&
+    "id" in file &&
+    typeof file.id === "string" &&
+    "name" in file &&
+    typeof file.name === "string" &&
+    "size" in file &&
+    typeof file.size === "number" &&
+    Number.isFinite(file.size) &&
+    file.size >= 0 &&
+    "mimeType" in file &&
+    typeof file.mimeType === "string" &&
+    "status" in file &&
+    file.status === "ready" &&
+    "fileId" in file &&
+    typeof file.fileId === "string" &&
+    (!("kind" in file) ||
+      (typeof file.kind === "string" &&
+        ["image", "pdf", "text", "data", "office"].includes(file.kind))) &&
+    (!("error" in file) || typeof file.error === "string")
+  )
+}
+
 /** Reads or writes unsent text, or with `sent`, the recovery copy of a send not yet accepted. */
 export function storedThreadDraft(
   apiUrl: string,
@@ -58,8 +83,12 @@ export function storedThreadAttachments({
   const applyChanges = () => {
     if (!identity) return []
     const key = `astralbeam:attachments:${draftStorageKey(apiUrl, identity, threadId)}`
-    const read = (key: string): DraftAttachment[] =>
-      JSON.parse(globalThis.localStorage?.getItem(key) ?? "[]") as DraftAttachment[]
+    const read = (key: string): DraftAttachment[] => {
+      const files: unknown = JSON.parse(globalThis.localStorage?.getItem(key) ?? "[]")
+      if (!Array.isArray(files) || !files.every(isStoredDraftAttachment))
+        throw new TypeError("Stored attachment draft is invalid")
+      return files
+    }
     let attachments = read(key)
     if (update)
       attachments = update(attachments).filter(

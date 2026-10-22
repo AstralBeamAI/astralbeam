@@ -69,12 +69,45 @@ export function validatedApiUrl(value: string): string {
   return value
 }
 
+function isConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isConfigBindings(value: unknown): value is Record<string, Binding> {
+  return (
+    isConfigRecord(value) &&
+    Object.values(value).every(
+      (binding) =>
+        isConfigRecord(binding) &&
+        typeof binding.api_url === "string" &&
+        typeof binding.api_key === "string" &&
+        isConfigRecord(binding.organization) &&
+        typeof binding.organization.id === "string" &&
+        typeof binding.organization.name === "string" &&
+        typeof binding.organization.slug === "string",
+    )
+  )
+}
+
+function parseConfig(source: string): ConfigFile {
+  try {
+    const config: unknown = JSON.parse(source)
+    if (isConfigRecord(config)) {
+      const bindings = config.bindings === undefined ? {} : config.bindings
+      if (isConfigBindings(bindings)) return { bindings }
+    }
+  } catch {
+    // Report only the file location, never JSON excerpts that may contain API keys.
+  }
+  throw new Error(`Invalid AstralBeam login bindings in ${configPath()}`)
+}
+
 export async function readConfig(): Promise<ConfigFile> {
   try {
-    const config = JSON.parse(await readFile(configPath(), "utf8")) as Partial<ConfigFile>
-    return { bindings: config.bindings ?? {} }
+    return parseConfig(await readFile(configPath(), "utf8"))
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { bindings: {} }
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return { bindings: {} }
     throw error
   }
 }

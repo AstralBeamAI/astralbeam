@@ -354,11 +354,14 @@ function restChatAdmission(claim = restWriterClaim()): ChatAdmission {
   return { thread: restThread, inputMessage: restSavedMessage, assistantMessage: null, claim }
 }
 
-function restRequest(path: string, init: RequestInit = {}) {
+function restRequest(path: string, { json, ...init }: RequestInit & { json?: unknown } = {}) {
+  const headers = new Headers(init.headers ?? { "X-API-Key": restTestApiKey })
+  if (json !== undefined) headers.set("Content-Type", "application/json")
   return restWebHandler.handler(
     new Request(`http://localhost/api/v1${path}`, {
       ...init,
-      headers: init.headers ?? { "X-API-Key": restTestApiKey },
+      headers,
+      ...(json === undefined ? {} : { body: JSON.stringify(json) }),
     }),
   )
 }
@@ -367,7 +370,6 @@ async function restJson<S extends Schema.Constraint>(
   path: string,
   {
     query,
-    json,
     ...init
   }: RequestInit & {
     query?: Record<string, string | number>
@@ -377,15 +379,7 @@ async function restJson<S extends Schema.Constraint>(
   const search = query
     ? new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)]))
     : undefined
-  const response = await restRequest(path + (search?.size ? `?${search}` : ""), {
-    ...init,
-    ...(json === undefined
-      ? {}
-      : {
-          body: JSON.stringify(json),
-          headers: { "X-API-Key": restTestApiKey, "Content-Type": "application/json" },
-        }),
-  })
+  const response = await restRequest(path + (search?.size ? `?${search}` : ""), init)
   const body: unknown = await response.json()
   if (!response.ok) {
     const error = Schema.decodeUnknownSync(RestApiErrorSchema)(body)
@@ -918,8 +912,8 @@ describe("REST API through the Effect Fetch handler", () => {
     )
     const shared = await restRequest(`/chat/threads/${restOtherId}/participants/${restUserId}`, {
       method: "PUT",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "member", expected_version: 0 }),
+      headers,
+      json: { role: "member", expected_version: 0 },
     })
     expect(shared.status).toBe(200)
     expect(await shared.json()).toEqual({
@@ -946,15 +940,15 @@ describe("REST API through the Effect Fetch handler", () => {
     })
     const response = await restRequest("/chat", {
       method: "POST",
-      headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+      json: {
         threadId: restOtherId,
         runId: "run",
         messages: [{ id: "new", role: "user", content: "Hello" }],
         tools: [],
         context: [],
         forwardedProps: { clientId: restUserId },
-      }),
+      },
     })
     restTestState.usageLimitReached = undefined
     expect(response.status).toBe(429)
@@ -995,8 +989,8 @@ describe("REST API through the Effect Fetch handler", () => {
     })
     const response = await restRequest(`/chat/threads/${restOtherId}/tool-results`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+      json: {
         client_id: restUserId,
         run_id: "run",
         results: [
@@ -1008,7 +1002,7 @@ describe("REST API through the Effect Fetch handler", () => {
             output: { created: true },
           },
         ],
-      }),
+      },
     })
     restTestState.usageLimitReached = undefined
     expect(response.status).toBe(200)
@@ -1045,11 +1039,8 @@ describe("REST API through the Effect Fetch handler", () => {
     const request = (body: unknown) =>
       restRequest("/chat", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${restTenantJwt}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+        headers: { Authorization: `Bearer ${restTenantJwt}` },
+        json: body,
       })
     restTestState.threadScope.mockReturnValue(Effect.fail(new ChatIdentityNotSynchronized()))
     expect((await request(input)).status).toBe(409)
@@ -1140,8 +1131,8 @@ describe("REST API through the Effect Fetch handler", () => {
     const request = (payload: unknown) =>
       restRequest(`/chat/threads/${restOtherId}/tool-results`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${restTenantJwt}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: { Authorization: `Bearer ${restTenantJwt}` },
+        json: payload,
       })
     const response = await request(body)
     expect(response.status).toBe(200)
@@ -1268,8 +1259,8 @@ describe("REST API through the Effect Fetch handler", () => {
     restTestState.rows.push([restTenantRow], [restTenantRow], [restTenantRow])
     const created = await restRequest("/tenants", {
       method: "POST",
-      body: JSON.stringify({ external_id: restTenantRow.externalId }),
-      headers: { "X-API-Key": restTestApiKey, "Content-Type": "application/json" },
+      json: { external_id: restTenantRow.externalId },
+      headers: { "X-API-Key": restTestApiKey },
     })
     expect(created.status).toBe(201)
     expect(created.headers.get("location")).toBe(`/api/v1/tenants/${restTenantId}`)

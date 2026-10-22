@@ -792,9 +792,12 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     const deletion = runAppEffect(organizationDeletion(deletedId))
     try {
       await vi.waitFor(async () => {
-        const waiting = await db.execute(sql`select 1 from pg_stat_activity
-          where wait_event_type = 'Lock' and query like 'delete from "tenant"%'`)
-        expect(waiting.rows).not.toHaveLength(0)
+        const waiting = await db.execute(
+          sql`select 1 from pg_stat_activity
+          where wait_event_type = 'Lock' and query like 'delete from "tenant"%'`,
+          "objects",
+        )
+        expect(waiting).not.toHaveLength(0)
       })
     } finally {
       await connection.query("rollback")

@@ -1,4 +1,4 @@
-import type { StreamChunk } from "@tanstack/ai/client"
+import { EventType, type StreamChunk } from "@tanstack/ai/client"
 import type { UIMessage } from "@tanstack/ai-client"
 // Type-only, so this chat-chunk module shares no runtime code with the client entry;
 // the logger itself (src/lib/debug.ts) loads eagerly because the loader logs too.
@@ -15,19 +15,6 @@ export function createDebugCallbacks(debug: DebugLogger | undefined) {
     onFinish: (message: UIMessage) => debug("run", "assistant turn finished", message),
     onError: (chatError: Error) => debug("error", chatError.message, chatError),
   }
-}
-
-// Loose view over the AG-UI chunk fields the logger reads; chunks are typed with
-// enum discriminants upstream, which plain string switches cannot narrow.
-interface ChunkFields {
-  type: string
-  messageId?: string
-  delta?: string
-  toolCallId?: string
-  toolCallName?: string
-  content?: string
-  runId?: string
-  message?: string
 }
 
 function parseJson(text: string): unknown {
@@ -52,36 +39,34 @@ function createChunkLogger(log: DebugLogger): (chunk: StreamChunk) => void {
     return text
   }
   return (chunk) => {
-    const event = chunk as unknown as ChunkFields
+    const event = chunk
     switch (event.type) {
-      case "TEXT_MESSAGE_CONTENT":
-      case "TEXT_MESSAGE_CHUNK":
+      case EventType.TEXT_MESSAGE_CONTENT:
+      case EventType.TEXT_MESSAGE_CHUNK:
         appendText(event.messageId ?? "text", event.delta ?? "")
         break
-      case "TEXT_MESSAGE_END":
+      case EventType.TEXT_MESSAGE_END:
         log("text", takeText(event.messageId ?? "text"), { messageId: event.messageId })
         break
-      case "REASONING_MESSAGE_CONTENT":
-      case "REASONING_MESSAGE_CHUNK":
-      case "THINKING_TEXT_MESSAGE_CONTENT":
+      case EventType.REASONING_MESSAGE_CONTENT:
+      case EventType.REASONING_MESSAGE_CHUNK:
         appendText(`reasoning:${event.messageId ?? "thinking"}`, event.delta ?? "")
         break
-      case "REASONING_MESSAGE_END":
-      case "THINKING_TEXT_MESSAGE_END":
+      case EventType.REASONING_MESSAGE_END:
         log("reasoning", takeText(`reasoning:${event.messageId ?? "thinking"}`), {
           messageId: event.messageId,
         })
         break
-      case "TOOL_CALL_START":
+      case EventType.TOOL_CALL_START:
         log("tool", `${event.toolCallName} call started`, chunk)
         toolCalls.set(event.toolCallId ?? "", { name: event.toolCallName ?? "", args: "" })
         break
-      case "TOOL_CALL_ARGS": {
+      case EventType.TOOL_CALL_ARGS: {
         const call = toolCalls.get(event.toolCallId ?? "")
         if (call) call.args += event.delta ?? ""
         break
       }
-      case "TOOL_CALL_END": {
+      case EventType.TOOL_CALL_END: {
         const call = toolCalls.get(event.toolCallId ?? "")
         toolCalls.delete(event.toolCallId ?? "")
         log("tool", `${call?.name ?? "tool"} input complete`, {
@@ -90,24 +75,23 @@ function createChunkLogger(log: DebugLogger): (chunk: StreamChunk) => void {
         })
         break
       }
-      case "TOOL_CALL_RESULT":
+      case EventType.TOOL_CALL_RESULT:
         log("tool", `result for tool call ${event.toolCallId}`, {
           toolCallId: event.toolCallId,
           messageId: event.messageId,
-          content: parseJson(event.content ?? ""),
+          content: typeof event.content === "string" ? parseJson(event.content) : event.content,
         })
         break
-      case "TEXT_MESSAGE_START":
-      case "REASONING_MESSAGE_START":
-      case "THINKING_TEXT_MESSAGE_START":
+      case EventType.TEXT_MESSAGE_START:
+      case EventType.REASONING_MESSAGE_START:
         break
-      case "RUN_STARTED":
+      case EventType.RUN_STARTED:
         log("run", `run ${event.runId} started`, chunk)
         break
-      case "RUN_FINISHED":
+      case EventType.RUN_FINISHED:
         log("run", `run ${event.runId} finished`, chunk)
         break
-      case "RUN_ERROR":
+      case EventType.RUN_ERROR:
         log("error", `run failed: ${event.message}`, chunk)
         break
       default:

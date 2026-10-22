@@ -164,12 +164,15 @@ describe.skipIf(!transactionIntegrationEnabled)("PostgreSQL transaction network 
     await database.transaction(async (tx) => {
       const owner = await tx.execute(
         sql`select pg_backend_pid() as pid, txid_current()::text as xid`,
+        "objects",
       )
       await tx.transaction(async (nested) => {
         expect(
-          (await nested.execute(sql`select pg_backend_pid() as pid, txid_current()::text as xid`))
-            .rows,
-        ).toEqual(owner.rows)
+          await nested.execute(
+            sql`select pg_backend_pid() as pid, txid_current()::text as xid`,
+            "objects",
+          ),
+        ).toEqual(owner)
       })
     })
     const before = requests

@@ -42,7 +42,7 @@ export function printTable(rows: readonly object[], columns: readonly string[]):
     columns.map((column) => cell((row as Record<string, unknown>)[column])),
   )
   const widths = columns.map((column, index) =>
-    Math.max(column.length, ...cells.map((row) => row[index]?.length ?? 0)),
+    cells.reduce((width, row) => Math.max(width, row[index]?.length ?? 0), column.length),
   )
   const line = (values: readonly string[]) =>
     `${values.map((value, index) => value.padEnd(widths[index] ?? 0)).join("  ")}`.trimEnd()
