@@ -7,6 +7,7 @@ import { beforeEach } from "vitest"
 import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
+  CHAT_SANDBOX_FILE_TIMEOUT_MS,
   CHAT_SANDBOX_IDLE_TTL_MS,
   CHAT_SANDBOX_MAX_LIVE,
   CHAT_SANDBOX_SHUTDOWN_TIMEOUT_MS,
@@ -185,7 +186,10 @@ describe("ChatSandboxes", () => {
       assert.strictEqual(sandboxTest.created, CHAT_SANDBOX_MAX_LIVE)
       sandboxTest.destroyFails = false
       sandboxTest.destroyed = []
-      const destroy = Promise.withResolvers<void>()
+      const destroy = yield* Effect.acquireRelease(
+        Effect.sync(() => Promise.withResolvers<void>()),
+        (gate) => Effect.sync(() => gate.resolve()),
+      )
       sandboxTest.destroyGate = destroy.promise
       sandboxTest.destroyStarted = yield* Deferred.make<void>()
       const next = yield* acquireFor(sandboxes, { threadId: "new-thread" }).pipe(Effect.forkChild)
@@ -198,8 +202,18 @@ describe("ChatSandboxes", () => {
       yield* Effect.yieldNow
       assert.strictEqual(sandboxTest.created, CHAT_SANDBOX_MAX_LIVE)
       assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-2"])
+      yield* TestClock.adjust(CHAT_SANDBOX_FILE_TIMEOUT_MS)
+      assert.strictEqual(
+        (yield* Effect.flip(Fiber.join(replacement)))._tag,
+        "ChatSandboxUnavailable",
+      )
+      assert.strictEqual(
+        (yield* Effect.flip(acquireFor(sandboxes, { threadId: "thread-1" })))._tag,
+        "ChatSandboxUnavailable",
+      )
       destroy.resolve()
-      yield* Fiber.join(replacement)
+      yield* Effect.yieldNow
+      yield* acquireFor(sandboxes, { threadId: "new-thread" })
       assert.strictEqual(sandboxTest.created, CHAT_SANDBOX_MAX_LIVE + 1)
       assert.deepStrictEqual(sandboxTest.destroyed, ["sandbox-2"])
     }).pipe(Effect.scoped, Effect.provide(sandboxesLayer)),

@@ -37,19 +37,22 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
 
   const destroyLease = (key: string, lease: ChatSandboxLease, timeout: Duration.Input) =>
     (lease.cleanup ??= runCleanup(
-      Effect.gen(function* () {
-        if (lease.record) {
-          const id = lease.record.providerSandboxId
-          yield* chatSandboxCall((signal) => lease.provider.destroy({ id, signal }), timeout)
+      chatSandboxCall(async (signal) => {
+        try {
+          if (lease.record) {
+            await lease.provider.destroy({ id: lease.record.providerSandboxId, signal })
+          }
+          leases.delete(key)
+        } finally {
+          // Abort may not stop deletion. Only provider settlement releases the cleanup fence.
+          // https://github.com/AstralBeamAI/astralbeam/pull/344#discussion_r4348581923
+          lease.cleanup = undefined
         }
-        leases.delete(key)
-        return true
-      }).pipe(
+      }, timeout).pipe(
+        Effect.as(true),
         Effect.catch((error) => logChatSandboxFailure("destroy", error).pipe(Effect.as(false))),
       ),
-    ).finally(() => {
-      lease.cleanup = undefined
-    }))
+    ))
 
   const sweepIdleLeases = Effect.gen(function* () {
     const cutoff = (yield* Clock.currentTimeMillis) - CHAT_SANDBOX_IDLE_TTL_MS
