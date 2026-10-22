@@ -1,6 +1,7 @@
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import type { TenantUserPage } from "../../../../../sdk/dist/api.js"
 import { SEED_ORGANIZATIONS } from "../../../../../platform/scripts/seed/fixtures.ts"
+import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
 import { seedTarget } from "../../worktree.ts"
@@ -115,4 +116,87 @@ test("retained directories reuse data after authentication, refresh and isolate 
   await expect(directory.user(admin.name)).toBeVisible()
   await expect(directory.user(seedTarget.user.name)).toHaveCount(0)
   expect({ tokens, sessions, lists }).toEqual({ tokens: 3, sessions: 3, lists: 3 })
+})
+
+test("host refresh waits for lazy loading, authentication and dependent directory rows", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  const token = await createAstralBeamToken(seedTarget)
+  const authentication = Promise.withResolvers<void>()
+  const tenant = Promise.withResolvers<void>()
+  const rows = Promise.withResolvers<void>()
+  let stage = ""
+  await page.route("**/__listing-token", async (route) => {
+    stage = "authentication"
+    await authentication.promise
+    await route.fulfill({ json: { token } })
+  })
+  await page.route("**/api/v1/tenants?*", async (route) => {
+    stage = "tenant"
+    await tenant.promise
+    await route.continue()
+  })
+  await page.route("**/api/v1/tenants/*/tenant_users?*", async (route) => {
+    stage = "rows"
+    await rows.promise
+    await route.continue()
+  })
+  await openVanillaDirectories(page, { initialAction: "refresh" }, ["users"])
+  const command = directory.commands.first()
+  await expect.poll(() => stage).toBe("authentication")
+  await expect(command).toHaveText("pending")
+  authentication.resolve()
+  await expect.poll(() => stage).toBe("tenant")
+  await expect(command).toHaveText("pending")
+  tenant.resolve()
+  await expect.poll(() => stage).toBe("rows")
+  await expect(command).toHaveText("pending")
+  rows.resolve()
+  await expect(command).toHaveText("fulfilled")
+  await expect(directory.user(seedTarget.user.name)).toBeVisible()
+  await captureMoment(page, "host-refresh-completes-after-authentication-and-rows")
+})
+
+test("new refreshes, reset and unmount cancel older host commands and discard late rows", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  const token = await createAstralBeamToken(seedTarget)
+  let hold: Promise<void> | undefined
+  let name: string = seedTarget.user.name
+  await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+  await page.route("**/api/v1/tenants/*/tenant_users?*", async (route) => {
+    const blocked = hold
+    const currentName = name
+    const response = await route.fetch()
+    const data = (await response.json()) as TenantUserPage
+    data.items.find((user) => user.external_id === seedTarget.user.id)!.name = currentName
+    await blocked
+    await route.fulfill({ response, json: data })
+  })
+  await openVanillaDirectories(page, {}, ["users"])
+  await expect(directory.user(name)).toBeVisible()
+
+  for (const replacement of ["refresh", "reset", "unmount"] as const) {
+    const blocked = Promise.withResolvers<void>()
+    hold = blocked.promise
+    name = `Stale ${replacement}`
+    const requested = page.waitForRequest("**/api/v1/tenants/*/tenant_users?*")
+    const previous = await directory.runCommand("refresh")
+    await requested
+    hold = undefined
+    name = `Current ${replacement}`
+    const command = replacement === "unmount" ? null : await directory.runCommand(replacement)
+    if (!command) await directory.unmount.click()
+    await expect(previous).toHaveText("AbortError")
+    blocked.resolve()
+    if (!command) await expect(directory.users).toHaveCount(0)
+    else {
+      await expect(command).toHaveText("fulfilled")
+      await expect(directory.user(name)).toBeVisible()
+      await expect(directory.user(`Stale ${replacement}`)).toHaveCount(0)
+    }
+  }
+  await expect(directory.hostErrors).toHaveText("0")
 })

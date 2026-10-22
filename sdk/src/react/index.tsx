@@ -15,14 +15,12 @@ export {
 } from "./listings.tsx"
 export type {
   AstralBeamThreadListProps,
+  AstralBeamThreadListRef,
   AstralBeamTenantListProps,
+  AstralBeamTenantListRef,
   AstralBeamTenantUserListProps,
+  AstralBeamTenantUserListRef,
 } from "./listings.tsx"
-export type {
-  AstralBeamThreadListHandle,
-  AstralBeamTenantListHandle,
-  AstralBeamTenantUserListHandle,
-} from "../client/listings.ts"
 import { createPortal } from "react-dom"
 // Self-reference rather than a relative path, so this entry shares the client entry's chat
 // chunk and its bundled React instead of bundling a second copy.

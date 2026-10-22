@@ -247,6 +247,14 @@ export const chatMessage = snakeCase.table(
       table.threadId,
       table.turnMessageId,
     ),
+    index("chat_message_user_usage_idx")
+      .on(
+        table.organizationId,
+        table.tenantId,
+        sql`(${table.metadata}->'provenance'->>'initiatorTenantUserId')`,
+        table.createdAt,
+      )
+      .where(sql`${table.role} = 'assistant'`),
     deferrableForeignKey({
       columns: [table.organizationId, table.tenantId, table.threadId],
       foreignColumns: [chatThread.organizationId, chatThread.tenantId, chatThread.id],

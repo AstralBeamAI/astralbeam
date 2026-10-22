@@ -14,6 +14,7 @@ import type { AstralBeamChatCore } from "../../core/session.ts"
 import { TooltipButton } from "../components/tooltip-button.tsx"
 import { ChatTranscript } from "../components/chat-transcript.tsx"
 import { AttachmentFileContext } from "../components/attachment-preview.tsx"
+import { type ListingCompletion, useListingCompletion } from "../lib/listing-completion.ts"
 
 const readOnlyTranscriptProps = {
   widgets: {},
@@ -29,12 +30,14 @@ export function ThreadViewer({
   onClose,
   ErrorFeedback,
   LoadingFeedback,
+  onComplete,
 }: {
   session: ListingSession
   thread: DirectoryThreadEncoded
   onClose: () => void
   ErrorFeedback: ComponentType<{ error: Error; retry: () => void }>
   LoadingFeedback: ComponentType
+  onComplete: ListingCompletion
 }) {
   const client = useQueryClient()
   const [accessError, setAccessError] = useState<Error | null>(null)
@@ -99,6 +102,11 @@ export function ThreadViewer({
     return projected
   }, [query.data])
   const error = accessError ?? query.error
+  useListingCompletion(
+    onComplete,
+    query.fetchStatus !== "idle" || (!accessError && query.isPending),
+    error,
+  )
   const inaccessible = isAstralBeamApiError(error) && [401, 403, 404].includes(error.status)
   const latest = query.data?.pages[0]?.thread ?? thread
   const content = (

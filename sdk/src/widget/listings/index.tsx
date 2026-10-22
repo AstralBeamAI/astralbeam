@@ -15,6 +15,7 @@ import type {
 import { chatStyles } from "../styles.generated.ts"
 import { disposeListingSession, type ListingSession, listingSession } from "../../core/listings.ts"
 import { ListingWidget } from "./listing-widget.tsx"
+import { waitWithSignal } from "../../lib/abort.ts"
 import {
   claimListingQueryClient,
   clearListingCache,
@@ -34,6 +35,8 @@ export interface ListingRenderer {
   revision: number
   session: ListingSession
   cacheIdentity?: string | undefined
+  refresh: () => Promise<void>
+  action?: PromiseWithResolvers<void> | undefined
 }
 
 export function renderListing(
@@ -41,6 +44,7 @@ export function renderListing(
   container: HTMLElement,
   options: Options,
   kind: "tenants" | "users" | "threads",
+  refresh: () => Promise<void>,
 ): ListingRenderer {
   const style = document.createElement("style")
   style.textContent = chatStyles + (options.customCss ?? "")
@@ -53,6 +57,7 @@ export function renderListing(
     client,
     options,
     kind,
+    refresh,
     revision: 0,
     session: listingSession(options, () => resetListing(state)),
   }
@@ -63,12 +68,17 @@ export function renderListing(
 
 function renderListingState(state: ListingRenderer) {
   const auth = authenticationState(state.session.auth)
+  const { action } = state
   state.root.render(
     <QueryClientProvider client={state.client}>
       {auth.status === "error" ? (
         <div role="alert" className="p-4 text-sm">
           <p>{auth.error.message}</p>
-          <button type="button" className="underline" onClick={() => refreshListing(state)}>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => void state.refresh().catch(() => {})}
+          >
             Retry authentication
           </button>
         </div>
@@ -82,21 +92,47 @@ function renderListingState(state: ListingRenderer) {
           options={state.options}
           kind={state.kind}
           session={state.session}
+          onRefresh={state.refresh}
+          onComplete={action && ((error) => (error ? action.reject(error) : action.resolve()))}
         />
       )}
     </QueryClientProvider>,
   )
 }
 
-export function refreshListing(state: ListingRenderer) {
-  if (authenticationState(state.session.auth).status === "error") {
-    void getValidChatAuthToken({ ...state.session.auth, force: true }).catch(() => {})
-  } else {
-    void state.client.invalidateQueries()
+export async function refreshListing(
+  state: ListingRenderer,
+  actionSignal: AbortSignal,
+  reset: boolean,
+): Promise<void> {
+  if (reset) resetListing(state)
+  const signal = AbortSignal.any([actionSignal, state.session.abortController.signal])
+  signal.throwIfAborted()
+  await waitWithSignal(getValidChatAuthToken(state.session.auth), signal)
+  signal.throwIfAborted()
+  await state.client.cancelQueries()
+  signal.throwIfAborted()
+  // A request can fail authentication while cancellation settles.
+  const auth = authenticationState(state.session.auth)
+  if (auth.status === "error") throw auth.error
+  const action = Promise.withResolvers<void>()
+  state.action = action
+  try {
+    void state.client.invalidateQueries({ refetchType: "none" })
+    const refetch = state.client.refetchQueries({ type: "active" }, { throwOnError: true })
+    // The aggregate refetch promise skips paused queries. Their own promises wait for reconnect.
+    const requests = state.client
+      .getQueryCache()
+      .findAll({ type: "active" })
+      .map((query) => query.promise)
+    renderListingState(state)
+    await waitWithSignal(Promise.all([refetch, ...requests, action.promise]), signal)
+  } finally {
+    if (state.action === action) state.action = undefined
   }
 }
 
-export function resetListing(state: ListingRenderer) {
+function resetListing(state: ListingRenderer) {
   state.unsubscribeAuthentication?.()
   state.stopAuthentication?.()
   disposeListingSession(state.session)
@@ -149,6 +185,7 @@ function watchListingAuthentication(state: ListingRenderer) {
   state.unsubscribeAuthentication = subscribeAuthentication(state.session.auth, () => {
     const auth = authenticationState(state.session.auth)
     if (auth.status === "error") {
+      state.action?.reject(auth.error)
       clearListingCache(state.options.cacheKey)
       state.client.clear()
       state.cacheIdentity = undefined

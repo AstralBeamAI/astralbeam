@@ -80,6 +80,8 @@ import { AstralBeamTenantList } from "@astralbeam/sdk/react"
 ;<AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
+**NOTE**: React refs now expose only `refresh()` and `reset()`. Import `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef` from `/react` instead of the former `*ListHandle` types, whose `/react` exports have been removed. Replace ref `update()` calls with props and ref `unmount()` calls with conditional rendering. Vanilla handles from `/client` retain both methods.
+
 ## Mount anywhere else
 
 `mountAstralBeamTenantUserList` takes a target element and options, and returns a handle.
@@ -121,13 +123,31 @@ export function CustomerUsers({ accountId }: { accountId: string | null }) {
 
 Use an `accountId` that changes with either the signed-in user or tenant, and set it to `null` during transitions. Vanilla hosts call `unmount()` instead.
 
-Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused queries expire after five minutes. For reuse across mounts, keep a stable session `cacheKey`, replacing it on sign-out or account changes. Each mount still authenticates. Use `refresh()` after writes.
+Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused data expires after five minutes.
+
+`cacheKey` is an optional opaque object defining the host-session boundary for remount reuse. The SDK uses its object identity, so keep the same object for the session and replace it on sign-out or account changes. Changing `cacheKey` clears authentication and the view. Without a key, unmounting discards the directory's data. Reuse also requires the same verified account and API.
+
+Each mount authenticates independently and owns its requests and cancellation. Concurrent mounts keep separate data, do not deduplicate requests, and do not refresh each other. For each directory kind and scope under the same key, the last unmounted directory replaces the data retained for a later mount. `cacheKey` does not create a shared live session.
+
+`refresh()` and `reset()` both return `Promise<void>`. Calls made before the lazy renderer is ready wait for it. They resolve after authentication and the enabled directory data requests complete, including the current rows or open conversation messages. They do not wait for attachment previews, hidden views, or pages that have not been requested.
+
+Let's wait for a directory to show a completed write before finishing the host workflow:
+
+```ts
+await saveChanges()
+await handle.refresh()
+finishEditing()
+```
+
+`saveChanges` and `finishEditing` belong to your application. React callers await the ref's `refresh()` action. Await or handle rejection from both actions, including calls that previously returned `void`.
 
 - React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
-- React refs and vanilla handles expose `refresh()` to reload queries and `reset()` to clear state and immediately reacquire authentication.
-- `reset()` requires a ready host session. It is not a pause or sign-out operation.
-- `refresh()` reloads data and may reuse the cached JWT. Token-source updates apply on the next token acquisition. Use `reset()` to reacquire authentication with a ready host session. API URL changes clear authentication and cached rows.
+- `refresh()` reloads the current view and may reuse the cached JWT. Token-source updates apply on the next token acquisition.
+- `reset()` clears this mount's authentication, cached data, and view state, along with retained data for its `cacheKey`, then reacquires authentication and loads the initial view. Active sibling mounts remain independent. Reset requires a ready host session. Unmount for sign-out or while the host session changes.
+- API URL changes clear authentication and cached data.
 - Changing scope or a pinned tenant clears the view. Changing page size restarts pagination while preserving filters.
+
+Loading, authentication, and request failures reject the action's promise. Request and authentication failures also reach the existing `onError` callback once per failed request or shared authentication attempt. A newer action, unmount, verified identity change, or change to `apiUrl`, `cacheKey`, `scope`, or the pinned tenant interrupts the pending action with `AbortError`, without calling `onError`.
 
 ## Browse saved conversations
 
@@ -154,7 +174,7 @@ const handle = mountAstralBeamThreadList(element, {
 - Tools and widgets show stored information without repeating actions or accepting answers. Partial output does not confirm that generation is running. Administrative reads grant no participant permissions.
 - Organization scope requires a selected Tenant, like the user directory. Clearing it clears the list. Use `tenantId` or `tenantExternalId` to pin a Tenant.
 
-**NOTE**: Use the same options and lifecycle handles as the other directories, with signed Tenant-admin authority or an Organization-management token with current read permission.
+**NOTE**: Use the same options and lifecycle actions as the other directories, with signed Tenant-admin authority or an Organization-management token with current read permission.
 
 ## Host callbacks
 
@@ -199,7 +219,7 @@ Conversation views also expose `directory-transcript`. The directory styling slo
 | --- | --- | --- |
 | `fetchAstralBeamToken` | Required | Endpoint `{ url, ...RequestInit }` or function returning `{ token }`. Unlike chat, directories have no default token source. |
 | `apiUrl` | `https://astralbeam.ai/api` | AstralBeam API base. Set your deployment's `/api` URL when self-hosting. |
-| `cacheKey` | None | Stable host-session object that enables data reuse across directory mounts. Replace it on account changes. |
+| `cacheKey` | None | Opaque host-session object for remount reuse. Changing its identity clears authentication and the view. Replace it on sign-out or account changes. |
 | `scope` | `"tenant"` | Tenant view, or `"organization"` with an organization-management JWT. |
 | `tenantId`, `tenantExternalId` | Signed tenant in tenant scope | Pin a Tenant by internal UUID or exact external ID. Internal ID takes precedence. |
 | `pageSize` | `20` | Initial page size, one of `20`, `50`, or `100`. |
@@ -219,7 +239,7 @@ Conversation views also expose `directory-transcript`. The directory styling slo
 - Rows show external IDs under **ID**, names, metadata, and creation dates. Names do not expand rows. Internal UUIDs are not displayed.
 - Tokens refresh once on HTTP `401`. Other failures offer explicit retry.
 
-**NOTE**: For uncommon internal-management use cases, both components also support `scope="organization"` with an [organization-management token](./api.md). The user directory then offers a searchable Tenant picker. Set `tenantId` or `tenantExternalId` to pin one Tenant, or when using that token with tenant scope. Tokens retain their delegated permissions even though the UI is read-only.
+**NOTE**: For uncommon internal-management use cases, all three directories also support `scope="organization"` with an [organization-management token](./api.md). The user directory then offers a searchable Tenant picker. Set `tenantId` or `tenantExternalId` to pin one Tenant, or when using that token with tenant scope. Tokens retain their delegated permissions even though the UI is read-only.
 
 ## Troubleshooting
 

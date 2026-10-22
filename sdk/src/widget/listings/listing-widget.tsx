@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useIsFetching, useQuery } from "@tanstack/react-query"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import {
   ArrowClockwiseIcon,
@@ -34,6 +34,7 @@ import {
 } from "../../core/listings.ts"
 import { ThreadDirectoryPage } from "./thread-directory.tsx"
 import { DirectoryTable } from "./table.tsx"
+import { type ListingCompletion, useListingCompletion } from "../lib/listing-completion.ts"
 
 const listingKinds = {
   tenants: {
@@ -64,14 +65,15 @@ interface WidgetProps {
   options: Options
   kind: keyof typeof listingKinds
   session: ListingSession
+  onRefresh: () => Promise<void>
+  onComplete: ListingCompletion
 }
 type Cursor = ListingPageOptions["cursor"]
 
-export function ListingWidget({ options, kind, session }: WidgetProps) {
+export function ListingWidget({ options, kind, session, onRefresh, onComplete }: WidgetProps) {
   const config = listingKinds[kind]
   const { Icon } = config
   const requiresTenant = config.tenantPrompt !== null
-  const queryClient = useQueryClient()
   const fetching = useIsFetching()
   const [selectedTenant, setSelectedTenant] = useState<TenantRecordEncoded | null>(null)
   const [search, setSearch] = useState("")
@@ -96,6 +98,12 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
   const tenantId = currentTenant?.id
   const needsPicker = requiresTenant && scope === "organization" && !pinned
   const awaitingTenant = (requiresTenant || resolve) && !tenantId
+  const pending = resolve && (tenant.isPending || tenant.fetchStatus !== "idle")
+  useListingCompletion(
+    awaitingTenant || (resolve && tenant.isError) ? onComplete : undefined,
+    pending,
+    resolve ? tenant.error : null,
+  )
   const title = options.title ?? config.title
   return (
     <section
@@ -190,7 +198,7 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
             size="icon"
             tooltip="Refresh directory"
             disabled={fetching > 0}
-            onClick={() => void queryClient.invalidateQueries()}
+            onClick={() => void onRefresh().catch(() => {})}
           >
             <ArrowClockwiseIcon
               aria-hidden
@@ -224,12 +232,14 @@ export function ListingWidget({ options, kind, session }: WidgetProps) {
           ErrorFeedback={ListingError}
           LoadingFeedback={ListingLoading}
           Pagination={PageNavigation}
+          onComplete={pending ? undefined : onComplete}
         />
       ) : (
         <DirectoryPage
           key={JSON.stringify([tenantId, q, adminFilter, size])}
           admin={adminFilter}
           {...{ options, kind, session, tenantId, q, size }}
+          onComplete={pending ? undefined : onComplete}
         />
       )}
     </section>
@@ -286,7 +296,8 @@ function DirectoryPage({
   q,
   admin,
   size,
-}: Omit<WidgetProps, "kind"> & {
+  onComplete,
+}: Omit<WidgetProps, "kind" | "onRefresh"> & {
   kind: "tenants" | "users"
   tenantId: string | undefined
   q: string
@@ -299,6 +310,7 @@ function DirectoryPage({
     queryFn: ({ signal }) =>
       loadListingPage(session, { kind, tenantId, q, admin, size, cursor }, signal),
   })
+  useListingCompletion(onComplete, query.isPending || query.fetchStatus !== "idle", query.error)
   return (
     <div data-slot="directory-page" aria-busy={query.isFetching} className="min-w-0 space-y-4">
       {query.isError ? (
