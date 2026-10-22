@@ -34,7 +34,10 @@
   },
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {
-    "nitro@3.0.260903-beta": "patches/nitro@3.0.260903-beta.patch"
+    "nitro@3.0.260903-beta": "patches/nitro@3.0.260903-beta.patch",
+    "@tanstack/ai-sandbox-docker@0.3.2": "patches/@tanstack%2Fai-sandbox-docker@0.3.2.patch",
+    "@tanstack/ai-sandbox-daytona@0.3.4": "patches/@tanstack%2Fai-sandbox-daytona@0.3.4.patch",
+    "@tanstack/ai-sandbox-vercel@0.2.5": "patches/@tanstack%2Fai-sandbox-vercel@0.2.5.patch"
   },
   "trustedDependencies": [
     "esbuild",

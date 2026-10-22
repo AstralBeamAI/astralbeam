@@ -15,8 +15,9 @@ import {
   CHAT_SANDBOX_MAX_WRITE_CHARACTERS,
   CHAT_SANDBOX_STATUS_EVENT,
 } from "./constants"
-import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./errors.ts"
-import { chatSandboxCall, logChatSandboxFailure } from "./operations"
+import type { ChatSandboxUnavailable } from "./errors.ts"
+import { SandboxOperationFailed } from "@/lib/sandboxes/errors"
+import { sandboxCall, logSandboxFailure } from "@/lib/sandboxes/operations.server"
 import type { ChatSandboxSession, ChatSandboxStatus } from "./sandbox"
 import { resolveSandboxPath } from "./paths"
 import { chatToolInputSchema } from "../tool-schema"
@@ -78,7 +79,7 @@ interface SandboxToolContext {
   abortSignal?: AbortSignal | undefined
 }
 
-type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandboxOperationFailed>
+type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | SandboxOperationFailed>
 
 /** The sandbox tools, which run here rather than in the host page. A refused path, a failed
  * command and a timeout are ordinary results the agent can act on, and only a broken sandbox fails. */
@@ -109,11 +110,9 @@ export function createChatSandboxTools(input: {
         .pipe(
           Effect.flatMap(effect),
           Effect.catchDefect((cause) =>
-            Effect.fail(new ChatSandboxOperationFailed({ timedOut: false, cause })),
+            Effect.fail(new SandboxOperationFailed({ timedOut: false, cause })),
           ),
-          Effect.tapErrorTag("ChatSandboxOperationFailed", (error) =>
-            logChatSandboxFailure(tool, error),
-          ),
+          Effect.tapErrorTag("SandboxOperationFailed", (error) => logSandboxFailure(tool, error)),
         ),
       { signal: context?.abortSignal },
     )
@@ -139,7 +138,7 @@ export function createChatSandboxTools(input: {
         const directory = resolved.path.slice(0, resolved.path.lastIndexOf("/"))
         // `mkdir -p` through exec rather than `fs.mkdir`, which no provider promises is recursive.
         if (directory.length > 0) {
-          const created = yield* chatSandboxCall(
+          const created = yield* sandboxCall(
             (signal) =>
               handle.process.exec(`mkdir -p ${quoteSandboxArgument(directory)}`, { signal }),
             CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -149,7 +148,7 @@ export function createChatSandboxTools(input: {
             return { refusal: `The directory ${directory} could not be created: ${stderr.text}` }
           }
         }
-        yield* chatSandboxCall(
+        yield* sandboxCall(
           () => handle.fs.write(resolved.path, content),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
@@ -172,7 +171,7 @@ export function createChatSandboxTools(input: {
       Effect.gen(function* () {
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
         if ("refusal" in resolved) return resolved
-        const content = yield* chatSandboxCall(
+        const content = yield* sandboxCall(
           () => handle.fs.read(resolved.path),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
@@ -197,7 +196,7 @@ export function createChatSandboxTools(input: {
         const root = resolveHarnessCwd(handle)
         const resolved = resolveSandboxPath(root, path ?? root)
         if ("refusal" in resolved) return resolved
-        const entries = yield* chatSandboxCall(
+        const entries = yield* sandboxCall(
           () => handle.fs.list(resolved.path),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
@@ -230,7 +229,7 @@ export function createChatSandboxTools(input: {
         // The timeout interrupts the call, aborting the vendor's command through its signal, so
         // a hung command reports a timeout to the agent instead of holding the run open.
         const outcome = yield* Effect.result(
-          chatSandboxCall(
+          sandboxCall(
             (signal) => handle.process.exec(command, { cwd: resolved.path, signal }),
             CHAT_SANDBOX_COMMAND_TIMEOUT_MS,
           ),
@@ -240,7 +239,7 @@ export function createChatSandboxTools(input: {
           return { command, cwd: resolved.path, timedOut: true, durationMs }
         }
         // A command that cannot launch is the agent's problem to fix, not a broken run.
-        if (Result.isFailure(outcome)) yield* logChatSandboxFailure("run_command", outcome.failure)
+        if (Result.isFailure(outcome)) yield* logSandboxFailure("run_command", outcome.failure)
         const result = Result.getOrElse(outcome, () => ({
           stdout: "",
           stderr: "The command could not be run.",
@@ -274,11 +273,11 @@ export function createChatSandboxTools(input: {
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
         if ("refusal" in resolved) return resolved
         const read = yield* Effect.result(
-          chatSandboxCall(() => handle.fs.readBytes(resolved.path), CHAT_SANDBOX_FILE_TIMEOUT_MS),
+          sandboxCall(() => handle.fs.readBytes(resolved.path), CHAT_SANDBOX_FILE_TIMEOUT_MS),
         )
         // The agent only learns the path did not work, and the reason goes to the log.
         if (Result.isFailure(read)) {
-          yield* logChatSandboxFailure("publish_artifact", read.failure)
+          yield* logSandboxFailure("publish_artifact", read.failure)
           return { refusal: "The file could not be read. Check the path with sandbox_list_files." }
         }
         const bytes = read.success

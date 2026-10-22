@@ -3,6 +3,7 @@ import { SqlError } from "effect/sql"
 import { Activity, Workflow } from "effect/workflow"
 
 import { Mailer } from "../email/email.server.ts"
+import { SandboxResources } from "../sandboxes/resources.server"
 import {
   deleteOrganization as deleteOrganizationFn,
   deleteOrganizationTenantBatch,
@@ -72,6 +73,7 @@ const notifyOrganizationOwners = Effect.fn("notifyOrganizationOwners")(function*
 export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((payload) =>
   Effect.gen(function* () {
     const { organizationId } = payload
+    const sandboxes = yield* SandboxResources
     yield* purgeOrganizationStep(
       "DeleteTenants",
       drainOrganizationBatches(deleteOrganizationTenantBatch(organizationId)),
@@ -80,6 +82,7 @@ export const deleteOrganizationWorkflowLayer = deleteOrganization.toLayer((paylo
       "DeleteFiles",
       drainOrganizationBatches(deleteOrganizationFileBatch(organizationId)),
     )
+    yield* purgeOrganizationStep("DeleteSandboxes", sandboxes.purgeOrganization(organizationId))
     yield* purgeOrganizationStep("DeleteOrganization", deleteOrganizationFn(organizationId))
     yield* Effect.logInfo("Organization deleted", { organizationId })
     yield* Activity.make({ name: "NotifyOwners", execute: notifyOrganizationOwners(payload) })

@@ -4,7 +4,7 @@ import { Context, Deferred, Effect, Exit, Fiber, Layer, Scheduler, Scope } from 
 import { TestClock } from "effect/testing"
 import { beforeEach } from "vitest"
 
-import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
+import { SandboxResources } from "@/lib/sandboxes/resources.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -19,6 +19,7 @@ function freshChatSandboxTestState() {
   return {
     created: 0,
     createFails: false,
+    configurationVersion: 0,
     destroyFails: false,
     destroyed: [] as string[],
     createGate: undefined as Promise<void> | undefined,
@@ -59,9 +60,18 @@ const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
   Layer.provide([
     Layer.succeed(SandboxProviders, {
       resolveConfiguration: () =>
-        Effect.succeed({ name: "Local", provider: "docker", options: {}, credentials: {} }),
+        Effect.succeed({
+          name: "Local",
+          lockVersion: sandboxTest.configurationVersion,
+          provider: "docker",
+          options: {},
+          credentials: {},
+        }),
     } as unknown as SandboxProviders["Service"]),
-    Layer.succeed(SandboxProviderFactory, { create: () => Effect.succeed(fakeSandboxProvider) }),
+    Layer.succeed(SandboxResources, {
+      provider: () => Effect.succeed(fakeSandboxProvider),
+      touch: () => Effect.void,
+    } as unknown as SandboxResources["Service"]),
   ]),
 )
 
@@ -305,7 +315,9 @@ describe("ChatSandboxes", () => {
         ]) {
           assert.notStrictEqual((yield* acquire(input)).id, "sandbox-1")
         }
-        assert.strictEqual(sandboxTest.created, 5)
+        sandboxTest.configurationVersion += 1
+        assert.notStrictEqual((yield* acquire()).id, "sandbox-1")
+        assert.strictEqual(sandboxTest.created, 6)
       }).pipe(Effect.provide(sandboxesLayer)),
   )
 })
