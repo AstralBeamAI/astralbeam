@@ -1,0 +1,33 @@
+diff --git a/dist/esm/provider.js b/dist/esm/provider.js
+index 1449826665afc6cc02e77ce9191a73641d1292f2..01b5211b672811ff82ebb168dd03da15c4796dd2 100644
+--- a/dist/esm/provider.js
++++ b/dist/esm/provider.js
+@@ -3,1 +3,1 @@
+-import { Daytona, DaytonaConflictError } from "@daytona/sdk";
++import { Daytona, DaytonaConflictError, DaytonaNotFoundError } from "@daytona/sdk";
+@@ -118,1 +118,2 @@
+-		} catch {
++		} catch (error) {
++			if (!(error instanceof DaytonaNotFoundError)) throw error;
+@@ -126,1 +127,3 @@
+-		} catch {}
++		} catch (error) {
++			if (!(error instanceof DaytonaNotFoundError)) throw error;
++		}
+diff --git a/src/provider.ts b/src/provider.ts
+index 1c13ed38933fc9f678a70b080a7de442972ce9cc..73d0eb16a5693a6e1bbfc212be2a7e06d6f44555 100644
+--- a/src/provider.ts
++++ b/src/provider.ts
+@@ -2,1 +2,1 @@
+-import { Daytona, DaytonaConflictError } from '@daytona/sdk'
++import { Daytona, DaytonaConflictError, DaytonaNotFoundError } from '@daytona/sdk'
+@@ -197,2 +197,2 @@
+-    } catch {
+-      // Gone / not found.
++    } catch (error) {
++      if (!(error instanceof DaytonaNotFoundError)) throw error
+@@ -207,2 +207,2 @@
+-    } catch {
+-      // Already deleted / gone.
++    } catch (error) {
++      if (!(error instanceof DaytonaNotFoundError)) throw error

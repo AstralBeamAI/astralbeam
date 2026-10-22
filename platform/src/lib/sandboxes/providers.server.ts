@@ -10,6 +10,7 @@ import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { sandboxProvider, SandboxProviderCredentialsPayloadSchema } from "@/db/schema/organizations"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
+import { SandboxResources } from "./resources.server"
 import {
   SandboxCleanupFailed,
   SandboxConnectionFailed,
@@ -72,6 +73,7 @@ export type OrganizationSandboxProvider = SandboxProviderRow & {
 
 export interface SandboxProviderConfiguration {
   readonly name: string
+  readonly lockVersion: number
   readonly provider: SandboxProviderId
   readonly options: SandboxProviderOptions[SandboxProviderId]
   readonly credentials: SandboxProviderCredentials[SandboxProviderId]
@@ -189,6 +191,9 @@ export class SandboxProviders extends Context.Service<
     SandboxProviders,
     Effect.gen(function* () {
       const db = yield* Database
+      const resources = yield* SandboxResources
+      const testProvider = (input: Parameters<typeof runSandboxConnectionTest>[0]) =>
+        runSandboxConnectionTest(input).pipe(Effect.provideService(SandboxResources, resources))
 
       const readRow = Effect.fnUntraced(function* (organizationId: string, id: string) {
         const [stored] = yield* db
@@ -314,7 +319,8 @@ export class SandboxProviders extends Context.Service<
         const requiresTest =
           credentialsChanged || !Equal.equals(existing.row.options, input.options)
         const tested = requiresTest
-          ? yield* runSandboxConnectionTest({
+          ? yield* testProvider({
+              organizationId: input.organizationId,
               provider: input.providerType,
               options: input.options,
               credentials: input.credentials,
@@ -361,7 +367,8 @@ export class SandboxProviders extends Context.Service<
         const found = yield* readRow(input.organizationId, input.id)
         if (found?.row.lockVersion !== input.lockVersion) return yield* new SandboxProviderChanged()
         if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
-        const result = yield* runSandboxConnectionTest({
+        const result = yield* testProvider({
+          organizationId: input.organizationId,
           provider: found.row.providerType,
           options: found.row.options,
           credentials: found.credentials.value,
@@ -403,6 +410,7 @@ export class SandboxProviders extends Context.Service<
           if (Option.isNone(found.credentials)) return yield* new SandboxProviderUnreadable()
           return {
             name: found.row.name,
+            lockVersion: found.row.lockVersion,
             provider: found.row.providerType,
             options: found.row.options,
             credentials: found.credentials.value,
@@ -421,5 +429,7 @@ export class SandboxProviders extends Context.Service<
     }),
   )
 
-  static readonly layer = SandboxProviders.layerNoDeps.pipe(Layer.provide(Database.layer))
+  static readonly layer = SandboxProviders.layerNoDeps.pipe(
+    Layer.provide([Database.layer, SandboxResources.layer]),
+  )
 }

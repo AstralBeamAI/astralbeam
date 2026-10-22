@@ -1,0 +1,60 @@
+diff --git a/dist/esm/provider.js b/dist/esm/provider.js
+index 6bc1a9d6355d8e62488c5c1b555133460e96ce19..1984978f2735dab87f1fa207868f0bd581ff3387 100644
+--- a/dist/esm/provider.js
++++ b/dist/esm/provider.js
+@@ -37,1 +37,1 @@
+-	async startContainer(image, env) {
++	async startContainer(image, env, name) {
+@@ -44,0 +45,1 @@
++			name,
+@@ -84,1 +85,1 @@
+-		return this.startContainer(this.config.image, input.env);
++		return this.startContainer(this.config.image, input.env, input.id);
+@@ -91,1 +92,2 @@
+-		} catch {
++		} catch (error) {
++			if (error.statusCode !== 404) throw error;
+@@ -96,1 +98,2 @@
+-		} catch {
++		} catch (error) {
++			if (error.statusCode !== 404) throw error;
+@@ -115,1 +118,3 @@
+-		} catch {}
++		} catch (error) {
++			if (error.statusCode !== 304 && error.statusCode !== 404) throw error;
++		}
+@@ -121,1 +126,3 @@
+-		} catch {}
++		} catch (error) {
++			if (error.statusCode !== 404) throw error;
++		}
+diff --git a/src/provider.ts b/src/provider.ts
+index 2eba55337bedb778404a042347c0b7811f91c595..079adaa61fc1c171715dfab499e49a541ee21e87 100644
+--- a/src/provider.ts
++++ b/src/provider.ts
+@@ -92,0 +93,1 @@
++    name?: string,
+@@ -101,0 +103,1 @@
++      name,
+@@ -145,1 +147,1 @@
+-    return this.startContainer(this.config.image, input.env)
++    return this.startContainer(this.config.image, input.env, input.id)
+@@ -153,1 +155,2 @@
+-    } catch {
++    } catch (error) {
++      if ((error as { statusCode?: number }).statusCode !== 404) throw error
+@@ -159,1 +162,2 @@
+-      } catch {
++      } catch (error) {
++        if ((error as { statusCode?: number }).statusCode !== 404) throw error
+@@ -181,2 +185,3 @@
+-    } catch {
+-      // already stopped / gone
++    } catch (error) {
++      const status = (error as { statusCode?: number }).statusCode
++      if (status !== 304 && status !== 404) throw error
+@@ -187,2 +192,2 @@
+-      } catch {
+-        // already removed
++      } catch (error) {
++        if ((error as { statusCode?: number }).statusCode !== 404) throw error

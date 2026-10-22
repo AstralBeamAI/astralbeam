@@ -7,6 +7,7 @@ import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { encryptDatabaseValue } from "@/db/lib/encryption"
 import { SandboxProviderCredentialsPayloadSchema } from "@/db/schema/organizations"
 import { SandboxProviders } from "./providers.server.ts"
+import { SandboxResources } from "./resources.server"
 
 const ORGANIZATION_ID = "01992a80-1d71-7f24-a150-f1177e3f6419"
 const SANDBOX_PROVIDER_ID = "01992a80-1d71-7f24-a150-f1177e3f6420"
@@ -43,7 +44,12 @@ function providersOver(row: { id: string; storedCredentials: string | null }) {
   const database = {
     select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([stored]) }) }) }),
   } as unknown as EffectDatabase
-  return SandboxProviders.layerNoDeps.pipe(Layer.provide(Layer.succeed(Database, database)))
+  return SandboxProviders.layerNoDeps.pipe(
+    Layer.provide([
+      Layer.succeed(Database, database),
+      Layer.succeed(SandboxResources, {} as SandboxResources["Service"]),
+    ]),
+  )
 }
 
 const resolveConfiguration = (id: string) =>

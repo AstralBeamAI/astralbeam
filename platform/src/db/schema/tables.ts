@@ -25,5 +25,6 @@ export {
 } from "./chat.ts"
 export { rateLimit } from "./rate-limit.ts"
 export { fileObject } from "./files.ts"
+export { sandboxResource } from "./sandboxes.ts"
 export { mcpServer, mcpConnection } from "./mcp.ts"
 export { usageLimit, usageLimitCounter } from "./usage-limits.ts"
