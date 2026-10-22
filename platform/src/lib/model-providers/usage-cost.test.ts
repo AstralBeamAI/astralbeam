@@ -34,4 +34,27 @@ describe("modelUsageCost", () => {
     const usage = { promptTokens: 250_000, completionTokens: 2_000 }
     expect(modelUsageCost(configuration, usage)).toBe("1.545")
   })
+
+  it("prices merged requests at their own context tiers and cache rates", () => {
+    const requestUsage = [
+      {
+        promptTokens: 150_000,
+        completionTokens: 1_000,
+        promptTokensDetails: { cachedTokens: 50_000 },
+      },
+      {
+        promptTokens: 150_000,
+        completionTokens: 1_000,
+        promptTokensDetails: { cachedTokens: 50_000 },
+      },
+    ]
+    expect(
+      modelUsageCost(configuration, {
+        promptTokens: 300_000,
+        completionTokens: 2_000,
+        promptTokensDetails: { cachedTokens: 100_000 },
+        providerUsageDetails: { requestUsage },
+      }),
+    ).toBe("0.66")
+  })
 })

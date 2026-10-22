@@ -1,0 +1,1 @@
+CREATE INDEX "chat_message_user_usage_idx" ON "chat_message" ("organization_id","tenant_id",("metadata"->'provenance'->>'initiatorTenantUserId'),"created_at") WHERE "role" = 'assistant';
