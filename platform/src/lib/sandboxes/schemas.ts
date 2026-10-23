@@ -8,7 +8,7 @@ import {
   enumSchema,
 } from "../schemas.ts"
 
-export const SANDBOX_PROVIDER_IDS = ["daytona", "docker", "sprites", "vercel"] as const
+export const SANDBOX_PROVIDER_IDS = ["daytona", "docker", "e2b", "sprites", "vercel"] as const
 
 export const SandboxProviderIdSchema = enumSchema(SANDBOX_PROVIDER_IDS)
 export type SandboxProviderId = typeof SandboxProviderIdSchema.Type
@@ -37,6 +37,8 @@ const EmptySandboxConfigurationSchema = Schema.Record(
   Schema.Never.annotate({ message: "This field is not allowed" }),
 )
 const DockerSandboxCredentialsSchema = EmptySandboxConfigurationSchema
+const E2BSandboxOptionsSchema = Schema.Struct({ template: nonEmptyTrimmedString })
+const E2BSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 const SpritesSandboxOptionsSchema = EmptySandboxConfigurationSchema
 const SpritesSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 const VercelSandboxOptionsSchema = Schema.Struct({
@@ -49,6 +51,7 @@ const VercelSandboxCredentialsSchema = Schema.Struct({ token: secretString })
 const SANDBOX_PROVIDER_SCHEMAS = {
   daytona: { options: DaytonaSandboxOptionsSchema, credentials: DaytonaSandboxCredentialsSchema },
   docker: { options: DockerSandboxOptionsSchema, credentials: DockerSandboxCredentialsSchema },
+  e2b: { options: E2BSandboxOptionsSchema, credentials: E2BSandboxCredentialsSchema },
   sprites: { options: SpritesSandboxOptionsSchema, credentials: SpritesSandboxCredentialsSchema },
   vercel: { options: VercelSandboxOptionsSchema, credentials: VercelSandboxCredentialsSchema },
 } as const
@@ -73,6 +76,7 @@ const sandboxProviderSchemas: {
 export const SandboxProviderConfigurationSchema = Schema.Union([
   Schema.Struct({ providerType: Schema.Literal("daytona"), ...SANDBOX_PROVIDER_SCHEMAS.daytona }),
   Schema.Struct({ providerType: Schema.Literal("docker"), ...SANDBOX_PROVIDER_SCHEMAS.docker }),
+  Schema.Struct({ providerType: Schema.Literal("e2b"), ...SANDBOX_PROVIDER_SCHEMAS.e2b }),
   Schema.Struct({ providerType: Schema.Literal("sprites"), ...SANDBOX_PROVIDER_SCHEMAS.sprites }),
   Schema.Struct({ providerType: Schema.Literal("vercel"), ...SANDBOX_PROVIDER_SCHEMAS.vercel }),
 ])

@@ -29,6 +29,9 @@ describe("sandbox provider schemas", () => {
       const options = { target: "us", snapshot: "daytona-medium", apiKey: "leak" }
       yield* Effect.flip(decodeProviderOptions("daytona", options))
       yield* Effect.flip(decodeProviderCredentials("docker", { apiKey: "token" }))
+      yield* Effect.flip(decodeProviderOptions("e2b", { template: "base", apiKey: "leak" }))
+      yield* Effect.flip(decodeProviderCredentials("e2b", { token: "wrong-provider" }))
+      yield* Effect.flip(decodeProviderOptions("e2b", { template: "" }))
     }),
   )
 })

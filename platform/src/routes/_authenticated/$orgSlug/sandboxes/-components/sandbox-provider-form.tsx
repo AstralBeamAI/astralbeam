@@ -198,7 +198,7 @@ export function SandboxProviderForm({
               </SelectContent>
             </Select>
             <FieldDescription>
-              <a href={descriptor.setupUrl} target="_blank" rel="noreferrer">
+              <a href={descriptor.setupUrl} target="_blank" rel="noopener noreferrer">
                 Provider setup guide
               </a>
             </FieldDescription>

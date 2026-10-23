@@ -35,6 +35,12 @@ const factories: {
         dockerSandbox({ ...configuration.options, keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND }),
       ),
     ),
+  e2b: (configuration: ProviderConfiguration<"e2b">) =>
+    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-e2b")).pipe(
+      Effect.map(({ e2bSandbox }) =>
+        e2bSandbox({ ...configuration.options, ...configuration.credentials }),
+      ),
+    ),
   sprites: (configuration: ProviderConfiguration<"sprites">) =>
     loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-sprites")).pipe(
       Effect.map(({ spritesSandbox }) =>

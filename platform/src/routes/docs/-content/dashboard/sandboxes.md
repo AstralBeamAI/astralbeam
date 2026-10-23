@@ -10,6 +10,7 @@ The sandboxes run in your own account with the vendor, so that vendor bills you 
 | --- | --- | --- |
 | Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
 | Docker | Image, default `node:22`. | None |
+| E2B | Template name or ID, default `base`. | API key |
 | Sprites | None. | API token |
 | Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
@@ -47,7 +48,7 @@ An agent references a provider by selection, and nothing is provisioned until th
 
 When the configuration cannot be read at that moment, the agent loses its sandbox tools for that run and answers without them instead of failing, so an agent that has stopped offering to run code is worth checking here first.
 
-A sandbox is scratch space. Idle cleanup and capacity eviction preserve active leases, but process shutdown can interrupt a run, and another replica may start a fresh workspace. Published artifacts are copied to private storage and remain available through the saved conversation after the sandbox stops. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
+A sandbox is scratch space. Idle cleanup and capacity eviction preserve active leases, but process shutdown or vendor expiry can interrupt a run, and another replica may start a fresh workspace. Published artifacts are copied to private storage and remain available through the saved conversation after the sandbox stops. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
 
 ## Deleting a provider
 

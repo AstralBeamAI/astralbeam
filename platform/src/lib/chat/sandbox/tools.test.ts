@@ -1,10 +1,139 @@
-import { describe, expect, it, vi } from "vitest"
-
+import { execFile } from "node:child_process"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { promisify } from "node:util"
+import type { ProcessOptions, SandboxFsOptions, SandboxHandle } from "@tanstack/ai-sandbox"
 import { Context, Effect } from "effect"
-import type { SandboxFsOptions, SandboxHandle } from "@tanstack/ai-sandbox"
+import { afterAll, assert, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "./constants.ts"
 import { clampSandboxText, createChatSandboxTools } from "./tools.ts"
+
+const execSandboxTestFile = promisify(execFile)
+let workspace: string
+
+beforeAll(async () => {
+  workspace = await mkdtemp(`${tmpdir()}/astralbeam-sandbox-tools-`)
+  await Promise.all([
+    writeFile(`${workspace}/lines.txt`, "one\ntwo\nthree\nfour\n"),
+    writeFile(`${workspace}/empty.txt`, ""),
+    writeFile(`${workspace}/long.txt`, "a".repeat(200_000) + "THE-END\n"),
+  ])
+})
+
+afterAll(() => rm(workspace, { recursive: true, force: true }))
+
+function sandboxToolsFixture() {
+  const fs = { read: vi.fn() }
+  const exec = vi.fn(async (command: string, options?: ProcessOptions) => {
+    const output = await execSandboxTestFile("sh", ["-c", command], {
+      cwd: options?.cwd ?? workspace,
+      signal: options?.signal,
+      maxBuffer: 1024 * 1024,
+    })
+    return { ...output, exitCode: 0 }
+  })
+  const handle = {
+    id: "sandbox-tools-test",
+    provider: "test",
+    workspaceRoot: workspace,
+    capabilities: { backgroundProcesses: false },
+    process: { exec },
+    fs,
+  } as unknown as SandboxHandle
+  const tools = createChatSandboxTools({
+    session: { acquire: () => Effect.succeed(handle), prepareUploads: () => Effect.void },
+    services: Context.empty(),
+    publishArtifact: () => Effect.succeed("stored-file"),
+  })
+  return {
+    fs,
+    exec,
+    tool: (name: string) => {
+      const tool = tools.find((tool) => tool.name === `sandbox_${name}`)!
+      return { ...tool, execute: tool.execute! }
+    },
+  }
+}
+
+describe("sandbox file tools", () => {
+  it("pages through a virtual workspace path without reading the whole file", async () => {
+    const { tool, fs, exec } = sandboxToolsFixture()
+    const read = tool("read_file")
+    expect(await read.execute({ path: "/workspace/lines.txt", limit: 2 }, undefined)).toEqual({
+      path: `${workspace}/lines.txt`,
+      relativePath: "lines.txt",
+      content: "one\ntwo",
+      truncated: true,
+      offset: 1,
+      nextOffset: 3,
+    })
+    expect(await read.execute({ path: "lines.txt", offset: 3 }, undefined)).toMatchObject({
+      content: "three\nfour",
+      truncated: false,
+      offset: 3,
+      totalLines: 4,
+    })
+    expect(fs.read).not.toHaveBeenCalled()
+    expect(exec.mock.calls[0]![1]!.signal).toBeInstanceOf(AbortSignal)
+    const before = exec.mock.calls.length
+    expect(await read.execute({ path: "../outside" }, undefined)).toHaveProperty("refusal")
+    expect(exec).toHaveBeenCalledTimes(before)
+  })
+
+  it("handles empty files and applies our content limit to an oversized upstream line", async () => {
+    const { tool } = sandboxToolsFixture()
+    const read = tool("read_file")
+    expect(await read.execute({ path: "empty.txt" }, undefined)).toMatchObject({
+      content: "",
+      totalLines: 0,
+      truncated: false,
+    })
+    const result = (await read.execute({ path: "long.txt" }, undefined)) as {
+      content: string
+      truncated: boolean
+    }
+    expect(result.truncated).toBe(true)
+    expect(result.content.length).toBeLessThan(40_100)
+    expect(result.content).toContain("characters omitted")
+    expect(result.content).toMatch(/THE-END$/)
+  })
+
+  it("forwards cancellation to the paged read", async () => {
+    const { tool, exec } = sandboxToolsFixture()
+    const started = Promise.withResolvers<AbortSignal>()
+    exec.mockImplementation(
+      (_command, options) =>
+        new Promise<never>((_resolve, reject) => {
+          assert(options?.signal)
+          started.resolve(options.signal)
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Cancelled", "AbortError")),
+            { once: true },
+          )
+        }),
+    )
+    const controller = new AbortController()
+    const pending = Promise.resolve(
+      tool("read_file").execute(
+        { path: "lines.txt" },
+        {
+          emitCustomEvent: vi.fn(),
+          abortSignal: controller.signal,
+        },
+      ),
+    )
+    const rejected = pending.then(
+      () => false,
+      () => true,
+    )
+    const signal = await started.promise
+    controller.abort()
+    expect(await rejected).toBe(true)
+    expect(signal.aborted).toBe(true)
+  })
+})
 
 describe("clampSandboxText", () => {
   it("elides the middle so a failing command's last line survives", () => {

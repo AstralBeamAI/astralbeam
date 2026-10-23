@@ -1,5 +1,6 @@
 import { type AnyServerTool, type ToolExecutionContext, toolDefinition } from "@tanstack/ai"
 import { resolveHarnessCwd, type SandboxHandle } from "@tanstack/ai-sandbox"
+import { sandboxWorkspaceBackend } from "@tanstack/ai-sandbox/harness"
 import { Clock, type Context, Effect, Result, Schema } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
@@ -41,6 +42,17 @@ const WriteSandboxFileInputSchema = chatToolInputSchema(
 const ReadSandboxFileInputSchema = chatToolInputSchema(
   Schema.Struct({
     path: sandboxPath.annotate({ description: "File to read, inside the workspace." }),
+    offset: Schema.optionalKey(
+      Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
+        description: "First line to read, numbered from 1. Defaults to 1.",
+      }),
+    ),
+    limit: Schema.optionalKey(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThan(0)),
+        Schema.check(Schema.isLessThanOrEqualTo(2000)),
+      ).annotate({ description: "Maximum lines to read. Defaults to 2000, the maximum." }),
+    ),
   }),
 )
 
@@ -161,23 +173,31 @@ export function createChatSandboxTools(input: {
 
   const readSandboxFile = toolDefinition({
     name: "sandbox_read_file",
-    description: "Read a file from the sandbox. A long file comes back truncated in the middle.",
+    description:
+      "Read a page of text from the sandbox. Use nextOffset for the next page. " +
+      "Each page has at most 2000 lines, and long content is truncated in the middle.",
     inputSchema: ReadSandboxFileInputSchema,
-  }).server(({ path }, context) =>
+  }).server(({ path, offset = 1, limit = 2000 }, context) =>
     runSandboxTool("sandbox_read_file", context, (handle) =>
       Effect.gen(function* () {
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
         if ("refusal" in resolved) return resolved
-        const content = yield* chatSandboxCall(
-          (signal) => handle.fs.read(resolved.path, { signal }),
+        const backend = sandboxWorkspaceBackend(handle)
+        const page = yield* chatSandboxCall(
+          (signal) => backend.readLines(resolved.path, { offset, limit, signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
-        const clamped = clampSandboxText(content, CHAT_SANDBOX_MAX_FILE_CHARACTERS)
+        const clamped = clampSandboxText(page.lines.join("\n"), CHAT_SANDBOX_MAX_FILE_CHARACTERS)
+        const nextOffset = offset + page.lines.length
+        const more = page.total === undefined || nextOffset <= page.total
         return {
           path: resolved.path,
           relativePath: resolved.relativePath,
           content: clamped.text,
-          truncated: clamped.truncated,
+          truncated: clamped.truncated || more,
+          offset,
+          ...(more ? { nextOffset } : {}),
+          ...(page.total === undefined ? {} : { totalLines: page.size === 0 ? 0 : page.total }),
         }
       }),
     ),

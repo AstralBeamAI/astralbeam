@@ -5,6 +5,7 @@ Configure a sandbox provider on the agent in the dashboard to enable files, comm
 ## In the chat
 
 - Files the user attaches are written to `uploads/` in the sandbox, so the agent can analyze a spreadsheet with real code. See [Attachments](./attachments.md).
+- Text file reads support pages of up to 2,000 lines. The agent can request the next page without loading the whole file into model context.
 - Each sandbox step is a transcript row: a file write expands to the file, a command to its output.
 - While the sandbox provisions (tens of seconds), a slim status pill sits above the composer.
 - Generated images (PNG, JPEG, GIF, WebP) the agent publishes render inline, with a download button.

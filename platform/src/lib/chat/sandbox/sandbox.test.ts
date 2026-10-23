@@ -26,13 +26,28 @@ function freshChatSandboxTestState() {
     destroyGate: undefined as Promise<void> | undefined,
     destroyStarted: undefined as Deferred.Deferred<void> | undefined,
     destroySignal: undefined as AbortSignal | undefined,
+    uploadSignal: undefined as AbortSignal | undefined,
+    uploadGate: undefined as Promise<void> | undefined,
+    uploadStarted: undefined as Deferred.Deferred<void> | undefined,
   }
 }
 
 let sandboxTest = freshChatSandboxTestState()
 
 function fakeSandboxHandle(id: string): SandboxHandle {
-  return { id, provider: "fake", workspaceRoot: "/workspace" } as SandboxHandle
+  return {
+    id,
+    provider: "fake",
+    workspaceRoot: "/workspace",
+    fs: {
+      mkdir: () => Promise.resolve(),
+      write: async (_path: string, _bytes: Uint8Array, options?: { signal?: AbortSignal }) => {
+        sandboxTest.uploadSignal = options?.signal
+        if (sandboxTest.uploadStarted) Deferred.doneUnsafe(sandboxTest.uploadStarted, Effect.void)
+        await sandboxTest.uploadGate
+      },
+    },
+  } as unknown as SandboxHandle
 }
 
 const fakeSandboxProvider = {
@@ -99,6 +114,29 @@ beforeEach(() => {
 })
 
 describe("ChatSandboxes", () => {
+  it.effect("cancels attachment file writes when the run is interrupted", () =>
+    Effect.gen(function* () {
+      const upload = Promise.withResolvers<void>()
+      sandboxTest.uploadGate = upload.promise
+      sandboxTest.uploadStarted = yield* Deferred.make<void>()
+      const session = yield* sessionFor(yield* ChatSandboxes, {
+        uploads: [
+          {
+            handle: "file",
+            filename: "data.csv",
+            mimeType: "text/csv",
+            bytes: new Uint8Array([1]),
+          },
+        ],
+      })
+      const fiber = yield* session.acquire(noStatus).pipe(Effect.forkChild)
+      yield* Deferred.await(sandboxTest.uploadStarted)
+      yield* Fiber.interrupt(fiber)
+      assert.isTrue(sandboxTest.uploadSignal?.aborted)
+      upload.resolve()
+    }).pipe(Effect.scoped, Effect.provide(sandboxesLayer)),
+  )
+
   it.effect("starts a run's sandbox once and keeps a failed start for later tool calls", () =>
     Effect.gen(function* () {
       sandboxTest.createFails = true
