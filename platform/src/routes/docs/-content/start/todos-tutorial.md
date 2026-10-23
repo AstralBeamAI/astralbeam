@@ -11,7 +11,7 @@ The code lives in `examples/todos` in the repository, and it demonstrates four t
 
 ## 1. Seed the local data
 
-Run this command from the repository root to create an organization, a todos agent, a sandbox provider, and an API key:
+Complete the repository's [contributor setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md) first so the local services and migrated database are ready. Setup already seeds the demo. To restore its fixtures later, run this command from the repository root:
 
 ```sh
 bun run --cwd platform db-seed
@@ -51,18 +51,14 @@ const tools: Record<string, ToolDefinition> = {
       properties: { text: { type: "string", description: "What needs to be done" } },
       required: ["text"],
     },
-    execute: (input) => {
-      const todo = createTodoFromToolInput({ id: nextTodoId.current++, input })
-      setTodos((current) => [...current, todo])
-      return { created: todo }
-    },
+    execute: (input) => ({ created: createTodo(input) }),
   },
 }
 ```
 
-The agent can only do what you declare. There is no ambient access to your application, so a tool you remove is a capability the agent loses immediately.
+The example's `useTodos` hook supplies `createTodo`, which validates input and updates host state. The agent can only call tools you declare.
 
-`execute` runs with the agent's authority in the user's page, and its input is model-chosen rather than user-typed, so validate it and reject what does not make sense, as the example does before it touches state. Whatever `execute` returns goes back into the conversation, so return the minimum the agent needs rather than your whole store.
+`execute` runs in the user's page with the authority your host application gives it. Its input is model-chosen, so validate it before changing state and authorize any backend operation on your server. Return only the information the agent needs, because the result joins the conversation.
 
 **TIP**: Read current state through a ref rather than a captured closure, or a long conversation will act on a stale snapshot.
 
@@ -99,7 +95,7 @@ New attachments require the agent to allow them. Turning that setting off refuse
 
 ## 7. Add a sandbox
 
-Select a tested sandbox provider on the agent and the agent gains file and command tools. Each conversation gets its own isolated sandbox, so work in one conversation cannot be seen from another and nothing survives into the next one.
+Select a tested sandbox provider on the agent to enable file and command tools. Workspaces are scoped by agent, conversation, and tenant user, so participants do not share a sandbox and a new conversation starts with a fresh workspace.
 
 Ask it to export the todos as CSV. Published files remain available in the conversation after the sandbox stops. The example's sandbox panel shows the commands, their exit codes, and the resulting downloads.
 

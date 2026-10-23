@@ -4,9 +4,9 @@ A self-hosted deployment keeps its stored secrets under a key you own, and leave
 
 ## Encryption at rest
 
-Three columns hold ciphertext rather than plaintext: `config.value`, which is every deployment setting stored through `/configure`, `model_provider.credentials`, which is each organization's model provider keys, and `sandbox_provider.credentials`, which is each organization's sandbox provider credentials.
+Encrypted values include deployment settings and the model catalog in `config.value`, model and sandbox provider credentials, MCP connection credentials, OAuth client details inside `mcp_server.auth_config`, and temporary MCP authorization attempts in `cache_entry`.
 
-All three are sealed as compact JWE with AES-256-GCM, using a key derived from an entry of `DATABASE_ENCRYPTION_KEY`. The header carries a non-secret key identifier, so the right keyring entry can be selected during a rotation, and the encrypted payload embeds the row's own identity, which is compared with the row after decoding. Moving ciphertext from one row to another therefore fails instead of decrypting under the wrong identity, and a malformed envelope or an unknown key identifier never falls back to unverified data.
+These values are sealed as compact JWE with AES-256-GCM using a key derived from `DATABASE_ENCRYPTION_KEY`. A non-secret header identifier selects the keyring entry during rotation. Stored identities are checked after decoding to prevent ciphertext from being reused for another row or authorization attempt. Malformed envelopes and unknown keys never fall back to unverified data.
 
 Better Auth separately encrypts the OAuth tokens it retains. Everything else, including API key digests, is stored as it reads, so treat the whole database as sensitive and protect it with PostgreSQL's own transport and storage controls.
 
@@ -17,12 +17,12 @@ Better Auth separately encrypts the OAuth tokens it retains. Everything else, in
 1. Restart every replica with the new entry first and the old one behind it, as `DATABASE_ENCRYPTION_KEY=new,old`.
 2. Open `/configure`. It confirms "Encryption key rotation in progress" and shows how many fallback entries are available.
 3. Re-save each value that still uses the old entry. A field encrypted under a fallback key says `Encrypted with a fallback key; replace and save it to use the active key.`. Non-secret fields move across on a plain save, while a secret must be revealed or replaced first, because the page never holds a copy of a stored secret.
-4. Model provider keys and sandbox provider credentials never report a fallback key on `/configure`. Keep the old entry until each organization re-saves them under **Models** and **Sandboxes**, because removing it makes them unreadable.
-5. Once nothing reports a fallback key, restart again with only the new entry.
+4. Save each model provider under **Models**. Under **Sandboxes**, test and save a replacement credential: saving an unchanged credential does not rewrite it. MCP server definitions with stored OAuth clients must be recreated, and users must reconnect their private connections. The model catalog re-encrypts on its next successful refresh. These values do not report fallback keys on `/configure`.
+5. Finish or restart in-flight MCP authorizations and verify that every retained encrypted value has been replaced or rewritten with the active key before removing the old entry. Then restart all replicas with only the new entry. There is no automatic whole-database re-encryption command.
 
 Rotating the active entry has two immediate effects. Every operator session is invalidated, because session signing derives from the active entry, and sign-in now requires the new value.
 
-**NOTE**: Removing an entry that still protects a stored value makes that value unreadable, so we must finish steps 3 and 4 before step 5.
+**NOTE**: An empty fallback warning list on `/configure` does not prove rotation is complete. Removing a key still protecting any stored value makes that value unreadable.
 
 Each entry must be 32 to 1024 characters, unique after trimming, and free of commas. Hashing does not strengthen a weak passphrase, so generate each entry with `openssl rand -base64 32` and keep it in your secret manager.
 
@@ -48,7 +48,7 @@ The encryption key grants access to every encrypted value in the database, so th
 
 Production builds require HTTPS on `/configure` unless `ALLOW_INSECURE=true`. Plain HTTP carries credentials unencrypted, so keep this flag unset for TLS deployments. Without the flag, plain-HTTP `GET` or `HEAD` requests redirect to HTTPS with `307`, and other methods are refused with `400` and `HTTPS is required`. Mutations must also be same origin, which the page checks against `Sec-Fetch-Site` and the `Origin` or `Referer` header, and a cross-origin attempt gets `403`.
 
-Every response, on every route, carries these headers:
+Responses use these security defaults. Individual routes may strengthen them, as `/configure` does with `Referrer-Policy: no-referrer`:
 
 | Header | Value |
 | --- | --- |

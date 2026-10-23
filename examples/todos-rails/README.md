@@ -19,13 +19,13 @@ A Ruby on Rails 8 app that embeds the AstralBeam chat sidebar and tenant-user di
 
 ## Run
 
-You need the Ruby version in [`.ruby-version`](.ruby-version) and a running AstralBeam platform.
+You need the Ruby version in [`.ruby-version`](.ruby-version) and a local AstralBeam platform prepared through the repository [setup](../../SETUP.md).
 
 1. Seed the platform database with `bun run --cwd platform db-seed` from the repository root. It writes `.env` here with the seeded API key and agent ID when the file does not exist yet. To configure it by hand, copy `.env.example` to `.env` and fill it in from the dashboard.
-2. Start the platform on port 4500 with `bun run --cwd platform dev`. Chat also needs the organization's OpenAI API key, which the seed copies from `platform/.env.local`.
+2. Start the platform on port 4500 with `bun run --cwd platform dev`. Chat needs a model assigned to the agent. The seed creates a **Development OpenAI** connection from `OPENAI_API_KEY` for organizations without providers. Otherwise, configure the connection and model under **Models** in the dashboard.
 3. From this directory, run `bin/setup`, which installs gems, creates and seeds the SQLite database, and starts the server on <http://localhost:3000>. Later, `bin/dev` starts it alone.
 
-The pinned SDK version must already be published on npm. To try unreleased SDK changes, build the SDK with `bun run --cwd sdk build`, serve `sdk/dist` with `bunx --bun http-server sdk/dist --cors -p 4601`, and start this app with `ASTRALBEAM_SDK_URL=http://localhost:4601/client.js bin/dev`.
+The pinned SDK version must already be published on npm. To try unreleased SDK changes, run `bun run --cwd sdk build` and `bunx --bun http-server sdk/dist --cors -p 4601` from the repository root. In another terminal, start this app from its directory with `ASTRALBEAM_SDK_URL=http://localhost:4601/client.js bin/dev`.
 
 ## Try it
 

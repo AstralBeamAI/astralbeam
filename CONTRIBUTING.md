@@ -6,9 +6,9 @@ Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vul
 
 ## Get set up
 
-Follow [SETUP.md](SETUP.md) for one-time prerequisites, then [Local development](#local-development) for starting the services, installing dependencies, seeding the database, and running the dev servers.
+Follow [SETUP.md](SETUP.md) to install prerequisites, start local services, seed the database, and run the applications.
 
-Bun is the only supported runtime and package manager for this repository. Vite and npm tooling run through Bun's compatibility layer.
+Bun is the runtime and package manager for the six JavaScript/TypeScript projects. The Rails example uses Ruby and its own tooling.
 
 ## Codebase structure
 
@@ -25,81 +25,9 @@ The repository holds six Bun projects in one workspace:
 
 Each owns its dependencies and tooling, with one shared Bun lockfile. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
 
-## Local development
-
-Run the applications natively with Bun and the database services through Docker Compose or Podman Compose.
-
-### Start PostgreSQL and Mailpit
-
-Compose starts PostgreSQL, PgBouncer, Valkey, and Mailpit. The default `DATABASE_URL` in [`platform/.env.development`](platform/.env.development) points at PgBouncer, the only database endpoint published to the host. On macOS, run Bun natively and use Compose for these services.
-
-From the repository root, start the services with Docker:
-
-```sh
-docker compose up --detach --wait
-```
-
-Or use Podman, then wait for the services to become healthy:
-
-```sh
-podman compose up --detach
-podman compose ps
-```
-
-Mailpit captures outgoing email on SMTP port 1025. Read it in the [local inbox](http://localhost:8025) on port 8025.
-
-### Set up the projects
-
-Install dependencies, migrate, seed local data, and build the SDK:
-
-```sh
-./scripts/setup.sh
-```
-
-The [seed](platform/src/db/README.md#seed-sample-data) creates local accounts and credentials and writes `examples/todos/.env` and `examples/todos-rails/.env` only when absent. Bootstrap defaults are in [`platform/.env.development`](platform/.env.development). Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value.
-
-### Chat credentials
-
-Chat runs on the model provider connections each organization configures in the dashboard under **Models**. Put an OpenAI key of your own in `platform/.env.local`, and the seed creates a **Development OpenAI** connection for sample organizations and dogfood that have no provider:
-
-```sh
-OPENAI_API_KEY=sk-...
-```
-
-### Run everything
-
-```sh
-bun run dev
-```
-
-This starts the four dev servers and the SDK watcher together:
-
-- <http://localhost:4500>, the product application and its `/api/v1/chat` agent endpoint
-- <http://localhost:4600>, the public website
-- <http://localhost:4900>, Linearity with projects, issues, cycles, and Astro. Set its Basic Auth credentials first using [the example setup](examples/linearity-react/README.md)
-- <http://localhost:4700>, the todos example with the embedded widget. See [`examples/todos/README.md`](examples/todos/README.md) for what to try
-
-The Ruby on Rails version of the example runs separately with `bin/setup` from `examples/todos-rails` and opens on <http://localhost:3000>. See [`examples/todos-rails/README.md`](examples/todos-rails/README.md).
-
-Reload the page after changing SDK sources: the watcher rewrites the `sdk/dist` output the example imports.
-
-### Project commands
-
-Run from the repository root:
-
-```sh
-bun install --frozen-lockfile # all workspace dependencies
-bun run dev      # all apps and the SDK watcher
-bun run build    # all projects, SDK first
-```
-
-Per-project aliases include `bun run dev:platform`, `bun run build:sdk`. Other tasks use `bun run --cwd <project> <task>`. Run `bun run` to list root commands.
-
-For account creation and email delivery, follow [Authentication setup](SETUP.md#authentication-and-transactional-email).
-
 ## Validate your change
 
-Every project defines the same tasks, where `check` covers formatting, linting, and typechecking, and `ready` means `check`, `test`, and `build` together. Run `ready` once for each project you touched before opening a pull request, rather than running `check` and `test` separately:
+Each Bun project defines `check` for static validation, `test` for Vitest, and `build` for its distributable. `ready` runs all three and formats first outside CI. Run it once for each project you touched before opening a pull request:
 
 ```sh
 bun run --cwd platform ready
@@ -112,7 +40,7 @@ bun run --cwd examples/linearity-react ready
 
 Documentation-only changes need source review and `git diff --check`, not a full `ready`.
 
-The browser suites run through their own `e2e` tasks, for example `bun run --cwd examples/todos e2e`. They need Playwright browsers and running services, so they stay out of `check`, `test`, `ready`, and CI. Run them locally when you change a flow they cover.
+Browser suites have separate `e2e` tasks and stay out of `check`, `test`, `ready`, and CI. Follow the [PR validation workflow](.agents/skills/create-github-pr/SKILL.md#post-pr-checks) after creating or pushing a PR. Website-only changes skip these suites.
 
 CI runs checks, tests, and builds for all six projects and compiles and smoke-tests the platform and CLI binaries.
 
@@ -131,7 +59,7 @@ AstralBeam also asks contributors to agree to the [Contributor License Agreement
 
 One document covers both individuals and entities. If you contribute as an employee and your employer holds rights in the work, the agreement asks you to confirm either that you are authorized to bind your employer or that your employer has assigned or waived those rights, and to identify the entity you are binding.
 
-Agreement is collected when a contribution is proposed, by ticking the CLA acknowledgement in the pull request template, which records the CLA version you agreed to. There is no automation for this in the repository today. [CLA Assistant](https://cla-assistant.io) is the usual GitHub App for collecting agreements automatically, and installing it is a decision for the repository owner.
+Agreement is collected through the versioned CLA acknowledgement in the pull request template. There is no CLA automation in this repository.
 
 ## Releasing
 
@@ -139,8 +67,8 @@ Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, a
 
 1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if any version disagrees.
 2. Push the tag by running `bun run release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
-3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets and smoke-tests their Linux x86_64 builds, stages both packages on npm with `npm stage publish`, and creates the GitHub release marked as latest, with auto-generated notes and every binary attached under a version-free name, so `releases/latest/download/<asset>` URLs always serve the newest build. After npm staging and GitHub release creation succeed, it builds native AMD64 and ARM64 images from source and publishes their combined version tag to GHCR.
-4. A maintainer approves each staged package with `npm stage approve <stage-id>`, or from the Staged Packages tab on npmjs.com. Approval prompts for 2FA, and only then is a package public. The run's job summary prints the stage ids.
+3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets, smoke-tests their Linux x86_64 builds, and stages both npm packages. It then publishes the AMD64/ARM64 image to GHCR, verifies signatures and cleanup, and creates the GitHub release with generated notes, binaries, and `SHA256SUMS`. Version-free asset names keep `releases/latest/download/<asset>` URLs stable.
+4. A maintainer approves each staged package with `npm stage approve <stage-id>` or from npmjs.com's **Staged Packages** tab. Approval requires 2FA, and only then are the packages public. The run summary identifies both stages.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.
 

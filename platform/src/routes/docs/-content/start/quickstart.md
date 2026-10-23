@@ -93,9 +93,9 @@ If the composer is disabled with an authentication error, token acquisition or v
 
 ## Agents and agent IDs
 
-An agent is a named configuration: a system prompt, whether file attachments are allowed, and an optional sandbox provider. It is not a deployment or a process, so changing an agent changes the next conversation that uses it.
+An agent is a named configuration with instructions, models, attachment policy, web access, and an optional sandbox provider. Changes apply on the next request, including in existing conversations.
 
-Every agent has a public ID of the form `agent_<organizationId>_<id>`. It carries no secret and is safe in browser code. Pass it as the SDK's `agentId` option, or omit that option and let each request resolve your organization's default agent.
+Every agent has a public ID of the form `agent_<organizationId>_<id>`. It carries no secret and is safe in browser code. Pass it as the SDK's `agentId` option, or omit it to select your organization's default when a conversation is created. Existing conversations retain their selected agent.
 
 The system prompt lives with the agent, so an embedding application cannot override it. The chat endpoint applies its own baseline instructions ahead of yours, so write yours as the persona and the rules for your product rather than as a whole prompt from scratch.
 

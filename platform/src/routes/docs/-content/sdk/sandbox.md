@@ -20,8 +20,8 @@ Off by default: the transcript already shows each step where it happened. `sandb
 
 - A pill above the composer summarizes the sandbox ("3 files · 5 commands") and toggles the panel.
 - The panel opens as an anchored sheet, so the composer never moves and a streaming reply stays readable.
-- **Files** lists the latest content of every file the agent wrote, each viewable and downloadable.
-- **Log** is the whole command history with exit codes and durations. Failures read in red.
+- **Files** shows the latest write for each path in the loaded transcript, with downloads of that recorded content. Long writes may be truncated. Publish an artifact to retain the complete file.
+- **Log** shows commands from the loaded transcript with exit codes and durations. Failures read in red.
 
 ## Limits
 

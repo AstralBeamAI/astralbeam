@@ -1,6 +1,6 @@
 # Configuration
 
-Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, `update(options)` applies any subset in place, keeping the transcript, the session, and live widget renders. Nothing is fixed at mount.
+Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, `update(options)` applies any subset in place. Presentation changes preserve the session, while `threadId` selects a conversation and `apiUrl` clears the previous deployment's state.
 
 ## Options
 
@@ -9,7 +9,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
 | `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
-| `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Your chat auth token endpoint as `{ url, ...RequestInit }`, or a minting function |
+| `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Endpoint as `{ url, ...RequestInit }`, or a callback retrieving a server-minted token |
 | `title` | `"AstralBeam"` | Name in the widget's header |
 | `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
@@ -87,7 +87,7 @@ Conversations are saved automatically and start private. Your token endpoint sup
 - Disconnecting may interrupt generation. Saved input, accepted tool results, and the last saved partial response remain available.
 - Reopening never repeats a business tool. An unconfirmed action needs an explicit response or closure before its turn can continue.
 - `reset()` starts another conversation. Managers can delete conversations, including their saved messages and uploaded files. Deletion does not undo tool actions.
-- Uploaded files remain available with their conversation. Generated sandbox files can expire independently.
+- Uploaded files and published sandbox artifacts remain available with their conversation. Temporary sandbox files can disappear when the workspace shuts down.
 - `threadId` defaults to `"auto"`, restoring this tab's selection after authentication. Fresh independent tabs start a new chat. Use `"new"` to bypass restoration or a UUID to open explicitly.
 
 ```tsx

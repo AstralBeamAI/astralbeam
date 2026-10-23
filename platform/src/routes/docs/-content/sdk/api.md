@@ -8,7 +8,7 @@ Use `@astralbeam/sdk/api` to manage Tenants and TenantUsers from your server or 
 | Customer administrator UI | Tenant JWT with `user.admin: true` | Read its Tenant; read and write its TenantUsers |
 | End-user chat | Tenant JWT | Chat only, unless signed admin is true |
 
-TenantUsers are your customers' users and do not need dashboard accounts. Authentication does not provision Tenant or TenantUser records.
+TenantUsers are your customers' users and do not need dashboard accounts. Minting a token does not create records. SDK sessions call `POST /api/v1/me` to synchronize the signed Tenant and TenantUser before loading data. Direct API consumers call `getCurrentUser` explicitly or provision records through the management API.
 
 ## Server: organization API key
 
@@ -166,7 +166,7 @@ import { getChatConfig, getThreadAttachment, runChat } from "@astralbeam/sdk/api
 
 const config = await getChatConfig({ agentId }, { astralBeamToken: token })
 const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
-// Consume response.body as an SSE stream. No events are buffered by the helper.
+// New runs stream SSE. An accepted idempotent retry returns a JSON receipt.
 
 const file = await getThreadAttachment(
   { threadId, fileId, filename: "report.csv" },
@@ -176,11 +176,13 @@ const filename = file.headers.get("Content-Disposition")
 const bytes = await file.arrayBuffer()
 ```
 
-Chat accepts tenant JWTs without requiring admin privileges. Downloads use tenant JWTs and current conversation permissions. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
+`agUiRequest` must follow `ChatRunInput`: use a saved conversation UUID, one new user message, and `forwardedProps.clientId`. The headless SDK handles this setup and the SSE or admission-receipt response automatically.
+
+Chat accepts tenant JWTs without requiring admin privileges. Participant downloads require current conversation access. Administrative downloads also pass `tenantId` and accept an Organization API key, Organization-management JWT, or signed Tenant-admin JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
 
 ## Current user
 
-Let's get the current user after obtaining a JWT:
+Call `getCurrentUser` after obtaining a JWT:
 
 ```ts
 import { getCurrentUser } from "@astralbeam/sdk/api"

@@ -64,7 +64,7 @@ export function validatedApiUrl(value: string): string {
   const loopback =
     host === "localhost" || host === "[::1]" || (isIPv4(host) && host.startsWith("127."))
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
-    throw new Error(`The API URL "${value}" must use https://, or http:// only for localhost.`)
+    throw new Error(`The API URL "${value}" must use https://, or http:// only for loopback hosts.`)
   }
   return value
 }

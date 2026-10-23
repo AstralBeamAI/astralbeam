@@ -1,6 +1,6 @@
 # Finding your way around the platform
 
-This page is a map of `platform/src`. Read it once and you should know where any piece of code lives, how a request travels through it, and where new code belongs. The rules behind the map are in [platform/AGENTS.md](../AGENTS.md).
+Use this map to find source files and follow a request. Implementation rules live in [platform/AGENTS.md](../AGENTS.md).
 
 ## The map
 
@@ -24,6 +24,10 @@ src/
 │  ├─ api-keys/     Organization API key credentials
 │  ├─ tenants/      Tenants and tenant users
 │  ├─ sandboxes/    Sandbox providers
+│  ├─ model-providers/  Model connections, catalog, and pricing
+│  ├─ mcp/          Remote tool definitions, connections, and OAuth
+│  ├─ storage/      Private objects, stored files, and image validation
+│  ├─ usage-limits/  Token and spend allowances
 │  ├─ chat/         Chat runs, with attachments/ and sandbox/ inside
 │  ├─ email/        Sending email
 │  ├─ config/       Deployment settings
@@ -70,6 +74,6 @@ journalctl -u astralbeam-platform | grep 9f6d70b3
 ## Adding something
 
 1. **A new page:** add a folder under `routes`, with its loader calling a server function in its own `-functions`.
-2. **New server logic:** add a method to the module's service, or a new module in `src/lib` with the same four files, and register its layer in `src/lib/runtime/runtime.server.ts`.
+2. **New server logic:** extend the owning service or add a module in `src/lib` with the files it needs, then register its layer in `src/lib/runtime/runtime.server.ts`.
 3. **A new failure users should see:** add a class to the module's `errors.ts` with its message and HTTP status, and expose it in the server function with `Effect.catchTag`.
 4. **A new table:** define it in `src/db/schema`, then generate and review a migration as the [database guide](db/README.md) describes.

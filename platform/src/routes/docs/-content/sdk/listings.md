@@ -80,7 +80,7 @@ import { AstralBeamTenantList } from "@astralbeam/sdk/react"
 ;<AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
-**NOTE**: React refs now expose only `refresh()` and `reset()`. Import `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef` from `/react` instead of the former `*ListHandle` types, whose `/react` exports have been removed. Replace ref `update()` calls with props and ref `unmount()` calls with conditional rendering. Vanilla handles from `/client` retain both methods.
+React refs expose `refresh()` and `reset()`. Import `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef` from `/react`. Use props for updates and conditional rendering to unmount. Vanilla handles from `/client` also expose `update()` and `unmount()`.
 
 ## Mount anywhere else
 
@@ -95,7 +95,7 @@ const handle = mountAstralBeamTenantUserList(document.getElementById("users")!, 
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
 handle.update({ colorScheme: "dark" })
-handle.unmount()
+// When the host removes the directory, call handle.unmount().
 ```
 
 Use `mountAstralBeamTenantList` from the same entry point for Tenant records. The directory loads lazily with its own bundled React.
@@ -139,7 +139,7 @@ await handle.refresh()
 finishEditing()
 ```
 
-`saveChanges` and `finishEditing` belong to your application. React callers await the ref's `refresh()` action. Await or handle rejection from both actions, including calls that previously returned `void`.
+`saveChanges` and `finishEditing` belong to your application. React callers await the ref's `refresh()` action. Await or handle rejection from both `refresh()` and `reset()`.
 
 - React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
 - `refresh()` reloads the current view and may reuse the cached JWT. Token-source updates apply on the next token acquisition.

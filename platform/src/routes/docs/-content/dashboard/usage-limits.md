@@ -1,6 +1,6 @@
 # Usage limits
 
-Usage limits cap how many tokens, or how many dollars of model spend, chat can use in a window of time. Let's look at how a limit counts usage, apply different limits to different plans from your token endpoint, and then build three complete plan designs, including ones modeled on Claude Code and Codex.
+Usage limits cap tokens or model spend within a time window. Let's apply limits from your token endpoint and combine them into subscription plans. The examples use illustrative allowances.
 
 ## How a limit works
 
@@ -26,7 +26,7 @@ Tokens are a model call's input and output tokens, including cached input. Spend
 
 A fixed window follows the calendar in its time zone. Monthly resets at midnight on the 1st, Weekly at midnight on Monday, and Daily at midnight. A custom fixed window lines up with whole multiples of its duration, so 6 hours resets at 00:00, 06:00, 12:00, and 18:00, and 3 months resets at the start of each quarter. Every subject shares the same reset times, which makes a fixed window right for billing periods and for limits you announce as "resets on the 1st".
 
-A rolling window starts at a subject's first use and resets one duration later. The next use after that starts a new window. Each subject therefore gets the whole duration from the moment they begin, the way a Claude Code session does, and nobody can spend two allowances back to back across a shared reset time.
+A rolling window starts at a subject's first use and resets one duration later. The next use after that starts a new window. Each subject gets the whole duration from the moment they begin, rather than sharing a calendar reset time.
 
 **NOTE**: rolling windows are sessions, not sliding windows. A sliding window would forget each call exactly one duration after it happened, so its remaining allowance would change continuously and could not answer "when can I chat again" with one time. A session gives tenant users one clear reset time and needs one counter per subject.
 
@@ -101,9 +101,9 @@ Usage belongs to the subject that made it. Deleting a tenant, tenant user, or co
 
 Each limit's page lists the tenants, tenant users, or conversations with usage in their current window, most used first, 20 to a page. Every row shows the usage so far, its share of the limit, and when that subject's window resets. A Global limit has one row for the whole Organization. Subjects whose windows have ended drop off the list until their next use.
 
-## Example: plans like Claude Code
+## Example: session and weekly allowances
 
-Claude Code gives each Pro and Max subscriber a [five-hour session limit and a weekly limit](https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan). A session starts with the first message, and Max raises both allowances. Let's give an assistant the same shape.
+Let's combine a five-hour session allowance with a weekly cap. Both plans use the same windows, and the higher tier raises both allowances.
 
 | Name          | Applies to | Scope           | Duration | Window     | Metric | Limit      |
 | ------------- | ---------- | --------------- | -------- | ---------- | ------ | ---------- |
@@ -123,11 +123,11 @@ const planLimits = {
 }
 ```
 
-**TIP**: Max plans also have a separate weekly limit for one model. Usage limits count all of an agent's models together, so use a Spend metric when heavier models should use up an allowance faster.
+**TIP**: Usage limits count all of an agent's models together. Use Spend when more expensive models should consume an allowance faster.
 
-## Example: plans like Codex
+## Example: different windows per plan
 
-Codex [limits Plus and Business per five-hour period, and Pro plans have no five-hour limit](https://learn.chatgpt.com/docs/pricing), with weekly limits that may apply to all of them. Here a plan's shape changes rather than only its size.
+Let's give an entry plan both five-hour and weekly limits, while a higher tier has only a weekly cap.
 
 | Name            | Applies to  | Scope           | Duration | Window     | Metric | Limit  |
 | --------------- | ----------- | --------------- | -------- | ---------- | ------ | ------ |
@@ -152,4 +152,4 @@ The tenant budget follows the customer's own billing month. Fixed windows take o
 
 ## Who can change limits
 
-Owners and developers can create, edit, enable, disable, and delete usage limits. Viewers can read them. See [Members](./members.md).
+Owners and developers can read, create, edit, enable, disable, and delete usage limits. Viewers cannot open these pages. See [Members](./members.md).

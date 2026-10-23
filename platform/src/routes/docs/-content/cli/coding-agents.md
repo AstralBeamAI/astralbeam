@@ -1,6 +1,6 @@
 # Coding agents
 
-Coding agents such as Claude Code, Codex, and Cursor can run the `astralbeam` CLI for you. Let's teach one the commands with the bundled Agent Skill, give it credentials safely, and look at what it can and cannot do.
+Coding agents such as Claude Code, Codex, and Cursor can use the `astralbeam` CLI through its bundled Agent Skill and JSON output.
 
 ## 1. Install the skill
 
@@ -16,17 +16,21 @@ Restart the agent session so it loads the skill. The agent then reaches for the 
 
 ## 2. Give the agent credentials
 
-Never paste an API key into a prompt, where it lands in the transcript. Give the agent's shell the key instead, by running `astralbeam auth login` yourself in the project directory the agent works in, or through `ASTRALBEAM_API_KEY` in its environment. The agent then acts on the organization bound to that directory, and the skill tells it to check the organization line each command prints before writing anything. The skill tells the agent to check them with `astralbeam auth status --json`, and never to print a key or pass one as a flag.
+Run `astralbeam auth login` yourself in the agent's project directory, or supply `ASTRALBEAM_API_KEY` in its environment. Never paste a key into the prompt or pass one as a command-line flag. The skill checks the resolved organization with `astralbeam auth status --json` before writes and keeps keys out of output.
 
 **NOTE**: An organization API key can create and update every Tenant and TenantUser, and can sign chat tokens as any of them. Give an agent a dedicated key you can delete, and prefer a staging organization or a self-hosted deployment for experiments. See [API keys](/docs/dashboard/api-keys).
 
 ## What the agent can do
 
-The agent can do everything in [Commands](./commands.md). Because every command takes `--json` and reports failures through exit codes, it can chain lookups, creates, and chats without scraping tables. A typical provisioning run looks like this:
+The agent can use the operations in [Commands](./commands.md), with JSON and exit codes for automation. After verifying the organization, look up the Tenant first. Create it only if the lookup is empty, then use its returned internal UUID for TenantUser commands:
 
 ```sh
+astralbeam auth status --json
 astralbeam tenants list --external-id customer-42 --json
+# Only if the Tenant does not exist:
 astralbeam tenants create --external-id customer-42 --name "Acme Logistics" --json
+astralbeam tenant-users list <tenant-id> --external-id user-7 --json
+# Only if the TenantUser does not exist:
 astralbeam tenant-users create <tenant-id> --external-id user-7 --json
 astralbeam chat --tenant customer-42 --user user-7 "Summarize my open orders" --json
 ```

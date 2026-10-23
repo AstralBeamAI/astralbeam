@@ -134,7 +134,7 @@ function buildAskQuestionnaireTool() {
   }).client()
 }
 
-/** Wraps the host's mount-time tools as client tools the agent can call. */
+/** Wraps declared host tools, resolving current callbacks through the session's execution guard. */
 function buildHostTools(
   tools: Record<string, HostToolDefinition>,
   debug?: DebugLogger,

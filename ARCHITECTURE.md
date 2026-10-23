@@ -2,7 +2,7 @@
 
 AstralBeam lets an Organization embed an agent in its product. Organization employees configure it in the dashboard. The Organization's server authenticates its Tenants and tenant users, then issues short-lived tokens for the embedded SDK.
 
-Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for deployment and local development.
+Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for local development and [self-hosting](platform/src/routes/docs/-content/self-hosting/overview.md) for deployment.
 
 ## The projects
 
@@ -66,14 +66,18 @@ First-party organization-owned rows use `(organization_id, id)` keys. Tenant-own
 | `agent` | Name, prompt, attachment policy, optional sandbox provider |
 | `organization_configuration` | Organization's default agent |
 | `sandbox_provider` | Named provider options and encrypted credentials |
+| `model_provider`, `provider_model`, `agent_model` | Model connections, enabled models, and agent assignments |
 | `tenant`, `tenant_user` | Customer-owned external identities and metadata |
 | `chat_thread`, `chat_participant`, `chat_message`, `chat_message_part`, `chat_tool_response` | Shared history, ancestry, turn claims, structured content, and expected tool responses |
+| `file_object` | Private object-storage metadata and upload/cleanup state |
+| `usage_limit`, `usage_limit_counter` | Token/spend budgets and per-subject window counters |
 | `config` | Encrypted deployment settings |
 | `rate_limit` | Shared authentication, setup, and API counters |
+| `cache_entry` | Namespaced shared cache with expiry, including encrypted MCP authorization attempts |
 | `mcp_server` | Immutable Organization-owned HTTPS endpoints and schema-backed JSONB configuration with encrypted OAuth clients |
 | `mcp_connection` | Private TenantUser credentials, one connection per user and server |
 
-The application encrypts `config.value` and `sandbox_provider.credentials` through the Drizzle column codec. Compact JWE uses keys derived from `DATABASE_ENCRYPTION_KEY`. Payloads include row identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
+Deployment settings, model and sandbox credentials, MCP clients, connection credentials, and pending OAuth attempts use compact JWE with keys derived from `DATABASE_ENCRYPTION_KEY`. Column codecs and explicit storage helpers share the same encryption implementation. Payloads bind secrets to their setting or resource identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
 
 Configuration snapshots, migration state, and sandbox leases are process-local. Restart other replicas after configuration changes. A conversation routed to another replica may receive a fresh sandbox.
 
@@ -113,7 +117,7 @@ These are inspectable open-source implementation references, not claims about pr
 
 The first encryption-key entry encrypts writes and authenticates the operator. Older entries decrypt existing values during rotation. Unreadable values can be replaced without revealing their contents. See [key rotation and operator access](SETUP.md#configure-the-environment).
 
-`/configure` approves migrations by exact name and digest. The application opens only when configuration is valid and no migrations are pending. There is no persisted setup-complete flag. This lets an operator complete first boot or repair settings through the same interface.
+`/configure` approves the exact ordered list of pending migration names. The application opens only when configuration is valid and no migrations are pending. There is no persisted setup-complete flag. This lets an operator complete first boot or repair settings through the same interface.
 
 ## Server execution
 
@@ -145,7 +149,7 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Bun binaries. `www` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
 
-Commands and build constraints belong to each project's instructions and manifests. The [local development guide](CONTRIBUTING.md#local-development) launches local development, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
+Commands and build constraints belong to each project's instructions and manifests. The [local development guide](SETUP.md#local-development) launches the applications, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
 
 ## Glossary
 
@@ -167,7 +171,7 @@ Execution remains attached to its foreground request. Process crashes can leave 
 
 Sandbox identity includes the configured provider connection and authenticated principal. Each process reserves at most 25 leases before provisioning, protects active runs, and expires workspaces 15 minutes after the final run closes. Reported deletion failures retain their lease for retry. Cleanup remains best effort: abrupt process termination loses these records, and the installed Docker, Daytona, and Vercel adapters suppress deletion errors. Guaranteed eventual cleanup would require provider expiry or external reconciliation.
 
-Known regular-file artifact sizes are checked before transfer and bytes are checked again before publication. File changes can race that metadata check. Other sandbox reads and command output are buffered before truncation, and wrapper timeouts may not stop transfers. Sparse XLSX worksheets are padded and rendered synchronously before text truncation, without a document-wide work budget. Both paths can exhaust replica resources.
+Known regular-file artifact sizes are checked before transfer and bytes are checked again before publication. File changes can race that metadata check. Other sandbox reads and command output are buffered before truncation, and wrapper timeouts may not stop transfers. Office parsing bounds archive bytes and entries, and XLSX parsing caps cells, rows, and columns per sheet. Worksheet text still renders synchronously before truncation without a document-wide render budget. These paths can exhaust replica resources.
 
 Management APIs lack application body, name, and metadata budgets. Their schemas can accept NUL or ill-formed Unicode that PostgreSQL rejects as internal failures. Ingress limits and client-address forwarding require hosted verification.
 

@@ -44,7 +44,7 @@ Defaults only populate a new organization form. Once saved, the database values 
 
 A provider on its own runs nothing. Selecting one on an agent is what gives that agent sandbox tools.
 
-The first sandbox tool creates or resumes the conversation's sandbox. It supports file writes, reads, listing, commands, and artifact publishing. Idle sandboxes expire after 15 minutes. Resume state is process-local, so another replica may start a new sandbox.
+The first sandbox tool creates or resumes a workspace scoped by provider connection, agent, conversation, and TenantUser. Active runs retain their leases, and idle sandboxes expire 15 minutes after the last run releases them. Resume state is process-local, so another replica may start a new sandbox. Published files are verified in private storage and attached to their assistant message, so downloads survive sandbox shutdown.
 
 See the [chat instructions](../chat/AGENTS.md#tools) for lifecycle, scope, path containment, and download implementation.
 

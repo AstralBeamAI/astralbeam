@@ -61,25 +61,28 @@ export function DocsMarkdown({ markdown, sectionSlug }: { markdown: string; sect
     ...docsStyledTags,
     table: DocsMarkdownTable,
     a: ({ href, children, ...props }: MarkdownComponentProps<"a">) => {
-      const relative = href?.match(/^\.\/([\w-]+)\.md$/)
+      const relative = href?.match(/^\.\/([\w-]+)\.md(?:#(.*))?$/)
       if (relative) {
         return (
           <Link
             to="/docs/$section/$page"
             params={{ section: sectionSlug, page: relative[1]! }}
+            hash={relative[2] ?? ""}
+            title={props.title}
             className={docsLinkClass}
           >
             {children}
           </Link>
         )
       }
+      const external = props.download === undefined && /^(?:https?:)?\/\//i.test(href ?? "")
       return (
         <a
           {...props}
           href={href}
           className={docsLinkClass}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={external ? "_blank" : undefined}
+          rel={external ? "noopener noreferrer" : undefined}
         >
           {children}
         </a>

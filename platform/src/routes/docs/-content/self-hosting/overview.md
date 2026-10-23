@@ -21,7 +21,7 @@ Linux AMD64 and ARM64 images are available at `ghcr.io/astralbeamai/astralbeam-p
 ## What you need alongside it
 
 - PostgreSQL 18 or newer. The schema depends on server-side `uuidv7()` defaults and the `citext` extension.
-- A transaction-pooling connection pooler such as PgBouncer. The native Effect client uses unnamed queries. The reference Compose setup sets `MAX_PREPARED_STATEMENTS: 200` for clients that use named prepared statements.
+- Optionally, a transaction-pooling connection pooler such as PgBouncer. Direct PostgreSQL connections are supported. The native Effect client uses unnamed queries, and the reference Compose setup allows 200 named prepared statements for other clients.
 - A private S3-compatible bucket and credentials. Configure and test them in **File storage** at `/configure`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS, unless explicitly opting into HTTP with `ALLOW_INSECURE=true`.
@@ -29,7 +29,7 @@ Linux AMD64 and ARM64 images are available at `ghcr.io/astralbeamai/astralbeam-p
 
 Nothing else is required. There is no queue or separate cache server.
 
-**NOTE**: The development Compose file starts RustFS for storage, Valkey, and Mailpit. No application code uses Valkey, and Mailpit is a local sink that captures mail instead of delivering it.
+**NOTE**: Contributor setup uses RustFS for storage, plus Valkey and Mailpit. RustFS runs natively on macOS. No application code uses Valkey, and Mailpit captures local mail instead of delivering it.
 
 ## Where state lives
 
@@ -44,11 +44,17 @@ PostgreSQL stores application state and encrypted settings. Back up the database
 | `model_provider`, `provider_model`, `agent_model` | Named model connections, enabled models, and agent assignments |
 | `sandbox_provider` | Named sandbox providers and their encrypted credentials |
 | `tenant`, `tenant_user` | Your customers' external identities and metadata |
+| `chat_thread`, `chat_participant`, `chat_message`, `chat_message_part`, `chat_tool_response` | Saved conversations, participant grants, and tool outcomes |
+| `file_object` | Private storage metadata and deletion state |
+| `usage_limit`, `usage_limit_counter` | Token/spend allowances and current usage |
+| `mcp_server`, `mcp_connection` | Remote tool definitions and private user connections |
 | `config` | Encrypted deployment settings edited at `/configure` |
 | `rate_limit` | Shared authentication, operator login, and chat counters |
+| `cache_entry` | Expiring cache, idempotency receipts, and encrypted OAuth attempts |
 | `drizzle.__drizzle_migrations` | Which migrations have been applied |
+| `effect_cluster_*` | Durable workflow journal and runner coordination |
 
-`config.value`, `sandbox_provider.credentials`, and `model_provider.credentials` hold ciphertext encrypted with keys derived from `DATABASE_ENCRYPTION_KEY`, so their secrets cannot be read from a database dump without that value.
+Deployment settings, provider credentials, and MCP credentials use encryption derived from `DATABASE_ENCRYPTION_KEY`. Keep the full keyring with your recovery plan. See [encryption and rotation](./security.md#encryption-at-rest).
 
 ## Bootstrap variables and stored settings
 

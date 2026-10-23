@@ -22,7 +22,7 @@ This schematic definition assumes an application-provided `performResourceOperat
 import { Effect, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
-export const resourceOperationWorkflow = Workflow.make("ResourceOperation/v1", {
+const resourceOperation = Workflow.make("ResourceOperation/v1", {
   payload: {
     organizationId: Schema.String,
     resourceId: Schema.String,
@@ -33,13 +33,15 @@ export const resourceOperationWorkflow = Workflow.make("ResourceOperation/v1", {
     `${organizationId}:${resourceId}:${operationId}`,
 })
 
-export const resourceOperationWorkflowLayer = resourceOperationWorkflow.toLayer((payload) =>
+export const resourceOperationWorkflowLayer = resourceOperation.toLayer((payload) =>
   Activity.make({
     name: "PerformResourceOperation",
     success: Schema.String,
     execute: performResourceOperation(payload),
   }),
 )
+
+export default resourceOperation
 ```
 
 Registration makes a handler available. It does not submit an execution. Keep workflow names, payload schemas, activity names, and step ordering compatible with persisted executions. Introduce a new workflow version when those contracts change and retain old handlers until their executions finish.
@@ -50,11 +52,11 @@ Use the original workflow definition to submit and inspect executions. Within an
 
 ```ts
 const submitResourceOperation = Effect.gen(function* () {
-  const executionId = yield* resourceOperationWorkflow.execute(
+  const executionId = yield* resourceOperation.execute(
     { organizationId, resourceId, operationId },
     { discard: true },
   )
-  return { executionId, result: yield* resourceOperationWorkflow.poll(executionId) }
+  return { executionId, result: yield* resourceOperation.poll(executionId) }
 })
 ```
 
@@ -68,7 +70,7 @@ Use the definition's `interrupt(executionId)` for cooperative cancellation and `
 
 When a business change requires a follow-up workflow, write both in the same native Effect `SqlClient.withTransaction`. Committing the business write first and submitting afterward leaves a crash window where the business change survives but its follow-up is lost.
 
-This future producer pattern assumes an application-defined `saveBusinessChange` Effect. Both operations must use the same native Effect SQL client and transaction context. Construct the engine or producer layer outside the transaction and provide it at the server boundary.
+This pattern assumes an application-defined `saveBusinessChange` Effect. Both operations must use the same native Effect SQL client and transaction context. Construct the engine or producer layer outside the transaction and provide it at the server boundary.
 
 ```ts
 import { SqlClient } from "effect/sql"
@@ -78,7 +80,7 @@ const submitResourceChange = Effect.gen(function* () {
   return yield* sql.withTransaction(
     Effect.gen(function* () {
       yield* saveBusinessChange
-      return yield* resourceOperationWorkflow.execute(
+      return yield* resourceOperation.execute(
         { organizationId, resourceId, operationId },
         { discard: true },
       )

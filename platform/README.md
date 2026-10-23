@@ -27,22 +27,8 @@ bun run --cwd platform generate:png
 
 ## Database
 
-See the [database guide](src/db/README.md) for migration, reset, and sample-data commands.
-
-From the repository root:
-
-```sh
-bun run --cwd platform db generate --name=add-projects
-bun run --cwd platform db check
-bun run --cwd platform db migrate
-```
+See the [database guide](src/db/README.md) for schema changes, migrations, resets, and sample data.
 
 ## Upgrade
 
-Upgrade a deployed binary in three steps. [Deploy](src/routes/docs/-content/self-hosting/deploy.md#upgrade) explains each one.
-
-```sh
-sudo astralbeam-platform upgrade        # or pass a tag, such as v0.13.4
-astralbeam-platform migrate
-systemctl restart astralbeam-platform
-```
+Follow [Upgrade the binary](src/routes/docs/-content/self-hosting/deploy.md#upgrade-the-binary) for backups, binary replacement, migrations, and replica restarts. Container deployments follow [the image upgrade procedure](src/routes/docs/-content/self-hosting/deploy.md#existing-services).

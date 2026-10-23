@@ -1,6 +1,6 @@
 # Getting started
 
-The `astralbeam` CLI manages an organization from the terminal. Let's install it, sign it in with an organization API key, and create our first Tenant and TenantUser. It calls the same [management API](/docs/api) your servers do, so everything here also works from scripts, CI, and coding agents.
+Use the `astralbeam` CLI to manage Tenants and TenantUsers and test agents from the terminal. It calls the same [management API](/docs/api) as your servers and supports scripts, CI, and coding agents.
 
 ## 1. Install the CLI
 
@@ -37,7 +37,7 @@ astralbeam auth login
 
 The prompt hides what you paste. Because `login` reads the organization's name and slug from the API before saving anything, a mistyped key or a wrong server fails here rather than on your next command. It then binds the key to this directory and everything below it, in `~/.config/astralbeam/config.json` or `%APPDATA%\astralbeam\config.json` on Windows, readable only by you. Nothing is written into the directory itself.
 
-For a self-hosted deployment, pass its `/api` base. It must use `https://`, except for `localhost`:
+For a self-hosted deployment, pass its `/api` base. HTTPS is required except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`):
 
 ```sh
 astralbeam auth login --api-url https://beam.example.com/api

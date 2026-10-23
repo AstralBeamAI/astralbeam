@@ -1,8 +1,8 @@
 # Platform end-to-end suite
 
-Browser tests that drive the dashboard against a real server, a real PostgreSQL database, and real email. They exist so a change to authentication, `/configure`, or any organization page can be verified in a minute without anyone clicking through signup, verification, and organization creation by hand.
+Browser tests cover authentication, `/configure`, and dashboard flows against a real Platform server and PostgreSQL database, with email captured by a local SMTP sink. Complete [local setup](../../SETUP.md#local-development) before running them.
 
-The suite is self-contained and deterministic. It creates and migrates its own database, starts its own platform, and captures email in its own SMTP sink, so a default run touches neither the development database nor the 4500 development server, and never starts a container. The one project that does run containers is opt-in.
+Default runs create and migrate a separate database, start their own server, and leave the development database and port 4500 untouched. They make no model calls and start no containers. Docker sandbox tests are opt-in, while seeded evidence runs use the worktree's development database.
 
 ## Run it
 
@@ -17,7 +17,7 @@ bun run --cwd platform e2e
 - `bun run --cwd platform e2e --ui` opens Playwright's runner for stepping through a flow.
 - It is not part of `check`, `test`, or `ready`. CI does not run it. Agents run the default projects after creating or pushing to a pull request, as the [post-PR checks](../../.agents/skills/create-github-pr/SKILL.md#post-pr-checks) describe.
 
-Every run drops and recreates the suite's database, so it is repeatable and leaves no state behind between runs. Nothing needs seeding first.
+Default runs drop and recreate the suite's database and need no seed. Seeded runs preserve the development database.
 
 The `list` reporter narrates every `test.step` as it starts and finishes, with its duration, so the terminal shows what the run is doing rather than sitting silent until the journey's single long test ends.
 

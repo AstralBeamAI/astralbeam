@@ -19,7 +19,7 @@ Test results apply to the selected model and saved configuration at that moment.
 
 Completing deployment configuration starts the first catalog download, then catalog defaults refresh daily from Pydantic's genai-prices catalog. A failed refresh keeps the last valid defaults. Overrides belong to this model on this connection and do not change during catalog refreshes. Turning **Override catalog defaults** off discards your overrides and restores automatic updates to prices and token limits. Context pricing tiers apply to catalog prices, while overrides use the flat rates you enter. Expand **Cache pricing** to edit cache rates.
 
-These settings record model prices and token limits. Set the output cap at or below the provider-supported output maximum. When your context window includes both input and output, the configured output cap reduces the displayed input allowance. Saving validates prices and token bounds. Runtime enforcement, usage accounting, and Tenant and tenant-user allowances are not active yet.
+These settings record prices and token bounds. When the context window includes both input and output, the configured output cap reduces the displayed input allowance. Saving validates those bounds, but chat does not yet enforce the configured input allowance or output cap. Reported model usage and prices do feed saved conversation costs and [Usage limits](./usage-limits.md).
 
 ## Assign models to an agent
 

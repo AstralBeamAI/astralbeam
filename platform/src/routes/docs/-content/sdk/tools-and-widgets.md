@@ -77,7 +77,7 @@ const createTodo = defineTool({
 
 Definitions are declared once but called many turns later, so make sure they read current state.
 
-- The drop-in React component routes `execute` through the latest `tools` prop, keeping closures fresh. Headless and vanilla sessions capture callbacks for the active run, so replacements or removals take effect on the next run.
+- All session adapters resolve the current `execute` callback after validation. Removing a tool or replacing its `parameters` schema blocks pending execution. Keep schema objects stable when updating only callbacks.
 - Widget renders re-read the current `widgets` prop, so host state changes re-render projected UI.
 - Pass ids in widget props and resolve them against your own state, rather than snapshotting data into props.
 

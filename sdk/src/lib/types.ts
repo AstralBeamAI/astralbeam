@@ -124,14 +124,8 @@ export interface AstralBeamTokenRequest extends RequestInit {
   url: string
 }
 
-/**
- * Where the widget's short-lived chat auth token comes from: an endpoint to POST, or a function that
- * mints the token in the host page and returns `{ token }`, optionally as a promise.
- *
- * Either form runs again on every renewal — near expiry and after a token is rejected — so a
- * rotating credential stays current rather than being captured once. A function that returns
- * `undefined`, or throws, fails authentication closed; the composer's retry link asks again.
- */
+/** Retrieves a server-minted token on acquisition and renewal, including after a token rejection.
+ * Returning undefined or throwing fails authentication closed. The composer's retry link asks again. */
 export type AstralBeamTokenSource =
   | AstralBeamTokenRequest
   | (() => { token: string } | undefined | Promise<{ token: string } | undefined>)
@@ -191,12 +185,8 @@ export interface MountAstralBeamChatOptions {
    * hosted cloud; self-hosted deployments must set their own origin.
    */
   apiUrl?: string | undefined
-  /**
-   * Where the short-lived chat auth token comes from: `{ url, ...RequestInit }` for a token
-   * endpoint, or a function that mints `{ token }` in the host page. Read for every token, so a
-   * change applies to the next one, which is minted when the cached token nears expiry. Default
-   * `{ url: "/api/astralbeam/token" }`, posted with the page's cookies.
-   */
+  /** Endpoint or callback retrieving a server-minted token, read on each acquisition and renewal.
+   * Defaults to POST /api/astralbeam/token with the page's cookies. Never expose API keys here. */
   fetchAstralBeamToken?: AstralBeamTokenSource | undefined
   /** Host-defined tools the agent can call, executed in the host page, keyed by tool name. */
   tools?: Record<string, ToolDefinition> | undefined
@@ -228,21 +218,16 @@ export interface MountAstralBeamChatOptions {
   debug?: boolean | undefined
 }
 
-/**
- * What the handle's `update` takes: every mount option, none of them fixed. The transport options
- * are re-read per request rather than captured, so changing them keeps the transcript and the
- * chat session instead of forcing a fresh mount.
- */
+/** Updates only supplied options. Presentation changes preserve chat.
+ * Changing apiUrl clears the previous session, while threadId selects a conversation. */
 export type AstralBeamChatUpdate = Partial<MountAstralBeamChatOptions>
 
 export interface AstralBeamChatHandle {
   unmount: () => void
-  /**
-   * Merges option changes into the live mount options and applies them in place, keeping the
-   * transcript, the chat session, and live widget renders. Only the keys given are replaced.
-   */
+  /** Applies supplied options in place. Presentation changes preserve chat.
+   * Changing apiUrl clears the previous session, while threadId selects a conversation. */
   update: (options: AstralBeamChatUpdate) => void
-  /** Clears the conversation: transcript, drafts, attachments, and live widget renders. */
+  /** Starts a fresh conversation and clears its draft, preserving saved conversations and their drafts. */
   reset: () => void
   /** Stops the in-flight generation, if any; the transcript keeps what already streamed. */
   stop: () => void

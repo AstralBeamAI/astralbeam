@@ -2,7 +2,7 @@
 
 ## One-time macOS setup
 
-Run application code [natively on macOS](#option-2-run-directly-on-macos) with Bun. Use Docker Compose or Podman Compose for database services in both native and devcontainer workflows. The devcontainer is optional.
+Run application code [natively on macOS](#local-development) with Bun. Use Docker Compose or Podman Compose for local supporting services.
 
 ### Install a container runtime
 
@@ -27,48 +27,28 @@ Use Docker Desktop with Docker Compose, or set up Podman below.
   brew uninstall --ignore-dependencies podman # Podman Desktop already provides the Podman CLI
   ```
 
-### Option 1: Use the devcontainer
+## Local development
 
-- Open the repository root in Cursor or VS Code and choose **Reopen in Container**. Once PostgreSQL and Valkey are healthy the devcontainer runs `./scripts/setup.sh`, which installs the workspace dependencies and then applies the migrations, seeds the database, and builds the SDK.
+### 1. Start the services
 
-#### Optional: Match the devcontainer workspace path
-
-To help agent CLIs find the codebase outside the devcontainer, expose the directory containing the repository at `/workspaces` on macOS. For example, a repository cloned at `$HOME/projects/astralbeam` will then be available at `/workspaces/astralbeam`, with the Platform at `/workspaces/astralbeam/platform`.
-
-- On modern macOS, `/` is read-only, so use `/etc/synthetic.conf` to create the root-level symlink.
-- Check for an existing entry with `sudo grep -n '^workspaces' /etc/synthetic.conf 2>/dev/null`. If nothing is returned, add one:
-
-  ```bash
-  export WORKSPACES_PATH="$HOME/projects" # parent directory containing the checkout
-  printf "workspaces\t%s\n" "$WORKSPACES_PATH" | sudo tee -a /etc/synthetic.conf # The separator must be a literal tab; `printf` supplies it.
-  ```
-
-- Reboot your Mac because synthetic entries are created during early startup and cannot be added at runtime. See `man synthetic.conf` for details.
-- After rebooting, verify the path:
-
-  ```bash
-  readlink /workspaces
-  ls -ld /workspaces/astralbeam/platform
-  ```
-
-### Option 2: Run directly on macOS
-
-From the repository root, start PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS with one of these commands:
+From the repository root, start PostgreSQL, PgBouncer, Valkey, and Mailpit with Docker:
 
 ```sh
-docker compose up --detach --wait
+docker compose up --detach --wait postgres pgbouncer valkey mailpit
 ```
 
+Or use Podman and wait for healthy services:
+
 ```sh
-podman compose up --detach
+podman compose up --detach postgres pgbouncer valkey mailpit
 podman compose ps
 ```
 
 With Podman, wait for the services to become healthy before setup. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
 
-[RustFS](https://docs.rustfs.com/en/installation/container/docker) serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Compose persists objects in `rustfs-data`. The devcontainer uses `http://rustfs:9000` internally.
+### 2. Install local file storage
 
-To run file storage without a container, install the native RustFS binary that matches Compose's version once, so setup can start it:
+On macOS, run RustFS natively. It serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Install this pinned Apple Silicon binary once and add `$HOME/.local/bin` to your `PATH`:
 
 ```sh
 (
@@ -81,6 +61,7 @@ To run file storage without a container, install the native RustFS binary that m
   mkdir -p "$HOME/.local/bin"
   install -m 755 "$rustfs_tmp/rustfs" "$HOME/.local/bin/rustfs"
 )
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs/data` (or `RUSTFS_DATA_DIR`) and its log in `~/.local/share/rustfs/rustfs.log`. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
@@ -89,17 +70,38 @@ Once RustFS is healthy, setup's `db-seed` step creates and prints a private buck
 
 Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Manage later changes in **File storage** at `/configure` or through deployment overrides.
 
+### 3. Initialize the workspace
+
+Run setup after the services are healthy. It installs the pinned Bun version and frozen workspace dependencies, starts native RustFS, migrates, seeds, and builds the SDK:
+
 ```sh
 ./scripts/setup.sh
 ```
 
-Setup installs the Bun version pinned in `.bun-version` and the root lockfile’s frozen dependencies for all six workspace projects, then migrates, seeds, and builds the SDK. It does not install host database services or start Compose on macOS. Open a new terminal afterward to pick up Bun on `PATH`. Configure model connections under **Models**, enable models, then assign them to agents. Put `OPENAI_API_KEY` in `platform/.env.local` to seed a **Development OpenAI** connection and agent model assignments for sample organizations and dogfood that have no provider. Seeds preserve existing providers and model choices.
+Setup does not install host database services or start Compose on macOS. If the database is unavailable, it skips migration, seed, and SDK build with an explanation. Start the services and rerun setup. Open a new terminal afterward to pick up Bun on `PATH`.
+
+The [seed](platform/src/db/README.md#seed-sample-data) prints local accounts and credentials and writes the Todos examples' `.env` files only when absent. Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value from [`platform/.env.development`](platform/.env.development) or your override.
+
+For chat, configure providers under **Models**, enable models, and assign them to agents. To seed a **Development OpenAI** connection, put your `OPENAI_API_KEY` in the ignored `platform/.env.local` before setup. Seeds preserve existing providers and model choices.
+
+### 4. Run the applications
+
+Start all four applications and the SDK watcher from the repository root:
 
 ```sh
-bun run dev                      # all apps and the SDK watcher
+bun run dev
 ```
 
-Linearity runs on port 4900 alongside the existing examples. Set its Basic Auth credentials and Astro connection in `examples/linearity-react/.env.local` before opening it. Follow [Linearity setup](examples/linearity-react/README.md) for the local and hosted paths. The example stores its issue data in the browser and needs no application database.
+| Application | Local URL | Setup |
+| --- | --- | --- |
+| Platform | `http://localhost:4500` | [Authentication and email](#authentication-and-transactional-email) |
+| Website | `http://localhost:4600` | [Website guide](www/README.md) |
+| Todos | `http://localhost:4700` | [Example guide](examples/todos/README.md) |
+| Linearity | `http://localhost:4900` | [Set Basic Auth and Astro credentials first](examples/linearity-react/README.md) |
+
+The [Rails example](examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 3000. Reload example pages after SDK changes: the watcher rebuilds the `sdk/dist` output they import.
+
+For one project, use `bun run --cwd <project> <task>`. Root aliases include `bun run dev:platform` and `bun run build:sdk`. Run `bun run` to list them. `bun install --frozen-lockfile` installs all workspace dependencies, and `bun run build` builds every Bun project with the SDK first. See [contribution validation](CONTRIBUTING.md#validate-your-change) before opening a PR.
 
 Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
@@ -121,17 +123,17 @@ Passwords are 12–128 characters and are screened for known compromise outside 
 
 `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `platform/.env.development` supplies local defaults and is loaded automatically. An existing shell, CI, or deployment value always wins, and `platform/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
 
-Set `DATABASE_ENCRYPTION_KEY` to one or more comma-separated raw secrets, with the active encryption secret first and older decryption-only secrets after it. Every trimmed entry must be unique and contain at least 32 characters, and a secret cannot contain a comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values with OpenSSL and keep them in the deployment's secret manager:
+Set `DATABASE_ENCRYPTION_KEY` to one or more comma-separated raw secrets, with the active encryption secret first and older decryption-only secrets after it. Every trimmed entry must be unique and contain 32–1024 characters, and a secret cannot contain a comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values with OpenSSL and keep them in the deployment's secret manager:
 
 ```sh
 openssl rand -base64 32
 ```
 
-To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old`, normally save each value that should move to `new`, then remove `old` only after every dependent value has been saved again. Every write uses the active key. An unknown key ID, malformed JWE, or invalid payload makes that value unreadable. `/configure` permits blind replacement without revealing stored data. Environment changes require a restart, and changing the active key invalidates existing operator sessions.
+To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old` and follow the [key-rotation procedure](platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) for settings, providers, and MCP credentials. Remove `old` only after every dependent encrypted value has been rewritten or replaced. Unchanged sandbox credentials are not rewritten on save. Unknown key IDs, malformed JWE, and invalid payloads make values unreadable, but `/configure` permits blind replacement. Environment changes require a restart, and changing the active key invalidates operator sessions.
 
 Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. On a new database, apply pending migrations there. Login throttling starts afterward. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
 
-The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. Because `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto`, the ingress must overwrite both and prevent direct origin access. Rate-limit at the ingress during setup. Afterward, its login limit is shared.
+The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. It trusts forwarded host and protocol only from a loopback peer. That proxy must overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` and prevent direct origin access. Rate-limit at the ingress during setup. Afterward, its login limit is shared.
 
 Other runtime settings live in the database `config` table and are managed at `/configure`. Every stored value uses authenticated encryption, while an uppercase environment variable for any registry key takes precedence and makes that field read-only. Sign in to view or edit values. The editor masks them until explicitly revealed. The base URL must be a pathless HTTP(S) origin, production must use HTTPS, and `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings.
 
@@ -181,7 +183,7 @@ If GitHub returns `email_not_found`, ensure the account has a verified email, re
 
 ### Capture email with Mailpit
 
-The default SMTP settings connect to `127.0.0.1:1025` without TLS or authentication. The Compose Mailpit service captures every message without delivering it externally and exposes its inbox at [http://localhost:8025](http://localhost:8025). The devcontainer sets `SMTP_HOST=mailpit` so the same SMTP provider reaches the Compose service.
+The default SMTP settings connect to `127.0.0.1:1025` without TLS or authentication. The Compose Mailpit service captures every message without delivering it externally and exposes its inbox at [http://localhost:8025](http://localhost:8025).
 
 When `EMAIL_FROM_ADDRESS` is unset, AstralBeam derives `no-reply@<hostname>` from `APP_BASE_URL`. The Mailpit ports are bound only to loopback for host development and the captured inbox persists in the `mailpit-data` Compose volume.
 
