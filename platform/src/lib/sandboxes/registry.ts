@@ -20,6 +20,12 @@ const SANDBOX_PROVIDER_DESCRIPTORS = {
     setupUrl: "https://docs.docker.com/engine/install/",
     credentialLabel: null,
   },
+  e2b: {
+    id: "e2b",
+    label: "E2B",
+    setupUrl: "https://e2b.dev/docs/quickstart",
+    credentialLabel: "API key",
+  },
   sprites: {
     id: "sprites",
     label: "Sprites",

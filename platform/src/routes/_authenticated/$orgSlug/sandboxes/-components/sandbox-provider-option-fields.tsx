@@ -70,6 +70,20 @@ export function SandboxProviderOptionFields({
       </>
     )
   }
+  if (provider === "e2b") {
+    const value = options as SandboxProviderOptions["e2b"]
+    return (
+      <ProviderField
+        id="e2b-template"
+        label="Template"
+        value={value.template}
+        errors={errorsFor("template")}
+        maximumLength={256}
+        disabled={disabled}
+        onChange={(template) => onChange({ template })}
+      />
+    )
+  }
   if (provider === "sprites") return null
   if (provider !== "vercel") return provider satisfies never
   const value = options as SandboxProviderOptions["vercel"]

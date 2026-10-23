@@ -1,6 +1,6 @@
 # Sandbox providers
 
-Organization owners and developers can choose Daytona, Docker, Sprites, or Vercel. Each uses a maintained adapter from the official [TanStack AI sandbox provider list](https://tanstack.com/ai/latest/docs/sandbox/providers). E2B, Deno Sandbox, and other providers are outside this initial set.
+Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or Vercel. Each uses a maintained adapter from the official [TanStack AI sandbox provider list](https://tanstack.com/ai/latest/docs/sandbox/providers). Deno Sandbox and other providers are outside this initial set.
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
@@ -8,6 +8,7 @@ Each organization can store multiple named sandbox providers, including multiple
 | --- | --- | --- | --- |
 | Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |
 | Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | `image` | None |
+| E2B | [`@tanstack/ai-sandbox-e2b`](https://www.npmjs.com/package/@tanstack/ai-sandbox-e2b) | `template` | `apiKey` |
 | Sprites | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None | `apiKey` |
 | Vercel | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel) | `teamId`, `projectId`, `runtime` | `token` |
 
@@ -27,6 +28,13 @@ Defaults only populate a new organization form. Once saved, the database values 
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
 4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`. Docker pulls it when absent.
 
+## E2B setup
+
+1. Create an [E2B API key](https://e2b.dev/docs/quickstart) in the account that should own and pay for the sandboxes.
+2. Choose a template name or ID. The default `base` uses E2B's standard environment. Use a custom template when your agent needs additional system tools or libraries.
+3. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **E2B**, enter the template and API key, then select **Test and save**.
+4. E2B's adapter uses a 30-minute sandbox lifetime and destroys expired sandboxes. A later use creates a fresh workspace if the previous sandbox has expired. Test a replacement key before revoking the old key.
+
 ## Sprites setup
 
 1. For the Fly.io organization that should own the sandboxes, create an API token at [sprites.dev/account](https://sprites.dev/account) or authenticate with [`sprite org auth`](https://docs.sprites.dev/cli/authentication/).
@@ -45,6 +53,8 @@ Defaults only populate a new organization form. Once saved, the database values 
 A provider on its own runs nothing. Selecting one on an agent is what gives that agent sandbox tools.
 
 The first sandbox tool creates or resumes a workspace scoped by provider connection, agent, conversation, and TenantUser. Active runs retain their leases, and idle sandboxes expire 15 minutes after the last run releases them. Resume state is process-local, so another replica may start a new sandbox. Published files are verified in private storage and attached to their assistant message, so downloads survive sandbox shutdown.
+
+Tools support file writes, paged text reads, listing, commands, and artifact publishing. File reads accept a line offset and a limit of up to 2,000 lines, with 40,000 characters of content per page. Cancellation is passed to filesystem operations, although some providers only check before starting a call.
 
 See the [chat instructions](../chat/AGENTS.md#tools) for lifecycle, scope, path containment, and download implementation.
 

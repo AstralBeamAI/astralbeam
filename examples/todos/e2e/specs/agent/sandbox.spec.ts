@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process"
+import { readFile } from "node:fs/promises"
 
 import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
@@ -26,6 +27,28 @@ test.describe("with a Docker daemon", () => {
     () => !dockerDaemonIsReachable(),
     "No Docker daemon answered `docker info`; start Docker to run the sandbox specs.",
   )
+
+  test("pages sandbox text and downloads the saved artifact", async ({ page, chat }) => {
+    test.slow()
+    await chat.sendAndWait(
+      "Use sandbox_write_file to create paging.txt containing exactly ALPHA, BRAVO, CHARLIE, DELTA on four separate lines, with a final newline. Then call sandbox_read_file on paging.txt with offset 2 and limit 2. Finally call sandbox_publish_artifact to share paging.txt.",
+    )
+    const read = chat.toolRow(/^Read .*paging\.txt/).first()
+    await expect(read).toBeVisible()
+    await read.click()
+    await expect(chat.root.getByRole("code").filter({ hasText: "BRAVO" })).toHaveText(
+      /^\s*BRAVO\s*CHARLIE\s*$/,
+    )
+    await captureMoment(page, "sandbox reads only the requested two lines")
+
+    await page.reload()
+    await chat.waitForReady()
+    const download = page.waitForEvent("download")
+    await chat.root.getByRole("button", { name: "Download paging.txt", exact: true }).click()
+    const saved = await download
+    expect(await readFile(await saved.path(), "utf8")).toBe("ALPHA\nBRAVO\nCHARLIE\nDELTA\n")
+    await captureMoment(page, "published sandbox artifact survives reload")
+  })
 
   test("runs a script in the sandbox and collects what it wrote", async ({ page, chat }) => {
     // Provisioning pulls an image on a cold machine, so this turn is the slowest in the suite.

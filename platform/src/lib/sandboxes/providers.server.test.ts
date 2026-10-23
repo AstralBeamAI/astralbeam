@@ -20,7 +20,7 @@ const storedCredentials = Result.getOrThrow(
     value: {
       sandboxProviderId: SANDBOX_PROVIDER_ID,
       organizationId: ORGANIZATION_ID,
-      providerType: "daytona",
+      providerType: "e2b",
       credentials: { apiKey: "secret" },
     },
     schema: SandboxProviderCredentialsPayloadSchema,
@@ -31,9 +31,9 @@ const storedCredentials = Result.getOrThrow(
 function providersOver(row: { id: string; storedCredentials: string | null }) {
   const stored = {
     organizationId: ORGANIZATION_ID,
-    name: "Primary Daytona",
-    providerType: "daytona",
-    options: { target: "us", snapshot: "daytona-medium" },
+    name: "Primary E2B",
+    providerType: "e2b",
+    options: { template: "base" },
     lastTest: null,
     lockVersion: 0,
     createdAt: new Date("2026-08-31T00:00:00.000Z"),

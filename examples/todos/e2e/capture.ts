@@ -9,7 +9,7 @@ import { type Page, test } from "@playwright/test"
  */
 export async function captureMoment(page: Page, name: string): Promise<void> {
   await test.info().attach(name, {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: "disabled" }),
     contentType: "image/png",
   })
 }

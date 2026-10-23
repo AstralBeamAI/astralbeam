@@ -29,6 +29,17 @@ import { runSandboxConnectionTest } from "./connection-test.server.ts"
 const dockerTest = { provider: "docker", options: { image: "node:22" }, credentials: {} } as const
 
 describe("runSandboxConnectionTest", () => {
+  it.effect("reports failed cleanup after a successful connection test", () =>
+    Effect.gen(function* () {
+      connectionTestSandbox.exec.mockResolvedValue({ exitCode: 0, stdout: "sandbox-connection-ok" })
+      connectionTestSandbox.destroy.mockRejectedValueOnce(new Error("Vendor cleanup failed"))
+      assert.deepInclude(yield* runSandboxConnectionTest(dockerTest), {
+        status: "failure",
+        errorCode: "cleanup_failed",
+      })
+    }),
+  )
+
   it.effect("destroys a created sandbox when the test is interrupted", () =>
     Effect.gen(function* () {
       connectionTestSandbox.destroy.mockClear()
@@ -86,7 +97,8 @@ describe("runSandboxConnectionTest", () => {
         response: new Response(null, { status: 401 }),
       })
       const sprites = new Error("Sprites API POST https://api.sprites.dev failed: 403 Forbidden")
-      for (const error of [vercel, sprites]) {
+      const e2b = Object.assign(new Error("Unauthorized"), { status: 401 })
+      for (const error of [vercel, sprites, e2b]) {
         connectionTestSandbox.createError = error
         const result = yield* runSandboxConnectionTest(dockerTest)
         assert.deepInclude(result, { status: "failure", errorCode: "authentication" })
