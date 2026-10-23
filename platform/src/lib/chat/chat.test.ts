@@ -219,6 +219,7 @@ describe("Chat.run", () => {
         yield* Effect.promise(async () => {
           const { chat } = await vi.importActual<typeof import("@tanstack/ai")>("@tanstack/ai")
           for await (const _chunk of chat({
+            threadId: "request-snapshot-test",
             adapter,
             abortController,
             messages: [{ role: "user", content: "Hello" }],
