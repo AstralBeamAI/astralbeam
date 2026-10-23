@@ -12,6 +12,7 @@ interface ClientTool {
 const mocked = vi.hoisted(() => ({
   tools: [] as readonly ClientTool[],
   onCustomEvent: undefined as ((name: string, data: unknown) => void) | undefined,
+  client: undefined as import("@tanstack/ai-client").ChatClient | undefined,
 }))
 
 // Capture the declared render callback while retaining the real client's stream and history behavior.
@@ -22,6 +23,7 @@ vi.mock("@tanstack/ai-client", async (importOriginal) => {
     ChatClient: class extends actual.ChatClient {
       constructor(options: ConstructorParameters<typeof actual.ChatClient>[0]) {
         super(options)
+        mocked.client = this
         mocked.tools = (options.tools ?? []) as readonly ClientTool[]
         mocked.onCustomEvent = (name, data) => options.onCustomEvent?.(name, data, {})
       }
@@ -81,6 +83,7 @@ test("API scope changes clear private MCP presentation and ignore old client eve
   const chat = createTestSession({ threadId: "new" })
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
   const oldEvent = mocked.onCustomEvent!
+  const oldClient = mocked.client!
   const event = {
     tools: [{ name: "mcp-tool", title: "Private account" }],
     unavailable: ["private-id"],
@@ -90,8 +93,54 @@ test("API scope changes clear private MCP presentation and ignore old client eve
   expect(chat.getState().unavailableMcpConnections).toEqual(["private-id"])
   chat.updateOptions({ apiUrl: "https://replacement.example/api" })
   oldEvent("astralbeam_mcp_tools", event)
+  oldClient.setMessagesManually([
+    { id: "stale", role: "assistant", parts: [{ type: "text", content: "Private account" }] },
+  ])
   expect(chat.getState().serverToolTitles).toEqual({})
   expect(chat.getState().unavailableMcpConnections).toEqual([])
+  expect(chat.getState().messages).toEqual([])
+})
+
+test("snapshot observation stops on disposal and resumes on immediate restart", async () => {
+  savedMessages = savedWidget("card", "retained")
+  const cleanup = vi.fn()
+  const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
+  const chat = createTestSession({
+    threadId: thread.id,
+    widgets: { card: { description: "A host card" } },
+    onRenderWidget,
+  })
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledOnce())
+  const native = mocked.client!
+  const retained = native.getSnapshot().messages
+  chat.dispose()
+  const disposed = chat.getState()
+  expect(cleanup).toHaveBeenCalledOnce()
+  native.setMessagesManually([
+    ...retained,
+    { id: "detached", role: "assistant", parts: [{ type: "text", content: "Reply" }] },
+  ])
+  expect(chat.getState()).toBe(disposed)
+
+  chat.start()
+  expect(chat.getState().messages.at(-1)?.id).toBe("detached")
+  await vi.waitFor(() => {
+    expect(chat.getState().auth.status).toBe("ready")
+    expect(chat.getState().history).toBe("idle")
+    expect(onRenderWidget).toHaveBeenCalledTimes(2)
+  })
+  expect(mocked.client).toBe(native)
+  expect(onRenderWidget.mock.calls[1]?.[0].toolCallId).toBe(
+    "saved:assistant-retained:part-retained",
+  )
+  native.setMessagesManually(retained)
+  expect(chat.getState().messages).toHaveLength(1)
+
+  // Restart also restores widgets when the native snapshot and presentation cache have not changed.
+  chat.dispose()
+  expect(cleanup).toHaveBeenCalledTimes(2)
+  chat.start()
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(3))
 })
 
 function savedWidget(widget: string, id: string) {
@@ -239,8 +288,15 @@ test.each(["definition", "renderer", "failed-render"])(
             : onRenderWidget,
     })
     await vi.waitFor(() => expect(chat.getState().messages).toHaveLength(1))
+    const nativeMessages = mocked.client!.getSnapshot().messages
     chat.updateOptions({ widgets, onRenderWidget })
     await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
+    expect(mocked.client!.getSnapshot().messages).toBe(nativeMessages)
+    expect(nativeMessages[0]?.parts[0]).not.toHaveProperty("widgetRenderId")
+    expect(chat.getState().messages[0]?.parts[0]).toHaveProperty(
+      "widgetRenderId",
+      "saved:assistant-late:part-late",
+    )
     chat.updateOptions({ widgets: { ...widgets } })
     await chat.refreshThread()
     expect(onRenderWidget).toHaveBeenCalledTimes(1)
@@ -320,18 +376,34 @@ test("an old async restoration cannot release a newly selected thread's pending 
   await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
 })
 
-test("later stream snapshots preserve a live widget without rendering it again", async () => {
+test("later stream snapshots preserve attachment IDs and a live widget without rendering again", async () => {
   const fetchHistory = fetch
   let sends = 0
   let renderedPartDuringSend: unknown
   const onRenderWidget = vi.fn<(request: WidgetRenderRequest) => void>()
+  const attachment = {
+    id: "uploaded",
+    role: "user",
+    created_at: thread.created_at,
+    parts: [
+      {
+        type: "document",
+        mediaType: "application/pdf",
+        source: { type: "attachment", id: "file" },
+      },
+    ],
+  }
+  savedMessages = [attachment]
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
     const path = input instanceof Request ? input.url : String(input)
     if (!path.endsWith("/chat")) return fetchHistory(input, init)
     sends++
     const first = sends === 1
-    if (!first) renderedPartDuringSend = chat.getState().messages[0]?.parts[0]
-    savedMessages = savedWidget("card", "live")
+    if (!first)
+      renderedPartDuringSend = chat
+        .getState()
+        .messages.find((message) => message.id === "assistant-live")?.parts[0]
+    savedMessages = [attachment, ...savedWidget("card", "live")]
     const run = { threadId: thread.id, runId: `run-${sends}` }
     const chunks = [
       { type: "RUN_STARTED", ...run },
@@ -370,6 +442,7 @@ test("later stream snapshots preserve a live widget without rendering it again",
             {
               type: "MESSAGES_SNAPSHOT",
               messages: [
+                { id: "uploaded", role: "user", content: "Provider attachment projection" },
                 {
                   id: "assistant-live",
                   role: "assistant",
@@ -413,10 +486,19 @@ test("later stream snapshots preserve a live widget without rendering it again",
   expect(chat.getState().error).toBeUndefined()
   await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(1))
   expect(onRenderWidget.mock.calls[0]?.[0].toolCallId).toBe("reused-provider-id")
+  const attachmentParts = chat
+    .getState()
+    .messages.find((message) => message.id === "uploaded")!.parts
+  const native = mocked.client!
+  const snapshots: Array<{
+    native: ReturnType<typeof native.getSnapshot>
+    session: ReturnType<typeof chat.getState>
+  }> = []
   const renderIds: unknown[] = []
   const unsubscribe = chat.subscribe(() => {
-    const part = chat.getState().messages.find((message) => message.id === "assistant-live")
-      ?.parts[0]
+    const session = chat.getState()
+    snapshots.push({ native: native.getSnapshot(), session })
+    const part = session.messages.find((message) => message.id === "assistant-live")?.parts[0]
     if (part?.type === "tool-call")
       renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
   })
@@ -427,9 +509,30 @@ test("later stream snapshots preserve a live widget without rendering it again",
     id: "saved:assistant-live:part-live",
     widgetRenderId: "reused-provider-id",
   })
-  expect(chat.getState().messages[0]?.parts[0]).toMatchObject({
+  expect(
+    chat.getState().messages.find((message) => message.id === "assistant-live")?.parts[0],
+  ).toMatchObject({
     widgetRenderId: "reused-provider-id",
   })
+  expect(
+    chat.getState().messages.find((message) => message.id === "uploaded")?.parts[0],
+  ).toMatchObject({ type: "document", fileId: "file" })
+  const providerSnapshot = snapshots.find((snapshot) =>
+    snapshot.native.messages.some((message) =>
+      message.parts.some(
+        (part) => part.type === "text" && part.content === "Provider attachment projection",
+      ),
+    ),
+  )!
+  expect(
+    providerSnapshot.session.messages.find((message) => message.id === "uploaded")?.parts,
+  ).toBe(attachmentParts)
+  expect(
+    providerSnapshot.native.messages.find((message) => message.id === "uploaded")?.parts,
+  ).toEqual([{ type: "text", content: "Provider attachment projection" }])
+  expect(
+    providerSnapshot.native.messages.find((message) => message.id === "assistant-live")?.parts[0],
+  ).not.toHaveProperty("widgetRenderId")
   expect(onRenderWidget).toHaveBeenCalledTimes(1)
   expect(renderIds.length).toBeGreaterThan(0)
   expect(new Set(renderIds)).toEqual(new Set(["reused-provider-id"]))

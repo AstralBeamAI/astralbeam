@@ -171,17 +171,33 @@ test("the reply after a server tool round keeps its first text delta", async () 
   const chat = createTestSession({
     streamCallbacks: { onFinish },
   })
-  const statuses: string[] = []
-  chat.subscribe(() => statuses.push(chat.getState().status))
+  const snapshots: ReturnType<typeof chat.getState>[] = []
+  chat.subscribe(() => snapshots.push(chat.getState()))
   await chat.sendMessage("Write a file")
   expect(onFinish.mock.calls.at(-1)?.[0].parts.at(-1)).toEqual({
     type: "text",
     content: "I wrote it.",
   })
   // The tool round's intermediate RUN_FINISHED must not make the widget look idle mid-turn.
+  const statuses = snapshots.map((snapshot) => snapshot.status)
   expect(
     statuses.slice(statuses.indexOf("streaming"), statuses.lastIndexOf("streaming")),
   ).not.toContain("ready")
+  const firstDelta = snapshots.find((snapshot) =>
+    snapshot.messages.some((message) =>
+      message.parts.some((part) => part.type === "text" && part.content === "I"),
+    ),
+  )!
+  const reply = snapshots.findLast((snapshot) => snapshot.messages.at(-1)?.id === "reply")!
+  expect(firstDelta.messages.at(-1)?.parts).toContainEqual({ type: "text", content: "I" })
+  expect(firstDelta.messages.find((message) => message.id === "call-turn")).toBeDefined()
+  expect(reply.messages.find((message) => message.id === "call-turn")).toBe(
+    firstDelta.messages.find((message) => message.id === "call-turn"),
+  )
+  expect(reply.status).toBe("ready")
+  expect(reply.messages).toBe(
+    snapshots.findLast((snapshot) => snapshot.status === "streaming")?.messages,
+  )
 })
 
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an

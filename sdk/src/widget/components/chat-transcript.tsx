@@ -23,7 +23,7 @@ import { UserMessageBody } from "./user-message-body.tsx"
 
 interface ChatTranscriptProps {
   readOnly?: boolean | undefined
-  messages: UIMessage[]
+  messages: readonly UIMessage[]
   /** Name of the host's empty-state slot; when set, it replaces the default empty state. */
   emptySlot?: string | undefined
   /** Headline of the empty transcript; defaults to `DEFAULT_EMPTY_HEADLINE`. */
@@ -173,7 +173,7 @@ export function ChatTranscript({
 }: ChatTranscriptProps) {
   const loadingEarlier = useRef(false)
   const viewport = useRef<HTMLDivElement>(null)
-  const automaticPage = useRef<UIMessage[] | undefined>(undefined)
+  const automaticPage = useRef<readonly UIMessage[] | undefined>(undefined)
   useEffect(() => {
     const element = viewport.current
     if (!element || !hasOlder || loadingOlder || loadingHistory) return

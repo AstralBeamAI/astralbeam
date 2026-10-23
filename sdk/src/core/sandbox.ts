@@ -123,7 +123,7 @@ export function readSandboxCommandRun(part: ToolCallPart): SandboxCommandRun | u
  * The whole conversation's sandbox work, for the panel. A path written more than once appears
  * once, holding its latest content, because the panel answers "what is in the sandbox now".
  */
-export function collectSandboxActivity(messages: UIMessage[]): SandboxActivity {
+export function collectSandboxActivity(messages: readonly UIMessage[]): SandboxActivity {
   const files = new Map<string, SandboxFileWrite>()
   const commands: SandboxCommandRun[] = []
   for (const message of messages) {

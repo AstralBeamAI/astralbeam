@@ -10,7 +10,7 @@ export function isSettledToolCall(part: { state: string; output?: unknown }): bo
 // A busy stream can be silent for a while (server-side reasoning, follow-ups after tool
 // results), so a "Thinking…" affordance shows until the newest assistant part visibly
 // makes progress.
-export function lastPartInProgress(messages: UIMessage[]): boolean {
+export function lastPartInProgress(messages: readonly UIMessage[]): boolean {
   const lastMessage = messages.at(-1)
   const lastPart = lastMessage?.role === "assistant" ? lastMessage.parts.at(-1) : undefined
   return (
@@ -25,7 +25,10 @@ export function lastPartInProgress(messages: UIMessage[]): boolean {
 // the message goes unanswered, and the redelivered call can re-execute a side-effecting
 // tool — so those windows count as busy too. Questionnaires and calls to tools this mount
 // never implemented stay interactive: the pre-send settle resolves them.
-export function hasPendingToolRun(messages: UIMessage[], toolNames: ReadonlySet<string>): boolean {
+export function hasPendingToolRun(
+  messages: readonly UIMessage[],
+  toolNames: ReadonlySet<string>,
+): boolean {
   return messages.some((message) =>
     message.parts.some(
       (part) =>

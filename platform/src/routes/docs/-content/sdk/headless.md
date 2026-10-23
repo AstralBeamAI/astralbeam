@@ -56,6 +56,8 @@ chat.dispose()
 
 ## Reading the transcript
 
+`messages` is a readonly snapshot. Treat its messages, parts, and metadata as immutable, and use session actions to change the conversation. Derive display values with methods such as `map`, `filter`, or `toSorted` instead of mutating the transcript.
+
 The core exports the part helpers the widget itself renders with.
 
 - `isSandboxTool`, `readSandboxFileWrite`, `readSandboxCommandRun`, `readSandboxArtifact`, `collectSandboxActivity`.

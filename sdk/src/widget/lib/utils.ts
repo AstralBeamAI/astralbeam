@@ -60,7 +60,7 @@ export function getMessageText(message: UIMessage): string {
 }
 
 /** The conversation's visible text as Markdown, one section per user or assistant message. */
-export function transcriptMarkdown(title: string, messages: UIMessage[]): string {
+export function transcriptMarkdown(title: string, messages: readonly UIMessage[]): string {
   const sections = messages.flatMap((message) => {
     const text = getMessageText(message).trim()
     if (!text || (message.role !== "user" && message.role !== "assistant")) return []
