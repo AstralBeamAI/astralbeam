@@ -416,41 +416,6 @@ export class ModelProviders extends Context.Service<
                 .pipe(Effect.orDie)
             : []
         const catalog = yield* readPricing
-        const timestamp = new Date()
-        const configuredModels: Array<{
-          modelId: string
-          name: string
-          configuration: ModelConfiguration | null
-          pricingHistory: readonly ModelPriceVersion[]
-        }> = []
-        for (const model of input.models) {
-          const saved = savedModels.find((candidate) => candidate.modelId === model.modelId)
-          const pricingHistory = updateModelPriceHistory({
-            history: saved?.pricingHistory ?? [],
-            model,
-            timestamp,
-          })
-          if (!pricingHistory) return yield* new ModelProviderChanged()
-          const configuration = effectiveModelConfiguration({
-            catalog,
-            providerType: input.providerType,
-            modelId: model.modelId,
-            configured:
-              model.configuration?.pricingSource.kind === "manual"
-                ? model.configuration
-                : saved?.configuration?.pricingSource.kind === "catalog"
-                  ? saved.configuration
-                  : null,
-          })
-          configuredModels.push({
-            modelId: model.modelId,
-            name: model.name,
-            configuration,
-            pricingHistory,
-          })
-        }
-        if (configuredModels.some((model) => model.configuration === null))
-          return yield* new ModelConfigurationMissing()
         return yield* db
           .transaction((transaction) =>
             Effect.gen(function* () {
@@ -501,6 +466,42 @@ export class ModelProviders extends Context.Service<
                     ),
                   )
               }
+              // A scheduled price may have activated while acquiring the provider lock.
+              const timestamp = new Date()
+              const configuredModels: Array<{
+                modelId: string
+                name: string
+                configuration: ModelConfiguration | null
+                pricingHistory: readonly ModelPriceVersion[]
+              }> = []
+              for (const model of input.models) {
+                const saved = savedModels.find((candidate) => candidate.modelId === model.modelId)
+                const pricingHistory = updateModelPriceHistory({
+                  history: saved?.pricingHistory ?? [],
+                  model,
+                  timestamp,
+                })
+                if (!pricingHistory) return yield* new ModelProviderChanged()
+                const configuration = effectiveModelConfiguration({
+                  catalog,
+                  providerType: input.providerType,
+                  modelId: model.modelId,
+                  configured:
+                    model.configuration?.pricingSource.kind === "manual"
+                      ? model.configuration
+                      : saved?.configuration?.pricingSource.kind === "catalog"
+                        ? saved.configuration
+                        : null,
+                })
+                configuredModels.push({
+                  modelId: model.modelId,
+                  name: model.name,
+                  configuration,
+                  pricingHistory,
+                })
+              }
+              if (configuredModels.some((model) => model.configuration === null))
+                return yield* new ModelConfigurationMissing()
               const modelIds = input.models.map((model) => model.modelId)
               yield* transaction
                 .delete(providerModel)

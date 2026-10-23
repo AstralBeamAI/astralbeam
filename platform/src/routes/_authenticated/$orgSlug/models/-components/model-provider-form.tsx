@@ -393,7 +393,7 @@ export function ModelProviderForm({
                   type="button"
                   variant="outline"
                   className="mt-2 w-fit"
-                  onClick={() => void router.invalidate()}
+                  onClick={() => window.location.reload()}
                 >
                   Reload latest
                 </Button>

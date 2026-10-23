@@ -254,7 +254,6 @@ export class Chat extends Context.Service<
                 .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
-            const pricing = yield* modelProviders.pricing(model)
             const usageLimitGuard = limits.length
               ? chatUsageLimitGuard({
                   usageLimits,
@@ -324,7 +323,6 @@ export class Chat extends Context.Service<
               history: convertMessagesToModelMessages(messages),
               tools,
               model,
-              pricing,
               web,
               publicHistory:
                 web ||

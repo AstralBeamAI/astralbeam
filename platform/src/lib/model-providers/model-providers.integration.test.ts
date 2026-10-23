@@ -263,6 +263,82 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     ).rejects.toMatchObject({ _tag: "ModelProviderChanged" })
   })
 
+  test("rejects cancelling a scheduled price that activates while a save waits for the provider lock", async () => {
+    const effectiveFrom = new Date(Date.now() + 86_400_000).toISOString()
+    const id = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: modelTestConfiguration,
+            scheduledPrices: [
+              {
+                id: crypto.randomUUID(),
+                effectiveFrom,
+                rates: {
+                  currency: "USD",
+                  pricingSource: { kind: "manual" },
+                  contextTiers: [],
+                  prices: { inputPerMillion: "3", outputPerMillion: "12" },
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    const service = await runAppEffect(ModelProviders)
+    const saved = (await runAppEffect(service.get({ organizationId, id })))!
+    const locked = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const blocker = db.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select id from model_provider where organization_id = ${organizationId} and id = ${id} for update`,
+      )
+      locked.resolve()
+      await release.promise
+    })
+    await locked.promise
+    const saving = runAppEffect(
+      service
+        .save({
+          ...saved,
+          organizationId,
+          apiKey: null,
+          models: [{ ...saved.models[0]!, scheduledPrices: [] }],
+        })
+        .pipe(Effect.result),
+    )
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await db
+          .select({ pid: sql<number>`pid` })
+          .from(sql`pg_stat_activity`)
+          .where(
+            sql`datname = current_database() and wait_event_type = 'Lock' and query ilike 'update "model_provider"%'`,
+          )
+        expect(waiting).toHaveLength(1)
+      })
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date(effectiveFrom))
+      release.resolve()
+      await blocker
+      expect(await saving).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "ModelProviderChanged" },
+      })
+      const current = (await runAppEffect(service.get({ organizationId, id })))!
+      expect(current.lockVersion).toBe(saved.lockVersion)
+      expect(current.models[0]!.configuration!.prices.inputPerMillion).toBe("3")
+    } finally {
+      release.resolve()
+      await blocker
+      await saving
+      vi.useRealTimers()
+    }
+  })
+
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {
     const untrusted = await runAppEffect(
       saveIntegrationProvider(organizationId, {

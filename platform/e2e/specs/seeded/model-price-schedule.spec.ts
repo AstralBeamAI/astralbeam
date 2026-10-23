@@ -1,3 +1,8 @@
+import {
+  createSeedDatabase,
+  loadSeedEnvironment,
+  resolveSeedDatabaseUrl,
+} from "@scripts/seed/database.ts"
 import { SEED_ORGANIZATIONS, SEED_PASSWORD, SEED_USERS } from "@scripts/seed/fixtures.ts"
 import { captureMilestone } from "@e2e/capture.ts"
 import { expect, test } from "@e2e/fixtures.ts"
@@ -78,5 +83,37 @@ test("manual prices can be scheduled, edited and cancelled while viewers cannot 
   await expect(page.getByLabel(`Input price for ${model}`, { exact: true })).toHaveValue("2")
   await schedule.scrollIntoViewIfNeeded()
   await captureMilestone(page, "04-price-schedule-cancelled")
+  await schedule.getByRole("button", { name: "Schedule price change" }).click()
+  await schedule.getByLabel("Effective from", { exact: true }).fill(local)
+  await schedule.getByLabel(/Input price/).fill("4")
+  await models.save()
+  loadSeedEnvironment()
+  const { pool } = createSeedDatabase(resolveSeedDatabaseUrl().url)
+  try {
+    // Activate this test's saved schedule without changing the provider's lock version.
+    const activated = await pool.query(
+      `update provider_model
+       set pricing_history = jsonb_set(pricing_history, '{-1,effectiveFrom}', to_jsonb($4::text)),
+           updated_at = now()
+       where organization_id = $1 and model_provider_id = $2 and model_id = $3`,
+      [
+        org.id,
+        new URL(providerUrl).pathname.split("/").filter(Boolean).at(-1),
+        model,
+        new Date(Date.now() - 1).toISOString(),
+      ],
+    )
+    expect(activated.rowCount).toBe(1)
+  } finally {
+    await pool.end()
+  }
+  await page.getByRole("button", { name: "Save provider", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Save provider", exact: true })).toBeDisabled()
+  await page.getByRole("button", { name: "Reload latest", exact: true }).click()
+  await expect(page.getByLabel(`Input price for ${model}`, { exact: true })).toHaveValue("4")
+  await waitForHydration(page.locator("#model-provider-name"))
+  await expect(schedule.locator("details")).toHaveCount(0)
+  await models.save()
+  await captureMilestone(page, "05-activated-price-reloaded")
   await models.requestDelete()
 })
