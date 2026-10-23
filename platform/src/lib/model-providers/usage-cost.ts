@@ -9,6 +9,7 @@ export const ModelRequestUsageSchema = Schema.Struct({
     Schema.Struct({
       cachedTokens: Schema.optional(Schema.Number),
       cacheWriteTokens: Schema.optional(Schema.Number),
+      cacheWrite1hTokens: Schema.optional(Schema.Number),
     }),
   ),
 })
@@ -40,10 +41,15 @@ export function modelUsageCost(configuration: ModelConfiguration, usage: ModelCa
       ?.prices ?? configuration.prices
   const cacheRead = usage.promptTokensDetails?.cachedTokens ?? 0
   const cacheWrite = usage.promptTokensDetails?.cacheWriteTokens ?? 0
+  const cacheWrite1h = usage.promptTokensDetails?.cacheWrite1hTokens ?? 0
   const charges: [number, string][] = [
     [Math.max(0, usage.promptTokens - cacheRead - cacheWrite), prices.inputPerMillion],
     [cacheRead, prices.cacheReadPerMillion ?? prices.inputPerMillion],
-    [cacheWrite, prices.cacheWritePerMillion ?? prices.inputPerMillion],
+    [Math.max(0, cacheWrite - cacheWrite1h), prices.cacheWritePerMillion ?? prices.inputPerMillion],
+    [
+      cacheWrite1h,
+      prices.cacheWrite1hPerMillion ?? prices.cacheWritePerMillion ?? prices.inputPerMillion,
+    ],
     [usage.completionTokens, prices.outputPerMillion],
   ]
   const total = charges.reduce(

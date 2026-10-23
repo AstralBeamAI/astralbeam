@@ -37,12 +37,15 @@ const writeChatSandboxUploads = Effect.fn("writeChatSandboxUploads")(function* (
   if (uploads.length === 0) return
   const directory = `${resolveHarnessCwd(handle)}/${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}`
   // One level below a workspace that already exists, so this needs no recursive `mkdir`.
-  yield* chatSandboxCall(() => handle.fs.mkdir(directory), CHAT_SANDBOX_FILE_TIMEOUT_MS)
+  yield* chatSandboxCall(
+    (signal) => handle.fs.mkdir(directory, { signal }),
+    CHAT_SANDBOX_FILE_TIMEOUT_MS,
+  )
   yield* Effect.forEach(
     uploads,
     (upload) =>
       chatSandboxCall(
-        () => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes),
+        (signal) => handle.fs.write(`${directory}/${upload.handle}`, upload.bytes, { signal }),
         CHAT_SANDBOX_FILE_TIMEOUT_MS,
       ),
     { concurrency: "unbounded", discard: true },

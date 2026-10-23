@@ -5,6 +5,7 @@ import {
   toolDefinition,
   type ChatMiddleware,
   type StreamChunk,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { fakeText } from "@tanstack/ai/testing"
 import { Effect } from "effect"
@@ -12,13 +13,10 @@ import { expect, it } from "vitest"
 
 import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import type { UsageLimit, UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-import { chatUsageLimitGuard } from "./usage-limits.ts"
+import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits.ts"
 
 it("stops before the next model call and announces the limit once before the run finishes", async () => {
-  // Narrows the field TextAdapter types without `| undefined`, as in createChatAdapter.
-  const adapter = Object.assign(fakeText(), {
-    midConversationChannels: { tools: false, systemPrompts: false },
-  })
+  const adapter = fakeText()
   adapter.setResponses([{ toolCalls: [{ name: "lookup", input: {} }] }, { text: "unreachable" }])
   const recorded: number[] = []
   const usageLimits = {
@@ -53,6 +51,7 @@ it("stops before the next model call and announces the limit once before the run
     yield* held
   }
   const source = chat({
+    threadId: "usage-test",
     adapter,
     messages: [{ role: "user", content: "Look it up" }],
     tools: [
@@ -75,3 +74,42 @@ it("stops before the next model call and announces the limit once before the run
   ])
   expect(types.slice(-2)).toEqual(["CUSTOM astralbeam.usage_limit.reached", "RUN_FINISHED"])
 })
+
+it.each([
+  { usage: { promptTokens: 100, completionTokens: 2, totalTokens: 102 }, expected: 102 },
+  { usage: [{ inputTokens: 100, outputTokens: 2, totalTokens: 102 }], expected: 102 },
+  { usage: undefined, expected: undefined },
+])(
+  "accounts for a successful phase followed by failed usage: $usage",
+  async ({ usage, expected }) => {
+    const adapter = fakeText()
+    adapter.setResponses([{ toolCalls: [{ name: "lookup", input: {} }] }])
+    const stream = adapter.chatStream.bind(adapter)
+    adapter.chatStream = async function* (options) {
+      if (adapter.state.callCount === 0) {
+        yield* stream(options)
+        return
+      }
+      yield {
+        type: EventType.RUN_ERROR,
+        message: "Synthetic interruption",
+        ...(usage ? { usage } : {}),
+      }
+    }
+    const recorded: TokenUsage[] = []
+    const consumer: ChatMiddleware = {
+      name: "usage-consumer",
+      onUsage: (_ctx, usage) => void recorded.push(usage),
+    }
+    const source = chat({
+      threadId: "failed-usage-test",
+      adapter,
+      messages: [{ role: "user", content: "Look up" }],
+      tools: [toolDefinition({ name: "lookup", description: "Look up" }).server(() => "42")],
+      middleware: [chatFailedUsageMiddleware([consumer]), consumer],
+    })
+    expect((await Array.fromAsync(source)).at(-1)?.type).toBe(EventType.RUN_ERROR)
+    expect(recorded).toHaveLength(usage ? 2 : 1)
+    expect(recorded[1]?.totalTokens).toBe(expected)
+  },
+)

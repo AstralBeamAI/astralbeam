@@ -449,11 +449,6 @@ export type ChatRunInputForwardedProps = { [key: string]: unknown } & {
 }
 
 /**
- * Legacy mirror of forwardedProps sent by TanStack AI clients.
- */
-export type ChatRunInputData = { [key: string]: unknown }
-
-/**
  * AG-UI RunAgentInput, validated by TanStack AI. Use the saved conversation UUID as threadId, send exactly one new user message and set forwardedProps.clientId. The server appends to the current history path, loads saved context, and uses the conversation's selected agent. Replacement history, resume entries, and systemPrompt are rejected. forwardedProps.debug is development-only. Maximum request size: 32 MiB.
  */
 export interface ChatRunInput {
@@ -463,8 +458,6 @@ export interface ChatRunInput {
   tools: unknown[]
   context: unknown[]
   forwardedProps: ChatRunInputForwardedProps
-  /** Legacy mirror of forwardedProps sent by TanStack AI clients. */
-  data?: ChatRunInputData
   state?: unknown
   parentRunId?: string
 }

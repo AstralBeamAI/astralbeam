@@ -13260,10 +13260,6 @@
               }
             ]
           },
-          "data": {
-            "type": "object",
-            "description": "Legacy mirror of forwardedProps sent by TanStack AI clients."
-          },
           "state": {},
           "parentRunId": {
             "type": "string"

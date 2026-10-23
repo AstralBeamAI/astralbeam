@@ -1,4 +1,4 @@
-import { type AnyServerTool, toolDefinition } from "@tanstack/ai"
+import { type AnyServerTool, type ToolExecutionContext, toolDefinition } from "@tanstack/ai"
 import { resolveHarnessCwd, type SandboxHandle } from "@tanstack/ai-sandbox"
 import { Clock, type Context, Effect, Result, Schema } from "effect"
 
@@ -17,9 +17,11 @@ import {
 } from "./constants"
 import { ChatSandboxOperationFailed, type ChatSandboxUnavailable } from "./errors.ts"
 import { chatSandboxCall, logChatSandboxFailure } from "./operations"
-import type { ChatSandboxSession, ChatSandboxStatus } from "./sandbox"
+import type { ChatSandboxSession } from "./sandbox"
 import { resolveSandboxPath } from "./paths"
 import { chatToolInputSchema } from "../tool-schema"
+
+const sandboxArtifactLimitMessage = `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`
 
 const sandboxPath = NonEmptyStringSchema.pipe(
   Schema.check(Schema.isMaxLength(CHAT_SANDBOX_MAX_PATH_LENGTH)),
@@ -72,12 +74,6 @@ const RunSandboxCommandInputSchema = chatToolInputSchema(
   }),
 )
 
-/** What the sandbox tools need from TanStack's tool execution context, which is itself optional. */
-interface SandboxToolContext {
-  emitCustomEvent: (name: string, value: ChatSandboxStatus) => void
-  abortSignal?: AbortSignal | undefined
-}
-
 type SandboxToolEffect<A> = Effect.Effect<A, ChatSandboxUnavailable | ChatSandboxOperationFailed>
 
 /** The sandbox tools, which run here rather than in the host page. A refused path, a failed
@@ -97,7 +93,7 @@ export function createChatSandboxTools(input: {
    */
   const runSandboxTool = <A>(
     tool: string,
-    context: SandboxToolContext | undefined,
+    context: ToolExecutionContext | undefined,
     effect: (handle: SandboxHandle) => SandboxToolEffect<A>,
   ) =>
     runPromise(
@@ -124,7 +120,7 @@ export function createChatSandboxTools(input: {
       "Create or replace a file in the sandbox. Missing parent directories are created. Write " +
       "the whole file: there is no partial edit.",
     inputSchema: WriteSandboxFileInputSchema,
-  }).server<SandboxToolContext>(({ path, content }, context) => {
+  }).server(({ path, content }, context) => {
     if (content.length > CHAT_SANDBOX_MAX_WRITE_CHARACTERS) {
       return {
         refusal:
@@ -150,7 +146,7 @@ export function createChatSandboxTools(input: {
           }
         }
         yield* chatSandboxCall(
-          () => handle.fs.write(resolved.path, content),
+          (signal) => handle.fs.write(resolved.path, content, { signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
         return {
@@ -167,13 +163,13 @@ export function createChatSandboxTools(input: {
     name: "sandbox_read_file",
     description: "Read a file from the sandbox. A long file comes back truncated in the middle.",
     inputSchema: ReadSandboxFileInputSchema,
-  }).server<SandboxToolContext>(({ path }, context) =>
+  }).server(({ path }, context) =>
     runSandboxTool("sandbox_read_file", context, (handle) =>
       Effect.gen(function* () {
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
         if ("refusal" in resolved) return resolved
         const content = yield* chatSandboxCall(
-          () => handle.fs.read(resolved.path),
+          (signal) => handle.fs.read(resolved.path, { signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
         const clamped = clampSandboxText(content, CHAT_SANDBOX_MAX_FILE_CHARACTERS)
@@ -191,14 +187,14 @@ export function createChatSandboxTools(input: {
     name: "sandbox_list_files",
     description: "List the files and directories directly inside a sandbox directory.",
     inputSchema: ListSandboxFilesInputSchema,
-  }).server<SandboxToolContext>(({ path }, context) =>
+  }).server(({ path }, context) =>
     runSandboxTool("sandbox_list_files", context, (handle) =>
       Effect.gen(function* () {
         const root = resolveHarnessCwd(handle)
         const resolved = resolveSandboxPath(root, path ?? root)
         if ("refusal" in resolved) return resolved
         const entries = yield* chatSandboxCall(
-          () => handle.fs.list(resolved.path),
+          (signal) => handle.fs.list(resolved.path, { signal }),
           CHAT_SANDBOX_FILE_TIMEOUT_MS,
         )
         return {
@@ -220,7 +216,7 @@ export function createChatSandboxTools(input: {
       "Run a shell command in the sandbox and read its output. A non-zero exit code comes back " +
       "as a result rather than an error, so check `exitCode` before trusting the output.",
     inputSchema: RunSandboxCommandInputSchema,
-  }).server<SandboxToolContext>(({ command, cwd }, context) =>
+  }).server(({ command, cwd }, context) =>
     runSandboxTool("sandbox_run_command", context, (handle) =>
       Effect.gen(function* () {
         const root = resolveHarnessCwd(handle)
@@ -268,23 +264,27 @@ export function createChatSandboxTools(input: {
       "JPEG, GIF, WebP) also renders inline in the conversation. Publish anything you generated " +
       "for the user instead of describing it.",
     inputSchema: PublishSandboxArtifactInputSchema,
-  }).server<SandboxToolContext>(({ path }, context) =>
+  }).server(({ path }, context) =>
     runSandboxTool("sandbox_publish_artifact", context, (handle) =>
       Effect.gen(function* () {
         const resolved = resolveSandboxPath(resolveHarnessCwd(handle), path)
         if ("refusal" in resolved) return resolved
-        const read = yield* Effect.result(
-          chatSandboxCall(() => handle.fs.readBytes(resolved.path), CHAT_SANDBOX_FILE_TIMEOUT_MS),
-        )
-        // The agent only learns the path did not work, and the reason goes to the log.
-        if (Result.isFailure(read)) {
-          yield* logChatSandboxFailure("publish_artifact", read.failure)
-          return { refusal: "The file could not be read. Check the path with sandbox_list_files." }
+        if (handle.fs.lstat) {
+          const stat = handle.fs.lstat.bind(handle.fs)
+          const info = yield* chatSandboxCall(
+            (signal) => stat(resolved.path, { signal }),
+            CHAT_SANDBOX_FILE_TIMEOUT_MS,
+          )
+          if (info?.type === "file" && info.size > CHAT_SANDBOX_MAX_ARTIFACT_BYTES)
+            return { refusal: sandboxArtifactLimitMessage }
         }
-        const bytes = read.success
+        const bytes = yield* chatSandboxCall(
+          (signal) => handle.fs.readBytes(resolved.path, { signal }),
+          CHAT_SANDBOX_FILE_TIMEOUT_MS,
+        )
         if (bytes.byteLength > CHAT_SANDBOX_MAX_ARTIFACT_BYTES) {
           return {
-            refusal: `Artifacts are limited to ${CHAT_SANDBOX_MAX_ARTIFACT_BYTES} bytes. Compress or split the file.`,
+            refusal: sandboxArtifactLimitMessage,
           }
         }
         // Sniffed from content, never from the extension, so a renamed file cannot change how
@@ -299,7 +299,15 @@ export function createChatSandboxTools(input: {
           size: bytes.byteLength,
           fileId,
         }
-      }),
+      }).pipe(
+        Effect.catchTag("ChatSandboxOperationFailed", (error) =>
+          logChatSandboxFailure("publish_artifact", error).pipe(
+            Effect.as({
+              refusal: "The file could not be read. Check the path with sandbox_list_files.",
+            }),
+          ),
+        ),
+      ),
     ),
   )
 

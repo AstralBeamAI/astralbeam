@@ -1,6 +1,7 @@
 import {
   EventType,
   convertSchemaToJsonSchema,
+  isProviderExecutedToolCall,
   modelMessagesToUIMessages,
   type ChatMiddleware,
   type ModelMessage,
@@ -163,12 +164,7 @@ function managedAssistantPayload(
     .flatMap((model) => modelMessagesToUIMessages([model]))
     .flatMap((message) =>
       message.parts
-        .filter(
-          (part) =>
-            part.type !== "tool-call" ||
-            (part as { metadata?: { providerExecuted?: boolean } }).metadata?.providerExecuted !==
-              true,
-        )
+        .filter((part) => part.type !== "tool-call" || !isProviderExecutedToolCall(part))
         .map((part) => {
           const json = { ...chatStoredJson(part) }
           if (part.type === "tool-call") return managedToolPart(options, state, json)
@@ -291,7 +287,7 @@ async function saveManagedProjection(
 ) {
   if (state.committed) return
   const payload = managedAssistantPayload(options, state, messages)
-  if (payload.parts.length === 0 && !complete) return
+  if (payload.parts.length === 0 && !state.usage && !complete) return
   await options.execute(
     options.threads.checkpoint({
       claim: state.claim,
@@ -431,6 +427,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     }),
     { snapshotStreaming: true, snapshotIntervalMs: 1000 },
   )
+  const guardedToolCalls = new Set<string>()
   let completion: Promise<void> | undefined
   const checkpointInterrupted: NonNullable<ChatMiddleware["onAbort"]> = async (ctx) => {
     state.failed = true
@@ -476,6 +473,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       state.partIds.clear()
       state.modelIds.clear()
       state.settledToolCalls.clear()
+      guardedToolCalls.clear()
       state.messageIds.set(info.messageId, state.claim.assistantMessageId)
     },
     onUsage(_ctx, usage) {
@@ -495,9 +493,14 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     },
     async onBeforeToolCall(ctx) {
       await saveManagedProjection(options, state, ctx.messages, true)
+    },
+    async onGuardToolCall(_ctx, info) {
       await options.execute(options.threads.assertActive({ claim: state.claim }))
+      guardedToolCalls.add(info.toolCallId)
     },
     async onAfterToolCall(_ctx, info) {
+      // Validation failures have no external outcome. A passed guard only establishes eligibility.
+      if (!info.ok && !guardedToolCalls.has(info.toolCallId)) return
       await saveManagedToolResult(
         options,
         state,

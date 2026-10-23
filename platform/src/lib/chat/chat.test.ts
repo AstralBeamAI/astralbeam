@@ -430,7 +430,6 @@ describe("Chat.run", () => {
         type: EventType.RUN_ERROR,
         runId: "run",
         message,
-        error: { message },
       })
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
@@ -452,7 +451,6 @@ describe("Chat.run", () => {
         runId: "run",
         message: "Request aborted",
         code: "aborted",
-        error: { message: "Request aborted", code: "aborted" },
       })
     }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )

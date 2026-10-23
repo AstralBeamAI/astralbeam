@@ -12,6 +12,7 @@ import { describe, expect, test } from "vitest"
 
 import { createChatAdapter } from "../adapter"
 import { chatToolInputSchema } from "../tool-schema"
+import { chatFailedUsageMiddleware } from "../usage-limits"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatToolResolution, ChatWriterClaim } from "./schemas"
 import { managedChatDelivery, managedChatMiddleware } from "./stream"
@@ -63,7 +64,9 @@ async function exerciseManagedStream(options: {
   failFinal?: boolean
   failSnapshot?: boolean
   failTool?: boolean
+  failBeforeText?: boolean
   invalidInput?: boolean
+  transformInput?: string | number
   failResult?: boolean
   unknownTool?: boolean
   snapshots?: boolean
@@ -97,9 +100,10 @@ async function exerciseManagedStream(options: {
   const definition = toolDefinition({
     name: options.unknownTool ? "different" : "change",
     description: "Test action",
-    inputSchema: options.invalidInput
-      ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
-      : { type: "object", properties: {} },
+    inputSchema:
+      options.invalidInput || options.transformInput !== undefined
+        ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
+        : { type: "object", properties: {} },
   })
   const tool = options.browser
     ? definition.client()
@@ -193,13 +197,25 @@ async function exerciseManagedStream(options: {
         }
       : {}),
   })
+  const adapter = createChatAdapter(model)
+  if (options.failBeforeText)
+    adapter.chatStream = async function* () {
+      requests += 1
+      yield await Promise.resolve({
+        type: EventType.RUN_ERROR,
+        message: "Synthetic failure before text",
+        usage: { promptTokens: 100, completionTokens: 0, totalTokens: 100 },
+      } satisfies StreamChunk)
+    }
   const source = chat({
-    adapter: createChatAdapter(model),
+    adapter,
+    repairToolInput: false,
     messages: history,
     tools: options.refresh ? [] : [tool],
     threadId: managed.claim.threadId,
     runId: "run",
     middleware: [
+      chatFailedUsageMiddleware(bridge.middleware),
       ...(options.snapshots
         ? [
             {
@@ -222,6 +238,13 @@ async function exerciseManagedStream(options: {
             } satisfies ChatMiddleware,
           ]
         : []),
+      {
+        name: "transform-input",
+        onBeforeToolCall: () =>
+          options.transformInput === undefined
+            ? undefined
+            : { type: "transformArgs", args: { required: options.transformInput } },
+      },
       ...bridge.middleware,
     ],
   })
@@ -262,27 +285,31 @@ describe("managed TanStack persistence boundaries", () => {
     },
   )
 
-  test("commits decisions before server effects and outcomes before the next model call", async () => {
-    const result = await exerciseManagedStream({})
-    expect(result.failed).toBe(false)
-    expect(result.executed).toBe(1)
-    expect(result.requests).toBe(2)
-    expect(result.results).toHaveLength(1)
-    expect(result.order.indexOf("decision")).toBeLessThan(result.order.indexOf("execute"))
-    expect(result.order.indexOf("result")).toBeLessThan(result.order.lastIndexOf("decision"))
-    expect(
-      result.chunks.findIndex((chunk) => chunk.type === EventType.TOOL_CALL_RESULT),
-    ).toBeLessThan(
-      result.chunks.findLastIndex((chunk) => chunk.type === EventType.TEXT_MESSAGE_START),
-    )
-    expect(
-      result.saved.some((payload) =>
-        payload.parts.some((part) => part.executionLocation === "server_api"),
-      ),
-    ).toBe(true)
-    expect(JSON.stringify(result.saved)).not.toContain("synthetic-test-key")
-    expect(result.saved.at(-1)?.provenance?.usage).toMatchObject({ costUsd: "0.000105" })
-  })
+  test.each([{}, { transformInput: "checked" }])(
+    "commits decisions before server effects and outcomes before the next model call: %j",
+    async (options) => {
+      const result = await exerciseManagedStream(options)
+      expect(result.failed).toBe(false)
+      expect(result.executed).toBe(1)
+      expect(result.requests).toBe(2)
+      expect(result.results).toHaveLength(1)
+      expect(result.results[0]!.payload.parts[0]!.outcome).toBe("succeeded")
+      expect(result.order.indexOf("decision")).toBeLessThan(result.order.indexOf("execute"))
+      expect(result.order.indexOf("result")).toBeLessThan(result.order.lastIndexOf("decision"))
+      expect(
+        result.chunks.findIndex((chunk) => chunk.type === EventType.TOOL_CALL_RESULT),
+      ).toBeLessThan(
+        result.chunks.findLastIndex((chunk) => chunk.type === EventType.TEXT_MESSAGE_START),
+      )
+      expect(
+        result.saved.some((payload) =>
+          payload.parts.some((part) => part.executionLocation === "server_api"),
+        ),
+      ).toBe(true)
+      expect(JSON.stringify(result.saved)).not.toContain("synthetic-test-key")
+      expect(result.saved.at(-1)?.provenance?.usage).toMatchObject({ costUsd: "0.000105" })
+    },
+  )
 
   test("refreshes provider context between phases without replacing canonical saved history", async () => {
     const result = await exerciseManagedStream({ refresh: true })
@@ -297,6 +324,19 @@ describe("managed TanStack persistence boundaries", () => {
     })
   })
 
+  test("retains billed usage when a model fails before producing content", async () => {
+    const result = await exerciseManagedStream({ failBeforeText: true })
+    expect(result.failed).toBe(true)
+    expect(result.requests).toBe(1)
+    expect(result.saved.at(-1)).toMatchObject({
+      parts: [],
+      provenance: {
+        usage: { promptTokens: 100, completionTokens: 0, totalTokens: 100, costUsd: "0.0003" },
+      },
+    })
+    expect(result.order).not.toContain("finish")
+  })
+
   test("a failed decision commit prevents the business effect", async () => {
     const result = await exerciseManagedStream({ failDecision: true })
     expect(result.executed).toBe(0)
@@ -304,27 +344,22 @@ describe("managed TanStack persistence boundaries", () => {
     expect(result.chunks.some((chunk) => chunk.type === EventType.TOOL_CALL_END)).toBe(false)
   })
 
-  test("saves input validation failures before continuing without executing the tool", async () => {
-    const result = await exerciseManagedStream({ invalidInput: true })
-    expect(result.failed).toBe(false)
-    expect(result.executed).toBe(0)
-    expect(result.requests).toBe(2)
-    expect(result.results).toHaveLength(1)
-    const output = result.results[0]!.payload.parts[0]!
-    expect(output.outcome).toBe("failed")
-    expect(JSON.stringify(output.output)).toContain("Input validation failed")
-    expect(result.order.indexOf("result")).toBeLessThan(result.order.indexOf("next-draft"))
-  })
-
-  test.each([{ browser: true, invalidInput: true }, { unknownTool: true }])(
-    "persists rejected tool calls without leaving an executable browser response: %j",
-    async (options) => {
+  test.each([
+    [{ invalidInput: true }, "Input validation failed"],
+    [{ transformInput: 5 }, "Input validation failed"],
+    [{ browser: true, invalidInput: true }, "Input validation failed"],
+    [{ unknownTool: true }, "Unknown tool"],
+  ] as const)(
+    "persists rejected tool calls before continuing without execution: %j",
+    async (options, error) => {
       const result = await exerciseManagedStream(options)
       expect(result.failed).toBe(false)
       expect(result.executed).toBe(0)
       expect(result.requests).toBe(2)
       expect(result.results).toHaveLength(1)
-      expect(result.results[0]!.payload.parts[0]!.outcome).toBe("failed")
+      const output = result.results[0]!.payload.parts[0]!
+      expect(output.outcome).toBe("failed")
+      expect(JSON.stringify(output.output)).toContain(error)
       expect(result.order.indexOf("result")).toBeLessThan(result.order.indexOf("next-draft"))
     },
   )

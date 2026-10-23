@@ -10,7 +10,7 @@ import {
   webSearchTool as routerSearch,
   webFetchTool as routerFetch,
 } from "@tanstack/ai-openrouter/tools"
-import type { Tool, ModelMessage } from "@tanstack/ai"
+import { isProviderExecutedToolCall, type Tool, type ModelMessage } from "@tanstack/ai"
 import type { WebEvidence, WebSource } from "@astralbeam/sdk/core"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { modelWebAccess } from "@/lib/model-providers/web.server"
@@ -413,12 +413,7 @@ export function chatWebContext(
                   ),
                 ),
                 tool_calls: toolCalls
-                  .filter(
-                    (call) =>
-                      !Schema.is(Schema.Struct({ providerExecuted: Schema.Literal(true) }))(
-                        call.metadata,
-                      ),
-                  )
+                  .filter((call) => !isProviderExecutedToolCall(call))
                   .map((call) => ({ id: call.id, type: call.type, function: call.function })),
               }
             : {}),
