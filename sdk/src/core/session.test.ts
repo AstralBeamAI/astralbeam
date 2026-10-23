@@ -188,23 +188,16 @@ test("the reply after a server tool round keeps its first text delta", async () 
       message.parts.some((part) => part.type === "text" && part.content === "I"),
     ),
   )!
-  const reply = snapshots.find((snapshot) =>
-    snapshot.messages.some((message) =>
-      message.parts.some((part) => part.type === "text" && part.content === "I wrote it."),
-    ),
-  )!
+  const reply = snapshots.findLast((snapshot) => snapshot.messages.at(-1)?.id === "reply")!
   expect(firstDelta.messages.at(-1)?.parts).toContainEqual({ type: "text", content: "I" })
-  expect(reply.messages.at(-1)).not.toBe(firstDelta.messages.at(-1))
   expect(firstDelta.messages.find((message) => message.id === "call-turn")).toBeDefined()
   expect(reply.messages.find((message) => message.id === "call-turn")).toBe(
     firstDelta.messages.find((message) => message.id === "call-turn"),
   )
-  expect(
-    snapshots.some((snapshot, index) => {
-      const previous = snapshots[index - 1]
-      return previous?.status !== snapshot.status && previous?.messages === snapshot.messages
-    }),
-  ).toBe(true)
+  expect(reply.status).toBe("ready")
+  expect(reply.messages).toBe(
+    snapshots.findLast((snapshot) => snapshot.status === "streaming")?.messages,
+  )
 })
 
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an

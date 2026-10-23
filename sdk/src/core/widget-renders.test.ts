@@ -102,57 +102,45 @@ test("API scope changes clear private MCP presentation and ignore old client eve
 })
 
 test("snapshot observation stops on disposal and resumes on immediate restart", async () => {
+  savedMessages = savedWidget("card", "retained")
   const cleanup = vi.fn()
   const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
   const chat = createTestSession({
-    threadId: "new",
+    threadId: thread.id,
     widgets: { card: { description: "A host card" } },
     onRenderWidget,
   })
-  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledOnce())
   const native = mocked.client!
-  const readSnapshot = vi.spyOn(native, "getSnapshot")
+  const retained = native.getSnapshot().messages
   chat.dispose()
   const disposed = chat.getState()
-  readSnapshot.mockClear()
-  native.setMessagesManually([{ id: "closed", role: "assistant", parts: [] }])
-  expect(readSnapshot).not.toHaveBeenCalled()
+  expect(cleanup).toHaveBeenCalledOnce()
+  native.setMessagesManually([
+    ...retained,
+    { id: "detached", role: "assistant", parts: [{ type: "text", content: "Reply" }] },
+  ])
   expect(chat.getState()).toBe(disposed)
 
   chat.start()
+  expect(chat.getState().messages.at(-1)?.id).toBe("detached")
+  await vi.waitFor(() => {
+    expect(chat.getState().auth.status).toBe("ready")
+    expect(chat.getState().history).toBe("idle")
+    expect(onRenderWidget).toHaveBeenCalledTimes(2)
+  })
   expect(mocked.client).toBe(native)
-  readSnapshot.mockClear()
-  native.setMessagesManually([
-    { id: "restarted", role: "assistant", parts: [{ type: "text", content: "Reply" }] },
-  ])
-  expect(readSnapshot).toHaveBeenCalledOnce()
-  expect(chat.getState().messages[0]?.id).toBe("restarted")
+  expect(onRenderWidget.mock.calls[1]?.[0].toolCallId).toBe(
+    "saved:assistant-retained:part-retained",
+  )
+  native.setMessagesManually(retained)
+  expect(chat.getState().messages).toHaveLength(1)
 
-  native.setMessagesManually([
-    {
-      id: "retained-widget",
-      role: "assistant",
-      parts: [
-        {
-          type: "tool-call",
-          id: "widget-call",
-          name: RENDER_WIDGET_TOOL,
-          arguments: '{"widget":"card","props":{}}',
-          input: { widget: "card", props: {} },
-          state: "complete",
-          output: { widget: "card", rendered: true },
-        },
-      ],
-    },
-  ])
-  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledOnce())
-  const retained = native.getSnapshot().messages
+  // Restart also restores widgets when the native snapshot and presentation cache have not changed.
   chat.dispose()
-  expect(cleanup).toHaveBeenCalledOnce()
+  expect(cleanup).toHaveBeenCalledTimes(2)
   chat.start()
-  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(2))
-  expect(native.getSnapshot().messages).toBe(retained)
-  expect(onRenderWidget.mock.calls[1]?.[0].toolCallId).toBe("widget-call")
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(3))
 })
 
 function savedWidget(widget: string, id: string) {
@@ -506,19 +494,16 @@ test("later stream snapshots preserve attachment IDs and a live widget without r
     native: ReturnType<typeof native.getSnapshot>
     session: ReturnType<typeof chat.getState>
   }> = []
-  const unsubscribeNative = native.subscribeSnapshot(() =>
-    snapshots.push({ native: native.getSnapshot(), session: chat.getState() }),
-  )
   const renderIds: unknown[] = []
   const unsubscribe = chat.subscribe(() => {
-    const part = chat.getState().messages.find((message) => message.id === "assistant-live")
-      ?.parts[0]
+    const session = chat.getState()
+    snapshots.push({ native: native.getSnapshot(), session })
+    const part = session.messages.find((message) => message.id === "assistant-live")?.parts[0]
     if (part?.type === "tool-call")
       renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
   })
   await chat.sendMessage("Continue")
   unsubscribe()
-  unsubscribeNative()
   expect(chat.getState().error).toBeUndefined()
   expect(renderedPartDuringSend).toMatchObject({
     id: "saved:assistant-live:part-live",

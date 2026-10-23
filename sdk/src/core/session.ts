@@ -1549,12 +1549,35 @@ export function createAstralBeamChat(
   const start = () => {
     if (started) return
     started = true
+    const retained = client
+    const generation = selectionGeneration
+    const interruptedHydration =
+      requestController.signal.aborted && client.getIsHydrating() ? hydration : undefined
     client.updateOptions({ tools: declareTools() })
-    attachClient()
     if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
     observeAuthentication()
     stopAuthentication = startAuthentication(authentication)
+    attachClient()
+    // A reattach can reuse the history read cancelled by disposal. Retry only that read,
+    // after TanStack releases it, while this restarted selection still owns the client.
+    if (interruptedHydration) {
+      hydration = interruptedHydration.catch((error: unknown) => {
+        if (
+          started &&
+          client === retained &&
+          generation === selectionGeneration &&
+          error instanceof Error &&
+          error.name === "AbortError"
+        ) {
+          client.detach()
+          attachClient()
+          return hydration
+        }
+        throw error
+      })
+      void hydration.catch(() => undefined)
+    }
   }
   if (!deferStart) start()
 
@@ -1687,7 +1710,6 @@ export function createAstralBeamChat(
       client.stop()
       requestController.abort()
       selectionGeneration++
-      threadKey = undefined
       capabilitiesGeneration++
       capabilityIdentity = undefined
       stopAuthentication?.()
@@ -1699,6 +1721,7 @@ export function createAstralBeamChat(
       queueMicrotask(() => {
         if (!started) {
           client.dispose()
+          threadKey = undefined
           messagePresentation.clear()
           projectedMessages = new WeakMap()
         }

@@ -1714,31 +1714,58 @@ test.each(["before", "after"] as const)(
   },
 )
 
-test("a session restarted like React Strict Mode keeps loading history and sending", async () => {
-  let sends = 0
-  stubSessionFetch((input: string | URL, init?: RequestInit) => {
-    const path = new URL(input).pathname
-    if (path.endsWith("/config")) return sessionResponse({ attachments: true })
-    if (path.endsWith("/threads") && init?.method === "POST")
-      return sessionResponse({ ...thread, title: "", version: 0 })
-    if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
-    return sessionResponse(page())
-  })
-  const chat = createAstralBeamChat({ fetchAstralBeamToken: chatTestToken, threadId: "new" }, true)
-  try {
-    chat.start()
-    chat.dispose()
-    chat.start()
-    await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-    for (const text of ["first", "second"]) {
-      expect(await chat.sendMessage(text)).toMatchObject({ phase: "accepted" })
-      expect(chat.getState().history).toBe("idle")
+test.each(["new", "pending"])(
+  "a %s session restarted like React Strict Mode keeps loading history and sending",
+  async (initial) => {
+    let sends = 0
+    let reads = 0
+    let cancelled = false
+    stubSessionFetch((input: string | URL, init?: RequestInit) => {
+      const path = new URL(input).pathname
+      if (path.endsWith("/config")) return sessionResponse({ attachments: true })
+      if (path.endsWith("/threads") && init?.method === "POST")
+        return sessionResponse({ ...thread, title: "", version: 0 })
+      if (path.endsWith("/chat")) return Promise.resolve(acceptedStream(String(++sends)))
+      if (path.endsWith("/messages") && ++reads === 1 && initial === "pending") {
+        const signal = init!.signal!
+        return new Promise((_resolve, reject) =>
+          signal.addEventListener(
+            "abort",
+            () => {
+              cancelled = true
+              reject(new DOMException("History request cancelled", "AbortError"))
+            },
+            { once: true },
+          ),
+        )
+      }
+      return sessionResponse(page())
+    })
+    const chat = createAstralBeamChat(
+      { fetchAstralBeamToken: chatTestToken, threadId: initial === "new" ? "new" : thread.id },
+      true,
+    )
+    try {
+      chat.start()
+      if (initial !== "new") await vi.waitUntil(() => reads === 1)
+      chat.dispose()
+      expect(cancelled).toBe(initial === "pending")
+      chat.start()
+      await vi.waitFor(() => {
+        expect(chat.getState().auth.status).toBe("ready")
+        expect(chat.getState().history).toBe("idle")
+        expect(chat.getState().thread?.id).toBe(initial === "new" ? undefined : thread.id)
+      })
+      for (const text of ["first", "second"]) {
+        expect(await chat.sendMessage(text)).toMatchObject({ phase: "accepted" })
+        expect(chat.getState().history).toBe("idle")
+      }
+      expect(sends).toBe(2)
+    } finally {
+      chat.dispose()
     }
-    expect(sends).toBe(2)
-  } finally {
-    chat.dispose()
-  }
-})
+  },
+)
 
 test("a send before the configured conversation opens returns to its caller", async () => {
   const sends = vi.fn()
@@ -1756,14 +1783,23 @@ test("a send before the configured conversation opens returns to its caller", as
   expect(chat.getState().submission).toBeUndefined()
 })
 
-test.each(["history", "thread"] as const)(
-  "Stop returns a send still waiting for its %s without dispatching it",
+test.each(["history", "thread", "restarted history"] as const)(
+  "a send waiting for %s remains undispatched until its wait completes or Stop refuses it",
   async (wait) => {
+    const restarting = wait === "restarted history"
+    const waitingForHistory = wait !== "thread"
     const sends = vi.fn()
-    let release: (() => void) | undefined
-    const hold = (response: Response) =>
-      new Promise<Response>((resolve) => {
-        release = () => resolve(response)
+    const release: Array<() => void> = []
+    const hold = (response: Response, signal?: AbortSignal | null) =>
+      new Promise<Response>((resolve, reject) => {
+        release.push(() => resolve(response))
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          {
+            once: true,
+          },
+        )
       })
     let reads = 0
     stubSessionFetch((input: string | URL, init?: RequestInit) => {
@@ -1776,23 +1812,38 @@ test.each(["history", "thread"] as const)(
       if (path.endsWith("/threads") && init?.method === "POST")
         return hold(Response.json({ ...thread, title: "", version: 0 }))
       const response = Response.json(page())
-      return wait === "history" && ++reads === 2 ? hold(response) : Promise.resolve(response)
+      return waitingForHistory && (++reads === 2 || (restarting && reads === 3))
+        ? hold(response, restarting ? init?.signal : undefined)
+        : Promise.resolve(response)
     })
-    const chat = createTestSession(wait === "history" ? { threadId: thread.id } : {})
+    const chat = createTestSession(waitingForHistory ? { threadId: thread.id } : {})
     await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-    if (wait === "history") {
+    if (waitingForHistory) {
       await vi.waitUntil(() => chat.getState().thread)
       void chat.refreshThread()
     }
-    expect(chat.getState().history).toBe(wait === "history" ? "refreshing" : "idle")
-    const outcome = chat.sendMessage("Stop me")
-    await vi.waitFor(() => expect(release).toBeDefined())
-    chat.stop()
-    expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "refused" } })
-    release!()
-    expect(await outcome).toEqual(expect.objectContaining({ phase: "refused", content: "Stop me" }))
-    expect((await outcome).error).toBeUndefined()
+    if (restarting) {
+      await vi.waitUntil(() => release.length === 1)
+      chat.dispose()
+      chat.start()
+    }
+    expect(chat.getState().history).toBe(waitingForHistory ? "refreshing" : "idle")
+    const outcome = chat.sendMessage("Wait for me")
+    await vi.waitFor(() => expect(release).toHaveLength(restarting ? 2 : 1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     expect(sends).not.toHaveBeenCalled()
+    if (!restarting) chat.stop()
+    expect(chat.getState()).toMatchObject({
+      status: restarting ? "submitted" : "ready",
+      submission: { phase: restarting ? "submitting" : "refused" },
+    })
+    release.at(-1)!()
+    expect(await outcome).toMatchObject({
+      phase: restarting ? "accepted" : "refused",
+      content: "Wait for me",
+    })
+    expect((await outcome).error).toBeUndefined()
+    expect(sends).toHaveBeenCalledTimes(restarting ? 1 : 0)
   },
 )
 
