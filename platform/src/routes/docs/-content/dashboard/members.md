@@ -11,12 +11,15 @@ A role decides what a member may do, and there are three.
 | Capability                                                     | Owner | Developer | Viewer |
 | -------------------------------------------------------------- | ----- | --------- | ------ |
 | See the organization home and the member list                  | Yes   | Yes       | Yes    |
+| Read Tenants, TenantUsers, and saved conversations             | Yes   | Yes       | Yes    |
 | Read and change agents, model providers, and sandbox providers | Yes   | Yes       | No     |
+| Read and change usage limits                                   | Yes   | Yes       | No     |
+| Add and remove MCP server definitions                          | Yes   | Yes       | No     |
 | List, create, rename, and delete API keys                      | Yes   | Yes       | No     |
 | Invite members, change their roles, and remove them            | Yes   | No        | No     |
 | Change the organization's name and slug                        | Yes   | No        | No     |
 
-Developer is the working role for anyone configuring the product, and Owner adds control over people and the organization itself. Viewer is deliberately narrow: a viewer sees that the organization exists and who is in it, and nothing about its configuration or credentials.
+Developers configure the product. Owners also manage people and the organization itself. Viewers can browse members, customer directories, and saved conversations, but cannot access configuration or credentials. Reading a conversation through a directory does not grant permission to participate in it.
 
 A member can hold more than one role, and any single role that permits an action is enough. The dashboard assigns one role at a time. Only an owner can grant the Owner role.
 

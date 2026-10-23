@@ -25,7 +25,7 @@ The widget ships its own palette inside a shadow root, so your page styles never
 
 - Keys are CSS custom property names (`--background`, `--primary`, `--radius`, `--font-sans`, ...).
 - Values apply immediately on prop or `update` changes.
-- Because the shadow root cannot read your stylesheet, tokens must be passed here, not inherited.
+- The widget defines its own palette, so pass overrides through `theme` instead of relying on inherited host tokens.
 
 ## Custom CSS
 

@@ -1,6 +1,6 @@
 # @astralbeam/www
 
-TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting.
+TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting. See [repository setup](../SETUP.md) for dependencies.
 
 Run common commands from the repository root:
 
@@ -17,13 +17,11 @@ bun run --cwd www deploy   # ready, then deploy to Cloudflare
 
 For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `www`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
 
-Structure:
-
-- Routes live in `src/routes/`, landing content in `src/routes/-landing/`, and styles in `src/styles/`.
+Routes live in `src/routes/`, landing content in `src/routes/-landing/`, and styles in `src/styles/`.
 
 `vite.config.ts` lists fixed prerendered routes and discovers blog routes from Markdown filenames. Add other new routes there, otherwise the build will not emit them. The platform serves this website under its own origin through the rewrites in `platform/src/routes/-lib/website-rewrite.server.ts`, so add other new public paths there too, and keep build assets under `/website-assets/`, the prefix it proxies. The `/blog/` prefix includes posts, the feed, and blog images.
 
-Browser caching follows `public/_headers`: hashed build assets stay fresh for one year, and other public files for five minutes. Stable files revalidate after expiry, so an unchanged URL can retain its previous content for that freshness window. HTML revalidates on each visit to pick up deployment changes. Platform preserves these headers through the rewrite, prevents caching upstream errors, and keeps `/` private and revalidated because sign-in changes it to the dashboard.
+Production caching follows `public/_headers`: hashed build assets stay fresh for one year, and explicitly listed public files for five minutes. Add an exact path entry for each new public file that needs this policy. Stable files revalidate after expiry. HTML revalidates on each visit. Platform preserves these headers through the rewrite, prevents caching upstream errors, and keeps `/` private and revalidated because sign-in changes it to the dashboard.
 
 Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
 

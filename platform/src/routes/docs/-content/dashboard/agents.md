@@ -60,7 +60,7 @@ Answers show clickable citations and consulted sources, which remain available i
 
 ## Sandboxes
 
-Enable **Sandbox** and select a connection to give the agent its file and command tools. The agent gets one isolated sandbox per conversation, provisioned the first time it actually reaches for a tool, and files sent in that conversation are written into it.
+Enable **Sandbox** and select a connection to give the agent its file and command tools. Each tenant user gets an isolated sandbox for that agent and conversation, provisioned on the first tool call. Saved conversation attachments are copied into it for the run.
 
 When the provider's configuration cannot be read as a run starts, the sandbox tools and their instructions drop together and the agent answers without them rather than failing.
 

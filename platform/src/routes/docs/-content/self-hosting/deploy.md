@@ -125,6 +125,7 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
 | `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `PORT` | No | TCP port to listen on |
+| `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Keep unset for TLS. See [Security](./security.md#https-and-response-headers) |
 | `CLUSTER_RUNNER_HOST` | No | Private hostname or IP advertised to peer runners. Defaults to `127.0.0.1` |
@@ -153,7 +154,7 @@ Run this command to generate a high-entropy encryption value:
 openssl rand -base64 32
 ```
 
-Keep it in your deployment's secret manager. The keyring is hashed into key material, so length and hashing do not rescue a weak passphrase, and losing the first entry means losing every stored secret.
+Keep it in your deployment's secret manager. Hashing does not rescue a weak passphrase, and losing an entry can make values encrypted with it unrecoverable.
 
 A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. The binary exits before server startup when the key is missing or invalid. Development servers show the "Server restart required" page at `/configure` when either variable is missing or invalid.
 
@@ -172,7 +173,7 @@ After=network-online.target
 User=astralbeam
 WorkingDirectory=/etc/astralbeam
 EnvironmentFile=/etc/astralbeam/env
-Environment=NODE_ENV=production PORT=3000
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3000
 ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
 

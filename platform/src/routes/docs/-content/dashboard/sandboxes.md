@@ -47,7 +47,7 @@ An agent references a provider by selection, and nothing is provisioned until th
 
 When the configuration cannot be read at that moment, the agent loses its sandbox tools for that run and answers without them instead of failing, so an agent that has stopped offering to run code is worth checking here first.
 
-A sandbox can be reclaimed by idle cleanup, process shutdown, or the shared per-process capacity limit. Reclamation can interrupt an active run. Another replica may also start a fresh workspace. Published artifacts remain in that workspace and use temporary download tickets, so tenant users must download anything they need to keep. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
+A sandbox is scratch space. Idle cleanup and capacity eviction preserve active leases, but process shutdown can interrupt a run, and another replica may start a fresh workspace. Published artifacts are copied to private storage and remain available through the saved conversation after the sandbox stops. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
 
 ## Deleting a provider
 

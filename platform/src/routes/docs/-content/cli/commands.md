@@ -10,7 +10,7 @@ This page is the reference for every `astralbeam` command, its output, and its e
 | `--debug`   | Log each HTTP request and a failure's stack trace to stderr    |
 | `--version` | Print the CLI version                                          |
 
-`ASTRALBEAM_API_KEY` wins when it is set, with `ASTRALBEAM_API_URL` or `https://astralbeam.ai/api` as its URL. Otherwise the CLI uses the login bound to the nearest directory at or above the working directory, and fails when there is none. Every keyed command reports that organization on stderr, as a leading `▸ <name> (<slug>) · org <id> · bound at <directory>` line, or as `context` in the JSON object with `--json`. API URLs must use `https://`, except for `localhost`. `ASTRALBEAM_CONFIG_DIR` moves the file that holds the bindings.
+`ASTRALBEAM_API_KEY` overrides directory bindings, using `ASTRALBEAM_API_URL` or `https://astralbeam.ai/api`. Otherwise the nearest bound directory supplies both the key and URL. Keyed commands report the organization on stderr, or in JSON `context`. HTTPS is required except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`). `ASTRALBEAM_CONFIG_DIR` selects the directory holding `config.json`.
 
 ## auth
 
@@ -22,6 +22,8 @@ This page is the reference for every `astralbeam` command, its output, and its e
 | `auth list` | List every bound directory and its organization |
 
 The CLI never takes a key as a flag, so it cannot leak into shell history or process listings. `login` and `status` store the organization's name and slug as the API reports them, and `status` refreshes them after a rename.
+
+`logout` removes the nearest binding for every directory it covers. It does not revoke the key or clear `ASTRALBEAM_API_KEY`, which still takes precedence.
 
 ## tenants
 
@@ -56,7 +58,7 @@ Both `list` commands take the same options, which map onto the API's [pagination
 | `--page-before <cursor>` | Go back from a previous page's `page_before`               |
 | `--all`                  | Follow `page_after` to the last page and return every item |
 
-In table mode, the CLI prints the next `--page-after` value on stderr when more results remain. `--all` spends one request per page against the key's limit of 100 requests per 5 minutes.
+In table mode, the CLI prints the next `--page-after` value on stderr when more results remain. `--all` merges pages from the chosen starting cursor, using 100 items per request unless `--page-size` is set. It cannot be combined with `--page-before` and spends one request per page against the key's limit of 100 requests per 5 minutes.
 
 ## token
 
@@ -65,7 +67,7 @@ In table mode, the CLI prints the next `--page-after` value on stderr when more 
 | `token chat --tenant <external-id> --user <external-id>` | Mint a chat JWT, as your [token endpoint](/docs/sdk/authentication) would |
 | `token organization --email <email>` | Mint an organization-management JWT delegating a member's current role |
 
-`token chat` also takes `--tenant-name`, `--user-name`, and `--admin`, which signs `user.admin: true`. Both take `--expires-in <seconds>`, from 60 to 600 and 300 by default. Tokens are signed offline with your key, so minting one makes no request and creates no records.
+`token chat` also takes `--tenant-name`, `--user-name`, and `--admin`, which signs `user.admin: true` and grants Tenant admin API access. Both token commands take `--expires-in <seconds>`, from 60 to 600 and 300 by default. Tokens are signed offline with your key, so minting one makes no request and creates no records.
 
 ## chat
 
@@ -88,9 +90,11 @@ See [Coding agents](./coding-agents.md).
 
 ## Output and exit codes
 
-Without `--json`, lists print as tables and records as `key value` lines. With `--json`, stdout carries exactly what the API returned: a record, or a page with `items`, `page_after`, and `page_before`. `token` prints `{ "token", "expires_at" }`, and `chat` prints `{ "messages": [...] }` with the turn's user and assistant messages.
+Without `--json`, lists print as tables, records as `key value` lines, tokens as plain JWTs, and chat replies as streamed text. With `--json`, records and pages retain the API format, with `--all` merging pages into one. Tokens print `{ "token", "expires_at" }` and chat prints `{ "messages": [...] }` for the turn. JSON chat requires a message argument or piped stdin.
 
-Failures always go to stderr. With `--json`, stderr holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` holds the API's problem details with `status`, `title`, `detail`, and any field `issues`. `context` is `{ "organization", "bound_directory" }`, with `bound_directory` null for `ASTRALBEAM_API_KEY`, and `context` itself is null when a command uses no credentials or failed before resolving them.
+With `--json`, non-interactive operations write one stderr object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API errors retain their problem details. Runtime and usage errors provide `error.detail`. Help and version output remain plain text. `--debug` adds HTTP logs and stack traces, so omit it when parsing stderr as JSON.
+
+Context contains `organization` and `bound_directory`, or is null before credentials resolve or for commands that use none. Environment credentials have a null bound directory and report only `organization.id`, except in `auth status`, which also retrieves the name and slug. Directory bindings include the last saved name and slug.
 
 | Exit code | Meaning                                                            |
 | --------- | ------------------------------------------------------------------ |

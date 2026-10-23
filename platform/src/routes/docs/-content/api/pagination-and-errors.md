@@ -85,17 +85,17 @@ Errors follow the `AstralBeamApiError` schema and use RFC 9457 `application/prob
 
 The following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.
 
-| Status    | Meaning                                             |
-| --------- | --------------------------------------------------- |
-| 400       | Invalid path/query/cursor or malformed chat input   |
-| 401 / 403 | Invalid credentials / insufficient authority        |
-| 404       | Missing or out-of-scope record                      |
-| 409       | Duplicate scoped external ID                        |
-| 413       | Chat request exceeds 32 MiB                         |
-| 415       | Unsupported media type or encoding                  |
-| 422       | Malformed JSON, invalid write fields or empty PATCH |
-| 429       | Rate or usage limit reached, observe Retry-After    |
-| 500 / 503 | Safe internal error / setup unavailable             |
+| Status    | Meaning                                                      |
+| --------- | ------------------------------------------------------------ |
+| 400       | Invalid path/query/cursor or malformed chat input            |
+| 401 / 403 | Invalid credentials / insufficient authority                 |
+| 404       | Missing or out-of-scope record                               |
+| 409       | Duplicate identity, stale revision, or conflicting operation |
+| 413       | Chat request exceeds 32 MiB                                  |
+| 415       | Unsupported media type or encoding                           |
+| 422       | Malformed JSON, invalid write fields or empty PATCH          |
+| 429       | Rate or usage limit reached, observe Retry-After             |
+| 500 / 503 | Safe internal error / setup unavailable                      |
 
 A chat request refused by a usage limit adds a `usage_limit` member with the limit's display `name` and its `resets_at` time. See [Usage limits](/docs/dashboard/usage-limits).
 

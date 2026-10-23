@@ -2,8 +2,8 @@
 
 An organization API key is a server-side credential scoped to one organization, and it has two uses.
 
-- It authenticates calls to the [management API](/docs/api), which reads and writes that organization's Tenants and tenant users.
-- It signs the short-lived chat auth tokens the embedded widget uses, through `createAstralBeamToken`. See [Authentication](/docs/sdk/authentication).
+- It authenticates calls to the [management API](/docs/api) for that organization's resources.
+- It signs short-lived TenantUser chat tokens with `createAstralBeamToken` and member management tokens with `createAstralBeamOrganizationToken`. See [Authentication](/docs/sdk/authentication).
 
 Signing happens offline: your server mints a token from the key, and the endpoint verifies that token here without the key ever being sent. Holding the key is therefore the same as being able to sign, as anyone with it can mint a token naming any tenant and any tenant user of that organization.
 
@@ -38,6 +38,8 @@ Let's walk through a rotation. Create a new key, deploy it, then delete the old 
 Deleting a key, or letting it expire, invalidates every chat auth token already minted from it. The key's status is re-checked after a token's signature verifies, so a deleted key does not keep working for the rest of a token's lifetime. Live conversations fail on their next turn, and applications using that key need the new one deployed.
 
 Renaming a key changes nothing about what it authorizes, as the name is only a label.
+
+The last key in an organization and the key configured for the deployment's dashboard assistant cannot be deleted. Create a replacement before retiring a last key.
 
 ## Request limits
 

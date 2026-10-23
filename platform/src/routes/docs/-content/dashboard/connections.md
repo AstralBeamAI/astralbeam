@@ -43,7 +43,7 @@ For Google providers, choose **Pre-registered application** and enter both the c
 
 ## Connection ownership and recovery
 
-Organization admins manage the available server definitions. Each TenantUser can create one private connection per server. Tenant-managed and user-added servers, and shared credentials, are not supported yet. Tool results follow the conversation's existing visibility and retention rules.
+Organization owners and developers manage the available server definitions. Each TenantUser can create one private connection per server. Tenant-managed and user-added servers, and shared credentials, are not supported yet. Tool results follow the conversation's existing visibility and retention rules.
 
 Server settings are fixed after creation. Remove and add the definition again to change its endpoint or authentication. Users must then create new connections. Disconnect deletes the local connection and credentials without revoking provider-wide access. Connecting again creates a new connection.
 

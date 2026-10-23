@@ -18,7 +18,7 @@ Let's give the widget a container with a definite height and mount it from a mod
 </script>
 ```
 
-- Use `type="module"`. The 3 KB loader imports the chat chunk lazily, relative to its own URL.
+- Use `type="module"`. The loader imports the chat chunk lazily, relative to its own URL.
 - Import the full `/dist/client.js` path. The bare package URL has no browser entry.
 - Pin an exact version. A range such as `@0` lets jsDelivr's cache serve the loader and its chunks from different releases, which fails with a 404 after each release.
 - Every option in [Configuration](./configuration.md) works the same, and the returned handle has the same `update`, `reset`, `stop`, and `unmount` methods.

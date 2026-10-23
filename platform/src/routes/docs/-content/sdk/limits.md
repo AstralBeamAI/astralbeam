@@ -16,8 +16,6 @@ The chat endpoint enforces every limit below on every request, whatever the SDK 
 | `user` and `tenant` claims | 8,192 bytes of JSON | minting throws "user and tenant must not exceed 8192 bytes" |
 | Clock difference | 30 seconds either way | the token reads as expired or not yet valid, the composer offers a retry |
 
-**NOTE**: The validated endpoint operation selects one of three independent buckets, allowing up to 20 turns, 200 tool-result submissions, and 200 uploads per tenant user per minute.
-
 ## Attachments
 
 A file rejected by the composer never reaches the agent. Server validation can reject the entire message with a generic invalid-conversation error. The draft remains unsent.
@@ -45,8 +43,8 @@ A file rejected by the composer never reaches the agent. Server validation can r
 
 | Limit | Value | What happens at the limit |
 | --- | --- | --- |
-| Idle sandbox | 15 minutes, swept every minute | Destroyed. An active command does not prevent reclamation |
-| Live sandboxes | 25 per server process, shared across Organizations | An existing workspace is destroyed, including one used by an active run |
+| Idle sandbox | 15 minutes after release, swept every minute | Destroyed only when no run or pending acquisition holds it |
+| Live sandboxes | 25 per server process, shared across Organizations | The oldest idle workspace is destroyed. If all are busy, a new workspace is unavailable |
 | Published artifact | 10 MB | "Artifacts are limited to 10485760 bytes. Compress or split the file." |
 | Published artifact retention | Until conversation deletion | Downloads check current conversation access |
 | Text in the transcript | 20,000 characters of command output, 40,000 of a file read, 200,000 of a file write | clamped with the middle elided |

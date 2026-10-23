@@ -40,18 +40,7 @@ JSONB columns use `schemaJsonb(schema)` from `lib/columns.ts`. Its synchronous E
 
 ## Local services
 
-On macOS, run Bun natively and use Docker Compose or Podman Compose for database services. PgBouncer is the only host-published database endpoint. From the repository root, choose one:
-
-```sh
-docker compose up --detach --wait
-```
-
-```sh
-podman compose up --detach
-podman compose ps
-```
-
-Wait for healthy services before database commands. See [Setup](../../../SETUP.md#option-2-run-directly-on-macos) for runtime installation and port overrides.
+Follow [local setup](../../../SETUP.md#local-development) for native Bun and RustFS on macOS and Compose-managed database services. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
 
 Worktree setup copies the primary checkout's ignored `platform/.env.development.local`, or creates it when absent, and appends a `DATABASE_URL` for that worktree. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative.
 
@@ -131,7 +120,7 @@ export async function up(client: MigrationClient) {
     "SELECT id, name FROM organization",
   )
   for (const { id, name } of rows) {
-    await client.query("UPDATE organization SET name = $1 WHERE id = $2", [
+    await client.query("UPDATE organization SET name = $1, updated_at = now() WHERE id = $2", [
       name.normalize("NFKC"),
       id,
     ])

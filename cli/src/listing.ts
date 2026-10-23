@@ -30,7 +30,11 @@ export function addListOptions(command: Command): Command {
   return command
     .option("-q, --search <text>", "case-insensitive substring of the name or external ID")
     .option("--external-id <id>", "exact external ID, returning zero or one item")
-    .option("--page-size <count>", "items per page, capped at 100 (default 20)", positiveInteger)
+    .option(
+      "--page-size <count>",
+      "items per page, capped at 100 (default 20, or 100 with --all)",
+      positiveInteger,
+    )
     .option("--page-after <cursor>", "continue after a previous page's page_after")
     .option("--page-before <cursor>", "go back from a previous page's page_before")
     .addOption(

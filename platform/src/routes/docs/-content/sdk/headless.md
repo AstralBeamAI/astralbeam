@@ -18,7 +18,7 @@ function MyChat() {
       ))}
       <MyComposer
         disabled={chat.auth.status !== "ready" || chat.status !== "ready"}
-        onSend={(text) => void chat.sendMessage(text)}
+        onSend={chat.sendMessage}
       />
     </div>
   )
@@ -31,7 +31,7 @@ function MyChat() {
 - Clear your composer when you send, and return the `content` of a `refused` outcome to it. A `failed` submission may have reached the server, so offer `retry()`.
 - An attempt the session declines, such as one sent while another is active, resolves `refused` without replacing the active submission. `stop()` returns an unsent message the same way.
 - `retry()` reuses the admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
-- Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Nothing needs a remount.
+- Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Remount when the host identity changes, as described in [Authentication](./authentication.md#switching-workspaces).
 - No shadow root and no bundled styles: your markup, your CSS.
 
 ## Any framework
@@ -44,11 +44,11 @@ import { createAstralBeamChat } from "@astralbeam/sdk/core"
 const chat = createAstralBeamChat({ agentId, tools })
 const unsubscribe = chat.subscribe(() => render(chat.getState()))
 await chat.sendMessage("What can you do?")
-chat.dispose()
+// Keep the session alive for the reply. On teardown, call unsubscribe() and chat.dispose().
 ```
 
-- Widgets declare `{ description, parameters }`. The session validates props and calls `onRenderWidget`, which draws the widget and may return cleanup.
-- `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` re-mints a rejected token.
+- Widgets declare `{ description, parameters }`. Standard Schema parameters validate props before `onRenderWidget` draws the widget and optionally returns cleanup. Plain JSON Schema does not provide browser validation.
+- `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` requests a fresh token after rejection.
 - Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
 - `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
 - Unresolved tool outcomes require an explicit response or closure before their turn continues.

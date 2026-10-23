@@ -8,6 +8,7 @@ One principle everywhere: the dashboard grants, the chat endpoint enforces, and 
 - Attachments are agent policy: the endpoint refuses files when the agent disallows them, and the widget hides the attach button after its capability handshake.
 - The client's `attachments` option and limits can narrow the grant for UX. The endpoint enforces its own caps regardless.
 - Tool and widget `execute`/`render` run in your page with agent-chosen input: validate with a Standard Schema, or treat it as untrusted. Authorize mutations against the backend's current session, Tenant, and resource ownership.
+- Before invoking a host tool, the SDK rechecks its authorization after asynchronous validation. A verified identity change, reset, stop, disposal, tool removal, or schema replacement prevents pending execution.
 
 ## Tokens
 
@@ -26,4 +27,4 @@ One principle everywhere: the dashboard grants, the chat endpoint enforces, and 
 
 - Chat Markdown escapes raw HTML. Host widgets remain your responsibility, including how they handle agent-chosen props.
 - Sandboxes are scoped by tenant user, agent, and conversation, and hold no secrets by design. Never instruct an agent to write credentials into one.
-- Pending host-tool validation can still invoke a captured callback after identity changes, reset, or disposal.
+- Once a host tool starts, stopping chat cannot undo its side effects. Your backend must authorize each action and handle uncertain outcomes safely.

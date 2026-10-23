@@ -26,7 +26,7 @@ export function Sidebar() {
 }
 ```
 
-- The package has no runtime dependencies. `react` and `react-dom` are optional peers, and other entry points never load them.
+- The package has no runtime dependencies. `react` and `react-dom` are optional peers used by `/react`. The drop-in widget bundles its own React in a lazy chunk.
 - All options update in place without remounting, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Changing `apiUrl` clears the previous deployment's local session.
 
 ## Mount anywhere else
@@ -36,19 +36,19 @@ export function Sidebar() {
 ```ts
 import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamChat(document.getElementById("sidebar"), { title: "Acme Assistant" })
+const handle = mountAstralBeamChat(document.getElementById("sidebar")!, { title: "Acme Assistant" })
 handle.update({ colorScheme: "dark" })
-handle.unmount()
+// When the host removes the sidebar, call handle.unmount().
 ```
 
 - `@astralbeam/sdk/client` carries no React. The chat loads lazily with its own bundled copy.
-- `update` merges option changes in place, keeping the transcript and live widget renders.
+- `update` merges option changes in place. Appearance changes preserve chat, while changing `threadId` selects a conversation and changing `apiUrl` clears the session.
 
 ## Layout
 
 The widget fills its container, so the container must have a real height.
 
-- In a flex column, give the container `flex-1` and `min-h-0`. Without `min-h-0` it collapses.
+- In a flex column with a definite height, give the container `flex-1` and `min-h-0` so it can shrink and scroll within the available space.
 - Mount above your router if the transcript should survive page navigation.
 - The widget does not know about notches. Keep safe-area padding on your container.
 

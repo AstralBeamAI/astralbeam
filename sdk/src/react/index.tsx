@@ -136,7 +136,7 @@ export function useAstralBeamChat(options: AstralBeamChatCoreOptions): UseAstral
 
 /** Imperative surface of a mounted `<AstralBeamChat>`, for hosts that draw their own controls. */
 export interface AstralBeamChatRef {
-  /** Clears the conversation: transcript, drafts, attachments, and live widget renders. */
+  /** Starts a fresh conversation and clears its draft, preserving saved conversations and their drafts. */
   reset: () => void
   /** Stops the in-flight generation, if any; the transcript keeps what already streamed. */
   stop: () => void

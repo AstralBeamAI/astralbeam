@@ -1,17 +1,13 @@
 # @astralbeam/cli
 
-Manage an AstralBeam organization from the terminal: its Tenants and TenantUsers, short-lived chat and organization tokens, and test chats with its agents. Every command prints JSON with `--json`, so coding agents such as Claude Code can drive it too.
-
-```sh
-npx @astralbeam/cli --help
-```
+Manage an AstralBeam organization's Tenants and TenantUsers, mint short-lived tokens, and test its agents from the terminal. Use `--json` for scripts and coding agents.
 
 ## Install
 
 Run it with npm on Node 22.12 or later, with no install step:
 
 ```sh
-npx @astralbeam/cli tenants list
+npx @astralbeam/cli --help
 ```
 
 Or install it globally as `astralbeam`:
@@ -52,7 +48,7 @@ Every command then uses the nearest bound directory at or above where it runs, a
 ▸ Acme (acme) · org 01990a5d-… · bound at ~/work/acme
 ```
 
-A directory with no bound ancestor fails with exit code 1 instead of guessing an organization. For CI and agents, set `ASTRALBEAM_API_KEY`, which overrides any binding, and `ASTRALBEAM_API_URL` when self-hosting. API URLs must use `https://`, except for `localhost`.
+A directory with no bound ancestor fails with exit code 1 instead of guessing an organization. For CI and agents, set `ASTRALBEAM_API_KEY`, which overrides any binding, and `ASTRALBEAM_API_URL` when self-hosting. API URLs require HTTPS, except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`).
 
 Check the binding commands will use, or list them all:
 
@@ -84,9 +80,9 @@ astralbeam chat --tenant customer-42 --user user-7 "What can you do?"
 
 ## Output and exit codes
 
-Human-readable tables and records go to stdout. With `--json`, stdout carries the API's JSON and stderr holds one JSON object: `{"context": {...}}` naming the organization on success, or `{"error": {...}, "context": {...}}` with the API's problem details on failure. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
+Human-readable tables and records go to stdout. With `--json`, records and pages stay in API format, and `--all` merges fetched pages. Non-interactive operations write one stderr object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API failures retain their problem details, while runtime and usage errors provide `error.detail`. Help and version output remain plain text. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
 
-When a command fails unexpectedly, rerun it with `--debug` to log each HTTP request's method, URL, status, and duration, plus the failure's stack trace, to stderr. It never logs headers, so keys and tokens stay out of the output, but it adds lines that break the single JSON object `--json` writes to stderr.
+For unexpected failures, use `--debug` to log HTTP methods, URLs, status, duration, and stack traces to stderr, without headers. It adds lines beyond the JSON object. After a failed write, check whether it succeeded before retrying.
 
 ## Coding agents
 

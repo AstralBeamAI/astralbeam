@@ -14,20 +14,25 @@ One component in React, one function everywhere else. Full setup, including the 
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 export function Sidebar() {
-  return <AstralBeamChat />
+  return (
+    <aside style={{ height: "100dvh" }}>
+      <AstralBeamChat />
+    </aside>
+  )
 }
 ```
 
 ```ts
 import { mountAstralBeamChat } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamChat(document.getElementById("sidebar"), {})
+const handle = mountAstralBeamChat(document.getElementById("sidebar")!, {})
 // Update with handle.update({ colorScheme: "dark" }), then clean up with handle.unmount().
 ```
 
 Without npm or a bundler, import the same entry from jsDelivr in a module script. Pin an exact version and the full `/dist/client.js` path, because the loader imports its lazy chunks relative to itself. See [Script tag](https://astralbeam.ai/docs/sdk/script-tag).
 
 ```html
+<div id="sidebar" style="height:100dvh"></div>
 <script type="module">
   import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.22.0/dist/client.js"
 
@@ -86,28 +91,7 @@ After acquiring a token, components call `POST /api/v1/me` and renew before expi
 
 ## Options
 
-Every option is also a prop on `<AstralBeamChat>`. `handle.update(options)` applies any subset in place, and no option is fixed at mount. Details in [Configuration](https://astralbeam.ai/docs/sdk/configuration).
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `agentId` | organization's default | `agent_<orgId>_<id>`, copied from the dashboard |
-| `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
-| `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API. The widget calls `/v1/chat` there |
-| `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Chat auth token endpoint as `{ url, ...RequestInit }`, or a minter |
-| `title`, `showHeader` | `"AstralBeam"`, `true` | Header text, and whether the header with its chat history and new chat buttons shows |
-| `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
-| `resizable` | `true` | Enables the resize edge and keyboard resizing |
-| `defaultWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
-| `resizeContainer` | mount's parent | `() => HTMLElement \| null` returning the stable container that limits available width |
-| `showConversationTitle` | `false` | Bar with a titled conversation's title and a rename, delete, and Copy Markdown menu |
-| `emptyHeadline`, `emptyDescription` | generic copy | Headline and subtitle of the empty transcript |
-| `colorScheme`, `theme` | `"system"`, built-in palette | Light/dark/system, and shadcn token overrides |
-| `customCss` | None | Trusted CSS inside the widget's Shadow DOM |
-| `attachments` | `true` | `false` hides the feature, or pass limits |
-| `tools`, `widgets` | none | What the agent can do and draw in your app |
-| `sandboxPanel` | `false` | Collected sandbox panel: files with downloads, command log |
-| `header`, `headerActions`, `empty`, `composerActions` | widget's own chrome | Host-rendered replacements (React props. `slots` on the handle) |
-| `debug` | `false` | Log SDK actions in the browser, with server logs in development only |
+Pass options as React props or apply a subset with `handle.update(options)`. Presentation changes preserve chat. Changing `threadId` selects a conversation, and changing `apiUrl` clears the previous deployment's state. See [Configuration](https://astralbeam.ai/docs/sdk/configuration) for all options, defaults, layout, and chrome slots.
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 
@@ -145,13 +129,15 @@ widgets: {
 - Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
 - Return plain JSON values from tools, with no `undefined` fields. If a result cannot be sent, the action may still have happened.
 
-## Documentation
+## MCP connections
 
-Remote tools appear under **MCP connections** in the authenticated Tenant widget. Organization admins configure the available MCP servers. Each TenantUser creates their own connection to a server. Public endpoints, static headers and OAuth are supported. Tool results follow the conversation's visibility and retention rules. Disconnect clears credentials locally.
+Remote tools appear under **MCP connections** in the authenticated Tenant widget. Organization admins configure the available MCP servers. Each TenantUser creates their own connection to a server. Public endpoints, static headers and OAuth are supported. Tool results follow the conversation's visibility and retention rules. Disconnect removes the saved connection and its credentials from AstralBeam.
 
 Headless consumers can use `chat.getMcpCatalog()`, `chat.manageMcpConnection(operation)` and `chat.authorizeMcpConnection({ mcpServerId, id? })`. Start OAuth from a user gesture to open its popup. Browser binding and completion use the authenticated session. Server tool titles arrive in `state.serverToolTitles`, independently of host tool execution.
 
 Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/react` or `mountAstralBeamMcpServers` from `/client`. Supply the server list and authorized write callbacks. See [MCP server management](https://astralbeam.ai/docs/sdk/configuration#mcp-server-management).
+
+## Documentation
 
 | Guide | Covers |
 | --- | --- |
@@ -173,17 +159,13 @@ Reuse the dashboard's server list and form with `AstralBeamMcpServers` from `/re
 
 Read-only Tenant, TenantUser and conversation widgets are available from `/client` and `/react`. See [Tenant directories](https://astralbeam.ai/docs/sdk/listings) for setup and embedding examples.
 
-Directory results stay fresh for 30 seconds, then refresh when the tab becomes visible or the network reconnects. Unused data expires after five minutes. The optional `cacheKey` is an opaque host-session object for remount reuse. Keep it stable during the session and replace it on sign-out or account changes. Changing it clears authentication and the view. Each mount owns its authentication, requests, cancellation, and refresh, independently of concurrent directories.
-
-Directory `refresh()` and `reset()` return `Promise<void>` and wait for renderer loading, authentication, and the current directory rows or open conversation messages. Attachment previews load independently. Refresh may reuse the JWT. Reset clears this mount's state and retained data for its key, then reacquires authentication from a ready host session. Unmount during sign-out. See the <a href="https://astralbeam.ai/docs/sdk/listings#account-changes-and-lifecycle" target="_blank" rel="noopener noreferrer">lifecycle contract</a> for remount reuse, failure, and cancellation.
-
-**Breaking migration**: React directory refs now expose only `refresh()` and `reset()`. Replace the removed `/react` `*ListHandle` exports with `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef`. Use props for updates and conditional rendering to unmount. Vanilla `/client` handles retain `update()` and `unmount()`. Await or handle rejection from refresh/reset calls that previously returned `void`.
+React directory refs expose `refresh()` and `reset()`, both returning `Promise<void>`. Use props for updates and conditional rendering to unmount. Vanilla handles also expose `update()` and `unmount()`. Unmount during sign-out or identity changes. See the <a href="https://astralbeam.ai/docs/sdk/listings#account-changes-and-lifecycle" target="_blank" rel="noopener noreferrer">lifecycle contract</a> for authentication, caching, remount reuse, and action completion.
 
 There is no root export.
 
 | Entry point              | Contents                                     | Peer dependency      |
 | ------------------------ | -------------------------------------------- | -------------------- |
-| `@astralbeam/sdk/client` | Chat and Tenant directory mounts             | none                 |
+| `@astralbeam/sdk/client` | Chat, directory, and MCP server mounts       | none                 |
 | `@astralbeam/sdk/core`   | `createAstralBeamChat`, the headless session | none                 |
 | `@astralbeam/sdk/react`  | Chat hooks and isolated UI wrappers          | `react`, `react-dom` |
 | `@astralbeam/sdk/server` | Tenant and organization token minters        | none                 |

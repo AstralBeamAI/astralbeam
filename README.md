@@ -10,7 +10,7 @@ Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embe
 
 https://github.com/user-attachments/assets/6bb3d981-b82d-40a2-9be1-d1bb6cfe5759
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the codebase structure and local development.
+Start with [local setup](SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](ARCHITECTURE.md) for implementation boundaries.
 
 ## Licensing
 

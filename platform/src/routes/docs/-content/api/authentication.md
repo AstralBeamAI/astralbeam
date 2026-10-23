@@ -44,11 +44,11 @@ JWT resource requests have a separate limit of 100 requests per five minutes per
 
 Chat accepts tenant JWTs without administrator privileges, but not API keys or organization-management JWTs. Configuration reads do not synchronize identity. Before sending, call `POST /api/v1/me` and select a participant-authorized saved conversation. The SDK handles both. Endpoint operations select three independent rate buckets per Organization, Tenant, and tenant user: 20 new turns, 200 tool-result submissions, and 200 uploads per minute.
 
-Artifact downloads require a Bearer JWT and current conversation access. Pass the published `fileId` and its `threadId` as query parameters. Published files survive sandbox shutdown.
+Downloads pass the saved `fileId` and `threadId`. Tenant JWTs require current conversation participation. Administrative downloads also pass `tenantId` and accept an Organization API key, an organization-management JWT with current directory-read permission, or a signed Tenant admin JWT within its Tenant. Published files survive sandbox shutdown.
 
 ## Browser transport
 
-The API permits credential-free CORS for GET, POST, PATCH, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. All resource responses use `Cache-Control: no-store`.
+The API permits credential-free CORS for GET, POST, PUT, PATCH, DELETE, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. Responses use `Cache-Control: no-store` except successful chat images and previews, which may use a private browser cache for 60 seconds and vary by authorization and preview headers.
 
 ## Examples
 

@@ -109,7 +109,7 @@ The `effect_cluster_*` tables are framework-owned journal and coordination stora
 
 ## Logs
 
-The process writes plain text to stdout and stderr. There is no log file, no log level setting, and no structured logging configuration, so collect the process output with your init system or container runtime.
+Collect stdout and stderr with your init system or container runtime. Production Effect logs use logfmt, development uses a readable console format, and startup commands also print plain text. The application does not manage log files or expose a log-format setting.
 
 On Docker hosts, [enable log rotation](https://docs.docker.com/engine/logging/configure/) with the `local` logging driver or bounded `json-file` settings so container logs cannot exhaust the disk.
 
@@ -119,7 +119,7 @@ Four lines are worth alerting on. `Database pool idle client error` means an idl
 
 ## Connection pooling
 
-Point `DATABASE_URL` at a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. Keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
+Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
 
 Each application process opens two independent pools, one for the authentication client with up to 5 connections and one for the main application client with up to 10, so budget up to 15 client connections to PgBouncer per replica. Budget PostgreSQL backend connections separately using PgBouncer pool sizes and database limits. Both pools use an explicit five-second connection timeout. Both pools close a connection after 30 seconds idle and recycle one after 30 minutes of life, which keeps a pooler or NAT idle timeout from handing back a connection that has quietly died. TCP keepalives are on for the same reason.
 

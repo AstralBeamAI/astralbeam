@@ -11,7 +11,7 @@ If `astralbeam` is not on the PATH, run it as `bunx --bun @astralbeam/cli` or `n
 
 ## Rules
 
-- Pass `--json` on every command whose output you will read. Records and pages go to stdout. Stderr then holds exactly one JSON object: `{"context": {...}}` on success, or `{"error": {...}, "context": {...}}` on failure, where `error` carries the API's `status`, `detail`, and optional `issues`. `context` is `{"organization": {"id", "name", "slug"}, "bound_directory": <path or null>}`, or `null` when the command uses no credentials or failed before resolving them.
+- Pass `--json` on operations whose output you will read. Records and pages go to stdout. Without `--debug` or an interactive login prompt, stderr holds one object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API errors retain their problem details. Runtime and usage errors provide `error.detail`. Context contains `organization` and `bound_directory`, or is null before credentials resolve. Environment credentials report only `organization.id`, except in `auth status`, which also retrieves the name and slug.
 - Exit code 0 means success, 1 means the API or runtime failed, and 2 means the command line was invalid. Read `astralbeam <command> --help` before guessing flags. To diagnose an unexpected failure, check the outcome of any write before rerunning it without `--json` and with `--debug`, which logs each HTTP request and the stack trace to stderr.
 - Never print, log, or echo an API key. Never pass a key as a command-line argument. Credentials come from `ASTRALBEAM_API_KEY`, or from the nearest directory at or above the working directory where someone ran `astralbeam auth login`. Run commands from the project directory the user means, because a different directory can select a different organization.
 - Before any write, run `astralbeam auth status --json` from the same directory and confirm `organization` is the one the user means. Stop if it is not. Without `--json`, keyed commands print the organization first on stderr as `▸ Acme (acme) · org <id> · bound at ~/work/acme`.
@@ -27,7 +27,7 @@ If `astralbeam` is not on the PATH, run it as `bunx --bun @astralbeam/cli` or `n
 astralbeam auth status --json
 ```
 
-This prints the organization's ID, name, and slug, the API URL, and the bound directory, and fails with exit code 1 when no login covers the directory or the key is malformed, revoked, or pointed at the wrong server. `astralbeam auth list --json` shows every bound directory and its organization.
+This prints the organization, API URL, masked key, and `source` (the bound directory or `ASTRALBEAM_API_KEY`). It exits 1 if credentials are missing or rejected. `astralbeam auth list --json` shows all bindings. `auth logout` removes the nearest binding for every directory it covers, but does not revoke the key or clear environment credentials.
 
 ## Tenants
 
@@ -38,7 +38,7 @@ astralbeam tenants create --external-id <id> [--name <name>] [--metadata '<json>
 astralbeam tenants update <tenant-id> [--name <name> | --clear-name] [--metadata '<json>'] --json
 ```
 
-A list returns `{"items": [...], "page_after": <cursor|null>, "page_before": <cursor|null>}`. Pass `page_after` back with `--page-after` for the next page, and stop when it is `null`.
+A list returns `{"items": [...], "page_after": <cursor|null>, "page_before": <cursor|null>}`. Follow `page_after` with `--page-after` until null, or use `--all` to merge the remaining pages. `--all` cannot be combined with `--page-before`.
 
 ## TenantUsers
 
@@ -58,7 +58,7 @@ astralbeam token chat --tenant <tenant-external-id> --user <user-external-id> [-
 astralbeam token organization --email <member-email> [--expires-in <60-600>] --json
 ```
 
-Tokens are signed offline with the API key and print as `{"token": "...", "expires_at": "..."}`. A chat token is what the organization's token endpoint returns to the embedded SDK. It does not create the Tenant or TenantUser.
+Tokens are signed offline and print as `{"token": "...", "expires_at": "..."}` with `--json`. Minting creates no records. A chat token's signed `--admin` claim grants Tenant admin API access, unlike the stored TenantUser flag.
 
 ## Chat with an agent
 
