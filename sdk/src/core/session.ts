@@ -946,6 +946,7 @@ export function createAstralBeamChat(
         // Like TanStack Query's isLoading and isRefetching, loading means nothing is shown yet.
         if (!options?.before)
           update({
+            olderMessagesLoading: false,
             history:
               state.messages.length > 0 || state.thread?.hasMessages === false
                 ? "refreshing"
@@ -1161,18 +1162,18 @@ export function createAstralBeamChat(
     }
     client.attach()
   }
-  const replaceClient = () => {
+  const replaceClient = (messages?: ChatClientSnapshot["messages"]) => {
     const previous = client
     unsubscribeSnapshot?.()
     unsubscribeSnapshot = undefined
     snapshotMessages = undefined
     // Swap first, so the old client's reports on stop and detach are dropped.
     client = createClient()
+    if (messages) client.setMessagesManually(messages)
     clientStatus = "ready"
     previous.stop()
     previous.detach()
     liveToolCalls.clear()
-    liveToolMessageIds.clear()
     update({ activeToolCallIds: [] })
     if (started) attachClient()
     previous.dispose()
@@ -1234,6 +1235,7 @@ export function createAstralBeamChat(
     requestController = new AbortController()
     toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
     historicalToolIds.clear()
+    liveToolMessageIds.clear()
     threadRecords = []
     messagePresentation.clear()
     projectedMessages = new WeakMap()
@@ -1313,7 +1315,6 @@ export function createAstralBeamChat(
   const refreshThread = async (explicit = true) => {
     if (!state.thread) return
     const generation = selectionGeneration
-    update({ olderMessagesLoading: false })
     try {
       client.detach()
       attachClient()
@@ -1549,35 +1550,14 @@ export function createAstralBeamChat(
   const start = () => {
     if (started) return
     started = true
-    const retained = client
-    const generation = selectionGeneration
-    const interruptedHydration =
-      requestController.signal.aborted && client.getIsHydrating() ? hydration : undefined
+    const interruptedHydration = requestController.signal.aborted && client.getIsHydrating()
     client.updateOptions({ tools: declareTools() })
     if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
     observeAuthentication()
     stopAuthentication = startAuthentication(authentication)
-    attachClient()
-    // A reattach can reuse the history read cancelled by disposal. Retry only that read,
-    // after TanStack releases it, while this restarted selection still owns the client.
-    if (interruptedHydration) {
-      hydration = interruptedHydration.catch((error: unknown) => {
-        if (
-          started &&
-          client === retained &&
-          generation === selectionGeneration &&
-          error instanceof Error &&
-          error.name === "AbortError"
-        ) {
-          client.detach()
-          attachClient()
-          return hydration
-        }
-        throw error
-      })
-      void hydration.catch(() => undefined)
-    }
+    if (interruptedHydration) replaceClient(client.getSnapshot().messages)
+    else attachClient()
   }
   if (!deferStart) start()
 
