@@ -614,7 +614,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       ],
       tools: [],
-      context: [],
       aguiContext: [],
       state: undefined,
       forwardedProps: { clientId: targetA },

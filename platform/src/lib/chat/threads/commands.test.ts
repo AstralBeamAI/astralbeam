@@ -24,7 +24,6 @@ const commandParams: ChatParams = {
   messages: [{ id: "input", role: "user", content: "Hello" }],
   tools: [],
   state: undefined,
-  context: [],
   aguiContext: [],
   forwardedProps: { clientId: commandUserId },
 }

@@ -11,7 +11,7 @@ const responsesRequestSchema = Schema.Struct({
 
 describe("OpenAI Responses compatibility", () => {
   test.each([
-    { modelId: "gpt-5.6-terra", include: ["reasoning.encrypted_content"] },
+    { modelId: "gpt-6.1-sol", include: ["reasoning.encrypted_content"] },
     { modelId: "custom-deployment", include: undefined },
   ])("preserves native request semantics for $modelId", async ({ modelId, include }) => {
     const requests: (typeof responsesRequestSchema.Type)[] = []
@@ -35,7 +35,11 @@ describe("OpenAI Responses compatibility", () => {
       modelId,
       fetch: responsesFetch,
     })
-    for await (const _event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] })) {
+    for await (const _event of chat({
+      threadId: "provider-test",
+      adapter,
+      messages: [{ role: "user", content: "Hello" }],
+    })) {
       // Drain the run so the SDK maps and sends its request to the synthetic provider boundary.
     }
     expect(requests).toHaveLength(1)

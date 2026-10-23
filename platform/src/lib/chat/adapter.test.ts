@@ -97,7 +97,11 @@ describe("chat provider request routing", () => {
         fetch: configuredFetch,
       })
       const events: StreamChunk[] = []
-      for await (const event of chat({ adapter, messages: [{ role: "user", content: "Hello" }] }))
+      for await (const event of chat({
+        threadId: "provider-test",
+        adapter,
+        messages: [{ role: "user", content: "Hello" }],
+      }))
         events.push(event)
       expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(true)
       expect(requests).toHaveLength(1)
@@ -219,6 +223,7 @@ describe("native Gemini and Grok turns", () => {
       }).server(() => ({ ok: true }))
       const events: StreamChunk[] = []
       for await (const event of chat({
+        threadId: "provider-test",
         adapter,
         tools: [lookup],
         agentLoopStrategy: maxIterations(2),

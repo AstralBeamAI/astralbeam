@@ -188,6 +188,8 @@ describe("request-oriented MCP tools", () => {
         await expect(
           set.tools[1]!.execute({ nested: { region: 2 ** 53 } }, undefined),
         ).rejects.toThrow()
+        for (const region of [NaN, Infinity, { toJSON: () => 42 }])
+          await expect(set.tools[1]!.execute({ nested: { region } }, undefined)).rejects.toThrow()
         expect(mcpToolFixture.state.calls).toBe(1)
         await set.tools[1]!.execute(Object.create({ nested: { region: 42 } }), undefined)
         expect(mcpToolFixture.state.regionHeader).toBeUndefined()

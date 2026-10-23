@@ -1,4 +1,4 @@
-import { EventType, type ChatMiddleware, type StreamChunk } from "@tanstack/ai"
+import { fromSpecTokenUsage, EventType, type ChatMiddleware, type StreamChunk } from "@tanstack/ai"
 import { Effect, Exit } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
@@ -70,4 +70,28 @@ export function chatUsageLimitGuard(options: {
   }
 
   return { middleware, announce }
+}
+
+/** Core reports successful-call usage, but usage-bearing failed streams bypass that hook.
+ * https://github.com/TanStack/ai/pull/1793 */
+export function chatFailedUsageMiddleware(consumers: readonly ChatMiddleware[]): ChatMiddleware {
+  let settled = false
+  return {
+    name: "failed-call-usage",
+    onIteration() {
+      settled = false
+    },
+    onUsage() {
+      settled = true
+    },
+    async onChunk(ctx, chunk) {
+      if (chunk.type !== EventType.RUN_ERROR || settled) return
+      const usage = Array.isArray(chunk.usage)
+        ? fromSpecTokenUsage(chunk.usage, chunk.metadata?.tanstack?.usage)
+        : (chunk.usage ?? fromSpecTokenUsage(undefined, chunk.metadata?.tanstack?.usage))
+      if (!usage) return
+      settled = true
+      for (const consumer of consumers) await consumer.onUsage?.(ctx, usage)
+    },
+  }
 }

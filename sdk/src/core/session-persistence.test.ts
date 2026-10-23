@@ -1,4 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import {
+  digestInterruptJson,
+  hashSchemaInput,
+  withInterruptBinding,
+  type RunFinishedOutcome,
+} from "@tanstack/ai/client"
+import type { ChatRunInput } from "../api/generated/api.ts"
 import { chatTestToken, createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 import { createAstralBeamChat } from "./session.ts"
 
@@ -42,6 +49,41 @@ function savedAssistantMessage(part: Record<string, unknown>) {
     role: "assistant",
     created_at: thread.created_at,
     parts: [{ type: "tool-call", arguments: "{}", state: "input-complete", ...part }],
+  }
+}
+
+function clientToolOutcome(options: {
+  runId: string
+  toolCallId: string
+  toolName: string
+  input: unknown
+}): RunFinishedOutcome {
+  const { runId, toolCallId, toolName, input } = options
+  const id = `client_tool_${toolCallId}`
+  return {
+    type: "interrupt",
+    interrupts: [
+      withInterruptBinding(
+        {
+          id,
+          reason: "tanstack:client_tool_execution",
+          toolCallId,
+          responseSchema: {},
+          metadata: { kind: "client_tool", toolName, input },
+        },
+        {
+          v: 1,
+          kind: "client-tool-execution",
+          interruptId: id,
+          toolName,
+          toolCallId,
+          interruptedRunId: runId,
+          generation: 0,
+          outputSchemaHash: hashSchemaInput(undefined),
+          responseSchemaHash: digestInterruptJson("{}"),
+        },
+      ),
+    ],
   }
 }
 
@@ -667,12 +709,13 @@ test.each<
             ]),
           )
         if (typeof init?.body !== "string") throw new Error("Expected a chat body")
-        targetClientId = (JSON.parse(init.body) as { forwardedProps: { clientId: string } })
-          .forwardedProps.clientId
+        const body = JSON.parse(init.body) as ChatRunInput
+        targetClientId = body.forwardedProps.clientId
+        const runId = body.runId
         phase = "decision"
         return Promise.resolve(
           events([
-            { type: "RUN_STARTED", threadId: thread.id, runId: "initial" },
+            { type: "RUN_STARTED", threadId: thread.id, runId },
             {
               type: "CUSTOM",
               name: "astralbeam_thread",
@@ -730,19 +773,14 @@ test.each<
             {
               type: "RUN_FINISHED",
               threadId: thread.id,
-              runId: "initial",
+              runId,
               metadata: { tanstack: { finishReason: "tool_calls" } },
-              outcome: {
-                type: "interrupt",
-                interrupts: [
-                  {
-                    id: "client_tool_provider-call",
-                    reason: "tanstack:client_tool_execution",
-                    toolCallId: "provider-call",
-                    metadata: { kind: "client_tool", toolName, input: {} },
-                  },
-                ],
-              },
+              outcome: clientToolOutcome({
+                runId,
+                toolCallId: "provider-call",
+                toolName,
+                input: {},
+              }),
             },
           ]),
         )
@@ -1063,35 +1101,12 @@ test("a browser tool and widget can continue through consecutive committed turns
         metadata: { tanstack: { finishReason: index < 3 ? "tool_calls" : "stop" } },
         ...(index < 3
           ? {
-              outcome: {
-                type: "interrupt",
-                interrupts: [
-                  {
-                    id: `client_tool_${part.toolCallId}`,
-                    reason: "tanstack:client_tool_execution",
-                    toolCallId: part.toolCallId,
-                    responseSchema: {},
-                    metadata: {
-                      kind: "client_tool",
-                      toolName: part.name,
-                      input: part.input,
-                      "tanstack:interruptBinding": {
-                        v: 1,
-                        kind: "client-tool-execution",
-                        interruptId: `client_tool_${part.toolCallId}`,
-                        toolName: part.name,
-                        toolCallId: part.toolCallId,
-                        interruptedRunId: runId,
-                        generation: 0,
-                        outputSchemaHash:
-                          "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
-                        responseSchemaHash:
-                          "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-                      },
-                    },
-                  },
-                ],
-              },
+              outcome: clientToolOutcome({
+                runId,
+                toolCallId: part.toolCallId,
+                toolName: part.name,
+                input: part.input,
+              }),
             }
           : {}),
       },
@@ -1135,7 +1150,7 @@ test("a browser tool and widget can continue through consecutive committed turns
     if (path.endsWith("/chat")) {
       phase = 1
       if (typeof init?.body !== "string") throw new Error("Expected a chat request body")
-      return Promise.resolve(stream(phase, (JSON.parse(init.body) as { runId: string }).runId))
+      return Promise.resolve(stream(phase, (JSON.parse(init.body) as ChatRunInput).runId))
     }
     if (path.endsWith("/tool-results")) {
       if (typeof init?.body !== "string") throw new Error("Expected a tool-result request body")

@@ -55,7 +55,7 @@ import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-import { chatUsageLimitGuard } from "./usage-limits"
+import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
@@ -387,6 +387,10 @@ export class Chat extends Context.Service<
                 ),
             })
             turn = managed.state
+            const accounting = [
+              ...managed.middleware,
+              ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
+            ]
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model, web),
@@ -398,11 +402,12 @@ export class Chat extends Context.Service<
                 // A sandbox command or publication can depend on an earlier tool's file write.
                 // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
                 toolExecution: "sequential",
+                repairToolInput: false,
                 // Interrupt snapshots preserve original uploads after provider normalization.
                 middleware: [
+                  chatFailedUsageMiddleware(accounting),
                   createChatAttachmentSnapshotMiddleware(inputMessages, history),
-                  ...managed.middleware,
-                  ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
+                  ...accounting,
                   {
                     name: "mcp-presentation",
                     onStart: (ctx) =>
@@ -450,7 +455,6 @@ export class Chat extends Context.Service<
               ...(chunk.threadId === undefined ? {} : { threadId: chunk.threadId }),
               ...(chunk.runId === undefined ? {} : { runId: chunk.runId }),
               message,
-              error: aborted ? { message, code: "aborted" } : { message },
               ...(aborted ? { code: "aborted" } : {}),
             }
             return Effect.as(
@@ -459,6 +463,12 @@ export class Chat extends Context.Service<
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
                   code: errorReason(chunk),
+                  ...(typeof chunk.metadata?.tanstack?.errorType === "string"
+                    ? { errorType: chunk.metadata.tanstack.errorType.slice(0, 128) }
+                    : {}),
+                  ...(typeof chunk.metadata?.tanstack?.requestId === "string"
+                    ? { requestId: chunk.metadata.tanstack.requestId.slice(0, 256) }
+                    : {}),
                 }),
               ),
               runError,

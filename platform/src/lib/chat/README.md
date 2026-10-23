@@ -176,7 +176,7 @@ For example, an assistant's `metadata` can contain:
 
 Optional fields also preserve input tool declarations, opaque `modelMessages`, provider instance/type, API protocol, model identity, and usage. Provider continuation data is replayed only with the same provider instance, protocol, and model. Otherwise the adapter uses portable canonical parts.
 
-Assistant provenance usage includes a decimal-string `costUsd` when a reported cost or resolved token rate is available. This snapshots the generation-time cost for retained history. Directory totals exclude drafts and temporarily count unpriceable settled replies as zero.
+Assistant provenance usage includes a decimal-string `costUsd` when a reported cost or resolved token rate is available. This snapshots the generation-time cost for retained history. Reported usage from failed model calls is retained and recorded once per model phase, including partial Anthropic input/cache usage. One-hour cache writes are priced as a subset of total cache writes. Directory totals exclude drafts and temporarily count unpriceable settled replies as zero.
 
 `initiatorTenantUserId` identifies the actor of this foreground invocation. A participant resolving the last browser response can start a continuation, so that actor can differ from the original user-message author.
 

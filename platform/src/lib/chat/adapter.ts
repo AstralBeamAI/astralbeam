@@ -178,19 +178,10 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
 }
 
 export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebState) {
-  const provider = createChatProviderAdapter(
+  const adapter = createChatProviderAdapter(
     web ? { ...model, fetch: (input, init) => fetchChatWeb(model, web, input, init) } : model,
     web !== undefined,
   )
-  const adapter = Object.assign(provider, {
-    inputModalities: provider.inputModalities ?? (["text", "image", "document"] as const),
-    // TextAdapter omits `| undefined` here, as for inputModalities before, so chat() rejects every
-    // adapter under exactOptionalPropertyTypes. All-off equals absent. https://github.com/TanStack/ai/issues/1702
-    midConversationChannels: provider.midConversationChannels ?? {
-      tools: false,
-      systemPrompts: false,
-    },
-  })
   if (!web) return adapter
   const stream = adapter.chatStream.bind(adapter) as (
     options: TextOptions,

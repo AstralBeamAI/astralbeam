@@ -23,9 +23,6 @@ const chatRunInput = Schema.Struct({
   forwardedProps: Schema.StructWithRest(Schema.Struct({ clientId: ApiUuidSchema }), [
     Schema.Record(Schema.String, Schema.Unknown),
   ]),
-  data: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)).annotate({
-    description: "Legacy mirror of forwardedProps sent by TanStack AI clients.",
-  }),
   state: Schema.optionalKey(Schema.Unknown),
   parentRunId: Schema.optionalKey(Schema.String),
 }).annotate({

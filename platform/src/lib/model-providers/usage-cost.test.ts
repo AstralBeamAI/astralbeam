@@ -30,6 +30,23 @@ describe("modelUsageCost", () => {
     expect(modelUsageCost(configuration, usage)).toBe("0.0234")
   })
 
+  it.each([
+    { rates: { cacheWrite1hPerMillion: "6", cacheWritePerMillion: "4" }, expected: "0.0044" },
+    { rates: { cacheWritePerMillion: "4" }, expected: "0.0038" },
+    { rates: {}, expected: "0.003" },
+  ])("prices one-hour writes as part of total cache writes: $rates", ({ rates, expected }) => {
+    expect(
+      modelUsageCost(
+        { ...configuration, prices: { ...configuration.prices, ...rates } },
+        {
+          promptTokens: 1000,
+          completionTokens: 0,
+          promptTokensDetails: { cacheWriteTokens: 800, cacheWrite1hTokens: 300 },
+        },
+      ),
+    ).toBe(expected)
+  })
+
   it("prices a call above a context threshold at that tier's rates", () => {
     const usage = { promptTokens: 250_000, completionTokens: 2_000 }
     expect(modelUsageCost(configuration, usage)).toBe("1.545")

@@ -80,6 +80,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
         let hasText = false
         let completed = false
         for await (const chunk of chat({
+          threadId: crypto.randomUUID(),
           adapter: createChatAdapter({ ...configuration, fetch: guardedFetch }),
           messages: [{ role: "user", content: "Reply with OK." }],
           agentLoopStrategy: maxIterations(1),

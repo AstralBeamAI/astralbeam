@@ -391,7 +391,6 @@ export const managedChatRunParams = Effect.fn("managedChatRunParams")(function* 
     messages: [],
     tools,
     state: undefined,
-    context: [],
     aguiContext: [],
     forwardedProps: {
       agentId: `agent_${claim.scope.organizationId}_${admission.thread.agentId}`,

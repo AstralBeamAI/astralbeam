@@ -569,6 +569,7 @@ test.each(["openai", "xai", "anthropic", "openrouter"] as const)(
     expect(compatible[0]!.metadata).toHaveProperty("webProviderContext")
     const requests: unknown[] = []
     for await (const _chunk of chat({
+      threadId: "web-replay-test",
       adapter: createChatAdapter(
         {
           ...result.model,
