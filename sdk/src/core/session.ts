@@ -1,5 +1,6 @@
 import {
   ChatClient,
+  type ChatClientSnapshot,
   type ChatClientState,
   type ConnectionAdapter,
   fetchServerSentEvents,
@@ -168,7 +169,7 @@ export interface ChatSubmission {
 }
 
 export interface AstralBeamChatState {
-  messages: UIMessage[]
+  messages: ChatClientSnapshot["messages"]
   /** The run status: "ready", "submitted", "streaming", or "error". */
   status: ChatClientState
   /** The latest failure outside a submission, such as history loading or a failed reply. */
@@ -372,6 +373,34 @@ export function createAstralBeamChat(
   let threadKey: string | undefined
   let startWithNewThread = false
   let threadRecords: Awaited<ReturnType<typeof loadThreadMessages>>["messages"] = []
+  type MessagePresentation = {
+    attachmentParts?: UIMessage["parts"]
+    renderIds?: ReadonlyMap<string, string>
+  }
+  const messagePresentation = new Map<string, MessagePresentation>()
+  let presentationVersion = 0
+  let projectedMessages = new WeakMap<
+    UIMessage,
+    { presentation: MessagePresentation | undefined; message: UIMessage }
+  >()
+  const rememberAttachments = (messages: readonly UIMessage[]) => {
+    for (const message of messages) {
+      // Accepted user content is immutable. Keep its saved download parts across model snapshots.
+      if (
+        message.role !== "user" ||
+        messagePresentation.get(message.id)?.attachmentParts ||
+        !message.parts.some((part) => "fileId" in part)
+      )
+        continue
+      const parts = message.parts.map((part) => Object.freeze({ ...part }))
+      Object.freeze(parts)
+      messagePresentation.set(message.id, {
+        ...messagePresentation.get(message.id),
+        attachmentParts: parts,
+      })
+      presentationVersion++
+    }
+  }
   const clientId = newUuid()
   const acceptSubmission = () => {
     if (!submission || !settle(submission, "accepted")) return
@@ -379,11 +408,13 @@ export function createAstralBeamChat(
     submission.callbacks?.onAccepted?.()
   }
   const replaceAcceptedMessage = (record: ChatHistoryPageEncodedMessagesItem) => {
-    const messages = [...client.getMessages()]
+    const messages = [...client.getSnapshot().messages]
     const index = messages.findLastIndex((message) => message.role === "user")
     if (index !== -1) {
       messages[index] = projectThreadMessages([record])[0]!
+      rememberAttachments([messages[index]])
       client.setMessagesManually(messages)
+      if (unsubscribeSnapshot) observeSnapshot()
     }
   }
   const liveToolCalls = new Set<string>()
@@ -525,22 +556,61 @@ export function createAstralBeamChat(
     return { widget: input.widget, rendered: true }
   }
 
+  const projectMessages = (messages: ChatClientSnapshot["messages"]) =>
+    Object.freeze(
+      messages.map((message) => {
+        let presentation = messagePresentation.get(message.id)
+        const cached = projectedMessages.get(message)
+        if (cached && cached.presentation === presentation) return cached.message
+        let parts = presentation?.attachmentParts ?? message.parts
+        let renderIds = presentation?.renderIds
+        const nextParts = parts.map((part) => {
+          if (
+            part.type !== "tool-call" ||
+            part.name !== RENDER_WIDGET_TOOL ||
+            part.state !== "complete" ||
+            !part.input
+          )
+            return part
+          const stored: ChatToolCallPart = part
+          const alias = savedToolCallId(message.id, part.id)
+          const canonical = stored.applicationPartId
+            ? savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId)
+            : alias
+          const upstream = stored.upstreamToolCallId
+          const renderId =
+            stored.widgetRenderId ??
+            renderIds?.get(alias) ??
+            renderIds?.get(canonical) ??
+            (upstream &&
+            liveToolMessageIds.get(upstream) === message.id &&
+            restoredWidgets.has(upstream)
+              ? upstream
+              : part.id)
+          if (renderIds?.get(alias) !== renderId || renderIds.get(canonical) !== renderId) {
+            renderIds = new Map(renderIds).set(alias, renderId).set(canonical, renderId)
+          }
+          return stored.widgetRenderId === renderId
+            ? part
+            : Object.freeze({ ...part, widgetRenderId: renderId })
+        })
+        if (nextParts.some((part, index) => part !== parts[index])) {
+          Object.freeze(nextParts)
+          parts = nextParts
+        }
+        if (renderIds && renderIds !== presentation?.renderIds) {
+          presentation = { ...presentation, renderIds }
+          messagePresentation.set(message.id, presentation)
+          presentationVersion++
+        }
+        const projected = parts === message.parts ? message : Object.freeze({ ...message, parts })
+        projectedMessages.set(message, { presentation, message: projected })
+        return projected
+      }),
+    )
+
   const restoreCompletedWidgets = (messages: readonly UIMessage[]) => {
     if (state.thread?.role === "viewer") return
-    const renderIds = new Map<string, string>()
-    for (const message of state.messages) {
-      for (const part of message.parts) {
-        if (part.type !== "tool-call" || part.name !== RENDER_WIDGET_TOOL) continue
-        const stored = part as ChatToolCallPart
-        if (!stored.widgetRenderId) continue
-        renderIds.set(savedToolCallId(message.id, part.id), stored.widgetRenderId)
-        if (stored.applicationPartId)
-          renderIds.set(
-            savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
-            stored.widgetRenderId,
-          )
-      }
-    }
     for (const message of messages) {
       for (const part of message.parts) {
         if (
@@ -550,22 +620,8 @@ export function createAstralBeamChat(
           !part.input
         )
           continue
-        const stored = part as ChatToolCallPart
-        const upstream = stored.upstreamToolCallId
-        const renderId =
-          stored.widgetRenderId ??
-          renderIds.get(savedToolCallId(message.id, part.id)) ??
-          (stored.applicationPartId
-            ? renderIds.get(
-                savedToolCallId(message.id, stored.applicationPartId, stored.responseTargetId),
-              )
-            : undefined) ??
-          (upstream &&
-          liveToolMessageIds.get(upstream) === message.id &&
-          restoredWidgets.has(upstream)
-            ? upstream
-            : part.id)
-        stored.widgetRenderId = renderId
+        const stored: ChatToolCallPart = part
+        const renderId = stored.widgetRenderId ?? part.id
         if (restoredWidgets.has(renderId) || restoringWidgets.has(renderId)) continue
         restoringWidgets.add(renderId)
         const generation = selectionGeneration
@@ -927,6 +983,7 @@ export function createAstralBeamChat(
             older ? state.pendingInteractions : history.pendingInteractions,
             liveToolMessageIds,
           ).filter((message) => pageIds.has(message.id))
+          rememberAttachments(messages)
           if (older) update({ messagesCursor: history.page_after ?? undefined })
           else {
             if (history.thread.role === "viewer") disposeRenders()
@@ -941,7 +998,6 @@ export function createAstralBeamChat(
             // An empty saved thread must remove rejected optimistic input.
             if (messages.length === 0) next.setMessagesManually([])
           }
-          restoreCompletedWidgets(messages)
           // Foreground execution has no replay stream to join. Pending interactions remain
           // application-owned because several turns can wait independently in one thread.
           return {
@@ -964,7 +1020,10 @@ export function createAstralBeamChat(
               (history) =>
                 new Promise<void>((resolve) =>
                   queueMicrotask(() => {
-                    if (client === next && readGeneration === historyGeneration) update({ history })
+                    if (client === next && readGeneration === historyGeneration) {
+                      if (unsubscribeSnapshot) observeSnapshot()
+                      update({ history })
+                    }
                     resolve()
                   }),
                 ),
@@ -983,24 +1042,6 @@ export function createAstralBeamChat(
       queue: "drop",
       tools: declareTools(),
       forwardedProps: forwardedProps(),
-      onMessagesChange: (messages) => {
-        if (client !== next) return
-        // Model snapshots omit client render IDs. Retain the existing slot before publishing them.
-        restoreCompletedWidgets(messages)
-        // User messages are immutable. Keep saved download identities across model snapshots.
-        const savedMessages = new Map(state.messages.map((message) => [message.id, message]))
-        for (const message of messages) {
-          if (message.role !== "user") continue
-          const saved = savedMessages.get(message.id)
-          if (saved?.parts.some((part) => "fileId" in part)) message.parts = saved.parts
-        }
-        update({ messages, sandbox: collectSandboxActivity(messages) })
-      },
-      onStatusChange: (status) => {
-        if (client !== next) return
-        clientStatus = status
-        update(status === "submitted" ? { usageLimitReached: undefined } : {})
-      },
       onInterruptStateChange: (interrupts) => {
         if (client === next) debug?.("tool", "interrupt state changed", interrupts)
       },
@@ -1087,8 +1128,44 @@ export function createAstralBeamChat(
   }
   let selectedId: string | undefined
   let client = createClient()
+  let unsubscribeSnapshot: (() => void) | undefined
+  let snapshotMessages: ChatClientSnapshot["messages"] | undefined
+  let projectedPresentationVersion = -1
+  const observeSnapshot = () => {
+    const snapshot = client.getSnapshot()
+    const messagesChanged =
+      snapshotMessages !== snapshot.messages || projectedPresentationVersion !== presentationVersion
+    if (!messagesChanged && clientStatus === snapshot.status) return
+    const next: Partial<AstralBeamChatState> = {}
+    if (clientStatus !== snapshot.status && snapshot.status === "submitted")
+      next.usageLimitReached = undefined
+    clientStatus = snapshot.status
+    if (messagesChanged) {
+      next.messages = projectMessages(snapshot.messages)
+      next.sandbox = collectSandboxActivity(next.messages)
+      snapshotMessages = snapshot.messages
+      projectedPresentationVersion = presentationVersion
+    }
+    update(next)
+    if (messagesChanged) restoreCompletedWidgets(state.messages)
+  }
+  const attachClient = () => {
+    if (!unsubscribeSnapshot) {
+      const observed = client
+      const generation = selectionGeneration
+      unsubscribeSnapshot = observed.subscribeSnapshot(() => {
+        if (client === observed && generation === selectionGeneration) observeSnapshot()
+      })
+      observeSnapshot()
+      restoreCompletedWidgets(state.messages)
+    }
+    client.attach()
+  }
   const replaceClient = () => {
     const previous = client
+    unsubscribeSnapshot?.()
+    unsubscribeSnapshot = undefined
+    snapshotMessages = undefined
     // Swap first, so the old client's reports on stop and detach are dropped.
     client = createClient()
     clientStatus = "ready"
@@ -1097,7 +1174,7 @@ export function createAstralBeamChat(
     liveToolCalls.clear()
     liveToolMessageIds.clear()
     update({ activeToolCallIds: [] })
-    if (started) client.attach()
+    if (started) attachClient()
     previous.dispose()
   }
 
@@ -1106,7 +1183,7 @@ export function createAstralBeamChat(
   const scopeCompletedToolCalls = () => {
     historicalToolIds.clear()
     client.setMessagesManually(
-      state.messages.map((message) => {
+      client.getSnapshot().messages.map((message) => {
         const aliases = new Map<string, string>()
         const parts = message.parts.map((part) => {
           if (part.type !== "tool-call" || webPartMetadata(part).providerExecuted) return part
@@ -1126,7 +1203,14 @@ export function createAstralBeamChat(
             id,
             ...(part.name === RENDER_WIDGET_TOOL &&
             liveToolMessageIds.get(upstreamToolCallId) === message.id
-              ? { widgetRenderId: stored.widgetRenderId ?? part.id }
+              ? {
+                  widgetRenderId:
+                    stored.widgetRenderId ??
+                    messagePresentation
+                      .get(message.id)
+                      ?.renderIds?.get(savedToolCallId(message.id, part.id)) ??
+                    part.id,
+                }
               : {}),
           }
         })
@@ -1151,6 +1235,9 @@ export function createAstralBeamChat(
     toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
     historicalToolIds.clear()
     threadRecords = []
+    messagePresentation.clear()
+    projectedMessages = new WeakMap()
+    presentationVersion++
     disposeRenders()
     update({
       thread: undefined,
@@ -1176,7 +1263,7 @@ export function createAstralBeamChat(
     submission = submissions.get(id)
     if (submission) update({ submission: project(submission) })
     try {
-      if (!started) client.attach()
+      if (!started) attachClient()
       await hydration
       if (generation !== selectionGeneration) return
       if (threadKey) selectedThread(threadKey, id)
@@ -1229,7 +1316,7 @@ export function createAstralBeamChat(
     update({ olderMessagesLoading: false })
     try {
       client.detach()
-      client.attach()
+      attachClient()
       await hydration
       if (explicit && generation === selectionGeneration) update({ error: undefined })
     } catch (error) {
@@ -1251,6 +1338,7 @@ export function createAstralBeamChat(
     update({ olderMessagesLoading: true })
     try {
       await client.loadOlderMessages()
+      if (generation === selectionGeneration && unsubscribeSnapshot) observeSnapshot()
     } catch (error) {
       if (generation === selectionGeneration) reportError(error)
     } finally {
@@ -1462,7 +1550,7 @@ export function createAstralBeamChat(
     if (started) return
     started = true
     client.updateOptions({ tools: declareTools() })
-    client.attach()
+    attachClient()
     if (requestController.signal.aborted) requestController = new AbortController()
     unsubscribeAuthentication = subscribeAuthentication(authentication, observeAuthentication)
     observeAuthentication()
@@ -1592,6 +1680,8 @@ export function createAstralBeamChat(
     },
     dispose: () => {
       releaseSubmission("The chat closed before this was sent.")
+      unsubscribeSnapshot?.()
+      unsubscribeSnapshot = undefined
       client.detach()
       disposeRenders()
       client.stop()
@@ -1607,7 +1697,11 @@ export function createAstralBeamChat(
       // React Strict Mode immediately restarts a committed session. Dispose the client only if
       // that restart did not happen: https://react.dev/reference/react/useEffect#caveats
       queueMicrotask(() => {
-        if (!started) client.dispose()
+        if (!started) {
+          client.dispose()
+          messagePresentation.clear()
+          projectedMessages = new WeakMap()
+        }
       })
       listeners.clear()
     },
