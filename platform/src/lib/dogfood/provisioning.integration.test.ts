@@ -1,5 +1,6 @@
 import process from "node:process"
 import { spawn } from "node:child_process"
+import { once } from "node:events"
 import { createServer } from "node:net"
 import { fromCrossJSON, type SerovalNode, toJSON } from "seroval"
 import { and, eq, sql } from "drizzle-orm"
@@ -696,10 +697,11 @@ describe.skipIf(!dogfoodIntegration.url)(
       if (!address || typeof address === "string") throw new Error("Missing test port")
       const port = address.port
       await new Promise<void>((resolve) => listener.close(() => resolve()))
-      const origin = `http://localhost:${port}`
+      // Match the listener and client address family. https://vite.dev/config/server-options#server-host
+      const origin = `http://127.0.0.1:${port}`
       const server = spawn(
         process.execPath,
-        ["run", "dev", "--port", String(port), "--strictPort"],
+        ["run", "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
         {
           cwd: process.cwd(),
           env: {
@@ -711,18 +713,24 @@ describe.skipIf(!dogfoodIntegration.url)(
             GITHUB_CLIENT_SECRET: "",
             NODE_ENV: "development",
           },
-          stdio: "ignore",
+          stdio: ["ignore", "inherit", "inherit"],
         },
       )
+      const exited = once(server, "exit")
       try {
-        await vi.waitFor(
-          async () => {
-            expect(
-              (await fetch(`${origin}/src/routes/configure/-functions/save-config-values.ts`)).ok,
-            ).toBe(true)
-          },
-          { timeout: 30_000, interval: 250 },
-        )
+        await Promise.race([
+          vi.waitFor(
+            async () => {
+              expect(
+                (await fetch(`${origin}/src/routes/configure/-functions/save-config-values.ts`)).ok,
+              ).toBe(true)
+            },
+            { timeout: 30_000, interval: 250 },
+          ),
+          exited.then(([code, signal]) => {
+            throw new Error(`Vite exited before readiness (code: ${code}, signal: ${signal})`)
+          }),
+        ])
         const cases = [
           ["save-config-values", { updates: [] }],
           ["generate-config-value", { key: "dogfood_api_key" }],
@@ -814,10 +822,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         expect((await getDatabaseConfig()).values).toEqual(configured)
       } finally {
         server.kill("SIGTERM")
-        await new Promise<void>((resolve) => {
-          if (server.exitCode !== null || server.signalCode !== null) resolve()
-          else server.once("exit", () => resolve())
-        })
+        await exited
       }
     }, 60_000)
   },
