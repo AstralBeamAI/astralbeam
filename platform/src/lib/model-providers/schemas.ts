@@ -36,28 +36,36 @@ const ModelRateCardSchema = Schema.Struct({
   ).check(Schema.isMaxLength(32)),
 })
 
-export const ModelConfigurationSchema = Schema.Struct({
-  ...ModelRateCardSchema.fields,
+export type ModelRateCard = typeof ModelRateCardSchema.Type
+
+export const ModelLimitsSchema = Schema.Struct({
   maxInputTokens: Schema.NullOr(modelTokenBoundSchema),
   contextWindowTokens: Schema.NullOr(modelTokenBoundSchema),
   maxOutputTokens: modelTokenBoundSchema,
   outputCap: modelTokenBoundSchema,
 }).check(
+  Schema.makeFilter((limits) => {
+    if (limits.maxInputTokens === null && limits.contextWindowTokens === null)
+      return { path: ["maxInputTokens"], issue: "Configure an input or context token limit" }
+    if (limits.outputCap > limits.maxOutputTokens)
+      return { path: ["outputCap"], issue: "Output cap exceeds the configured output maximum" }
+    if (limits.contextWindowTokens !== null && limits.outputCap >= limits.contextWindowTokens)
+      return { path: ["outputCap"], issue: "Leave room for input within the context window" }
+    return undefined
+  }),
+)
+export type ModelLimits = typeof ModelLimitsSchema.Type
+
+export const ModelConfigurationSchema = ModelLimitsSchema.mapFields(
+  (fields) => ({ ...fields, ...ModelRateCardSchema.fields }),
+  { unsafePreserveChecks: true },
+).check(
   Schema.makeFilter((configuration) => {
     if (configuration.pricingSource.kind === "manual" && configuration.contextTiers.length > 0)
       return {
         path: ["contextTiers"],
         issue: "Manual overrides use flat prices without context tiers",
       }
-    if (configuration.maxInputTokens === null && configuration.contextWindowTokens === null)
-      return { path: ["maxInputTokens"], issue: "Configure an input or context token limit" }
-    if (configuration.outputCap > configuration.maxOutputTokens)
-      return { path: ["outputCap"], issue: "Output cap exceeds the configured output maximum" }
-    if (
-      configuration.contextWindowTokens !== null &&
-      configuration.outputCap >= configuration.contextWindowTokens
-    )
-      return { path: ["outputCap"], issue: "Leave room for input within the context window" }
     if (
       configuration.contextTiers.some(
         (tier, index, tiers) =>
@@ -68,7 +76,6 @@ export const ModelConfigurationSchema = Schema.Struct({
     return undefined
   }),
 )
-
 export type ModelConfiguration = typeof ModelConfigurationSchema.Type
 
 const modelPriceInstant = Schema.String.check(
@@ -78,16 +85,20 @@ const modelPriceInstant = Schema.String.check(
     return !Number.isNaN(date.getTime()) && date.toISOString() === value
   }),
 )
+const ModelManualPricePolicySchema = Schema.Struct({
+  kind: Schema.Literal("manual"),
+  prices: ModelTokenPricesSchema,
+})
+export const ModelPricePolicySchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("catalog") }),
+  ModelManualPricePolicySchema,
+])
+export type ModelPricePolicy = typeof ModelPricePolicySchema.Type
 const ModelPriceVersionSchema = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
   effectiveFrom: modelPriceInstant,
-  rates: Schema.NullOr(ModelRateCardSchema),
-}).check(
-  Schema.makeFilter(
-    ({ rates }) =>
-      rates === null || (rates.pricingSource.kind === "manual" && rates.contextTiers.length === 0),
-  ),
-)
+  policy: ModelPricePolicySchema,
+})
 export type ModelPriceVersion = typeof ModelPriceVersionSchema.Type
 export const ModelPriceHistorySchema = Schema.Array(ModelPriceVersionSchema).check(
   Schema.makeFilter(
@@ -96,6 +107,25 @@ export const ModelPriceHistorySchema = Schema.Array(ModelPriceVersionSchema).che
       new Set(versions.map(({ id }) => id)).size === versions.length,
   ),
 )
+const ModelScheduledPriceSchema = Schema.Struct({
+  ...ModelPriceVersionSchema.fields,
+  policy: ModelManualPricePolicySchema,
+})
+export type ModelScheduledPrice = typeof ModelScheduledPriceSchema.Type
+const ModelScheduledPricesSchema = Schema.Array(ModelScheduledPriceSchema).check(
+  Schema.isMaxLength(32),
+  Schema.makeFilter(
+    (versions) =>
+      new Set(versions.map(({ id }) => id)).size === versions.length &&
+      new Set(versions.map(({ effectiveFrom }) => effectiveFrom)).size === versions.length,
+  ),
+)
+const ModelPricingChangeSchema = Schema.Struct({
+  expectedVersionId: Schema.NullOr(Schema.String.check(Schema.isUUID())),
+  policy: Schema.optionalKey(ModelPricePolicySchema),
+  scheduledPrices: Schema.optionalKey(ModelScheduledPricesSchema),
+})
+export type ModelPricingChange = typeof ModelPricingChangeSchema.Type
 
 export function modelInputAllowance(configuration: ModelConfiguration) {
   return Math.min(
@@ -119,12 +149,16 @@ export type ModelProviderApi = typeof ModelProviderApiSchema.Type
 
 export const ModelRequestSnapshotSchema = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
-  startedAt: Schema.String,
+  startedAt: modelPriceInstant,
   providerId: Schema.String,
   providerType: ModelProviderTypeSchema,
   protocol: ModelProviderApiSchema,
   modelId: Schema.String,
   rates: Schema.NullOr(ModelRateCardSchema),
+  usage: Schema.optionalKey(Schema.JsonObject),
+  costUsd: Schema.optionalKey(
+    Schema.NullOr(Schema.String.check(Schema.isPattern(/^-?\d+(?:\.\d+)?$/))),
+  ),
 })
 export type ModelRequestSnapshot = typeof ModelRequestSnapshotSchema.Type
 
@@ -172,12 +206,7 @@ const ProviderModelFieldsSchema = Schema.Struct({
   name: DisplayNameSchema,
   configuration: Schema.optionalKey(Schema.NullOr(ModelConfigurationSchema)),
   priceVersionId: Schema.optionalKey(Schema.NullOr(Schema.String.check(Schema.isUUID()))),
-  scheduledPrices: Schema.optionalKey(
-    ModelPriceHistorySchema.check(
-      Schema.isMaxLength(32),
-      Schema.makeFilter((versions) => versions.every(({ rates }) => rates !== null)),
-    ),
-  ),
+  scheduledPrices: Schema.optionalKey(ModelScheduledPricesSchema),
 })
 
 export type ProviderModelFields = typeof ProviderModelFieldsSchema.Type
@@ -227,3 +256,24 @@ export const ModelProviderCredentialsPayloadSchema = Schema.Struct({
   providerType: ModelProviderTypeSchema,
   apiKey: ModelProviderApiKeySchema,
 })
+
+export const ModelProviderWriteFieldsSchema = ModelProviderFieldsSchema.mapFields(
+  (fields) => ({
+    ...fields,
+    models: Schema.Array(
+      Schema.Struct({
+        modelId: ProviderModelFieldsSchema.fields.modelId,
+        name: DisplayNameSchema,
+        configuration: Schema.optionalKey(Schema.NullOr(ModelLimitsSchema)),
+        pricing: Schema.optionalKey(ModelPricingChangeSchema),
+      }),
+    ).check(
+      Schema.isMaxLength(100),
+      Schema.makeFilter(
+        (models) => new Set(models.map(({ modelId }) => modelId)).size === models.length,
+      ),
+    ),
+  }),
+  { unsafePreserveChecks: true },
+)
+export type ModelProviderWriteFields = typeof ModelProviderWriteFieldsSchema.Type

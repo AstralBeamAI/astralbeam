@@ -5,6 +5,7 @@ import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tans
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { beforeEach, vi } from "vitest"
 import type { createChatAdapter } from "./adapter"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
@@ -109,6 +110,7 @@ function chatTestLayer(options: {
   readonly history?: MessageRecord[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
+  readonly pricing?: typeof ModelProviders.Service.pricing
   readonly recordRequest?: typeof ChatThreads.Service.recordRequest
 }) {
   const agents = {
@@ -138,7 +140,7 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(null),
+        pricing: options.pricing ?? (() => Effect.succeed(null)),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -190,10 +192,11 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
-  it.effect.each(["recorded", "failed", "cancelled"])(
+  it.effect.each(["recorded", "failed", "cancelled", "charged"])(
     "requires a durable request snapshot before dispatch: %s",
     (outcome) => {
       let recorded = false
+      let charged: ModelRequestSnapshot | undefined
       let dispatched = 0
       const abortController = new AbortController()
       return Effect.gen(function* () {
@@ -210,7 +213,12 @@ describe("Chat.run", () => {
             // Drain the native adapter against the synthetic HTTP boundary.
           }
         })
-        assert.strictEqual(dispatched, outcome === "recorded" ? 1 : 0)
+        assert.strictEqual(dispatched, outcome === "recorded" || outcome === "charged" ? 1 : 0)
+        if (outcome === "charged") {
+          assert.strictEqual(charged?.costUsd, "0.000036")
+          assert.strictEqual(charged?.usage?.promptTokens, 10)
+          assert.strictEqual(charged?.usage?.completionTokens, 2)
+        }
       }).pipe(
         Effect.provide(
           chatTestLayer({
@@ -220,6 +228,30 @@ describe("Chat.run", () => {
               fetch: () => {
                 assert.strictEqual(recorded, true)
                 dispatched += 1
+                if (outcome === "charged")
+                  return Promise.resolve(
+                    new Response(
+                      [
+                        {
+                          type: "response.created",
+                          response: { id: "response", model: "test-model", output: [] },
+                        },
+                        {
+                          type: "response.completed",
+                          response: {
+                            id: "response",
+                            model: "test-model",
+                            status: "completed",
+                            output: [],
+                            usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+                          },
+                        },
+                      ]
+                        .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+                        .join(""),
+                      { headers: { "Content-Type": "text/event-stream" } },
+                    ),
+                  )
                 return Promise.resolve(
                   Response.json(
                     { error: { message: "Synthetic unauthorized response" } },
@@ -228,7 +260,19 @@ describe("Chat.run", () => {
                 )
               },
             },
+            pricing: () =>
+              Effect.succeed({
+                currency: "USD",
+                pricingSource: { kind: "manual" },
+                prices: { inputPerMillion: "2", outputPerMillion: "8" },
+                contextTiers: [],
+                maxInputTokens: 128_000,
+                contextWindowTokens: null,
+                maxOutputTokens: 8192,
+                outputCap: 4096,
+              }),
             recordRequest: ({ claim, request }) => {
+              if (request.usage) charged = request
               assert.deepStrictEqual(claim, chatTestExecution.claim)
               assert.strictEqual(request.providerId, CHAT_TEST_MODEL.providerId)
               assert.strictEqual(request.modelId, CHAT_TEST_MODEL.modelId)

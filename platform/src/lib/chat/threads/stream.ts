@@ -22,7 +22,7 @@ import { Effect, Schema } from "effect"
 import type { ChatFileCache } from "../attachments/attachments"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import type { ModelConfiguration } from "@/lib/model-providers/schemas"
+import type { ModelRateCard } from "@/lib/model-providers/schemas"
 import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
@@ -51,7 +51,7 @@ interface ManagedChatStreamOptions {
     metadata?: Readonly<Record<string, unknown>> | undefined
   }>
   readonly model: ChatModelConfiguration
-  readonly pricing?: ModelConfiguration | null | undefined
+  readonly pricing?: ModelRateCard | null | undefined
   readonly agentId: string
   readonly web?: ChatWebState | undefined
   readonly publicHistory?: UIMessage[] | undefined
@@ -77,7 +77,7 @@ interface ManagedChatStreamState {
   version: number
   payload: ChatMessagePayload
   usage: typeof Schema.JsonObject.Type | undefined
-  pricing: ModelConfiguration | null | undefined
+  pricing: ModelRateCard | null | undefined
   publicHistory: UIMessage[] | undefined
   readonly fileCache: ChatFileCache
   readonly partIds: Map<string, string>

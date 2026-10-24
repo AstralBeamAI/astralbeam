@@ -28,17 +28,24 @@ import {
   ModelProviderTestRateLimited,
   ModelConfigurationMissing,
 } from "./errors.ts"
-import { effectiveModelConfiguration, readModelPriceCatalog } from "./pricing-catalog.server.ts"
+import {
+  catalogModelConfiguration,
+  effectiveModelConfiguration,
+  readModelPriceCatalog,
+} from "./pricing-catalog.server.ts"
 import { activeModelPrice, updateModelPriceHistory } from "./pricing-history.server.ts"
 import { testProviderModel } from "./test-model.server.ts"
 import { modelWebAccess } from "./web.server"
 import {
   ModelProviderCredentialsPayloadSchema,
-  type ModelProviderFields,
+  type ModelProviderWriteFields,
   type ModelProviderApi,
   type ModelProviderType,
   type ModelConfiguration,
+  type ModelLimits,
+  type ModelRateCard,
   type ModelPriceVersion,
+  type ModelScheduledPrice,
 } from "./schemas.ts"
 
 interface ModelProviderModel {
@@ -46,8 +53,9 @@ interface ModelProviderModel {
   readonly modelId: string
   readonly name: string
   readonly configuration: ModelConfiguration | null
+  readonly limitOverrides: ModelLimits | null
   readonly priceVersionId: string | null
-  readonly scheduledPrices: readonly ModelPriceVersion[]
+  readonly scheduledPrices: readonly ModelScheduledPrice[]
 }
 
 export interface OrganizationModelProvider {
@@ -81,14 +89,12 @@ export interface ChatModelConfiguration {
   readonly baseUrl: string
   readonly apiKey: string
   readonly modelId: string
-  /** The model's stored price and limit override, which `ModelProviders.pricing` completes. */
-  readonly configured?: ModelConfiguration | null | undefined
   readonly pricingModel?: { readonly organizationId: string; readonly id: string } | undefined
   /** Enforces the deployment's private endpoint policy on every provider request. */
   readonly fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
-export type SaveModelProviderInput = ModelProviderFields & {
+export type SaveModelProviderInput = ModelProviderWriteFields & {
   readonly organizationId: string
   readonly id: string | null
   readonly lockVersion: number | null
@@ -103,7 +109,7 @@ type TestModelProviderInput = {
 
 type ModelPricingInput = Pick<
   ChatModelConfiguration,
-  "providerType" | "modelId" | "configured" | "pricingModel"
+  "providerType" | "modelId" | "pricingModel"
 > & {
   readonly timestamp?: Date | undefined
 }
@@ -187,7 +193,7 @@ export class ModelProviders extends Context.Service<
       readonly agentId: string
     }) => Effect.Effect<ChatModelConfiguration | null, ModelProviderUnreadable>
     /** A resolved model's effective rates, reading the shared catalog only without a manual override. */
-    readonly pricing: (model: ModelPricingInput) => Effect.Effect<ModelConfiguration | null>
+    readonly pricing: (model: ModelPricingInput) => Effect.Effect<ModelRateCard | null>
     readonly testModel: (
       input: TestModelProviderInput,
     ) => Effect.Effect<
@@ -285,10 +291,13 @@ export class ModelProviders extends Context.Service<
                 id,
                 modelId,
                 name,
+                limitOverrides: configuration,
                 priceVersionId:
                   activeModelPrice({ history: pricingHistory, timestamp })?.id ?? null,
                 scheduledPrices: pricingHistory.filter(
-                  (version) => version.effectiveFrom > timestamp.toISOString(),
+                  (version): version is ModelScheduledPrice =>
+                    version.effectiveFrom > timestamp.toISOString() &&
+                    version.policy.kind === "manual",
                 ),
                 configuration: effectiveModelConfiguration({
                   catalog,
@@ -335,9 +344,11 @@ export class ModelProviders extends Context.Service<
           credentialsReadable: apiKey !== null,
           models: models.map(({ pricingHistory, ...model }) => ({
             ...model,
+            limitOverrides: model.configuration,
             priceVersionId: activeModelPrice({ history: pricingHistory, timestamp })?.id ?? null,
             scheduledPrices: pricingHistory.filter(
-              (version) => version.effectiveFrom > timestamp.toISOString(),
+              (version): version is ModelScheduledPrice =>
+                version.effectiveFrom > timestamp.toISOString() && version.policy.kind === "manual",
             ),
             configuration: effectiveModelConfiguration({
               catalog,
@@ -471,28 +482,33 @@ export class ModelProviders extends Context.Service<
               const configuredModels: Array<{
                 modelId: string
                 name: string
-                configuration: ModelConfiguration | null
+                configuration: ModelLimits | null
                 pricingHistory: readonly ModelPriceVersion[]
               }> = []
               for (const model of input.models) {
                 const saved = savedModels.find((candidate) => candidate.modelId === model.modelId)
                 const pricingHistory = updateModelPriceHistory({
                   history: saved?.pricingHistory ?? [],
-                  model,
+                  change: model.pricing,
                   timestamp,
                 })
                 if (!pricingHistory) return yield* new ModelProviderChanged()
-                const configuration = effectiveModelConfiguration({
+                const configuration = model.configuration ?? null
+                const resolved = effectiveModelConfiguration({
                   catalog,
                   providerType: input.providerType,
                   modelId: model.modelId,
-                  configured:
-                    model.configuration?.pricingSource.kind === "manual"
-                      ? model.configuration
-                      : saved?.configuration?.pricingSource.kind === "catalog"
-                        ? saved.configuration
-                        : null,
+                  configured: configuration,
+                  history: pricingHistory,
+                  timestamp,
                 })
+                if (
+                  !resolved &&
+                  (!saved ||
+                    activeModelPrice({ history: pricingHistory, timestamp })?.policy.kind ===
+                      "manual")
+                )
+                  return yield* new ModelConfigurationMissing()
                 configuredModels.push({
                   modelId: model.modelId,
                   name: model.name,
@@ -500,8 +516,6 @@ export class ModelProviders extends Context.Service<
                   pricingHistory,
                 })
               }
-              if (configuredModels.some((model) => model.configuration === null))
-                return yield* new ModelConfigurationMissing()
               const modelIds = input.models.map((model) => model.modelId)
               yield* transaction
                 .delete(providerModel)
@@ -622,7 +636,6 @@ export class ModelProviders extends Context.Service<
             api: modelProvider.api,
             baseUrl: modelProvider.baseUrl,
             modelId: providerModel.modelId,
-            configured: providerModel.configuration,
             pricingModel: { organizationId: providerModel.organizationId, id: providerModel.id },
             storedCredentials: sql<string | null>`${modelProvider.credentials}::text`,
           })
@@ -726,7 +739,6 @@ export class ModelProviders extends Context.Service<
         const [stored] = model.pricingModel
           ? yield* db
               .select({
-                configured: providerModel.configuration,
                 history: providerModel.pricingHistory,
               })
               .from(providerModel)
@@ -740,21 +752,17 @@ export class ModelProviders extends Context.Service<
               .pipe(Effect.orDie)
           : []
         if (model.pricingModel && !stored) return null
-        const configured = stored ? stored.configured : model.configured
         const timestamp = model.timestamp ?? new Date()
-        const manual = stored?.history.length
-          ? activeModelPrice({ history: stored.history, timestamp })?.rates
-          : configured?.pricingSource.kind === "manual"
-            ? configured
-            : null
-        if (configured && manual) return { ...configured, ...manual }
-        return effectiveModelConfiguration({
-          catalog: yield* readPricing,
-          ...model,
-          configured: model.configured,
-          ...stored,
-          timestamp,
-        })
+        const active = stored && activeModelPrice({ history: stored.history, timestamp })
+        if (model.pricingModel && !active) return null
+        if (active?.policy.kind === "manual")
+          return {
+            currency: "USD" as const,
+            pricingSource: { kind: "manual" as const },
+            prices: active.policy.prices,
+            contextTiers: [],
+          }
+        return catalogModelConfiguration({ catalog: yield* readPricing, ...model, timestamp })
       })
 
       return ModelProviders.of({

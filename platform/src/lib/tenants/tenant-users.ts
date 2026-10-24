@@ -1,18 +1,12 @@
-import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
-import { BigDecimal, Context, DateTime, Effect, Layer, Schema } from "effect"
+import { and, asc, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
+import { BigDecimal, Context, DateTime, Effect, Layer } from "effect"
 
 import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { chatMessage } from "@/db/schema/chat"
-import { modelProvider, providerModel, tenant, tenantUser } from "@/db/schema/organizations"
+import { tenant, tenantUser } from "@/db/schema/organizations"
 import type { ChatPrincipal } from "@/lib/chat/types"
-import { Config } from "@/lib/config/config"
-import {
-  effectiveModelConfiguration,
-  readModelPriceCatalog,
-} from "@/lib/model-providers/pricing-catalog.server"
-import { ModelRequestUsageSchema, modelUsageCost } from "@/lib/model-providers/usage-cost"
 import { TenantExternalIdTaken, TenantNotFound, TenantUserNotFound } from "./errors.ts"
 import type {
   TenantUserPatchSchema,
@@ -117,7 +111,6 @@ export class TenantUsers extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const tenants = yield* Tenants
-      const config = yield* Config
 
       // A Tenant-scoped credential reaches only its own Tenant, without another query.
       const requireTenant = (scope: TenantScope, tenantId: string) =>
@@ -172,24 +165,26 @@ export class TenantUsers extends Context.Service<
           when jsonb_typeof(${savedUsage}->'cost') = 'number'
             then (${savedUsage}->>'cost')::numeric
         end`
-        const range = and(
-          eq(chatMessage.organizationId, scope.organizationId),
-          eq(chatMessage.tenantId, tenantId),
-          eq(chatMessage.role, "assistant"),
-          ne(chatMessage.state, "draft"),
-          gte(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(start))),
-          lt(chatMessage.createdAt, DateTime.toDateUtc(DateTime.makeUnsafe(end))),
-        )
+        const startAt = DateTime.toDateUtc(DateTime.makeUnsafe(start))
+        const endAt = DateTime.toDateUtc(DateTime.makeUnsafe(end))
+        const cost = sql`case when ${chatMessage.requestAccounting}->>'version' = '2' then
+          (select coalesce(sum((attempt->>'costUsd')::numeric), 0)
+           from jsonb_array_elements(${chatMessage.requestAccounting}->'requests') attempt
+           where (attempt->>'startedAt')::timestamptz >= ${startAt}
+             and (attempt->>'startedAt')::timestamptz < ${endAt}
+             and attempt->>'costUsd' ~ '^-?[0-9]+([.][0-9]+)?$')
+          when ${chatMessage.createdAt} >= ${startAt} and ${chatMessage.createdAt} < ${endAt}
+            then ${savedCost}
+          else 0 end`
         const totals = yield* db
-          .select({
-            tenantUserId: initiator,
-            cost: sql<string>`coalesce(sum(${savedCost}), 0)::text`,
-            needsPricing: sql<boolean>`bool_or(${savedCost} is null)`,
-          })
+          .select({ tenantUserId: initiator, cost: sql<string>`coalesce(sum(${cost}), 0)::text` })
           .from(chatMessage)
           .where(
             and(
-              range,
+              eq(chatMessage.organizationId, scope.organizationId),
+              eq(chatMessage.tenantId, tenantId),
+              eq(chatMessage.role, "assistant"),
+              ne(chatMessage.state, "draft"),
               inArray(
                 initiator,
                 users.map(({ id }) => id),
@@ -197,105 +192,13 @@ export class TenantUsers extends Context.Service<
             ),
           )
           .groupBy(initiator)
-        const costs = new Map<string, BigDecimal.BigDecimal>(
-          users.map(({ id }) => [id, BigDecimal.fromNumberUnsafe(0)]),
-        )
-        for (const total of totals)
-          costs.set(total.tenantUserId, BigDecimal.fromStringUnsafe(total.cost))
-        const unpriced = totals
-          .filter((total) => total.needsPricing)
-          .map((total) => total.tenantUserId)
-        const catalog =
-          unpriced.length > 0
-            ? yield* readModelPriceCatalog.pipe(Effect.provideService(Config, config))
-            : undefined
-        const pricingByModel = new Map<string, ReturnType<typeof effectiveModelConfiguration>>()
-        let cursor:
-          | { tenantUserId: string; createdAt: string; threadId: string; id: string }
-          | undefined
-        while (catalog) {
-          const replies = yield* db
-            .select({
-              id: chatMessage.id,
-              threadId: chatMessage.threadId,
-              createdAt: sql<string>`${chatMessage.createdAt}::text`,
-              tenantUserId: initiator,
-              usage: sql<Schema.JsonObject | null>`${chatMessage.metadata}->'provenance'->'usage'`,
-              providerId: modelProvider.id,
-              providerType: modelProvider.providerType,
-              modelId: providerModel.modelId,
-              configuration: providerModel.configuration,
-            })
-            .from(chatMessage)
-            .leftJoin(
-              modelProvider,
-              and(
-                eq(modelProvider.organizationId, chatMessage.organizationId),
-                sql`${modelProvider.id}::text = ${chatMessage.metadata}->'provenance'->>'providerId'`,
-                eq(
-                  modelProvider.providerType,
-                  sql`${chatMessage.metadata}->'provenance'->>'providerType'`,
-                ),
-              ),
-            )
-            .leftJoin(
-              providerModel,
-              and(
-                eq(providerModel.organizationId, chatMessage.organizationId),
-                eq(providerModel.modelProviderId, modelProvider.id),
-                eq(providerModel.modelId, sql`${chatMessage.metadata}->'provenance'->>'modelId'`),
-              ),
-            )
-            .where(
-              and(
-                range,
-                inArray(initiator, unpriced),
-                sql`${savedCost} is null`,
-                cursor
-                  ? sql`(${initiator}, ${chatMessage.createdAt}, ${chatMessage.threadId}, ${chatMessage.id}) > (${cursor.tenantUserId}, ${cursor.createdAt}::timestamptz, ${cursor.threadId}::uuid, ${cursor.id}::uuid)`
-                  : undefined,
-              ),
-            )
-            .orderBy(
-              asc(initiator),
-              asc(chatMessage.createdAt),
-              asc(chatMessage.threadId),
-              asc(chatMessage.id),
-            )
-            .limit(5000)
-          for (const {
-            tenantUserId,
-            usage,
-            providerId,
-            providerType,
-            modelId,
-            configuration,
-          } of replies) {
-            if (!providerType || !modelId || !Schema.is(ModelRequestUsageSchema)(usage)) continue
-            const key = `${providerId}:${modelId}`
-            let pricing = pricingByModel.get(key)
-            if (pricing === undefined) {
-              pricing = effectiveModelConfiguration({
-                catalog,
-                providerType,
-                modelId,
-                configured: configuration,
-              })
-              pricingByModel.set(key, pricing)
-            }
-            if (!pricing) continue
-            const cost = BigDecimal.fromStringUnsafe(modelUsageCost(pricing, usage))
-            costs.set(tenantUserId, BigDecimal.sum(costs.get(tenantUserId)!, cost))
-          }
-          if (replies.length < 5000) break
-          cursor = replies.at(-1)!
-        }
+        const costs = new Map(totals.map(({ tenantUserId, cost }) => [tenantUserId, cost]))
         return {
           start,
           end,
-          items: Array.from(costs, ([tenantUserId, cost]) => ({
-            tenantUserId,
-            costUsd: BigDecimal.format(cost),
+          items: users.map(({ id }) => ({
+            tenantUserId: id,
+            costUsd: BigDecimal.format(BigDecimal.fromStringUnsafe(costs.get(id) ?? "0")),
           })),
         }
       }, mapDatabaseErrors())
@@ -409,6 +312,6 @@ export class TenantUsers extends Context.Service<
   )
 
   static readonly layer = TenantUsers.layerNoDeps.pipe(
-    Layer.provide([Tenants.layer, Database.layer, Config.layer]),
+    Layer.provide([Tenants.layer, Database.layer]),
   )
 }

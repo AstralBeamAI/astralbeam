@@ -1711,14 +1711,27 @@ export class ChatThreads extends Context.Service<
                 const requests = message.requestAccounting?.requests ?? []
                 const existing = requests.find((request) => request.id === input.request.id)
                 if (existing) {
-                  if (!isDeepStrictEqual(existing, input.request))
+                  const { usage: _usage, costUsd: _cost, ...snapshot } = existing
+                  const { usage: _nextUsage, costUsd: _nextCost, ...nextSnapshot } = input.request
+                  if (!isDeepStrictEqual(snapshot, nextSnapshot))
                     return yield* new ChatThreadConflict()
-                  return
+                  if (
+                    input.request.usage === undefined ||
+                    isDeepStrictEqual(existing, input.request)
+                  )
+                    return
                 }
                 yield* tx
                   .update(chatMessage)
                   .set({
-                    requestAccounting: { version: 1, requests: [...requests, input.request] },
+                    requestAccounting: {
+                      version: 2,
+                      requests: existing
+                        ? requests.map((request) =>
+                            request.id === input.request.id ? input.request : request,
+                          )
+                        : [...requests, input.request],
+                    },
                   })
                   .where(
                     and(

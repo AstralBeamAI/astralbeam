@@ -10,6 +10,7 @@ import {
 import {
   ModelConfigurationSchema,
   type ModelConfiguration,
+  type ModelLimits,
   type ModelProviderType,
   type ModelPriceVersion,
 } from "./schemas.ts"
@@ -126,22 +127,28 @@ export function effectiveModelConfiguration(input: {
   providerType: ModelProviderType
   modelId: string
   timestamp?: Date | undefined
-  configured: ModelConfiguration | null | undefined
+  configured: ModelLimits | null | undefined
   history?: readonly ModelPriceVersion[] | undefined
-}) {
-  const configured = input.configured
-  if (input.history?.length) {
-    const active = activeModelPrice({
-      history: input.history,
-      timestamp: input.timestamp ?? new Date(),
-    })
-    if (!active) return null
-    if (active.rates && configured) return { ...configured, ...active.rates }
-    return (
-      catalogModelConfiguration(input) ??
-      (configured?.pricingSource.kind === "catalog" ? configured : null)
-    )
+}): ModelConfiguration | null {
+  const active =
+    input.history &&
+    activeModelPrice({ history: input.history, timestamp: input.timestamp ?? new Date() })
+  if (input.history && !active) return null
+  if (active?.policy.kind === "manual") {
+    const limits = input.configured ?? catalogModelConfiguration(input)
+    return limits
+      ? {
+          maxInputTokens: limits.maxInputTokens,
+          contextWindowTokens: limits.contextWindowTokens,
+          maxOutputTokens: limits.maxOutputTokens,
+          outputCap: limits.outputCap,
+          currency: "USD",
+          pricingSource: { kind: "manual" },
+          prices: active.policy.prices,
+          contextTiers: [],
+        }
+      : null
   }
-  if (configured?.pricingSource.kind === "manual") return configured
-  return catalogModelConfiguration(input) ?? configured ?? null
+  const catalog = catalogModelConfiguration(input)
+  return catalog ? { ...catalog, ...input.configured } : null
 }

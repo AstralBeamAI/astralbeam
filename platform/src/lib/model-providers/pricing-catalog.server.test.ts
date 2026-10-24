@@ -128,23 +128,32 @@ describe("model pricing catalog", () => {
       ],
     }
     expect(catalogModelConfiguration({ ...lookup, catalog: unsupported })).toBeNull()
-    expect(effectiveModelConfiguration({ ...lookup, configured: modelTestConfiguration })).toBe(
-      modelTestConfiguration,
-    )
-    const configured = {
-      ...modelTestConfiguration,
-      outputCap: 1024,
-      pricingSource: { kind: "catalog" as const, modelId: "test-model" },
-    }
-    expect(effectiveModelConfiguration({ ...lookup, configured })).toMatchObject({
-      outputCap: 4096,
+    const limits = {
       maxInputTokens: 128_000,
       contextWindowTokens: null,
+      maxOutputTokens: 8192,
+      outputCap: 1024,
+    }
+    const history = [
+      {
+        id: crypto.randomUUID(),
+        effectiveFrom: "2020-01-01T00:00:00.000Z",
+        policy: { kind: "manual" as const, prices: modelTestConfiguration.prices },
+      },
+    ]
+    expect(effectiveModelConfiguration({ ...lookup, configured: limits, history })).toMatchObject({
+      ...limits,
+      prices: modelTestConfiguration.prices,
+      pricingSource: { kind: "manual" },
+      contextTiers: [],
+    })
+    expect(effectiveModelConfiguration({ ...lookup, configured: limits })).toMatchObject({
+      ...limits,
       prices: { inputPerMillion: "2" },
       contextTiers: [{ aboveInputTokens: 20_000 }, { aboveInputTokens: 60_000 }],
     })
-    expect(effectiveModelConfiguration({ ...lookup, modelId: "unknown", configured })).toBe(
-      configured,
-    )
+    expect(
+      effectiveModelConfiguration({ ...lookup, modelId: "unknown", configured: limits }),
+    ).toBeNull()
   })
 })

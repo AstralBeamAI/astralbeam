@@ -227,7 +227,7 @@ export const chatMessage = snakeCase.table(
     metadata: schemaJsonb(ChatMessageMetadataSchema).notNull(),
     requestAccounting: schemaJsonb(
       Schema.Struct({
-        version: Schema.Literal(1),
+        version: Schema.Literals([1, 2]),
         requests: Schema.Array(ModelRequestSnapshotSchema),
       }).check(boundedChatJson),
     ),

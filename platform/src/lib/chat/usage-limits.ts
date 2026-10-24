@@ -2,7 +2,7 @@ import { fromSpecTokenUsage, EventType, type ChatMiddleware, type StreamChunk } 
 import { Effect, Exit } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
-import type { ModelConfiguration } from "@/lib/model-providers/schemas"
+import type { ModelRateCard } from "@/lib/model-providers/schemas"
 import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import type { UsageSubject } from "@/lib/usage-limits/counters"
@@ -20,7 +20,7 @@ export function chatUsageLimitGuard(options: {
   readonly usageLimits: UsageLimits["Service"]
   readonly limits: readonly UsageLimit[]
   readonly subject: UsageSubject
-  readonly pricing: () => ModelConfiguration | null | undefined
+  readonly pricing: () => ModelRateCard | null | undefined
   readonly execute: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>
 }) {
   const { usageLimits, limits, subject } = options

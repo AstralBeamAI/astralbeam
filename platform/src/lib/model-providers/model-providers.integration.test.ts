@@ -34,7 +34,7 @@ import {
   readModelPriceCatalog,
   writeModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
-import type { ModelConfiguration } from "./schemas.ts"
+import type { ModelConfiguration, ModelProviderFields } from "./schemas.ts"
 import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
 
@@ -53,12 +53,16 @@ const modelIntegrationKey = `sk-${"x".repeat(32)}`
 
 function saveIntegrationProvider(
   organizationId: string,
-  fields: Partial<SaveModelProviderInput> = {},
+  fields: Partial<Omit<SaveModelProviderInput, "models">> & {
+    models?: ModelProviderFields["models"]
+  } = {},
 ) {
   return Effect.gen(function* () {
     const providers = yield* ModelProviders
     const existing = fields.id ? yield* providers.get({ organizationId, id: fields.id }) : null
-    const input: SaveModelProviderInput = {
+    const input: Omit<SaveModelProviderInput, "models"> & {
+      models: ModelProviderFields["models"]
+    } = {
       organizationId,
       id: null,
       lockVersion: null,
@@ -79,11 +83,28 @@ function saveIntegrationProvider(
     return yield* providers.save({
       ...input,
       models: input.models.map((model) => ({
-        ...model,
-        priceVersionId:
-          model.priceVersionId ??
-          existing?.models.find((saved) => saved.modelId === model.modelId)?.priceVersionId ??
-          null,
+        modelId: model.modelId,
+        name: model.name,
+        configuration:
+          model.configuration?.pricingSource.kind === "manual"
+            ? {
+                maxInputTokens: model.configuration.maxInputTokens,
+                contextWindowTokens: model.configuration.contextWindowTokens,
+                maxOutputTokens: model.configuration.maxOutputTokens,
+                outputCap: model.configuration.outputCap,
+              }
+            : null,
+        pricing: {
+          expectedVersionId:
+            model.priceVersionId ??
+            existing?.models.find((saved) => saved.modelId === model.modelId)?.priceVersionId ??
+            null,
+          policy:
+            model.configuration?.pricingSource.kind === "manual"
+              ? { kind: "manual", prices: model.configuration.prices }
+              : { kind: "catalog" },
+          ...(model.scheduledPrices ? { scheduledPrices: model.scheduledPrices } : {}),
+        },
       })),
     })
   })
@@ -183,12 +204,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const future = {
       id: crypto.randomUUID(),
       effectiveFrom: new Date(Date.now() + 86_400_000).toISOString(),
-      rates: {
-        currency: "USD" as const,
-        pricingSource: { kind: "manual" as const },
-        prices: { inputPerMillion: "3", outputPerMillion: "12" },
-        contextTiers: [],
-      },
+      policy: { kind: "manual" as const, prices: { inputPerMillion: "3", outputPerMillion: "12" } },
     }
     await runAppEffect(
       saveIntegrationProvider(organizationId, {
@@ -215,7 +231,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       (await runAppEffect(
         service.pricing({ ...model, timestamp: new Date(future.effectiveFrom) }),
       ))!.prices,
-    ).toEqual(future.rates.prices)
+    ).toEqual(future.policy.prices)
     expect(
       (await runAppEffect(service.get({ organizationId, id })))!.models[0]!.scheduledPrices,
     ).toEqual([future])
@@ -257,7 +273,22 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           api: "responses",
           baseUrl: "https://api.openai.com/v1",
           apiKey: null,
-          models: [{ ...saved.models[0]!, configuration: modelTestConfiguration }],
+          models: [
+            {
+              modelId: "same-model",
+              name: "Model",
+              configuration: {
+                maxInputTokens: 128_000,
+                contextWindowTokens: null,
+                maxOutputTokens: 8192,
+                outputCap: 4096,
+              },
+              pricing: {
+                expectedVersionId: saved.models[0]!.priceVersionId,
+                policy: { kind: "manual", prices: modelTestConfiguration.prices },
+              },
+            },
+          ],
         }),
       ),
     ).rejects.toMatchObject({ _tag: "ModelProviderChanged" })
@@ -276,10 +307,8 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
               {
                 id: crypto.randomUUID(),
                 effectiveFrom,
-                rates: {
-                  currency: "USD",
-                  pricingSource: { kind: "manual" },
-                  contextTiers: [],
+                policy: {
+                  kind: "manual",
                   prices: { inputPerMillion: "3", outputPerMillion: "12" },
                 },
               },
@@ -306,7 +335,23 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           ...saved,
           organizationId,
           apiKey: null,
-          models: [{ ...saved.models[0]!, scheduledPrices: [] }],
+          models: [
+            {
+              modelId: "same-model",
+              name: "Model",
+              configuration: {
+                maxInputTokens: 128_000,
+                contextWindowTokens: null,
+                maxOutputTokens: 8192,
+                outputCap: 4096,
+              },
+              pricing: {
+                expectedVersionId: saved.models[0]!.priceVersionId,
+                policy: { kind: "manual", prices: modelTestConfiguration.prices },
+                scheduledPrices: [],
+              },
+            },
+          ],
         })
         .pipe(Effect.result),
     )
@@ -331,6 +376,21 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       const current = (await runAppEffect(service.get({ organizationId, id })))!
       expect(current.lockVersion).toBe(saved.lockVersion)
       expect(current.models[0]!.configuration!.prices.inputPerMillion).toBe("3")
+      await runAppEffect(
+        service.save({
+          ...saved,
+          organizationId,
+          name: "Renamed after activation",
+          apiKey: null,
+          models: current.models.map((model) => ({
+            modelId: model.modelId,
+            name: model.name,
+            configuration: model.limitOverrides,
+          })),
+        }),
+      )
+      const renamed = (await runAppEffect(service.get({ organizationId, id })))!
+      expect(renamed.models[0]!.priceVersionId).toBe(current.models[0]!.priceVersionId)
     } finally {
       release.resolve()
       await blocker
@@ -437,10 +497,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           service.get({ organizationId, id: providerId }),
         ),
       )
-      expect(retained!.models[0]!.configuration).toMatchObject({
-        pricingSource: { kind: "catalog" },
-        prices: { inputPerMillion: "3", outputPerMillion: "4" },
-      })
+      expect(retained!.models[0]!.configuration).toBeNull()
 
       const cancelDownload = vi.fn()
       for (const response of [
