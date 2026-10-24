@@ -20,15 +20,15 @@ curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.22.0/do
 )
 ```
 
-Start the stack:
+Compose rejects missing or empty PostgreSQL and RustFS credentials before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. Start the stack with an explicit HTTP opt-in for this local setup:
 
 ```sh
-docker compose -f docker-compose.production.yml up --detach --wait
+ALLOW_INSECURE=true docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
 The private `astralbeam` bucket is created automatically. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
 
-The stack binds to localhost and enables HTTP. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
+The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
 
 ### Existing services
 

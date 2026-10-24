@@ -18,7 +18,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-astralbeam}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-astralbeam}
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${APP_PORT:-3000}}
-      ALLOW_INSECURE: ${ALLOW_INSECURE:-true}
+      ALLOW_INSECURE:
       S3_ENDPOINT: http://localhost:${STORAGE_PORT:-9000}
       S3_REGION: us-east-1
       S3_BUCKET: astralbeam
@@ -31,27 +31,23 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-astralbeam}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: ${POSTGRES_DB:-astralbeam}
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
       start_period: 60s
-      start_interval: 1s
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
   rustfs:
     image: rustfs/rustfs:latest
     restart: unless-stopped
-    command: ["/data"]
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
       - "127.0.0.1:${STORAGE_PORT:-9000}:${STORAGE_PORT:-9000}"
-      - "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"
     environment:
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
-      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?}
       RUSTFS_ADDRESS: :${STORAGE_PORT:-9000}
     post_start:
       - command: >-
@@ -60,7 +56,6 @@ services:
       - rustfs-data:/data
     healthcheck:
       start_period: 60s
-      start_interval: 1s
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:${STORAGE_PORT:-9000}/health/ready"]
 
 volumes:
