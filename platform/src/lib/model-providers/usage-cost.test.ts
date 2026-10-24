@@ -52,6 +52,25 @@ describe("modelUsageCost", () => {
     expect(modelUsageCost(configuration, usage)).toBe("1.545")
   })
 
+  it("keeps the base price at the exact context threshold", () => {
+    expect(modelUsageCost(configuration, { promptTokens: 200_000, completionTokens: 2_000 })).toBe(
+      "0.63",
+    )
+  })
+
+  it.each([
+    { promptTokens: "invalid", completionTokens: 0 },
+    { promptTokens: 1000, completionTokens: 0, promptTokensDetails: { cachedTokens: "invalid" } },
+  ])("falls back to aggregate usage for malformed provider requests: %j", (request) => {
+    expect(
+      modelUsageCost(configuration, {
+        promptTokens: 1000,
+        completionTokens: 0,
+        providerUsageDetails: { requestUsage: [request] },
+      }),
+    ).toBe("0.003")
+  })
+
   it("prices merged requests at their own context tiers and cache rates", () => {
     const requestUsage = [
       {
