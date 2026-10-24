@@ -182,6 +182,26 @@ export default defineConfig({
   rules: baseRules,
   overrides: [
     {
+      files: ["src/{core,lib}/**/*.{ts,tsx}"],
+      rules: {
+        "typescript/consistent-type-imports": "error",
+        "typescript/no-require-imports": "error",
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                regex:
+                  "^(?:react(?:-dom)?(?:/|$)|@[^/]+/react(?:[-/]|$)|@astralbeam/sdk/(?:react|client)(?:/|$)|(?:@/|\\.\\.?/)(?:.*/)?(?:widget|react|client)(?:/|$))",
+                message:
+                  "Core and shared helpers must stay framework-free. Put UI dependencies in src/react or src/widget.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["**/*.test.{ts,tsx}"],
       rules: recommendedRules.vitest,
     },

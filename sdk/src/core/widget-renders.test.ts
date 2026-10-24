@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import type * as AiClient from "@tanstack/ai-client"
 
 import { RENDER_WIDGET_TOOL } from "./protocol.ts"
 import type { WidgetRenderRequest } from "./session.ts"
@@ -12,12 +13,12 @@ interface ClientTool {
 const mocked = vi.hoisted(() => ({
   tools: [] as readonly ClientTool[],
   onCustomEvent: undefined as ((name: string, data: unknown) => void) | undefined,
-  client: undefined as import("@tanstack/ai-client").ChatClient | undefined,
+  client: undefined as AiClient.ChatClient | undefined,
 }))
 
 // Capture the declared render callback while retaining the real client's stream and history behavior.
 vi.mock("@tanstack/ai-client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@tanstack/ai-client")>()
+  const actual = await importOriginal<typeof AiClient>()
   return {
     ...actual,
     ChatClient: class extends actual.ChatClient {
