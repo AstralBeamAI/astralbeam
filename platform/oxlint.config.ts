@@ -134,6 +134,7 @@ const restrictedBunProperties = {
 // Additional correctness and JSX rules without an imported preset owner.
 // https://oxc.rs/docs/guide/usage/linter/rules.html
 const additionalRules: RuleMap = {
+  // TODO: Enable complexity (maximum 20) after simplifying existing high-complexity functions.
   "no-array-constructor": "error",
   "no-case-declarations": "error",
   "no-empty": "error",
@@ -147,6 +148,7 @@ const additionalRules: RuleMap = {
   "typescript/no-empty-interface": "error",
   "typescript/no-explicit-any": "error",
   "typescript/no-namespace": "error",
+  // TODO: Enable typescript/no-non-null-assertion after replacing existing assertions with narrowing.
   "react/button-has-type": "error",
   "react/jsx-boolean-value": "error",
   "react/jsx-curly-brace-presence": "error",
