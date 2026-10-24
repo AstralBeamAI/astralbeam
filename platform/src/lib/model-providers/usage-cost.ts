@@ -1,8 +1,8 @@
 import { BigDecimal, Schema } from "effect"
 
-import type { ModelConfiguration } from "./schemas.ts"
+import type { ModelRateCard } from "./schemas.ts"
 
-export const ModelRequestUsageSchema = Schema.Struct({
+const ModelRequestUsageSchema = Schema.Struct({
   promptTokens: Schema.Number,
   completionTokens: Schema.Number,
   promptTokensDetails: Schema.optional(
@@ -21,11 +21,24 @@ export type ModelCallUsage = typeof ModelRequestUsageSchema.Type & {
 
 const perMillion = BigDecimal.fromNumberUnsafe(1_000_000)
 
+export function modelRequestCost(input: {
+  usage: ModelCallUsage & { readonly cost?: number | undefined }
+  configuration: ModelRateCard | null | undefined
+}): string | null {
+  const reported = input.usage.providerUsageDetails?.costUsd
+  if (typeof reported === "string" && /^\d+(?:\.\d+)?$/.test(reported)) return reported
+  return typeof input.usage.cost === "number" && Number.isFinite(input.usage.cost)
+    ? BigDecimal.format(BigDecimal.fromNumberUnsafe(input.usage.cost))
+    : input.configuration
+      ? modelUsageCost(input.configuration, input.usage)
+      : null
+}
+
 /**
  * The US dollar token cost at a configuration's rates, as a decimal string. Context tiers price each
  * underlying request by its prompt size, and missing cache rates fall back to the input rate.
  */
-export function modelUsageCost(configuration: ModelConfiguration, usage: ModelCallUsage): string {
+export function modelUsageCost(configuration: ModelRateCard, usage: ModelCallUsage): string {
   const requests = usage.providerUsageDetails?.requestUsage
   if (Schema.is(Schema.Array(ModelRequestUsageSchema))(requests)) {
     return BigDecimal.format(

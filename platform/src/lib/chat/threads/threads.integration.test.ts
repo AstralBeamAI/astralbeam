@@ -41,6 +41,8 @@ import {
   tenantUser,
 } from "@/db/schema"
 import { ChatThreads } from "./threads"
+import { TenantUsers } from "@/lib/tenants/tenant-users"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
 import { projectChatModelHistory } from "./projection"
 import type {
   ChatThreadScope,
@@ -88,7 +90,9 @@ const filesLayer = ChatFiles.layerNoDeps.pipe(
   Layer.provideMerge(StoredFiles.layerNoDeps.pipe(Layer.provideMerge(storage))),
   Layer.provideMerge(Database.layer),
 )
-const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
+const runtime = ManagedRuntime.make(
+  Layer.mergeAll(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)), TenantUsers.layer),
+)
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -152,6 +156,136 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
+
+  test("request snapshots are immutable, writer-scoped and retained without visible output", async () => {
+    const thread = await create()
+    const admitted = await admit(thread.id)
+    const claim = admitted.claim!
+    const request: ModelRequestSnapshot = {
+      id: crypto.randomUUID(),
+      startedAt: "2026-10-22T12:00:00.000Z",
+      providerId: crypto.randomUUID(),
+      providerType: "openai",
+      protocol: "responses",
+      modelId: "test-model",
+      rates: {
+        currency: "USD",
+        pricingSource: { kind: "manual" },
+        prices: { inputPerMillion: "2", outputPerMillion: "8" },
+        contextTiers: [],
+      },
+    }
+    await runtime.runPromise(service.recordRequest({ claim, request }))
+    await runtime.runPromise(service.recordRequest({ claim, request }))
+    const retry = {
+      ...request,
+      id: crypto.randomUUID(),
+      rates: null,
+      startedAt: "2026-11-01T00:00:00.000Z",
+    }
+    await runtime.runPromise(service.recordRequest({ claim, request: retry }))
+    await expect(
+      runtime.runPromise(service.recordRequest({ claim, request: { ...request, rates: null } })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+    for (const unauthorized of [
+      other,
+      foreign,
+      { ...scope, organizationId: crypto.randomUUID() },
+    ]) {
+      await expect(
+        runtime.runPromise(
+          service.recordRequest({ claim: { ...claim, scope: unauthorized }, request }),
+        ),
+      ).rejects.toBeDefined()
+    }
+    const recorded = {
+      ...request,
+      usage: { promptTokens: 10, completionTokens: 1, cost: 1.25 },
+      costUsd: "1.25",
+    }
+    await runtime.runPromise(service.recordRequest({ claim, request: recorded }))
+    const charged = {
+      ...recorded,
+      usage: { promptTokens: 20, completionTokens: 2, cost: 2.5 },
+      costUsd: "2.5",
+    }
+    const retried = {
+      ...retry,
+      usage: { promptTokens: 10, completionTokens: 1, cost: 3.75 },
+      costUsd: "3.75",
+    }
+    await runtime.runPromise(service.recordRequest({ claim, request: charged }))
+    await runtime.runPromise(service.recordRequest({ claim, request: charged }))
+    await runtime.runPromise(service.recordRequest({ claim, request: retried }))
+    const users = await runtime.runPromise(TenantUsers)
+    const query = {
+      scope: { organizationId: scope.organizationId },
+      tenantId: scope.tenantId,
+      userIds: [scope.tenantUserId, other.tenantUserId],
+      start: "2026-10-01T00:00:00.000Z",
+      end: "2026-11-01T00:00:00.000Z",
+    }
+    expect(
+      (await runtime.runPromise(users.usage(query))).items.every(({ costUsd }) => costUsd === "0"),
+    ).toBe(true)
+    await runtime.runPromise(service.checkpoint({ claim, payload, state: "complete" }))
+    await expect(
+      runtime.runPromise(
+        service.recordRequest({ claim, request: { ...request, id: crypto.randomUUID() } }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+    const next = await runtime.runPromise(service.nextDraft({ claim }))
+    const second = { ...request, id: crypto.randomUUID(), rates: null }
+    await runtime.runPromise(service.recordRequest({ claim: next, request: second }))
+    await runtime.runPromise(service.interrupt({ claim: next }))
+    await expect(
+      runtime.runPromise(service.recordRequest({ claim: next, request: second })),
+    ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+    const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    const settled = history.find((message) => message.id === claim.assistantMessageId)!
+    const interrupted = history.find((message) => message.id === next.assistantMessageId)!
+    expect(settled.requestAccounting).toEqual({ version: 2, requests: [charged, retried] })
+    expect(interrupted).toMatchObject({
+      state: "interrupted",
+      payload: { parts: [] },
+      requestAccounting: { version: 2, requests: [second] },
+    })
+    expect((await runtime.runPromise(users.usage(query))).items).toEqual(
+      expect.arrayContaining([
+        { tenantUserId: scope.tenantUserId, costUsd: "2.5" },
+        { tenantUserId: other.tenantUserId, costUsd: "0" },
+      ]),
+    )
+    expect(
+      (
+        await runtime.runPromise(
+          users.usage({ ...query, start: query.end, end: "2026-12-01T00:00:00.000Z" }),
+        )
+      ).items.find(({ tenantUserId }) => tenantUserId === scope.tenantUserId)?.costUsd,
+    ).toBe("3.75")
+    await expect(
+      runtime.runPromise(users.usage({ ...query, scope: { organizationId: crypto.randomUUID() } })),
+    ).rejects.toMatchObject({ _tag: "TenantNotFound" })
+    await db.execute(sql`update chat_message set
+      request_accounting = jsonb_set(request_accounting, '{version}', '1'),
+      metadata = jsonb_set(metadata, '{provenance,usage}', '{"costUsd":"9.99"}'),
+      created_at = '2026-10-22T12:00:00Z', updated_at = now()
+      where organization_id = ${scope.organizationId} and tenant_id = ${scope.tenantId} and thread_id = ${thread.id} and id = ${claim.assistantMessageId}`)
+    expect(
+      (await runtime.runPromise(users.usage(query))).items.find(
+        ({ tenantUserId }) => tenantUserId === scope.tenantUserId,
+      )?.costUsd,
+    ).toBe("9.99")
+    expect(
+      (
+        await runtime.runPromise(
+          users.usage({ ...query, start: query.end, end: "2026-12-01T00:00:00.000Z" }),
+        )
+      ).items.every(({ costUsd }) => costUsd === "0"),
+    ).toBe(true)
+    expect(messageResource(settled)).not.toHaveProperty("requestAccounting")
+    expect(messageResource(interrupted)).not.toHaveProperty("requestAccounting")
+  })
 
   test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
     const thread = await create()

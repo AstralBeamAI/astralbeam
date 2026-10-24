@@ -33,18 +33,24 @@ import {
   type ModelProviderApi,
   type ModelProviderType,
   type ProviderModelFields,
+  ModelPricePolicySchema,
+  ModelPriceHistorySchema,
+  ModelLimitsSchema,
 } from "@/lib/model-providers/schemas"
 import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
 import { saveModelProvider } from "../-functions/save-model-provider"
 import { modelProviderApiItems, modelProviderDescriptors } from "../-lib/constants"
-import { SaveModelProviderInputSchema } from "../-lib/schemas"
+import { ModelProviderFormInputSchema } from "../-lib/schemas"
 import { ProviderField } from "../../-components/provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
 import { ProviderModelConfigurationFields } from "./provider-model-configuration-fields"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
+const equalModelLimits = Schema.toEquivalence(ModelLimitsSchema)
+const equalModelPricePolicy = Schema.toEquivalence(ModelPricePolicySchema)
+const equalModelPriceHistory = Schema.toEquivalence(ModelPriceHistorySchema)
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
 const modelProviderTypeItems = Object.entries(modelProviderDescriptors).map(
   ([value, { label }]) => ({ label, value: value as ModelProviderType }),
@@ -72,11 +78,15 @@ export function ModelProviderForm({
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? "https://api.openai.com/v1")
   const [apiKey, setApiKey] = useState("")
   const [models, setModels] = useState<ProviderModelFields[]>(
-    existing?.models.map(({ modelId, name: modelName, configuration }) => ({
-      modelId,
-      name: modelName,
-      configuration,
-    })) ?? [],
+    existing?.models.map(
+      ({ modelId, name: modelName, configuration, priceVersionId, scheduledPrices }) => ({
+        modelId,
+        name: modelName,
+        configuration,
+        priceVersionId,
+        scheduledPrices,
+      }),
+    ) ?? [],
   )
   const [overridesOpen, setOverridesOpen] = useState(
     existing !== null &&
@@ -92,7 +102,7 @@ export function ModelProviderForm({
   const [saveError, setSaveError] = useState<ServerFnError | null>(null)
   const conflicted = saveError?.tag === "ModelProviderChanged"
   const input = Schema.decodeUnknownResult(
-    SaveModelProviderInputSchema,
+    ModelProviderFormInputSchema,
     strictParseOptions,
   )({
     organizationSlug,
@@ -145,7 +155,57 @@ export function ModelProviderForm({
     setServerFieldError(null)
     setSaveError(null)
     try {
-      const modelProviderId = await saveModelProvider({ data: input.success })
+      const modelProviderId = await saveModelProvider({
+        data: {
+          ...input.success,
+          models: input.success.models.map((model) => {
+            const previous = existing?.models.find(({ modelId }) => modelId === model.modelId)
+            const policy =
+              model.configuration?.pricingSource.kind === "manual"
+                ? { kind: "manual" as const, prices: model.configuration.prices }
+                : { kind: "catalog" as const }
+            const before =
+              previous?.configuration?.pricingSource.kind === "manual"
+                ? { kind: "manual" as const, prices: previous.configuration.prices }
+                : { kind: "catalog" as const }
+            const changed = !previous || !equalModelPricePolicy(policy, before)
+            const scheduled = !equalModelPriceHistory(
+              model.scheduledPrices ?? [],
+              previous?.scheduledPrices ?? [],
+            )
+            const limits = model.configuration
+            const beforeLimits =
+              previous?.configuration ??
+              catalog[providerType].find(({ modelId }) => modelId === model.modelId)?.configuration
+            const customLimits =
+              limits && (!beforeLimits || !equalModelLimits(limits, beforeLimits))
+            return {
+              modelId: model.modelId,
+              name: model.name,
+              configuration:
+                limits?.pricingSource.kind === "manual"
+                  ? customLimits
+                    ? {
+                        maxInputTokens: limits.maxInputTokens,
+                        contextWindowTokens: limits.contextWindowTokens,
+                        maxOutputTokens: limits.maxOutputTokens,
+                        outputCap: limits.outputCap,
+                      }
+                    : (previous?.limitOverrides ?? null)
+                  : null,
+              ...(changed || scheduled
+                ? {
+                    pricing: {
+                      expectedVersionId: previous?.priceVersionId ?? null,
+                      ...(changed ? { policy } : {}),
+                      ...(scheduled ? { scheduledPrices: model.scheduledPrices ?? [] } : {}),
+                    },
+                  }
+                : {}),
+            }
+          }),
+        },
+      })
       toast.add({ title: "Provider saved", type: "success" })
       if (existing) {
         await router.invalidate()
@@ -329,6 +389,23 @@ export function ModelProviderForm({
                     ?.configuration ?? null
                 }
                 disabled={disabled}
+                scheduleErrors={
+                  submitted
+                    ? issues.filter(
+                        (issue) =>
+                          issue.path?.[0] === "models" &&
+                          issue.path?.[1] === index &&
+                          issue.path?.[2] === "scheduledPrices",
+                      )
+                    : []
+                }
+                onScheduleChange={(scheduledPrices) =>
+                  setModels((current) =>
+                    current.map((item) =>
+                      item.modelId === model.modelId ? { ...item, scheduledPrices } : item,
+                    ),
+                  )
+                }
                 errors={(field) =>
                   submitted
                     ? issues.filter(
@@ -343,7 +420,15 @@ export function ModelProviderForm({
                 onChange={(configuration) =>
                   setModels((current) =>
                     current.map((item) =>
-                      item.modelId === model.modelId ? { ...item, configuration } : item,
+                      item.modelId === model.modelId
+                        ? {
+                            ...item,
+                            configuration,
+                            ...(configuration?.pricingSource.kind !== "manual"
+                              ? { scheduledPrices: [] }
+                              : {}),
+                          }
+                        : item,
                     ),
                   )
                 }
@@ -364,7 +449,7 @@ export function ModelProviderForm({
                   type="button"
                   variant="outline"
                   className="mt-2 w-fit"
-                  onClick={() => void router.invalidate()}
+                  onClick={() => window.location.reload()}
                 >
                   Reload latest
                 </Button>
@@ -395,11 +480,21 @@ export function ModelProviderForm({
                         setBaseUrl(existing.baseUrl)
                         setApiKey("")
                         setModels(
-                          existing.models.map(({ modelId, name: modelName, configuration }) => ({
-                            modelId,
-                            name: modelName,
-                            configuration,
-                          })),
+                          existing.models.map(
+                            ({
+                              modelId,
+                              name: modelName,
+                              configuration,
+                              priceVersionId,
+                              scheduledPrices,
+                            }) => ({
+                              modelId,
+                              name: modelName,
+                              configuration,
+                              priceVersionId,
+                              scheduledPrices,
+                            }),
+                          ),
                         )
                         setSubmitted(false)
                         setServerFieldError(null)

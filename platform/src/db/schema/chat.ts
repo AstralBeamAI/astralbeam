@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { ModelRequestSnapshotSchema } from "@/lib/model-providers/schemas.ts"
 import {
   deferrableForeignKey,
   schemaJsonb,
@@ -224,6 +225,12 @@ export const chatMessage = snakeCase.table(
     // Versioned, validated provenance, provider continuation, and input tool declarations. The current invocation ID fences producer writes.
     // Credentials are excluded. Visible content belongs in message parts, and provider context is derived separately.
     metadata: schemaJsonb(ChatMessageMetadataSchema).notNull(),
+    requestAccounting: schemaJsonb(
+      Schema.Struct({
+        version: Schema.Literals([1, 2]),
+        requests: Schema.Array(ModelRequestSnapshotSchema),
+      }).check(boundedChatJson),
+    ),
     // Lifecycle on the initiating user message. Its accepted content remains complete throughout execution.
     turnState: chatMessageTurnStateEnum(),
     ...timestamps(),

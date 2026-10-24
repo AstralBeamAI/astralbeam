@@ -5,6 +5,7 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { Context, Effect, identity, Layer, Stream } from "effect"
 
@@ -23,6 +24,9 @@ import {
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
+import { chatStoredJson } from "./threads/projection"
 import { chatWebTools, chatWebState } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
@@ -254,13 +258,12 @@ export class Chat extends Context.Service<
                 .interrupt({ claim: turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
-            const pricing = yield* modelProviders.pricing(model)
             const usageLimitGuard = limits.length
               ? chatUsageLimitGuard({
                   usageLimits,
                   limits,
                   subject: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
-                  pricing,
+                  pricing: () => managed.state.pricing,
                   execute: Effect.runPromiseWith(services),
                 })
               : undefined
@@ -324,7 +327,6 @@ export class Chat extends Context.Service<
               history: convertMessagesToModelMessages(messages),
               tools,
               model,
-              pricing,
               web,
               publicHistory:
                 web ||
@@ -392,8 +394,62 @@ export class Chat extends Context.Service<
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]
             return chatEventStream((abortController) => {
+              let requestSnapshot: ModelRequestSnapshot | undefined
+              const recordUsage = async (usage: TokenUsage) => {
+                if (!requestSnapshot) return null
+                requestSnapshot = {
+                  ...requestSnapshot,
+                  usage: chatStoredJson(usage),
+                  costUsd: modelRequestCost({ usage, configuration: requestSnapshot.rates }),
+                }
+                await Effect.runPromiseWith(services)(
+                  threads
+                    .recordRequest({ claim: turn.claim, request: requestSnapshot })
+                    .pipe(Effect.timeout("5 seconds")),
+                )
+                return requestSnapshot.costUsd ?? null
+              }
               const source = chat({
-                adapter: createChatAdapter(model, web),
+                adapter: createChatAdapter(
+                  {
+                    ...model,
+                    fetch: async (request, init) => {
+                      const signal =
+                        init?.signal ?? (request instanceof Request ? request.signal : undefined)
+                      signal?.throwIfAborted()
+                      const timestamp = new Date()
+                      const rates = await Effect.runPromiseWith(services)(
+                        modelProviders.pricing({ ...model, timestamp }),
+                        signal ? { signal } : undefined,
+                      )
+                      managed.state.pricing = rates
+                      requestSnapshot = {
+                        id: crypto.randomUUID(),
+                        startedAt: timestamp.toISOString(),
+                        providerId: model.providerId,
+                        providerType: model.providerType,
+                        protocol: model.api,
+                        modelId: model.modelId,
+                        rates: rates
+                          ? {
+                              currency: rates.currency,
+                              pricingSource: rates.pricingSource,
+                              prices: rates.prices,
+                              contextTiers: rates.contextTiers,
+                            }
+                          : null,
+                      }
+                      await Effect.runPromiseWith(services)(
+                        threads.recordRequest({ claim: turn.claim, request: requestSnapshot }),
+                        signal ? { signal } : undefined,
+                      )
+                      signal?.throwIfAborted()
+                      return model.fetch(request, init)
+                    },
+                  },
+                  web,
+                  { pricing: () => managed.state.pricing, recordUsage },
+                ),
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`

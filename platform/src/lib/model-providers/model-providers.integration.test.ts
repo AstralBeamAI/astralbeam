@@ -34,7 +34,7 @@ import {
   readModelPriceCatalog,
   writeModelPriceCatalog,
 } from "./pricing-catalog.server.ts"
-import type { ModelConfiguration } from "./schemas.ts"
+import type { ModelConfiguration, ModelProviderFields } from "./schemas.ts"
 import modelPriceCatalogRefresh from "../workflows/model-price-catalog-refresh.ts"
 import { ModelProviders, type SaveModelProviderInput } from "./model-providers.server.ts"
 
@@ -53,10 +53,16 @@ const modelIntegrationKey = `sk-${"x".repeat(32)}`
 
 function saveIntegrationProvider(
   organizationId: string,
-  fields: Partial<SaveModelProviderInput> = {},
+  fields: Partial<Omit<SaveModelProviderInput, "models">> & {
+    models?: ModelProviderFields["models"]
+  } = {},
 ) {
-  return Effect.flatMap(ModelProviders, (providers) =>
-    providers.save({
+  return Effect.gen(function* () {
+    const providers = yield* ModelProviders
+    const existing = fields.id ? yield* providers.get({ organizationId, id: fields.id }) : null
+    const input: Omit<SaveModelProviderInput, "models"> & {
+      models: ModelProviderFields["models"]
+    } = {
       organizationId,
       id: null,
       lockVersion: null,
@@ -73,8 +79,35 @@ function saveIntegrationProvider(
         },
       ],
       ...fields,
-    }),
-  )
+    }
+    return yield* providers.save({
+      ...input,
+      models: input.models.map((model) => ({
+        modelId: model.modelId,
+        name: model.name,
+        configuration:
+          model.configuration?.pricingSource.kind === "manual"
+            ? {
+                maxInputTokens: model.configuration.maxInputTokens,
+                contextWindowTokens: model.configuration.contextWindowTokens,
+                maxOutputTokens: model.configuration.maxOutputTokens,
+                outputCap: model.configuration.outputCap,
+              }
+            : null,
+        pricing: {
+          expectedVersionId:
+            model.priceVersionId ??
+            existing?.models.find((saved) => saved.modelId === model.modelId)?.priceVersionId ??
+            null,
+          policy:
+            model.configuration?.pricingSource.kind === "manual"
+              ? { kind: "manual", prices: model.configuration.prices }
+              : { kind: "catalog" },
+          ...(model.scheduledPrices ? { scheduledPrices: model.scheduledPrices } : {}),
+        },
+      })),
+    })
+  })
 }
 
 function refreshIntegrationCatalog(response: Response) {
@@ -158,6 +191,212 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
       ).pipe(Effect.flip),
     )
     expect(refused._tag).toBe("ModelProviderUnreadable")
+  })
+
+  test("rereads scheduled and changed manual prices for each request without repricing captured history", async () => {
+    const id = await runAppEffect(saveIntegrationProvider(organizationId))
+    const service = await runAppEffect(ModelProviders)
+    const saved = (await runAppEffect(service.get({ organizationId, id })))!
+    await db
+      .insert(agentModel)
+      .values({ organizationId, agentId, providerModelId: saved.models[0]!.id, position: 0 })
+    const model = (await runAppEffect(service.resolveForAgent({ organizationId, agentId })))!
+    const future = {
+      id: crypto.randomUUID(),
+      effectiveFrom: new Date(Date.now() + 86_400_000).toISOString(),
+      policy: { kind: "manual" as const, prices: { inputPerMillion: "3", outputPerMillion: "12" } },
+    }
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id,
+        lockVersion: 0,
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: modelTestConfiguration,
+            scheduledPrices: [future],
+          },
+        ],
+      }),
+    )
+    const before = await runAppEffect(
+      service.pricing({
+        ...model,
+        timestamp: new Date(new Date(future.effectiveFrom).getTime() - 1),
+      }),
+    )
+    expect(before!.prices).toEqual(modelTestConfiguration.prices)
+    expect(
+      (await runAppEffect(
+        service.pricing({ ...model, timestamp: new Date(future.effectiveFrom) }),
+      ))!.prices,
+    ).toEqual(future.policy.prices)
+    expect(
+      (await runAppEffect(service.get({ organizationId, id })))!.models[0]!.scheduledPrices,
+    ).toEqual([future])
+    await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        id,
+        lockVersion: 1,
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: {
+              ...modelTestConfiguration,
+              prices: { inputPerMillion: "4", outputPerMillion: "16" },
+            },
+            scheduledPrices: [],
+          },
+        ],
+      }),
+    )
+    expect((await runAppEffect(service.pricing(model)))!.prices.inputPerMillion).toBe("4")
+    expect(before!.prices).toEqual(modelTestConfiguration.prices)
+    expect(
+      await runAppEffect(
+        service.pricing({
+          ...model,
+          pricingModel: { ...model.pricingModel!, organizationId: crypto.randomUUID() },
+        }),
+      ),
+    ).toBeNull()
+    await expect(
+      runAppEffect(
+        service.save({
+          organizationId,
+          id,
+          lockVersion: 2,
+          name: "Production",
+          providerType: "openai",
+          api: "responses",
+          baseUrl: "https://api.openai.com/v1",
+          apiKey: null,
+          models: [
+            {
+              modelId: "same-model",
+              name: "Model",
+              configuration: {
+                maxInputTokens: 128_000,
+                contextWindowTokens: null,
+                maxOutputTokens: 8192,
+                outputCap: 4096,
+              },
+              pricing: {
+                expectedVersionId: saved.models[0]!.priceVersionId,
+                policy: { kind: "manual", prices: modelTestConfiguration.prices },
+              },
+            },
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "ModelProviderChanged" })
+  })
+
+  test("rejects cancelling a scheduled price that activates while a save waits for the provider lock", async () => {
+    const effectiveFrom = new Date(Date.now() + 86_400_000).toISOString()
+    const id = await runAppEffect(
+      saveIntegrationProvider(organizationId, {
+        models: [
+          {
+            modelId: "same-model",
+            name: "Model",
+            configuration: modelTestConfiguration,
+            scheduledPrices: [
+              {
+                id: crypto.randomUUID(),
+                effectiveFrom,
+                policy: {
+                  kind: "manual",
+                  prices: { inputPerMillion: "3", outputPerMillion: "12" },
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    const service = await runAppEffect(ModelProviders)
+    const saved = (await runAppEffect(service.get({ organizationId, id })))!
+    const locked = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const blocker = db.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select id from model_provider where organization_id = ${organizationId} and id = ${id} for update`,
+      )
+      locked.resolve()
+      await release.promise
+    })
+    await locked.promise
+    const saving = runAppEffect(
+      service
+        .save({
+          ...saved,
+          organizationId,
+          apiKey: null,
+          models: [
+            {
+              modelId: "same-model",
+              name: "Model",
+              configuration: {
+                maxInputTokens: 128_000,
+                contextWindowTokens: null,
+                maxOutputTokens: 8192,
+                outputCap: 4096,
+              },
+              pricing: {
+                expectedVersionId: saved.models[0]!.priceVersionId,
+                policy: { kind: "manual", prices: modelTestConfiguration.prices },
+                scheduledPrices: [],
+              },
+            },
+          ],
+        })
+        .pipe(Effect.result),
+    )
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await db
+          .select({ pid: sql<number>`pid` })
+          .from(sql`pg_stat_activity`)
+          .where(
+            sql`datname = current_database() and wait_event_type = 'Lock' and query ilike 'update "model_provider"%'`,
+          )
+        expect(waiting).toHaveLength(1)
+      })
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date(effectiveFrom))
+      release.resolve()
+      await blocker
+      expect(await saving).toMatchObject({
+        _tag: "Failure",
+        failure: { _tag: "ModelProviderChanged" },
+      })
+      const current = (await runAppEffect(service.get({ organizationId, id })))!
+      expect(current.lockVersion).toBe(saved.lockVersion)
+      expect(current.models[0]!.configuration!.prices.inputPerMillion).toBe("3")
+      await runAppEffect(
+        service.save({
+          ...saved,
+          organizationId,
+          name: "Renamed after activation",
+          apiKey: null,
+          models: current.models.map((model) => ({
+            modelId: model.modelId,
+            name: model.name,
+            configuration: model.limitOverrides,
+          })),
+        }),
+      )
+      const renamed = (await runAppEffect(service.get({ organizationId, id })))!
+      expect(renamed.models[0]!.priceVersionId).toBe(current.models[0]!.priceVersionId)
+    } finally {
+      release.resolve()
+      await blocker
+      await saving
+      vi.useRealTimers()
+    }
   })
 
   test("persists normalized catalog data and retains it after an invalid refresh", async () => {
@@ -258,10 +497,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
           service.get({ organizationId, id: providerId }),
         ),
       )
-      expect(retained!.models[0]!.configuration).toMatchObject({
-        pricingSource: { kind: "catalog" },
-        prices: { inputPerMillion: "3", outputPerMillion: "4" },
-      })
+      expect(retained!.models[0]!.configuration).toBeNull()
 
       const cancelDownload = vi.fn()
       for (const response of [

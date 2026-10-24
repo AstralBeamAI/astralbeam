@@ -17,13 +17,13 @@ import {
   PersistenceCompletionCapability,
   withPersistence,
 } from "@tanstack/ai-persistence"
-import { BigDecimal, Effect, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import type { ChatFileCache } from "../attachments/attachments"
 import { APP_HANDLE } from "@/lib/constants"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import type { ModelConfiguration } from "@/lib/model-providers/schemas"
-import { modelUsageCost } from "@/lib/model-providers/usage-cost"
+import type { ModelRateCard } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatWriterClaim } from "./schemas"
 import { chatStoredJson, chatPublicParts } from "./projection"
@@ -51,7 +51,7 @@ interface ManagedChatStreamOptions {
     metadata?: Readonly<Record<string, unknown>> | undefined
   }>
   readonly model: ChatModelConfiguration
-  readonly pricing?: ModelConfiguration | null | undefined
+  readonly pricing?: ModelRateCard | null | undefined
   readonly agentId: string
   readonly web?: ChatWebState | undefined
   readonly publicHistory?: UIMessage[] | undefined
@@ -77,6 +77,7 @@ interface ManagedChatStreamState {
   version: number
   payload: ChatMessagePayload
   usage: typeof Schema.JsonObject.Type | undefined
+  pricing: ModelRateCard | null | undefined
   publicHistory: UIMessage[] | undefined
   readonly fileCache: ChatFileCache
   readonly partIds: Map<string, string>
@@ -386,6 +387,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     version: options.managed.threadVersion,
     payload: { version: 1, parts: [] },
     usage: undefined,
+    pricing: options.pricing,
     publicHistory: options.publicHistory,
     fileCache: new Map(),
     partIds: new Map(),
@@ -479,12 +481,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     onUsage(_ctx, usage) {
       state.usage = chatStoredJson({
         ...usage,
-        costUsd:
-          typeof usage.cost === "number" && Number.isFinite(usage.cost)
-            ? BigDecimal.format(BigDecimal.fromNumberUnsafe(usage.cost))
-            : options.pricing
-              ? modelUsageCost(options.pricing, usage)
-              : null,
+        costUsd: modelRequestCost({ usage, configuration: state.pricing }),
       })
     },
     async onInterruptBoundary(ctx) {

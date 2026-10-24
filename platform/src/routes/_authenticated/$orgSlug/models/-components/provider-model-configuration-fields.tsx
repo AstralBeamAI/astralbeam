@@ -8,14 +8,9 @@ import {
   type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
 import { ProviderField } from "../../-components/provider-field"
+import { ModelPriceFields } from "./model-price-fields"
+import { ModelPriceSchedule } from "./model-price-schedule"
 
-const modelPricingFields = [
-  ["inputPerMillion", "Input price"],
-  ["outputPerMillion", "Output price"],
-  ["cacheReadPerMillion", "Cache read price"],
-  ["cacheWritePerMillion", "Cache write price"],
-  ["cacheWrite1hPerMillion", "One-hour cache write price"],
-] as const
 const modelBoundFields = [
   ["maxInputTokens", "Input maximum"],
   ["contextWindowTokens", "Context window"],
@@ -29,12 +24,16 @@ export function ProviderModelConfigurationFields({
   catalogConfiguration,
   errors,
   onChange,
+  onScheduleChange,
+  scheduleErrors,
 }: {
   model: ProviderModelFields
   disabled: boolean
   catalogConfiguration: ModelConfiguration | null
   errors: (field: string) => readonly { message: string }[]
   onChange: (configuration: ModelConfiguration | null) => void
+  onScheduleChange: (scheduledPrices: NonNullable<ProviderModelFields["scheduledPrices"]>) => void
+  scheduleErrors: readonly { message: string }[]
 }) {
   const overridden = model.configuration?.pricingSource.kind === "manual"
   const configuration: ModelConfiguration = model.configuration ??
@@ -50,31 +49,6 @@ export function ProviderModelConfigurationFields({
     }
   const hasCatalogDefaults = catalogConfiguration !== null
   const overrideId = `model-${model.modelId}-override`
-  const priceFields = modelPricingFields.map(([key, label]) => (
-    <ProviderField
-      key={key}
-      id={`model-${model.modelId}-${key}`}
-      label={
-        <>
-          {label}
-          <span className="sr-only"> for {model.modelId}</span>
-        </>
-      }
-      inputProps={{ inputMode: "decimal" }}
-      value={configuration.prices[key] ?? ""}
-      disabled={disabled}
-      errors={errors(key)}
-      placeholder={
-        key === "inputPerMillion" || key === "outputPerMillion" ? "Required" : "Optional"
-      }
-      onChange={(value) => {
-        const prices = { ...configuration.prices }
-        if (!value && key !== "inputPerMillion" && key !== "outputPerMillion") delete prices[key]
-        else prices[key] = value
-        onChange({ ...configuration, prices })
-      }}
-    />
-  ))
   return (
     <div
       className="space-y-4 rounded-lg border p-4"
@@ -91,7 +65,7 @@ export function ProviderModelConfigurationFields({
             {overridden && !hasCatalogDefaults
               ? "Your settings stay fixed. Catalog defaults are unavailable for this model."
               : overridden
-                ? "Your settings stay fixed. Turn off to discard overrides and restore automatic updates."
+                ? "Turn off to restore automatic updates and cancel scheduled prices."
                 : hasCatalogDefaults
                   ? "Base prices shown below. Cache and long-context rates also apply where available. Catalog defaults update automatically."
                   : "No catalog defaults are available. Turn on to configure this model manually."}
@@ -113,7 +87,13 @@ export function ProviderModelConfigurationFields({
       </Field>
       {overridden ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">{priceFields.slice(0, 2)}</div>
+          <ModelPriceFields
+            id={model.modelId}
+            prices={configuration.prices}
+            disabled={disabled}
+            errors={errors}
+            onChange={(prices) => onChange({ ...configuration, prices })}
+          />
           <p className="text-sm font-medium">Token limits</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {modelBoundFields.map(([key, label]) => (
@@ -148,10 +128,12 @@ export function ProviderModelConfigurationFields({
             maximum. Verify the default 4,096-token output maximum with your provider before
             increasing it.
           </FieldDescription>
-          <details>
-            <summary className="cursor-pointer text-sm font-medium">Cache pricing</summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">{priceFields.slice(2)}</div>
-          </details>
+          <ModelPriceSchedule
+            model={model}
+            disabled={disabled}
+            errors={scheduleErrors}
+            onChange={onScheduleChange}
+          />
         </>
       ) : (
         hasCatalogDefaults && (

@@ -6,6 +6,7 @@ import {
   type AdapterYieldChunk,
   type TokenUsage,
   type ContentPart,
+  fromSpecTokenUsage,
 } from "@tanstack/ai"
 import { createAnthropicChat } from "@tanstack/ai-anthropic"
 import { createGeminiChat } from "@tanstack/ai-gemini"
@@ -15,9 +16,11 @@ import { createOpenRouterText } from "@tanstack/ai-openrouter"
 import { HTTPClient } from "@openrouter/sdk/lib/http"
 import type { ChatContentItems } from "@openrouter/sdk/models"
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"
-import { Effect, Queue, Schema, Stream } from "effect"
+import { BigDecimal, Effect, Queue, Schema, Stream } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
+import type { ModelRateCard } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 
 import { CHAT_WEB_ACTIVITY_EVENT, fetchChatWeb, type ChatWebState } from "./web"
 
@@ -36,6 +39,7 @@ function chatWebTerminal(
   terminal: ChatWebTerminal,
   usages: TokenUsage[],
   web: ChatWebState,
+  costs?: string[],
 ): ChatWebTerminal {
   web.failed ||= terminal.type === EventType.RUN_ERROR
   return {
@@ -61,7 +65,19 @@ function chatWebTerminal(
               : [],
         ),
       ),
-      providerUsageDetails: { requestUsage: usages },
+      providerUsageDetails: {
+        requestUsage: usages,
+        ...(costs
+          ? {
+              costUsd: BigDecimal.format(
+                costs.reduce(
+                  (sum, cost) => BigDecimal.sum(sum, BigDecimal.fromStringUnsafe(cost)),
+                  BigDecimal.fromNumberUnsafe(0),
+                ),
+              ),
+            }
+          : {}),
+      },
       ...(web.usage.some((usage) => typeof usage.cost === "number")
         ? { cost: web.usage.reduce((n, usage) => n + Number(usage.cost ?? 0), 0) }
         : {}),
@@ -177,15 +193,36 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
   })
 }
 
-export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebState) {
+export function createChatAdapter(
+  model: ChatModelConfiguration,
+  web?: ChatWebState,
+  accounting?: {
+    pricing: () => ModelRateCard | null | undefined
+    recordUsage?: (usage: TokenUsage) => Promise<string | null>
+  },
+) {
   const adapter = createChatProviderAdapter(
     web ? { ...model, fetch: (input, init) => fetchChatWeb(model, web, input, init) } : model,
     web !== undefined,
   )
-  if (!web) return adapter
+  if (!web && !accounting?.recordUsage) return adapter
   const stream = adapter.chatStream.bind(adapter) as (
     options: TextOptions,
   ) => AsyncIterable<AdapterYieldChunk>
+  if (!web) {
+    adapter.chatStream = async function* (options: TextOptions) {
+      for await (const chunk of stream(options)) {
+        if (chunk.type === EventType.RUN_FINISHED || chunk.type === EventType.RUN_ERROR) {
+          const usage = Array.isArray(chunk.usage)
+            ? fromSpecTokenUsage(chunk.usage, chunk.metadata?.tanstack?.usage)
+            : (chunk.usage ?? fromSpecTokenUsage(undefined, chunk.metadata?.tanstack?.usage))
+          if (usage) await accounting!.recordUsage!(usage)
+        }
+        yield chunk
+      }
+    }
+    return adapter
+  }
   // Native adapters delay retrieval starts and omit pause_turn and citations.
   // https://github.com/TanStack/ai/blob/main/packages/ai-anthropic/src/adapters/text.ts
   adapter.chatStream = async function* (options: TextOptions): AsyncGenerator<AdapterYieldChunk> {
@@ -209,6 +246,7 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
     const text = { content: "", messageId: undefined as string | undefined }
     const signal = options.request?.signal
     const usages: TokenUsage[] = []
+    const costs: string[] = []
     let terminal: ChatWebTerminal | undefined
     const progress = Effect.runSync(Queue.unbounded<AdapterYieldChunk>())
     web.onActivity = () =>
@@ -220,6 +258,7 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
     try {
       do {
         web.pause = false
+        const usageStart = web.usage.length
         for await (const chunk of Stream.toAsyncIterable(
           Stream.merge(
             Stream.fromAsyncIterable(stream({ ...options, messages }), (error) => error),
@@ -227,14 +266,29 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
             { haltStrategy: "left" },
           ),
         )) {
+          if (chunk.type === EventType.RUN_FINISHED || chunk.type === EventType.RUN_ERROR) {
+            terminal = chunk
+            if (chunk.usage && !Array.isArray(chunk.usage)) {
+              usages.push(chunk.usage)
+              const reportedCost =
+                web.usage.length > usageStart && Number.isFinite(web.usage.at(-1)?.cost)
+                  ? Number(web.usage.at(-1)!.cost)
+                  : chunk.usage.cost
+              const usage = {
+                ...chunk.usage,
+                ...(reportedCost === undefined ? {} : { cost: reportedCost }),
+              }
+              const cost = accounting?.recordUsage
+                ? await accounting.recordUsage(usage)
+                : modelRequestCost({ usage, configuration: accounting?.pricing() })
+              costs.push(cost ?? "0")
+            }
+            if (signal?.aborted) return
+            continue
+          }
           const output = chatWebContent(chunk, text, signal)
           if (output === null) return
           if (!output) continue
-          if (chunk.type === EventType.RUN_FINISHED || chunk.type === EventType.RUN_ERROR) {
-            terminal = chunk
-            if (chunk.usage && !Array.isArray(chunk.usage)) usages.push(chunk.usage)
-            continue
-          }
           yield output
         }
         if (web.pause && terminal?.type !== EventType.RUN_ERROR) {
@@ -254,7 +308,7 @@ export function createChatAdapter(model: ChatModelConfiguration, web?: ChatWebSt
       } while (web.pause)
       if (text.messageId) yield { type: EventType.TEXT_MESSAGE_END, messageId: text.messageId }
       if (terminal) {
-        yield chatWebTerminal(terminal, usages, web)
+        yield chatWebTerminal(terminal, usages, web, accounting ? costs : undefined)
       }
     } finally {
       web.onActivity = undefined

@@ -9,6 +9,8 @@ import {
 import { Effect, Schema } from "effect"
 import { expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
+import type { ModelConfiguration } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import { createChatAdapter } from "./adapter"
 import { chatWebState, chatWebTools, fetchChatWeb } from "./web"
 import { modelWebAccess } from "@/lib/model-providers/web.server"
@@ -257,6 +259,7 @@ async function exerciseWeb(
     cancel?: boolean
     reject?: boolean
     slow?: boolean
+    pricing?: (request: number) => ModelConfiguration
   } = {},
 ) {
   const requests: Schema.JsonObject[] = []
@@ -317,6 +320,7 @@ async function exerciseWeb(
   }
   const web = chatWebState()
   const saved: ChatMessagePayload[] = []
+  const requestCosts: (string | null)[] = []
   let results = 0
   const claim: ChatWriterClaim = {
     scope: {
@@ -441,7 +445,23 @@ async function exerciseWeb(
       managed,
       state: bridge.state,
       source: chat({
-        adapter: createChatAdapter(model, web),
+        adapter: createChatAdapter(
+          model,
+          web,
+          options.pricing
+            ? {
+                pricing: () => options.pricing!(requests.length),
+                recordUsage: (usage) => {
+                  const cost = modelRequestCost({
+                    usage,
+                    configuration: options.pricing!(requests.length),
+                  })
+                  requestCosts.push(cost)
+                  return Promise.resolve(cost)
+                },
+              }
+            : undefined,
+        ),
         messages: history,
         tools,
         threadId: claim.threadId,
@@ -456,7 +476,7 @@ async function exerciseWeb(
   } catch (error) {
     if (!options.cancel && !options.reject && options.pause !== "always") throw error
   }
-  return { model, web, saved, chunks, requests, signals, results }
+  return { model, web, saved, chunks, requests, signals, results, requestCosts }
 }
 
 test.each(["openai", "anthropic"] as const)(
@@ -662,7 +682,19 @@ test("native errors and cancellation retain observed evidence without applicatio
 test.each(["once", "always"] as const)(
   "Anthropic %s pause preserves context and stays within the turn budget",
   async (pause) => {
-    const result = await exerciseWeb("anthropic", { pause })
+    const result = await exerciseWeb("anthropic", {
+      pause,
+      pricing: (request) => ({
+        currency: "USD",
+        pricingSource: { kind: "manual" },
+        prices: { inputPerMillion: request === 1 ? "2" : "4", outputPerMillion: "8" },
+        contextTiers: [],
+        maxInputTokens: 128_000,
+        contextWindowTokens: null,
+        maxOutputTokens: 8192,
+        outputCap: 4096,
+      }),
+    })
     expect(result.requests).toHaveLength(pause === "once" ? 2 : CHAT_MAX_MODEL_TURNS)
     expect(JSON.stringify(result.requests[1])).toContain("web_fetch_result")
     const usage = Schema.decodeUnknownSync(Schema.UndefinedOr(Schema.JsonObject))(
@@ -672,6 +704,8 @@ test.each(["once", "always"] as const)(
       pause === "once" ? [24, 10, 34] : [undefined, undefined, undefined],
     )
     expect(usage?.promptTokensDetails).toEqual(pause === "once" ? { cachedTokens: 4 } : undefined)
+    expect(usage?.costUsd).toBe(pause === "once" ? "0.000152" : undefined)
+    expect(result.requestCosts.slice(0, 2)).toEqual(["0.000064", "0.000088"])
     expect(result.chunks.some((chunk) => chunk.type === EventType.RUN_ERROR)).toBe(
       pause === "always",
     )

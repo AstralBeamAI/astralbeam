@@ -178,6 +178,8 @@ Optional fields also preserve input tool declarations, opaque `modelMessages`, p
 
 Assistant provenance usage includes a decimal-string `costUsd` when a reported cost or resolved token rate is available. This snapshots the generation-time cost for retained history. Reported usage from failed model calls is retained and recorded once per model phase, including partial Anthropic input/cache usage. One-hour cache writes are priced as a subset of total cache writes. Directory totals exclude drafts and temporarily count unpriceable settled replies as zero.
 
+Assistant messages also retain internal `request_accounting` rate snapshots before provider dispatch. Each attempt has its own ID, UTC start and rate card, including retries and native-web continuations. Received terminal usage updates that attempt's charge using its frozen rates, preferring provider-reported cost. Writer claims fence these writes, and interruption preserves snapshots even without visible output. Version 2 accounting supplies directory totals by request start time. Older messages retain their saved aggregate charge and original message-date attribution. A snapshot alone is not confirmed billable usage. Recovery of usage omitted by providers and reporting incompleteness remain follow-up work.
+
 `initiatorTenantUserId` identifies the actor of this foreground invocation. A participant resolving the last browser response can start a continuation, so that actor can differ from the original user-message author.
 
 ### Part payloads
