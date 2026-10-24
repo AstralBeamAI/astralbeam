@@ -189,7 +189,7 @@ Choose this month, previous month, this week, previous week, last 30 days, or la
 
 Changing periods reloads only costs. Results are reused for 30 seconds. Refresh reloads users and costs with a new rolling cutoff.
 
-Totals include retained settled assistant replies. New replies save their resolved USD cost, preferring the provider-reported amount over configured token prices. Older replies without a saved cost use current rates and can change after price updates. Drafts and deleted conversations are excluded. Missing usage or pricing currently contributes $0, including interrupted replies with unknown costs. Users without settled replies show zero.
+Totals include retained settled assistant replies. New requests save their resolved USD cost, preferring provider-reported cost and otherwise using rates frozen before dispatch. Each request counts in the period when it started, including retries and continuations. Older replies retain their saved aggregate cost in the period when the reply was created. Historical usage is never repriced using today's rates. Drafts and deleted conversations are excluded. Missing usage or pricing currently contributes $0, including interrupted replies with unknown costs. Users without settled replies show zero.
 
 Amounts show precise values without trailing zeros. A failed request shows **Unavailable** with Retry.
 

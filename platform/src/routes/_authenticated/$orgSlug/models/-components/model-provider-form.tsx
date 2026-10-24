@@ -34,18 +34,24 @@ import {
   type ModelProviderApi,
   type ModelProviderType,
   type ProviderModelFields,
+  ModelPricePolicySchema,
+  ModelPriceHistorySchema,
+  ModelLimitsSchema,
 } from "@/lib/model-providers/schemas"
 import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 import { strictParseOptions } from "@/lib/schemas"
 import { saveModelProvider } from "../-functions/save-model-provider"
 import { modelProviderApiItems, modelProviderDescriptors } from "../-lib/constants"
-import { SaveModelProviderInputSchema } from "../-lib/schemas"
+import { ModelProviderFormInputSchema } from "../-lib/schemas"
 import { ProviderField } from "../../-components/provider-field"
 import { ProviderModelPicker } from "./provider-model-picker"
 import { ModelProviderTest } from "./model-provider-test"
 import { ProviderModelConfigurationFields } from "./provider-model-configuration-fields"
 
 const formatModelProviderIssues = SchemaIssue.makeFormatterStandardSchemaV1()
+const equalModelLimits = Schema.toEquivalence(ModelLimitsSchema)
+const equalModelPricePolicy = Schema.toEquivalence(ModelPricePolicySchema)
+const equalModelPriceHistory = Schema.toEquivalence(ModelPriceHistorySchema)
 const equalModelProviderFields = Schema.toEquivalence(ModelProviderFieldsSchema)
 const modelProviderTypeItems = Object.entries(modelProviderDescriptors).map(
   ([value, { label }]) => ({ label, value: value as ModelProviderType }),
@@ -98,7 +104,7 @@ export function ModelProviderForm({
   const [saveError, setSaveError] = useState<ServerFnError | null>(null)
   const conflicted = saveError?.tag === "ModelProviderChanged"
   const input = Schema.decodeUnknownResult(
-    SaveModelProviderInputSchema,
+    ModelProviderFormInputSchema,
     strictParseOptions,
   )({
     organizationSlug,
@@ -151,7 +157,57 @@ export function ModelProviderForm({
     setServerFieldError(null)
     setSaveError(null)
     try {
-      const modelProviderId = await saveModelProvider({ data: input.success })
+      const modelProviderId = await saveModelProvider({
+        data: {
+          ...input.success,
+          models: input.success.models.map((model) => {
+            const previous = existing?.models.find(({ modelId }) => modelId === model.modelId)
+            const policy =
+              model.configuration?.pricingSource.kind === "manual"
+                ? { kind: "manual" as const, prices: model.configuration.prices }
+                : { kind: "catalog" as const }
+            const before =
+              previous?.configuration?.pricingSource.kind === "manual"
+                ? { kind: "manual" as const, prices: previous.configuration.prices }
+                : { kind: "catalog" as const }
+            const changed = !previous || !equalModelPricePolicy(policy, before)
+            const scheduled = !equalModelPriceHistory(
+              model.scheduledPrices ?? [],
+              previous?.scheduledPrices ?? [],
+            )
+            const limits = model.configuration
+            const beforeLimits =
+              previous?.configuration ??
+              catalog[providerType].find(({ modelId }) => modelId === model.modelId)?.configuration
+            const customLimits =
+              limits && (!beforeLimits || !equalModelLimits(limits, beforeLimits))
+            return {
+              modelId: model.modelId,
+              name: model.name,
+              configuration:
+                limits?.pricingSource.kind === "manual"
+                  ? customLimits
+                    ? {
+                        maxInputTokens: limits.maxInputTokens,
+                        contextWindowTokens: limits.contextWindowTokens,
+                        maxOutputTokens: limits.maxOutputTokens,
+                        outputCap: limits.outputCap,
+                      }
+                    : (previous?.limitOverrides ?? null)
+                  : null,
+              ...(changed || scheduled
+                ? {
+                    pricing: {
+                      expectedVersionId: previous?.priceVersionId ?? null,
+                      ...(changed ? { policy } : {}),
+                      ...(scheduled ? { scheduledPrices: model.scheduledPrices ?? [] } : {}),
+                    },
+                  }
+                : {}),
+            }
+          }),
+        },
+      })
       toast.add({ title: "Provider saved", type: "success" })
       if (existing) {
         await router.invalidate()

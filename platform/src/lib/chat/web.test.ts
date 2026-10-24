@@ -10,6 +10,7 @@ import { Effect, Schema } from "effect"
 import { expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import type { ModelConfiguration } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import { createChatAdapter } from "./adapter"
 import { chatWebState, chatWebTools, fetchChatWeb } from "./web"
 import { modelWebAccess } from "@/lib/model-providers/web.server"
@@ -319,6 +320,7 @@ async function exerciseWeb(
   }
   const web = chatWebState()
   const saved: ChatMessagePayload[] = []
+  const requestCosts: (string | null)[] = []
   let results = 0
   const claim: ChatWriterClaim = {
     scope: {
@@ -446,7 +448,19 @@ async function exerciseWeb(
         adapter: createChatAdapter(
           model,
           web,
-          options.pricing ? () => options.pricing!(requests.length) : undefined,
+          options.pricing
+            ? {
+                pricing: () => options.pricing!(requests.length),
+                recordUsage: (usage) => {
+                  const cost = modelRequestCost({
+                    usage,
+                    configuration: options.pricing!(requests.length),
+                  })
+                  requestCosts.push(cost)
+                  return Promise.resolve(cost)
+                },
+              }
+            : undefined,
         ),
         messages: history,
         tools,
@@ -462,7 +476,7 @@ async function exerciseWeb(
   } catch (error) {
     if (!options.cancel && !options.reject && options.pause !== "always") throw error
   }
-  return { model, web, saved, chunks, requests, signals, results }
+  return { model, web, saved, chunks, requests, signals, results, requestCosts }
 }
 
 test.each(["openai", "anthropic"] as const)(
@@ -691,6 +705,7 @@ test.each(["once", "always"] as const)(
     )
     expect(usage?.promptTokensDetails).toEqual(pause === "once" ? { cachedTokens: 4 } : undefined)
     expect(usage?.costUsd).toBe(pause === "once" ? "0.000152" : undefined)
+    expect(result.requestCosts.slice(0, 2)).toEqual(["0.000064", "0.000088"])
     expect(result.chunks.some((chunk) => chunk.type === EventType.RUN_ERROR)).toBe(
       pause === "always",
     )

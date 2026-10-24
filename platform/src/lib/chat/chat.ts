@@ -5,6 +5,7 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
@@ -25,6 +26,9 @@ import {
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
+import { modelRequestCost } from "@/lib/model-providers/usage-cost"
+import { chatStoredJson } from "./threads/projection"
 import { chatWebTools, chatWebState } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
@@ -387,6 +391,21 @@ export class Chat extends Context.Service<
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]
             return chatEventStream((abortController) => {
+              let requestSnapshot: ModelRequestSnapshot | undefined
+              const recordUsage = async (usage: TokenUsage) => {
+                if (!requestSnapshot) return null
+                requestSnapshot = {
+                  ...requestSnapshot,
+                  usage: chatStoredJson(usage),
+                  costUsd: modelRequestCost({ usage, configuration: requestSnapshot.rates }),
+                }
+                await Effect.runPromiseWith(services)(
+                  threads
+                    .recordRequest({ claim: turn.claim, request: requestSnapshot })
+                    .pipe(Effect.timeout("5 seconds")),
+                )
+                return requestSnapshot.costUsd ?? null
+              }
               const source = chat({
                 adapter: createChatAdapter(
                   {
@@ -401,26 +420,24 @@ export class Chat extends Context.Service<
                         signal ? { signal } : undefined,
                       )
                       managed.state.pricing = rates
+                      requestSnapshot = {
+                        id: crypto.randomUUID(),
+                        startedAt: timestamp.toISOString(),
+                        providerId: model.providerId,
+                        providerType: model.providerType,
+                        protocol: model.api,
+                        modelId: model.modelId,
+                        rates: rates
+                          ? {
+                              currency: rates.currency,
+                              pricingSource: rates.pricingSource,
+                              prices: rates.prices,
+                              contextTiers: rates.contextTiers,
+                            }
+                          : null,
+                      }
                       await Effect.runPromiseWith(services)(
-                        threads.recordRequest({
-                          claim: turn.claim,
-                          request: {
-                            id: crypto.randomUUID(),
-                            startedAt: timestamp.toISOString(),
-                            providerId: model.providerId,
-                            providerType: model.providerType,
-                            protocol: model.api,
-                            modelId: model.modelId,
-                            rates: rates
-                              ? {
-                                  currency: rates.currency,
-                                  pricingSource: rates.pricingSource,
-                                  prices: rates.prices,
-                                  contextTiers: rates.contextTiers,
-                                }
-                              : null,
-                          },
-                        }),
+                        threads.recordRequest({ claim: turn.claim, request: requestSnapshot }),
                         signal ? { signal } : undefined,
                       )
                       signal?.throwIfAborted()
@@ -428,7 +445,7 @@ export class Chat extends Context.Service<
                     },
                   },
                   web,
-                  () => managed.state.pricing,
+                  { pricing: () => managed.state.pricing, recordUsage },
                 ),
                 // Undefined still enables TanStack's default error logger.
                 debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,

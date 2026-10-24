@@ -104,14 +104,14 @@ export function ModelPriceSchedule({
             </div>
             <ModelPriceFields
               id={version.id}
-              prices={version.rates!.prices}
+              prices={version.policy.prices}
               disabled={disabled}
               errors={() => []}
               onChange={(prices) =>
                 onChange(
                   schedule.map((entry) =>
                     entry.id === version.id
-                      ? { ...entry, rates: { ...entry.rates!, prices } }
+                      ? { ...entry, policy: { kind: "manual", prices } }
                       : entry,
                   ),
                 )
@@ -133,12 +133,7 @@ export function ModelPriceSchedule({
             {
               id,
               effectiveFrom: "",
-              rates: {
-                currency: "USD",
-                pricingSource: { kind: "manual" },
-                prices: { ...model.configuration!.prices },
-                contextTiers: [],
-              },
+              policy: { kind: "manual", prices: { ...model.configuration!.prices } },
             },
           ])
         }}

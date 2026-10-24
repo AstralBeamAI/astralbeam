@@ -30,7 +30,7 @@ Keys are encrypted. The editor shows only the last four characters. Leave the ke
 
 Enter zero explicitly for a free model. The catalog supplies no output maximum, so check the initial 4,096-token ceiling against your provider's supported maximum.
 
-Catalog defaults refresh daily. Overrides belong to this model connection and survive refreshes. Turning **Override catalog defaults** off discards them. Catalog prices use context tiers, while overrides use flat rates. Expand **Cache pricing** to edit cache rates.
+Catalog defaults refresh daily. Manual prices belong to this model connection and survive refreshes. Token limits continue following the catalog unless you edit them. Turning **Override catalog defaults** off discards them. Catalog prices use context tiers, while overrides use flat rates. Expand **Cache pricing** to edit cache rates.
 
 Price changes take effect when you save. Under **Price schedule**, choose **Schedule price change**, enter its future **Effective from** time in your local time zone, set its prices, then choose **Save provider**. Expand a future entry to edit it, or choose **Cancel scheduled price** and save to remove it. Turning off overrides also cancels scheduled prices. Active versions remain immutable, and the next model request uses the rates effective at its start, including requests within an ongoing conversation. Token limits are separate and are not scheduled.
 
