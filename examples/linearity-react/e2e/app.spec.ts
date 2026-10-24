@@ -77,12 +77,15 @@ test("filters and boards survive refresh, and deleted issue URLs fail clearly", 
 })
 
 test("invalid saved data and disabled storage remain usable", async ({ page }) => {
+  const storageNotice = page
+    .getByRole("status")
+    .filter({ hasText: /saved workspace|storage is unavailable/ })
   await page.addInitScript(() => localStorage.setItem("linearity-demo:v1", '{"version":0}'))
   await page.goto("/")
-  await expect(page.getByRole("status")).toContainText("couldn't load")
+  await expect(storageNotice).toContainText("couldn't load")
   await page.getByRole("button", { name: "Reset demo" }).click()
   await page.getByRole("button", { name: "Reset everything" }).click()
-  await expect(page.getByRole("status")).toHaveCount(0)
+  await expect(storageNotice).toHaveCount(0)
   await page.evaluate(() => {
     Storage.prototype.setItem = () => {
       throw new Error("Storage disabled")
@@ -91,7 +94,7 @@ test("invalid saved data and disabled storage remain usable", async ({ page }) =
   await page.getByRole("button", { name: "Issues", exact: true }).click()
   await page.getByRole("button", { name: /ACM-128/ }).click()
   await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("Done")
-  await expect(page.getByRole("status")).toContainText("storage is unavailable")
+  await expect(storageNotice).toContainText("storage is unavailable")
   await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("Done")
 })
 

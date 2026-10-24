@@ -106,9 +106,10 @@ test("avatars and existing logo APIs store files privately and enforce their own
     ).toEqual(png)
     await page.goto(`/${otherOrganization.slug}/members`)
     await members.uploadAvatar(png)
-    const secondAvatarUrl = await members.avatarImage().getAttribute("src")
-    expect(secondAvatarUrl).toContain(`/organizations/${otherOrganization.id}/avatars/`)
-    expect(secondAvatarUrl).not.toBe(avatarUrl)
+    await expect(members.avatarImage()).toHaveAttribute(
+      "src",
+      new RegExp(`/organizations/${otherOrganization.id}/avatars/`),
+    )
     await members.removeAvatar()
     await page.goto(`/${baseline.organizationSlug}/members`)
     await expect(members.avatarImage()).toHaveAttribute("src", avatarUrl!)

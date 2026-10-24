@@ -3,6 +3,7 @@ import routerPlugin from "@tanstack/eslint-plugin-router"
 import startPlugin from "@tanstack/eslint-plugin-start"
 import vitestPlugin from "@vitest/eslint-plugin"
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y-x"
+import playwrightPlugin from "eslint-plugin-playwright"
 import reactDomPlugin from "eslint-plugin-react-dom"
 import reactHooksPlugin from "eslint-plugin-react-hooks"
 import reactJsxPlugin from "eslint-plugin-react-jsx"
@@ -15,16 +16,21 @@ import { defineConfig, type DummyRule } from "oxlint"
 // https://github.com/kazupon/vp-config/blob/41a53fad51b54cec5b0c03ef42aadcf65012f11f/src/lint/regexp.ts
 type RuleMap = Record<string, DummyRule>
 
-function isDisabledRule(rule: DummyRule): boolean {
-  const severity = Array.isArray(rule) ? rule[0] : rule
-  return severity === "allow" || severity === "off" || severity === 0
-}
-
-function aliasPresetRules(preset: unknown, sourcePrefix: string, aliasPrefix: string): RuleMap {
+function aliasPresetRules(
+  preset: unknown,
+  sourcePrefix: string,
+  aliasPrefix: string,
+  errorsOnly = false,
+): RuleMap {
   const rules = (preset as { rules?: RuleMap }).rules ?? {}
   return Object.fromEntries(
     Object.entries(rules)
-      .filter(([, rule]) => !isDisabledRule(rule))
+      .filter(([, rule]) => {
+        const severity = Array.isArray(rule) ? rule[0] : rule
+        return errorsOnly
+          ? severity === "error" || severity === 2
+          : severity !== "allow" && severity !== "off" && severity !== 0
+      })
       .map(([ruleName, rule]) => [
         ruleName.startsWith(sourcePrefix)
           ? `${aliasPrefix}${ruleName.slice(sourcePrefix.length)}`
@@ -55,6 +61,14 @@ const recommendedRules = {
     startPlugin.configs.recommended,
     "@tanstack/start/",
     "tanstack-start-js/",
+  ),
+  // Gate the upstream error-level Playwright rules.
+  // https://github.com/mskelton/eslint-plugin-playwright/blob/main/src/index.ts
+  playwright: aliasPresetRules(
+    playwrightPlugin.configs["flat/recommended"],
+    "playwright/",
+    "playwright-js/",
+    true,
   ),
   // Source: https://github.com/vitest-dev/eslint-plugin-vitest/blob/main/src/index.ts
   vitest: aliasPresetRules(vitestPlugin.configs.recommended, "vitest/", "vitest-js/"),
@@ -226,6 +240,7 @@ export default defineConfig({
     { name: "tanstack-router-js", specifier: "@tanstack/eslint-plugin-router" },
     { name: "tanstack-start-js", specifier: "@tanstack/eslint-plugin-start" },
     { name: "vitest-js", specifier: "@vitest/eslint-plugin" },
+    { name: "playwright-js", specifier: "eslint-plugin-playwright" },
     { name: "jsx-a11y-x-js", specifier: "eslint-plugin-jsx-a11y-x" },
     { name: "react-dom-js", specifier: "eslint-plugin-react-dom" },
     { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
@@ -235,6 +250,13 @@ export default defineConfig({
   ],
   rules: baseRules,
   overrides: [
+    {
+      files: ["e2e/**/*.{ts,tsx}"],
+      rules: {
+        ...recommendedRules.playwright,
+        "typescript/no-floating-promises": "error",
+      },
+    },
     {
       files: ["src/**/*.{ts,tsx}", "e2e/**/*.{ts,tsx}", "scripts/**/*.{ts,tsx}"],
       rules: {
