@@ -198,6 +198,7 @@ export const integrations: Integration[] = [
     items: [
       { name: "Docker" },
       { name: "Daytona" },
+      { name: "E2B" },
       { name: "Vercel Sandbox" },
       { name: "Sprites" },
     ],
