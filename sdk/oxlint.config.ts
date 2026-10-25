@@ -185,5 +185,23 @@ export default defineConfig({
       files: ["**/*.test.{ts,tsx}"],
       rules: recommendedRules.vitest,
     },
+    {
+      files: ["src/core/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                regex:
+                  "^(?:react(?:-dom)?(?:/|$)|@astralbeam/sdk/react(?:/|$)|(?:@/|(?:\\./|\\.\\./)+)(?:widget|react)(?:/|$))",
+                message:
+                  "Keep core and lib independent of React and widgets. Put rendering code in the React or widget adapters.",
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 })
