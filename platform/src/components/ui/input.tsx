@@ -1,11 +1,13 @@
 // Added from @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Disable editing until hydration finishes.
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
+import { useIsClient } from "usehooks-ts"
 
 import { cn } from "cn"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, disabled, ...props }: React.ComponentProps<"input">) {
+  const isClient = useIsClient()
   return (
     <InputPrimitive
       type={type}
@@ -15,6 +17,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         className
       )}
       {...props}
+      disabled={!isClient || disabled}
     />
   )
 }

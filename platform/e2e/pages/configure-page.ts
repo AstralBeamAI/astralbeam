@@ -18,7 +18,7 @@ export function configurePage(page: Page) {
 
     async signIn(operatorKey: string): Promise<void> {
       const submit = page.getByRole("button", { name: "Sign in" })
-      // Submitting before React attaches would post the key as a query string instead.
+      // Wait for the client handler before submitting credentials.
       await waitForHydration(submit)
       await page.getByLabel("Encryption key").fill(operatorKey)
       await submit.click()

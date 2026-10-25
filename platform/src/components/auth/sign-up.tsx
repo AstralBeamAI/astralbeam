@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements.
+// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements. Use useIsClient for client readiness.
 
 "use client"
 
@@ -27,7 +27,7 @@ import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
-import { useIsHydrated } from "./use-is-hydrated"
+import { useIsClient } from "usehooks-ts"
 
 export type SignUpProps = {
   className?: string
@@ -84,7 +84,7 @@ export function SignUp({
   const invitation = getInvitationContext(redirectTo)
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
-  const isHydrated = useIsHydrated()
+  const isClient = useIsClient()
   const signUpSubmitting = useRef(false)
 
   const [password, setPassword] = useState("")
@@ -131,7 +131,7 @@ export function SignUp({
   const signInMutating = useIsMutating({
     mutationKey: authMutationKeys.signIn.all,
   })
-  const isPending = !isHydrated || signUpEmailPending || signInMutating > 0
+  const isPending = !isClient || signUpEmailPending || signInMutating > 0
 
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string | undefined
@@ -202,7 +202,7 @@ export function SignUp({
 
       <CardContent>
         <div className="flex flex-col gap-6">
-          {!isHydrated && <p role="status">Loading sign-up form…</p>}
+          {!isClient && <p role="status">Loading sign-up form…</p>}
           {socialPosition === "top" && (
             <>
               {providerButtons}

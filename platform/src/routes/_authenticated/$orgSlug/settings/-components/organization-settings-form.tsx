@@ -5,6 +5,7 @@ import { useSession } from "@better-auth-ui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
+import { useIsClient } from "usehooks-ts"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -46,6 +47,7 @@ export function OrganizationSettingsForm({
   const navigate = useNavigate()
   const [name, setName] = useState(organizationName)
   const [slug, setSlug] = useState(organizationSlug)
+  const isClient = useIsClient()
   const [saving, setSaving] = useState(false)
   const [slugError, setSlugError] = useState<string | null>(null)
   const normalizedName = name.trim()
@@ -58,7 +60,7 @@ export function OrganizationSettingsForm({
 
   const save = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!valid || readOnly) return
+    if (!isClient || !valid || readOnly) return
     setSaving(true)
     setSlugError(null)
     try {
@@ -86,7 +88,7 @@ export function OrganizationSettingsForm({
   }
 
   return (
-    <form onSubmit={(event) => void save(event)} className="max-w-2xl">
+    <form method="post" onSubmit={(event) => void save(event)} className="max-w-2xl">
       <Card>
         <CardHeader>
           <CardTitle>General</CardTitle>
@@ -139,6 +141,7 @@ export function OrganizationSettingsForm({
             <Button
               type="submit"
               disabled={
+                !isClient ||
                 !valid ||
                 saving ||
                 (normalizedName === organizationName && normalizedSlug === organizationSlug)

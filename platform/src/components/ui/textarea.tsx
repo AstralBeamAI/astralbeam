@@ -1,10 +1,12 @@
 // Added from @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Disable editing until hydration finishes.
 import * as React from "react"
+import { useIsClient } from "usehooks-ts"
 
 import { cn } from "cn"
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({ className, disabled, ...props }: React.ComponentProps<"textarea">) {
+  const isClient = useIsClient()
   return (
     <textarea
       data-slot="textarea"
@@ -13,6 +15,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         className
       )}
       {...props}
+      disabled={!isClient || disabled}
     />
   )
 }

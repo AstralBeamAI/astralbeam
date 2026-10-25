@@ -4,7 +4,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useMemo, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
-import { useIsHydrated } from "@/components/auth/use-is-hydrated"
+import { useIsClient } from "usehooks-ts"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -153,10 +153,10 @@ export function UsageLimitForm({
   const conflicted = saveError?.tag === "UsageLimitChanged"
 
   // Zone lists and the browser's zone differ from the server's, so they wait for hydration.
-  const hydrated = useIsHydrated()
+  const isClient = useIsClient()
   const timeZone =
-    timeZoneChoice ?? (hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC")
-  const zoneList = useMemo(() => (hydrated ? listTimeZones() : []), [hydrated])
+    timeZoneChoice ?? (isClient ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC")
+  const zoneList = useMemo(() => (isClient ? listTimeZones() : []), [isClient])
   const timeZones = zoneList.includes(timeZone) ? zoneList : [timeZone, ...zoneList]
 
   const global = scope === "global"
@@ -183,7 +183,7 @@ export function UsageLimitForm({
   ]
   const fieldErrors = (field: string) =>
     submitted ? issues.filter((issue) => issue.path?.[0] === field) : []
-  const disabled = saving || readOnly
+  const disabled = !isClient || saving || readOnly
 
   const saveUsageLimit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -223,7 +223,12 @@ export function UsageLimitForm({
   }
 
   return (
-    <form onSubmit={(event) => void saveUsageLimit(event)} className="max-w-2xl" noValidate>
+    <form
+      method="post"
+      onSubmit={(event) => void saveUsageLimit(event)}
+      className="max-w-2xl"
+      noValidate
+    >
       <Card>
         <CardHeader>
           <CardTitle>{existing ? "Configuration" : "New usage limit"}</CardTitle>
@@ -439,7 +444,7 @@ export function UsageLimitForm({
         </CardContent>
         {!readOnly && (
           <CardFooter className="justify-end gap-2">
-            <Button type="submit" disabled={saving || conflicted}>
+            <Button type="submit" disabled={disabled || conflicted}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create limit"}
             </Button>
           </CardFooter>

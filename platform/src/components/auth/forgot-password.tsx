@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading.
+// Local changes: Add configured CAPTCHA; use browser-safe globals and domain-specific function names; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Wait for hydration before submission.
 
 "use client"
 
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent"
+import { useIsClient } from "usehooks-ts"
 
 export type ForgotPasswordProps = {
   className?: string
@@ -44,6 +45,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
   } = useAuth()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const isClient = useIsClient()
 
   const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(authClient, {
     onError: () => {
@@ -63,6 +65,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
 
   function submitPasswordResetRequest(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!isClient || isPending || !captchaReady) return
     const formData = new FormData(e.currentTarget)
     requestPasswordReset({
       email: formData.get("email") as string,
@@ -89,7 +92,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={submitPasswordResetRequest}>
+        <form method="post" onSubmit={submitPasswordResetRequest}>
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.email}>
               <FieldLabel htmlFor="email">{localization.auth.email}</FieldLabel>
@@ -129,7 +132,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
             {captchaComponent}
 
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={isPending || !captchaReady}>
+              <Button type="submit" disabled={!isClient || isPending || !captchaReady}>
                 {isPending && <Spinner />}
 
                 {localization.auth.sendResetLink}

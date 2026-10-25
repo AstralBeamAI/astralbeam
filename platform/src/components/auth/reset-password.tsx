@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, standard browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading. Share password visibility controls.
+// Local changes: Use Phosphor icons, the contextual Base UI Toast manager, standard browser globals, and domain-specific function names; preserve strict error-state typing; render a semantic page heading. Share password visibility controls. Wait for hydration before submission.
 
 "use client"
 
@@ -15,6 +15,7 @@ import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
+import { useIsClient } from "usehooks-ts"
 
 export type ResetPasswordProps = {
   className?: string
@@ -40,6 +41,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     Link,
   } = useAuth()
   const signInURL = getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)
+  const isClient = useIsClient()
 
   const { mutate: resetPassword, isPending } = useResetPassword(authClient, {
     onError: (error) => {
@@ -77,6 +79,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
 
   function submitPasswordReset(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!isClient || isPending) return
 
     const searchParams = new URLSearchParams(globalThis.location.search)
     const token = searchParams.get("token") as string
@@ -108,7 +111,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={submitPasswordReset}>
+        <form method="post" onSubmit={submitPasswordReset}>
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.password}>
               <FieldLabel htmlFor="password">{localization.auth.password}</FieldLabel>
@@ -199,7 +202,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
             )}
 
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={!isClient || isPending}>
                 {isPending && <Spinner />}
 
                 {localization.auth.resetPassword}

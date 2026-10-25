@@ -17,7 +17,7 @@ import { getRouteApi, useLocation, useMatches, useRouter } from "@tanstack/react
 import { useTheme } from "tanstack-router-theme-provider"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useIsHydrated } from "@/components/auth/use-is-hydrated"
+import { useIsClient } from "usehooks-ts"
 import type { OrganizationAccess } from "@/lib/organizations/access"
 import { APP_NAME, ASSISTANT_NAME } from "@/lib/constants"
 import { widgetDashboardTheme, widgetThemeClassName, widgetThemeStyle } from "../-lib/widget-theme"
@@ -202,7 +202,7 @@ export function DogfoodChat({ children }: { children: ReactNode }) {
   const { access } = dogfoodChatRoute.useRouteContext()
   const panelId = useId()
   const triggerId = useId()
-  const hydrated = useIsHydrated()
+  const hydrated = useIsClient()
   const [open, setOpenState] = useState(false)
   const [hasOpened, setHasOpened] = useState(false)
   if (open && !hasOpened) setHasOpened(true)
@@ -234,7 +234,7 @@ export function DogfoodChat({ children }: { children: ReactNode }) {
 
 export function DogfoodChatTrigger({ className }: { className?: string }) {
   const chat = useContext(DogfoodChatContext)
-  const hydrated = useIsHydrated()
+  const hydrated = useIsClient()
   // The open panel's header already closes it, so the trigger only offers to open.
   if (!chat || chat.open) return null
   return (

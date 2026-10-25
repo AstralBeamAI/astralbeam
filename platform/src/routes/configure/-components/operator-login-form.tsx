@@ -9,16 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { useIsClient } from "usehooks-ts"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { loginOperator } from "../-functions/login-operator"
 
 export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [key, setKey] = useState("")
+  const isClient = useIsClient()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   const submitOperatorLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isClient || pending) return
     setPending(true)
     setError(null)
     try {
@@ -41,7 +44,11 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={(event) => void submitOperatorLogin(event)} className="flex flex-col gap-4">
+        <form
+          method="post"
+          onSubmit={(event) => void submitOperatorLogin(event)}
+          className="flex flex-col gap-4"
+        >
           <p className="text-sm text-muted-foreground">
             Enter the first active value from <code>DATABASE_ENCRYPTION_KEY</code>.
           </p>
@@ -68,7 +75,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
               The key is verified against the environment and is never stored in the database.
             </FieldDescription>
           </Field>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={!isClient || pending}>
             {pending && <Spinner />}
             Sign in
           </Button>
