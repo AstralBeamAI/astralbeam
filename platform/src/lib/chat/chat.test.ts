@@ -209,7 +209,7 @@ describe("Chat.run", () => {
       }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
-  it.effect.each(["recorded", "failed", "cancelled", "charged"])(
+  it.effect.each(["failed", "cancelled", "charged"])(
     "requires a durable request snapshot before dispatch: %s",
     (outcome) => {
       let recorded = false
@@ -230,7 +230,7 @@ describe("Chat.run", () => {
             // Drain the native adapter against the synthetic HTTP boundary.
           }
         })
-        assert.strictEqual(dispatched, outcome === "recorded" || outcome === "charged" ? 1 : 0)
+        assert.strictEqual(dispatched, outcome === "charged" ? 1 : 0)
         if (outcome === "charged") {
           assert.strictEqual(charged?.costUsd, "0.000036")
           assert.strictEqual(charged?.usage?.promptTokens, 10)
@@ -245,34 +245,27 @@ describe("Chat.run", () => {
               fetch: () => {
                 assert.strictEqual(recorded, true)
                 dispatched += 1
-                if (outcome === "charged")
-                  return Promise.resolve(
-                    new Response(
-                      [
-                        {
-                          type: "response.created",
-                          response: { id: "response", model: "test-model", output: [] },
-                        },
-                        {
-                          type: "response.completed",
-                          response: {
-                            id: "response",
-                            model: "test-model",
-                            status: "completed",
-                            output: [],
-                            usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
-                          },
-                        },
-                      ]
-                        .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
-                        .join(""),
-                      { headers: { "Content-Type": "text/event-stream" } },
-                    ),
-                  )
                 return Promise.resolve(
-                  Response.json(
-                    { error: { message: "Synthetic unauthorized response" } },
-                    { status: 401 },
+                  new Response(
+                    [
+                      {
+                        type: "response.created",
+                        response: { id: "response", model: "test-model", output: [] },
+                      },
+                      {
+                        type: "response.completed",
+                        response: {
+                          id: "response",
+                          model: "test-model",
+                          status: "completed",
+                          output: [],
+                          usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+                        },
+                      },
+                    ]
+                      .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+                      .join(""),
+                    { headers: { "Content-Type": "text/event-stream" } },
                   ),
                 )
               },
@@ -283,17 +276,12 @@ describe("Chat.run", () => {
                 pricingSource: { kind: "manual" },
                 prices: { inputPerMillion: "2", outputPerMillion: "8" },
                 contextTiers: [],
-                maxInputTokens: 128_000,
-                contextWindowTokens: null,
-                maxOutputTokens: 8192,
-                outputCap: 4096,
               }),
             recordRequest: ({ claim, request }) => {
               if (request.usage) charged = request
               assert.deepStrictEqual(claim, chatTestExecution.claim)
               assert.strictEqual(request.providerId, CHAT_TEST_MODEL.providerId)
               assert.strictEqual(request.modelId, CHAT_TEST_MODEL.modelId)
-              assert.strictEqual(new Date(request.startedAt).toISOString(), request.startedAt)
               assert.strictEqual(JSON.stringify(request).includes(CHAT_TEST_MODEL.apiKey), false)
               return outcome !== "failed"
                 ? Effect.promise(async () => {

@@ -9,7 +9,7 @@ import {
 import { Effect, Schema } from "effect"
 import { expect, test } from "vitest"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
-import type { ModelConfiguration } from "@/lib/model-providers/schemas"
+import type { ModelRateCard } from "@/lib/model-providers/schemas"
 import { modelRequestCost } from "@/lib/model-providers/usage-cost"
 import { createChatAdapter } from "./adapter"
 import { chatWebState, chatWebTools, fetchChatWeb } from "./web"
@@ -259,7 +259,7 @@ async function exerciseWeb(
     cancel?: boolean
     reject?: boolean
     slow?: boolean
-    pricing?: (request: number) => ModelConfiguration
+    pricing?: (request: number) => ModelRateCard
   } = {},
 ) {
   const requests: Schema.JsonObject[] = []
@@ -689,10 +689,6 @@ test.each(["once", "always"] as const)(
         pricingSource: { kind: "manual" },
         prices: { inputPerMillion: request === 1 ? "2" : "4", outputPerMillion: "8" },
         contextTiers: [],
-        maxInputTokens: 128_000,
-        contextWindowTokens: null,
-        maxOutputTokens: 8192,
-        outputCap: 4096,
       }),
     })
     expect(result.requests).toHaveLength(pause === "once" ? 2 : CHAT_MAX_MODEL_TURNS)

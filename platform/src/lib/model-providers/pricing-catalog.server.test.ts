@@ -3,18 +3,9 @@ import { Schema } from "effect"
 
 import { catalogModelConfiguration, effectiveModelConfiguration } from "./pricing-catalog.server.ts"
 import { ModelPriceCatalogSchema, type ModelPriceCatalog } from "./pricing-catalog-schemas.ts"
-import { modelInputAllowance, type ModelConfiguration } from "./schemas.ts"
+import { modelInputAllowance } from "./schemas.ts"
 
-const modelTestConfiguration: ModelConfiguration = {
-  currency: "USD",
-  pricingSource: { kind: "manual" },
-  prices: { inputPerMillion: "2", outputPerMillion: "8" },
-  contextTiers: [],
-  maxInputTokens: 128_000,
-  contextWindowTokens: null,
-  maxOutputTokens: 8192,
-  outputCap: 4096,
-}
+const catalogTestManualPrices = { inputPerMillion: "5", outputPerMillion: "15" }
 
 const testPriceCatalog: ModelPriceCatalog = {
   providers: [
@@ -138,12 +129,12 @@ describe("model pricing catalog", () => {
       {
         id: crypto.randomUUID(),
         effectiveFrom: "2020-01-01T00:00:00.000Z",
-        policy: { kind: "manual" as const, prices: modelTestConfiguration.prices },
+        policy: { kind: "manual" as const, prices: catalogTestManualPrices },
       },
     ]
     expect(effectiveModelConfiguration({ ...lookup, configured: limits, history })).toMatchObject({
       ...limits,
-      prices: modelTestConfiguration.prices,
+      prices: catalogTestManualPrices,
       pricingSource: { kind: "manual" },
       contextTiers: [],
     })
