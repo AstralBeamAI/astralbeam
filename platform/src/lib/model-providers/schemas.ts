@@ -93,7 +93,6 @@ export const ModelPricePolicySchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("catalog") }),
   ModelManualPricePolicySchema,
 ])
-export type ModelPricePolicy = typeof ModelPricePolicySchema.Type
 const ModelPriceVersionSchema = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
   effectiveFrom: modelPriceInstant,
@@ -248,7 +247,6 @@ export const ModelProviderFieldsSchema = Schema.Struct({
     }),
   ),
 )
-export type ModelProviderFields = typeof ModelProviderFieldsSchema.Type
 
 export const ModelProviderCredentialsPayloadSchema = Schema.Struct({
   organizationId: UuidV7Schema,
