@@ -184,6 +184,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       startedAt: "2026-11-01T00:00:00.000Z",
     }
     await runtime.runPromise(service.recordRequest({ claim, request: retry }))
+    const earlier = { ...request, id: crypto.randomUUID(), startedAt: "2026-09-30T23:59:59.999Z" }
+    await runtime.runPromise(service.recordRequest({ claim, request: earlier }))
     await expect(
       runtime.runPromise(service.recordRequest({ claim, request: { ...request, rates: null } })),
     ).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
@@ -244,7 +246,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     const settled = history.find((message) => message.id === claim.assistantMessageId)!
     const interrupted = history.find((message) => message.id === next.assistantMessageId)!
-    expect(settled.requestAccounting).toEqual({ version: 2, requests: [charged, retried] })
+    expect(settled.requestAccounting).toEqual({ version: 2, requests: [charged, retried, earlier] })
+    expect(settled).toMatchObject({
+      firstRequestAt: new Date(earlier.startedAt),
+      lastRequestAt: new Date(retry.startedAt),
+    })
     expect(interrupted).toMatchObject({
       state: "interrupted",
       payload: { parts: [] },

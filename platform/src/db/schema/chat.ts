@@ -20,6 +20,7 @@ import {
   schemaJsonb,
   lockVersion,
   timestamps,
+  timestampWithTimeZone,
   uuidV7,
 } from "../lib/columns.ts"
 import { fileObject } from "./files.ts"
@@ -231,6 +232,8 @@ export const chatMessage = snakeCase.table(
         requests: Schema.Array(ModelRequestSnapshotSchema),
       }).check(boundedChatJson),
     ),
+    firstRequestAt: timestampWithTimeZone(),
+    lastRequestAt: timestampWithTimeZone(),
     // Lifecycle on the initiating user message. Its accepted content remains complete throughout execution.
     turnState: chatMessageTurnStateEnum(),
     ...timestamps(),
@@ -260,6 +263,15 @@ export const chatMessage = snakeCase.table(
         table.tenantId,
         sql`(${table.metadata}->'provenance'->>'initiatorTenantUserId')`,
         table.createdAt,
+      )
+      .where(sql`${table.role} = 'assistant'`),
+    index("chat_message_user_request_usage_idx")
+      .on(
+        table.organizationId,
+        table.tenantId,
+        sql`(${table.metadata}->'provenance'->>'initiatorTenantUserId')`,
+        table.lastRequestAt,
+        table.firstRequestAt,
       )
       .where(sql`${table.role} = 'assistant'`),
     deferrableForeignKey({

@@ -342,6 +342,8 @@ const restSavedMessage: MessageRecord = {
   turnState: "completed",
   metadata: { version: 1 },
   requestAccounting: null,
+  firstRequestAt: null,
+  lastRequestAt: null,
   payload: { version: 1, parts: [{ id: "part", type: "text", content: "Saved history" }] },
   sourceAssistantMessageId: null,
   sourceToolPartId: null,
@@ -1484,7 +1486,17 @@ describe("REST API through the Effect Fetch handler", () => {
     })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, ...ids, restOrgId])
     const savedReplies = new PgDialect().sqlToQuery(restTestState.usagePredicates[0]!)
-    expect(savedReplies.params).toEqual([restOrgId, restTenantId, "assistant", "draft", ...ids])
+    expect(savedReplies.params).toEqual([
+      restOrgId,
+      restTenantId,
+      "assistant",
+      "draft",
+      ...ids,
+      "2024-02-29T07:04:56.123Z",
+      "2024-06-01T07:04:56.123Z",
+      "2024-02-29T07:04:56.123Z",
+      "2024-06-01T07:04:56.123Z",
+    ])
     expect(restTestState.usagePredicates).toHaveLength(1)
     restTestState.rows.push(
       [restTenantRow],

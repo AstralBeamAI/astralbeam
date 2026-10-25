@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
 import { BigDecimal, Context, DateTime, Effect, Layer } from "effect"
 
 import { Database } from "@/db/database"
@@ -167,15 +167,14 @@ export class TenantUsers extends Context.Service<
         end`
         const startAt = DateTime.toDateUtc(DateTime.makeUnsafe(start))
         const endAt = DateTime.toDateUtc(DateTime.makeUnsafe(end))
-        const cost = sql`case when ${chatMessage.requestAccounting}->>'version' = '2' then
+        const perRequest = sql`${chatMessage.requestAccounting}->>'version' = '2'`
+        const cost = sql`case when ${perRequest} then
           (select coalesce(sum((attempt->>'costUsd')::numeric), 0)
            from jsonb_array_elements(${chatMessage.requestAccounting}->'requests') attempt
            where (attempt->>'startedAt')::timestamptz >= ${startAt}
              and (attempt->>'startedAt')::timestamptz < ${endAt}
              and attempt->>'costUsd' ~ '^-?[0-9]+([.][0-9]+)?$')
-          when ${chatMessage.createdAt} >= ${startAt} and ${chatMessage.createdAt} < ${endAt}
-            then ${savedCost}
-          else 0 end`
+          else ${savedCost} end`
         const totals = yield* db
           .select({ tenantUserId: initiator, cost: sql<string>`coalesce(sum(${cost}), 0)::text` })
           .from(chatMessage)
@@ -188,6 +187,18 @@ export class TenantUsers extends Context.Service<
               inArray(
                 initiator,
                 users.map(({ id }) => id),
+              ),
+              or(
+                and(
+                  perRequest,
+                  gte(chatMessage.lastRequestAt, startAt),
+                  lt(chatMessage.firstRequestAt, endAt),
+                ),
+                and(
+                  sql`(${perRequest}) is not true`,
+                  gte(chatMessage.createdAt, startAt),
+                  lt(chatMessage.createdAt, endAt),
+                ),
               ),
             ),
           )

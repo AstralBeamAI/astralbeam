@@ -1724,6 +1724,8 @@ export class ChatThreads extends Context.Service<
                 yield* tx
                   .update(chatMessage)
                   .set({
+                    firstRequestAt: sql`least(${chatMessage.firstRequestAt}, ${input.request.startedAt}::timestamptz)`,
+                    lastRequestAt: sql`greatest(${chatMessage.lastRequestAt}, ${input.request.startedAt}::timestamptz)`,
                     requestAccounting: {
                       version: 2,
                       requests: existing
