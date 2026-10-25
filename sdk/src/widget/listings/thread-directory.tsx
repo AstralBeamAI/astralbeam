@@ -76,7 +76,7 @@ export function ThreadDirectoryPage({
         cell: ({ row }) => (
           <Button
             variant="link"
-            className="h-auto min-w-0 max-w-full @4xl/directory:min-w-48 @4xl/directory:max-w-96 justify-start p-0 text-start whitespace-normal break-words"
+            className="h-auto min-w-0 max-w-full @4xl/directory:min-w-48 @4xl/directory:max-w-96 justify-start p-0 text-start whitespace-normal break-words any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11 any-pointer-coarse:@4xl/directory:min-w-48"
             onClick={() => setSelected(row.original)}
           >
             {row.original.title || "Untitled conversation"}

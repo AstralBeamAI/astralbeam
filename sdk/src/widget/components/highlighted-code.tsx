@@ -38,7 +38,7 @@ export function HighlightedCode({
         <CodeBlockActions>
           <CodeBlockCopyButton
             value={language.toLowerCase() === "ansi" ? stripAnsi(children) : children}
-            className="any-pointer-coarse:size-10"
+            className="any-pointer-coarse:size-11"
           />
         </CodeBlockActions>
       </CodeBlockHeader>
