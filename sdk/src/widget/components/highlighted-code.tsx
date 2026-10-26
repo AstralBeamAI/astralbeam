@@ -1,6 +1,7 @@
 import { cn } from "cn"
 import stripAnsi from "strip-ansi"
-import { useHighlightedCode } from "../hooks/use-highlighted-code"
+import { useMemo } from "react"
+import { highlightCode } from "../lib/highlighter"
 import {
   CodeBlock,
   CodeBlockActions,
@@ -28,7 +29,7 @@ export function HighlightedCode({
   tone = "default",
   className,
 }: HighlightedCodeProps) {
-  const lines = useHighlightedCode(children, language)
+  const lines = useMemo(() => highlightCode(children, language), [children, language])
   return (
     <CodeBlock size="sm" variant={tone === "error" ? "destructive" : "default"}>
       <CodeBlockHeader className="group-data-[size=sm]/code-block:pt-2">
