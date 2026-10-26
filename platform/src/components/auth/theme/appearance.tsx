@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/theme
-// Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, label the theme radio group, and gate hydration with useIsClient.
+// Local changes: Replace Lucide with Phosphor icons, consume the static theme API directly, label the theme radio group, and gate hydration with useHydrated.
 
 import {
   ThemePreviewDark,
@@ -14,7 +14,7 @@ import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/fie
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { themePlugin } from "@/lib/auth/theme-plugin"
 import { cn } from "cn"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 export type AppearanceProps = {
   className?: string
@@ -32,7 +32,7 @@ export type AppearanceProps = {
 export function Appearance({ className }: AppearanceProps) {
   const { localization, setTheme, theme, themes } = useAuthPlugin(themePlugin)
 
-  const isMounted = useIsClient()
+  const isMounted = useHydrated()
 
   return (
     <div>

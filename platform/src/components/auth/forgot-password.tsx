@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 export type ForgotPasswordProps = {
   className?: string
@@ -45,7 +45,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
   } = useAuth()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
 
   const { mutate: requestPasswordReset, isPending } = useRequestPasswordReset(authClient, {
     onError: () => {
@@ -65,7 +65,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
 
   function submitPasswordResetRequest(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!isClient || isPending || !captchaReady) return
+    if (!hydrated || isPending || !captchaReady) return
     const formData = new FormData(e.currentTarget)
     requestPasswordReset({
       email: formData.get("email") as string,
@@ -132,7 +132,7 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
             {captchaComponent}
 
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={!isClient || isPending || !captchaReady}>
+              <Button type="submit" disabled={!hydrated || isPending || !captchaReady}>
                 {isPending && <Spinner />}
 
                 {localization.auth.sendResetLink}

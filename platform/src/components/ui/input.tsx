@@ -2,12 +2,12 @@
 // Local changes: Disable editing until hydration finishes.
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 import { cn } from "cn"
 
 function Input({ className, type, disabled, ...props }: React.ComponentProps<"input">) {
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
   return (
     <InputPrimitive
       type={type}
@@ -17,7 +17,7 @@ function Input({ className, type, disabled, ...props }: React.ComponentProps<"in
         className
       )}
       {...props}
-      disabled={!isClient || disabled}
+      disabled={!hydrated || disabled}
     />
   )
 }

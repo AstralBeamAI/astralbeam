@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated. Use useIsClient for client readiness.
+// Local changes: Use Phosphor icons and semantic shadcn colors, and route OAuth signup-disabled results to signup while preserving the return path, and parse the result during render once hydrated. Use TanStack hydration readiness.
 
 "use client"
 
@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "cn"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 type AuthResultProps = {
   className?: string
@@ -28,7 +28,7 @@ type AuthResultProps = {
 
 function AuthResultView({ className, fallbackIntent }: AuthResultProps) {
   const { basePaths, localization, navigate, redirectTo, viewPaths } = useAuth()
-  const isHydrated = useIsClient()
+  const isHydrated = useHydrated()
   const result: AuthResult = parseAuthResult(
     isHydrated ? globalThis.location.search : "",
     fallbackIntent,

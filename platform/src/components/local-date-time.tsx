@@ -1,4 +1,4 @@
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 export type LocalDateTimeProps = {
   value: Date | string
@@ -7,7 +7,7 @@ export type LocalDateTimeProps = {
 
 /** A time in the reader's locale and time zone, which only the browser knows until hydration. */
 export function LocalDateTime({ value, dateStyle }: LocalDateTimeProps) {
-  const isHydrated = useIsClient()
+  const isHydrated = useHydrated()
   const date = new Date(value)
   return (
     <time dateTime={date.toISOString()}>

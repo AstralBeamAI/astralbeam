@@ -25,7 +25,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 export type SignInProps = {
   className?: string
@@ -60,7 +60,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const [password, setPassword] = useState("")
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
 
   const { mutate: signInEmail, isPending: signInEmailPending } = useSignInEmail(authClient, {
     onError: (error, { email }) => {
@@ -88,7 +88,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   const signUpMutating = useIsMutating({
     mutationKey: authMutationKeys.signUp.all,
   })
-  const isPending = !isClient || signInMutating + signUpMutating > 0
+  const isPending = !hydrated || signInMutating + signUpMutating > 0
 
   const [fieldErrors, setFieldErrors] = useState<{
     email: string | undefined

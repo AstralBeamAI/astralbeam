@@ -15,7 +15,7 @@ import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 import { PasswordStrengthMeter } from "./password-strength-meter"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 
 export type ResetPasswordProps = {
   className?: string
@@ -41,7 +41,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     Link,
   } = useAuth()
   const signInURL = getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
 
   const { mutate: resetPassword, isPending } = useResetPassword(authClient, {
     onError: (error) => {
@@ -79,7 +79,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
 
   function submitPasswordReset(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!isClient || isPending) return
+    if (!hydrated || isPending) return
 
     const searchParams = new URLSearchParams(globalThis.location.search)
     const token = searchParams.get("token") as string
@@ -202,7 +202,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
             )}
 
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={!isClient || isPending}>
+              <Button type="submit" disabled={!hydrated || isPending}>
                 {isPending && <Spinner />}
 
                 {localization.auth.resetPassword}

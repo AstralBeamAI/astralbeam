@@ -1,10 +1,9 @@
 "use client"
 
-import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useHydrated, useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useMemo, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
-import { useIsClient } from "usehooks-ts"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -153,10 +152,10 @@ export function UsageLimitForm({
   const conflicted = saveError?.tag === "UsageLimitChanged"
 
   // Zone lists and the browser's zone differ from the server's, so they wait for hydration.
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
   const timeZone =
-    timeZoneChoice ?? (isClient ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC")
-  const zoneList = useMemo(() => (isClient ? listTimeZones() : []), [isClient])
+    timeZoneChoice ?? (hydrated ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC")
+  const zoneList = useMemo(() => (hydrated ? listTimeZones() : []), [hydrated])
   const timeZones = zoneList.includes(timeZone) ? zoneList : [timeZone, ...zoneList]
 
   const global = scope === "global"
@@ -183,7 +182,7 @@ export function UsageLimitForm({
   ]
   const fieldErrors = (field: string) =>
     submitted ? issues.filter((issue) => issue.path?.[0] === field) : []
-  const disabled = !isClient || saving || readOnly
+  const disabled = !hydrated || saving || readOnly
 
   const saveUsageLimit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()

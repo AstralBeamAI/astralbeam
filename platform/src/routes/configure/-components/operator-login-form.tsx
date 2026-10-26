@@ -9,19 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
-import { useIsClient } from "usehooks-ts"
+import { useHydrated } from "@tanstack/react-router"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { loginOperator } from "../-functions/login-operator"
 
 export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [key, setKey] = useState("")
-  const isClient = useIsClient()
+  const hydrated = useHydrated()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   const submitOperatorLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!isClient || pending) return
+    if (!hydrated || pending) return
     setPending(true)
     setError(null)
     try {
@@ -75,7 +75,7 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
               The key is verified against the environment and is never stored in the database.
             </FieldDescription>
           </Field>
-          <Button type="submit" disabled={!isClient || pending}>
+          <Button type="submit" disabled={!hydrated || pending}>
             {pending && <Spinner />}
             Sign in
           </Button>
