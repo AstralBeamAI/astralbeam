@@ -43,7 +43,9 @@ const ecsLogger = Logger.formatStructured.pipe(
 function redactLogValue(key: string, value: unknown): unknown {
   if (SECRET_LOG_FIELD.test(key)) return "[REDACTED]"
   if (typeof value !== "string") return value
+  // Better Auth puts password-reset credentials in the path, unlike its query-based tokens.
   return value
+    .replace(/(\/api\/auth\/reset-password\/)[^/?#\s"']+/gu, "$1[REDACTED]")
     .replace(/(\b[a-z][a-z\d+.-]*:\/\/[^/\s:@]+:)[^/\s@]*@/giu, "$1[REDACTED]@")
     .replace(/\b(Bearer|Basic)\s+[\w.~+/*-]+=*/giu, "$1 [REDACTED]")
     .replace(
