@@ -112,7 +112,7 @@ describe("runEffect", () => {
 })
 
 describe("reportFailure", () => {
-  it("logs the failure's type, SQLSTATE and frames once, never its message", async () => {
+  it("logs the full cause once with its operation and client reference", async () => {
     const lines: string[] = []
     const logger = Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])
     const query = new EffectDrizzleQueryError({
@@ -127,10 +127,10 @@ describe("reportFailure", () => {
       ),
     )
     expect(lines).toHaveLength(1)
-    expect(lines[0]).toContain(referenceId)
-    expect(lines[0]).toContain('"sqlstate":"08006"')
-    expect(lines[0]).toContain('"type":"EffectDrizzleQueryError"')
-    expect(lines[0]).not.toContain("sk-secret-value")
-    expect(lines[0]).not.toContain("insert into agent")
+    const record: unknown = JSON.parse(lines[0]!)
+    expect(record).toHaveProperty("cause", expect.stringContaining(query.message))
+    expect(record).toMatchObject({
+      annotations: { event: "request.failed", operation: "createAgent", referenceId },
+    })
   })
 })

@@ -4,10 +4,6 @@ export function sqlState(error: unknown): string | undefined {
   return postgresErrorField(error, "code")
 }
 
-export function sqlConstraint(error: unknown): string | undefined {
-  return postgresErrorField(error, "constraint")
-}
-
 type DatabaseFailure = { readonly _tag: "EffectDrizzleQueryError" | "SqlError" }
 
 /**
@@ -25,7 +21,7 @@ export function mapDatabaseErrors<
         Predicate.isTagged(error, "EffectDrizzleQueryError") ||
         Predicate.isTagged(error, "SqlError"),
       (error) => {
-        const constraint = sqlConstraint(error)
+        const constraint = postgresErrorField(error, "constraint")
         const mapped = constraint === undefined ? undefined : constraints[constraint]
         return mapped ? Effect.fail(mapped() as Mapped) : Effect.die(error)
       },

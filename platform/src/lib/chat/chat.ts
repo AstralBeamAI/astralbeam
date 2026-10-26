@@ -462,12 +462,14 @@ export class Chat extends Context.Service<
                 Effect.annotateLogs({
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
+                  message: chunk.message,
                   code: errorReason(chunk),
                   ...(typeof chunk.metadata?.tanstack?.errorType === "string"
                     ? { errorType: chunk.metadata.tanstack.errorType.slice(0, 128) }
                     : {}),
+                  // Keep the provider's ID separate from the HTTP request ID inherited by these logs.
                   ...(typeof chunk.metadata?.tanstack?.requestId === "string"
-                    ? { requestId: chunk.metadata.tanstack.requestId.slice(0, 256) }
+                    ? { providerRequestId: chunk.metadata.tanstack.requestId.slice(0, 256) }
                     : {}),
                 }),
               ),

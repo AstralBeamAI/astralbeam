@@ -35,6 +35,7 @@
     "e2e/prepare-database.ts",
     "scripts/*.ts",
     "src/client.tsx",
+    "src/lib/runtime/nitro-logging-plugin.server.ts",
     "src/lib/runtime/response-headers.server.ts",
     "src/lib/cluster/plugin.ts",
     "src/main.ts",

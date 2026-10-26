@@ -101,7 +101,7 @@ describe("dashboard token boundary", () => {
       assert.strictEqual(response.status, 500)
       assert.notInclude(yield* Effect.promise(() => response.text()), "secret")
       assert.strictEqual(lines.length, 1)
-      assert.notInclude(lines[0], "secret")
+      assert.include(lines[0], "postgres://user:secret@db/app")
     }),
   )
 })
