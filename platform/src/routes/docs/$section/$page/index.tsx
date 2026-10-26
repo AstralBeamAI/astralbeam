@@ -1,4 +1,6 @@
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
+import { parseMarkdown } from "@tanstack/markdown"
+import { docsMarkdownExtensions } from "@tanstack/markdown/extensions/docs"
 import { APP_NAME } from "@/lib/constants"
 import { DocsMarkdown } from "../../-components/docs-markdown"
 import {
@@ -23,7 +25,9 @@ export const Route = createFileRoute("/docs/$section/$page/")({
     return {
       pageTitle: `${page.title} · ${section.title}`,
       description: page.description,
-      markdown: await loadDocsMarkdown(section.slug, page.slug),
+      markdown: parseMarkdown(await loadDocsMarkdown(section.slug, page.slug), {
+        extensions: docsMarkdownExtensions(),
+      }),
     }
   },
   head: ({ loaderData, params }) => ({
@@ -52,29 +56,78 @@ function DocsArticlePage() {
     sectionSlug: section.slug,
     pageSlug: params.page,
   })
+  const pageLinks = (
+    <>
+      <p className="mb-3 text-sm font-semibold">{section.title}</p>
+      <ul className="space-y-1 border-s">
+        {publishedDocsPages(section).map((entry) => (
+          <li key={entry.slug}>
+            <Link
+              to="/docs/$section/$page"
+              params={{ section: section.slug, page: entry.slug }}
+              className="-ms-px block border-s border-transparent py-1.5 ps-3 text-sm text-muted-foreground hover:text-foreground any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+              activeProps={{ className: "border-primary font-medium text-foreground" }}
+            >
+              {entry.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+  const headings = markdown.headings?.filter((heading) => heading.level === 2) ?? []
+  const outlineLinks = headings.map((heading) => (
+    <li key={heading.id}>
+      <a
+        href={`#${heading.id}`}
+        className="block py-1.5 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+      >
+        {heading.text}
+      </a>
+    </li>
+  ))
   return (
-    <div className="container mx-auto flex max-w-6xl gap-10 px-4 py-10">
-      <nav aria-label={`${section.title} pages`} className="hidden w-52 shrink-0 md:block">
-        <p className="mb-3 text-sm font-semibold">{section.title}</p>
-        <ul className="space-y-1 border-s">
-          {publishedDocsPages(section).map((entry) => (
-            <li key={entry.slug}>
-              <Link
-                to="/docs/$section/$page"
-                params={{ section: section.slug, page: entry.slug }}
-                className="-ms-px block border-s border-transparent py-1 ps-3 text-sm text-muted-foreground hover:text-foreground"
-                activeProps={{
-                  className: "border-primary font-medium text-foreground",
-                }}
-              >
-                {entry.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
+    <div className="container mx-auto grid max-w-7xl gap-8 px-4 py-8 md:grid-cols-[11rem_minmax(0,1fr)] lg:grid-cols-[11rem_minmax(0,1fr)_11rem]">
+      <nav
+        aria-label={`${section.title} pages`}
+        className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] self-start overflow-y-auto md:block"
+      >
+        {pageLinks}
       </nav>
-      <main className="min-w-0 max-w-3xl flex-1 pb-16">
-        <DocsMarkdown markdown={markdown} sectionSlug={section.slug} />
+      <main className="min-w-0 max-w-3xl pb-16">
+        <div className="mb-6 space-y-2 lg:hidden">
+          <details
+            key={`browse:${section.slug}/${params.page}`}
+            className="rounded-lg border px-4 md:hidden"
+          >
+            <summary className="cursor-pointer py-3 text-sm font-medium">Browse docs</summary>
+            <nav aria-label="Browse documentation" className="pb-4">
+              <Link
+                to="/docs"
+                className="mb-4 block py-2 text-sm text-primary underline underline-offset-4"
+              >
+                All documentation
+              </Link>
+              {pageLinks}
+            </nav>
+          </details>
+          {headings.length > 0 && (
+            <details
+              key={`outline:${section.slug}/${params.page}`}
+              className="rounded-lg border px-4"
+            >
+              <summary className="cursor-pointer py-3 text-sm font-medium">On this page</summary>
+              <nav aria-label="On this page" className="pb-3">
+                <ul>{outlineLinks}</ul>
+              </nav>
+            </details>
+          )}
+        </div>
+        <DocsMarkdown
+          key={`${section.slug}/${params.page}`}
+          markdown={markdown}
+          sectionSlug={section.slug}
+        />
         <nav
           aria-label="Article navigation"
           className="mt-10 grid gap-4 border-t pt-6 sm:grid-cols-2"
@@ -107,6 +160,15 @@ function DocsArticlePage() {
           )}
         </nav>
       </main>
+      {headings.length > 0 && (
+        <nav
+          aria-label="On this page"
+          className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] self-start overflow-y-auto lg:block"
+        >
+          <p className="mb-3 text-sm font-semibold">On this page</p>
+          <ul className="border-s ps-4">{outlineLinks}</ul>
+        </nav>
+      )}
     </div>
   )
 }
