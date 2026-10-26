@@ -14,8 +14,7 @@ import { sql } from "@tanstack/highlight/languages/sql"
 import { ts } from "@tanstack/highlight/languages/ts"
 import { tsx } from "@tanstack/highlight/languages/tsx"
 import { yaml } from "@tanstack/highlight/languages/yaml"
-import type { CSSProperties, ReactNode } from "react"
-import { ansiTokens } from "./ansi"
+import type { ReactNode } from "react"
 
 const highlighter = createHighlighter({
   languages: [
@@ -41,20 +40,17 @@ export function highlightCode(value: string, language: string): ReactNode[][] {
   // Keep the existing code-block layout without an extra line for a final newline.
   const code = value.replace(/\r?\n$/, "")
   const lang = language.toLowerCase() === "shellscript" ? "shell" : language.toLowerCase()
-  const tokens: { value: string; className?: string; style?: CSSProperties }[] =
-    lang === "ansi"
-      ? ansiTokens(code)
-      : highlighter.tokenize(code, { lang }).tokens.map(({ value, className }) => ({
-          value,
-          ...(className ? { className: `th-${className}` } : {}),
-        }))
+  const { tokens } = highlighter.tokenize(code, { lang })
   const lines: ReactNode[][] = [[]]
   for (const [index, token] of tokens.entries()) {
     for (const [part, text] of token.value.split(/\r?\n/).entries()) {
       if (part) lines.push([])
       if (text) {
         lines[lines.length - 1]!.push(
-          <span key={`${index}-${part}`} className={token.className} style={token.style}>
+          <span
+            key={`${index}-${part}`}
+            className={token.className ? `th-${token.className}` : undefined}
+          >
             {text}
           </span>,
         )

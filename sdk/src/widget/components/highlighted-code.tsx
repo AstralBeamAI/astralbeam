@@ -29,7 +29,8 @@ export function HighlightedCode({
   tone = "default",
   className,
 }: HighlightedCodeProps) {
-  const lines = useMemo(() => highlightCode(children, language), [children, language])
+  const code = language.toLowerCase() === "ansi" ? stripAnsi(children) : children
+  const lines = useMemo(() => highlightCode(code, language), [code, language])
   return (
     <CodeBlock size="sm" variant={tone === "error" ? "destructive" : "default"}>
       <CodeBlockHeader className="group-data-[size=sm]/code-block:pt-2">
@@ -37,10 +38,7 @@ export function HighlightedCode({
           {title ?? language}
         </CodeBlockTitle>
         <CodeBlockActions>
-          <CodeBlockCopyButton
-            value={language.toLowerCase() === "ansi" ? stripAnsi(children) : children}
-            className="any-pointer-coarse:size-11"
-          />
+          <CodeBlockCopyButton value={code} className="any-pointer-coarse:size-11" />
         </CodeBlockActions>
       </CodeBlockHeader>
       <CodeBlockContent
