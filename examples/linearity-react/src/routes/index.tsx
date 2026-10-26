@@ -6,10 +6,6 @@ function Home() {
   const { data, ready } = useDemo()
   if (!ready) return <div className="app-loading">Opening your workspace…</div>
   return (
-    <Navigate
-      to="/$workspaceId/overview"
-      params={{ workspaceId: data.activeWorkspaceId }}
-      replace
-    />
+    <Navigate to="/$workspaceId/issues" params={{ workspaceId: data.activeWorkspaceId }} replace />
   )
 }

@@ -377,7 +377,7 @@ kbd {
 .topbar {
   display: flex;
   align-items: center;
-  min-height: 62px;
+  min-height: 56px;
   background: white;
   border-bottom: 1px solid var(--border);
   padding: 0 24px;
@@ -1024,46 +1024,6 @@ h1 {
   padding: 32px 22px 14px;
   color: #6d6478;
 }
-.astro-orbit {
-  display: grid;
-  place-items: center;
-  width: 61px;
-  height: 61px;
-  margin: 0 0 22px 3px;
-  border: 1px solid #e8e1f5;
-  border-radius: 18px;
-  color: #606474;
-  box-shadow:
-    0 0 0 7px #f5f2fa,
-    0 0 0 8px #f0eaf7;
-  background: radial-gradient(circle at 35% 25%, #f6f2fd, #eee7f7);
-  transform: rotate(-8deg);
-}
-.astro-orbit > svg {
-  transform: rotate(8deg);
-}
-.astro-welcome .eyebrow {
-  font-size: 9px;
-  letter-spacing: 1.2px;
-  color: #606474;
-}
-.astro-welcome h2 {
-  margin: 11px 0 14px;
-  font-size: 28px;
-  font-weight: 480;
-  letter-spacing: -0.8px;
-  line-height: 1.2;
-  color: #6a5c77;
-}
-.astro-welcome > p {
-  font-size: 12px;
-  line-height: 1.8;
-  color: #606474;
-  max-width: 244px;
-}
-.prompt-examples {
-  margin-top: 24px;
-}
 .prompt-examples > span {
   font-size: 10px;
   color: #606474;
@@ -1088,20 +1048,6 @@ h1 {
   margin-top: 19px;
   color: #606474;
   line-height: 1.7;
-}
-.astro-footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #606474;
-  padding: 9px;
-  border-top: 1px solid #eeebf3;
-}
-.astro-footer a {
-  font-weight: 550;
-  color: #606474;
 }
 .astro-issue-card {
   padding: 13px;
