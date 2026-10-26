@@ -66,7 +66,7 @@ Every other deployment setting, including the base URL, the authentication secre
 
 The application stays gated until two conditions hold at once: configuration reports no issues, and no bundled migration is pending. There is no stored setup-complete flag, so the same gate reopens if a required setting is later cleared or a new release adds a migration.
 
-While the gate is closed, page routes redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. The application opens to users as soon as the page reports "Configuration is complete". [Deploy](./deploy.md) walks through the whole sequence.
+While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
 
 ## Running more than one replica
 

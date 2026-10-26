@@ -12,29 +12,23 @@ export function SetupStatusAlert({
   issues: ConfigIssue[]
   fallbackEncryptionKeyCount: number
 }) {
+  if (setupComplete && fallbackEncryptionKeyCount === 0) return null
+
   return (
     <div className="flex flex-col gap-3">
-      <Alert>
-        {setupComplete ? (
-          <CheckCircleIcon aria-hidden="true" />
-        ) : (
+      {!setupComplete && (
+        <Alert>
           <WarningCircleIcon aria-hidden="true" />
-        )}
-        <AlertTitle>
-          {setupComplete ? "Configuration is complete" : "Configuration required"}
-        </AlertTitle>
-        <AlertDescription>
-          {setupComplete ? (
-            "Saved changes apply immediately on this server. Restart other running server instances to load them."
-          ) : (
+          <AlertTitle>Configuration required</AlertTitle>
+          <AlertDescription>
             <ul className="list-disc pl-4">
               {issues.map((issue) => (
                 <li key={`${issue.key}-${issue.message}`}>{issue.message}</li>
               ))}
             </ul>
-          )}
-        </AlertDescription>
-      </Alert>
+          </AlertDescription>
+        </Alert>
+      )}
       {fallbackEncryptionKeyCount > 0 && (
         <Alert>
           <CheckCircleIcon aria-hidden="true" />

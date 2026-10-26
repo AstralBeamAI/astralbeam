@@ -4,11 +4,11 @@ Let's add an assistant to your **React app** using your existing login.
 
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-You'll need an authenticated backend and a model-provider API key. Any backend language or authentication provider works.
+You'll need an authenticated backend and a model-provider API key. Any backend language or authentication provider works. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
 ## 1. Prepare your agent
 
-[Sign up](/auth/sign-up) and create an organization.
+Use your existing organization, [join your team's](/docs/dashboard/members#accepting-an-invitation), or [sign up](/auth/sign-up) and create one.
 
 1. Open **[Models](/docs/dashboard/models)**, add your provider's API key, enable a model, and choose **Save provider**.
 2. Choose **Test model** and wait for **replied successfully**. Your provider may charge for the test.
