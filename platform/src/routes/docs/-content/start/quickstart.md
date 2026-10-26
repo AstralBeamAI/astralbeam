@@ -4,9 +4,11 @@ Let's walk through the process of embedding an agent in your application, from c
 
 Your server authenticates its own users and mints a short-lived chat token for each one, so the widget never sees the API key. Basic familiarity with your application's own session handling is assumed here.
 
+For self-hosting, follow [Deploy](/docs/self-hosting/deploy) through owner onboarding before continuing here.
+
 ## 1. Create your organization
 
-Sign up, then either accept an invitation to an existing organization or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
+Sign in to your organization, or sign up and either [accept an invitation](/docs/dashboard/members#accepting-an-invitation) or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
 
 Creating one makes you its owner and provisions a starter agent, already set as the organization's default. It needs an assigned provider model before it can reply, on both hosted and self-hosted deployments.
 
@@ -20,7 +22,7 @@ Saving settings does not verify provider access. A successful model test verifie
 
 ## 2. Create an API key
 
-Owners and developers can create an organization API key. Its full value looks like `key_<organizationId>_<id>_abo_<secret>`, and the dashboard shows it exactly once, so copy it into your server's secret manager on the spot.
+Owners and developers can create an organization key under [API Keys](/docs/dashboard/api-keys). Its full value looks like `key_<organizationId>_<id>_abo_<secret>`, and the dashboard shows it exactly once, so copy it into your server's secret manager on the spot.
 
 The key does two jobs. It authenticates calls to the [management API](/docs/api), and its secret signs the chat tokens your server mints. Anyone who can read it can mint a token naming any tenant user in your organization, so keep it server side and never ship it to browser code.
 
