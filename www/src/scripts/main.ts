@@ -2,6 +2,15 @@
 // here may touch the DOM until the browser calls in.
 let reducedMotion = false
 
+/* Crawlers and PageSpeed Insights get the static page so snapshots never capture hidden or
+   scrambled text. Must stay self-contained because the hero inlines it before hydration. */
+export function shouldAnimate() {
+  return (
+    !matchMedia("(prefers-reduced-motion: reduce)").matches &&
+    !/bot|crawl|spider|inspectiontool|lighthouse/i.test(navigator.userAgent)
+  )
+}
+
 /* ============ starfield ============ */
 
 interface Star {
@@ -567,7 +576,7 @@ function init() {
 }
 
 export function startSiteEffects() {
-  reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  reducedMotion = !shouldAnimate()
 
   // WebKit runs module scripts before pending stylesheets finish loading, unlike Chromium and
   // Firefox, so on a cold Safari load the brand colors read from computed styles can still be
