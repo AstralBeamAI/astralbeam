@@ -1,5 +1,5 @@
 // Added from @shadcn/popover
-// Local changes: accept a shadow-root portal container and omit unused subcomponents.
+// Local changes: shadow-root portal and collision boundary, omit unused subcomponents.
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "cn"
 
@@ -18,12 +18,13 @@ function PopoverContent({
   side = "bottom",
   sideOffset = 4,
   container,
+  collisionBoundary,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<PopoverPrimitive.Portal.Props, "container"> &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "side" | "sideOffset" | "collisionBoundary"
   >) {
   return (
     <PopoverPrimitive.Portal container={container}>
@@ -32,6 +33,7 @@ function PopoverContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
+        collisionBoundary={collisionBoundary}
         className="isolate z-50"
       >
         <PopoverPrimitive.Popup
