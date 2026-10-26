@@ -27,6 +27,7 @@ export function McpConnectionsPanel({
   const container = useRef<HTMLDivElement>(null)
   const [client] = useState(() => new QueryClient())
   const [open, setOpen] = useState(false)
+  const [boundary, setBoundary] = useState<Element>()
   const [headersFor, setHeadersFor] = useState<string | null>(null)
   const [activeServerId, setActiveServerId] = useState<string>()
   const identity =
@@ -92,7 +93,13 @@ export function McpConnectionsPanel({
       : null
   return (
     <div ref={container}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (next) setBoundary(container.current?.closest('[data-slot="chat"]') ?? undefined)
+        }}
+      >
         <PopoverTrigger
           render={<TooltipButton variant="ghost" size="icon-sm" tooltip="MCP connections" />}
         >
@@ -100,16 +107,17 @@ export function McpConnectionsPanel({
         </PopoverTrigger>
         <PopoverContent
           container={container}
+          collisionBoundary={boundary}
           align="end"
           aria-labelledby={`${fieldId}-title`}
-          className="max-h-[75vh] w-[min(24rem,85vw)] gap-0 overflow-hidden p-0"
+          className="max-h-(--available-height) w-[min(24rem,85vw)] max-w-(--available-width) gap-0 overflow-hidden p-0"
         >
           <header className="shrink-0 border-b px-3 py-2">
             <h2 id={`${fieldId}-title`} className="font-semibold">
               MCP connections
             </h2>
           </header>
-          <div className="min-h-0 divide-y overflow-y-auto">
+          <div className="max-h-[24rem] min-h-0 divide-y overflow-y-auto overscroll-contain">
             {catalog.isPending && (
               <p role="status" className="px-3 py-2 text-xs">
                 Loading servers…
