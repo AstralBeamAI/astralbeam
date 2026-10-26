@@ -43,6 +43,20 @@ const storageConnectionPresets = [
   },
 ]
 
+const tracingEndpointPresets = [
+  { label: "Local collector", endpoint: "http://127.0.0.1:4318/v1/traces" },
+  { label: "PostHog US", endpoint: "https://us.i.posthog.com/i/v1/traces" },
+  { label: "PostHog EU", endpoint: "https://eu.i.posthog.com/i/v1/traces" },
+  { label: "Honeycomb US", endpoint: "https://api.honeycomb.io/v1/traces" },
+  { label: "New Relic US", endpoint: "https://otlp.nr-data.net/v1/traces" },
+  { label: "Grafana Cloud", endpoint: "https://<otlp-host>/otlp/v1/traces" },
+  { label: "Datadog US1", endpoint: "https://otlp.datadoghq.com/v1/traces" },
+  {
+    label: "Sentry",
+    endpoint: "https://<sentry-host>/api/<project-id>/integration/otlp/v1/traces",
+  },
+]
+
 export function ConfigFieldGroups({
   fields,
   issues,
@@ -122,6 +136,7 @@ export function ConfigFieldGroups({
           title={group}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
+          optional={group === "Tracing"}
           hasChanges={groupFields.some((field) => changedKeys.has(field.key))}
           errorAttempt={
             groupFields.some((field) => Boolean(fieldErrors[field.key]))
@@ -129,6 +144,41 @@ export function ConfigFieldGroups({
               : undefined
           }
         >
+          {group === "Tracing" && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Optional. Tracing is disabled until an endpoint is configured. Presets fill the
+                traces endpoint only. Add provider headers separately and replace any placeholders
+                before saving.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {tracingEndpointPresets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      disabled ||
+                      groupFields.some(
+                        (field) =>
+                          field.key === "otel_exporter_otlp_traces_endpoint" &&
+                          field.source === "environment",
+                      )
+                    }
+                    onClick={() =>
+                      onDraftChange("otel_exporter_otlp_traces_endpoint", {
+                        kind: "set",
+                        value: preset.endpoint,
+                      })
+                    }
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           {group === "File storage" && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
@@ -269,7 +319,9 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
     Tracing: [
       value("otel_sdk_disabled") === "true"
         ? "Disabled"
-        : value("otel_exporter_otlp_traces_endpoint"),
+        : value("otel_exporter_otlp_traces_endpoint") ||
+          value("otel_exporter_otlp_endpoint") ||
+          "Disabled",
     ],
   }[group]
   return parts.filter(Boolean).join(" · ") || "Not configured"

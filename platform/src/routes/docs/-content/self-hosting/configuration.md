@@ -32,12 +32,14 @@ Let's configure an OTLP/HTTP protobuf receiver in **Tracing** at `/configure`, t
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
+| `otel_exporter_otlp_endpoint` | No | none | OTLP base URL. `/v1/traces` is appended for trace export |
 | `otel_exporter_otlp_traces_endpoint` | No | none | Full traces URL, including the receiver's traces path |
+| `otel_exporter_otlp_headers` | No | none | Encrypted comma-separated `key=value` headers |
 | `otel_exporter_otlp_traces_headers` | No | none | Encrypted comma-separated `key=value` pairs. Percent-encode commas in values |
 | `otel_sdk_disabled` | No | `false` | Set to `true` to disable export without clearing the connection |
 | `otel_resource_attributes` | No | none | Comma-separated labels attached to every span, such as environment, instance ID, and version. Do not include secrets |
 
-The uppercase environment variables override these stored settings. The exporter's generic `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` variables also take precedence over stored connection settings. With the generic endpoint, the exporter appends `/v1/traces`. Other standard exporter environment options retain their native defaults.
+The uppercase environment variables override their corresponding stored settings through the same configuration system as every other field. A traces-specific endpoint takes precedence over the base endpoint, and traces-specific headers override matching generic headers. Other standard exporter environment options retain their native defaults. Tracing is optional and disabled by default when both endpoints are unset, even if labels or headers are present.
 
 For <a href="https://posthog.com/docs/distributed-tracing/installation/nodejs" target="_blank" rel="noopener noreferrer">PostHog distributed tracing</a>, let's use the project token from **Settings → Project → General**:
 
@@ -45,7 +47,18 @@ For <a href="https://posthog.com/docs/distributed-tracing/installation/nodejs" t
 2. Set the headers to `Authorization=Bearer <project-token>`. Use the project's `phc_…` token, not a personal API key.
 3. Save, restart every server instance, make an application request, then open **Tracing** in the same PostHog project. Allow time for batching and ingestion.
 
-Use the full traces endpoint above rather than the generic base URL setting for PostHog. This sends spans to distributed tracing. PostHog's AI observability ingestion uses a separate endpoint.
+The PostHog presets use the full traces endpoint. To use the generic base setting instead, set it to `https://us.i.posthog.com/i` or `https://eu.i.posthog.com/i` and clear the traces-specific endpoint. The `/i` prefix is required. This sends spans to distributed tracing. PostHog's AI observability ingestion uses a separate endpoint.
+
+The endpoint preset buttons change only the traces endpoint. Credentials, labels, and the base endpoint stay unchanged. Replace placeholders with your provider's actual host and project before saving. Other receivers accepting OTLP/HTTP protobuf work through the same exporter:
+
+| Receiver | Traces endpoint | Headers |
+| --- | --- | --- |
+| Local OpenTelemetry Collector, Tempo, or Datadog Agent | `http://127.0.0.1:4318/v1/traces` | Depends on the receiver. Enable its OTLP HTTP listener first |
+| <a href="https://docs.honeycomb.io/send-data/opentelemetry/" target="_blank" rel="noopener noreferrer">Honeycomb</a> | `https://api.honeycomb.io/v1/traces` or `https://api.eu1.honeycomb.io/v1/traces` | `x-honeycomb-team=<ingest-key>` |
+| <a href="https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/" target="_blank" rel="noopener noreferrer">Grafana Cloud</a> | Copy the stack's OTLP endpoint and append `/v1/traces`, typically `https://<otlp-host>/otlp/v1/traces` | Copy the stack's generated `Authorization=Basic …` header |
+| <a href="https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/" target="_blank" rel="noopener noreferrer">New Relic</a> | `https://otlp.nr-data.net/v1/traces` for US or `https://otlp.eu01.nr-data.net/v1/traces` for EU | `api-key=<license-key>` |
+| <a href="https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/" target="_blank" rel="noopener noreferrer">Datadog</a> | `https://otlp.datadoghq.com/v1/traces` for US1. Use your site's endpoint for other regions | `dd-api-key=<api-key>`. Add `compute_stats=true` to request trace metrics |
+| <a href="https://docs.sentry.io/concepts/otlp/" target="_blank" rel="noopener noreferrer">Sentry</a> | Copy the project's OTLP traces endpoint from **Client Keys (DSN) → OpenTelemetry**, shaped as `https://<sentry-host>/api/<project-id>/integration/otlp/v1/traces` | Copy its `x-sentry-auth=sentry sentry_key=<public-key>` header |
 
 Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
 

@@ -9,6 +9,7 @@ export function ConfigSection({
   title,
   summary,
   configured,
+  optional = false,
   hasChanges = false,
   errorAttempt,
   children,
@@ -16,6 +17,7 @@ export function ConfigSection({
   title: string
   summary: string
   configured: boolean
+  optional?: boolean
   hasChanges?: boolean
   errorAttempt?: number | undefined
   children: ReactNode
@@ -30,7 +32,13 @@ export function ConfigSection({
     if (errorAttempt !== undefined) setOpen(true)
   }
   const complete = configured && !hasChanges
-  const status = hasChanges ? "Unsaved changes" : configured ? "Configured" : "Needs attention"
+  const status = hasChanges
+    ? "Unsaved changes"
+    : !configured
+      ? "Needs attention"
+      : optional
+        ? "Optional"
+        : "Configured"
   const Icon = complete ? CheckCircleIcon : WarningCircleIcon
 
   return (
