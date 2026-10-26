@@ -6,6 +6,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer mono">
       <span>© 2026 ASTRALBEAM</span>
+      <a href="/home#faq">FAQ</a>
       <a href="/home#pricing">PRICING</a>
       <a href={docsUrl}>DOCS</a>
       <a href="/blog">BLOG</a>
