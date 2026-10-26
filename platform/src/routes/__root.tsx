@@ -14,6 +14,8 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { type ReactNode, useCallback } from "react"
 import { ThemeProvider, useTheme } from "tanstack-router-theme-provider"
+import interFontUrl from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url"
+import manropeFontUrl from "@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2?url"
 
 import { Effect } from "effect"
 
@@ -41,7 +43,7 @@ import {
   AUTH_ALLOWED_RETURN_PATHS,
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
-import appCss from "@/styles.css?url"
+import "@/styles.css"
 
 import { getPublicConfig } from "./-functions/get-public-config"
 
@@ -160,10 +162,13 @@ export const Route = createRootRouteWithContext<{
         href: APP_LOGO_DARK_SVG_URL,
         media: "(prefers-color-scheme: dark)",
       },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      ...[interFontUrl, manropeFontUrl].map((href) => ({
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous" as const,
+        href,
+      })),
       {
         rel: "license",
         href: "/LICENSE-AGPL",

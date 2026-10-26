@@ -1,5 +1,7 @@
 import { useEffect } from "react"
 import { ScriptOnce } from "@tanstack/react-router"
+import antonFontUrl from "@fontsource/anton/files/anton-latin-400-normal.woff2?url"
+import spaceGroteskFontUrl from "@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2?url"
 
 import { DiscordIcon, GithubIcon } from "@/components/icons"
 import { SiteHeader } from "@/components/site-header"
@@ -23,11 +25,24 @@ const {
 } = siteMetadata.links
 
 export function landingPageHead() {
-  return pageHead({
+  const head = pageHead({
     title: siteMetadata.title,
     description: siteMetadata.description,
     canonicalPath: "/",
   })
+  return {
+    ...head,
+    links: [
+      ...head.links,
+      ...[antonFontUrl, spaceGroteskFontUrl].map((href) => ({
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous" as const,
+        href,
+      })),
+    ],
+  }
 }
 
 export function LandingPage() {
