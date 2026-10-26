@@ -35,6 +35,7 @@ Let's configure an OTLP/HTTP protobuf receiver in **Tracing** at `/configure`, t
 | `otel_exporter_otlp_traces_endpoint` | No | none | Full traces URL, including the receiver's traces path |
 | `otel_exporter_otlp_traces_headers` | No | none | Encrypted comma-separated `key=value` pairs. Percent-encode commas in values |
 | `otel_sdk_disabled` | No | `false` | Set to `true` to disable export without clearing the connection |
+| `otel_resource_attributes` | No | none | Comma-separated labels attached to every span, such as environment, instance ID, and version. Do not include secrets |
 
 The uppercase environment variables override these stored settings. The exporter's generic `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` variables also take precedence over stored connection settings. With the generic endpoint, the exporter appends `/v1/traces`. Other standard exporter environment options retain their native defaults.
 
@@ -48,13 +49,13 @@ Use the full traces endpoint above rather than the generic base URL setting for 
 
 Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
 
-To separate worktrees, staging, and production in one receiver, let's set standard resource attributes in each server's environment and restart. Keep the service name stable and give each running instance its own ID:
+To separate worktrees, staging, and production in one receiver, let's set **OTel resource attributes** at `/configure` to `deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2`, save, and restart. Keep the service name stable and give each running instance its own ID. We can override the stored labels separately for each process:
 
 ```sh
 OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2"
 ```
 
-Use `staging` or `production` as the environment name for those deployments. These attributes apply to every exported span and can be used as filters in the receiver. They stay environment-only so processes sharing a configuration database can identify themselves separately.
+Use `staging` or `production` as the environment name for those deployments. These attributes apply to every exported span and can be used as filters in the receiver. An `OTEL_RESOURCE_ATTRIBUTES` environment override replaces the stored labels, which lets processes sharing a configuration database identify themselves separately.
 
 ## General
 

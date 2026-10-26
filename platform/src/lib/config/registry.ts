@@ -101,6 +101,16 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: NonEmptyStringSchema,
   },
   {
+    key: "otel_resource_attributes",
+    group: "Tracing",
+    label: "OTel resource attributes",
+    description:
+      "Comma-separated key=value labels, for example deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2. Attached to every exported span. Do not include secrets. Requires a server restart.",
+    kind: "text",
+    required: false,
+    schema: NonEmptyStringSchema,
+  },
+  {
     key: "otel_sdk_disabled",
     group: "Tracing",
     label: "Disable tracing",

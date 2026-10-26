@@ -38,10 +38,10 @@ export function makeTracingProcessor(exporter: SpanExporter): SpanProcessor {
 
 // NodeSdk owns scoped flush/shutdown. Configuration is captured once, so changes need a restart.
 // https://effect.website/docs/v4/observability/tracing
-export const tracingLayer = NodeSdk.layer(
+export const tracingLayer = Layer.unwrap(
   Effect.gen(function* () {
     // An explicit disable also avoids reading database-backed settings during bootstrap.
-    if (process.env.OTEL_SDK_DISABLED === "true") return {}
+    if (process.env.OTEL_SDK_DISABLED === "true") return NodeSdk.layerEmpty
     const { values } = yield* (yield* Config).snapshot
     // Let the exporter resolve generic and traces-specific environment overrides itself.
     const environmentEndpoint =
@@ -49,7 +49,7 @@ export const tracingLayer = NodeSdk.layer(
     const environmentHeaders =
       process.env.OTEL_EXPORTER_OTLP_TRACES_HEADERS || process.env.OTEL_EXPORTER_OTLP_HEADERS
     const endpoint = environmentEndpoint || values.otel_exporter_otlp_traces_endpoint
-    return {
+    return NodeSdk.layer(() => ({
       resource: { serviceName: "astralbeam-platform" },
       spanProcessor:
         values.otel_sdk_disabled === "true" || !endpoint
@@ -62,6 +62,15 @@ export const tracingLayer = NodeSdk.layer(
                   : {}),
               }),
             ),
-    }
+    })).pipe(
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnvRecord({
+            ...process.env,
+            OTEL_RESOURCE_ATTRIBUTES: values.otel_resource_attributes ?? "",
+          }),
+        ),
+      ),
+    )
   }),
-).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord(process.env))))
+)

@@ -47,6 +47,7 @@ export type ConfigKey =
   | "otel_exporter_otlp_traces_endpoint"
   | "otel_exporter_otlp_traces_headers"
   | "otel_sdk_disabled"
+  | "otel_resource_attributes"
 
 export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
