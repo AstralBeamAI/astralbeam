@@ -12,6 +12,7 @@ import { reveal, startSiteEffects } from "@/scripts/main"
 import { AgentDemo } from "./agent-demo"
 import { highlight, integrations, steps } from "./content"
 import { CopyPrompt } from "./copy-prompt"
+import { Faq } from "./faq"
 import { Pricing } from "./pricing"
 
 const {
@@ -247,6 +248,8 @@ export function LandingPage() {
         </section>
 
         <Pricing />
+
+        <Faq />
 
         {/* ============ LAUNCH ============ */}
         <section className="section launch" id="launch">
