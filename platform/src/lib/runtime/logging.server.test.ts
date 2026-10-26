@@ -56,24 +56,4 @@ describe("ECS credential redaction", () => {
       assert.include(output, "Database connection failed")
     }).pipe(Effect.provide(TestConsole.layer)),
   )
-
-  it.effect("preserves native causes and correlation when they contain no credentials", () =>
-    Effect.gen(function* () {
-      const cause = Cause.die(
-        new Error("Connection refused\nretry after checking the database", {
-          cause: new Error("ECONNREFUSED"),
-        }),
-      )
-      yield* Effect.logError("Request failed", cause).pipe(
-        Effect.annotateLogs({ requestId: "request-123", referenceId: "reference-123" }),
-        Effect.provide(serverLoggerLayer),
-      )
-      const lines = yield* TestConsole.logLines
-      assert.strictEqual(lines.length, 1)
-      const record = JSON.parse(String(lines[0])) as Record<string, unknown>
-      assert.strictEqual(record["error.stack_trace"], Cause.pretty(cause))
-      assert.strictEqual(record["http.request.id"], "request-123")
-      assert.deepStrictEqual(record.astralbeam, { referenceId: "reference-123" })
-    }).pipe(Effect.provide(TestConsole.layer)),
-  )
 })

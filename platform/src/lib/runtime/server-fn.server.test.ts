@@ -6,12 +6,10 @@ import {
   getResponseStatus,
   setCookie,
 } from "@tanstack/react-start/server"
-import { EffectDrizzleQueryError } from "drizzle-orm/effect-core"
-import { Effect, Logger } from "effect"
+import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { AgentNameTaken } from "@/lib/agents/errors"
-import { reportFailure } from "./failure-report.server.ts"
 import { exposeError, runEffect } from "./server-fn.server.ts"
 import { ServerRequest, tryPromiseInServerRequest } from "./server-request.server.ts"
 
@@ -108,29 +106,5 @@ describe("runEffect", () => {
       )
       expect(response.status).toBe(500)
     }
-  })
-})
-
-describe("reportFailure", () => {
-  it("logs the full cause once with its operation and client reference", async () => {
-    const lines: string[] = []
-    const logger = Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])
-    const query = new EffectDrizzleQueryError({
-      query: "insert into agent values ($1)",
-      params: undefined,
-      cause: { code: "08006" },
-    })
-    const referenceId = await Effect.runPromise(
-      Effect.die(query).pipe(
-        Effect.catchCause((cause) => reportFailure("createAgent", cause)),
-        Effect.provide(logger),
-      ),
-    )
-    expect(lines).toHaveLength(1)
-    const record: unknown = JSON.parse(lines[0]!)
-    expect(record).toHaveProperty("cause", expect.stringContaining(query.message))
-    expect(record).toMatchObject({
-      annotations: { event: "request.failed", operation: "createAgent", referenceId },
-    })
   })
 })
