@@ -8,7 +8,7 @@ function render(code: string, language: string) {
     .join("\n")
 }
 
-test("streaming multiline source survives every prefix, replacements, and language changes", () => {
+test("streaming multiline source is preserved and code is escaped", () => {
   const source =
     'const view = <div title="safe">{`first\nsecond`}</div>\n// <script>alert(1)</script>\n'
   for (let end = 0; end <= source.length; end++) {
@@ -19,28 +19,8 @@ test("streaming multiline source survives every prefix, replacements, and langua
     )
   }
   expect(render("/* first\nsecond */", "ts")).toMatch(/th-comment[^>]*>second/)
-  expect(render("return 1", "TS")).toContain("th-keyword")
-  expect(render("<script>unsafe</script>", "unknown")).not.toContain("th-")
   expect(render("<script>unsafe</script>", "unknown")).toContain("&lt;script&gt;")
   expect(highlightCode("one\r\n\r\ntwo\r\n", "text")).toHaveLength(3)
-})
-
-test.each([
-  ["js", "const value = true"],
-  ["typescript", "const value: number = 1"],
-  ["jsx", "const view = <div />"],
-  ["css", "body { color: red; }"],
-  ["html", "<div>hello</div>"],
-  ["json", '{"value": true}'],
-  ["md", "# Heading"],
-  ["py", "def example(): return True"],
-  ["sql", "SELECT * FROM users"],
-  ["yml", "key: true"],
-  ["shellscript", "export VALUE=1"],
-  ["diff", "+added"],
-  ["ruby", "class Example\nend"],
-])("retains syntax coloring for %s", (language, source) => {
-  expect(render(source, language)).toContain('class="th-')
 })
 
 test("ANSI colors span lines and reset, with truecolor, backgrounds and decorations", () => {

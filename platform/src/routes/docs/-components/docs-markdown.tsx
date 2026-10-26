@@ -7,11 +7,11 @@ import { Link } from "@tanstack/react-router"
 import type { MarkdownInput } from "@tanstack/markdown"
 import { cn } from "cn"
 import { createElement, type ReactNode } from "react"
+import { TabsContent } from "@/components/ui/tabs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 import { docsHighlightMarkdownCode } from "../-lib/highlight"
 import { DocsCodeBlock } from "./docs-code-block"
-import { DocsCodeTabPanel } from "./docs-code-tab-panel"
 import { DocsCodeTabs } from "./docs-code-tabs"
 
 // Tailwind's preflight drops heading sizes, list markers, and block margins, so each element the
@@ -72,7 +72,11 @@ export function DocsMarkdown({
     ...docsStyledTags,
     pre: DocsCodeBlock,
     "md-comment-component": DocsCodeTabs,
-    "md-tab-panel": DocsCodeTabPanel,
+    "md-tab-panel": ({ children, "data-tab-slug": slug }) => (
+      <TabsContent value={slug} className="min-w-0 [&>figure>div]:mt-2">
+        {children}
+      </TabsContent>
+    ),
     table: DocsMarkdownTable,
     a: ({ href, children, ...props }: MarkdownComponentProps<"a">) => {
       const relative = href?.match(/^\.\/([\w-]+)\.md(?:#(.*))?$/)
