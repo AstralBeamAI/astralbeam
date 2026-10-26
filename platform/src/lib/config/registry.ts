@@ -83,19 +83,9 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
     key: "otel_exporter_otlp_endpoint",
     group: "Tracing",
-    label: "OTLP base endpoint",
+    label: "OTLP endpoint",
     description:
-      "Optional OTLP/HTTP base URL. The traces path /v1/traces is appended. Leave both endpoints unset to keep tracing disabled by default. Requires a server restart.",
-    kind: "url",
-    required: false,
-    schema: PublicHttpUrlSchema,
-  },
-  {
-    key: "otel_exporter_otlp_traces_endpoint",
-    group: "Tracing",
-    label: "OTLP traces endpoint",
-    description:
-      "Full OTLP/HTTP protobuf traces URL. Overrides the base endpoint. Restart every server instance after changing tracing settings.",
+      "Optional OTLP/HTTP base URL. The traces path /v1/traces is appended. Leave unset to keep tracing disabled by default. Requires a server restart.",
     kind: "url",
     required: false,
     schema: PublicHttpUrlSchema,

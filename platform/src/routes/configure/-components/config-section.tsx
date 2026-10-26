@@ -1,12 +1,14 @@
 "use client"
 
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { Link } from "@tanstack/react-router"
 import { type ReactNode, useId, useState } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 export function ConfigSection({
   title,
+  documentation,
   summary,
   configured,
   optional = false,
@@ -15,6 +17,7 @@ export function ConfigSection({
   children,
 }: {
   title: string
+  documentation: { page: string; anchor: string }
   summary: string
   configured: boolean
   optional?: boolean
@@ -84,7 +87,19 @@ export function ConfigSection({
         </CollapsibleTrigger>
       </h2>
       <CollapsibleContent keepMounted>
-        <div className="space-y-5 border-t p-5">{children}</div>
+        <div className="space-y-5 border-t p-5">
+          <Link
+            to="/docs/$section/$page"
+            params={{ section: "self-hosting", page: documentation.page }}
+            hash={documentation.anchor}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary underline underline-offset-4"
+          >
+            {title} documentation
+          </Link>
+          {children}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   )

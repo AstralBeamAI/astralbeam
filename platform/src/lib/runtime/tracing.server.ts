@@ -43,14 +43,7 @@ export const tracingLayer = Layer.unwrap(
     // An explicit disable also avoids reading database-backed settings during bootstrap.
     if (process.env.OTEL_SDK_DISABLED === "true") return NodeSdk.layerEmpty
     const { values } = yield* (yield* Config).snapshot
-    const baseEndpoint = values.otel_exporter_otlp_endpoint
-    // The exporter constructor accepts a full signal URL, while OTLP base URLs append the signal path.
-    // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
-    const endpoint =
-      values.otel_exporter_otlp_traces_endpoint ??
-      (baseEndpoint
-        ? `${baseEndpoint}${baseEndpoint.endsWith("/") ? "" : "/"}v1/traces`
-        : undefined)
+    const endpoint = values.otel_exporter_otlp_endpoint
     return NodeSdk.layer(() => ({
       resource: { serviceName: "astralbeam-platform" },
       spanProcessor:
@@ -58,7 +51,9 @@ export const tracingLayer = Layer.unwrap(
           ? []
           : makeTracingProcessor(
               new OTLPTraceExporter({
-                url: endpoint,
+                // The constructor takes a full signal URL, while base endpoints append the signal path.
+                // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
+                url: `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/traces`,
                 headers: {
                   ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? ""),
                   ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),

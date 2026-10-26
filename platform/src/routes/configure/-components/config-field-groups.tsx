@@ -44,17 +44,15 @@ const storageConnectionPresets = [
 ]
 
 const tracingEndpointPresets = [
-  { label: "Local collector", endpoint: "http://127.0.0.1:4318/v1/traces" },
-  { label: "PostHog US", endpoint: "https://us.i.posthog.com/i/v1/traces" },
-  { label: "PostHog EU", endpoint: "https://eu.i.posthog.com/i/v1/traces" },
-  { label: "Honeycomb US", endpoint: "https://api.honeycomb.io/v1/traces" },
-  { label: "New Relic US", endpoint: "https://otlp.nr-data.net/v1/traces" },
-  { label: "Grafana Cloud", endpoint: "https://<otlp-host>/otlp/v1/traces" },
-  { label: "Datadog US1", endpoint: "https://otlp.datadoghq.com/v1/traces" },
+  { label: "Local", endpoint: "http://127.0.0.1:4318" },
+  { label: "PostHog", endpoint: "https://us.i.posthog.com/i" },
+  { label: "New Relic", endpoint: "https://otlp.nr-data.net" },
+  { label: "Datadog", endpoint: "https://otlp.datadoghq.com" },
   {
     label: "Sentry",
-    endpoint: "https://<sentry-host>/api/<project-id>/integration/otlp/v1/traces",
+    endpoint: "https://o<organization-id>.ingest.us.sentry.io/api/<project-id>/integration/otlp",
   },
+  { label: "Honeycomb", endpoint: "https://api.honeycomb.io" },
 ]
 
 export function ConfigFieldGroups({
@@ -134,6 +132,10 @@ export function ConfigFieldGroups({
         <ConfigSection
           key={group}
           title={group}
+          documentation={{
+            page: "configuration",
+            anchor: group.toLowerCase().replaceAll(" ", "-"),
+          }}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
           optional={group === "Tracing"}
@@ -147,9 +149,9 @@ export function ConfigFieldGroups({
           {group === "Tracing" && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Optional. Tracing is disabled until an endpoint is configured. Presets fill the
-                traces endpoint only. Add provider headers separately and replace any placeholders
-                before saving.
+                Optional. Tracing is disabled until an endpoint is configured. Presets fill the base
+                endpoint only. Add provider headers separately and replace any placeholders before
+                saving.
               </p>
               <div className="flex flex-wrap gap-2">
                 {tracingEndpointPresets.map((preset) => (
@@ -162,12 +164,12 @@ export function ConfigFieldGroups({
                       disabled ||
                       groupFields.some(
                         (field) =>
-                          field.key === "otel_exporter_otlp_traces_endpoint" &&
+                          field.key === "otel_exporter_otlp_endpoint" &&
                           field.source === "environment",
                       )
                     }
                     onClick={() =>
-                      onDraftChange("otel_exporter_otlp_traces_endpoint", {
+                      onDraftChange("otel_exporter_otlp_endpoint", {
                         kind: "set",
                         value: preset.endpoint,
                       })
@@ -319,9 +321,7 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
     Tracing: [
       value("otel_sdk_disabled") === "true"
         ? "Disabled"
-        : value("otel_exporter_otlp_traces_endpoint") ||
-          value("otel_exporter_otlp_endpoint") ||
-          "Disabled",
+        : value("otel_exporter_otlp_endpoint") || "Disabled",
     ],
   }[group]
   return parts.filter(Boolean).join(" · ") || "Not configured"

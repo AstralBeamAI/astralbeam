@@ -44,7 +44,6 @@ export type ConfigKey =
   | "s3_access_key_id"
   | "s3_secret_access_key"
   | "s3_path_style"
-  | "otel_exporter_otlp_traces_endpoint"
   | "otel_exporter_otlp_endpoint"
   | "otel_exporter_otlp_headers"
   | "otel_exporter_otlp_traces_headers"
