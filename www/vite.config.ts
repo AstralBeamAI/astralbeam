@@ -60,6 +60,7 @@ export default defineConfig(({ mode }) => ({
             preset: "bun",
             publicAssets: [
               { dir: "../cli/skills", baseURL: "/agent-skills" },
+              { dir: "src/content/blog", baseURL: "/blog", fallthrough: true },
             ],
             prerender: {
               routes: prerenderRoutes,
@@ -93,7 +94,12 @@ export default defineConfig(({ mode }) => ({
                 const indexDirectory = join(output, ".well-known/agent-skills")
                 mkdirSync(indexDirectory, { recursive: true })
                 writeFileSync(join(indexDirectory, "index.json"), JSON.stringify(index))
-
+                const headers = readFileSync(new URL("./public/_headers", import.meta.url), "utf8")
+                const sourceHeaders = blogRoutes.map(
+                  (path) =>
+                    `${path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline\n  Cache-Control: no-cache\n`,
+                )
+                writeFileSync(join(output, "_headers"), `${headers}\n${sourceHeaders.join("\n")}`)
               },
             },
           }),
