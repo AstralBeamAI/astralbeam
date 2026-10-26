@@ -1,4 +1,5 @@
 import { readdir, readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 
 import sharp from "sharp"
 import { describe, expect, test } from "vitest"
@@ -18,6 +19,20 @@ function readText(path: string) {
 }
 
 describe("production website build", () => {
+  test("publishes the CLI skill with a digest of the exact served bytes", async () => {
+    const source = await readFile(new URL("../../cli/skills/astralbeam/SKILL.md", import.meta.url))
+    const payload = await readFile(new URL("agent-skills/astralbeam/SKILL.md", distUrl))
+    const index: unknown = JSON.parse(await readText(".well-known/agent-skills/index.json"))
+    expect(payload).toEqual(source)
+    expect(index).toMatchObject({
+      skills: [
+        {
+          digest: `sha256:${createHash("sha256").update(payload).digest("hex")}`,
+        },
+      ],
+    })
+  })
+
   test("renders the homepage with discovery metadata", async () => {
     const html = await readText("index.html")
 

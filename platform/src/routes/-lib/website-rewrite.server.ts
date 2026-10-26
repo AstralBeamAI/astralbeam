@@ -16,6 +16,8 @@ const WEBSITE_PATHS = new Set([
   "/og-image.png",
   "/licenses.txt",
   "/llms.txt",
+  "/.well-known/agent-skills/index.json",
+  "/agent-skills/astralbeam/SKILL.md",
   "/site.webmanifest",
   "/sitemap.xml",
 ])

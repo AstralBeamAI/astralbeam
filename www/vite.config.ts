@@ -1,10 +1,15 @@
-import { readdirSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
+import frontMatter from "front-matter"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
+
+import { siteUrl } from "./src/lib/site.ts"
 
 const workspaceDirectory = fileURLToPath(new URL("../", import.meta.url))
 
@@ -50,14 +55,12 @@ export default defineConfig(({ mode }) => ({
       ? []
       : [
           nitro({
-            // Every route is prerendered, so only `.output/public` ships and the server bundle beside
-            // it goes unused. Nitro's `static` preset defines no entry and its Vite builder has no
-            // case for that, so pin a server preset instead.
-            // The output paths stay at their defaults: Nitro registers its public output directory as
-            // a top-level fallthrough asset root, and reading from it throws in dev, so pointing it
-            // inside the project breaks `dev` for every path that the last build wrote a file for.
+            // Only public output ships. Nitro's static preset has no Vite entry, so use Bun.
             // https://github.com/nitrojs/nitro/blob/v3/src/vite.ts
             preset: "bun",
+            publicAssets: [
+              { dir: "../cli/skills", baseURL: "/agent-skills" },
+            ],
             prerender: {
               routes: prerenderRoutes,
               crawlLinks: false,
@@ -65,6 +68,33 @@ export default defineConfig(({ mode }) => ({
               // write `404/index.html`. https://nitro.build/config#prerender
               autoSubfolderIndex: false,
               failOnError: true,
+            },
+            hooks: {
+              compiled(nitro) {
+                const output = nitro.options.output.publicDir
+                const skill = readFileSync(
+                  new URL("../cli/skills/astralbeam/SKILL.md", import.meta.url),
+                )
+                const { attributes } = frontMatter<{ name: string; description: string }>(
+                  skill.toString(),
+                )
+                const index = {
+                  $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+                  skills: [
+                    {
+                      name: attributes.name,
+                      description: attributes.description,
+                      type: "skill-md",
+                      url: siteUrl("/agent-skills/astralbeam/SKILL.md"),
+                      digest: `sha256:${createHash("sha256").update(skill).digest("hex")}`,
+                    },
+                  ],
+                }
+                const indexDirectory = join(output, ".well-known/agent-skills")
+                mkdirSync(indexDirectory, { recursive: true })
+                writeFileSync(join(indexDirectory, "index.json"), JSON.stringify(index))
+
+              },
             },
           }),
         ]),
