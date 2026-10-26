@@ -65,12 +65,12 @@ import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
   const member = await auth.api.getActiveMember({ headers: request.headers })
-  const chatToken = await createAstralBeamToken({
+  const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY!,
     user: { id: member.userId },
     tenant: { id: member.organizationId },
   })
-  return Response.json({ token: chatToken }, { headers: { "Cache-Control": "no-store" } })
+  return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
 }
 ```
 
