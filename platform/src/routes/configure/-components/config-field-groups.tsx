@@ -14,7 +14,13 @@ import { ConfigSection } from "./config-section"
 import { StorageConnectionTest } from "./storage-connection-test"
 import type { StorageConnection } from "@/lib/storage/schemas"
 
-const configGroupOrder = ["General", "Authentication", "Email Delivery", "File storage"] as const
+const configGroupOrder = [
+  "General",
+  "Authentication",
+  "Email Delivery",
+  "File storage",
+  "Tracing",
+] as const
 
 const storageConnectionPresets = [
   {
@@ -260,6 +266,11 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
       value("email_from_address") || (provider === "smtp" && "Default sender"),
     ],
     "File storage": [value("s3_bucket"), value("s3_region")],
+    Tracing: [
+      value("otel_sdk_disabled") === "true"
+        ? "Disabled"
+        : value("otel_exporter_otlp_traces_endpoint"),
+    ],
   }[group]
   return parts.filter(Boolean).join(" · ") || "Not configured"
 }

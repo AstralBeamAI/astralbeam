@@ -60,7 +60,7 @@ function makeAppLayer() {
     UsageLimits.layer,
     BunHttpClient.layer,
     serverLoggerLayer,
-  ).pipe(Layer.provideMerge(tracingLayer))
+  ).pipe(Layer.provideMerge(tracingLayer.pipe(Layer.provide(Config.layer))))
 }
 
 let appLayer: ReturnType<typeof makeAppLayer> | undefined

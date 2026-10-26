@@ -44,12 +44,15 @@ export type ConfigKey =
   | "s3_access_key_id"
   | "s3_secret_access_key"
   | "s3_path_style"
+  | "otel_exporter_otlp_traces_endpoint"
+  | "otel_exporter_otlp_traces_headers"
+  | "otel_sdk_disabled"
 
 export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
   key: ConfigKey
-  group: "General" | "Authentication" | "Email Delivery" | "File storage"
+  group: "General" | "Authentication" | "Email Delivery" | "File storage" | "Tracing"
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"

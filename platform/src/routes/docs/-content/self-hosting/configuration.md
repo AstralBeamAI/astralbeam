@@ -28,9 +28,33 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 
 ## Tracing
 
-Set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to an OTLP/HTTP protobuf traces endpoint, or `OTEL_EXPORTER_OTLP_ENDPOINT` to a collector's base URL. The exporter supports `OTEL_EXPORTER_OTLP_TRACES_HEADERS` for authentication. Set `OTEL_SDK_DISABLED=true` to disable tracing.
+Let's configure an OTLP/HTTP protobuf receiver in **Tracing** at `/configure`, then restart every server instance, including the one that saved the settings. Tracing stays off until an endpoint is configured.
+
+| Setting | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `otel_exporter_otlp_traces_endpoint` | No | none | Full traces URL, including the receiver's traces path |
+| `otel_exporter_otlp_traces_headers` | No | none | Encrypted comma-separated `key=value` pairs. Percent-encode commas in values |
+| `otel_sdk_disabled` | No | `false` | Set to `true` to disable export without clearing the connection |
+
+The uppercase environment variables override these stored settings. The exporter's generic `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` variables also take precedence over stored connection settings. With the generic endpoint, the exporter appends `/v1/traces`. Other standard exporter environment options retain their native defaults.
+
+For <a href="https://posthog.com/docs/distributed-tracing/installation/nodejs" target="_blank" rel="noopener noreferrer">PostHog distributed tracing</a>, let's use the project token from **Settings → Project → General**:
+
+1. Set the endpoint to `https://us.i.posthog.com/i/v1/traces` for US Cloud or `https://eu.i.posthog.com/i/v1/traces` for EU Cloud.
+2. Set the headers to `Authorization=Bearer <project-token>`. Use the project's `phc_…` token, not a personal API key.
+3. Save, restart every server instance, make an application request, then open **Tracing** in the same PostHog project. Allow time for batching and ingestion.
+
+Use the full traces endpoint above rather than the generic base URL setting for PostHog. This sends spans to distributed tracing. PostHog's AI observability ingestion uses a separate endpoint.
 
 Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+
+To separate worktrees, staging, and production in one receiver, let's set standard resource attributes in each server's environment and restart. Keep the service name stable and give each running instance its own ID:
+
+```sh
+OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2"
+```
+
+Use `staging` or `production` as the environment name for those deployments. These attributes apply to every exported span and can be used as filters in the receiver. They stay environment-only so processes sharing a configuration database can identify themselves separately.
 
 ## General
 
@@ -160,7 +184,7 @@ The page saves the whole set of changes together, so a single invalid field bloc
 
 The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 
-A save takes effect immediately on the process that handled it. Other replicas keep their cached snapshot until they restart, which the page states as "Saved changes apply immediately on this server. Restart other running server instances to load them." Roll a restart across the fleet after any configuration change.
+A save takes effect immediately on the process that handled it, except tracing, whose exporter is created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when tracing changes.
 
 While required settings are missing, the page lists each one and the application stays gated.
 

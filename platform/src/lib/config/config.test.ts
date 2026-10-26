@@ -175,12 +175,14 @@ describe("configuration registry", () => {
         google_client_id: "google-id",
         google_client_secret: "google-secret",
         resend_api_key: "resend-secret",
+        otel_exporter_otlp_traces_headers: "Authorization=Bearer telemetry-secret",
       }),
     )
     assert.include(serialized, "turnstile-site-key")
     for (const secret of [
       "google-secret",
       "resend-secret",
+      "telemetry-secret",
       SECRET,
       "turnstile-secret-key",
       COMPLETE_VALUES.s3_access_key_id,

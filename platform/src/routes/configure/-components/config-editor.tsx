@@ -188,7 +188,8 @@ export function ConfigEditor({
       toast.add({
         id: saveToastId,
         title: "Configuration saved",
-        description: "Restart other instances to apply these changes.",
+        description:
+          "Restart other instances to apply changes. Tracing changes require restarting this server too.",
         type: "success",
       })
     }, "save")

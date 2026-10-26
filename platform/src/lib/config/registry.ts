@@ -81,6 +81,41 @@ export function decodeConfigValue(
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
+    key: "otel_exporter_otlp_traces_endpoint",
+    group: "Tracing",
+    label: "OTLP traces endpoint",
+    description:
+      "Full OTLP/HTTP protobuf traces URL. Leave unset to keep tracing off. Restart every server instance after changing tracing settings.",
+    kind: "url",
+    required: false,
+    schema: PublicHttpUrlSchema,
+  },
+  {
+    key: "otel_exporter_otlp_traces_headers",
+    group: "Tracing",
+    label: "OTLP traces headers",
+    description:
+      "Comma-separated key=value pairs, for example Authorization=Bearer <project-token>. Values containing commas must be percent-encoded.",
+    kind: "secret",
+    required: false,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "otel_sdk_disabled",
+    group: "Tracing",
+    label: "Disable tracing",
+    description:
+      "Disable span export while retaining the endpoint and credentials. Requires a server restart.",
+    kind: "enum",
+    required: false,
+    defaultValue: "false",
+    options: [
+      { value: "false", label: "No (export when an endpoint is configured)" },
+      { value: "true", label: "Yes (tracing disabled)" },
+    ],
+    schema: BooleanSettingSchema,
+  },
+  {
     key: "s3_endpoint",
     group: "File storage",
     label: "S3 endpoint",
