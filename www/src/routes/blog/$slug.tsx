@@ -33,6 +33,10 @@ export const Route = createFileRoute("/blog/$slug")({
         image: { path: post.image, width: 1200, height: 630, alt: post.imageAlt },
         publishedTime: post.date,
       }),
+      links: [
+        { rel: "canonical", href: siteUrl(post.path) },
+        { rel: "alternate", type: "text/plain", href: `${post.path}.md` },
+      ],
       scripts: [
         {
           type: "application/ld+json",

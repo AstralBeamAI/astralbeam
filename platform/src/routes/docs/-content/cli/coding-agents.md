@@ -14,6 +14,8 @@ It writes `.claude/skills/astralbeam/SKILL.md`, so commit it if your whole team 
 
 Restart the agent session so it loads the skill. The agent then reaches for the CLI when you ask things like "create a tenant for customer-42" or "ask our agent what it can do, as user-7".
 
+Skill installers supporting [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) can use [astralbeam.ai](https://astralbeam.ai) as the source.
+
 ## 2. Give the agent credentials
 
 Run `astralbeam auth login` yourself in the agent's project directory, or supply `ASTRALBEAM_API_KEY` in its environment. Never paste a key into the prompt or pass one as a command-line flag. The skill checks the resolved organization with `astralbeam auth status --json` before writes and keeps keys out of output.

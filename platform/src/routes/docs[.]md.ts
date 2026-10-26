@@ -4,7 +4,7 @@ import { APP_NAME } from "@/lib/constants"
 import { resolveAppOrigin } from "./-lib/app-origin.server"
 import { DOCS_SECTIONS, publishedDocsPages } from "./docs/-lib/content"
 
-// The Markdown counterpart of /docs, listing every published page's .md URL in navigation order.
+// The Markdown counterpart of /docs, listing every published page in navigation order.
 export const Route = createFileRoute("/docs.md")({
   server: {
     handlers: {
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/docs.md")({
           const links = section.href
             ? [`- [OpenAPI document](${origin}/api/openapi.json)`]
             : publishedDocsPages(section).map(
-                (page) => `- [${page.title}](${origin}/docs/${section.slug}/${page.slug}.md)`,
+                (page) => `- [${page.title}](${origin}/docs/${section.slug}/${page.slug})`,
               )
           return `## ${section.title}\n\n${section.description}\n\n${links.join("\n")}`
         })

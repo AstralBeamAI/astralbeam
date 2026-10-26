@@ -16,6 +16,8 @@ const WEBSITE_PATHS = new Set([
   "/og-image.png",
   "/licenses.txt",
   "/llms.txt",
+  "/.well-known/agent-skills/index.json",
+  "/agent-skills/astralbeam/SKILL.md",
   "/site.webmanifest",
   "/sitemap.xml",
 ])
@@ -57,6 +59,9 @@ function websiteResponse(upstream: Response, pathname: string): Response {
     // Signed-in visitors get the dashboard at this URL, so shared caches must not keep this page.
     headers.set("Cache-Control", "private, no-cache")
     headers.append("Vary", "Cookie")
+  } else if (/^\/blog\/[^/]+\.md$/u.test(pathname)) {
+    headers.set("Content-Type", "text/plain; charset=utf-8")
+    headers.set("Content-Disposition", "inline")
   }
   return new Response(upstream.body, {
     status: upstream.status,
