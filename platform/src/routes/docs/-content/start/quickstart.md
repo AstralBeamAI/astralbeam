@@ -125,10 +125,10 @@ Pass a function that calls your token handler:
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 async function fetchToken() {
-  const csrfToken = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")?.content
+  const csrfMeta = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")
   const response = await fetch("/api/astralbeam/token", {
     method: "POST",
-    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+    headers: csrfMeta ? { "X-CSRF-Token": csrfMeta.content } : {},
   })
   return response.json()
 }
