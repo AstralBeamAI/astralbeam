@@ -1,5 +1,6 @@
 import { disposeChatAuthentication, getValidChatAuthToken } from "./auth.ts"
 import { describe, expect, test, vi } from "vitest"
+import type * as Api from "../api/generated/api.ts"
 import {
   disposeListingSession,
   listingRequest,
@@ -9,7 +10,7 @@ import {
 } from "./listings.ts"
 
 vi.mock("../api/generated/api.ts", async (original) => ({
-  ...(await original<typeof import("../api/generated/api.ts")>()),
+  ...(await original<typeof Api>()),
   getCurrentUser: ({ astralBeamToken }: { astralBeamToken: string }) => {
     const payload = JSON.parse(atob(astralBeamToken.split(".")[1]!)) as {
       email?: string

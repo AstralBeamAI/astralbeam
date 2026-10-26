@@ -43,6 +43,19 @@ describe("usage limit windows", () => {
     )
   })
 
+  it("ends at the first occurrence of a repeated local hour", () => {
+    const hourly = {
+      windowType: "fixed",
+      windowCount: 1,
+      windowUnit: "hour",
+      timeZone: "America/New_York",
+    } as const
+    // 00:30 local ends at the first 01:00, before New York repeats that hour.
+    expect(usageLimitWindowEnd(hourly, at("2026-11-01T04:30:00Z"))).toEqual(
+      at("2026-11-01T05:00:00Z"),
+    )
+  })
+
   it("ends rolling windows one duration after first use, clamping month ends", () => {
     const rolling = { windowType: "rolling", timeZone: null } as const
     expect(

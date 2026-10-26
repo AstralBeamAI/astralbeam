@@ -1,6 +1,6 @@
 import type { JwtOptions } from "../api/api.ts"
 import {
-  personalMcpGetCatalog,
+  type personalMcpGetCatalog,
   personalMcpCreateConnection,
   personalMcpSetHeaders,
   personalMcpDisconnectConnection,
