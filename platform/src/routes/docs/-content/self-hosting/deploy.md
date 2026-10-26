@@ -89,14 +89,6 @@ bun run --cwd platform build
 
 The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
-Create an empty, disposable PostgreSQL 18 database on loopback with a name ending in `_test`, then run the smoke check. This applies migrations, so never use the deployment database:
-
-```sh
-BINARY_CHECK_DATABASE_URL='postgresql://user:password@127.0.0.1:5432/astralbeam_binary_test' bun run --cwd platform binary:check
-```
-
-The check verifies version/help output, built assets, OpenAPI cache/CORS headers, docs `ETag` revalidation, and clean shutdown within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL`, it first checks that `migrate --dry-run` lists every embedded migration without creating tables, then bootstraps that database. Without it, provide a reachable `DATABASE_URL` and valid `DATABASE_ENCRYPTION_KEY`. This skips migration and bootstrap checks. Success prints `Binary smoke check passed` with the binary's size.
-
 **TIP**: You can skip the binary and run the same commands with `bun run --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 
 ## 2. Provision the database
