@@ -49,7 +49,7 @@ export function ConfigSection({
           <Icon
             aria-hidden="true"
             weight={complete ? "fill" : "regular"}
-            className={`mt-0.5 size-6 shrink-0 ${complete ? "text-green-600 dark:text-green-400" : "text-warning"}`}
+            className={`mt-0.5 size-6 shrink-0 ${complete ? "text-primary" : "text-warning"}`}
           />
           <span className="min-w-0 flex-1 space-y-1">
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
