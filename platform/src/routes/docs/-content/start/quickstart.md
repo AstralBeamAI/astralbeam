@@ -57,7 +57,7 @@ Here are two examples. See the [token format](/docs/sdk/authentication#mint-toke
 
 ### TypeScript
 
-This example uses an existing Better Auth instance at `@/lib/auth`. Its organization membership maps to the customer account.
+This example uses an existing Better Auth instance at `@/lib/auth`. Its organization membership maps to the customer account. Before mounting the assistant, select an organization in your app with [`authClient.organization.setActive({ organizationId })`](https://better-auth.com/docs/plugins/organization#active-organization).
 
 ```ts title="src/server/astralbeam-token.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
@@ -139,6 +139,8 @@ export function Assistant() {
 ```
 
 Mount `<Assistant />` in your app, sign in, and send **"Say hello in one sentence."** You should see a reply stream into the chat.
+
+For self-hosting, pass `apiUrl="https://your-deployment.example/api"` on `<AstralBeamChat>`, using the deployment that issued your API key.
 
 See [SDK props](/docs/sdk/configuration#options) to customize the assistant.
 

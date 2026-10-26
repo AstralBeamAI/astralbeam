@@ -65,7 +65,7 @@ export function DocsCodeBlock({
       <pre
         {...props}
         ref={codeRef}
-        tabIndex={-1}
+        role="region"
         aria-label={title ?? "Code example"}
         className={cn(
           "overflow-x-auto p-4 font-mono text-sm leading-relaxed focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-sm",
