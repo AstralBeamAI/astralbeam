@@ -214,7 +214,7 @@ async function runBinaryCheck() {
 
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
   const assetNames = await readdir(publicAssetsDirectory)
-  const stylesheetName = assetNames.find((name) => /^styles-.+\.css$/.test(name))
+  const stylesheetName = assetNames.find((name) => name.endsWith(".css"))
   const scriptName = assetNames.find((name) => name.endsWith(".js.br"))?.slice(0, -3)
   if (!stylesheetName || !scriptName)
     throw new Error("Build output did not contain CSS and JavaScript")

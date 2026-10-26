@@ -10,10 +10,5 @@
   "entry": ["src/client.tsx", "src/router.tsx"],
   // src/styles/index.css pulls font families in through bare `@import` specifiers,
   // which Knip parses but does not resolve back to a package. The build emits their woff2 files.
-  "ignoreDependencies": [
-    "@fontsource-variable/space-grotesk",
-    "@fontsource/anton",
-    "@fontsource/jetbrains-mono",
-    "@fontsource/source-serif-4",
-  ],
+  "ignoreDependencies": ["@fontsource/jetbrains-mono", "@fontsource/source-serif-4"],
 }

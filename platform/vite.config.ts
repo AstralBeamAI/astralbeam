@@ -180,6 +180,19 @@ const viteConfig = defineConfig(({ mode }) => {
           })),
       tailwindcss(),
       tanstackStart({
+        server: { build: { inlineCss: true } },
+        router: {
+          codeSplittingOptions: {
+            // Keep dashboard loading UI out of public documentation's initial bundle.
+            // https://tanstack.com/router/latest/docs/framework/react/guide/code-splitting
+            defaultBehavior: [
+              ["component"],
+              ["pendingComponent"],
+              ["errorComponent"],
+              ["notFoundComponent"],
+            ],
+          },
+        },
         importProtection: {
           client: {
             files: [
