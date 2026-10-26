@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/site-footer"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
-import { reveal, startSiteEffects } from "@/scripts/main"
+import { reveal, shouldAnimate, startSiteEffects } from "@/scripts/main"
 
 import { AgentDemo } from "./agent-demo"
 import { highlight, integrations, steps } from "./content"
@@ -95,7 +95,7 @@ export function LandingPage() {
               </div>
               {/* Keep reveal self-contained so this script can animate the hero before hydration.
               https://tanstack.com/router/latest/docs/framework/react/guide/document-head-management */}
-              <ScriptOnce>{`{const els=document.querySelectorAll('.hero-copy .reveal'),animate=!matchMedia('(prefers-reduced-motion: reduce)').matches;if(animate)els.forEach(el=>el.classList.add('reveal-pending'));els.forEach(el=>(${reveal.toString()})(el,animate))}`}</ScriptOnce>
+              <ScriptOnce>{`{const els=document.querySelectorAll('.hero-copy .reveal'),animate=(${shouldAnimate.toString()})();if(animate)els.forEach(el=>el.classList.add('reveal-pending'));els.forEach(el=>(${reveal.toString()})(el,animate))}`}</ScriptOnce>
             </div>
 
             <div className="hero-demo reveal" style={cssVars({ "--reveal-delay": ".3s" })}>
