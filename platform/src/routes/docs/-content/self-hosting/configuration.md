@@ -26,6 +26,12 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 
 **NOTE**: An empty variable counts as unset, so the stored value applies again.
 
+## Tracing
+
+Set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to an OTLP/HTTP protobuf traces endpoint, or `OTEL_EXPORTER_OTLP_ENDPOINT` to a collector's base URL. The exporter supports `OTEL_EXPORTER_OTLP_TRACES_HEADERS` for authentication. Set `OTEL_SDK_DISABLED=true` to disable tracing.
+
+Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+
 ## General
 
 | Setting | Required | Default | Notes |
