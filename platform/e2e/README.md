@@ -100,7 +100,7 @@ The platform server receives its derived ports, database URL, and resolved `DOCK
 
 ## Things that will bite you
 
-- **Every page is server-rendered, so a control is clickable before React attaches to it.** An early click is dropped, an early submit posts the form natively, and an early fill into a React-controlled input is discarded at hydration. `waitForHydration(locator)` from `hydration.ts` waits for React's own instance key on the element; use it after any `page.goto`, and not after an in-app navigation.
+- **Every page is server-rendered, so a control can appear before React attaches to it.** Shared text inputs and native selects stay disabled until hydration finishes. Other controls may still accept early clicks or submit forms natively. `waitForHydration(locator)` from `hydration.ts` waits for React's own instance key on the element. Use it after `page.goto`, and not after an in-app navigation.
 - **Base UI toasts carry `role="dialog"`.** `getByRole("dialog")` matches every toast still on screen, so use `openDialog(page)` and `openAlertDialog(page)` from `dialogs.ts`.
 - **The shadcn checkbox keeps its `id` on a hidden proxy input.** `#some-checkbox` is never clickable; use `getByRole("checkbox")`.
 - **`/configure` renders its action row above and below the fields**, so `Save`, `Sign out`, and `Go to app` each match twice.

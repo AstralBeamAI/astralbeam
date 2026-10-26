@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading.
+// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading. Use TanStack hydration readiness.
 
 import { getSafeRedirectTo } from "@better-auth-ui/core"
 import {
@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { cn } from "cn"
-import { useIsHydrated } from "../use-is-hydrated"
+import { useHydrated } from "@tanstack/react-router"
 
 type UserInvitation = Invitation & { organizationName?: string }
 
@@ -49,7 +49,7 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
   const { authClient, navigate, redirectTo } = useAuth()
   const { localization, roles } = useAuthPlugin(organizationPlugin)
   const organizationAuthClient = authClient as OrganizationAuthClient
-  const isHydrated = useIsHydrated()
+  const isHydrated = useHydrated()
   const invitationId = isHydrated
     ? new URLSearchParams(globalThis.location.search).get("invitationId")
     : null

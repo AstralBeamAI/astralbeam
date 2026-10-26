@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls.
+// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration.
 
 "use client"
 
@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
+import { useHydrated } from "@tanstack/react-router"
 
 export type SignInProps = {
   className?: string
@@ -59,6 +60,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const [password, setPassword] = useState("")
+  const hydrated = useHydrated()
 
   const { mutate: signInEmail, isPending: signInEmailPending } = useSignInEmail(authClient, {
     onError: (error, { email }) => {
@@ -86,7 +88,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   const signUpMutating = useIsMutating({
     mutationKey: authMutationKeys.signUp.all,
   })
-  const isPending = signInMutating + signUpMutating > 0
+  const isPending = !hydrated || signInMutating + signUpMutating > 0
 
   const [fieldErrors, setFieldErrors] = useState<{
     email: string | undefined
@@ -99,6 +101,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
 
   const submitSignIn = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (isPending || !captchaReady) return
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get("email") as string
@@ -146,7 +149,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
           )}
 
           {emailAndPassword?.enabled && (
-            <form onSubmit={submitSignIn}>
+            <form method="post" onSubmit={submitSignIn}>
               <FieldGroup>
                 <Field data-invalid={!!fieldErrors.email}>
                   <FieldLabel htmlFor="email">{localization.auth.email}</FieldLabel>

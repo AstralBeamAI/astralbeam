@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
+import { useHydrated, Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 import { Schema } from "effect"
 
@@ -73,6 +73,7 @@ export function AgentForm({
   const router = useRouter()
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
+  const hydrated = useHydrated()
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
   const [webOverride, setWebOverride] = useState<boolean | null>(existing?.webAccessEnabled ?? null)
   const [sandboxEnabled, setSandboxEnabled] = useState(
@@ -108,9 +109,11 @@ export function AgentForm({
     (!webAccessEnabled || webAvailable) &&
     (!sandboxEnabled || selectedSandboxProviderId !== null)
 
+  const disabled = !hydrated || saving || readOnly
+
   const saveAgent = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!valid || readOnly || conflicted) return
+    if (disabled || !valid || conflicted) return
     setSaving(true)
     setNameError(null)
     setSaveError(null)
@@ -176,10 +179,8 @@ export function AgentForm({
     if (!conflicted) setSaveError(null)
   }
 
-  const disabled = saving || readOnly
-
   return (
-    <form onSubmit={(event) => void saveAgent(event)} className="max-w-2xl">
+    <form method="post" onSubmit={(event) => void saveAgent(event)} className="max-w-2xl">
       <Card>
         <CardHeader>
           <CardTitle>{existing ? "Configuration" : "New agent"}</CardTitle>
@@ -377,7 +378,7 @@ export function AgentForm({
                 <TooltipContent>Discard changes</TooltipContent>
               </Tooltip>
             )}
-            <Button type="submit" disabled={!valid || saving || conflicted}>
+            <Button type="submit" disabled={disabled || !valid || conflicted}>
               {saving ? "Saving…" : existing ? "Save changes" : "Create agent"}
             </Button>
           </CardFooter>

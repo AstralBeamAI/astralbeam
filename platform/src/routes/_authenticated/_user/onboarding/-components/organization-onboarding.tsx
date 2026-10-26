@@ -5,7 +5,7 @@ import { useState } from "react"
 
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog"
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
-import { useIsHydrated } from "@/components/auth/use-is-hydrated"
+import { useHydrated } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
@@ -22,7 +22,7 @@ export function OrganizationOnboarding({
   onOrganizationCreated,
 }: OrganizationOnboardingProps) {
   const [createOpen, setCreateOpen] = useState(false)
-  const hydrated = useIsHydrated()
+  const hydrated = useHydrated()
   const suggestedName = suggestOrganizationNameFromEmail(email)
 
   return (

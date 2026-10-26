@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated.
+// Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated. Use TanStack hydration readiness.
 
 import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldDescription } from "@/components/ui/field"
 import { cn } from "cn"
 import { OpenEmailButton } from "./open-email-button"
-import { useIsHydrated } from "./use-is-hydrated"
+import { useHydrated } from "@tanstack/react-router"
 
 /** `sessionStorage` key the forgot-password form stores the submitted email under. */
 export const RESET_LINK_SENT_STORAGE_KEY = "better-auth-ui.reset-link-sent"
@@ -31,7 +31,7 @@ export type ResetLinkSentProps = {
 export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth()
 
-  const isHydrated = useIsHydrated()
+  const isHydrated = useHydrated()
   const email = (isHydrated && globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) || ""
 
   return (

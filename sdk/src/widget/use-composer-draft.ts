@@ -100,14 +100,15 @@ export function useComposerDraft({
           storedThreadDraft(apiUrl, identity, threadId, text)
           storedThreadDraft(apiUrl, identity, threadId, "", "sent")
         }
-        edit(threadId, (value) => {
+        edit(threadId, (value, threads) => {
           if (value.attachmentsLoaded) return value
           const added = value.attachments.filter(
             (file) => !attachments.some((saved) => saved.id === file.id),
           )
           return {
             ...value,
-            text,
+            // A live edit can be newer than storage when a write failed.
+            text: threads.has(threadId) ? joinDrafts(sent, value.text) : text,
             attachments: added.length ? [...attachments, ...added] : attachments,
             settledAttachments: attachments,
             savedAttachments: attachments,

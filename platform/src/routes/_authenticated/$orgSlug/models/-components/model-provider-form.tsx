@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
-import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useHydrated, useNavigate, useRouter } from "@tanstack/react-router"
 import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
@@ -63,6 +63,7 @@ export function ModelProviderForm({
 }) {
   const navigate = useNavigate()
   const router = useRouter()
+  const hydrated = useHydrated()
   const testing = useIsMutating({ mutationKey: ["test-model-provider", existing?.id] }) > 0
   const [name, setName] = useState(existing?.name ?? "")
   const [providerType, setProviderType] = useState<ModelProviderType>(
@@ -131,7 +132,7 @@ export function ModelProviderForm({
       : []),
     ...(serverFieldError?.field === field ? [{ message: serverFieldError.message }] : []),
   ]
-  const disabled = saving || readOnly || testing
+  const disabled = !hydrated || saving || readOnly || testing
   const testDisabled =
     saving ||
     existing === null ||
@@ -175,7 +176,11 @@ export function ModelProviderForm({
     }
   }
   return (
-    <form className="max-w-2xl space-y-6" onSubmit={(event) => void saveProvider(event)}>
+    <form
+      method="post"
+      className="max-w-2xl space-y-6"
+      onSubmit={(event) => void saveProvider(event)}
+    >
       <Card>
         <CardHeader>
           <CardTitle>{existing ? "Configuration" : "Provider configuration"}</CardTitle>

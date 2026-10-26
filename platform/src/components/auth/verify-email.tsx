@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated. Use TanStack hydration readiness.
 
 "use client"
 
@@ -14,7 +14,7 @@ import { FieldDescription } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 import { OpenEmailButton } from "./open-email-button"
-import { useIsHydrated } from "./use-is-hydrated"
+import { useHydrated } from "@tanstack/react-router"
 
 export type VerifyEmailProps = {
   className?: string
@@ -40,7 +40,7 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     useAuth()
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
-  const isHydrated = useIsHydrated()
+  const isHydrated = useHydrated()
   const email =
     (isHydrated && globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) || ""
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)

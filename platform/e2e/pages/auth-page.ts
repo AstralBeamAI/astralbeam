@@ -34,7 +34,7 @@ export function authPage(page: Page) {
     },
 
     async signUp({ name, email, password }: SignUpDetails): Promise<void> {
-      // The password fields are React-controlled, so a value typed before hydration is discarded.
+      // Sign-up deliberately leaves its credential inputs disabled until hydration.
       await waitForHydration(page.locator("#password"))
       await page.locator("#name").fill(name)
       await page.locator("#email").fill(email)

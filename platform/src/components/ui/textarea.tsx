@@ -1,10 +1,12 @@
 // Added from @better-auth-ui/auth
-// Local changes: none.
+// Local changes: Disable editing until hydration finishes.
 import * as React from "react"
+import { useHydrated } from "@tanstack/react-router"
 
 import { cn } from "cn"
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({ className, disabled, ...props }: React.ComponentProps<"textarea">) {
+  const hydrated = useHydrated()
   return (
     <textarea
       data-slot="textarea"
@@ -13,6 +15,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         className
       )}
       {...props}
+      disabled={!hydrated || disabled}
     />
   )
 }
