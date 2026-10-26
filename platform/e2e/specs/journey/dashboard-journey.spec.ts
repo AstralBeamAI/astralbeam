@@ -57,7 +57,10 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await page.getByLabel("Owner email").fill(ownerEmail)
     await configure.inviteOwner()
 
-    await expect(configure.setupStatus()).toHaveText("Configuration is complete")
+    await expect(configure.setupStatus()).toBeHidden()
+    await expect(
+      configure.section("Owner onboarding").getByText("Configured", { exact: true }),
+    ).toBeVisible()
     await captureMilestone(page, "01-configure-complete")
     await configure.goToApp()
     const email = await waitForEmail(ownerEmail)

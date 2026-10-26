@@ -57,7 +57,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 
 The authentication secret signs sessions and tokens. The field offers **Generate** when it is unset and **Rotate** when it is set, and a successful generation reports "New secret generated". Rotating it signs every dashboard user out immediately.
 
-Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes test keys for local and automated use.
+Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
 Each social provider needs both halves of its pair. Setting one alone leaves setup incomplete with `<field> is required to enable this sign-in provider`, and a provider appears on the sign-in page only when both halves are present.
 
@@ -148,7 +148,7 @@ Sandbox credentials are not deployment settings and are not on this page. Each o
 
 ## Applying changes
 
-Edit the fields you need and press **Save**. A successful save reports "Configuration saved", and the alert at the top of the page switches to "Configuration is complete" once nothing required is missing.
+Edit the fields you need and press **Save**. A successful save briefly reports "Configuration saved". **Go to app** becomes available once configuration and owner onboarding are complete.
 
 The page saves the whole set of changes together, so a single invalid field blocks the batch and shows its message inline. A required setting cannot be emptied, which reports `Required configuration cannot be cleared`. An optional setting is cleared with **Clear value**, and an enum reset to **Use default** returns to its default.
 

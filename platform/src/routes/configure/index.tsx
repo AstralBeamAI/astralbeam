@@ -63,7 +63,7 @@ function ConfigurePage() {
           issues={state.issues}
           setupComplete={state.setupComplete}
           fallbackEncryptionKeyCount={state.fallbackEncryptionKeyCount}
-          onChanged={refresh}
+          onChanged={() => router.invalidate()}
         />
       )}
     </main>
