@@ -9,8 +9,24 @@ import { waitForHydration } from "../hydration.ts"
  */
 export function configurePage(page: Page) {
   const saveButton = page.getByRole("button", { name: "Save", exact: true }).first()
+  const section = (title: string) => page.getByRole("region", { name: title, exact: true })
+  const openSection = async (title: string) => {
+    const trigger = section(title).getByRole("button", { name: title, exact: true })
+    await waitForHydration(trigger)
+    if ((await trigger.getAttribute("aria-expanded")) === "false") await trigger.click()
+  }
+  const openFieldSection = async (key: string) => {
+    const trigger = page
+      .getByRole("region")
+      .filter({ has: page.locator(`#config-${key}`) })
+      .locator('[data-slot="collapsible-trigger"]')
+    await waitForHydration(trigger)
+    if ((await trigger.getAttribute("aria-expanded")) === "false") await trigger.click()
+  }
 
   return {
+    section,
+    openSection,
     async open(): Promise<void> {
       await page.goto("/configure")
       await expect(page.getByRole("heading", { level: 1 })).toContainText("Configure")
@@ -35,16 +51,19 @@ export function configurePage(page: Page) {
     },
 
     /** A value supplied by the server's environment is read-only here, so a spec must not set it. */
-    isEnvironmentProvided(key: string): Promise<boolean> {
+    async isEnvironmentProvided(key: string): Promise<boolean> {
+      await openFieldSection(key)
       return this.fieldGroup(key).getByText("Environment", { exact: true }).isVisible()
     },
 
     async setValue(key: string, value: string): Promise<void> {
+      await openFieldSection(key)
       await this.field(key).fill(value)
     },
 
     /** Generates and stores a new secret. The confirmation button repeats the trigger's label. */
     async generateSecret(key: string): Promise<void> {
+      await openFieldSection(key)
       const trigger = this.fieldGroup(key).getByRole("button", { name: /^(Generate|Rotate)$/ })
       const label = await trigger.innerText()
       await trigger.click()
@@ -54,6 +73,7 @@ export function configurePage(page: Page) {
 
     /** Checks the email provider settings currently in the form without sending anything. */
     async testEmailConnection(): Promise<void> {
+      await openSection("Email Delivery")
       await page.getByRole("button", { name: "Test connection" }).click()
       await expect(page.getByText("Email provider connection succeeded")).toBeVisible({
         timeout: 30_000,
@@ -61,7 +81,7 @@ export function configurePage(page: Page) {
     },
 
     setupStatus(): Locator {
-      return page.getByText(/^Configuration (is complete|required)$/)
+      return page.getByText("Configuration required", { exact: true })
     },
 
     async save(): Promise<void> {
@@ -72,6 +92,7 @@ export function configurePage(page: Page) {
     },
 
     async inviteOwner(): Promise<void> {
+      await openSection("Owner onboarding")
       await page.getByRole("button", { name: "Invite owner", exact: true }).click()
       await expectToast(page, "Owner invitation sent")
     },

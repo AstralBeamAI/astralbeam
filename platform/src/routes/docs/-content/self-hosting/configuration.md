@@ -14,6 +14,8 @@ A value in effect is resolved in this order, last one winning.
 
 Every field on the page is badged **Database** or **Environment**, so you can see which source is in effect. Secret values are never sent to the browser on page load. A field that holds a stored secret shows `Configured` and reveals its value only when you ask for that one key.
 
+Settings are grouped into collapsible sections. A green check and **Configured** describe a section's saved configuration, while **Unsaved changes** marks edits that still need saving. Collapsed sections summarize the saved settings without showing secrets. Connection tests remain separate from these completeness checks.
+
 ## Environment overrides
 
 Any setting below can be supplied as an environment variable named after the setting in uppercase, so `app_base_url` becomes `APP_BASE_URL` and `smtp_port` becomes `SMTP_PORT`. An override behaves differently from a stored value in three ways.
@@ -57,7 +59,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 
 The authentication secret signs sessions and tokens. The field offers **Generate** when it is unset and **Rotate** when it is set, and a successful generation reports "New secret generated". Rotating it signs every dashboard user out immediately.
 
-Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes test keys for local and automated use.
+Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
 Each social provider needs both halves of its pair. Setting one alone leaves setup incomplete with `<field> is required to enable this sign-in provider`, and a provider appears on the sign-in page only when both halves are present.
 
@@ -148,9 +150,9 @@ Sandbox credentials are not deployment settings and are not on this page. Each o
 
 ## Applying changes
 
-Edit the fields you need and press **Save**. A successful save reports "Configuration saved", and the alert at the top of the page switches to "Configuration is complete" once nothing required is missing.
+Edit the fields you need and press **Save**. A successful save briefly shows a "Configuration saved" notification. Editing another value dismisses it. **Go to app** becomes available once all required configuration is valid and owner onboarding is complete. See [Complete setup](./deploy.md#6-complete-setup) for the first owner invitation.
 
-The page saves the whole set of changes together, so a single invalid field blocks the batch and shows its message inline. A required setting cannot be emptied, which reports `Required configuration cannot be cleared`. An optional setting is cleared with **Clear value**, and an enum reset to **Use default** returns to its default.
+The page saves the whole set of changes together, so a single invalid field blocks the batch, opens its section, and shows its message inline. Editing or discarding that field clears its previous error. A required setting cannot be emptied, which reports `Required configuration cannot be cleared`. An optional setting is cleared with **Clear value**, and an enum reset to **Use default** returns to its default.
 
 The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 

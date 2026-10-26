@@ -2,13 +2,13 @@
 
 AstralBeam runs as a single web application process with one PostgreSQL database and a private S3-compatible bucket. Basic knowledge of Linux, PostgreSQL, and reverse proxies is assumed here.
 
-Every command below runs from the repository root in the `bun run --cwd platform <task>` form.
+Let's follow [Deploy](./deploy.md) to install a release binary or container and configure a fresh database. A release binary needs neither a repository checkout nor Bun on the deployment host.
 
 ## What you run
 
 One process serves the dashboard, the operator page at `/configure`, the public API under `/api`, and these docs. It ships as two artifacts, both of which come out of the same build.
 
-Run this command to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Bun executable with the server bundle and its assets embedded:
+For a source build, run this command from the repository root to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Bun executable with the server bundle and its assets embedded:
 
 ```sh
 bun run --cwd platform build
@@ -66,7 +66,7 @@ Every other deployment setting, including the base URL, the authentication secre
 
 The application stays gated until two conditions hold at once: configuration reports no issues, and no bundled migration is pending. There is no stored setup-complete flag, so the same gate reopens if a required setting is later cleared or a new release adds a migration.
 
-While the gate is closed, page routes redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. The application opens to users as soon as the page reports "Configuration is complete". [Deploy](./deploy.md) walks through the whole sequence.
+While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve any pending migrations, configure storage, authentication, and email, then save before inviting the owner. **Go to app** becomes available once configuration is valid and the owner invitation has been sent. [Complete setup](./deploy.md#6-complete-setup) walks through the whole sequence.
 
 ## Running more than one replica
 

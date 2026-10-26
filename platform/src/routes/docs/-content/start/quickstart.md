@@ -4,9 +4,11 @@ Let's walk through the process of embedding an agent in your application, from c
 
 Your server authenticates its own users and mints a short-lived chat token for each one, so the widget never sees the API key. Basic familiarity with your application's own session handling is assumed here.
 
+**NOTE**: For a self-hosted deployment, first [install the server and complete owner onboarding](/docs/self-hosting/deploy). The first owner sets their password from the setup email and signs in to the organization created during onboarding. Continue below using that organization, or create another one for your application.
+
 ## 1. Create your organization
 
-Sign up, then either accept an invitation to an existing organization or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
+Sign in to your existing organization, or sign up and either accept an invitation to an existing organization or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
 
 Creating one makes you its owner and provisions a starter agent, already set as the organization's default. It needs an assigned provider model before it can reply, on both hosted and self-hosted deployments.
 

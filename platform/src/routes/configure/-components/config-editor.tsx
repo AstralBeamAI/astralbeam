@@ -1,7 +1,7 @@
 "use client"
 
 import { Option, Schema } from "effect"
-import { useState } from "react"
+import { useId, useState } from "react"
 
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,7 @@ import { saveConfigValues } from "../-functions/save-config-values"
 import { testEmailProviderConnection } from "../-functions/test-email-provider-connection"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldGroups } from "./config-field-groups"
+import { ConfigSection } from "./config-section"
 import { ConfigureActions } from "./configure-actions"
 import { SetupStatusAlert } from "./setup-status-alert"
 
@@ -55,8 +56,9 @@ export function ConfigEditor({
   issues: ConfigIssue[]
   setupComplete: boolean
   fallbackEncryptionKeyCount: number
-  onChanged: () => void
+  onChanged: () => Promise<void>
 }) {
+  const saveToastId = useId()
   const [ownerDrafts, setOwnerDrafts] = useState<Partial<OwnerOnboarding>>({})
   const owner = onboarding && {
     email: onboarding.complete ? onboarding.email : (ownerDrafts.email ?? onboarding.email),
@@ -71,6 +73,7 @@ export function ConfigEditor({
   // Secrets arrive as `null`, so a value an operator revealed is the only copy the page holds.
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [failedSaveAttempt, setFailedSaveAttempt] = useState(0)
   const [pendingAction, setPendingAction] = useState<"save" | "invite" | "other" | null>(null)
   const busy = pendingAction !== null
   const [emailProviderTesting, setEmailProviderTesting] = useState(false)
@@ -103,7 +106,13 @@ export function ConfigEditor({
   })
 
   const setDraft = (key: string, draft: FieldDraft) => {
+    toast.close(saveToastId)
     if (emailConfigKeys.has(key)) setEmailProviderTestResult(undefined)
+    setFieldErrors((current) => {
+      const updated = { ...current }
+      delete updated[key]
+      return updated
+    })
     setDrafts((current) => ({ ...current, [key]: draft }))
   }
 
@@ -134,6 +143,7 @@ export function ConfigEditor({
   })
 
   const run = async (action: () => Promise<void>, kind: "save" | "invite" | "other" = "other") => {
+    toast.close(saveToastId)
     setPendingAction(kind)
     try {
       await action()
@@ -154,6 +164,7 @@ export function ConfigEditor({
       })
       setFieldErrors(Object.fromEntries(refused.map((issue) => [issue.key, issue.message])))
       if (refused.length > 0) {
+        setFailedSaveAttempt((attempt) => attempt + 1)
         toast.add({ title: "Some values could not be saved", type: "error" })
         return false
       }
@@ -165,7 +176,7 @@ export function ConfigEditor({
       const failure = parseServerFnError(error)
       toast.add({ title: failure.message, type: "error" })
       // The configuration was saved before owner onboarding failed.
-      if (failure.tag === "OwnerOnboardingFailed") onChanged()
+      if (failure.tag === "OwnerOnboardingFailed") await onChanged()
       return false
     }
   }
@@ -173,15 +184,22 @@ export function ConfigEditor({
   const handleSave = () =>
     run(async () => {
       if (!(await savePendingUpdates())) return
-      toast.add({ title: "Configuration saved", type: "success" })
-      onChanged()
+      await onChanged()
+      toast.add({
+        id: saveToastId,
+        title: "Configuration saved",
+        description:
+          "Saved changes apply immediately on this server. Restart other running server instances to load them.",
+        type: "success",
+        timeout: 5000,
+      })
     }, "save")
 
   const handleInviteOwner = () =>
     run(async () => {
       if (!(await savePendingUpdates(true))) return
-      toast.add({ title: "Owner invitation sent", type: "success" })
-      onChanged()
+      await onChanged()
+      toast.add({ id: saveToastId, title: "Owner invitation sent", type: "success", timeout: 5000 })
     }, "invite")
 
   const handleGenerate = (key: ConfigKey) =>
@@ -190,7 +208,7 @@ export function ConfigEditor({
       // The stored value changed, so any copy this page revealed is stale.
       setRevealedValues({})
       toast.add({ title: "New secret generated", type: "success" })
-      onChanged()
+      await onChanged()
     })
 
   const handleReveal = async (key: ConfigKey): Promise<boolean> => {
@@ -252,32 +270,57 @@ export function ConfigEditor({
     <div className="flex flex-col gap-6">
       {actions}
 
+      <ConfigFieldGroups
+        fields={fields}
+        issues={issues}
+        changedKeys={new Set(pendingUpdates.map((update) => update.key))}
+        drafts={drafts}
+        revealedValues={revealedValues}
+        fieldErrors={fieldErrors}
+        failedSaveAttempt={failedSaveAttempt}
+        disabled={busy}
+        onDraftChange={setDraft}
+        onGenerate={(key) => void handleGenerate(key)}
+        onReveal={handleReveal}
+        onTestEmailProvider={() => void handleTestEmailProvider()}
+        emailProvider={emailProvider}
+        canTestEmailProvider={canTestEmailProvider}
+        emailProviderTesting={emailProviderTesting}
+        emailProviderTestResult={emailProviderTestResult}
+        storageSettings={Option.getOrUndefined(storageSettings)}
+      />
+
       {onboarding && owner && (
-        <section
-          className="space-y-4 rounded-xl border p-5"
-          aria-labelledby="owner-onboarding-title"
+        <ConfigSection
+          title="Owner onboarding"
+          summary={
+            [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
+            "Invite the owner to finish setup."
+          }
+          configured={onboarding.complete}
+          hasChanges={Object.entries(ownerDrafts).some(
+            ([key, value]) => value !== onboarding[key as keyof OwnerOnboarding],
+          )}
         >
-          <h2 id="owner-onboarding-title" className="text-lg font-semibold">
-            Owner onboarding
-          </h2>
           <p className="text-sm text-muted-foreground">
             {onboarding.complete
               ? "Invitation sent. The owner can use the email to set their password. Manage organization details in the dashboard."
               : configurationRequired
                 ? "Save the application configuration before inviting the owner."
-                : "The owner receives an email to set their password."}
+                : "The owner receives an email to set their password."}{" "}
+            This organization also hosts the dashboard assistant.
           </p>
           {(
             [
               ["email", "Owner email", "Enter a valid email address."],
               [
                 "organizationName",
-                "Dogfood Organization name",
+                "Organization name",
                 "Use 1–100 characters without leading or trailing spaces.",
               ],
               [
                 "organizationSlug",
-                "Dogfood Organization slug",
+                "Organization slug",
                 "Use 1–63 lowercase letters, numbers, or hyphens, and avoid reserved names.",
               ],
             ] as const
@@ -299,9 +342,10 @@ export function ConfigEditor({
                   aria-describedby={invalid ? `owner-${key}-error` : undefined}
                   value={owner[key]}
                   disabled={busy || locked}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    toast.close(saveToastId)
                     setOwnerDrafts({ ...ownerDrafts, [key]: event.target.value })
-                  }
+                  }}
                 />
                 {invalid && <FieldError id={`owner-${key}-error`}>{message}</FieldError>}
               </div>
@@ -317,8 +361,10 @@ export function ConfigEditor({
               {pendingAction === "invite" ? "Sending invitation…" : "Invite owner"}
             </Button>
           )}
-        </section>
+        </ConfigSection>
       )}
+
+      {actions}
 
       <SetupStatusAlert
         setupComplete={setupComplete}
@@ -335,25 +381,6 @@ export function ConfigEditor({
         }
         fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
       />
-
-      <ConfigFieldGroups
-        fields={fields}
-        drafts={drafts}
-        revealedValues={revealedValues}
-        fieldErrors={fieldErrors}
-        disabled={busy}
-        onDraftChange={setDraft}
-        onGenerate={(key) => void handleGenerate(key)}
-        onReveal={handleReveal}
-        onTestEmailProvider={() => void handleTestEmailProvider()}
-        emailProvider={emailProvider}
-        canTestEmailProvider={canTestEmailProvider}
-        emailProviderTesting={emailProviderTesting}
-        emailProviderTestResult={emailProviderTestResult}
-        storageSettings={Option.getOrUndefined(storageSettings)}
-      />
-
-      {actions}
     </div>
   )
 }

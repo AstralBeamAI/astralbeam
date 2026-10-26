@@ -4,15 +4,18 @@ import { GlobeIcon, WarningIcon } from "@phosphor-icons/react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { EMAIL_PROVIDER_SETTING_KEYS } from "@/lib/email/schemas"
 import type { EmailProvider } from "@/lib/email/schemas"
-import type { ConfigKey } from "@/lib/config/types"
+import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
+import { summarizeConfigGroup } from "../-lib/summarize-config-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
+import { ConfigSection } from "./config-section"
 import { StorageConnectionTest } from "./storage-connection-test"
 import type { StorageConnection } from "@/lib/storage/schemas"
+
+const configGroupOrder = ["General", "Authentication", "Email Delivery", "File storage"] as const
 
 const storageConnectionPresets = [
   {
@@ -37,9 +40,12 @@ const storageConnectionPresets = [
 
 export function ConfigFieldGroups({
   fields,
+  issues,
+  changedKeys,
   drafts,
   revealedValues,
   fieldErrors,
+  failedSaveAttempt,
   disabled,
   onDraftChange,
   onGenerate,
@@ -52,9 +58,12 @@ export function ConfigFieldGroups({
   storageSettings,
 }: {
   fields: ConfigureField[]
+  issues: ConfigIssue[]
+  changedKeys: Set<string>
   drafts: Record<string, FieldDraft>
   revealedValues: Record<string, string>
   fieldErrors: Record<string, string>
+  failedSaveAttempt: number
   disabled: boolean
   onDraftChange: (key: string, draft: FieldDraft) => void
   onGenerate: (key: ConfigKey) => void
@@ -83,21 +92,38 @@ export function ConfigFieldGroups({
       return draft?.kind === "set" && draft.value !== field.value
     })
 
-  return [...fieldsByGroup].map(([group, groupFields]) => {
-    const visibleFields =
-      group === "Email Delivery"
-        ? groupFields.filter(
-            (field) =>
-              ["email_provider", "email_from_address"].includes(field.key) ||
-              providerKeys.has(field.key),
-          )
-        : groupFields
-    return (
-      <Card key={group}>
-        <CardHeader>
-          <CardTitle>{group}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
+  return [...fieldsByGroup]
+    .toSorted(
+      ([first], [second]) => configGroupOrder.indexOf(first) - configGroupOrder.indexOf(second),
+    )
+    .map(([group, groupFields]) => {
+      const configured = !groupFields.some(
+        (field) =>
+          issues.some((issue) => issue.key === field.key) ||
+          fieldErrors[field.key] ||
+          field.storageStatus,
+      )
+      const visibleFields =
+        group === "Email Delivery"
+          ? groupFields.filter(
+              (field) =>
+                ["email_provider", "email_from_address"].includes(field.key) ||
+                providerKeys.has(field.key),
+            )
+          : groupFields
+      return (
+        <ConfigSection
+          key={group}
+          title={group}
+          summary={summarizeConfigGroup(group, groupFields)}
+          configured={configured}
+          hasChanges={groupFields.some((field) => changedKeys.has(field.key))}
+          errorAttempt={
+            groupFields.some((field) => Boolean(fieldErrors[field.key]))
+              ? failedSaveAttempt
+              : undefined
+          }
+        >
           {group === "File storage" && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
@@ -208,8 +234,7 @@ export function ConfigFieldGroups({
           {group === "File storage" && (
             <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
-        </CardContent>
-      </Card>
-    )
-  })
+        </ConfigSection>
+      )
+    })
 }
