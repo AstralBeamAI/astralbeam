@@ -5,6 +5,7 @@ import type { NitroAppPlugin } from "nitro/types"
 import type { ViteHotContext } from "vite/types/hot.d.ts"
 
 import { closeClusterProcess, startClusterRunner, stopClusterRunner } from "./runtime.ts"
+import { serverLoggerLayer } from "../runtime/logging.server.ts"
 
 // Nitro reloads can invalidate modules without HMR disposal. Keep listener cleanup process-wide.
 // https://vite.dev/guide/api-environment-runtimes.html#modulerunner
@@ -16,7 +17,8 @@ const clusterPluginProcess = globalThis as typeof globalThis & {
 const clusterPlugin: NitroAppPlugin = (nitro) => {
   if (import.meta.prerender || process.env.NODE_ENV === "test") return
   clusterPluginProcess[clusterShutdownCleanupKey]?.()
-  Effect.runFork(startClusterRunner)
+  // These lifecycle roots run outside the app runtime and need its logger explicitly.
+  Effect.runFork(startClusterRunner.pipe(Effect.provide(serverLoggerLayer)))
 
   // Vite provides this context, while Bun declares its own incompatible hot-reload interface.
   const hot = import.meta.hot as unknown as ViteHotContext | undefined
@@ -25,8 +27,11 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
     const closeDevelopmentCluster = () =>
       Effect.runFork(
         closeClusterProcess.pipe(
-          Effect.catchCause(() => Effect.logError("Development cluster cleanup failed")),
+          Effect.catchCause((cause) =>
+            Effect.logError("Development cluster cleanup failed", cause),
+          ),
           Effect.andThen(Effect.sync(() => hot.send("astralbeam:closed"))),
+          Effect.provide(serverLoggerLayer),
         ),
       )
     const removeShutdownHandlers = () => {
@@ -39,7 +44,7 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
     hot.on("astralbeam:close", closeDevelopmentCluster)
     hot.dispose(() => {
       removeShutdownHandlers()
-      Effect.runFork(stopClusterRunner)
+      Effect.runFork(stopClusterRunner.pipe(Effect.provide(serverLoggerLayer)))
     })
     return
   }
@@ -53,11 +58,12 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
     Effect.andThen(closeClusterProcess.pipe(Effect.timeout("5 seconds"))),
     Effect.matchCauseEffect({
       onSuccess: () => Effect.sync(() => process.exit(0)),
-      onFailure: () =>
-        Effect.logError("Server shutdown cleanup failed or timed out").pipe(
+      onFailure: (cause) =>
+        Effect.logError("Server shutdown cleanup failed or timed out", cause).pipe(
           Effect.andThen(Effect.sync(() => process.exit(1))),
         ),
     }),
+    Effect.provide(serverLoggerLayer),
   )
   let shutdownFiber: Fiber.Fiber<never> | undefined
   const startShutdown = () => {

@@ -1,7 +1,7 @@
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
-import { Layer, Logger, ManagedRuntime } from "effect"
+import { Layer, ManagedRuntime } from "effect"
 
-import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
+import { serverLoggerLayer } from "./logging.server.ts"
 
 import { Database } from "@/db/database"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
@@ -28,10 +28,6 @@ import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-
-const LoggerLayer = Logger.layer([
-  IS_DEVELOPMENT_SERVER ? Logger.consolePretty() : Logger.consoleLogFmt,
-])
 
 function makeAppLayer() {
   return Layer.mergeAll(
@@ -61,7 +57,7 @@ function makeAppLayer() {
     TenantUsers.layer,
     UsageLimits.layer,
     BunHttpClient.layer,
-    LoggerLayer,
+    serverLoggerLayer,
   )
 }
 

@@ -175,6 +175,7 @@ const viteConfig = defineConfig(({ mode }) => {
             },
             plugins: [
               "./src/lib/runtime/response-headers.server.ts",
+              "./src/lib/runtime/nitro-logging-plugin.server.ts",
               "./src/lib/cluster/plugin.ts",
             ],
           })),

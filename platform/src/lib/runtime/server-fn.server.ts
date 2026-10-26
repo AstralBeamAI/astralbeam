@@ -3,6 +3,7 @@ import { setResponseStatus } from "@tanstack/react-start/server"
 import { Cause, Effect, Exit, type ManagedRuntime, Option, Schema } from "effect"
 
 import { reportFailure } from "./failure-report.server.ts"
+import { serverLoggerLayer } from "./logging.server.ts"
 import { declaredHttpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
 import { formatServerFnError, INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
@@ -32,10 +33,7 @@ export function exposeError(error: {
   )
 }
 
-type ServerFnRuntime<R> = Pick<
-  ManagedRuntime.ManagedRuntime<R, never>,
-  "runPromise" | "runPromiseExit"
->
+type ServerFnRuntime<R> = Pick<ManagedRuntime.ManagedRuntime<R, never>, "runPromiseExit">
 
 /**
  * Runs an Effect for a server function or its middleware. Exposed failures throw
@@ -53,7 +51,7 @@ export function runRequestEffect<A, E>(
   effect: Effect.Effect<A, E, ServerRequest>,
   operation: string,
 ): Promise<A> {
-  return runServerFnEffect(Effect, effect, operation)
+  return runServerFnEffect(Effect, Effect.provide(effect, serverLoggerLayer), operation)
 }
 
 async function runServerFnEffect<A, E, R>(
@@ -62,9 +60,11 @@ async function runServerFnEffect<A, E, R>(
   operation: string,
 ): Promise<A> {
   const request = captureServerRequest()
-  const exit = await runtime.runPromiseExit(Effect.provideService(effect, ServerRequest, request), {
-    signal: request.request.signal,
-  })
+  const annotations = { requestId: request.request.headers.get("x-request-id"), operation }
+  const exit = await runtime.runPromiseExit(
+    Effect.provideService(effect, ServerRequest, request).pipe(Effect.annotateLogs(annotations)),
+    { signal: request.request.signal },
+  )
   if (Exit.isSuccess(exit)) return exit.value
   const failure = Cause.findErrorOption(exit.cause)
   if (Option.isSome(failure) && !Cause.hasDies(exit.cause)) {
@@ -76,7 +76,13 @@ async function runServerFnEffect<A, E, R>(
       throw new Error(formatServerFnError(failure.value))
     }
   }
-  const referenceId = await runtime.runPromise(reportFailure(operation, exit.cause))
+  // Report without the app runtime so service-initialization failures still receive a reference.
+  const referenceId = Effect.runSync(
+    reportFailure(operation, exit.cause).pipe(
+      Effect.annotateLogs(annotations),
+      Effect.provide(serverLoggerLayer),
+    ),
+  )
   setResponseStatus(500)
   throw new Error(
     formatServerFnError({
@@ -91,7 +97,10 @@ export function runRouteEffect<A>(
   effect: Effect.Effect<A, never, AppServices | ServerRequest>,
 ): Promise<A> {
   const request = captureServerRequest()
-  return getAppRuntime().runPromise(Effect.provideService(effect, ServerRequest, request), {
-    signal: request.request.signal,
-  })
+  return getAppRuntime().runPromise(
+    Effect.provideService(effect, ServerRequest, request).pipe(
+      Effect.annotateLogs({ requestId: request.request.headers.get("x-request-id") }),
+    ),
+    { signal: request.request.signal },
+  )
 }

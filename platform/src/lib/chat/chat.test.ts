@@ -3,6 +3,7 @@ import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
+import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
 
 const chatRunTest = vi.hoisted(() => ({
@@ -57,6 +58,7 @@ import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
+import { serverLoggerLayer } from "@/lib/runtime/logging.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { Chat } from "./chat.ts"
 import { McpTools } from "../mcp/tools.server"
@@ -97,7 +99,7 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   providerType: "openai",
   api: "responses",
   baseUrl: "https://api.openai.com/v1",
-  apiKey: "sk-chat-test-provider-key",
+  apiKey: "opaque-chat-test-provider-key",
   modelId: "gpt-5.6-terra",
   fetch,
 }
@@ -415,7 +417,7 @@ describe("Chat.run", () => {
     },
   ])("explains $code without exposing upstream provider details", ({ code, message }) =>
     Effect.gen(function* () {
-      const upstream = "401 Incorrect API key provided: sk-inval****"
+      const upstream = `401 Incorrect API key provided: ${CHAT_TEST_MODEL.apiKey}`
       chatRunTest.runError = {
         type: EventType.RUN_ERROR,
         runId: "run",
@@ -431,7 +433,14 @@ describe("Chat.run", () => {
         runId: "run",
         message,
       })
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+      const output = (yield* TestConsole.logLines).map(String).join("\n")
+      assert.notInclude(output, CHAT_TEST_MODEL.apiKey)
+      assert.include(output, "Incorrect API key provided:")
+    }).pipe(
+      Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL })),
+      Effect.provide(serverLoggerLayer),
+      Effect.provide(TestConsole.layer),
+    ),
   )
 
   it.effect("keeps only the fixed abort shape when a provider reports an aborted code", () =>

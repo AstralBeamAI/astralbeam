@@ -1,6 +1,7 @@
 import * as PgClient from "@effect/sql-pg/PgClient"
 import { drizzle } from "drizzle-orm/node-postgres"
 import * as PgDrizzle from "drizzle-orm/effect-postgres"
+import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -9,8 +10,8 @@ import * as Redacted from "effect/Redacted"
 import { Statement } from "effect/sql"
 import { Pool } from "pg"
 
+import { serverLoggerLayer } from "@/lib/runtime/logging.server"
 import { getDatabaseUrl } from "./lib/database-credentials.ts"
-import { sqlState } from "./lib/sqlstate.ts"
 import {
   guardPromiseDatabase,
   guardPromisePool,
@@ -35,17 +36,18 @@ function createAuthDatabasePool(): Pool {
     keepAliveInitialDelayMillis: 10_000,
   })
   guardPromisePool(pool)
-  // An unhandled 'error' event on a pg pool terminates the process. Log its code, not its message.
+  // An unhandled 'error' event on a pg pool terminates the process, so keep a diagnostic listener.
+  // https://node-postgres.com/apis/pool#error
   pool.on("error", (error) => {
     Effect.runFork(
-      Effect.logError("Database pool idle client error").pipe(
+      Effect.logError("Database pool idle client error", Cause.die(error)).pipe(
         Effect.annotateLogs({
           pool: "astralbeam-platform-auth",
-          code: sqlState(error),
           total: pool.totalCount,
           idle: pool.idleCount,
           waiting: pool.waitingCount,
         }),
+        Effect.provide(serverLoggerLayer),
       ),
     )
   })
@@ -67,6 +69,7 @@ function createAuthDatabase() {
     drizzle({
       client: getDatabaseResources().authPool,
       jit: true,
+      paramsInErrors: false,
       relations: databaseRelations,
     }),
   )
@@ -81,7 +84,7 @@ export function getAuthDatabase() {
 const makeEffectDatabase = Effect.flatMap(PgClient.PgClient, (client) =>
   Effect.andThen(
     Effect.sync(() => guardSqlTransactions(client)),
-    PgDrizzle.makeWithDefaults({ relations: databaseRelations, jit: true }),
+    PgDrizzle.makeWithDefaults({ relations: databaseRelations, jit: true, paramsInErrors: false }),
   ),
 )
 

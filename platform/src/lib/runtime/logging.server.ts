@@ -1,0 +1,73 @@
+import process from "node:process"
+
+import { Array, Config, ConfigProvider, Effect, Formatter, Layer, Logger, References } from "effect"
+
+const SECRET_LOG_FIELDS =
+  "authorization|cookie|set-cookie|password|passwd|secret|credentials?|api[_-]?key|(?:access|refresh)[_-]?token|client[_-]?secret|secret(?:[_-]?access)?[_-]?key|token"
+const SECRET_LOG_FIELD = new RegExp(`^(?:${SECRET_LOG_FIELDS})$`, "iu")
+const SECRET_LOG_ASSIGNMENT = new RegExp(
+  `(\\b(?:${SECRET_LOG_FIELDS})["']?\\s*[:=]\\s*["']?)[^"'&,\\s<>]+`,
+  "giu",
+)
+
+// Keep Effect's cause rendering intact and map only the record fields to ECS.
+// https://www.elastic.co/docs/reference/ecs/logging/intro
+const ecsLogger = Logger.formatStructured.pipe(
+  // Normalize with Effect, then mask credentials before message arguments become a single string.
+  Logger.map((record) => JSON.parse(Formatter.formatJson(record), redactLogValue) as typeof record),
+  Logger.map(({ timestamp, level, message, cause, annotations }) => {
+    const { event, requestId, method, path, status, durationMs, ...attributes } = annotations
+    return Formatter.formatJson({
+      "@timestamp": timestamp,
+      "log.level": level,
+      message: Array.ensure(message)
+        .map((value) => (typeof value === "string" ? value : Formatter.format(value)))
+        .join(" "),
+      "ecs.version": "9.5.0",
+      "service.name": "astralbeam-platform",
+      "event.action": event,
+      // ECS durations are integer nanoseconds.
+      "event.duration":
+        typeof durationMs === "number" ? Math.round(durationMs * 1_000_000) : undefined,
+      "http.request.id": requestId ?? undefined,
+      "http.request.method": method,
+      "http.response.status_code": status,
+      "url.path": path,
+      "error.stack_trace": cause,
+      astralbeam: Object.keys(attributes).length > 0 ? attributes : undefined,
+    })
+  }),
+  Logger.withConsoleLog,
+)
+
+function redactLogValue(key: string, value: unknown): unknown {
+  if (SECRET_LOG_FIELD.test(key)) return "[REDACTED]"
+  if (typeof value !== "string") return value
+  // Better Auth puts password-reset credentials in the path, unlike its query-based tokens.
+  return value
+    .replace(/(\/api\/auth\/reset-password\/)[^/?#\s"']+/gu, "$1[REDACTED]")
+    .replace(/(\b[a-z][a-z\d+.-]*:\/\/[^/\s:@]+:)[^/\s@]*@/giu, "$1[REDACTED]@")
+    .replace(/\b(Bearer|Basic)\s+[\w.~+/*-]+=*/giu, "$1 [REDACTED]")
+    .replace(
+      /\b(?:sk-[\w*-]+|(?:gh[pousr]_|github_pat_)\w+|xox[baprs]-[\w-]+|AIza[\w-]{35}|(?:AKIA|ASIA)[A-Z\d]{16}|eyJ[\w-]+\.[\w-]+\.[\w-]+)/gu,
+      "[REDACTED]",
+    )
+    .replace(SECRET_LOG_ASSIGNMENT, "$1[REDACTED]")
+}
+
+export const serverLoggerLayer = Layer.mergeAll(
+  Logger.layer([ecsLogger]),
+  Layer.effect(
+    References.MinimumLogLevel,
+    Config.LogLevel("LOG_LEVEL").pipe(
+      Config.withDefault("Info"),
+      // The default provider lets import.meta.env override process.env, including Vite's values.
+      // https://github.com/Effect-TS/effect/blob/main/packages/effect/src/ConfigProvider.ts
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.fromEnvRecord(process.env),
+      ),
+      Effect.orDie,
+    ),
+  ),
+)
