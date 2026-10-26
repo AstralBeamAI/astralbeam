@@ -5,6 +5,15 @@
   "treatTagHintsAsErrors": true,
   // Bun-run generator scripts are explicit extension points, like platform's.
   "entry": ["scripts/*.ts", "src/**/*.test.{ts,tsx}"],
-  // The shadcn-generated components are vendored copy-paste code whose unused sub-exports are expected.
-  "ignore": ["src/widget/components/ui/**"],
+  // Keep unreachable registry files visible while ignoring their unused sub-exports.
+  "ignoreIssues": {
+    "src/widget/components/ui/**": [
+      "exports",
+      "nsExports",
+      "types",
+      "nsTypes",
+      "enumMembers",
+      "namespaceMembers",
+    ],
+  },
 }

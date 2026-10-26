@@ -130,7 +130,7 @@ export function McpConnectionsPanel({
                 </p>
                 <Button
                   size="sm"
-                  className="any-pointer-coarse:min-h-9"
+                  className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
                   onClick={() => void catalog.refetch()}
                 >
                   Try again
@@ -205,7 +205,6 @@ export function McpConnectionsPanel({
                       {labels && !(publicServer && connected) && (
                         <TooltipButton
                           size={connected ? "icon-sm" : "xs"}
-                          className={connected ? undefined : "any-pointer-coarse:min-h-9"}
                           variant={connected ? "ghost" : "outline"}
                           aria-label={`${labels[connected ? 1 : 0]}: ${endpoint.hostname}`}
                           tooltip={labels[connected ? 1 : 0]}
@@ -310,13 +309,17 @@ export function McpConnectionsPanel({
                           Saved secrets are never shown. Enter every value to replace them.
                         </p>
                         <div className="flex gap-2">
-                          <Button type="submit" size="sm" className="any-pointer-coarse:min-h-9">
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                          >
                             Save credentials
                           </Button>
                           <Button
                             type="button"
                             size="sm"
-                            className="any-pointer-coarse:min-h-9"
+                            className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
                             variant="outline"
                             onClick={() => setHeadersFor(null)}
                           >

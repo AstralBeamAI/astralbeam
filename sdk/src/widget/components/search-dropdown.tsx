@@ -118,7 +118,12 @@ export function SearchDropdown<T extends { id: string }>({
           <ComboboxTrigger
             id={id}
             aria-label={label}
-            render={<Button variant="outline" className="w-full justify-between" />}
+            render={
+              <Button
+                variant="outline"
+                className="w-full justify-between any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+              />
+            }
           >
             <span className="truncate">
               <ComboboxValue placeholder={label} />
@@ -151,6 +156,7 @@ export function SearchDropdown<T extends { id: string }>({
               <Button
                 variant="ghost"
                 size="sm"
+                className="any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
                 disabled={query.isFetching}
                 onClick={() =>
                   void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
