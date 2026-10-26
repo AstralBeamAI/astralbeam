@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
 import { Outlet, useLocation, useNavigate, useParams, useRouter } from "@tanstack/react-router"
-import {
-  ArrowsClockwiseIcon,
-  SidebarSimpleIcon,
-  SparkleIcon,
-  StarFourIcon,
-} from "@phosphor-icons/react"
+import { ArrowsClockwiseIcon, SidebarSimpleIcon, StarFourIcon } from "@phosphor-icons/react"
 import { Button } from "./ui/button.tsx"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog.tsx"
 import { Sidebar, type View } from "./sidebar.tsx"
@@ -100,7 +95,7 @@ function WorkspaceApp({
             setNavOpen(false)
           }}
           onReset={() => setResetOpen(true)}
-          onWorkspace={(id) => void route({ href: workspaceUrl(id, "overview") })}
+          onWorkspace={(id) => void route({ href: workspaceUrl(id, "issues") })}
         />
         {navOpen && (
           <button
@@ -176,13 +171,6 @@ function WorkspaceApp({
                 }}
               />
             </div>
-            <div className="astro-footer">
-              <SparkleIcon size={12} />
-              Powered by{" "}
-              <a href="https://astralbeam.ai" target="_blank" rel="noopener noreferrer">
-                AstralBeam
-              </a>
-            </div>
           </aside>
         </div>
         <Dialog open={resetOpen} onOpenChange={setResetOpen}>
@@ -205,7 +193,7 @@ function WorkspaceApp({
                   chat.current?.reset()
                   demoStore.reset()
                   setResetOpen(false)
-                  void route({ href: workspaceUrl(workspace.id, "overview") })
+                  void route({ href: workspaceUrl(workspace.id, "issues") })
                 }}
               >
                 Reset everything

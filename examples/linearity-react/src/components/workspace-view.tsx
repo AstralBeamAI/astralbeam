@@ -414,7 +414,7 @@ export function WorkspaceView({ view }: { view: View }) {
           <CommandIcon size={13} />
           Your team’s work, in one place.
         </span>
-        <span>Linearity playground · Powered by AstralBeam</span>
+        <span>Linearity playground</span>
       </footer>
     </>
   )

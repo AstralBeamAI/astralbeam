@@ -77,19 +77,6 @@ export function Astro({
       }}
       empty={
         <div className="astro-welcome">
-          <span className="astro-orbit">
-            <StarFourIcon size={29} weight="fill" />
-          </span>
-          <span className="eyebrow">YOUR WORKSPACE ASSISTANT</span>
-          <h2>
-            Less searching.
-            <br />
-            More progress.
-          </h2>
-          <p>
-            I’m Astro. Ask me to find an issue, open a project, or help move your team’s work
-            forward.
-          </p>
           <div className="prompt-examples">
             <span>Try asking me</span>
             <div>
