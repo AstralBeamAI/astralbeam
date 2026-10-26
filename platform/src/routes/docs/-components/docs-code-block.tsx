@@ -1,7 +1,7 @@
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
 import type { MarkdownComponentProps } from "@tanstack/markdown/react"
 import { cn } from "cn"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -19,6 +19,12 @@ export function DocsCodeBlock({
   const codeRef = useRef<HTMLPreElement>(null)
   const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle")
   const label = status === "copied" ? "Copied to clipboard" : "Copy code"
+
+  useEffect(() => {
+    if (status === "idle") return
+    const timer = setTimeout(() => setStatus("idle"), 2000)
+    return () => clearTimeout(timer)
+  }, [status])
 
   async function copyCode() {
     try {
