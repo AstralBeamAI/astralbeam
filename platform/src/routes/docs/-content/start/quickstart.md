@@ -49,7 +49,7 @@ ASTRALBEAM_API_KEY=your_organization_api_key
 
 ## 3. Connect your backend
 
-Your backend verifies the signed-in user, signs a short-lived JWT, and returns `{ token }` from `POST /api/chat-token`. Use stable IDs from your authenticated session for the user and their customer account (`tenant`).
+Your backend verifies the signed-in user, signs a short-lived JWT, and returns `{ token }` from `POST /api/astralbeam/token`. Use stable IDs from your authenticated session for the user and their customer account (`tenant`).
 
 Here are two examples. See the [token format](/docs/sdk/authentication#mint-tokens-without-javascript) to sign tokens in another language. Keep your backend's session and CSRF protections.
 
@@ -59,7 +59,7 @@ Here are two examples. See the [token format](/docs/sdk/authentication#mint-toke
 
 This example uses an existing Better Auth instance at `@/lib/auth`. Its organization membership maps to the customer account.
 
-```ts title="src/server/chat-token.ts"
+```ts title="src/server/astralbeam-token.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import { auth } from "@/lib/auth"
 
@@ -76,42 +76,42 @@ export async function POST(request: Request) {
 
 ### Rails
 
-Add the `jwt` gem and copy the [Ruby token helper](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos-rails/lib/astral_beam.rb) to `lib/astral_beam.rb`. This example uses Rails' authentication generator and assumes each user belongs to an account.
+Add the `jwt` gem. This example uses Rails' authentication generator and assumes each user belongs to an account.
 
 Add a route:
 
 ```ruby title="config/routes.rb"
-post "/api/chat-token", to: "chat_tokens#create"
+post "/api/astralbeam/token", to: "astralbeam_tokens#create"
 ```
 
-```ruby title="app/controllers/chat_tokens_controller.rb"
-class ChatTokensController < ApplicationController
+```ruby title="app/controllers/astralbeam_tokens_controller.rb"
+require "jwt"
+require "digest"
+require "base64"
+
+class AstralbeamTokensController < ApplicationController
   before_action :require_authentication
 
   def create
     no_store
-    token = AstralBeam.token(
-      api_key: ENV.fetch("ASTRALBEAM_API_KEY"),
+    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
+    digest = Digest::SHA256.digest("abo_#{secret}")
+    signing_key = Base64.urlsafe_encode64(digest, padding: false)
+    claims = {
+      ver: 4, iss: key_id.split("_")[1], aud: "astralbeam",
+      iat: Time.current.to_i, exp: 5.minutes.from_now.to_i,
       user: { id: Current.user.id.to_s },
       tenant: { id: Current.user.account_id.to_s }
+    }
+    token = JWT.encode(
+      claims, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key_id }
     )
     render json: { token: token }
   end
 end
 ```
 
-Keep `csrf_meta_tags` in your Rails layout and use this `fetchToken` function in step 4:
-
-```ts title="Rails token request"
-async function fetchToken() {
-  const csrfMeta = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")!
-  const response = await fetch("/api/chat-token", {
-    method: "POST",
-    headers: { "X-CSRF-Token": csrfMeta.content },
-  })
-  return response.json()
-}
-```
+Keep `csrf_meta_tags` in your Rails layout and send its token in the request's `X-CSRF-Token` header.
 
 <!-- ::end:tabs -->
 
@@ -125,7 +125,7 @@ Pass a function that calls your token handler:
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 async function fetchToken() {
-  const response = await fetch("/api/chat-token", { method: "POST" })
+  const response = await fetch("/api/astralbeam/token", { method: "POST" })
   return response.json()
 }
 
