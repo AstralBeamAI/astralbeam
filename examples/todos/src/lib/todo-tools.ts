@@ -1,14 +1,10 @@
 import type { Todo } from "./types.ts"
 
-function readTodoId(input: Record<string, unknown>) {
-  const id = Number(input.id)
-  if (!Number.isSafeInteger(id)) throw new Error("A todo needs a valid id")
-  return id
-}
-
-function findTodo({ id, todos }: { id: number; todos: Todo[] }) {
-  const todo = todos.find((candidate) => candidate.id === id)
-  if (!todo) throw new Error(`No todo with id ${id}`)
+export function findTodo({ id, todos }: { id: unknown; todos: Todo[] }) {
+  const todoId = Number(id)
+  if (!Number.isSafeInteger(todoId)) throw new Error("A todo needs a valid id")
+  const todo = todos.find((candidate) => candidate.id === todoId)
+  if (!todo) throw new Error(`No todo with id ${todoId}`)
   return todo
 }
 
@@ -31,7 +27,7 @@ export function updateTodoFromToolInput({
   input: Record<string, unknown>
   todos: Todo[]
 }) {
-  const todo = findTodo({ id: readTodoId(input), todos })
+  const todo = findTodo({ id: input.id, todos })
   // Missing and explicit null both mean "unchanged"; coercing null would corrupt the todo.
   const text =
     input.text == null ? todo.text : typeof input.text === "string" ? input.text.trim() : ""
@@ -41,14 +37,4 @@ export function updateTodoFromToolInput({
     text,
     completed: input.completed == null ? todo.completed : Boolean(input.completed),
   } satisfies Todo
-}
-
-export function deleteTodoFromToolInput({
-  input,
-  todos,
-}: {
-  input: Record<string, unknown>
-  todos: Todo[]
-}) {
-  return findTodo({ id: readTodoId(input), todos })
 }

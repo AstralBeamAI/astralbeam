@@ -1,5 +1,4 @@
-/* Deliberately plain, non-Tailwind styling with a warm palette, so any style leaking across the
-   widget's shadow boundary in either direction is immediately visible. */
+/* Plain CSS for the host app. */
 
 * {
   box-sizing: border-box;
@@ -182,7 +181,7 @@ body {
 }
 
 .todos-list th:last-child {
-  width: 8rem;
+  width: 12rem;
 }
 
 .todos-list tbody tr:last-child td {
@@ -195,7 +194,7 @@ body {
 
 .todos-list label,
 .admin-toggle,
-.todo-card-row {
+.todo-card {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -211,6 +210,10 @@ body {
   white-space: nowrap;
 }
 
+.todo-status + button {
+  margin-inline-start: 0.75rem;
+}
+
 .todo-done {
   text-decoration: line-through;
   opacity: 0.55;
@@ -219,29 +222,6 @@ body {
 .listing-empty {
   height: 8rem;
   text-align: center;
-}
-
-.chat-sidebar {
-  width: max-content;
-  flex-shrink: 0;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-  box-shadow: -1px 0 0 var(--border);
-}
-
-.chat-sidebar > div {
-  width: 380px;
-}
-
-.app:has(.chat-sidebar [data-astralbeam-full-width="true"]) > .todos {
-  display: none;
-}
-
-.directory-error {
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
 }
 
 @media (max-width: 900px) {
@@ -253,12 +233,6 @@ body {
 
   .todos {
     overflow: visible;
-  }
-
-  .chat-sidebar {
-    width: 100%;
-    height: min(42rem, 80dvh);
-    box-shadow: 0 -1px 0 var(--border);
   }
 }
 
@@ -274,19 +248,6 @@ body {
   .todos input[type="search"] {
     width: 100%;
   }
-}
-
-/* The todo representation that the chat widget projects into the conversation. */
-.todo-card {
-  padding: 0.75rem;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  background: var(--card);
-}
-
-.todo-card-highlight {
-  border-color: var(--highlight);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight) 20%, transparent);
 }
 
 a[target="_blank"]:not(:empty):not(:has(*))::after {

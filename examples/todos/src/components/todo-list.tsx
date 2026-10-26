@@ -1,4 +1,5 @@
 import type { Todo } from "@/lib/types.ts"
+import { TodoCard } from "@/components/todo-card.tsx"
 
 interface TodoListProps {
   draft: string
@@ -8,6 +9,7 @@ interface TodoListProps {
   onChangeDraft: (draft: string) => void
   onSearch: (search: string) => void
   onToggleTodo: (id: number) => void
+  onDeleteTodo: (id: number) => void
 }
 
 export function TodoList({
@@ -18,6 +20,7 @@ export function TodoList({
   onChangeDraft,
   onSearch,
   onToggleTodo,
+  onDeleteTodo,
 }: TodoListProps) {
   return (
     <section className="page-content">
@@ -42,17 +45,18 @@ export function TodoList({
             {todos.map((todo) => (
               <tr key={todo.id}>
                 <td>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={todo.completed}
-                      onChange={() => onToggleTodo(todo.id)}
-                    />
-                    <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
-                  </label>
+                  <TodoCard todo={todo} onToggle={() => onToggleTodo(todo.id)} />
                 </td>
                 <td>
                   <span className="todo-status">{todo.completed ? "Completed" : "Pending"}</span>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${todo.text}`}
+                    title="Delete todo"
+                    onClick={() => onDeleteTodo(todo.id)}
+                  >
+                    ×
+                  </button>
                 </td>
               </tr>
             ))}

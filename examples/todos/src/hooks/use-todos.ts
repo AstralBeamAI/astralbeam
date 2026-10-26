@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from "react"
 
 import { INITIAL_TODOS } from "@/lib/constants.ts"
-import { createTodoFromToolInput } from "@/lib/todo-tools.ts"
+import { createTodoFromToolInput, findTodo, updateTodoFromToolInput } from "@/lib/todo-tools.ts"
 import type { Todo } from "@/lib/types.ts"
 
 const storageKey = "astralbeam-example-todos"
@@ -58,15 +58,29 @@ function save(state: typeof initialState) {
   window.dispatchEvent(new Event(changeEvent))
 }
 
+function updateTodo(input: Record<string, unknown>) {
+  const state = getState()
+  const updated = updateTodoFromToolInput({ input, todos: state.todos })
+  save({ ...state, todos: state.todos.map((todo) => (todo.id === updated.id ? updated : todo)) })
+  return updated
+}
+
 export function useTodos() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const { todos } = useMemo(() => readState(snapshot), [snapshot])
   return {
     todos,
     getTodos: () => getState().todos,
-    setTodos: (update: (current: Todo[]) => Todo[]) => {
+    updateTodo,
+    toggleTodo: (id: number) => {
+      const todo = findTodo({ id, todos: getState().todos })
+      return updateTodo({ id, completed: !todo.completed })
+    },
+    deleteTodo: (input: Record<string, unknown>) => {
       const state = getState()
-      save({ ...state, todos: update(state.todos) })
+      const deleted = findTodo({ id: input.id, todos: state.todos })
+      save({ ...state, todos: state.todos.filter((todo) => todo.id !== deleted.id) })
+      return deleted
     },
     createTodo: (input: Record<string, unknown>) => {
       const state = getState()
