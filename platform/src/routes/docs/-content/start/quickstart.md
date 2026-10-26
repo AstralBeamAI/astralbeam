@@ -111,7 +111,7 @@ class AstralbeamTokensController < ApplicationController
 end
 ```
 
-Keep `csrf_meta_tags` in your Rails layout and send its token in the request's `X-CSRF-Token` header.
+Keep `csrf_meta_tags` in your Rails layout.
 
 <!-- ::end:tabs -->
 
@@ -125,7 +125,11 @@ Pass a function that calls your token handler:
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 async function fetchToken() {
-  const response = await fetch("/api/astralbeam/token", { method: "POST" })
+  const csrfToken = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")?.content
+  const response = await fetch("/api/astralbeam/token", {
+    method: "POST",
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+  })
   return response.json()
 }
 
