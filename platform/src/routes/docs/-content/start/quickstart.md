@@ -51,7 +51,7 @@ ASTRALBEAM_API_KEY=your_organization_api_key
 
 Register this handler as `POST /api/chat-token` in your backend.
 
-Import your existing Better Auth server instance from `@/lib/auth`. The handler uses the signed-in user and their membership in the selected organization. Each organization in your app maps to an AstralBeam tenant.
+Import your existing Better Auth server instance from `@/lib/auth`. Better Auth verifies the signed-in user's membership in the selected organization. Each organization in your app maps to an AstralBeam tenant.
 
 Keep your backend's session and CSRF protections.
 
@@ -60,29 +60,13 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
-  const responseHeaders = { "Cache-Control": "no-store" }
-  const session = await auth.api.getSession({ headers: request.headers })
-  if (!session) {
-    return Response.json({ error: "Unauthenticated" }, { status: 401, headers: responseHeaders })
-  }
-  const astralBeamApiKey = process.env.ASTRALBEAM_API_KEY
-  if (!astralBeamApiKey) {
-    return Response.json({ error: "Not configured" }, { status: 503, headers: responseHeaders })
-  }
-  try {
-    const member = await auth.api.getActiveMember({ headers: request.headers })
-    const chatToken = await createAstralBeamToken({
-      apiKey: astralBeamApiKey,
-      user: { id: session.user.id },
-      tenant: { id: member.organizationId },
-    })
-    return Response.json({ token: chatToken }, { headers: responseHeaders })
-  } catch {
-    return Response.json(
-      { error: "Token could not be issued" },
-      { status: 500, headers: responseHeaders },
-    )
-  }
+  const member = await auth.api.getActiveMember({ headers: request.headers })
+  const chatToken = await createAstralBeamToken({
+    apiKey: process.env.ASTRALBEAM_API_KEY!,
+    user: { id: member.userId },
+    tenant: { id: member.organizationId },
+  })
+  return Response.json({ token: chatToken }, { headers: { "Cache-Control": "no-store" } })
 }
 ```
 
