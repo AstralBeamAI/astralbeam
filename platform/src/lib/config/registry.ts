@@ -105,7 +105,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "Tracing",
     label: "OTLP traces headers",
     description:
-      "Comma-separated key=value pairs, for example Authorization=Bearer <project-token>. Values containing commas must be percent-encoded.",
+      "Comma-separated key=value pairs, for example Authorization=Bearer <token>. Values containing commas must be percent-encoded.",
     kind: "secret",
     required: false,
     schema: NonEmptyStringSchema,
