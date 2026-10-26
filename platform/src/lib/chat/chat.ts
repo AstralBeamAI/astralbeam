@@ -462,7 +462,9 @@ export class Chat extends Context.Service<
                 Effect.annotateLogs({
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
-                  message: chunk.message,
+                  message: model.apiKey
+                    ? chunk.message.replaceAll(model.apiKey, "[REDACTED]")
+                    : chunk.message,
                   code: errorReason(chunk),
                   ...(typeof chunk.metadata?.tanstack?.errorType === "string"
                     ? { errorType: chunk.metadata.tanstack.errorType.slice(0, 128) }

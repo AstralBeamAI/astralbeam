@@ -1,10 +1,12 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect, Layer, Logger } from "effect"
+import { Effect, Layer } from "effect"
+import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
 
 import { issueDashboardToken } from "@/lib/auth/dashboard-token.server"
 import { EmbeddedAssistantUnavailable } from "@/lib/auth/errors"
 import { Config, type SetupState } from "@/lib/config/config"
+import { serverLoggerLayer } from "@/lib/runtime/logging.server"
 import { handleDashboardTokenRequest } from "./token.server.ts"
 
 // Issuance has its own services, and this boundary only decides what reaches it.
@@ -89,19 +91,18 @@ describe("dashboard token boundary", () => {
 
   it.effect("reports an unexpected failure once and answers without its details", () =>
     Effect.gen(function* () {
-      const lines: string[] = []
       vi.mocked(issueDashboardToken).mockReturnValue(
         Effect.die(new Error("postgres://user:secret@db/app")),
       )
       const response = yield* respond(
         tokenRequest("https://app.example", "application/json", '{"organizationSlug":"acme"}'),
-      ).pipe(
-        Effect.provide(Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])),
-      )
+      ).pipe(Effect.provide(serverLoggerLayer))
       assert.strictEqual(response.status, 500)
       assert.notInclude(yield* Effect.promise(() => response.text()), "secret")
+      const lines = yield* TestConsole.logLines
       assert.strictEqual(lines.length, 1)
-      assert.include(lines[0], "postgres://user:secret@db/app")
-    }),
+      assert.notInclude(String(lines[0]), "secret")
+      assert.include(String(lines[0]), "postgres://user:[REDACTED]@db/app")
+    }).pipe(Effect.provide(TestConsole.layer)),
   )
 })

@@ -69,6 +69,7 @@ function createAuthDatabase() {
     drizzle({
       client: getDatabaseResources().authPool,
       jit: true,
+      paramsInErrors: false,
       relations: databaseRelations,
     }),
   )
@@ -83,7 +84,7 @@ export function getAuthDatabase() {
 const makeEffectDatabase = Effect.flatMap(PgClient.PgClient, (client) =>
   Effect.andThen(
     Effect.sync(() => guardSqlTransactions(client)),
-    PgDrizzle.makeWithDefaults({ relations: databaseRelations, jit: true }),
+    PgDrizzle.makeWithDefaults({ relations: databaseRelations, jit: true, paramsInErrors: false }),
   ),
 )
 

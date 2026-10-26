@@ -117,7 +117,7 @@ describe("reportFailure", () => {
     const logger = Logger.layer([Logger.map(Logger.formatJson, (line) => lines.push(line))])
     const query = new EffectDrizzleQueryError({
       query: "insert into agent values ($1)",
-      params: ["sk-secret-value"],
+      params: undefined,
       cause: { code: "08006" },
     })
     const referenceId = await Effect.runPromise(
