@@ -188,10 +188,8 @@ export function ConfigEditor({
       toast.add({
         id: saveToastId,
         title: "Configuration saved",
-        description:
-          "Saved changes apply immediately on this server. Restart other running server instances to load them.",
+        description: "Restart other instances to apply these changes.",
         type: "success",
-        timeout: 5000,
       })
     }, "save")
 
@@ -199,7 +197,7 @@ export function ConfigEditor({
     run(async () => {
       if (!(await savePendingUpdates(true))) return
       await onChanged()
-      toast.add({ id: saveToastId, title: "Owner invitation sent", type: "success", timeout: 5000 })
+      toast.add({ id: saveToastId, title: "Owner invitation sent", type: "success" })
     }, "invite")
 
   const handleGenerate = (key: ConfigKey) =>
@@ -298,9 +296,6 @@ export function ConfigEditor({
             "Invite the owner to finish setup."
           }
           configured={onboarding.complete}
-          hasChanges={Object.entries(ownerDrafts).some(
-            ([key, value]) => value !== onboarding[key as keyof OwnerOnboarding],
-          )}
         >
           <p className="text-sm text-muted-foreground">
             {onboarding.complete

@@ -1,10 +1,11 @@
 import { startBrowserStorageFixture, stopBrowserStorageFixture } from "@e2e/object-storage.ts"
 
 import { captureMilestone } from "@e2e/capture.ts"
+import { expectToast } from "@e2e/dialogs.ts"
 import { expect, test } from "@e2e/fixtures.ts"
 import { operatorKey } from "@e2e/worktree.ts"
 
-test("the operator changes configured storage after a manual migration warning", async ({
+test("the operator saves storage settings and recovers from validation errors", async ({
   page,
   configure,
 }) => {
@@ -24,6 +25,23 @@ test("the operator changes configured storage after a manual migration warning",
   await captureMilestone(page, "storage-destination-saved")
   await configure.setValue("s3_bucket", "e2e-files")
   await configure.save()
+
+  const storage = configure.section("File storage")
+  const trigger = storage.getByRole("button", { name: "File storage", exact: true })
+  const save = page.getByRole("button", { name: "Save", exact: true }).first()
+  const region = configure.fieldGroup("s3_region")
+  await configure.setValue("s3_region", "")
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await trigger.click()
+    await save.click()
+    await expectToast(page, "Some values could not be saved")
+    await expect(trigger).toHaveAttribute("aria-expanded", "true")
+    await expect(region.getByRole("alert")).toBeVisible()
+  }
+  await region.getByRole("button", { name: "Discard", exact: true }).click()
+  await expect(region.locator('[data-slot="field-error"]')).toHaveCount(0)
+  await expect(storage.getByText("Configured", { exact: true })).toBeVisible()
+  await expect(save).toBeDisabled()
 })
 
 test("the operator tests unsaved storage settings and sees safe verification failures", async ({
@@ -71,9 +89,11 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await expect(page.getByText("Storage connection succeeded", { exact: true })).toBeVisible()
     expect(storageFixture.objects.size).toBe(0)
     const storageGroup = configure.section("File storage")
-    await storageGroup.getByRole("button", { name: "File storage", exact: true }).click()
-    await expect(page.getByText("Storage connection succeeded", { exact: true })).toBeHidden()
+    const trigger = storageGroup.getByRole("button", { name: "File storage", exact: true })
+    await trigger.click()
+    await expect(trigger).not.toContainText(/fixture-(key|secret)/)
     await configure.openSection("File storage")
+    await expect(configure.field("s3_secret_access_key")).toHaveValue("fixture-secret")
     await expect(page.getByText("Storage connection succeeded", { exact: true })).toBeVisible()
     await page.setViewportSize({ width: 1280, height: 1400 })
     await storageGroup.scrollIntoViewIfNeeded()

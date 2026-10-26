@@ -10,7 +10,7 @@ Here's a [Linear clone](examples/linearity-react) with the AstralBeam agent embe
 
 https://github.com/user-attachments/assets/6bb3d981-b82d-40a2-9be1-d1bb6cfe5759
 
-To self-host, install a release binary or container using the [deployment guide](platform/src/routes/docs/-content/self-hosting/deploy.md). For a contributor workspace, start with [local setup](SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](ARCHITECTURE.md) for implementation boundaries.
+To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](ARCHITECTURE.md) for implementation boundaries.
 
 ## Licensing
 

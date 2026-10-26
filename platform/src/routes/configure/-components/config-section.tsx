@@ -1,11 +1,6 @@
 "use client"
 
-import {
-  CaretDownIcon,
-  CheckCircleIcon,
-  PencilSimpleIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react"
+import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { type ReactNode, useId, useState } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -36,7 +31,7 @@ export function ConfigSection({
   }
   const complete = configured && !hasChanges
   const status = hasChanges ? "Unsaved changes" : configured ? "Configured" : "Needs attention"
-  const Icon = complete ? CheckCircleIcon : hasChanges ? PencilSimpleIcon : WarningCircleIcon
+  const Icon = complete ? CheckCircleIcon : WarningCircleIcon
 
   return (
     <Collapsible
@@ -61,10 +56,7 @@ export function ConfigSection({
               <span id={`${id}-title`} className="text-base font-semibold">
                 {title}
               </span>
-              <span
-                id={`${id}-status`}
-                className={`text-xs font-medium ${complete ? "text-green-600 dark:text-green-400" : "text-warning"}`}
-              >
+              <span id={`${id}-status`} className="text-xs font-medium text-muted-foreground">
                 {status}
               </span>
             </span>

@@ -8,7 +8,6 @@ import { Spinner } from "@/components/ui/spinner"
 import { EMAIL_PROVIDER_SETTING_KEYS } from "@/lib/email/schemas"
 import type { EmailProvider } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
-import { summarizeConfigGroup } from "../-lib/summarize-config-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldInput } from "./config-field-input"
 import { ConfigSection } from "./config-section"
@@ -237,4 +236,30 @@ export function ConfigFieldGroups({
         </ConfigSection>
       )
     })
+}
+
+function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureField[]): string {
+  const value = (key: ConfigKey) => fields.find((field) => field.key === key)?.value
+  const isSet = (key: ConfigKey) =>
+    fields.some((field) => field.key === key && field.isSet && field.storageStatus !== "unreadable")
+
+  const provider = value("email_provider") ?? "smtp"
+  const parts = {
+    General: [value("app_base_url"), value("support_email_address")],
+    Authentication: [
+      isSet("better_auth_secret") && "Password sign-in",
+      isSet("turnstile_site_key") && isSet("turnstile_secret_key") && "Turnstile",
+      isSet("google_client_id") && isSet("google_client_secret") && "Google",
+      isSet("github_client_id") && isSet("github_client_secret") && "GitHub",
+    ],
+    "Email Delivery": [
+      provider === "smtp" ? "SMTP" : provider === "ses" ? "Amazon SES" : "Resend",
+      provider === "smtp"
+        ? [value("smtp_host"), value("smtp_port")].filter(Boolean).join(":")
+        : provider === "ses" && value("aws_region"),
+      value("email_from_address") || (provider === "smtp" && "Default sender"),
+    ],
+    "File storage": [value("s3_bucket"), value("s3_region")],
+  }[group]
+  return parts.filter(Boolean).join(" · ") || "Not configured"
 }
