@@ -64,3 +64,40 @@
   padding: 0 2.5rem 1.5rem 0;
   color: var(--text-muted);
 }
+
+.faq-answer > p {
+  margin-bottom: 1.25rem;
+}
+
+.faq-answer:has(.faq-comparison) {
+  max-width: none;
+  padding-right: 0;
+}
+
+.faq-comparison {
+  overflow-x: auto;
+}
+
+.faq-comparison table {
+  width: 100%;
+  min-width: 44rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.faq-comparison th,
+.faq-comparison td {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.faq-comparison th {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.faq-comparison tbody th {
+  white-space: nowrap;
+}

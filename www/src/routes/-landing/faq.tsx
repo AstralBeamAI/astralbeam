@@ -2,6 +2,45 @@ import { siteMetadata } from "@/lib/site"
 
 const docs = siteMetadata.links.docs
 
+const comparisons = [
+  {
+    name: "OpenAI ChatKit",
+    href: "https://developers.openai.com/api/docs/guides/chatkit",
+    offering:
+      "Embeddable chat UI. Its recommended path for new apps connects to your own agent backend.",
+    difference: "We provide the chat UI and a managed agent backend together.",
+  },
+  {
+    name: "ElevenAgents",
+    href: "https://elevenlabs.io/docs/eleven-agents/overview",
+    offering:
+      "Agents for voice and multimodal conversations, with web widgets, phone integrations, and model choice.",
+    difference:
+      "We focus on agentic chat inside your web app, with tools, UI widgets, files, and per-customer usage limits.",
+  },
+  {
+    name: "CopilotKit",
+    href: "https://docs.copilotkit.ai/quickstart",
+    offering: "Chat components and an agent runtime, plus optional cloud services.",
+    difference:
+      "We offer an opinionated frontend and managed backend, so you can focus on connecting the agent to your product.",
+  },
+  {
+    name: "assistant-ui",
+    href: "https://www.assistant-ui.com/docs/architecture",
+    offering:
+      "Customizable chat components, backend integrations, and hosted conversation history.",
+    difference: "We also run the agent loop and handle files and per-customer usage limits.",
+  },
+  {
+    name: "Mastra",
+    href: "https://mastra.ai/docs",
+    offering: "A TypeScript framework for building agents and workflows.",
+    difference:
+      "We provide the embedded chat experience and managed backend, reducing what you need to build and operate.",
+  },
+]
+
 const questions = [
   {
     question: "Why not build it myself?",
@@ -13,6 +52,46 @@ const questions = [
         Developers should be able to focus on their product rather than keeping up with all this.
         That&apos;s why we made AstralBeam open source. We encourage you to try{" "}
         <a href={`${docs}/self-hosting`}>self-hosting it</a> before building your own.
+      </>
+    ),
+  },
+  {
+    question: "How is AstralBeam different from other tools and services?",
+    answer: (
+      <>
+        <p>
+          There are tons of backend frameworks, but we feel you shouldn&apos;t need to manage the
+          backend for your agents at all. The UI/UX of an agent is also hard to get right, so
+          we&apos;re offering an opinionated solution to both.
+        </p>
+        <div
+          className="faq-comparison"
+          role="region"
+          aria-label="Comparison with other tools and services"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Tool / service</th>
+                <th scope="col">What it provides</th>
+                <th scope="col">How AstralBeam compares</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisons.map(({ name, href, offering, difference }) => (
+                <tr key={name}>
+                  <th scope="row">
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {name}
+                    </a>
+                  </th>
+                  <td>{offering}</td>
+                  <td>{difference}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </>
     ),
   },
@@ -130,7 +209,7 @@ export function Faq() {
         {questions.map(({ question, answer }) => (
           <details className="faq-item" key={question}>
             <summary>{question}</summary>
-            <p className="faq-answer">{answer}</p>
+            <div className="faq-answer">{answer}</div>
           </details>
         ))}
       </div>
