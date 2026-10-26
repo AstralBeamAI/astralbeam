@@ -73,7 +73,7 @@ mv astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
 
 **TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in both URLs, for example `download/v0.13.4`. Releases before v0.13.4 publish no `SHA256SUMS`.
 
-`sha256sum` prints `astralbeam-platform-linux-x86_64: OK` when the download matches the release's checksum and fails otherwise. That proves the file arrived intact, but the release carries no signature, so nothing here verifies where it came from. Running the binary is only a smoke check. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.4 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM. CI smoke-tests the `linux-x86_64` binary the same way, without the database-backed status check, and cross-compiles the other targets unrun.
+`sha256sum` prints `astralbeam-platform-linux-x86_64: OK` when the download matches the release's checksum and fails otherwise. That proves the file arrived intact, but the release carries no signature, so nothing here verifies where it came from. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.4 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set and migrations applied, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
 
@@ -87,15 +87,7 @@ bun run --cwd platform build
 
 **NOTE**: Do not run `scripts/setup.sh` on a deployment host. It is the contributor setup, and it migrates any database `DATABASE_URL` reaches and seeds it with fixed development credentials.
 
-The binary lands at `platform/.output/astralbeam-platform`. `build` writes the Nitro server bundle and static assets into `platform/.output`, then compiles them into the binary. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
-
-Run this command to smoke-test the binary the way CI does:
-
-```sh
-bun run --cwd platform binary:check
-```
-
-It requires `version` and `--version` to print the platform version and `--help` to list `migrate` and `upgrade`, starts it on a free loopback port, and requires the built stylesheet, `/api/openapi.json` with its cache and CORS headers, a docs page that revalidates with an `ETag`, and a clean exit within 5 seconds of SIGTERM. With `BINARY_CHECK_DATABASE_URL` pointing at an empty database, as in CI, it also requires `migrate --dry-run` to list every embedded migration and leave no tables behind. It prints `Binary smoke check passed` with the binary's size when all of that holds.
+The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
 **TIP**: You can skip the binary and run the same commands with `bun run --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
 
@@ -144,7 +136,7 @@ For a new installation, run this as the service user from its configuration dire
 NODE_ENV=production DATABASE_URL='postgresql://user:password@host:5432/database' astralbeam-platform bootstrap
 ```
 
-`bootstrap` reuses a configured encryption key or appends a generated key to the private environment file. It applies migrations and exits. Start the server separately as described below.
+`bootstrap` reuses a configured encryption key or appends a generated key to the private `.env.local` file in the current directory. It applies migrations and exits without saving `DATABASE_URL`. Start the server from the same directory, and use the active key to sign in at `/configure`.
 
 When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
 
@@ -216,13 +208,13 @@ The encryption key grants access to every encrypted value in the database, so `/
 
 ## 6. Complete setup
 
-Open your deployment's `/configure` page in a browser. Every other page redirects there until setup is complete.
+Open your deployment's `/configure` page in a browser. Application pages redirect there until setup is complete.
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
 2. The page shows any pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
-3. Fill in the required settings: the application base URL, support email address, private file storage, the Cloudflare Turnstile site and secret keys, and the authentication secret, which is generated for you on the first save if you leave it unset. Add email delivery and OAuth clients as needed. Each organization configures its model connections in **Models**, then assigns enabled models to its agents. Every deployment setting is described in [Configuration](./configuration.md).
-4. Under **Owner onboarding**, invite the first owner, then use the invitation email to set their password.
-5. When the page reports "Configuration is complete", use **Go to app**, which ends the operator session and loads the application.
+3. Fill in the required settings in [Configuration](./configuration.md), including private storage and both Turnstile keys. Configure and test email delivery, then choose **Save**. The authentication secret is generated on the first save if left unset. Each organization configures connections in [Models](/docs/dashboard/models) and assigns enabled models to its [agents](/docs/dashboard/agents).
+4. Under **Owner onboarding**, choose **Invite owner**, then use the email to set the owner's password. If delivery fails, fix [email delivery](./configuration.md#email-delivery) and retry **Invite owner**.
+5. Once configuration and owner onboarding are complete, use **Go to app**, which ends the operator session and loads the application. Continue with [Quickstart](/docs/start/quickstart) to embed your first chat.
 
 Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.
 

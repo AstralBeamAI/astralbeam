@@ -17,7 +17,7 @@ const questions = [
     ),
   },
   {
-    question: "What do I need to build myself?",
+    question: "How do I get started?",
     answer: (
       <>
         AstralBeam provides the chat UI and agent backend, including conversation history and file
