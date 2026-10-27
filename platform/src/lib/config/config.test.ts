@@ -208,6 +208,22 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
+  it.effect("validates environment overrides without waiting for an unavailable database", () => {
+    const state = { rows: [], reads: 0, gate: Effect.die(new Error("Database unavailable")) }
+    stubEnvironment({ APP_BASE_URL: "https://environment.example/" })
+    return Effect.gen(function* () {
+      const config = yield* Config
+      assert.strictEqual(yield* config.get("app_base_url"), "https://environment.example")
+      assert.strictEqual(state.reads, 0)
+      stubEnvironment({ APP_BASE_URL: "invalid-origin" })
+      assert.isTrue(Exit.isFailure(yield* Effect.exit(config.get("app_base_url"))))
+      assert.strictEqual(state.reads, 0)
+      stubEnvironment({ APP_BASE_URL: "" })
+      assert.isTrue(Exit.isFailure(yield* Effect.exit(config.get("app_base_url"))))
+      assert.strictEqual(state.reads, 1)
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
   it.effect("reads transaction-local config without replacing the committed cache", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
     const transactionService = Context.Service<

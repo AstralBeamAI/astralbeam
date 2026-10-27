@@ -250,7 +250,12 @@ export class Config extends Context.Service<
 
       return Config.of({
         snapshot,
-        get: (key) => Effect.map(snapshot, (current) => current.values[key]),
+        get: (key) =>
+          Effect.flatMap(readEnvironmentConfig(), (environment) =>
+            Object.hasOwn(environment, key)
+              ? Effect.succeed(environment[key])
+              : Effect.map(snapshot, (current) => current.values[key]),
+          ),
         invalidate,
         setupState,
         publicConfig: Effect.map(setupState, (state) =>
