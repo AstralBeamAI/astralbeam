@@ -1,119 +1,155 @@
 # Quickstart
 
-Let's walk through the process of embedding an agent in your application, from creating an organization to the first streamed reply. Along the way we'll set up the three parts an integration needs: an agent configured in the dashboard, an API key your server holds, and the widget in your page.
+Let's add an assistant to your **React app** using your existing login.
 
-Your server authenticates its own users and mints a short-lived chat token for each one, so the widget never sees the API key. Basic familiarity with your application's own session handling is assumed here.
+[![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-For self-hosting, follow [Deploy](/docs/self-hosting/deploy) through owner onboarding before continuing here.
+You'll need an authenticated backend and a model-provider API key. Any backend language or authentication provider works. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
-## 1. Create your organization
+## 1. Prepare your agent
 
-Sign in to your organization, or sign up and either [accept an invitation](/docs/dashboard/members#accepting-an-invitation) or create your own. An organization is the boundary that owns your agents, sandbox providers, API keys, members, and tenants.
+Use your existing organization, [join your team's](/docs/dashboard/members#accepting-an-invitation), or [sign up](/auth/sign-up) and create one.
 
-Creating one makes you its owner and provisions a starter agent, already set as the organization's default. It needs an assigned provider model before it can reply, on both hosted and self-hosted deployments.
+1. Open **[Models](/docs/dashboard/models)**, add your provider's API key, enable a model, and choose **Save provider**.
+2. Choose **Test model** and wait for **replied successfully**. Your provider may charge for the test.
+3. Open **[Agents](/docs/dashboard/agents)**, assign that model to the starter agent, and choose **Save changes**.
+4. Open **[API Keys](/docs/dashboard/api-keys)** and create a key. Copy the full key now. You won't see it again.
 
-Let's configure it before creating an API key:
+## 2. Install and configure
 
-1. Open **Models**, add a provider with its API key and API URL, enable a model your provider account can access, and choose **Save provider**.
-2. Choose **Test model** and wait for a successful reply. If access fails, correct the provider settings, save, and test again. Your provider may charge for the request.
-3. Open **Agents**, choose the starter agent, select that model, and choose **Save changes**.
+Install the SDK in your React app:
 
-Saving settings does not verify provider access. A successful model test verifies that connection. In step 6, we'll verify your application's authentication and agent together. [Models](/docs/dashboard/models) and [Agents](/docs/dashboard/agents) cover the settings in detail.
+<!-- ::start:tabs variant="files" -->
 
-## 2. Create an API key
-
-Owners and developers can create an organization key under [API Keys](/docs/dashboard/api-keys). Its full value looks like `key_<organizationId>_<id>_abo_<secret>`, and the dashboard shows it exactly once, so copy it into your server's secret manager on the spot.
-
-The key does two jobs. It authenticates calls to the [management API](/docs/api), and its secret signs the chat tokens your server mints. Anyone who can read it can mint a token naming any tenant user in your organization, so keep it server side and never ship it to browser code.
-
-**NOTE**: Deleting a key invalidates both uses at once, including tokens already minted from it.
-
-## 3. Install the SDK
-
-Run this command to add the SDK to your application:
-
-```sh
+```sh title="npm"
 npm install @astralbeam/sdk
 ```
 
-The package has no runtime dependencies. `react` and `react-dom` are optional peers, so the non-React entry points never load them.
+```sh title="pnpm"
+pnpm add @astralbeam/sdk
+```
 
-## 4. Add a token endpoint
+```sh title="yarn"
+yarn add @astralbeam/sdk
+```
 
-The widget asks your server for a chat token and expects `{ token }` in reply. `createAstralBeamToken` is the only server helper you need, and this handler is the whole integration on the server:
+```sh title="bun"
+bun add @astralbeam/sdk
+```
 
-```ts
+<!-- ::end:tabs -->
+
+Set the key in your backend's environment and restart the server:
+
+```sh title="Server environment"
+ASTRALBEAM_API_KEY=your_organization_api_key
+```
+
+**NOTE**: Keep the key out of browser code and version control. Anyone with it can impersonate your organization's tenant users.
+
+## 3. Connect your backend
+
+Your backend verifies the signed-in user, signs a short-lived JWT, and returns `{ token }` from `POST /api/astralbeam/token`. Use stable IDs from your authenticated session for the user and their customer account (`tenant`).
+
+Here are two examples. See the [token format](/docs/sdk/authentication#mint-tokens-without-javascript) to sign tokens in another language. Keep your backend's session and CSRF protections.
+
+<!-- ::start:tabs -->
+
+### TypeScript
+
+This example uses an existing Better Auth instance at `@/lib/auth`. Its organization membership maps to the customer account.
+
+```ts title="src/server/astralbeam-token.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
+import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
-  const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401 })
-  const apiKey = process.env.ASTRALBEAM_API_KEY
-  if (!apiKey) return Response.json({ error: "Assistant unavailable" }, { status: 503 })
+  const member = await auth.api.getActiveMember({ headers: request.headers })
   const token = await createAstralBeamToken({
-    apiKey,
-    user: { id: session.user.id, name: session.user.name },
-    tenant: { id: session.tenant.id, name: session.tenant.name },
+    apiKey: process.env.ASTRALBEAM_API_KEY!,
+    user: { id: member.userId },
+    tenant: { id: member.organizationId },
   })
-  return Response.json({ token }, { headers: { "cache-control": "no-store" } })
+  return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
 }
 ```
 
-We must derive `user` and `tenant` from your own trusted session, as everything the token asserts about who is chatting comes from that decision. A Tenant is one of your customers and a tenant user is one of that customer's users, so user IDs only need to be unique inside their Tenant. Both IDs must be stable, because they are the identity a conversation is attributed to.
+### Rails
 
-Tokens last 60 to 600 seconds and default to 300. That short life is why the response must not be cached and why the SDK refetches on its own.
+Add the `jwt` gem. This example uses Rails' authentication generator and assumes each user belongs to an account.
 
-The full contract, including cross-origin endpoints and custom fetching, is in [SDK authentication](/docs/sdk/authentication).
+Add a route:
 
-## 5. Mount the widget
+```ruby title="config/routes.rb"
+post "/api/astralbeam/token", to: "astralbeam_tokens#create"
+```
 
-Add the component wherever the sidebar belongs:
+```ruby title="app/controllers/astralbeam_tokens_controller.rb"
+require "jwt"
+require "digest"
+require "base64"
 
-```tsx
+class AstralbeamTokensController < ApplicationController
+  before_action :require_authentication
+
+  def create
+    no_store
+    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
+    digest = Digest::SHA256.digest("abo_#{secret}")
+    signing_key = Base64.urlsafe_encode64(digest, padding: false)
+    claims = {
+      ver: 4, iss: key_id.split("_")[1], aud: "astralbeam",
+      iat: Time.current.to_i, exp: 5.minutes.from_now.to_i,
+      user: { id: Current.user.id.to_s },
+      tenant: { id: Current.user.account_id.to_s }
+    }
+    token = JWT.encode(
+      claims, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key_id }
+    )
+    render json: { token: token }
+  end
+end
+```
+
+Keep `csrf_meta_tags` in your Rails layout.
+
+<!-- ::end:tabs -->
+
+## 4. Mount and test
+
+Pass a function that calls your token handler:
+
+```tsx title="src/Assistant.tsx"
+"use client"
+
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
-export function Sidebar() {
+async function fetchToken() {
+  const csrfMeta = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")
+  const response = await fetch("/api/astralbeam/token", {
+    method: "POST",
+    headers: csrfMeta ? { "X-CSRF-Token": csrfMeta.content } : {},
+  })
+  return response.json()
+}
+
+export function Assistant() {
   return (
-    <aside className="flex h-dvh min-h-0 flex-col">
-      <AstralBeamChat title="Acme Assistant" />
+    <aside style={{ height: "100dvh" }}>
+      <AstralBeamChat fetchAstralBeamToken={fetchToken} />
     </aside>
   )
 }
 ```
 
-The widget fills its container, so the container needs a real height. It renders inside a shadow root, so your stylesheet and its styles cannot reach each other.
+Mount `<Assistant />` in your app, sign in, and send **"Say hello in one sentence."** You should see a reply stream into the chat.
 
-By default it talks to the hosted API at `https://astralbeam.ai/api`. A self-hosted deployment sets `apiUrl` to its own `/api` base, and a token must go to the deployment that issued its API key.
+For self-hosting, pass `apiUrl="https://your-deployment.example/api"` on `<AstralBeamChat>`, using the deployment that issued your API key.
 
-Mounting without React, updating options in place, and the layout rules are covered in [SDK getting started](/docs/sdk/getting-started).
-
-## 6. Send the first message
-
-Sign in to your own application and open the sidebar. A streamed reply means the token round trip, the API key, and the agent all resolved.
-
-If the composer is disabled with an authentication error, token acquisition or verification failed. Check that your endpoint returns `{ token }`, the request carries your session, and your server uses a valid API key from the deployment at `apiUrl`. For a revoked or expired key, create a replacement under **API Keys** and update your server's secret before retrying.
-
-## Agents and agent IDs
-
-An agent is a named configuration with instructions, models, attachment policy, web access, and an optional sandbox provider. Changes apply on the next request, including in existing conversations.
-
-Every agent has a public ID of the form `agent_<organizationId>_<id>`. It carries no secret and is safe in browser code. Pass it as the SDK's `agentId` option, or omit it to select your organization's default when a conversation is created. Existing conversations retain their selected agent.
-
-The system prompt lives with the agent, so an embedding application cannot override it. The chat endpoint applies its own baseline instructions ahead of yours, so write yours as the persona and the rules for your product rather than as a whole prompt from scratch.
-
-## Troubleshooting
-
-| Symptom | Cause |
-| --- | --- |
-| Composer disabled with a retry link | Token acquisition or verification failed. See [authentication troubleshooting](/docs/sdk/authentication#troubleshooting) |
-| `401` from your own endpoint | No application session on the request |
-| `503` from your own endpoint | The API key is missing from the server environment |
-| The agent has no model configured | Add a provider in Models, enable a model, and assign it to the agent |
-| Attachments refused | The agent does not allow them, and the chat endpoint enforces that whatever the client sends |
+See [SDK props](/docs/sdk/configuration#options) to customize the assistant.
 
 ## Next
 
-- [Todos tutorial](./todos-tutorial.md), a working application with host tools, an inline widget, attachments, and a sandbox.
-- [SDK configuration](/docs/sdk/configuration), every option.
-- [Tools and widgets](/docs/sdk/tools-and-widgets), let the agent act in and draw into your application.
-- [SDK security model](/docs/sdk/security), who grants, who enforces, and what a client can change.
+[Add tools and widgets](/docs/sdk/tools-and-widgets), or try the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
+
+See [Authentication](/docs/sdk/authentication) for troubleshooting.

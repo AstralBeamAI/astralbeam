@@ -3,7 +3,7 @@ import process from "node:process"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import react from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig, searchForWorkspaceRoot } from "vite"
+import { defineConfig } from "vite"
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
@@ -12,9 +12,6 @@ export default defineConfig({
   server: {
     port: Number(process.env.PORT ?? 4700),
     strictPort: true,
-    // The linked SDK sits outside this root, so Vite would refuse its lazy chunks' shared imports.
-    // https://vite.dev/config/server-options.html#server-fs-allow
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../../sdk/dist"] },
   },
   plugins: [nitro({ preset: "bun" }), tanstackStart(), react()],
 })

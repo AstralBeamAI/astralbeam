@@ -4,7 +4,7 @@
 .light-mode,
 .dark-mode {
   --scalar-custom-header-height: 56px;
-  --scalar-font: "Inter Variable", sans-serif;
+  --scalar-font: var(--font-sans);
   --scalar-font-code: ui-monospace, monospace;
   --scalar-radius: var(--radius);
   --scalar-background-1: var(--background);
@@ -41,5 +41,5 @@ body .scalar-api-reference .t-doc__sidebar {
 }
 
 .scalar-api-reference :is(h1, h2, h3, h4) {
-  font-family: "Manrope Variable", sans-serif;
+  font-family: var(--font-heading);
 }

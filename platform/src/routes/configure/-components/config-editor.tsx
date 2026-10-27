@@ -97,8 +97,7 @@ export function ConfigEditor({
         ? [{ key: field.key, value: stored }]
         : []
     }
-    if (draft.kind === "clear") return [{ key: field.key, value: null }]
-    if (draft.value === (stored ?? "")) return []
+    if (draft.value === (stored ?? "") && field.storageStatus !== "unreadable") return []
     if (!field.required && draft.value === "") {
       return [{ key: field.key, value: null }]
     }
@@ -113,14 +112,18 @@ export function ConfigEditor({
       delete updated[key]
       return updated
     })
-    setDrafts((current) => ({ ...current, [key]: draft }))
+    const field = fields.find((candidate) => candidate.key === key)
+    const unchanged =
+      draft.kind === "set" &&
+      field?.storageStatus !== "unreadable" &&
+      draft.value === ((field && storedValue(field)) ?? "")
+    setDrafts((current) => ({ ...current, [key]: unchanged ? { kind: "unchanged" } : draft }))
   }
 
   const currentValue = (key: ConfigKey, clearedValue = "") => {
     const field = fields.find((candidate) => candidate.key === key)
     const draft = drafts[key] ?? { kind: "unchanged" }
     if (draft.kind === "set") return draft.value || clearedValue
-    if (draft.kind === "clear") return clearedValue
     return (field && storedValue(field)) ?? clearedValue
   }
 
@@ -188,7 +191,8 @@ export function ConfigEditor({
       toast.add({
         id: saveToastId,
         title: "Configuration saved",
-        description: "Restart other instances to apply these changes.",
+        description:
+          "Restart other instances to apply changes. Observability changes require restarting this server too.",
         type: "success",
       })
     }, "save")
@@ -291,6 +295,7 @@ export function ConfigEditor({
       {onboarding && owner && (
         <ConfigSection
           title="Owner onboarding"
+          documentationHref="/docs/self-hosting/deploy#6-complete-setup"
           summary={
             [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
             "Invite the owner to finish setup."

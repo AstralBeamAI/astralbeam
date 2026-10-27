@@ -3,19 +3,24 @@
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { type ReactNode, useId, useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 export function ConfigSection({
   title,
+  documentationHref,
   summary,
   configured,
+  optional = false,
   hasChanges = false,
   errorAttempt,
   children,
 }: {
   title: string
+  documentationHref: string
   summary: string
   configured: boolean
+  optional?: boolean
   hasChanges?: boolean
   errorAttempt?: number | undefined
   children: ReactNode
@@ -30,7 +35,13 @@ export function ConfigSection({
     if (errorAttempt !== undefined) setOpen(true)
   }
   const complete = configured && !hasChanges
-  const status = hasChanges ? "Unsaved changes" : configured ? "Configured" : "Needs attention"
+  const status = hasChanges
+    ? "Unsaved changes"
+    : !configured
+      ? "Needs attention"
+      : optional
+        ? "Optional"
+        : "Configured"
   const Icon = complete ? CheckCircleIcon : WarningCircleIcon
 
   return (
@@ -76,7 +87,12 @@ export function ConfigSection({
         </CollapsibleTrigger>
       </h2>
       <CollapsibleContent keepMounted>
-        <div className="space-y-5 border-t p-5">{children}</div>
+        <div className="space-y-5 border-t p-5">
+          <p className="text-sm text-muted-foreground">
+            <DocsLink href={documentationHref}>{title} setup guide</DocsLink>
+          </p>
+          {children}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   )

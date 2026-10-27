@@ -14,7 +14,13 @@ import { ConfigSection } from "./config-section"
 import { StorageConnectionTest } from "./storage-connection-test"
 import type { StorageConnection } from "@/lib/storage/schemas"
 
-const configGroupOrder = ["General", "Authentication", "Email Delivery", "File storage"] as const
+const configGroupOrder = [
+  "General",
+  "Authentication",
+  "Email Delivery",
+  "File storage",
+  "Observability",
+] as const
 
 const storageConnectionPresets = [
   {
@@ -35,6 +41,18 @@ const storageConnectionPresets = [
     region: "auto",
     pathStyle: "true",
   },
+]
+
+const otlpEndpointPresets = [
+  { label: "Local", endpoint: "http://127.0.0.1:4318" },
+  { label: "PostHog", endpoint: "https://us.i.posthog.com/i" },
+  { label: "New Relic", endpoint: "https://otlp.nr-data.net" },
+  { label: "Datadog", endpoint: "https://otlp.datadoghq.com" },
+  {
+    label: "Sentry",
+    endpoint: "https://o<organization-id>.ingest.us.sentry.io/api/<project-id>/integration/otlp",
+  },
+  { label: "Honeycomb", endpoint: "https://api.honeycomb.io" },
 ]
 
 export function ConfigFieldGroups({
@@ -114,8 +132,10 @@ export function ConfigFieldGroups({
         <ConfigSection
           key={group}
           title={group}
+          documentationHref={`/docs/self-hosting/configuration#${group.toLowerCase().replaceAll(" ", "-")}`}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
+          optional={group === "Observability"}
           hasChanges={groupFields.some((field) => changedKeys.has(field.key))}
           errorAttempt={
             groupFields.some((field) => Boolean(fieldErrors[field.key]))
@@ -123,6 +143,41 @@ export function ConfigFieldGroups({
               : undefined
           }
         >
+          {group === "Observability" && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Optional. Configure an endpoint to export traces. Log export is disabled by default
+                and always keeps console JSON. Presets fill the base endpoint only. Add provider
+                headers separately and replace any placeholders before saving.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {otlpEndpointPresets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      disabled ||
+                      groupFields.some(
+                        (field) =>
+                          field.key === "otel_exporter_otlp_endpoint" &&
+                          field.source === "environment",
+                      )
+                    }
+                    onClick={() =>
+                      onDraftChange("otel_exporter_otlp_endpoint", {
+                        kind: "set",
+                        value: preset.endpoint,
+                      })
+                    }
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           {group === "File storage" && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
@@ -260,6 +315,11 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
       value("email_from_address") || (provider === "smtp" && "Default sender"),
     ],
     "File storage": [value("s3_bucket"), value("s3_region")],
+    Observability: [
+      value("otel_sdk_disabled") === "true"
+        ? "Disabled"
+        : value("otel_exporter_otlp_endpoint") || "Disabled",
+    ],
   }[group]
   return parts.filter(Boolean).join(" · ") || "Not configured"
 }

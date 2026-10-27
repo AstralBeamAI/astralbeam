@@ -1,22 +1,19 @@
-export interface TodoCardProps {
-  title?: string
-  completed?: boolean
-  /** Set by the agent when it wants the todo to stand out. */
-  highlight?: boolean
-  onToggle?: () => void
-}
+import type { Todo } from "@/lib/types.ts"
 
-/**
- * The host app's representation of a todo, registered with the chat as the `todoCard` widget.
- * It renders in the app's own React tree with the app's own plain CSS, and the chat only decides
- * where it appears in the conversation and which agent-chosen props it receives.
- */
-export function TodoCard({ title, completed = false, highlight = false, onToggle }: TodoCardProps) {
+export function TodoCard({
+  todo,
+  highlight = false,
+  onToggle,
+}: {
+  todo: Todo
+  highlight?: boolean
+  onToggle: () => void
+}) {
   return (
     <div className={`todo-card${highlight ? " todo-card-highlight" : ""}`}>
       <label className="todo-card-row">
-        <input type="checkbox" checked={completed} onChange={() => onToggle?.()} />
-        <span className={completed ? "todo-done" : ""}>{title ?? "Untitled todo"}</span>
+        <input type="checkbox" checked={todo.completed} onChange={onToggle} />
+        <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
       </label>
     </div>
   )

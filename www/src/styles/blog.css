@@ -1,3 +1,15 @@
+/* Match Georgia's ASCII text to Source Serif 4 without changing symbol fallbacks.
+   https://developer.chrome.com/blog/font-fallbacks */
+@font-face {
+  font-family: "Source Serif 4 Fallback";
+  src: local("Georgia");
+  size-adjust: 105.93%;
+  ascent-override: 97.8%;
+  descent-override: 31.62%;
+  line-gap-override: 0%;
+  unicode-range: U+20-7E;
+}
+
 .blog-shell {
   --blog-ink: #22352f;
   --blog-muted: #5d6862;
@@ -44,7 +56,7 @@
 .blog-intro h1,
 .blog-article h1,
 .blog-card h2 {
-  font-family: "Source Serif 4", Georgia, serif;
+  font-family: "Source Serif 4", "Source Serif 4 Fallback", Georgia, serif;
   font-weight: 400;
   letter-spacing: normal;
   text-wrap: balance;

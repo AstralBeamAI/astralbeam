@@ -3,13 +3,9 @@ import { TodoList } from "@/components/todo-list.tsx"
 import { useTodos } from "@/hooks/use-todos.ts"
 
 export function TodosPage() {
-  const { todos, setTodos, createTodo } = useTodos()
+  const { todos, createTodo, toggleTodo } = useTodos()
   const [draft, setDraft] = useState("")
   const [search, setSearch] = useState("")
-  const toggleTodo = (id: number) =>
-    setTodos((current) =>
-      current.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
-    )
   const addTodo = () => {
     const text = draft.trim()
     if (!text) return

@@ -1,54 +1,66 @@
 # Todos tutorial
 
-Let's walk through the todos example, a small application whose agent edits the list the user is looking at. It is the shortest way to see the four integration points that matter: host tools, inline widgets, attachments, and a sandbox.
+Let's add an assistant to a todo app, connect its tools to the list, and show live todo cards in chat. Each step shows the relevant code and links to the complete file on `main`.
 
-The code lives in `examples/todos` in the repository, and it demonstrates four things:
+## 1. Run the starter
 
-- The agent reads and writes the host application's state through tools that run in the page, rather than through an API you expose to it.
-- The agent renders your own components inside the transcript, and those renders stay live as host state changes.
-- A user can paste an image or attach a file, and it stays available in the saved conversation.
-- With a sandbox provider on the agent, the agent can run commands and publish files the user downloads.
-
-## 1. Seed the local data
-
-Complete the repository's [contributor setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md) first so the local services and migrated database are ready. Setup already seeds the demo. To restore its fixtures later, run this command from the repository root:
+The [starter branch](https://github.com/AstralBeamAI/astralbeam/tree/examples/todos-starter/examples/todos) already has browser persistence, create/update/delete helpers, and a `TodoCard` used by the list. It has no SDK integration. Create a working branch from it in a clean checkout:
 
 ```sh
-bun run --cwd platform db-seed
+git fetch origin
+git switch -c todos-tutorial origin/examples/todos-starter
 ```
 
-It also writes `examples/todos/.env` when that file does not already exist, so the example points at the database you just seeded.
+Complete [contributor setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md) to install dependencies, seed development data, and build the SDK. Then run Platform and Todos in separate terminals:
 
-**NOTE**: To set this up by hand instead, create an agent with the demo prompt, optionally configure a sandbox provider and select it on the agent, create an API key, and copy `.env.example` to `.env`.
+```sh
+bun run --cwd platform dev
+```
 
-The example reads three variables. `ASTRALBEAM_API_KEY` is server only and is the key the token route signs with. `VITE_ASTRALBEAM_AGENT_ID` is optional, and leaving it empty uses the organization's default agent. `VITE_ASTRALBEAM_API_URL` is optional and defaults to the local platform's `/api` base.
+```sh
+bun run --cwd examples/todos dev
+```
 
-The API key and the agent must belong to the same organization, as a key cannot resolve another organization's agent.
+Open <http://localhost:4700>. Add a todo, toggle it, and reload to check persistence.
 
-## 2. Run the example
+## 2. Connect authentication
 
-From the repository root, install the workspace with `bun install --frozen-lockfile` and build the SDK with `bun run --cwd sdk build`. Start the platform on port 4500 with `bun run --cwd platform dev`. In another terminal, start the example with `bun run --cwd examples/todos dev` and open `http://localhost:4700`.
+Install the built workspace SDK from the repository root:
 
-You should see the todo list with the assistant sidebar beside it, and controls along the top for hiding the assistant and switching themes.
+```sh
+bun add --cwd examples/todos '@astralbeam/sdk@workspace:*'
+```
 
-## 3. Mint tokens for a real user
+Setup writes `examples/todos/.env` if absent. Check its Todos API key, agent ID, and API URL. The key and agent must belong to the same organization. Keep the key server-side.
 
-The example ships a token route that mints for one fixed demo identity and refuses to run in production. That is a deliberate stub, not a pattern to copy.
+Copy the demo [token route](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/routes/api/astralbeam/token.ts), [server config](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/lib/config.server.ts), and [demo identity](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/lib/constants.server.ts). The route's core is:
 
-Your own route must authenticate its own session first and derive the tenant and tenant-local user IDs from it. Everything the token asserts about who is chatting comes from that decision, so a route that trusts a request body lets any caller impersonate any user.
+```ts title="src/routes/api/astralbeam/token.ts"
+const token = await createAstralBeamToken({
+  apiKey: API_KEY,
+  user: DEMO_CHAT_USER,
+  tenant: DEMO_CHAT_TENANT,
+})
+return tokenResponse({ token }, 200)
+```
 
-## 4. Give the agent tools
+The SDK calls `/api/astralbeam/token` by default. Restart Todos after changing environment values.
 
-A tool is a name, a description, a JSON schema for its input, and a function that runs in the page. Here is how the example declares the tool that creates a todo:
+**NOTE**: The demo grants one fixed identity and is disabled in production. In your app, derive user and tenant IDs from an authenticated session. See [Authentication](/docs/sdk/authentication).
 
-```tsx
+## 3. Register host tools
+
+Create [`TodosAssistant`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx). Its tools call the starter's [`useTodos` helpers](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/hooks/use-todos.ts), just like the native list. For example, `create_todo` needs only its input schema and the existing mutation:
+
+```tsx title="src/components/todos-assistant.tsx"
+const { createTodo } = useTodos()
 const tools: Record<string, ToolDefinition> = {
   create_todo: {
     metadata: { title: "Create a todo" },
     description: "Create a new todo and append it to the list.",
     parameters: {
       type: "object",
-      properties: { text: { type: "string", description: "What needs to be done" } },
+      properties: { text: { type: "string" }, completed: { type: "boolean" } },
       required: ["text"],
     },
     execute: (input) => ({ created: createTodo(input) }),
@@ -56,56 +68,59 @@ const tools: Record<string, ToolDefinition> = {
 }
 ```
 
-The example's `useTodos` hook supplies `createTodo`, which validates input and updates host state. The agent can only call tools you declare.
+Use the same pattern for `get_todos`, `update_todo`, and `delete_todo` from the [complete tool definitions](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx). `getTodos()` reads current state at execution time, so consecutive calls see earlier edits. Mutations validate model input before changing the list.
 
-`execute` runs in the user's page with the authority your host application gives it. Its input is model-chosen, so validate it before changing state and authorize any backend operation on your server. Return only the information the agent needs, because the result joins the conversation.
+## 4. Show live cards
 
-**TIP**: Read current state through a ref rather than a captured closure, or a long conversation will act on a stale snapshot.
+Register `todoCard` in the assistant's `widgets` prop with an `id` number parameter. Reuse the starter's [`TodoCard`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todo-card.tsx) and look up that ID in reactive `todos`:
 
-## 5. Draw into the transcript
-
-A widget is the same idea for output. You declare a schema and a `render` function, and the agent can place that component in the transcript:
-
-```tsx
-widgets={{
-  todoCard: {
-    description: "A single todo from the host app, addressed by its id",
-    parameters: {
-      type: "object",
-      properties: { id: { type: "number", description: "Id of the todo to render" } },
-      required: ["id"],
-    },
-    render: ({ id }) => {
-      const todo = todos.find((candidate) => candidate.id === Number(id))
-      return todo && <TodoCard title={todo.text} onToggle={() => onToggleTodo(todo.id)} />
-    },
-  },
-}}
+```tsx title="src/components/todos-assistant.tsx"
+render: ({ id }) => {
+  const todo = todos.find((entry) => entry.id === Number(id))
+  return todo && <TodoCard todo={todo} onToggle={() => toggleTodo(todo.id)} />
+},
 ```
 
-Ask the assistant to show you a todo and it picks which one. Your `render` decides what that means and what the user can do with it, which is why the projected card carries a working toggle. Because the render reads host state, editing the list outside the chat updates cards the agent placed earlier in the conversation.
+The card and list now share state in both directions. Pass record IDs through the conversation, and authorize any backend mutations on your server. See the [complete widget registration](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx).
 
-Address host data by ID rather than passing its contents through the model. A card that looks its subject up cannot drift from the real record, and nothing sensitive has to travel through the transcript.
+## 5. Mount the assistant
 
-## 6. Attach a file
+Copy the public configuration from [`config.ts`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/lib/config.ts). Inside `TodosAssistant`, pass the API URL, agent ID, and registrations to the SDK:
 
-Paste a screenshot or attach `samples/tasks.csv`, then ask the assistant about it. Attachments stay with the saved conversation and are never added to the system prompt, so their contents remain user-supplied material.
+```tsx title="src/components/todos-assistant.tsx"
+<AstralBeamChat
+  apiUrl={ASTRALBEAM_API_URL}
+  agentId={CHAT_AGENT_ID}
+  tools={tools}
+  widgets={widgets}
+  sandboxPanel
+/>
+```
 
-New attachments require the agent to allow them. Turning that setting off refuses new uploads even when the client still sends them, while previously accepted attachments remain in saved history.
+Use the [complete component](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx) for imports, sidebar sizing, and appearance props. Add the sidebar rules from [`styles.css`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/styles.css).
 
-## 7. Add a sandbox
+Import `TodosAssistant` into [`AppShell`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/app-shell.tsx) and place it immediately after `</main>`. The shared layout keeps chat mounted during navigation:
 
-Select a tested sandbox provider on the agent to enable file and command tools. Workspaces are scoped by agent, conversation, and tenant user, so participants do not share a sandbox and a new conversation starts with a fresh workspace.
+```tsx title="src/components/app-shell.tsx"
+<TodosAssistant colorScheme={colorScheme} />
+```
 
-Ask it to export the todos as CSV. Published files remain available in the conversation after the sandbox stops. The example's sandbox panel shows the commands, their exit codes, and the resulting downloads.
+See [SDK configuration](/docs/sdk/configuration) for appearance, resizing, and optional controls.
 
-## Automated checks
+## 6. Try it
 
-Run `bun run e2e` from `examples/todos` to drive all of the above in a browser against the seeded database, including the token round trip and the chat endpoint's authorization boundary. It needs that database, so it stays out of the default checks.
+In Platform, configure a provider under **Models** and assign its model to the Todos agent under **Agents**. Setup does this when `OPENAI_API_KEY` is configured and the organization has no provider. The seed installs the [Todos agent prompt](https://github.com/AstralBeamAI/astralbeam/blob/main/platform/scripts/seed/fixtures.ts). Model calls may incur charges.
 
-## Next
+1. Ask **"Add a todo called Water the plants and show its card."** Check that a row and card appear.
+2. Toggle the card, then toggle the row. Both should stay in sync.
+3. Ask **"Delete Water the plants."** Reload and check that it stays deleted.
 
-- [Quickstart](./quickstart.md), the same integration without the example application.
-- [Tools and widgets](/docs/sdk/tools-and-widgets), the full contract for both.
-- [Attachments](/docs/sdk/attachments) and [Sandbox](/docs/sdk/sandbox), the reference for each.
-- [SDK security model](/docs/sdk/security), the boundaries these features sit inside.
+With **Allow attachments** enabled and Platform file storage configured, attach `samples/tasks.csv` and ask **"Add the tasks from this CSV."** Check the new rows.
+
+Configure and test a provider under **Sandboxes**, then select it on the Todos agent. Ask **"Export my todos as CSV using the sandbox."** Check the command exit codes and download the result from **Sandbox**. Published files remain in saved history after the workspace stops.
+
+## Continue
+
+The [completed example](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos) also includes Users, Conversations, and theme/debug controls. Follow [Tenant directories](/docs/sdk/listings) to add them, or use the [browser-suite guide](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/e2e/README.md) for automated checks. Its agent tests spend provider credits.
+
+Read the [security model](/docs/sdk/security) before connecting tools to production data.

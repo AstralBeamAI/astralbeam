@@ -7,9 +7,9 @@ import {
   getRequestIP,
   getRequestUrl,
   setCookie,
-  setResponseHeader,
+  setResponseHeaders,
 } from "@tanstack/react-start/server"
-import { Context, Effect, identity, Option, Schema } from "effect"
+import { Context, Data, Effect, identity, Option } from "effect"
 
 type ServerCookieOptions = NonNullable<Parameters<typeof setCookie>[2]>
 
@@ -38,10 +38,10 @@ export class ServerRequest extends Context.Service<
 >()("astralbeam/runtime/ServerRequest") {}
 
 /** Answers a server function with a redirect, such as a page load that must move to HTTPS. */
-export class ServerRedirect extends Schema.TaggedError<ServerRedirect>()("ServerRedirect", {
-  href: Schema.String,
-  status: Schema.Int,
-}) {}
+export class ServerRedirect extends Data.TaggedError("ServerRedirect")<{
+  readonly href: string
+  readonly status: number
+}> {}
 
 /** Captures the current TanStack request. Call it synchronously in a handler, before any await. */
 export function captureServerRequest(): ServerRequest["Service"] {
@@ -50,18 +50,12 @@ export function captureServerRequest(): ServerRequest["Service"] {
     request: getRequest(),
     clientAddress: getRequestIP(),
     url: ({ forwarded }) =>
-      run(() => getRequestUrl({ xForwardedHost: forwarded, xForwardedProto: forwarded })),
-    cookie: (name) => run(() => getCookie(name)),
-    setHeaders: (headers) =>
-      Effect.sync(() =>
-        run(() => {
-          for (const [name, value] of Object.entries(headers)) setResponseHeader(name, value)
-        }),
-      ),
-    setCookie: (name, value, options) =>
-      Effect.sync(() => run(() => setCookie(name, value, options))),
-    deleteCookie: (name, options) => Effect.sync(() => run(() => deleteCookie(name, options))),
-    run: (evaluate) => run(evaluate),
+      run(getRequestUrl, { xForwardedHost: forwarded, xForwardedProto: forwarded }),
+    cookie: (name) => run(getCookie, name),
+    setHeaders: (headers) => Effect.sync(() => run(setResponseHeaders, new Headers(headers))),
+    setCookie: (name, value, options) => Effect.sync(() => run(setCookie, name, value, options)),
+    deleteCookie: (name, options) => Effect.sync(() => run(deleteCookie, name, options)),
+    run,
   })
 }
 

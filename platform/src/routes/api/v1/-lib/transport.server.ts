@@ -13,7 +13,7 @@ import { Auth } from "@/lib/auth/auth.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { getAppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
+import { appLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
 import { Tenants } from "@/lib/tenants/tenants"
 import { ApiV1 } from "./contract.server"
 import {
@@ -94,7 +94,10 @@ const ApiBoundaryLive = Layer.succeed(ApiBoundary, (httpEffect, { endpoint }) =>
       if (encoding && encoding !== "identity") return yield* new RestUnsupportedEncoding()
     }
     return yield* httpEffect
-  }).pipe(Effect.catchCause((cause) => restBoundaryFailure(cause, endpoint.identifier))),
+  }).pipe(
+    Effect.catchCause((cause) => restBoundaryFailure(cause, endpoint.identifier)),
+    Effect.annotateLogs({ operation: endpoint.identifier, route: endpoint.path }),
+  ),
 )
 
 const RestAuthorizationLive = Layer.effect(
@@ -117,7 +120,7 @@ const REST_CORS_HEADERS = {
   "Access-Control-Allow-Headers":
     "authorization, content-type, x-api-key, x-file-preview, last-event-id, x-run-id, idempotency-key",
   "Access-Control-Expose-Headers":
-    "Location, Link, Retry-After, Content-Disposition, WWW-Authenticate",
+    "Location, Link, Retry-After, Content-Disposition, WWW-Authenticate, X-Request-Id",
   "Access-Control-Max-Age": "86400",
 }
 
@@ -203,7 +206,7 @@ export const ApiV1Routes = Layer.mergeAll(
 function makeApiV1WebHandler() {
   const runtime = getAppRuntime()
   const webHandler = HttpRouter.toWebHandler(
-    ApiV1Routes.pipe(Layer.provideMerge(getAppLayer()), Layer.provide(HttpServer.layerServices)),
+    ApiV1Routes.pipe(Layer.provideMerge(appLayer), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true, memoMap: runtime.memoMap },
   )
   const disposeWebHandler = Effect.promise(() => {

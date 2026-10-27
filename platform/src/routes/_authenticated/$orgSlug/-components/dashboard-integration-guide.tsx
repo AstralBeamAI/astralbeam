@@ -1,7 +1,9 @@
 import { CheckIcon } from "@phosphor-icons/react"
 import { Link, linkOptions } from "@tanstack/react-router"
 import { useId, useState } from "react"
+import { cn } from "cn"
 
+import { DocsLink } from "@/components/docs-link"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
@@ -72,10 +74,7 @@ export function DashboardIntegrationGuide({
       complete: false,
       description:
         "Follow the quickstart to authenticate your app’s users and mount the widget. Verify a reply, then connect a tool and try an app action.",
-      link: linkOptions({
-        to: "/docs/$section/$page",
-        params: { section: "start", page: "quickstart" },
-      }),
+      link: { href: "/docs/start/quickstart" },
       action: "Follow the quickstart",
       visible: true,
     },
@@ -99,48 +98,58 @@ export function DashboardIntegrationGuide({
       </CardHeader>
       <CardContent>
         <ol className="divide-y">
-          {steps.map((step, index) => (
-            <li key={step.title} className="py-3 first:pt-0 last:pb-0">
-              <h3>
-                <button
-                  type="button"
-                  aria-expanded={activeStep === index}
-                  aria-controls={`${titleId}-${index}`}
-                  onClick={() => setExpanded(activeStep === index ? -1 : index)}
-                  className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+          {steps.map((step, index) => {
+            const actionClassName = buttonVariants({
+              variant: index === nextStep ? "default" : "outline",
+              size: "sm",
+            })
+            return (
+              <li key={step.title} className="py-3 first:pt-0 last:pb-0">
+                <h3>
+                  <button
+                    type="button"
+                    aria-expanded={activeStep === index}
+                    aria-controls={`${titleId}-${index}`}
+                    onClick={() => setExpanded(activeStep === index ? -1 : index)}
+                    className="flex w-full items-center gap-3 rounded-sm text-left text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:min-h-11 any-pointer-coarse:min-w-11"
+                  >
+                    <span
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full border text-xs"
+                      aria-hidden="true"
+                    >
+                      {step.complete ? <CheckIcon /> : index + 1}
+                    </span>
+                    <span className="flex-1">{step.title}</span>
+                    {step.complete && (
+                      <span className="text-xs font-normal text-muted-foreground">Configured</span>
+                    )}
+                  </button>
+                </h3>
+                <div
+                  id={`${titleId}-${index}`}
+                  hidden={activeStep !== index}
+                  className="space-y-3 pt-2 ps-9"
                 >
-                  <span
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full border text-xs"
-                    aria-hidden="true"
-                  >
-                    {step.complete ? <CheckIcon /> : index + 1}
-                  </span>
-                  <span className="flex-1">{step.title}</span>
-                  {step.complete && (
-                    <span className="text-xs font-normal text-muted-foreground">Configured</span>
-                  )}
-                </button>
-              </h3>
-              <div
-                id={`${titleId}-${index}`}
-                hidden={activeStep !== index}
-                className="space-y-3 pt-2 ps-9"
-              >
-                <p className="max-w-prose text-sm text-muted-foreground">{step.description}</p>
-                {step.visible && (
-                  <Link
-                    {...step.link}
-                    className={buttonVariants({
-                      variant: index === nextStep ? "default" : "outline",
-                      size: "sm",
-                    })}
-                  >
-                    {step.action}
-                  </Link>
-                )}
-              </div>
-            </li>
-          ))}
+                  <p className="max-w-prose text-sm text-muted-foreground">{step.description}</p>
+                  {step.visible &&
+                    ("href" in step.link ? (
+                      <DocsLink
+                        {...step.link}
+                        target="_self"
+                        preload="intent"
+                        className={cn(actionClassName, "no-underline")}
+                      >
+                        {step.action}
+                      </DocsLink>
+                    ) : (
+                      <Link {...step.link} className={actionClassName}>
+                        {step.action}
+                      </Link>
+                    ))}
+                </div>
+              </li>
+            )
+          })}
         </ol>
       </CardContent>
     </Card>

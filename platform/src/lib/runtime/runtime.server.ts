@@ -1,7 +1,8 @@
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
-import { Layer, Logger, ManagedRuntime } from "effect"
+import { Layer, ManagedRuntime } from "effect"
 
-import { IS_DEVELOPMENT_SERVER } from "./environment.server.ts"
+import { serverLoggerLayer } from "./logging.server.ts"
+import { telemetryLayer } from "./telemetry.server.ts"
 
 import { Database } from "@/db/database"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
@@ -29,12 +30,10 @@ import { ImageSources } from "@/lib/storage/image-source.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 
-const LoggerLayer = Logger.layer([
-  IS_DEVELOPMENT_SERVER ? Logger.consolePretty() : Logger.consoleLogFmt,
-])
-
-function makeAppLayer() {
-  return Layer.mergeAll(
+// Defer service references past Better Auth's import cycle and share construction with REST.
+// https://effect.website/docs/v4/api/effect/Layer#suspend
+export const appLayer = Layer.suspend(() =>
+  Layer.mergeAll(
     Agents.layer,
     ApiKeys.layer,
     Auth.layer,
@@ -61,21 +60,11 @@ function makeAppLayer() {
     TenantUsers.layer,
     UsageLimits.layer,
     BunHttpClient.layer,
-    LoggerLayer,
-  )
-}
+    serverLoggerLayer,
+  ).pipe(Layer.provideMerge(telemetryLayer.pipe(Layer.provide(Config.layer)))),
+)
 
-let appLayer: ReturnType<typeof makeAppLayer> | undefined
-
-/**
- * Every service the application's Effects may require. Built on first use, because Better Auth
- * callbacks import this module from inside the services it merges.
- */
-export function getAppLayer() {
-  return (appLayer ??= makeAppLayer())
-}
-
-export type AppServices = Layer.Success<ReturnType<typeof makeAppLayer>>
+export type AppServices = Layer.Success<typeof appLayer>
 
 // Nitro plugins and request handlers load separate copies of this module, each with its own
 // runtime, so shutdown disposes them all through this process-wide set.
@@ -91,7 +80,7 @@ let appRuntime: AppRuntime | undefined
 
 export function getAppRuntime() {
   if (appRuntime) return appRuntime
-  appRuntime = ManagedRuntime.make(getAppLayer().pipe(Layer.orDie))
+  appRuntime = ManagedRuntime.make(appLayer.pipe(Layer.orDie))
   appRuntimes.add(appRuntime)
   return appRuntime
 }

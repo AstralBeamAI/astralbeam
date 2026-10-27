@@ -1,5 +1,7 @@
 # Todos example
 
+Follow the [Todos tutorial](../../platform/src/routes/docs/-content/start/todos-tutorial.md) to rebuild the assistant from a plain app.
+
 A TanStack Start app demonstrating the SDK chat sidebar and tenant-user listing, host tools, inline `TodoCard` widgets, attachments, and the optional sandbox panel. Its plain CSS stays separate from the widgets' shadow-root styles.
 
 Tasks are saved in this browser's localStorage, so edits and inline cards survive reloads. This storage belongs to the fixed demo user and does not sync across devices. Production applications should persist their own task data under the authenticated user's identity.

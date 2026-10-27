@@ -175,6 +175,7 @@ const viteConfig = defineConfig(({ mode }) => {
             },
             plugins: [
               "./src/lib/runtime/response-headers.server.ts",
+              "./src/lib/runtime/nitro-logging-plugin.server.ts",
               "./src/lib/cluster/plugin.ts",
             ],
           })),
@@ -214,6 +215,7 @@ const viteConfig = defineConfig(({ mode }) => {
     test: {
       // Keep an explicitly selected disposable database, while allowing imports without one.
       env: {
+        OTEL_SDK_DISABLED: "true",
         DATABASE_URL: process.env.DATABASE_URL ?? "postgres://test:test@127.0.0.1:5432/test",
       },
       // `e2e` holds Playwright specs, which `bun run e2e` runs in its own runner.

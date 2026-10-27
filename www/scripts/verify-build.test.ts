@@ -1,4 +1,5 @@
 import { readdir, readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 
 import sharp from "sharp"
 import { describe, expect, test } from "vitest"
@@ -18,6 +19,20 @@ function readText(path: string) {
 }
 
 describe("production website build", () => {
+  test("publishes the CLI skill with a digest of the exact served bytes", async () => {
+    const source = await readFile(new URL("../../cli/skills/astralbeam/SKILL.md", import.meta.url))
+    const payload = await readFile(new URL("agent-skills/astralbeam/SKILL.md", distUrl))
+    const index: unknown = JSON.parse(await readText(".well-known/agent-skills/index.json"))
+    expect(payload).toEqual(source)
+    expect(index).toMatchObject({
+      skills: [
+        {
+          digest: `sha256:${createHash("sha256").update(payload).digest("hex")}`,
+        },
+      ],
+    })
+  })
+
   test("renders the homepage with discovery metadata", async () => {
     const html = await readText("index.html")
 
@@ -148,21 +163,30 @@ describe("production website build", () => {
   })
 
   test("publishes every Markdown post with its discovery metadata and artwork", async () => {
-    const [home, index, sitemap, feed, llms] = await Promise.all([
+    const [home, index, sitemap, feed, llms, headers] = await Promise.all([
       readText("index.html"),
       readText("blog.html"),
       readText("sitemap.xml"),
       readText("blog/feed.xml"),
       readText("llms.txt"),
+      readText("_headers"),
     ])
     expect(home).toContain('href="/blog"')
     expect(index).toContain(`<link rel="canonical" href="${origin}/blog"/>`)
     for (const post of blogPosts) {
       const html = await readText(`${post.path.slice(1)}.html`)
+      const markdown = await readText(`${post.path.slice(1)}.md`)
+      expect(markdown).toBe(
+        await readFile(new URL(`../src/content${post.path}.md`, import.meta.url), "utf8"),
+      )
+      expect(html).toContain(`rel="alternate" type="text/plain" href="${post.path}.md"`)
+      expect(headers).toContain(
+        `${post.path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline`,
+      )
       expect(index).toContain(`href="${post.path}"`)
       expect(sitemap).toContain(`<loc>${origin}${post.path}</loc>`)
       expect(feed).toContain(`<link>${origin}${post.path}</link>`)
-      expect(llms).toContain(`${origin}${post.path}`)
+      expect(llms).toContain(`[${post.title}](${origin}${post.path})`)
       expect(html).toContain(`<link rel="canonical" href="${origin}${post.path}"/>`)
       expect(html).toContain('property="og:type" content="article"')
       expect(html).toContain(`property="og:image" content="${origin}${post.image}"`)

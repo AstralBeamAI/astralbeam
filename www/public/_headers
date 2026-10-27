@@ -55,3 +55,13 @@
 
 /blog/feed.xml
   Cache-Control: public, max-age=300, must-revalidate
+
+/.well-known/agent-skills/index.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: *
+
+/agent-skills/astralbeam/SKILL.md
+  Content-Type: text/markdown; charset=utf-8
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: *

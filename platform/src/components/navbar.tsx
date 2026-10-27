@@ -60,9 +60,17 @@ export function Navbar({
         </span>
         {wordmark && (
           <span className="hidden sm:contents">
-            <img src={APP_WORDMARK_LIGHT_SVG_URL} alt="" className="h-4.5 w-auto dark:hidden" />
+            <img
+              src={APP_WORDMARK_LIGHT_SVG_URL}
+              width={1241}
+              height={136}
+              alt=""
+              className="h-4.5 w-auto dark:hidden"
+            />
             <img
               src={APP_WORDMARK_DARK_SVG_URL}
+              width={1241}
+              height={136}
               alt=""
               className="hidden h-4.5 w-auto dark:block"
             />
@@ -91,7 +99,7 @@ export function NavbarCrumb({ children }: { children: ReactNode }) {
   )
 }
 
-export function DocsLink() {
+export function NavbarDocsLink() {
   return (
     <Link to="/docs" className={navLinkClassName}>
       Docs
@@ -200,7 +208,7 @@ export function PublicNavbar() {
   if (isDocs) return <DocsNavbar />
   return (
     <Navbar wordmark reloadDocument={hasWebsite}>
-      <DocsLink />
+      <NavbarDocsLink />
       <SessionLinks />
     </Navbar>
   )

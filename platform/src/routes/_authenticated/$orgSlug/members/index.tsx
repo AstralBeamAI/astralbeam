@@ -5,6 +5,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { ChangeAvatar } from "@/components/auth/organization/change-avatar"
 import { OrganizationInvitations } from "@/components/auth/organization/organization-invitations"
 import { OrganizationMembers } from "@/components/auth/organization/organization-members"
+import { DocsLink } from "@/components/docs-link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { organizationPlugin } from "@/lib/auth/organization-plugin"
 import { APP_NAME } from "@/lib/constants"
@@ -43,7 +44,8 @@ function MembersPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Members</h1>
         <p className="text-sm text-muted-foreground">
-          Manage members and pending invitations for {data.organization.name}.
+          Manage members and pending invitations for {data.organization.name}.{" "}
+          <DocsLink href="/docs/dashboard/members#roles">Compare member roles</DocsLink>
         </p>
       </div>
       <ChangeAvatar organization={organization} />

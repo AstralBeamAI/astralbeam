@@ -1,8 +1,9 @@
 "use client"
 
-import { ArrowsClockwiseIcon, EyeIcon, EyeSlashIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowsClockwiseIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { type ReactNode, useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -45,21 +46,27 @@ export function ConfigValueInput({
 }) {
   const [visible, setVisible] = useState(false)
   const [revealing, setRevealing] = useState(false)
+  const revealed = revealedValue !== undefined
+  const hasLocalValue = revealed || draft.kind === "set"
+  const [previousHasLocalValue, setPreviousHasLocalValue] = useState(hasLocalValue)
+  if (hasLocalValue !== previousHasLocalValue) {
+    setPreviousHasLocalValue(hasLocalValue)
+    if (!hasLocalValue) setVisible(false)
+  }
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const value = draft.kind === "set" ? draft.value : (revealedValue ?? field.value ?? "")
   const readOnly = field.source === "environment"
+  const needsReveal = field.kind === "secret" && field.isSet && !revealed
   const valueVisible = field.kind !== "secret" || visible
 
-  // A stored secret is not in the page, so showing it has to fetch it first. A draft the operator
-  // just typed is already here, which keeps blind replacement free of a server round trip.
   const revealValue = async () => {
-    if (draft.kind === "set" || revealedValue !== undefined || !onReveal) {
+    if (!needsReveal) {
       setVisible(true)
       return
     }
     setRevealing(true)
     try {
-      if (await onReveal()) setVisible(true)
+      if (await onReveal?.()) setVisible(true)
     } finally {
       setRevealing(false)
     }
@@ -68,7 +75,7 @@ export function ConfigValueInput({
     field.storageStatus === "fallback-key"
       ? "Encrypted with a fallback key; replace and save it to use the active key."
       : field.storageStatus === "unreadable"
-        ? "The stored value cannot be read; enter and save a replacement."
+        ? "The stored value cannot be read. Enter a replacement or press Delete in an empty optional field to clear it, then save."
         : null
 
   return (
@@ -79,9 +86,17 @@ export function ConfigValueInput({
           type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
           autoComplete={field.kind === "secret" ? "new-password" : "off"}
           value={value}
-          placeholder={field.isSet ? "Configured" : "Not set"}
+          placeholder={
+            needsReveal && !readOnly ? "Reveal to edit" : field.isSet ? "Configured" : "Not set"
+          }
           disabled={disabled || readOnly}
+          readOnly={needsReveal}
           onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+          onKeyDown={(event) => {
+            if (!needsReveal && !value && ["Backspace", "Delete"].includes(event.key)) {
+              onDraftChange({ kind: "set", value: "" })
+            }
+          }}
         />
         <InputGroupAddon align="inline-end">
           {valueVisible && value && <CopyValueButton value={value} label={field.label} />}
@@ -90,7 +105,7 @@ export function ConfigValueInput({
               size="icon-xs"
               aria-label={`${visible ? "Hide" : "Show"} ${field.label}`}
               title={`${visible ? "Hide" : "Show"} ${field.label}`}
-              disabled={disabled || revealing || (!value && !field.isSet)}
+              disabled={disabled || revealing || (!visible && !needsReveal && !value)}
               onClick={() => {
                 if (visible) setVisible(false)
                 else void revealValue()
@@ -109,39 +124,17 @@ export function ConfigValueInput({
               : "text-sm text-muted-foreground"
           }
         >
-          {storageMessage}
+          {storageMessage}{" "}
+          <DocsLink
+            href={`/docs/self-hosting/security#${
+              field.storageStatus === "unreadable"
+                ? "unreadable-values"
+                : "rotating-the-encryption-key"
+            }`}
+          >
+            {field.storageStatus === "unreadable" ? "Recover this setting" : "Key rotation guide"}
+          </DocsLink>
         </span>
-      )}
-      {!readOnly && (draft.kind !== "unchanged" || field.isSet) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {draft.kind !== "unchanged" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              onClick={() => onDraftChange({ kind: "unchanged" })}
-            >
-              <XIcon aria-hidden="true" />
-              Discard
-            </Button>
-          )}
-          {field.isSet && !field.required && draft.kind === "unchanged" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled}
-              onClick={() => onDraftChange({ kind: "clear" })}
-            >
-              <TrashIcon aria-hidden="true" />
-              Clear value
-            </Button>
-          )}
-          {draft.kind === "clear" && (
-            <span className="text-sm text-destructive">This value will be cleared on save.</span>
-          )}
-        </div>
       )}
       {!readOnly && field.canGenerate && onGenerate && draft.kind === "unchanged" && (
         <Button

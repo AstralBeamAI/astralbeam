@@ -126,6 +126,9 @@ describe("configuration registry", () => {
       ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
       ["s3_endpoint", "http://s3.example.com"],
       ["email_from_address", "secret@@value"],
+      ["otel_exporter_otlp_endpoint", `https://${secret}@example.com`],
+      ["otel_exporter_otlp_endpoint", `https://example.com?key=${secret}`],
+      ["otel_exporter_otlp_endpoint", `https://example.com#${secret}`],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
       assert.isTrue(Result.isFailure(decoded))
@@ -168,6 +171,17 @@ describe("configuration registry", () => {
     })
   })
 
+  it("accepts standard uppercase OpenTelemetry settings", () => {
+    assert.deepStrictEqual(
+      decodeConfigValue(findConfigDefinition("otel_sdk_disabled")!, "TRUE"),
+      Result.succeed("true"),
+    )
+    assert.deepStrictEqual(
+      decodeConfigValue(findConfigDefinition("otel_logs_exporter")!, "OTLP"),
+      Result.succeed("otlp"),
+    )
+  })
+
   it("derives public configuration without any stored secret", () => {
     const serialized = JSON.stringify(
       publicConfigFromValues({
@@ -175,12 +189,14 @@ describe("configuration registry", () => {
         google_client_id: "google-id",
         google_client_secret: "google-secret",
         resend_api_key: "resend-secret",
+        otel_exporter_otlp_traces_headers: "Authorization=Bearer telemetry-secret",
       }),
     )
     assert.include(serialized, "turnstile-site-key")
     for (const secret of [
       "google-secret",
       "resend-secret",
+      "telemetry-secret",
       SECRET,
       "turnstile-secret-key",
       COMPLETE_VALUES.s3_access_key_id,

@@ -1,6 +1,6 @@
 {
   "name": "@astralbeam/sdk",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "description": "Frontend SDK for AstralBeam: drop-in agent UI, chat streaming, and server helpers",
   "homepage": "https://astralbeam.ai",
   "bugs": "https://github.com/AstralBeamAI/astralbeam/issues",
@@ -88,6 +88,7 @@
     "@tanstack/ai": "^1.0.0",
     "@tanstack/ai-client": "^1.0.0",
     "@tanstack/eslint-plugin-query": "^5.103.2",
+    "@tanstack/highlight": "1.1.0",
     "@tanstack/markdown": "^1.0.0",
     "@tanstack/react-pacer": "^0.23.0",
     "@tanstack/react-query": "^5.104.1",
@@ -113,7 +114,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "shadcn": "^4.21.5",
-    "shiki": "^4.5.0",
     "strip-ansi": "^7.2.0",
     "tailwindcss": "^4.3.3",
     "tsdown": "^0.23.1",

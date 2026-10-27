@@ -5,7 +5,4 @@ export const DEMO_CHAT_USER = {
   metadata: { email: "ada@example.com" },
 }
 
-export const DEMO_CHAT_TENANT = {
-  id: "todos-tenant-1",
-  name: "Todos Example",
-}
+export const DEMO_CHAT_TENANT = { id: "todos-tenant-1", name: "Todos Example" }

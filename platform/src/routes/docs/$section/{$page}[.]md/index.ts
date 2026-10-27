@@ -26,9 +26,9 @@ export const Route = createFileRoute("/docs/$section/{$page}.md/")({
         })
         const link = (label: string, entry: typeof previous) =>
           entry &&
-          `- ${label}: [${entry.section.title}: ${entry.page.title}](${origin}/docs/${entry.section.slug}/${entry.page.slug}.md)`
+          `- ${label}: [${entry.section.title}: ${entry.page.title}](${origin}/docs/${entry.section.slug}/${entry.page.slug})`
         const footer = [
-          `- Parent: [Documentation index](${origin}/docs.md)`,
+          `- Parent: [Documentation index](${origin}/docs)`,
           link("Previous", previous),
           link("Next", next),
         ].filter(Boolean)

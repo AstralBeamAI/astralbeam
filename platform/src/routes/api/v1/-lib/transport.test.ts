@@ -107,7 +107,9 @@ vi.mock("@/lib/chat/auth", async (original) => {
 })
 vi.mock("@/lib/runtime/runtime.server", async (original) => ({
   ...(await original<typeof import("@/lib/runtime/runtime.server")>()),
-  getAppLayer: () => restTestState.appLayer,
+  get appLayer() {
+    return restTestState.appLayer
+  },
   getAppRuntime: () => restTestState.appRuntime,
 }))
 vi.mock("@/lib/auth/organization-token.server", () => ({
@@ -480,7 +482,7 @@ describe("v1 router boundary", () => {
     await restTestState.appRuntime.dispose()
     expect(released).toHaveBeenCalledOnce()
   })
-  test("unexpected setup failures log safe diagnostics once and answer a reference", async () => {
+  test("unexpected setup failures log their message once and answer a reference", async () => {
     restTestState.setupState.mockReturnValue(
       Effect.die(Object.assign(new Error("private connection details"), { code: "08006" })),
     )
@@ -489,9 +491,8 @@ describe("v1 router boundary", () => {
     const body = await response.text()
     expect(body).not.toContain("private connection details")
     expect(restTestState.logs).toHaveLength(1)
-    expect(restTestState.logs[0]).toContain('"sqlstate":"08006"')
     expect(restTestState.logs[0]).toContain((JSON.parse(body) as { reference: string }).reference)
-    expect(restTestState.logs[0]).not.toContain("private connection details")
+    expect(restTestState.logs[0]).toContain("private connection details")
   })
   test("unknown paths answer a problem body with CORS", async () => {
     const response = await restRequest("/unknown")
@@ -614,7 +615,7 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await restRequest(path + cursor, { headers })).status).toBe(400)
   })
 
-  test("chat logs safe stream diagnostics and hides thrown middleware errors", async () => {
+  test("chat logs stream failures and hides middleware details from the response", async () => {
     restTestState.threadAdmission.mockReturnValue(Effect.succeed(restChatAdmission()))
     const failure = new AggregateError(
       [new Error("private server details sk-private-credential")],
@@ -640,16 +641,15 @@ describe("REST API through the Effect Fetch handler", () => {
       /onFinish|chat-persistence|managed-thread|private server details|sk-private-credential/,
     )
     expect(restTestState.logs).toHaveLength(1)
-    expect(JSON.parse(restTestState.logs[0]!)).toMatchObject({
+    const record: unknown = JSON.parse(restTestState.logs[0]!)
+    expect(record).toHaveProperty("cause", expect.stringContaining(failure.message))
+    expect(record).toMatchObject({
       message: "Request failed",
       annotations: {
         operation: "chatRunResponse",
-        reasons: [{ kind: "defect", type: "AggregateError" }],
       },
     })
-    expect(restTestState.logs[0]).not.toMatch(
-      /onFinish|chat-persistence|managed-thread|private server details|sk-private-credential|private chat transcript/,
-    )
+    expect(restTestState.logs[0]).not.toContain("private chat transcript")
   })
 
   test("chat streams for non-admin JWTs and cancellation reaches the producer", async () => {
@@ -1430,7 +1430,7 @@ describe("REST API through the Effect Fetch handler", () => {
     },
   )
 
-  test("organization authentication preserves safe database diagnostics without disclosing them", async () => {
+  test("organization authentication logs database failures while returning a safe error", async () => {
     restTestState.organizationAuth.mockReturnValue(
       Effect.fail(Object.assign(new Error("private database details"), { code: "42P01" })),
     )
@@ -1440,9 +1440,8 @@ describe("REST API through the Effect Fetch handler", () => {
     const body = (await response.json()) as { detail: string; reference: string }
     expect(body.detail).toBe("The request could not be completed.")
     expect(restTestState.logs).toHaveLength(1)
-    expect(restTestState.logs[0]).toContain('"sqlstate":"42P01"')
     expect(restTestState.logs[0]).toContain(body.reference)
-    expect(restTestState.logs[0]).not.toContain("private database details")
+    expect(restTestState.logs[0]).toContain("private database details")
     expect(restTestState.predicates).toEqual([])
   })
 
@@ -1651,8 +1650,7 @@ describe("REST API through the Effect Fetch handler", () => {
     })
     expect(restTestState.logs).toHaveLength(1)
     expect(restTestState.logs[0]).toContain('"operation":"getTenant"')
-    expect(restTestState.logs[0]).toContain('"sqlstate":"42P01"')
-    expect(restTestState.logs[0]).not.toContain("private database details")
+    expect(restTestState.logs[0]).toContain("private database details")
     restTestState.rows.push([])
     await expect(restJson(TenantRecordSchema, `/tenants/${restTenantId}`)).rejects.toMatchObject({
       status: 404,
