@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { Result, Schema, SchemaIssue } from "effect"
 import { useTheme } from "tanstack-router-theme-provider"
 import { APP_NAME } from "@/lib/constants"
+import { DocsLink } from "@/components/docs-link"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
 import { McpServerWriteSchema } from "@/lib/mcp/schemas"
 import { validationParseOptions } from "@/lib/schemas"
@@ -56,7 +57,10 @@ function McpDashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">MCP servers</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Make remote tools available to your embedded agents.
+          Make remote tools available to your embedded agents.{" "}
+          <DocsLink href="/docs/dashboard/connections#add-a-server-and-connect">
+            Server and OAuth setup
+          </DocsLink>
         </p>
       </div>
       <AstralBeamMcpServers

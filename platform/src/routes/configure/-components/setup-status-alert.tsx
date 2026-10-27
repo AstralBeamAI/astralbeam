@@ -1,5 +1,6 @@
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { ConfigIssue } from "@/lib/config/types"
 
@@ -35,7 +36,10 @@ export function SetupStatusAlert({
           <AlertTitle>Encryption key rotation in progress</AlertTitle>
           <AlertDescription>
             New values use the active key; {fallbackEncryptionKeyCount} fallback key
-            {fallbackEncryptionKeyCount === 1 ? " is" : "s are"} available for older values.
+            {fallbackEncryptionKeyCount === 1 ? " is" : "s are"} available for older values.{" "}
+            <DocsLink href="/docs/self-hosting/security#rotating-the-encryption-key">
+              Finish rotating the encryption key
+            </DocsLink>
           </AlertDescription>
         </Alert>
       )}

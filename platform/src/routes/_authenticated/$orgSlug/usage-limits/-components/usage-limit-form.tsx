@@ -5,6 +5,7 @@ import { type SyntheticEvent, useMemo, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { DocsLink } from "@/components/docs-link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -251,7 +252,12 @@ export function UsageLimitForm({
                 <FieldDescription>
                   {global
                     ? "Global limits always apply to everyone."
-                    : "Otherwise the limit applies only to chat tokens that list its ID."}
+                    : "Otherwise the limit applies only to chat tokens that list its ID."}{" "}
+                  {!global && (
+                    <DocsLink href="/docs/dashboard/usage-limits#apply-limits-from-your-token">
+                      Apply limits from your token
+                    </DocsLink>
+                  )}
                 </FieldDescription>
               </FieldContent>
             </Field>
@@ -337,7 +343,10 @@ export function UsageLimitForm({
                 className="w-36"
               />
               <FieldDescription>
-                {usageLimitWindowTypeItems.find((item) => item.value === windowType)?.description}
+                {usageLimitWindowTypeItems.find((item) => item.value === windowType)?.description}{" "}
+                <DocsLink href="/docs/dashboard/usage-limits#fixed-and-rolling-windows">
+                  Compare fixed and rolling windows
+                </DocsLink>
               </FieldDescription>
             </Field>
 

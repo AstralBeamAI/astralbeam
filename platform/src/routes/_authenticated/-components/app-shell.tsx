@@ -1,7 +1,7 @@
 import { ListIcon } from "@phosphor-icons/react"
 import type { CSSProperties, ReactNode } from "react"
 
-import { DocsLink, Navbar, NavbarCrumb, UnderNavbar } from "@/components/navbar"
+import { NavbarDocsLink, Navbar, NavbarCrumb, UnderNavbar } from "@/components/navbar"
 import { Button } from "@/components/ui/button"
 import {
   Sidebar,
@@ -69,7 +69,7 @@ function AppNavbar({ organization }: { organization: AppShellProps["organization
         </div>
       }
     >
-      <DocsLink />
+      <NavbarDocsLink />
       <DogfoodChatTrigger className="ms-2.5" />
     </Navbar>
   )

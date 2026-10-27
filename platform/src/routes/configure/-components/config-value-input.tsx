@@ -3,6 +3,7 @@
 import { ArrowsClockwiseIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { type ReactNode, useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -123,7 +124,16 @@ export function ConfigValueInput({
               : "text-sm text-muted-foreground"
           }
         >
-          {storageMessage}
+          {storageMessage}{" "}
+          <DocsLink
+            href={`/docs/self-hosting/security#${
+              field.storageStatus === "unreadable"
+                ? "unreadable-values"
+                : "rotating-the-encryption-key"
+            }`}
+          >
+            {field.storageStatus === "unreadable" ? "Recover this setting" : "Key rotation guide"}
+          </DocsLink>
         </span>
       )}
       {!readOnly && field.canGenerate && onGenerate && draft.kind === "unchanged" && (
