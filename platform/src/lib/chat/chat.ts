@@ -8,7 +8,6 @@ import {
 } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
-import { trace } from "@opentelemetry/api"
 import { Context, Effect, identity, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
@@ -391,17 +390,12 @@ export class Chat extends Context.Service<
             })
             turn = managed.state
             const accounting = [
+              ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
+                otelMiddleware({ tracer, captureContent: false }),
+              ),
               ...managed.middleware,
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]
-            const tracer = Option.getOrElse(
-              yield* Effect.serviceOption(OtelTracer.OtelTracer),
-              () => trace.getTracer("astralbeam.chat"),
-            )
-            const telemetry = otelMiddleware({
-              tracer,
-              captureContent: false,
-            })
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model, web),
@@ -416,8 +410,7 @@ export class Chat extends Context.Service<
                 repairToolInput: false,
                 // Interrupt snapshots preserve original uploads after provider normalization.
                 middleware: [
-                  telemetry,
-                  chatFailedUsageMiddleware([telemetry, ...accounting]),
+                  chatFailedUsageMiddleware(accounting),
                   createChatAttachmentSnapshotMiddleware(inputMessages, history),
                   ...accounting,
                   {

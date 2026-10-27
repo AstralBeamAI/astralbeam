@@ -1,7 +1,6 @@
 import { assert, it } from "@effect/vitest"
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
-import * as Resource from "@effect/opentelemetry/Resource"
 import { SpanStatusCode } from "@opentelemetry/api"
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base"
 import { Effect, Option } from "effect"
@@ -12,13 +11,9 @@ import { makeTracingProcessor, tracingLayer } from "./tracing.server.ts"
 
 afterEach(() => vi.unstubAllEnvs())
 
-it.effect("loads stored labels without enabling tracing when no endpoint is configured", () => {
+it.effect("keeps tracing disabled when only labels and headers are configured", () => {
   vi.stubEnv("OTEL_SDK_DISABLED", "false")
   return Effect.gen(function* () {
-    const resource = yield* Resource.Resource
-    assert.strictEqual(resource.attributes["deployment.environment.name"], "development-hasan")
-    assert.strictEqual(resource.attributes["service.instance.id"], "worktree-test")
-    assert.strictEqual(resource.attributes["service.name"], "astralbeam-platform")
     assert.isTrue(Option.isNone(yield* Effect.serviceOption(OtelTracer.OtelTracer)))
   }).pipe(
     Effect.provide(tracingLayer),

@@ -88,7 +88,15 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       "Optional OTLP/HTTP base URL. The traces path /v1/traces is appended. Leave unset to keep tracing disabled by default. Requires a server restart.",
     kind: "url",
     required: false,
-    schema: PublicHttpUrlSchema,
+    schema: PublicHttpUrlSchema.check(
+      Schema.makeFilter((value) => {
+        const url = new URL(value)
+        return (
+          (!url.username && !url.password && !url.search && !url.hash) ||
+          "Use an OTLP base URL without credentials, query, or fragment"
+        )
+      }),
+    ),
   },
   {
     key: "otel_exporter_otlp_headers",

@@ -44,22 +44,20 @@ export const tracingLayer = Layer.unwrap(
     if (process.env.OTEL_SDK_DISABLED === "true") return NodeSdk.layerEmpty
     const { values } = yield* (yield* Config).snapshot
     const endpoint = values.otel_exporter_otlp_endpoint
+    if (values.otel_sdk_disabled === "true" || !endpoint) return NodeSdk.layerEmpty
     return NodeSdk.layer(() => ({
       resource: { serviceName: "astralbeam-platform" },
-      spanProcessor:
-        values.otel_sdk_disabled === "true" || !endpoint
-          ? []
-          : makeTracingProcessor(
-              new OTLPTraceExporter({
-                // The constructor takes a full signal URL, while base endpoints append the signal path.
-                // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
-                url: `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/traces`,
-                headers: {
-                  ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? ""),
-                  ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
-                },
-              }),
-            ),
+      spanProcessor: makeTracingProcessor(
+        new OTLPTraceExporter({
+          // The constructor takes a full signal URL, while base endpoints append the signal path.
+          // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
+          url: `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/traces`,
+          headers: {
+            ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? ""),
+            ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
+          },
+        }),
+      ),
     })).pipe(
       Layer.provide(
         ConfigProvider.layer(

@@ -126,6 +126,9 @@ describe("configuration registry", () => {
       ["s3_endpoint", "ftp://example.com/storage/v1/s3"],
       ["s3_endpoint", "http://s3.example.com"],
       ["email_from_address", "secret@@value"],
+      ["otel_exporter_otlp_endpoint", `https://${secret}@example.com`],
+      ["otel_exporter_otlp_endpoint", `https://example.com?key=${secret}`],
+      ["otel_exporter_otlp_endpoint", `https://example.com#${secret}`],
     ] as const) {
       const decoded = decodeConfigValue(findConfigDefinition(key)!, value)
       assert.isTrue(Result.isFailure(decoded))
