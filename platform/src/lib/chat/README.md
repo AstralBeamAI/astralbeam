@@ -4,6 +4,8 @@ AstralBeam stores every chat in PostgreSQL. Let's follow a shared conversation f
 
 This guide describes the implemented foreground execution model. Saved history survives reloads and restarts. Generation remains attached to its HTTP request, so persistence does not imply background recovery or stream replay.
 
+In development, SDK `debug: true` sends TanStack AI's default diagnostics to the Effect logger with the run ID. Attachment payloads, structured credentials and provider diagnostics are redacted, while conversation and tool content stays visible. Native logging is disabled otherwise.
+
 ## Code map
 
 | File | Responsibility |

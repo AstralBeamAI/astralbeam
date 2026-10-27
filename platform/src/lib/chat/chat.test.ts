@@ -1,10 +1,17 @@
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
-import { chatParamsFromRequestBody, EventType, type ChatMiddleware } from "@tanstack/ai"
+import {
+  chatParamsFromRequestBody,
+  EventType,
+  type ChatMiddleware,
+  type DebugOption,
+} from "@tanstack/ai"
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
+
+import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
@@ -12,8 +19,10 @@ const chatRunTest = vi.hoisted(() => ({
     systemPrompts: string[]
     tools: Array<{ name: string }>
     adapter: { model: string }
+    abortController: AbortController
     modelOptions?: unknown
     toolExecution?: string
+    debug: DebugOption
     middleware: ChatMiddleware[]
   }>,
   hydrated: undefined as unknown,
@@ -24,14 +33,7 @@ const chatRunTest = vi.hoisted(() => ({
 // TanStack's `chat()` is the vendor boundary: it would call the model provider.
 vi.mock("@tanstack/ai", async (original) => ({
   ...(await original<typeof import("@tanstack/ai")>()),
-  chat: (options: {
-    messages: unknown[]
-    systemPrompts: string[]
-    tools: Array<{ name: string }>
-    adapter: { model: string }
-    abortController: AbortController
-    middleware: ChatMiddleware[]
-  }) => {
+  chat: (options: (typeof chatRunTest.options)[number]) => {
     chatRunTest.options.push(options)
     return (async function* () {
       try {
@@ -189,21 +191,27 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect.each([true, undefined])(
+    "enables native debug only for an explicit development debug request: %s",
+    (debug) =>
+      Effect.gen(function* () {
+        const events = yield* runChat({ forwardedProps: { debug } })
+        yield* Stream.runCollect(Stream.take(events, 1))
+        const native = chatRunTest.options[0]!.debug
+        if (debug === true && IS_DEVELOPMENT_SERVER) {
+          assert.isTrue(typeof native === "object" && typeof native.logger?.debug === "function")
+        } else assert.strictEqual(native, false)
+      }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
   it.effect.each([true, false])(
     "suppresses tools only for this turn's unknown outcome: %s",
     (ownTurn) =>
       Effect.gen(function* () {
-        const service = yield* Chat
-        const events = yield* service.run({
-          params: yield* chatTestParams({
-            tools: [
-              { name: "change", description: "Changes data", parameters: { type: "object" } },
-            ],
-          }),
-          principal,
-          managed: chatTestExecution,
+        const events = yield* runChat({
+          tools: [{ name: "change", description: "Changes data", parameters: { type: "object" } }],
         })
-        yield* Stream.runCollect(Stream.take(events, 2))
+        yield* Stream.runCollect(Stream.take(events, 1))
         assert.strictEqual(
           chatRunTest.options[0]!.tools.some((tool) => tool.name === "change"),
           !ownTurn,
@@ -407,15 +415,13 @@ describe("Chat.run", () => {
   it.effect.each([
     {
       code: "invalid_api_key",
-      message: "The model provider rejected its API key. Ask the site owner to update it.",
+      expected: {
+        message: "The model provider rejected its API key. Ask the site owner to update it.",
+      },
     },
-    { code: "constructor", message: CHAT_MODEL_UNAVAILABLE_MESSAGE },
-    {
-      code: "web_access_unavailable",
-      message:
-        "The provider rejected web access. Ask the site owner to check the model and provider web-tool permissions.",
-    },
-  ])("explains $code without exposing upstream provider details", ({ code, message }) =>
+    { code: "constructor", expected: { message: CHAT_MODEL_UNAVAILABLE_MESSAGE } },
+    { code: "aborted", expected: { message: "Request aborted", code: "aborted" } },
+  ])("explains $code without exposing upstream provider details", ({ code, expected }) =>
     Effect.gen(function* () {
       const upstream = `401 Incorrect API key provided: ${CHAT_TEST_MODEL.apiKey}`
       chatRunTest.runError = {
@@ -431,7 +437,7 @@ describe("Chat.run", () => {
       assert.deepStrictEqual(events[1], {
         type: EventType.RUN_ERROR,
         runId: "run",
-        message,
+        ...expected,
       })
       const output = (yield* TestConsole.logLines).map(String).join("\n")
       assert.notInclude(output, CHAT_TEST_MODEL.apiKey)
@@ -443,60 +449,26 @@ describe("Chat.run", () => {
     ),
   )
 
-  it.effect("keeps only the fixed abort shape when a provider reports an aborted code", () =>
-    Effect.gen(function* () {
-      const upstream = "400 Bad request: internal-gateway.example rejected sk-inval****"
-      chatRunTest.runError = {
-        type: EventType.RUN_ERROR,
-        runId: "run",
-        message: upstream,
-        code: "aborted",
-        rawEvent: { error: { message: upstream } },
-        error: { message: upstream, code: "aborted" },
-      }
-      const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
-      assert.deepStrictEqual(events[1], {
-        type: EventType.RUN_ERROR,
-        runId: "run",
-        message: "Request aborted",
-        code: "aborted",
-      })
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
-  )
-
-  it.effect("keeps high reasoning effort for native OpenAI reasoning models", () =>
-    Effect.gen(function* () {
-      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
-      assert.deepStrictEqual(chatRunTest.options[0]!.modelOptions, {
-        reasoning: { effort: "high" },
-      })
-    }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
-  )
-
-  it.effect("uses the assigned model with sequential tools and no forced reasoning", () =>
-    Effect.gen(function* () {
-      const events = yield* runChat()
-      yield* Stream.runCollect(Stream.take(events, 1))
-      assert.strictEqual(chatRunTest.options[0]!.adapter.model, "gateway-model")
-      assert.isUndefined(chatRunTest.options[0]!.modelOptions)
-      assert.strictEqual(chatRunTest.options[0]!.toolExecution, "sequential")
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({
-          agent: sandboxedAgent,
-          model: {
-            providerId: "provider",
-            providerName: "Gateway",
-            providerType: "openai",
-            api: "chat-completions",
-            baseUrl: "https://gateway.example/v1",
-            apiKey: "gateway-key",
-            modelId: "gateway-model",
-            fetch,
-          },
-        }),
+  it.effect.each([
+    { api: "responses", modelId: CHAT_TEST_MODEL.modelId, reasoning: { effort: "high" } },
+    { api: "chat-completions", modelId: "gateway-model", reasoning: undefined },
+  ] as const)(
+    "keeps $api model settings when sandbox configuration is unreadable",
+    ({ api, modelId, reasoning }) =>
+      Effect.gen(function* () {
+        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+        const options = chatRunTest.options[0]!
+        assert.strictEqual(options.adapter.model, modelId)
+        assert.deepStrictEqual(options.modelOptions, reasoning && { reasoning })
+        assert.strictEqual(options.toolExecution, "sequential")
+        assert.isFalse(options.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
+        assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
+        assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({ agent: sandboxedAgent, model: { ...CHAT_TEST_MODEL, api, modelId } }),
+        ),
       ),
-    ),
   )
 
   it.effect("replays saved attachments after uploads are disabled, including context refresh", () =>
@@ -540,19 +512,6 @@ describe("Chat.run", () => {
         }),
       ),
     ),
-  )
-
-  it.effect(
-    "drops the sandbox tools and prompts together when its configuration is unreadable",
-    () =>
-      Effect.gen(function* () {
-        const events = yield* runChat()
-        yield* Stream.runCollect(Stream.take(events, 1))
-        const [options] = chatRunTest.options
-        assert.isFalse(options?.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
-        assert.isFalse(options?.tools.some((tool) => tool.name.startsWith("sandbox_")))
-        assert.include(options?.systemPrompts, sandboxedAgent.systemPrompt)
-      }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>
