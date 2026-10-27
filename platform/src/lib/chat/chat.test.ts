@@ -20,7 +20,7 @@ const chatRunTest = vi.hoisted(() => ({
     tools: Array<{ name: string }>
     adapter: { model: string }
     abortController: AbortController
-    modelOptions?: unknown
+    reasoning?: unknown
     toolExecution?: string
     debug: DebugOption
     middleware: ChatMiddleware[]
@@ -450,7 +450,7 @@ describe("Chat.run", () => {
   )
 
   it.effect.each([
-    { api: "responses", modelId: CHAT_TEST_MODEL.modelId, reasoning: { effort: "high" } },
+    { api: "responses", modelId: CHAT_TEST_MODEL.modelId, reasoning: "high" },
     { api: "chat-completions", modelId: "gateway-model", reasoning: undefined },
   ] as const)(
     "keeps $api model settings when sandbox configuration is unreadable",
@@ -459,7 +459,7 @@ describe("Chat.run", () => {
         yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
         const options = chatRunTest.options[0]!
         assert.strictEqual(options.adapter.model, modelId)
-        assert.deepStrictEqual(options.modelOptions, reasoning && { reasoning })
+        assert.strictEqual(options.reasoning, reasoning)
         assert.strictEqual(options.toolExecution, "sequential")
         assert.isFalse(options.systemPrompts.includes(CHAT_SANDBOX_SYSTEM_PROMPT))
         assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
