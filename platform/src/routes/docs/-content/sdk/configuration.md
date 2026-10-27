@@ -1,6 +1,6 @@
 # Configuration
 
-Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, `update(options)` applies any subset in place. Presentation changes preserve the session, while `threadId` selects a conversation and `apiUrl` clears the previous deployment's state.
+Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call `chat.update(options)` to change them in place. Start with the [Quickstart](/docs/start/quickstart) if you have not connected authentication yet.
 
 ## Options
 
@@ -11,7 +11,7 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Endpoint as `{ url, ...RequestInit }`, or a callback retrieving a server-minted token |
 | `title` | `"AstralBeam"` | Name in the widget's header |
-| `showHeader` | `true` | `false` hides the header with its chat history and new chat buttons |
+| `showHeader` | `true` | `false` hides the title, history, and new-chat controls. MCP and close controls may remain |
 | `onClose` | none | Adds an X button and fullscreen chat at widths up to 900px. The host hides or unmounts chat in this callback |
 | `resizable` | `true` | Enables the resize edge and keyboard resizing |
 | `defaultWidth` | host's initial width | Width in pixels, or `"100%"` for available width, when no saved override exists |
@@ -27,11 +27,9 @@ Every option below is also a prop on `<AstralBeamChat>`. On the vanilla handle, 
 | `debug` | `false` | Log SDK actions in the browser, with server logs in development only |
 
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
-- `apiUrl` is a base, not a route: the widget appends `/v1/chat` for the stream and its subroutes for the agent handshake and artifact downloads.
-- `fetchAstralBeamToken` is the only chat auth token option. The request form's init reaches `fetch` as given. See [Authentication](./authentication.md).
-- Transport options are read per request. Updating `apiUrl` clears the previous deployment's local session. An updated `fetchAstralBeamToken` applies to the next token request.
+- The SDK appends API paths to `apiUrl`. Updating it clears the previous deployment's local session.
+- Token-source changes apply to the next acquisition. See [Authentication](./authentication.md) for endpoint and callback forms.
 - Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
-- Every option accepts an explicit `undefined` and reads as unset, so a value you do not have yet needs no conditional prop under `exactOptionalPropertyTypes`.
 
 ## Chat width
 
@@ -46,9 +44,11 @@ Chat resizes horizontally and fills its parent's height. Give the parent a defin
 
 ## Chrome slots
 
-Replace parts of the widget's own chrome with host-rendered content, styled by the host page. In React they are plain props. On the vanilla handle they are `slots` renderers.
+Replace header, welcome, or composer content with components styled by your application. React uses props. JavaScript mounts use `slots` renderers.
 
-```tsx
+<!-- ::start:tabs variant="files" -->
+
+```tsx title="React"
 <AstralBeamChat
   header={<MyChatTitle />}
   onClose={() => setChatOpen(false)}
@@ -57,15 +57,30 @@ Replace parts of the widget's own chrome with host-rendered content, styled by t
 />
 ```
 
-- `header` replaces the title. `headerActions` adds controls after the chat history and new chat buttons. `showHeader={false}` still hides the whole row.
+```js title="JavaScript"
+chat.update({
+  slots: {
+    header: (container) => {
+      container.textContent = "Support"
+    },
+  },
+})
+```
+
+<!-- ::end:tabs -->
+
+- `header` replaces the title. `headerActions` adds controls after the chat history and new chat buttons. `showHeader={false}` hides these slots. MCP and an optional close control remain.
 - `empty` replaces the empty-transcript state. `composerActions` adds controls next to send.
-- Vanilla: `slots: { header: (container) => { ...; return cleanup } }`, updatable through `update`.
+- JavaScript slot renderers receive a container and can return a cleanup function.
 
 ## Imperative control
 
-The React component exposes a ref. The vanilla handle has the same methods.
+Use a React ref for imperative actions. JavaScript mount handles expose the same methods.
 
 ```tsx
+import { useRef } from "react"
+import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
+
 const chatRef = useRef<AstralBeamChatRef>(null)
 // After mounting <AstralBeamChat ref={chatRef} />:
 chatRef.current?.reset() // starts another thread and preserves saved history
@@ -82,7 +97,7 @@ chatRef.current?.stop() // stops the in-flight generation
 
 ## Saved conversations
 
-Conversations are saved automatically and start private. Your token endpoint supplies the identity, so you can reopen, rename, and continue saved history across devices.
+Conversations save automatically and start private. Authenticated users can reopen, rename, and continue their history across devices.
 
 - Disconnecting may interrupt generation. Saved input, accepted tool results, and the last saved partial response remain available.
 - Reopening never repeats a business tool. An unconfirmed action needs an explicit response or closure before its turn can continue.
@@ -100,7 +115,7 @@ Duplicating a tab or opening one through an opener can copy its initial session 
 
 ## MCP server management
 
-`AstralBeamMcpServers` provides the server list and **Add MCP server** form used by the dashboard. Let's supply the servers and our host's authorized create and remove callbacks:
+`AstralBeamMcpServers` provides a server list and **Add MCP server** form. Supply the records and authorized management callbacks from your application:
 
 ```tsx
 import { AstralBeamMcpServers } from "@astralbeam/sdk/react"
@@ -114,6 +129,8 @@ import { AstralBeamMcpServers } from "@astralbeam/sdk/react"
 />
 ```
 
-The host loads `servers` as `{ id, endpointUrl, authKind }` records. Each callback must authorize its operation on the server and refresh that list after success. `onCreateServer` receives the endpoint and authentication configuration, and may return `{ errors: [{ field: "endpointUrl", message: "Enter a public HTTPS URL." }] }` for field feedback. Omit write callbacks for a read-only list. `oauthRedirectUri` displays the exact URI to register with an OAuth provider. The shared `theme` and `colorScheme` options apply here too.
+Load `servers` as `{ id, endpointUrl, authKind }` records. Callbacks must authorize the operation on your backend and refresh the list after success. Omit write callbacks for a read-only list.
+
+`onCreateServer` receives the endpoint and authentication configuration. Return `{ errors: [{ field: "endpointUrl", message: "Enter a public HTTPS URL." }] }` for field feedback. `oauthRedirectUri` displays the provider callback URI. The component accepts the shared `theme` and `colorScheme` options.
 
 Vanilla hosts use `mountAstralBeamMcpServers(element, options)` from `@astralbeam/sdk/client`, then call `update(options)` or `unmount()`. Unmount when identity or management scope changes, or change the React `key`, to clear pending form values. The component does not grant permissions or create a new management API. Currently, Organization admins manage server definitions and TenantUsers manage their own connections through chat's **MCP connections** panel.

@@ -1,56 +1,48 @@
 # Agents
 
-An agent is one named configuration the embedded chat runs with: its instructions, models, attachments, and tools. Let's configure an agent, then use its public ID to select it in your application.
+An agent defines the instructions, models, and capabilities used by embedded chat. Let's configure one and test it in your application.
 
-Each agent selects models from the organization's configured providers and uses one as its default. Request, attachment, and sandbox caps still come from the deployment's [Limits](/docs/sdk/limits).
+## Create and test an agent
+
+1. Add and test a provider under [Models](./models.md).
+2. Open **Agents** and edit the starter agent, or choose **Add agent**.
+3. Enter a name and system prompt. Select at least one model and choose the **Default model**.
+4. Review attachments, Web access, and Sandbox, then choose **Create agent** or **Save changes**.
+5. Test the agent in your app. If it is not the organization's default, pass its public ID as `agentId` before sending a message.
+
+The [Quickstart](/docs/start/quickstart) walks through mounting the assistant with the [default agent](#the-default-agent).
 
 ## What an agent holds
 
-Let's walk through the settings that make up an agent.
+| Setting | Purpose |
+| --- | --- |
+| Name | Dashboard label, up to 100 characters and unique within the organization ignoring case. It is not sent to the widget or model |
+| System prompt | Required instructions, up to 32,768 characters |
+| Models | Enabled provider models, with one default |
+| File attachments | Allowed by default. Turning this off refuses new files |
+| Tools | Web access and an optional sandbox connection |
 
-The name is up to 100 characters and unique within the organization ignoring case. It stays in the dashboard, as it never reaches the widget or the model.
-
-The system prompt holds the agent's instructions, up to 32,768 characters, and every agent needs one.
-
-Models come from providers configured in [Models](./models.md). Select at least one enabled model, then choose the default model. The provider name distinguishes the same upstream model configured with different keys or API URLs.
-
-File attachments are allowed by default. Turn the setting off and the agent refuses files.
-
-The **Tools** section controls Web access and Sandbox. New agents enable Web access when the default model supports it, and Sandbox when a connection is available. Existing agents retain their saved choices.
-
-You can change these settings later, and a change applies to the next request rather than to a reply already streaming.
+New agents enable Web access when their default model supports it, and Sandbox when a connection is available. Existing agents keep their saved choices. Changes apply to the next request, including in open conversations.
 
 ## Model selection
 
-Let's give the agent its models.
+Assign enabled provider models and choose one default. The provider name distinguishes connections to the same upstream model. Multiple selections do not enable automatic fallback.
 
-1. Open **Models**, add a named provider, and enable the models the agent should use.
-2. Open the agent, select models from those providers, and choose its default model.
-3. Save the agent. New chat requests use the selected default and the credentials of that model's provider.
-
-The default is a model choice for this agent, separate from the organization's default agent. Selecting several models does not enable automatic fallback between providers. Models assigned to an agent must be removed from that agent before they can be disabled on their provider.
-
-**NOTE**: model usage is billed to the provider account whose credentials the selected model uses. Adding two OpenAI connections lets you separate accounts, keys, or API URLs without changing the upstream model ID.
+Remove a model from its agents before disabling it on the provider. Provider credentials determine billing. See [Models](./models.md).
 
 ## The public agent ID
 
-The ID is assigned when the agent is created and never changes. It has the form `agent_<organizationId>_<id>`, and it is safe in browser code because it names an agent without authorizing anything. Pass it as the SDK's `agentId` option, or omit that option to get the organization's default agent.
-
-The chat endpoint honors an agent ID only from the organization whose API key signed the request's chat auth token. An ID belonging to another organization, a malformed ID, and an ID that no longer exists all answer identically, so nobody learns anything about another organization by guessing.
+Copy `agent_<organizationId>_<id>` from the agent page. It is immutable and safe in browser code: it selects an agent but grants no access. The agent and token must belong to the same organization.
 
 ## The system prompt
 
-Your prompt lives here, not in the embedding application. An application that sends a `systemPrompt` with a chat request is refused rather than ignored, so a tenant user cannot rewrite an agent's instructions from the browser and cannot be misled into believing they did.
-
-The deployment supplies its own instructions first, plus an attachment policy when the turn carries files and sandbox instructions when the agent has a sandbox. Your prompt is applied last, so it shapes that behavior rather than replacing it.
-
-Editing a prompt takes effect on the next request from every application using that agent. Open conversations keep their transcript and pick up the new prompt on their next turn, which can read as a mid-conversation change of personality.
+Set instructions in the dashboard. They apply to the next request, including in open conversations, within the deployment's policy. Browser-supplied system prompts are rejected.
 
 ## File attachments
 
-The attachment setting is enforced at the chat endpoint rather than in the widget. The widget asks the endpoint what the selected agent allows and hides its attach button when the answer is no, and an application that sends files anyway has that turn refused instead of quietly dropping the files.
+**File attachments** controls whether the agent accepts files. Disabling it hides the attach button and makes the endpoint reject uploads.
 
-While attachments are on, the accepted types, per-file sizes, and per-message count come from the deployment. An SDK option can narrow them for your users but never widen them. See [Attachments](/docs/sdk/attachments) and [Limits](/docs/sdk/limits).
+SDK options can narrow supported files and sizes, but cannot raise deployment limits. See [Attachments](/docs/sdk/attachments) and [Limits](/docs/sdk/limits).
 
 ## Web access
 
@@ -60,21 +52,15 @@ Answers show clickable citations and consulted sources, which remain available i
 
 ## Sandboxes
 
-Enable **Sandbox** and select a connection to give the agent its file and command tools. Each tenant user gets an isolated sandbox for that agent and conversation, provisioned on the first tool call. Saved conversation attachments are copied into it for the run.
+Enable **Sandbox**, select a connection, and save. The first tool call provisions a workspace for that agent, conversation, and tenant user. Saved attachments are copied into it for the run.
 
-When the provider's configuration cannot be read as a run starts, the sandbox tools and their instructions drop together and the agent answers without them rather than failing.
-
-**TIP**: an agent that has quietly stopped offering to run code is usually a provider problem, so check its connection state in [Sandboxes](./sandboxes.md) first.
-
-A sandbox is scratch space. It is reclaimed once it sits idle, and the next turn provisions a fresh, empty one. See [Sandbox](/docs/sdk/sandbox).
+Workspaces are temporary. Published files remain available after cleanup. If the agent stops offering code execution, [test the provider](./sandboxes.md#connection-tests). See [Sandbox](/docs/sdk/sandbox).
 
 ## The default agent
 
-New conversations without an explicit agent ID select the organization's default agent. A new organization is created with a starter agent, already set as its default. Let's configure a provider and assign a model to that starter agent before mounting the widget.
+New organizations start with a default starter agent. Assign it a model before using chat.
 
-Changing the default affects new conversations that omit an agent ID. Existing conversations retain their selected agent, and applications pinning an ID are untouched.
-
-If the organization has no default agent, creating a conversation without an agent ID fails. You land in that state after deleting the agent that was the default.
+Changing the default affects new conversations that omit `agentId`. Existing conversations retain their agent. Deleting the default clears it, so choose a replacement before starting more conversations.
 
 ## Deleting an agent
 
@@ -89,7 +75,3 @@ Saved conversations remain readable after their agent is deleted, but cannot con
 ## Who can change agents
 
 Owners and developers can read agents and create, edit, and delete them. Viewers cannot open the agent pages at all and are returned to the organization home. See [Members](./members.md).
-
-Two people editing the same agent cannot overwrite each other. The second save is rejected because it started from a stale copy, and the page reloads with the current values, which discards edits you had not saved.
-
-**TIP**: copy a long prompt somewhere safe before you reload after a rejected save.

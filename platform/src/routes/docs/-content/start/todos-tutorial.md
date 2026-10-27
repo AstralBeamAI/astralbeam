@@ -21,7 +21,7 @@ bun run --cwd platform dev
 bun run --cwd examples/todos dev
 ```
 
-Open <http://localhost:4700>. Add a todo, toggle it, and reload to check persistence.
+Open [localhost:4700](http://localhost:4700). Add a todo, toggle it, and reload to check persistence.
 
 ## 2. Connect authentication
 

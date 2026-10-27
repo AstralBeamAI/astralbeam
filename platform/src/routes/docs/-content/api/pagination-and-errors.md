@@ -9,9 +9,9 @@ All lists support cursor-based pagination in both directions. Use the returned c
 - `page_before`: a returned `page_before` value, to fetch the previous page.
 - At most one direction is accepted. Unknown/duplicate parameters, invalid sizes, and invalid or wrong-scope cursors return `400`.
 
-Responses contain `items`, `page_after`, and `page_before`. Pass either non-null continuation value unchanged as the same-named request parameter. A null value means no page is available in that direction. These values describe where to go next. They do not echo the request parameters.
+Responses contain `items`, `page_after`, and `page_before`. Pass a non-null cursor unchanged as the same-named parameter to continue. A null cursor means no page remains in that direction. Response cursors are continuations, not echoes of the request.
 
-For example, a request with `page_size=1` can return `200 OK` with this body. Records are fictional and cursors are abbreviated. Use actual returned cursors in requests.
+Example response for `page_size=1`. The cursor is a placeholder. Use the actual returned value in requests:
 
 ```json
 {
@@ -25,18 +25,18 @@ For example, a request with `page_size=1` can return `200 OK` with this body. Re
       "updated_at": "2026-06-22T09:30:00.000Z"
     }
   ],
-  "page_after": "eyJhbGciOiJIUzI1NiIsInR5cCI6InBhZ2luYXRpb24randzIn0.eyJ2IjoxLCJpZCI6IjAxOWVlZDY4LWZkMDAifQ.demo-signature",
+  "page_after": "<opaque cursor>",
   "page_before": null
 }
 ```
 
-The first page has `page_before: null`. The last has `page_after: null`. A single-page result has both values null. Empty pages have `items: []` and both values null. Stop when the continuation value for your direction is null, not based on page length. You can also follow `Link`'s `next`/`prev` relation when present. Page size may change between requests.
+Stop when your direction's cursor is null, not when a page looks short. Empty pages have no items and both cursors null. You can also follow the `Link` header's `next` or `prev` relation. Page size may change between requests.
 
 Tenants and TenantUsers within a Tenant are ordered by internal `id`, ascending. Backward traversal preserves display order.
 
 ## Live listings
 
-Listings are not snapshots: concurrent inserts behind the cursor may be absent and deleted rows disappear. A continuation can therefore return an empty page if records are deleted between requests. Treat cursors as opaque values and reuse them only for the same collection and authorized scope. If a cursor is rejected, restart without it. Positions beyond the requested boundary yield empty pages.
+Listings are live. Inserts behind a cursor may be missed, and deleted rows disappear. A continuation can return an empty page. Treat cursors as opaque and reuse them only for the same collection and authorized scope. If rejected, restart without a cursor.
 
 TenantUser lists bind cursors to the requested Tenant as well as the caller's scope. Both collections also bind cursors to the active filters. Adding, removing, or changing a filter while reusing a cursor returns `400`. Start without a cursor when changing filters. Pagination links preserve the filters.
 
@@ -83,7 +83,7 @@ The example response above also includes a `Link` header with the returned `page
 
 Errors follow the `AstralBeamApiError` schema and use RFC 9457 `application/problem+json`: `type`, `title`, `status`, `detail`, and optional validation `issues` with `path` and `message`. A `500` also carries a `reference` that matches the server's log entry for the failure, so quote it when you report the problem.
 
-The following conventions apply across the API. Endpoint descriptions call out resource-specific behavior. Their response schemas use this same error format.
+Endpoint descriptions specify exceptions to these shared error conventions:
 
 | Status    | Meaning                                                      |
 | --------- | ------------------------------------------------------------ |

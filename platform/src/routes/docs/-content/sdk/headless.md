@@ -1,16 +1,20 @@
 # Headless
 
-The drop-in widget is one consumer of a headless core: authentication, transport, the tool protocol, and transcript state with no markup. Own your whole chat UI by consuming the core directly.
+Build your own chat UI with the SDK's authentication, transport, tools, and transcript state. Set up the same [token endpoint](./authentication.md) used by the drop-in widget before connecting the session.
 
-## React
+## Connect a session
 
-`useAstralBeamChat` returns the live session state plus its actions. Every rerender reflects the stream.
+<!-- ::start:tabs -->
+
+### React
+
+`useAstralBeamChat` returns live state and session actions. Your application supplies the message and composer components:
 
 ```tsx
 import { useAstralBeamChat } from "@astralbeam/sdk/react"
 
 function MyChat() {
-  const chat = useAstralBeamChat({ tools, widgets, onRenderWidget })
+  const chat = useAstralBeamChat({})
   return (
     <div>
       {chat.messages.map((message) => (
@@ -34,14 +38,14 @@ function MyChat() {
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Remount when the host identity changes, as described in [Authentication](./authentication.md#switching-workspaces).
 - No shadow root and no bundled styles: your markup, your CSS.
 
-## Any framework
+### JavaScript
 
-`createAstralBeamChat` from `@astralbeam/sdk/core` is the same session with `subscribe`/`getState`.
+Use `createAstralBeamChat` with `subscribe` and `getState` outside React:
 
 ```ts
 import { createAstralBeamChat } from "@astralbeam/sdk/core"
 
-const chat = createAstralBeamChat({ agentId, tools })
+const chat = createAstralBeamChat({})
 const unsubscribe = chat.subscribe(() => render(chat.getState()))
 await chat.sendMessage("What can you do?")
 // Keep the session alive for the reply. On teardown, call unsubscribe() and chat.dispose().
@@ -49,16 +53,18 @@ await chat.sendMessage("What can you do?")
 
 - Widgets declare `{ description, parameters }`. Standard Schema parameters validate props before `onRenderWidget` draws the widget and optionally returns cleanup. Plain JSON Schema does not provide browser validation.
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` requests a fresh token after rejection.
-- Call the request's `release()` if you dispose a render yourself (an eviction cap of your own), so the session stops holding its cleanup.
+- If your renderer disposes a widget early, call its request's `release()` to release the session cleanup.
 - `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
 - Unresolved tool outcomes require an explicit response or closure before their turn continues.
 - `capabilities` reflects the agent's dashboard policy. Render only what it grants.
 
+<!-- ::end:tabs -->
+
 ## Reading the transcript
 
-`messages` is a readonly snapshot. Treat its messages, parts, and metadata as immutable, and use session actions to change the conversation. Derive display values with methods such as `map`, `filter`, or `toSorted` instead of mutating the transcript.
+Treat `messages`, parts, and metadata as immutable snapshots. Use session actions to change the conversation and `map`, `filter`, or `toSorted` to derive display values.
 
-The core exports the part helpers the widget itself renders with.
+Import transcript helpers from `@astralbeam/sdk/core`:
 
 - `isSandboxTool`, `readSandboxFileWrite`, `readSandboxCommandRun`, `readSandboxArtifact`, `collectSandboxActivity`.
 - `isSettledToolCall`, `lastPartInProgress`, `hasPendingToolRun` for busy states.
@@ -66,7 +72,7 @@ The core exports the part helpers the widget itself renders with.
 
 ## Saved conversation controls
 
-New conversations start private. Let's load the saved conversations the current user can access.
+Let's open a saved conversation the current user can access:
 
 ```ts
 const chat = createAstralBeamChat({ tools })

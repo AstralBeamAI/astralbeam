@@ -1,5 +1,7 @@
 import { createHighlighter } from "@tanstack/highlight/core"
 import { env } from "@tanstack/highlight/languages/env"
+import { html } from "@tanstack/highlight/languages/html"
+import { js } from "@tanstack/highlight/languages/js"
 import { json } from "@tanstack/highlight/languages/json"
 import { nginx } from "@tanstack/highlight/languages/nginx"
 import { plaintext } from "@tanstack/highlight/languages/plaintext"
@@ -13,7 +15,7 @@ import { githubDarkTheme } from "@tanstack/highlight/themes/github-dark"
 import { githubLightTheme } from "@tanstack/highlight/themes/github-light"
 
 const docsHighlighter = createHighlighter({
-  languages: [plaintext, ts, tsx, json, shell, nginx, env, ruby],
+  languages: [plaintext, ts, tsx, js, html, json, shell, nginx, env, ruby],
 })
 
 export const docsHighlightMarkdownCode = createTanStackMarkdownHighlighter(docsHighlighter)

@@ -1,6 +1,6 @@
 # Deploy
 
-AstralBeam runs from a container image or standalone binary. Let's start a local container deployment, or install the binary on Linux.
+Choose Docker Compose for a local evaluation, a container with existing services, or a standalone Linux binary. Each deployment needs PostgreSQL, private storage, and email delivery.
 
 ## Containers
 
@@ -34,19 +34,19 @@ The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is 
 
 The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
 
-1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file such as `/etc/astralbeam/env`, following [the bootstrap settings](#3-set-the-bootstrap-environment). Use a database hostname reachable from the container, since `localhost` refers to the container. For local HTTP, include `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
+1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file /etc/astralbeam/env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
-3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `/etc/astralbeam/env` and set `APP_BASE_URL` there to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over trusted loopback:
+3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over trusted loopback:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file /etc/astralbeam/env --network host --env HOST=127.0.0.1 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
    Configure the [host Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
@@ -57,9 +57,13 @@ Images use release version tags. To upgrade, [back up the database, storage, and
 
 To build for the host architecture, run `docker build -f platform/Dockerfile -t astralbeam-platform .` from the repository root.
 
+## Binary on Linux
+
+The following steps target a Linux host with systemd and `sudo`. Container users can continue at [Complete setup](#6-complete-setup).
+
 ## 1. Get a release binary
 
-Every tagged release from v0.13.0 publishes prebuilt platform assets named `astralbeam-platform-<target>`, where `<target>` is `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, or `windows-x86_64.exe`. The `astralbeam-<target>` assets beside them are the [CLI](/docs/cli/getting-started), not the server. Earlier releases put the version in each asset name, such as `astralbeam-platform-v0.12.2-linux-x86_64`.
+Download `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Linux and macOS builds support x86_64 and ARM64. Windows supports x86_64. Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
 
 Run these commands to download the latest x86_64 asset with the release's `SHA256SUMS`, check the download against it, and install it as `astralbeam-platform`. On an arm64 host, replace `linux-x86_64` with `linux-arm64`:
 
@@ -67,13 +71,12 @@ Run these commands to download the latest x86_64 asset with the release's `SHA25
 curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-platform-linux-x86_64
 curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
-chmod +x astralbeam-platform-linux-x86_64
-mv astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
+sudo install -m 755 astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
 ```
 
-**TIP**: To pin a release instead, replace `latest/download` with `download/v<version>` in both URLs, for example `download/v0.13.4`. Releases before v0.13.4 publish no `SHA256SUMS`.
+**TIP**: To pin a release, replace `latest/download` with `download/v<version>` in both URLs.
 
-`sha256sum` prints `astralbeam-platform-linux-x86_64: OK` when the download matches the release's checksum and fails otherwise. That proves the file arrived intact, but the release carries no signature, so nothing here verifies where it came from. `astralbeam-platform version` prints the release version and target, such as `astralbeam-platform 0.13.4 (linux-x86_64)`, and `astralbeam-platform --help` lists every command. With the two bootstrap variables set and migrations applied, it must answer `GET /api/status` with `{"status":"ok"}` and exit on SIGTERM.
+Check for `astralbeam-platform-linux-x86_64: OK` before installing. Checksums verify download integrity, not publisher identity: releases are unsigned. Run `astralbeam-platform version` to confirm the version and target, or `astralbeam-platform --help` for commands.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
 
@@ -89,8 +92,6 @@ bun run --cwd platform build
 
 The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
-**TIP**: You can skip the binary and run the same commands with `bun run --cwd platform start`, which needs the repository, its installed dependencies, and a fresh `build` on the host.
-
 ## 2. Provision the database
 
 PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
@@ -104,9 +105,7 @@ createdb --owner=astralbeam astralbeam
 
 The application owns its schema from there. The first migration creates the `citext` extension, so the role must be permitted to run `CREATE EXTENSION`.
 
-Point `DATABASE_URL` at PostgreSQL directly or an optional transaction pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, use `pool_mode = transaction` and `max_prepared_statements = 200` for clients that use named prepared statements.
-
-**NOTE**: Clients that use named prepared statements need a non-zero prepared statement allowance in transaction mode.
+Connect directly to PostgreSQL or use a [transaction pooler](./operations.md#connection-pooling).
 
 ## 3. Set the bootstrap environment
 
@@ -124,19 +123,35 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
 | `CLUSTER_RUNNER_LISTEN_HOST` | No | Bind interface for the private runner listener. Defaults to `CLUSTER_RUNNER_HOST` |
 
-Each process starts an embedded cluster runner and lets Effect initialize or migrate its `effect_cluster_*` tables automatically. The runtime database role needs USAGE and CREATE on the target schema and ownership of existing cluster tables for upgrades. See [cluster operations](./operations.md#cluster-readiness-and-recovery). For replicas on different machines or isolated container networks, set an individually reachable private runner host and port for each process. Peers must reach that address directly. Use a fixed port where firewall rules or container mappings require one. A wildcard listen host such as `0.0.0.0` still needs an explicit, reachable advertised host.
+For replicas on different hosts or isolated networks, set a directly reachable private runner host and port for each process. A wildcard bind address still needs a reachable advertised address. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
 
 Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
 The binary loads [Bun's standard environment files](https://bun.com/docs/runtime/environment-variables) from the current working directory according to `NODE_ENV`. Existing environment variables take precedence.
 
-For a new installation, run this as the service user from its configuration directory (`/etc/astralbeam` in the systemd unit below), with your database URL:
+For a new Linux installation, create an unprivileged service account and its configuration directory:
 
 ```sh
-NODE_ENV=production DATABASE_URL='postgresql://user:password@host:5432/database' astralbeam-platform bootstrap
+sudo useradd --system --user-group --home-dir /etc/astralbeam --shell /usr/sbin/nologin astralbeam
+sudo install -d -m 750 -o astralbeam -g astralbeam /etc/astralbeam
+sudo -u astralbeam touch /etc/astralbeam/.env.local
+sudo chmod 600 /etc/astralbeam/.env.local
+sudoedit /etc/astralbeam/.env.local
 ```
 
-`bootstrap` reuses a configured encryption key or appends a generated key to the private `.env.local` file in the current directory. It applies migrations and exits without saving `DATABASE_URL`. Start the server from the same directory, and use the active key to sign in at `/configure`.
+Add your database connection to that file:
+
+```sh title="/etc/astralbeam/.env.local"
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
+
+Run bootstrap from the same directory the service will use:
+
+```sh
+sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform bootstrap'
+```
+
+Bootstrap applies migrations and appends a generated encryption key to `.env.local` when none is configured. It preserves existing file content and reuses an existing key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
 
 When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
 
@@ -152,11 +167,11 @@ A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list
 
 ## 4. Start the server
 
-To keep the server running even after we log out of the host, we must set it up as a Linux system service, owned by an unprivileged user.
+Run the binary as the service account created in step 3. It loads `.env.local` from its working directory.
 
 Save this unit as `/etc/systemd/system/astralbeam-platform.service`:
 
-```ini
+```text title="astralbeam-platform.service"
 [Unit]
 Description=AstralBeam
 After=network-online.target
@@ -164,7 +179,6 @@ After=network-online.target
 [Service]
 User=astralbeam
 WorkingDirectory=/etc/astralbeam
-EnvironmentFile=/etc/astralbeam/env
 Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3000
 ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
@@ -173,13 +187,13 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-Keep `DATABASE_URL` in the `EnvironmentFile` and restrict that file to the service user. The key generated by `bootstrap` loads from the working directory. If supplying a key yourself, keep it in the `EnvironmentFile` too.
+Keep `DATABASE_URL` and the keyring in the private `.env.local` file. Environment variables supplied by systemd override that file.
 
 Run these commands to load the unit and start the service:
 
 ```sh
-systemctl daemon-reload
-systemctl enable --now astralbeam-platform
+sudo systemctl daemon-reload
+sudo systemctl enable --now astralbeam-platform
 ```
 
 `systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
@@ -235,7 +249,7 @@ Run each of these against the public origin:
 
 Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 
-**NOTE**: Moving from a Deno-built release to a Bun-built release needs no separate Bun installation or database conversion. Keep the existing environment variables and saved bootstrap configuration. The service user must be able to write to the system temporary directory, or to a directory selected with `TMPDIR`.
+The service account needs a writable, executable temporary directory. Set `TMPDIR` if the system default is restricted. Existing environment and bootstrap settings remain in use after an upgrade.
 
 1. Run this command to replace the installed binary with the latest release for this host's target:
 
@@ -243,12 +257,12 @@ Let's move a running deployment to a newer release. Read the release notes first
    sudo astralbeam-platform upgrade
    ```
 
-   To pin a release instead, pass its tag, as in `sudo astralbeam-platform upgrade v0.13.4`. The command downloads the matching `astralbeam-platform-<target>` asset from GitHub, checks it against the release's `SHA256SUMS`, and swaps it in place after you confirm. It refuses a download that does not match its checksum or is missing from the file, and it supports releases from v0.13.4, the first to publish `SHA256SUMS`. Pass `-y` or `--yes` to skip the confirmation, which a run without a terminal needs because it cannot answer the prompt. It needs `sudo` only because `/usr/local/bin` belongs to root. Run from a checkout with `bun run start`, it refuses, because the running executable is then Bun itself, so pull and rebuild the checkout instead. Like the manual download, it verifies no signature.
+   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.23.1`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
    ```sh
-   NODE_ENV=production astralbeam-platform migrate
+   sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform migrate'
    ```
 
    It fails if `DATABASE_URL` is missing from the environment, including [automatically loaded files](#3-set-the-bootstrap-environment). You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
@@ -256,7 +270,7 @@ Let's move a running deployment to a newer release. Read the release notes first
 3. Run this command to restart the service, since the running process keeps serving the old binary until then:
 
    ```sh
-   systemctl restart astralbeam-platform
+   sudo systemctl restart astralbeam-platform
    ```
 
 4. Upgrade and restart every other replica so each one reloads configuration and migration state.

@@ -1,12 +1,10 @@
 # Members
 
-Members are the people in your own company who sign in to this dashboard. Your customers' users, the people who talk to the embedded agent, are tenant users and never appear here, so adding a member grants dashboard access rather than access to any product of yours.
-
-Every member can open this page and see who else is in the organization, whatever their role.
+Members are your colleagues with dashboard access. Your customers' users are TenantUsers and do not appear here. Every member can view this page.
 
 ## Roles
 
-A role decides what a member may do, and there are three.
+Choose the role that matches the person's responsibilities:
 
 | Capability                                                     | Owner | Developer | Viewer |
 | -------------------------------------------------------------- | ----- | --------- | ------ |
@@ -19,40 +17,38 @@ A role decides what a member may do, and there are three.
 | Invite members, change their roles, and remove them            | Yes   | No        | No     |
 | Change the organization's name and slug                        | Yes   | No        | No     |
 
-Developers configure the product. Owners also manage people and the organization itself. Viewers can browse members, customer directories, and saved conversations, but cannot access configuration or credentials. Reading a conversation through a directory does not grant permission to participate in it.
+Reading a conversation through a directory does not grant permission to participate in it.
 
 A member can hold more than one role, and any single role that permits an action is enough. The dashboard assigns one role at a time. Only an owner can grant the Owner role.
 
-Pages a role cannot use are hidden from the sidebar, and opening one by URL returns the person to the organization home. The restriction is applied when the page loads its data, so nothing withheld is merely hidden in the browser.
-
 ## Inviting a member
 
-An owner invites someone by email address and picks the role they will have on joining, and that address does not need an account yet.
+1. As an owner, open **Members** and invite the person by their sign-in email.
+2. Select a role and send the invitation. They do not need an account yet.
+3. Check the pending invitation list until they join.
 
-An invitation is valid for 48 hours. Inviting the same address again resends the email and extends the existing invitation rather than creating a second one, which is also the fix when the first email never arrived or its delivery failed outright.
-
-Cancel a pending invitation if you sent it in error, as cancelling stops the link from working before it expires.
+Invitations last 48 hours. Invite the same address again to resend the email and extend the existing invitation. Cancel a pending invitation to invalidate its link immediately.
 
 ## Accepting an invitation
 
-The recipient has to be signed in with the same email address you invited, and that address has to be verified. An invitation cannot be forwarded to a colleague or accepted from a second account, because the addresses will not match.
+Open the invitation while signed in with the invited, verified email address. Another account cannot accept it.
 
 **NOTE**: a sign-in address cannot be changed from the dashboard, so invite people at the address they already use to sign in.
 
-Accepting adds the person with the roles the invitation carried. Declining leaves the organization untouched and sends no notification, but the invitation's status changes, so check the invitation list when someone you invited never appears.
+Accepting grants the invited roles. Declining updates the invitation's status without adding the person or sending a notification.
 
 ## Changing roles
 
-An owner can change any member's role using the dropdown. If a member already has multiple roles, choose one before saving. A member who is not an owner cannot change or remove an owner, so a developer cannot promote themselves.
+An owner can change a member's role using the dropdown. If they have multiple roles, choose one before saving.
 
-A change applies on the member's next request. Anyone with the page already open keeps the sidebar they loaded until they navigate or reload, and a page they no longer have access to fails at that point rather than continuing to work.
+A role change applies on the next request. An open tab's sidebar updates on navigation or reload, but the server enforces the new permissions immediately.
 
-Demoting a developer to viewer immediately closes off agents, model providers, sandbox providers, and API keys. It does not invalidate any API key they created, because keys belong to the organization, so rotate the key when that person should lose the access it grants. See [API keys](./api-keys.md).
+A role downgrade does not invalidate API keys the person created. Rotate those keys to revoke their signing authority. See [API keys](./api-keys.md).
 
 ## Removing a member and leaving
 
-Removing a member ends their dashboard access. Everything they configured stays exactly as it is, including agents, model providers, sandbox providers, and API keys, so removal alone revokes no credential they may still hold a copy of.
+Removing a member ends dashboard access. Their agents, providers, and API keys remain. Rotate any credentials they could still hold.
 
-Leaving an organization yourself has the same effect and returns you to your list of organizations, and rejoining requires a fresh invitation.
+Leaving has the same effect and returns you to your organization list. Rejoining requires a new invitation.
 
 An organization keeps at least one owner. The dashboard will not let the last owner leave or be removed, so promote another member to owner before that person goes.

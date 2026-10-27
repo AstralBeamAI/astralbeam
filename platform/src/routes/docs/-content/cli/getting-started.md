@@ -4,62 +4,58 @@ Use the `astralbeam` CLI to manage Tenants and TenantUsers and test agents from 
 
 ## 1. Install the CLI
 
-Run it through npm on Node 22.12 or later, which needs no install step:
+Install globally with Node 22.12 or later, or with Bun:
 
-```sh
-npx @astralbeam/cli --version
-```
+<!-- ::start:tabs variant="files" -->
 
-To type `astralbeam` directly, install it globally:
-
-```sh
+```sh title="npm"
 npm install --global @astralbeam/cli
 ```
 
-Without Node, download a standalone binary from the [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Each release attaches `astralbeam-<platform>` for `linux-x86_64`, `linux-arm64`, `macos-x86_64`, `macos-arm64`, and `windows-x86_64.exe`. Run these commands to install the latest Apple silicon build, and rerun them later to upgrade:
-
-```sh
-curl -fsSLo astralbeam https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-macos-arm64
-chmod +x astralbeam
-mv astralbeam /usr/local/bin/astralbeam
+```sh title="pnpm"
+pnpm add --global @astralbeam/cli
 ```
 
-**NOTE**: The binaries are not signed. On macOS, a binary downloaded through a browser needs `xattr -d com.apple.quarantine <file>` before its first run.
+```sh title="bun"
+bun add --global @astralbeam/cli
+```
+
+<!-- ::end:tabs -->
+
+To run without installing, replace `astralbeam` below with `npx @astralbeam/cli` or `bunx @astralbeam/cli`.
+
+Without a package manager, download the matching `astralbeam-<platform>` binary from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases) and add it to your `PATH`. Builds cover Linux and macOS on x86_64/ARM64, plus Windows x86_64.
+
+**NOTE**: Binaries are unsigned. On macOS, browser downloads may require `xattr -d com.apple.quarantine <file>` before running.
 
 ## 2. Sign in
 
-As an owner or developer, open **API keys** in the dashboard and create a key. See [API keys](/docs/dashboard/api-keys). Logins belong to directories, so first move to the directory where you work on this organization, such as its application's repository. Then run this command and paste the full `key_…_abo_…` value when it asks:
+As an owner or developer, open **API keys** in the dashboard and create a key. See [API keys](/docs/dashboard/api-keys). Logins are directory-scoped. Open your application's repository, run the command below, and paste the full `key_…_abo_…` value at the hidden prompt:
 
 ```sh
 cd ~/work/acme
 astralbeam auth login
 ```
 
-The prompt hides what you paste. Because `login` reads the organization's name and slug from the API before saving anything, a mistyped key or a wrong server fails here rather than on your next command. It then binds the key to this directory and everything below it, in `~/.config/astralbeam/config.json` or `%APPDATA%\astralbeam\config.json` on Windows, readable only by you. Nothing is written into the directory itself.
+The CLI verifies the key before saving a binding for this directory and its descendants. It stores credentials in your private `~/.config/astralbeam/config.json`, or `%APPDATA%\astralbeam\config.json` on Windows. Nothing is written into the repository.
 
-For a self-hosted deployment, pass its `/api` base. HTTPS is required except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`):
+For a self-hosted deployment, pass its `/api` base. Use HTTPS, or HTTP on localhost for development:
 
 ```sh
 astralbeam auth login --api-url https://beam.example.com/api
 ```
 
-Every command now uses the nearest bound directory at or above the one it runs in, and names that organization on stderr before its output:
-
-```text
-▸ Acme (acme) · org 01990a5d-… · bound at ~/work/acme
-```
-
-To manage a second organization, log in again from its own directory. A directory with no bound ancestor fails with exit code 1 rather than falling back to some other organization.
+Commands use the nearest bound directory and print the organization before their output. For another organization, log in from a separate directory. Unbound directories fail instead of selecting another organization.
 
 **TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. The key overrides any directory binding, and nothing is written to disk.
 
-Check the organization commands here will use:
+Confirm the active organization:
 
 ```sh
 astralbeam auth status
 ```
 
-It prints the organization, API URL, bound directory, and a masked key, and exits with code 1 if the API rejects the key. `astralbeam auth list` shows every bound directory.
+`auth status` verifies the key and shows the active organization. See [Commands](./commands.md#auth) for binding management and credential storage.
 
 ## 3. Create a Tenant and a user
 
@@ -83,10 +79,10 @@ astralbeam tenants list --external-id customer-42
 
 ## 4. Chat as that user
 
-Now let's talk to the organization's default agent as Alex, the way the embedded widget would:
+With a model assigned to the [default agent](/docs/dashboard/agents#the-default-agent), let's send a message as Alex:
 
 ```sh
 astralbeam chat --tenant customer-42 --user user-7 "What can you help me with?"
 ```
 
-The CLI signs a short-lived chat token with your key and streams the reply. Leave out the message to chat interactively, or pipe one in on stdin. See [Commands](./commands.md) for every command, and [Coding agents](./coding-agents.md) to hand the CLI to Claude Code.
+A reply should stream into the terminal. The CLI signs a short-lived token with your key. Omit the message for interactive chat, or pipe one in on stdin. See [Commands](./commands.md) for every command, and [Coding agents](./coding-agents.md) to hand the CLI to Claude Code.

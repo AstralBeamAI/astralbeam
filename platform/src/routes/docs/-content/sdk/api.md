@@ -1,14 +1,15 @@
 # API client
 
-Use `@astralbeam/sdk/api` to manage Tenants and TenantUsers from your server or an authorized browser session. The same helpers work in both environments.
+Manage Tenants and TenantUsers with `@astralbeam/sdk/api`. Use an API key on your server or a short-lived, scoped JWT in the browser.
 
 | Use case | Credential | Resource access |
 | --- | --- | --- |
 | Backend provisioning | Organization API key | Read and write throughout its Organization |
 | Customer administrator UI | Tenant JWT with `user.admin: true` | Read its Tenant; read and write its TenantUsers |
-| End-user chat | Tenant JWT | Chat only, unless signed admin is true |
+| Internal employee UI | Organization-management JWT | Current member permissions across the Organization |
+| End-user chat | Tenant JWT | Chat and own identity synchronization. Directories require signed admin |
 
-TenantUsers are your customers' users and do not need dashboard accounts. Minting a token does not create records. SDK sessions call `POST /api/v1/me` to synchronize the signed Tenant and TenantUser before loading data. Direct API consumers call `getCurrentUser` explicitly or provision records through the management API.
+TenantUsers do not need dashboard accounts. Token minting alone creates no records. SDK sessions synchronize signed identity before loading data. Direct API clients call `getCurrentUser` or provision records through the management API.
 
 ## Server: organization API key
 
@@ -21,83 +22,26 @@ const options = { apiKey: process.env.ASTRALBEAM_API_KEY! }
 const tenant = await createTenant({ external_id: "acme", name: "Acme" }, options)
 await updateTenant(tenant.id, { name: "Acme Inc." }, options)
 
-const first = await listTenants({ page_size: 20 }, options)
+const first = await listTenants({}, options)
 if (first.page_after) {
   const second = await listTenants({ page_after: first.page_after }, options)
   // Pass second.page_before to page_before to return toward the first page.
 }
 ```
 
-API records use internal IDs. Token-facing user and tenant IDs remain your application's external identifiers. Fields match the REST API, including `external_id`, `created_at`, and `page_after`. Timestamps are strings.
+Use returned internal IDs in API resource paths and your application's external IDs in tokens. Fields follow the REST API's snake_case names. Timestamps are strings.
 
-## Browser: organization JWT
+## Current user
 
-This optional path is for internal employee tools, not typical customer embeds. Organization JWT users must already be AstralBeam organization members. Tokens delegate their current database permissions: owners and developers can read and write, while viewers can only read. API-key holders select the member and retain owner-equivalent access. These restrictions apply to the delegated token, not its issuer.
-
-The helper accepts `expiresInSeconds` between 60 and 600, defaulting to 300. `organizationId` must match the API key's Organization.
-
-Create an authenticated endpoint in your application. This example path, `/api/astralbeam/organization-token`, is host-owned, not an AstralBeam endpoint. Keep it separate from your tenant chat token endpoint.
+Call `getCurrentUser` after obtaining a JWT:
 
 ```ts
-import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
+import { getCurrentUser } from "@astralbeam/sdk/api"
 
-export async function POST(request: Request) {
-  const headers = { "Cache-Control": "no-store" }
-  const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
-  const apiKey = process.env.ASTRALBEAM_API_KEY
-  const organizationId = process.env.ASTRALBEAM_ORGANIZATION_ID
-  if (!apiKey || !organizationId) {
-    return Response.json({ error: "Not configured" }, { status: 503, headers })
-  }
-  try {
-    const token = await createAstralBeamOrganizationToken({
-      apiKey,
-      organizationId,
-      email: session.user.email,
-    })
-    return Response.json({ token }, { headers })
-  } catch {
-    return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
-  }
-}
+const currentUser = await getCurrentUser({ astralBeamToken: token })
 ```
 
-`getApplicationSession` represents your server's existing authentication. Derive a verified email from it, never the request body. Use your framework's session/CSRF protections and restrict the endpoint to your intended employee audience.
-
-Set `ASTRALBEAM_ORGANIZATION_ID` to the Organization UUID embedded in your full API key (`key_<organizationId>_<keyId>_abo_<secret>`). It is neither the organization slug nor a Tenant ID. These environment variable names are your host application's configuration, not required SDK configuration.
-
-```ts
-import { listTenants, listUsersForTenant } from "@astralbeam/sdk/api"
-
-const response = await fetch("/api/astralbeam/organization-token", {
-  method: "POST",
-  credentials: "same-origin",
-  cache: "no-store",
-})
-if (!response.ok) throw new Error(`Token endpoint returned ${response.status}`)
-const { token } = await response.json()
-if (typeof token !== "string" || !token) throw new Error("Missing token")
-const options = { astralBeamToken: token }
-const filters = { q: "Acme", page_size: 20 }
-const first = await listTenants(filters, options)
-if (first.page_after) {
-  const second = await listTenants({ ...filters, page_after: first.page_after }, options)
-}
-if (first.items[0]) {
-  const users = await listUsersForTenant(
-    first.items[0].id,
-    {
-      q: "Alex",
-      "filter[admin]": "false",
-      page_size: 20,
-    },
-    options,
-  )
-}
-```
-
-Keep tokens in memory. The helper signs locally; successful minting does not prove membership or permission. Roles are not encoded in tokens: each API request checks current database membership and roles. A role downgrade applies on the next request without waiting for token expiry. Organization tokens cannot authenticate chat or dashboard administration.
+Ordinary tenant JWTs can synchronize their own Tenant and TenantUser. Organization JWTs return existing membership, including viewers, without provisioning. SDK components call this automatically after every token acquisition. See [authentication](./authentication.md).
 
 ## Browser: tenant JWT
 
@@ -106,15 +50,13 @@ Obtain a short-lived token from your application's authenticated token endpoint,
 ```ts
 import { listTenants, listUsersForTenant } from "@astralbeam/sdk/api"
 
-const response = await fetch("/api/astralbeam/token", { method: "POST", cache: "no-store" })
-if (!response.ok) throw new Error(`Token endpoint returned ${response.status}`)
+const response = await fetch("/api/astralbeam/token", { method: "POST" })
 const { token } = await response.json()
-if (typeof token !== "string" || !token) throw new Error("Missing token")
 const options = { astralBeamToken: token }
 const page = await listTenants({}, options)
 const tenant = page.items[0]
 if (tenant) {
-  const users = await listUsersForTenant(tenant.id, { page_size: 20 }, options)
+  const users = await listUsersForTenant(tenant.id, {}, options)
 }
 ```
 
@@ -180,14 +122,32 @@ const bytes = await file.arrayBuffer()
 
 Chat accepts tenant JWTs without requiring admin privileges. Participant downloads require current conversation access. Administrative downloads also pass `tenantId` and accept an Organization API key, Organization-management JWT, or signed Tenant-admin JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
 
-## Current user
+## Browser: organization JWT
 
-Call `getCurrentUser` after obtaining a JWT:
+Use this for internal employee tools. The user must already be an organization member. Each request checks their current role: owners and developers can read and write, viewers can read. The issuing API key retains organization-wide authority.
+
+In an authenticated server handler, mint a token for the verified member's email and authorized Organization UUID:
 
 ```ts
-import { getCurrentUser } from "@astralbeam/sdk/api"
+import { createAstralBeamOrganizationToken } from "@astralbeam/sdk/server"
 
-const currentUser = await getCurrentUser({ astralBeamToken: token })
+const token = await createAstralBeamOrganizationToken({
+  apiKey: process.env.ASTRALBEAM_API_KEY!,
+  organizationId: organization.id,
+  email: session.user.email,
+})
 ```
 
-Ordinary tenant JWTs can synchronize their own Tenant and TenantUser. Organization JWTs return existing membership, including viewers, without provisioning. SDK components call this automatically after every token acquisition. See [authentication](./authentication.md).
+Derive `session` and `organization` from your trusted backend state. The UUID must match the API key's organization. Return `{ token }` with `Cache-Control: no-store` from a protected endpoint such as `/api/astralbeam/organization-token`. Keep session and CSRF checks, and restrict access to the intended employees.
+
+In the browser:
+
+```ts
+import { listTenants } from "@astralbeam/sdk/api"
+
+const response = await fetch("/api/astralbeam/organization-token", { method: "POST" })
+const { token } = await response.json()
+const tenants = await listTenants({}, { astralBeamToken: token })
+```
+
+Tokens last five minutes by default, with `expiresInSeconds` from 60 to 600. Keep them in memory. Role changes apply on the next request. Minting alone does not verify membership. These tokens cannot authenticate chat or manage dashboard configuration. See [API authentication](/docs/api#description/organization-management-jwts) for the full contract.

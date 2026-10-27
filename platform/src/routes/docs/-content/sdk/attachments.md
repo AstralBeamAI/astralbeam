@@ -1,10 +1,12 @@
 # Attachments
 
-The composer uploads files before sending a message: paperclip button, drag and drop, or paste. Images and PDFs go to the model as-is. Every other file is delivered as a file the agent reads or analyzes.
+Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. Other files are read through tools or analyzed in a sandbox.
+
+Enable **Allow attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a small CSV and ask the assistant to list its columns.
 
 ## Draft recovery
 
-After uploading, local storage keeps file IDs and metadata alongside unsent text. Reloading or reopening restores the draft without sending automatically. File bytes and signed URLs are never saved locally. Clearing storage removes draft references. Uploads do not expire, and files still uploading are not saved yet.
+Uploaded file IDs and metadata stay with the local draft. Reloading restores them without sending. File bytes and signed URLs are never saved locally. Clearing storage removes draft references. Uploads do not expire, but files still uploading cannot be recovered yet.
 
 ## Options
 
@@ -14,8 +16,8 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 | --- | --- | --- |
 | `enabled` | `true` | `false` is the same as `attachments: false` |
 | `maxFiles` | `5` | Files per message |
-| `maxFileBytes` | per kind: 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office | One file, the smaller of this and the kind cap wins |
-| `maxTotalBytes` | 20 MB | Composer limit per message. The server also caps attachments along the selected conversation path at 20 MB |
+| `maxFileBytes` | per kind: 5 MiB image, 10 MiB PDF, 1 MiB text, 10 MiB data, 10 MiB office | One file, the smaller of this and the kind cap wins |
+| `maxTotalBytes` | 20 MiB | Composer limit per message. The server also caps attachments along the selected conversation path at 20 MiB |
 | `accept` | everything supported | MIME types or `type/*` patterns, e.g. `["image/*"]` |
 
 ## Supported files
@@ -30,7 +32,7 @@ Pass `attachments: false` to turn the feature off, or an object to narrow it.
 
 ## How a file reaches the agent
 
-For files beyond images and PDFs, the message carries a file handle and the agent reads the contents through tools.
+For other file types, the agent receives a handle and reads the contents through tools:
 
 - `read_attachment` returns the file's text a page at a time, up to the readable-text cap in [Limits](./limits.md).
 - Results include type, size, and table profiles with columns, inferred types, and row counts.

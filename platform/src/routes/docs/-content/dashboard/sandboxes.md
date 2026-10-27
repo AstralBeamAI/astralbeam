@@ -1,8 +1,16 @@
 # Sandboxes
 
-A sandbox provider is a named, credentialed connection to a service that runs code. An agent with a provider selected gains file and command tools. Workspaces are scoped by agent, conversation, and tenant user, so participants in a shared conversation use separate sandboxes. An Organization can keep several providers and point different agents at different ones.
+A sandbox provider connects your agents to a code-execution service. Each workspace belongs to one agent, conversation, and tenant user. The vendor bills your account for its use.
 
-The sandboxes run in your own account with the vendor, so that vendor bills you for provisioning and running them.
+## Add and verify a provider
+
+1. Open **Sandboxes** and choose **Add provider**.
+2. Give it a name, choose a vendor, and enter the options and credentials listed below.
+3. Choose **Test and save**. Wait for **Provider tested and saved** before continuing.
+4. Open an [agent](./agents.md#sandboxes), enable **Sandbox**, select the connection, and save.
+5. Ask the agent to create and publish a small text file. Check its command exit code and download the result. See [Sandbox](/docs/sdk/sandbox).
+
+The connection test creates a sandbox, runs a command, and destroys it. It can take time and incur vendor charges.
 
 ## Providers and their options
 
@@ -14,25 +22,13 @@ The sandboxes run in your own account with the vendor, so that vendor bills you 
 | Sprites | None. | API token |
 | Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
-Every configuration also carries a name, unique within the organization ignoring case. The name is how you tell two configurations of the same vendor apart when you select one on an agent, so name them for their purpose rather than for the vendor.
-
-Docker needs no credential because it uses a Docker daemon the deployment itself can reach rather than an account with a vendor.
+Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
 
 ## Connection tests
 
-Let's walk through what happens when you save. Creating a provider, or changing an existing one's vendor, options, or credential, runs a connection test first and stores the change only if it passes. Renaming skips the test, so a rename is always safe.
+Creating a provider or changing its connection settings requires a passing test. A failed test leaves stored settings unchanged. Renaming needs no test.
 
-The test does real work at the vendor: it creates a sandbox, runs one command inside it, and destroys it again.
-
-**NOTE**: a connection test creates a real sandbox, so it takes time and can cost money.
-
-A failed test leaves the stored configuration exactly as it was, so a wrong credential cannot take a working agent's sandbox away. Correct the values and save again.
-
-If the test connects but its temporary sandbox cannot be removed afterwards, that is reported as its own outcome, so check the vendor's console for a leftover sandbox.
-
-Each provider shows whether its last test passed or failed and when that test ran.
-
-**TIP**: re-run the test on an unchanged provider to tell a revoked credential from a problem with the agent.
+Re-run the test to diagnose revoked credentials or provider failures. If cleanup fails, check the vendor console for a leftover sandbox.
 
 ## Credentials
 
@@ -44,11 +40,11 @@ Changing a provider's vendor discards the stored credential, because a credentia
 
 ## What agents get from a provider
 
-An agent references a provider by selection, and nothing is provisioned until that agent reaches for a sandbox tool. See [Agents](./agents.md).
+An organization can keep several providers and assign different ones to its agents. Workspaces are provisioned on the first sandbox tool call. See [Agents](./agents.md).
 
-When the configuration cannot be read at that moment, the agent loses its sandbox tools for that run and answers without them instead of failing, so an agent that has stopped offering to run code is worth checking here first.
+If the provider configuration cannot be read, the agent answers without sandbox tools. Check the connection when an agent stops offering code execution.
 
-A sandbox is scratch space. Idle cleanup and capacity eviction preserve active leases, but process shutdown or vendor expiry can interrupt a run, and another replica may start a fresh workspace. Published artifacts are copied to private storage and remain available through the saved conversation after the sandbox stops. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
+Workspaces are temporary and a shutdown, vendor expiry, or replica change can interrupt a run. Published files remain available through the saved conversation. See [Sandbox](/docs/sdk/sandbox) and [Limits](/docs/sdk/limits).
 
 ## Deleting a provider
 
@@ -59,5 +55,3 @@ Deleting removes the settings and the encrypted credential permanently, and conv
 ## Who can change providers
 
 Owners and developers can read, save, test, and delete provider configurations, and viewers have no access to them. See [Members](./members.md).
-
-Two people editing the same provider cannot overwrite each other, as the second save is rejected as stale and the page reloads with the stored values.

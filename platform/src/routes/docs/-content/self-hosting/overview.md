@@ -1,76 +1,46 @@
 # Overview
 
-AstralBeam runs as a single web application process with one PostgreSQL database and a private S3-compatible bucket. Basic knowledge of Linux, PostgreSQL, and reverse proxies is assumed here.
-
-Every command below runs from the repository root in the `bun run --cwd platform <task>` form.
+Run AstralBeam with PostgreSQL 18, private S3-compatible storage, and email delivery. Choose a [container or Linux binary deployment](./deploy.md), then complete configuration in the browser.
 
 ## What you run
 
-One process serves the dashboard, the operator page at `/configure`, the public API under `/api`, and these docs. It ships as two artifacts, both of which come out of the same build.
+One process serves the dashboard, `/configure`, the API, and these docs. Releases provide binaries for Linux, macOS, and Windows, plus Linux AMD64 and ARM64 images at `ghcr.io/astralbeamai/astralbeam-platform`. The binary bundles the server and static assets and needs no Bun installation on the host.
 
-Run this command to produce both. It writes the server bundle, which is `platform/.output/server/index.mjs` plus the static assets in `platform/.output/public`, then compiles it into `platform/.output/astralbeam-platform`, one Bun executable with the server bundle and its assets embedded:
-
-```sh
-bun run --cwd platform build
-```
-
-Each tagged release publishes prebuilt platform binaries for Linux, macOS, and Windows, such as `astralbeam-platform-linux-x86_64`, and the binary for your server's target is the artifact to copy to it.
-
-Linux AMD64 and ARM64 images are available at `ghcr.io/astralbeamai/astralbeam-platform`. [Deploy](./deploy.md#containers) covers running or building an image with your own database and storage.
+Source builds produce both the server bundle and `platform/.output/astralbeam-platform`. See [Deploy](./deploy.md#1-get-a-release-binary) for download and build commands.
 
 ## What you need alongside it
 
-- PostgreSQL 18 or newer. The schema depends on server-side `uuidv7()` defaults and the `citext` extension.
-- Optionally, a transaction-pooling connection pooler such as PgBouncer. Direct PostgreSQL connections are supported. The native Effect client uses unnamed queries, and the reference Compose setup allows 200 named prepared statements for other clients.
+- PostgreSQL 18 or newer with the `citext` extension. PgBouncer is optional. See [Connection pooling](./operations.md#connection-pooling).
 - A private S3-compatible bucket and credentials. Configure and test them in **File storage** at `/configure`.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS, unless explicitly opting into HTTP with `ALLOW_INSECURE=true`.
 - A model provider for each organization. Owners or developers add connections in **Models**, enable models, and assign them to agents. Each connection stores its own credentials and API URL.
 
-Nothing else is required. There is no queue or separate cache server.
+No separate queue or cache server is required.
 
-**NOTE**: Contributor setup uses RustFS for storage, plus Valkey and Mailpit. RustFS runs natively on macOS. No application code uses Valkey, and Mailpit captures local mail instead of delivering it.
+For local contributor services, follow [repository setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md).
 
 ## Where state lives
 
-PostgreSQL stores application state and encrypted settings. Back up the database and any stored S3 objects together. Configuring storage does not migrate existing database files.
+PostgreSQL stores accounts, configuration, conversation history, and workflow state. A private S3-compatible bucket stores file bytes. Back them up together, with the full encryption keyring kept separately. Follow [Backups and restore](./operations.md#backups-and-restore).
 
-| Tables | State |
-| --- | --- |
-| `user`, `account`, `session`, `verification` | Dashboard identity and authentication |
-| `organization`, `member`, `invitation` | Customer organizations and their employees' access |
-| `api_key` | Organization API key digests, lifecycle, and quotas |
-| `agent`, `organization_configuration` | Agent definitions and default agent |
-| `model_provider`, `provider_model`, `agent_model` | Named model connections, enabled models, and agent assignments |
-| `sandbox_provider` | Named sandbox providers and their encrypted credentials |
-| `tenant`, `tenant_user` | Your customers' external identities and metadata |
-| `chat_thread`, `chat_participant`, `chat_message`, `chat_message_part`, `chat_tool_response` | Saved conversations, participant grants, and tool outcomes |
-| `file_object` | Private storage metadata and deletion state |
-| `usage_limit`, `usage_limit_counter` | Token/spend allowances and current usage |
-| `mcp_server`, `mcp_connection` | Remote tool definitions and private user connections |
-| `config` | Encrypted deployment settings edited at `/configure` |
-| `rate_limit` | Shared authentication, operator login, and chat counters |
-| `cache_entry` | Expiring cache, idempotency receipts, and encrypted OAuth attempts |
-| `drizzle.__drizzle_migrations` | Which migrations have been applied |
-| `effect_cluster_*` | Durable workflow journal and runner coordination |
-
-Deployment settings, provider credentials, and MCP credentials use encryption derived from `DATABASE_ENCRYPTION_KEY`. Keep the full keyring with your recovery plan. See [encryption and rotation](./security.md#encryption-at-rest).
+Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYPTION_KEY`. See [encryption and rotation](./security.md#encryption-at-rest).
 
 ## Bootstrap variables and stored settings
 
-Two environment variables are required, and nothing else has to be in the environment. `DATABASE_URL` is the PostgreSQL connection URL, normally pointing at the pooler, and `DATABASE_ENCRYPTION_KEY` is the comma-separated keyring that encrypts stored secrets and authenticates the operator.
+Set `DATABASE_URL` for PostgreSQL and `DATABASE_ENCRYPTION_KEY` for encrypted settings and operator sign-in. These are the only required environment settings.
 
-Every other deployment setting, including the base URL, the authentication secret, CAPTCHA keys, OAuth clients, and email delivery, is a row in the `config` table that an operator edits in the browser at `/configure`. Model provider keys are not deployment settings: each organization keeps its own in the dashboard. Any of those settings can also be supplied as an uppercase environment variable, which then wins over the stored value. See [Configuration](./configuration.md).
+Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
 
 ## First boot
 
-The application stays gated until two conditions hold at once: configuration reports no issues, and no bundled migration is pending. There is no stored setup-complete flag, so the same gate reopens if a required setting is later cleared or a new release adds a migration.
+The application opens when required configuration is valid and no bundled migration is pending. Clearing a required value or installing pending migrations closes that gate again.
 
 While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
 
 ## Running more than one replica
 
-Each process caches its own configuration snapshot, migration state, and sandbox leases. That has three consequences.
+Replicas cache configuration, migration state, and sandbox leases independently:
 
 - A save takes effect immediately only on the replica that handled it, so restart the others to make them reload it.
 - Migration runs are serialized with a PostgreSQL advisory lock, so two replicas cannot apply migrations at the same time.
@@ -80,6 +50,6 @@ Each process caches its own configuration snapshot, migration state, and sandbox
 
 ## Versions and support
 
-AstralBeam is pre-1.0. Only the latest version is supported, which means the current `main` for self-hosted deployments and the newest `@astralbeam/sdk` release on npm. Security fixes land on `main` and ship in the next release. There are no maintained older release lines and no backports, so upgrade before reporting a problem.
+AstralBeam is pre-1.0. Only current `main` and the latest SDK release are supported. Security fixes ship in the next release, with no backports. Upgrade before reporting a problem.
 
 Report a suspected vulnerability privately through [GitHub security advisories](https://github.com/AstralBeamAI/astralbeam/security/advisories/new) rather than a public issue. See [Security](./security.md).

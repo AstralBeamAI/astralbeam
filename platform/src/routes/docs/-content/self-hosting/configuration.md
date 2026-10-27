@@ -1,73 +1,22 @@
 # Configuration
 
-Application settings live in the database and are edited in the browser. The required bootstrap variables, HTTP listen port, and private cluster runner addresses are environment-only settings described in [Deploy](./deploy.md#3-set-the-bootstrap-environment).
+Configure the deployment at `/configure`. Bootstrap credentials, the listen port, and private runner addresses are set through the environment. See [Deploy](./deploy.md#3-set-the-bootstrap-environment).
+
+## Complete the initial configuration
+
+1. Sign in with the active `DATABASE_ENCRYPTION_KEY`.
+2. Set the public base URL and support address under **General**.
+3. Configure **Authentication**, **Email Delivery**, and **File storage**. Test email connectivity and storage before saving.
+4. Choose **Save**, resolve any field errors, and complete the owner invitation.
+5. Choose **Go to app**. Configure organization model providers in the dashboard.
+
+The tables below are the setting reference. Telemetry export and social sign-in are optional.
 
 ## Where settings live
 
-Stored settings are rows in the `config` table, and their values are encrypted at rest. The operator page at `/configure` is the only editor, and we sign in there with the first entry of `DATABASE_ENCRYPTION_KEY`, as described in [Security](./security.md).
+Settings are encrypted in PostgreSQL and edited at `/configure`. Environment variables override stored values, which override built-in defaults.
 
-A value in effect is resolved in this order, last one winning.
-
-1. The setting's built-in default, if it has one.
-2. The stored value in `config`, written by `/configure`.
-3. An uppercase environment variable of the same name.
-
-Every field on the page is badged **Database** or **Environment**, so you can see which source is in effect. Secret values are never sent to the browser on page load. Reveal a stored secret with its eye button before editing or clearing it.
-
-## Environment overrides
-
-Any setting below can be supplied as an environment variable named after the setting in uppercase, so `app_base_url` becomes `APP_BASE_URL` and `smtp_port` becomes `SMTP_PORT`. An override behaves differently from a stored value in three ways.
-
-- It takes precedence over the stored value, and the stored value is not even read for that key.
-- Its field at `/configure` becomes read only, and attempting to save it returns `This value is provided by <VARIABLE>`.
-- It is read once at startup, so changing or removing it requires a restart.
-
-Values are parsed as JSON when they happen to be valid JSON, and otherwise taken as a plain string, so ordinary unquoted values work as expected. An invalid override fails at startup with the variable name and the reason, for example `SMTP_PORT: SMTP port must be between 1 and 65535`.
-
-**NOTE**: An empty variable counts as unset, so the stored value applies again.
-
-## Observability
-
-Tracing and optional log shipping use OpenTelemetry's OTLP/HTTP protobuf protocol with the [standard SDK environment variable names](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) and [OTLP base endpoint semantics](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp). Configure a compatible receiver in **Observability** at `/configure`, then restart every server instance, including the one that saved the settings.
-
-| Setting | Environment variable | Default | Notes |
-| --- | --- | --- | --- |
-| `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. Appends `/v1/traces` for traces and `/v1/logs` for logs |
-| `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Comma-separated `key=value` headers |
-| `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Trace-specific headers. Percent-encode commas in values |
-| `otel_logs_exporter` | `OTEL_LOGS_EXPORTER` | `none` | Set to `otlp` to also ship server logs. Console JSON continues |
-| `otel_sdk_disabled` | `OTEL_SDK_DISABLED` | `false` | Set to `true` to disable export without clearing the connection |
-| `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to exported spans and logs. Do not include secrets |
-
-All fields are optional. AstralBeam keeps export disabled until an endpoint is explicitly configured, even if labels or headers are present. Log shipping also requires `otel_logs_exporter=otlp`. These opt-in defaults differ from the standard exporter's localhost endpoint and log-exporter defaults. Batching, retries, timeouts and shutdown flushing use the native exporters' defaults. Delivery is best effort, without a persistent queue.
-
-Environment variables override their corresponding stored settings through the same configuration system as every other field. Traces-specific headers override matching generic headers. For example, a local receiver can be configured with:
-
-```sh
-OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318"
-OTEL_LOGS_EXPORTER="otlp"
-OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development,service.instance.id=worktree-1"
-```
-
-For a hosted receiver, supply its base endpoint and authentication headers from its official instructions. Check that the receiver accepts the signals you enable. The preset buttons fill only the base endpoint, leaving credentials and labels unchanged. Replace placeholders before saving. After saving and restarting, make an application request and check the receiver for traces and enabled logs, allowing time for batching and ingestion.
-
-| Receiver | OTLP base endpoint | Headers |
-| --- | --- | --- |
-| Local OpenTelemetry Collector, Tempo, or Datadog Agent | `http://127.0.0.1:4318` | Depends on the receiver. Enable its OTLP HTTP listener first |
-| [PostHog](https://posthog.com/docs/distributed-tracing/installation/nodejs) | `https://us.i.posthog.com/i` | `Authorization=Bearer <project-token>` |
-| [New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/) | `https://otlp.nr-data.net` | `api-key=<license-key>` |
-| [Datadog](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/) | `https://otlp.datadoghq.com` | `dd-api-key=<api-key>` |
-| [Sentry](https://docs.sentry.io/concepts/otlp/) | `https://o<organization-id>.ingest.us.sentry.io/api/<project-id>/integration/otlp` | Copy the project's `x-sentry-auth` header from **Client Keys (DSN) → OpenTelemetry** |
-| [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/) | `https://api.honeycomb.io` | `x-honeycomb-team=<ingest-key>` |
-| [Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) | Copy the stack's OTLP base endpoint, typically `https://<otlp-host>/otlp` | Copy the stack's generated `Authorization=Basic …` header |
-
-The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
-
-Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
-
-Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger), keeping messages, native causes, request metadata and active trace/span IDs. Console and shipped logs share credential redaction. Log records include full causes, unlike the content-limited spans. Request and error logs written outside the application runtime use the exporter once that runtime has initialized. Before initialization, or if it cannot start, console logging remains available. Log export uses generic OTLP headers, not traces-specific headers.
-
-Use `deployment.environment.name` to separate development, staging, and production, and `service.instance.id` to identify individual processes or worktrees. Set these through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES`, then restart. An environment override replaces the stored labels, so processes sharing a configuration database can identify themselves separately. These attributes apply to exported spans and logs and can be used as filters in the receiver.
+Each field shows **Database** or **Environment** as its source. Reveal a stored secret before editing or clearing it. Sign in with the active encryption key. See [Operator access](./security.md#operator-access).
 
 ## General
 
@@ -98,13 +47,11 @@ When either legal URL is configured, sign-up requires the user to accept those t
 | `github_client_id` | No | none | Set with `github_client_secret` or not at all |
 | `github_client_secret` | No | none | Paired with `github_client_id` |
 
-The authentication secret signs sessions and tokens. The field offers **Generate** when it is unset and **Rotate** when it is set, and a successful generation reports "New secret generated". Rotating it signs every dashboard user out immediately.
+Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation immediately signs out every dashboard user.
 
 Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
-Each social provider needs both halves of its pair. Setting one alone leaves setup incomplete with `<field> is required to enable this sign-in provider`, and a provider appears on the sign-in page only when both halves are present.
-
-Register these exact callback URLs with the provider, derived from the configured base URL:
+Social sign-in is optional. Configure both the client ID and secret to enable a provider, and register its callback URL:
 
 ```text
 <app_base_url>/api/auth/callback/google
@@ -113,27 +60,45 @@ Register these exact callback URLs with the provider, derived from the configure
 
 ## Email delivery
 
-| Setting | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `email_provider` | No | `smtp` | One of `smtp`, `resend`, `ses` |
-| `email_from_address` | Unless `smtp` | none | `email@example.com` or `Name <email@example.com>` |
-| `smtp_host` | No | `127.0.0.1` | Mail server hostname |
-| `smtp_port` | No | `1025` | 1 to 65535 |
-| `smtp_security` | No | `none` | One of `none`, `auto`, `starttls`, `tls` |
-| `smtp_username` | No | none | Set with `smtp_password` or not at all |
-| `smtp_password` | No | none | Paired with `smtp_username` |
-| `resend_api_key` | When `resend` | none | Resend API key with sending access |
-| `aws_region` | When `ses` | none | SES Region. Identities and sandbox status are per Region |
-| `aws_access_key_id` | No | none | Set with `aws_secret_access_key` or not at all |
-| `aws_secret_access_key` | No | none | Paired with `aws_access_key_id` |
+Choose one provider. Set `email_from_address` to a verified sender such as `Support <support@example.com>`. It is required for Resend and SES. SMTP otherwise uses `no-reply@<app hostname>`.
 
-The defaults point at an unencrypted local SMTP server, which is the development sink and not something to keep in production. For a hosted server, set the host and port and choose the security mode: `none` disables TLS, `auto` uses STARTTLS when the server advertises it and otherwise stays unencrypted, `starttls` requires STARTTLS (usually port 587), and `tls` starts the connection with TLS (usually port 465). Supply the username and password together to authenticate, or omit both to send unauthenticated.
+<!-- ::start:tabs -->
 
-With `resend` or `ses`, a valid from address is required, and its shape is validated here because both APIs reject anything else. With `smtp`, leaving it unset derives `no-reply@<hostname>` from the base URL.
+### SMTP
 
-For SES, we should leave both AWS credential fields unset so the deployment uses its own credential chain, such as an instance role or a local profile. Fill both in only for static keys. Supplying just one leaves setup incomplete with `<field> is required to use static AWS credentials`, and doing the same through the environment reports `AWS_SECRET_ACCESS_KEY is required when the paired AWS credential is supplied through the environment`.
+Set `email_provider` to `smtp` (the default).
 
-**TIP**: Configure one provider per deployment and leave the other providers' credentials unset.
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `smtp_host` | `127.0.0.1` | Mail server hostname |
+| `smtp_port` | `1025` | Set your provider's port, usually 587 or 465 |
+| `smtp_security` | `none` | `starttls` requires STARTTLS, `tls` uses TLS from connection start, `auto` permits unencrypted fallback, `none` disables TLS |
+| `smtp_username`, `smtp_password` | none | Supply both, or neither for an unauthenticated relay |
+
+The defaults target a local mail sink. Configure the host, port, and TLS mode for production.
+
+### Resend
+
+Set `email_provider` to `resend`.
+
+| Setting              | Required | Notes                       |
+| -------------------- | -------- | --------------------------- |
+| `resend_api_key`     | Yes      | API key with sending access |
+| `email_from_address` | Yes      | Verified sender address     |
+
+### Amazon SES
+
+Set `email_provider` to `ses`.
+
+| Setting | Required | Notes |
+| --- | --- | --- |
+| `aws_region` | Yes | Identities and sandbox status are per Region |
+| `email_from_address` | Yes | Verified sender address |
+| `aws_access_key_id`, `aws_secret_access_key` | No | Supply both for static credentials, or neither to use the deployment's credential chain, such as an instance role |
+
+<!-- ::end:tabs -->
+
+Use **Test connection** before saving. It checks the current form without sending email. SES testing also requires `ses:GetAccount` permission and account sending enabled. Leave credentials for unused providers unset.
 
 ## File storage
 
@@ -159,43 +124,31 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 You can change the endpoint, region, bucket, and addressing mode at any time. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, let's stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, save the new settings, and restart every server instance. Credential rotation remains supported.
 
-Let's use **Members** to upload or remove your avatar for an Organization. Global account screens show initials. OAuth login imports your provider image, and user or membership creation imports Gravatar. Each successful import replaces avatars across all of your memberships. Unavailable or invalid images leave existing avatars unchanged and do not prevent sign-in. Images must be valid, non-animated PNG, JPEG, GIF, or WebP files within 2 MiB and 16 megapixels. External logos submitted through the Organization API are fetched, validated and stored during the write request. A failed logo replacement preserves the existing logo. Organization API responses expose `logoFileId`, and Better Auth compatibility columns `user.image` and `organization.logo` remain null.
+The bucket also stores avatars, logos, and published sandbox files. Its endpoint must be reachable from users' browsers. Signed download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
 
-Avatars and Organization logos use application URLs that check current membership before redirecting to a signed S3 download URL valid for one minute. The storage endpoint must be reachable from your users' browsers. Treat signed URLs as private, because anyone holding one can read that file until it expires, including after membership is revoked.
+Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
-Files do not expire. The FileMaintenance schedule submits explicitly retired files to durable deletion workflows. Organization deletion removes stored objects before deleting their metadata. Successfully uploaded files that never attach and direct SQL deletions can leave unreachable objects.
+To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. Restart other replicas and verify uploads and downloads before revoking the old key. Keep destination fields unchanged.
 
-Conversation uploads use the same private bucket. PostgreSQL stores file metadata and conversation ownership, and authenticated downloads check current conversation permissions. Message parts and provider continuation media store file references. Attachment descriptors include verified byte sizes.
-
-Published sandbox files use the same storage and permissions. Publication copies and verifies the bytes before returning a file ID. Files remain attached to the assistant message after the sandbox stops, and conversation deletion schedules cleanup.
-
-Let's rotate credentials by creating a key with the same bucket permissions, entering it at `/configure`, testing the round trip, and saving. Restart other replicas and verify uploads and downloads before revoking the old key. Keep the destination fields unchanged.
-
-Replacement retains deletion targets until object deletion succeeds. Because database references require matching objects, let's stop writers and maintenance runners for a coordinated PostgreSQL and object backup. Preserve the database encryption root separately. Restore both backups into the configured destination before restarting the application. A database-only restore can reference deleted objects. Bucket versioning can preserve older bytes, with a separate retention policy. See [S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
+Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
 Storage failures are logged without file content or credentials. Repair settings at `/configure` and test the connection so durable purges can retry.
 
 ## Model providers
 
-Model provider keys are not deployment settings and are not on this page. Each organization adds named connections in [Models](/docs/dashboard/models), with its own encrypted API key, API URL, and enabled models. Multiple connections can use OpenAI with different credentials or endpoints.
+Add and test providers under [Models](/docs/dashboard/models), then assign a model to an agent. Each organization, including the one running Astro, manages its own credentials. Deployment configuration does not copy model keys from the environment.
 
-The application opens to users before model setup is complete. Let's add a provider, enable its models, then assign a default model to an agent. Until an agent has a usable model configuration, its chat requests fail with `503` and the widget shows an error. The organization's home page shows the remaining setup steps.
-
-Provider API URLs must use HTTPS and reach a public address by default. A save refuses a loopback, private, carrier-grade NAT, link-local, unique local, or unspecified host, including the cloud metadata address `169.254.169.254`, with `Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints`. Every provider request also resolves the host, refuses a private address, and does not follow redirects. Set `allow_private_model_endpoints` to `true` when your organizations need a LAN gateway such as Ollama. Keep it off when untrusted organizations share the deployment, because a connection's URL receives its key, the conversation, and tool calls.
-
-The deployment's dogfood organization follows the same process. After accepting the owner invitation, open that organization's **Models** page and configure the provider and agent that power Astro. Saving deployment configuration or sending the invitation does not copy a model key from the server environment.
+Endpoints require public HTTPS and cannot redirect by default. Enable `allow_private_model_endpoints` only for trusted organizations that need a private gateway such as Ollama. Its endpoint receives provider keys, conversations, and tool calls, so keep private access disabled on deployments shared by untrusted organizations.
 
 ## Sandbox providers
 
-Sandbox credentials are not deployment settings and are not on this page. Each organization configures its own named providers in the dashboard, under **Sandboxes**, and those credentials are stored encrypted per organization. A provider cannot be saved until its connection test passes, and an agent's sandbox provider stays optional.
+Each organization manages encrypted sandbox credentials under [Sandboxes](/docs/dashboard/sandboxes). Saving requires a passing connection test. Agents can run without a sandbox.
 
 ## Applying changes
 
 Edit the fields you need and press **Save**. A successful save briefly reports "Configuration saved". **Go to app** becomes available once configuration and owner onboarding are complete.
 
 The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
-
-The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 
 A save takes effect immediately on the process that handled it, except observability, whose exporters are created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when observability changes.
 
@@ -209,3 +162,58 @@ While required settings are missing, the page lists each one and the application
 | `SES is the selected email provider but no AWS region is configured` | Add `aws_region` |
 | `<field> is required when its pair is configured` | Supply both SMTP credentials or neither |
 | `This value is provided by <VARIABLE>` | Change the environment variable and restart, or remove it |
+
+## Environment overrides
+
+Use the uppercase setting name for an environment override, such as `APP_BASE_URL` or `SMTP_PORT`:
+
+- It takes precedence over the stored value.
+- Its field at `/configure` becomes read only, and attempting to save it returns `This value is provided by <VARIABLE>`.
+- It is read once at startup, so changing or removing it requires a restart.
+
+Use ordinary unquoted values. Invalid overrides fail at startup with the variable name and reason.
+
+**NOTE**: An empty variable counts as unset, so the stored value applies again.
+
+## Observability
+
+Tracing and optional log shipping use OpenTelemetry's OTLP/HTTP protobuf protocol with the [standard SDK environment variable names](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) and [OTLP base endpoint semantics](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp). Configure a compatible receiver in **Observability** at `/configure`, then restart every server instance, including the one that saved the settings.
+
+| Setting | Environment variable | Default | Notes |
+| --- | --- | --- | --- |
+| `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. Appends `/v1/traces` for traces and `/v1/logs` for logs |
+| `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Comma-separated `key=value` headers |
+| `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Trace-specific headers. Percent-encode commas in values |
+| `otel_logs_exporter` | `OTEL_LOGS_EXPORTER` | `none` | Set to `otlp` to also ship server logs. Console JSON continues |
+| `otel_sdk_disabled` | `OTEL_SDK_DISABLED` | `false` | Set to `true` to disable export without clearing the connection |
+| `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to exported spans and logs. Do not include secrets |
+
+Export stays disabled until an endpoint is configured. Log shipping also requires `otel_logs_exporter=otlp`. Batching, retries, timeouts, and shutdown flushing use the native exporters' defaults. Delivery is best effort, without a persistent queue.
+
+Trace-specific headers override matching generic headers. For a local receiver:
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318"
+OTEL_LOGS_EXPORTER="otlp"
+OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development,service.instance.id=worktree-1"
+```
+
+For a hosted receiver, use its official endpoint and authentication headers. Check that it accepts the signals you enable. Presets fill only the base endpoint, preserving credentials and labels. Replace placeholders, save, and restart. Make a request and check the receiver after allowing time for ingestion.
+
+| Receiver | OTLP base endpoint | Headers |
+| --- | --- | --- |
+| Local OpenTelemetry Collector, Tempo, or Datadog Agent | `http://127.0.0.1:4318` | Depends on the receiver. Enable its OTLP HTTP listener first |
+| [PostHog](https://posthog.com/docs/distributed-tracing/installation/nodejs) | `https://us.i.posthog.com/i` | `Authorization=Bearer <project-token>` |
+| [New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/) | `https://otlp.nr-data.net` | `api-key=<license-key>` |
+| [Datadog](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/) | `https://otlp.datadoghq.com` | `dd-api-key=<api-key>` |
+| [Sentry](https://docs.sentry.io/concepts/otlp/direct/traces/) | Copy the project's OTLP endpoint and remove `/v1/traces` | `x-sentry-auth=sentry sentry_key=<public-key>`. Find both values in **Project settings → Client Keys (DSN)** |
+| [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/) | `https://api.honeycomb.io` | `x-honeycomb-team=<ingest-key>`. Classic also requires `x-honeycomb-dataset` |
+| [Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) | Copy the stack's OTLP base endpoint, typically `https://<otlp-host>/otlp` | Copy the stack's generated `Authorization=Basic …` header |
+
+The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
+
+Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+
+Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger). Console and shipped logs share credential redaction. Shipped logs include messages, full causes, request metadata, and active trace/span IDs. Request and error logs outside the application runtime use the exporter after it initializes. Earlier logs remain console-only. Log export uses generic OTLP headers, not traces-specific headers.
+
+Set `deployment.environment.name` and `service.instance.id` through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES` to filter spans and logs by environment and process. Restart after changing them. An environment override replaces stored labels, allowing replicas sharing a database to identify themselves separately.

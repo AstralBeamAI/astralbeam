@@ -57,7 +57,7 @@ Here are two examples. See the [token format](/docs/sdk/authentication#mint-toke
 
 ### TypeScript
 
-This example uses an existing Better Auth instance at `@/lib/auth`. Its organization membership maps to the customer account.
+This example uses an existing Better Auth instance at `@/lib/auth`.
 
 ```ts title="src/server/astralbeam-token.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"

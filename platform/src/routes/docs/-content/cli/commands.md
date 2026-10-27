@@ -1,6 +1,6 @@
 # Commands
 
-This page is the reference for every `astralbeam` command, its output, and its exit codes. `astralbeam <command> --help` prints the same flags from the installed version.
+Look up commands, output formats, and exit codes here. For flags supported by your installed version, run `astralbeam <command> --help`. See [Getting started](./getting-started.md) for installation and login.
 
 ## Global options
 
@@ -43,7 +43,7 @@ The CLI never takes a key as a flag, so it cannot leak into shell history or pro
 | `tenant-users create <tenant-id> --external-id <id> [--name <name>] [--admin] [--metadata <json>]` | Create a TenantUser |
 | `tenant-users update <tenant-id> <id> [--name <name> \| --clear-name] [--admin \| --no-admin] [--metadata <json>]` | Update a TenantUser |
 
-Updates change only the fields you pass. `--metadata` takes a JSON object and replaces the stored object whole. The stored admin flag is data and grants no API authority. See [Authentication](/docs/api#description/authentication).
+Updates change only supplied fields. `--metadata` replaces the entire stored JSON object. The stored admin flag is data and grants no API authority. See [Authentication](/docs/api#description/authentication).
 
 ## Listing options
 

@@ -1,6 +1,6 @@
 # Coding agents
 
-Coding agents such as Claude Code, Codex, and Cursor can use the `astralbeam` CLI through its bundled Agent Skill and JSON output.
+Give a coding agent access to AstralBeam through the CLI's bundled Agent Skill and JSON output. [Install the CLI](./getting-started.md#1-install-the-cli) first.
 
 ## 1. Install the skill
 
@@ -12,7 +12,7 @@ astralbeam skill install
 
 It writes `.claude/skills/astralbeam/SKILL.md`, so commit it if your whole team should get it. Pass `--dir ~/.claude/skills` to install it for every project, or `--dir .agents/skills` for agents that read that directory. Run `astralbeam skill` to print the skill without installing it.
 
-Restart the agent session so it loads the skill. The agent then reaches for the CLI when you ask things like "create a tenant for customer-42" or "ask our agent what it can do, as user-7".
+Restart the agent session so it loads the skill. Then ask it to use the CLI, for example "create a tenant for customer-42" or "ask our agent what it can do, as user-7".
 
 Skill installers supporting [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) can use [astralbeam.ai](https://astralbeam.ai) as the source.
 
@@ -37,7 +37,7 @@ astralbeam tenant-users create <tenant-id> --external-id user-7 --json
 astralbeam chat --tenant customer-42 --user user-7 "Summarize my open orders" --json
 ```
 
-`chat` is useful for testing an agent's instructions and tools from the terminal after you change them in the dashboard, as any tenant user, without opening your application.
+Use `chat` to test dashboard instructions and server-side tools as a tenant user. The CLI cannot execute your application's browser tools or widgets.
 
 ## What it cannot do yet
 

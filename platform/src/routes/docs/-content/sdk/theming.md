@@ -1,14 +1,22 @@
 # Theming
 
-The widget ships its own palette inside a shadow root, so your page styles never leak in and its styles never leak out. You retune it with a color scheme and CSS token overrides.
+Set the widget's color scheme and theme tokens to match your application. Its shadow root isolates component styles from your page. Host-rendered widgets use your application's styles.
 
 ## Color scheme
 
 `colorScheme` is `"light"`, `"dark"`, or `"system"` (the default), which follows the OS setting live.
 
-```tsx
+<!-- ::start:tabs variant="files" -->
+
+```tsx title="React"
 <AstralBeamChat colorScheme="dark" />
 ```
+
+```js title="JavaScript"
+chat.update({ colorScheme: "dark" })
+```
+
+<!-- ::end:tabs -->
 
 ## Theme tokens
 
@@ -29,13 +37,13 @@ The widget ships its own palette inside a shadow root, so your page styles never
 
 ## Custom CSS
 
-Because chat renders inside a Shadow DOM, pass application-owned CSS through `customCss` to customize its layout and controls. Let's give the composer a larger input:
+Use `customCss` for layout changes inside the shadow root. For example, increase the composer's height:
 
 ```tsx
 <AstralBeamChat customCss={`textarea { min-height: 5rem; }`} />
 ```
 
-The same option works with `mountAstralBeamChat`. Call `handle.update({ customCss })` or change the React prop to apply styles without resetting the conversation or draft. Set it to `undefined` to restore SDK styles. Pass ordinary, trusted application CSS, not uncompiled Tailwind classes or user-supplied content. Prefer `theme` for colors and fonts. [Directories](./listings.md) support the same option.
+Change the React prop or call `chat.update({ customCss })` to apply styles without resetting chat. Set it to `undefined` to restore SDK styles. Use trusted application CSS, not uncompiled Tailwind or user input. Prefer `theme` for colors and fonts. [Directories](./listings.md) accept the same option.
 
 ## Widget renders
 
@@ -45,4 +53,3 @@ Your own widgets (see [Tools and widgets](./tools-and-widgets.md)) render in the
 - Your own selectors match a render like any other element. Target `[slot^="astralbeam-widget-"]` for all of them.
 - Inherited properties are read from the mount target's parent, so rules on the target itself are missed.
 - Tokens declared only in a cross-origin stylesheet cannot be read.
-- The bridge pins `-webkit-text-fill-color` to `currentColor` on projected content, so your `color` rules always drive text paint.

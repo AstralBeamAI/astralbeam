@@ -1,14 +1,12 @@
 # Getting started
 
-Provision your application's customers (Tenants) and their users (TenantUsers) over HTTPS from any language. Organization members are your employees using the dashboard, not TenantUsers.
+Create customer accounts (Tenants) and their users (TenantUsers) over HTTPS from any backend language. These records are separate from dashboard members.
 
 Use the HTTP examples below or download the [OpenAPI document](/api/openapi.json). For embedded chat, see the separate [SDK guides](/docs/sdk).
 
 ## Prerequisites
 
 In the dashboard, select your organization and open **API keys** as an owner or developer. Create a key and copy the full `key_…_abo_…` value into your server's `ASTRALBEAM_API_KEY` secret. Never send it to the browser.
-
-Reference keys, records, and abbreviated cursors are illustrative. Use your own credentials and IDs, and reuse complete cursors returned by the API.
 
 The hosted API base is `https://astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
 
@@ -26,7 +24,7 @@ curl --include "$ASTRALBEAM_API_URL/v1/tenants" \
   --data '{"external_id":"customer-42","name":"Acme Logistics","metadata":{"plan":"pro","region":"eu-west-1"}}'
 ```
 
-The response is `201 Created` with a JSON record and a `Location` header pointing to it. Use the returned internal `id` as `tenant_id` when creating or listing [TenantUsers](/docs/api#tag/tenant_users). The generated reference below includes request and response examples for every operation.
+Expect `201 Created`, a JSON record, and a `Location` header. Copy the returned internal `id` for [TenantUser requests](/docs/api#tag/tenant_users).
 
 Copy that returned `id` into `TENANT_ID`, then create a user belonging to the Tenant:
 
@@ -38,7 +36,7 @@ curl --include "$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users" \
   --data '{"external_id":"user-7","name":"Alex Morgan"}'
 ```
 
-This returns `201 Created` with the new user's internal `id`, the parent `tenant_id`, `admin: false`, and `metadata: {}`. Keep `user-7` as the user's identity in your application and chat tokens.
+Expect `201 Created` with the new user's internal `id`. Keep `user-7` as their external identity in your application and chat tokens.
 
 List that Tenant's users:
 
@@ -48,7 +46,7 @@ curl --get "$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users" \
   --data-urlencode "page_size=20"
 ```
 
-The response is `200 OK` with an `items` array. Pass the returned `page_after` as the next request's `page_after` parameter. Stop when it is `null`. To go backward, pass the returned `page_before` instead. See [Pagination](/docs/api#description/pagination) for a complete continuation example.
+Expect `200 OK` with an `items` array. Follow the returned cursor to load more users. See [Pagination](/docs/api#description/pagination).
 
 ## Identities and write behavior
 
