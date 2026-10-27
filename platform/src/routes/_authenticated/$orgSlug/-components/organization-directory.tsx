@@ -8,6 +8,7 @@ import { useContext, useState } from "react"
 import { useTheme } from "tanstack-router-theme-provider"
 import { cn } from "cn"
 
+import { DocsLink } from "@/components/docs-link"
 import {
   widgetDashboardTheme,
   widgetThemeClassName,
@@ -38,6 +39,18 @@ export function OrganizationDirectory({ kind }: { kind: "tenants" | "tenant-user
           <h1 className="text-2xl font-semibold tracking-tight @lg/organization-directory:text-3xl">
             {kind === "threads" ? "Conversations" : kind === "tenants" ? "Tenants" : "Tenant users"}
           </h1>
+          <DocsLink
+            href={
+              kind === "threads"
+                ? "/docs/sdk/listings#browse-saved-conversations"
+                : "/docs/sdk/listings#from-records-to-a-working-directory"
+            }
+            className="text-sm"
+          >
+            {kind === "threads"
+              ? "How saved conversations work"
+              : "How tenant records are populated"}
+          </DocsLink>
         </header>
         <Directory
           key={`${access.userId}:${organization.organizationId}`}

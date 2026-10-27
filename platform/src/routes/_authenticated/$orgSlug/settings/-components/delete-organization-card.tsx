@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +72,10 @@ export function DeleteOrganizationCard({
         <CardDescription>
           {dogfood
             ? "This deployment's own organization powers the dashboard assistant and cannot be deleted."
-            : "Remove every member, API key, agent, model provider, sandbox provider, tenant, and tenant user. This cannot be undone."}
+            : "Remove every member, API key, agent, model provider, sandbox provider, tenant, and tenant user. This cannot be undone."}{" "}
+          <DocsLink href="/docs/dashboard/settings#deleting-the-organization">
+            What deletion removes
+          </DocsLink>
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-end">

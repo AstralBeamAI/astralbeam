@@ -305,7 +305,10 @@ export function AgentForm({
                         </Link>{" "}
                         to enable this tool.
                       </>
-                    )}
+                    )}{" "}
+                    <DocsLink href="/docs/dashboard/agents#sandboxes">
+                      How agents use sandboxes
+                    </DocsLink>
                   </FieldDescription>
                 </FieldContent>
                 <Switch
