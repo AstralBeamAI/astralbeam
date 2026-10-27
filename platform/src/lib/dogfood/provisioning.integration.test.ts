@@ -721,9 +721,13 @@ describe.skipIf(!dogfoodIntegration.url)(
         await Promise.race([
           vi.waitFor(
             async () => {
-              expect(
-                (await fetch(`${origin}/src/routes/configure/-functions/save-config-values.ts`)).ok,
-              ).toBe(true)
+              // Check the listener without spending this deadline on cold RPC compilation.
+              // https://vite.dev/guide/performance#warm-up-frequently-used-files
+              const response = await fetch(`${origin}/@vite/client`, {
+                signal: AbortSignal.timeout(2_000),
+              })
+              await response.body?.cancel()
+              expect(response.ok).toBe(true)
             },
             { timeout: 30_000, interval: 250 },
           ),
