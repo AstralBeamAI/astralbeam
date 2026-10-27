@@ -9,7 +9,7 @@ Choose Docker Compose for a local evaluation, a container with existing services
 Use Docker Compose 2.30 or later. Download the Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.23.2/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.23.3/docker-compose.production.yml
 
 (
   umask 077
@@ -257,7 +257,7 @@ The service account needs a writable, executable temporary directory. Set `TMPDI
    sudo astralbeam-platform upgrade
    ```
 
-   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.23.2`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
+   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.23.3`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
