@@ -10,9 +10,11 @@ export function TodoCard({
   onToggle: () => void
 }) {
   return (
-    <label className={`todo-card${highlight ? " todo-card-highlight" : ""}`}>
-      <input type="checkbox" checked={todo.completed} onChange={onToggle} />
-      <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
-    </label>
+    <div className={`todo-card${highlight ? " todo-card-highlight" : ""}`}>
+      <label className="todo-card-row">
+        <input type="checkbox" checked={todo.completed} onChange={onToggle} />
+        <span className={todo.completed ? "todo-done" : ""}>{todo.text}</span>
+      </label>
+    </div>
   )
 }

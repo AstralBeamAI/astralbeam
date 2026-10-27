@@ -194,7 +194,7 @@ body {
 
 .todos-list label,
 .admin-toggle,
-.todo-card {
+.todo-card-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;

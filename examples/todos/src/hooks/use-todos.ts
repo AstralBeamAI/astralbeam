@@ -73,8 +73,13 @@ export function useTodos() {
     getTodos: () => getState().todos,
     updateTodo,
     toggleTodo: (id: number) => {
-      const todo = findTodo({ id, todos: getState().todos })
-      return updateTodo({ id, completed: !todo.completed })
+      const state = getState()
+      save({
+        ...state,
+        todos: state.todos.map((todo) =>
+          todo.id === id ? { ...todo, completed: !todo.completed } : todo,
+        ),
+      })
     },
     deleteTodo: (input: Record<string, unknown>) => {
       const state = getState()
