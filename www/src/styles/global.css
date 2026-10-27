@@ -93,13 +93,43 @@
      --muted-foreground directly, which read too dim against the backdrop. */
   --text-muted: color-mix(in oklab, var(--foreground) 90%, var(--background));
   --text-chrome: color-mix(in oklab, var(--foreground) 76%, var(--background));
-  --font-display: "Anton", "Arial Narrow", sans-serif;
-  --font-body: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Anton", "Anton Fallback", "Arial Narrow", sans-serif;
+  --font-body:
+    "Space Grotesk Variable", "Space Grotesk", "Space Grotesk Fallback", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, "SF Mono", monospace;
   --chamfer: 18px;
   /* One content column for the navbar, hero, sections, and footer. */
   --content: 78rem;
   --gutter: clamp(1.25rem, 4vw, 3rem);
+}
+
+/* Match the hero's fallback text to its web fonts before they finish loading.
+   https://developer.chrome.com/blog/font-fallbacks */
+@font-face {
+  font-family: "Anton Fallback";
+  src: local("Arial"), local("Liberation Sans");
+  size-adjust: 71.05%;
+  ascent-override: 165.56%;
+  descent-override: 46.32%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Space Grotesk Fallback";
+  src: local("Arial"), local("Liberation Sans");
+  size-adjust: 108.92%;
+  ascent-override: 90.34%;
+  descent-override: 26.81%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "JetBrains Mono Fallback";
+  src: local("Courier New"), local("Liberation Mono");
+  size-adjust: 99.98%;
+  ascent-override: 102.02%;
+  descent-override: 30%;
+  line-gap-override: 0%;
 }
 
 * {
@@ -641,6 +671,10 @@ main {
 .hero-title {
   font-size: clamp(3rem, 6.4vw, 5.6rem);
   text-shadow: 0 4px 40px var(--shadow);
+}
+
+.hero-title > span {
+  white-space: nowrap;
 }
 
 .beam-text {
