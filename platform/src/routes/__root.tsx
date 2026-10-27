@@ -130,7 +130,7 @@ export const Route = createRootRouteWithContext<{
     })
   },
   loader: ({ location }) => (isDocsPath(location.pathname) ? null : getPublicConfig()),
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       {
         charSet: "utf-8",
@@ -162,7 +162,7 @@ export const Route = createRootRouteWithContext<{
         href: APP_LOGO_DARK_SVG_URL,
         media: "(prefers-color-scheme: dark)",
       },
-      ...[interFontUrl, manropeFontUrl].map((href) => ({
+      ...(loaderData === null ? [manropeFontUrl] : [interFontUrl, manropeFontUrl]).map((href) => ({
         rel: "preload",
         as: "font",
         type: "font/woff2",
