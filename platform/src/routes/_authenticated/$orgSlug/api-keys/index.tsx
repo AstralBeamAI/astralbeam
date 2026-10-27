@@ -2,6 +2,7 @@ import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { ApiKeys } from "@/components/auth/api-key/api-keys"
+import { DocsLink } from "@/components/docs-link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { throwOrganizationRouteError } from "../-lib/route-errors"
@@ -35,7 +36,10 @@ function ApiKeysPage() {
       <div className="max-w-4xl space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">API keys</h1>
         <p className="text-sm text-muted-foreground">
-          Manage API keys. New keys are shown only once.
+          Manage API keys. New keys are shown only once.{" "}
+          <DocsLink href="/docs/dashboard/api-keys#keeping-a-key-server-side">
+            Keep keys on your server
+          </DocsLink>
         </p>
       </div>
       <ApiKeys

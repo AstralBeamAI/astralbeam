@@ -1,10 +1,11 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Use Phosphor icons, show one key with manual copy recovery, and require explicit dismissal of the secret.
+// Local changes: Use Phosphor icons, show one key with manual copy recovery and explicit dismissal, and link server integration guidance.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CheckIcon, CopyIcon, KeyIcon } from "@phosphor-icons/react"
 import { useRef, useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -122,9 +123,11 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Use this key only with{" "}
-            <code className="font-mono text-foreground">createAstralBeamToken</code> on your server,
-            to mint chat auth tokens for your tenant users. Never expose it in browser code.
+            Store this key in your server’s secrets. Use it to call the management API or mint chat
+            tokens. Never expose it in browser code.{" "}
+            <DocsLink href="/docs/sdk/authentication#the-auth-token-endpoint">
+              Set up your token endpoint
+            </DocsLink>
           </p>
         </div>
 

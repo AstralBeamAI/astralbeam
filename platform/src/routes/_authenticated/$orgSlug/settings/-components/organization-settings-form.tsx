@@ -7,6 +7,7 @@ import { useHydrated, useNavigate, useRouter } from "@tanstack/react-router"
 import { type SyntheticEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { DocsLink } from "@/components/docs-link"
 import {
   Card,
   CardContent,
@@ -130,7 +131,10 @@ export function OrganizationSettingsForm({
                   ? SLUG_VALIDATION_MESSAGE
                   : isReservedOrganizationSlug(normalizedSlug)
                     ? RESERVED_ORGANIZATION_SLUG_MESSAGE
-                    : "Changing the slug breaks old URLs."}
+                    : "Changing the slug breaks old URLs."}{" "}
+                <DocsLink href="/docs/dashboard/settings#the-url-slug">
+                  How URL changes affect your team
+                </DocsLink>
               </FieldDescription>
             </Field>
           </FieldGroup>

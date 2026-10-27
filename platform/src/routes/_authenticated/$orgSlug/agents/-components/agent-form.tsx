@@ -11,6 +11,7 @@ import { AgentNameSchema, AgentSystemPromptSchema } from "@/lib/agents/schemas"
 import { parseServerFnError, type ServerFnError } from "@/lib/runtime/server-fn-error"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { DocsLink } from "@/components/docs-link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -228,7 +229,10 @@ export function AgentForm({
                   onChange={(event) => setSystemPrompt(event.target.value)}
                 />
                 <FieldDescription>
-                  Describe the agent’s purpose, how it should respond, and what it should avoid.
+                  Describe the agent’s purpose, how it should respond, and what it should avoid.{" "}
+                  <DocsLink href="/docs/dashboard/agents#the-system-prompt">
+                    How system prompts work
+                  </DocsLink>
                 </FieldDescription>
               </Field>
             </FieldSet>
@@ -256,7 +260,10 @@ export function AgentForm({
                 </FieldLabel>
               </Field>
               <FieldDescription>
-                Let people attach files when chatting with this agent.
+                Let people attach files when chatting with this agent.{" "}
+                <DocsLink href="/docs/sdk/attachments#how-a-file-reaches-the-agent">
+                  File handling and sandbox requirements
+                </DocsLink>
               </FieldDescription>
               <Field orientation="horizontal">
                 <FieldContent>
@@ -266,7 +273,10 @@ export function AgentForm({
                       ? "Select an OpenAI Responses, Anthropic, xAI Grok, or OpenRouter default model."
                       : selectedModel?.webAccess === null
                         ? "For custom models and endpoints, enable only if native web tools are supported."
-                        : "Search the web and read public pages through the default model."}
+                        : "Search the web and read public pages through the default model."}{" "}
+                    <DocsLink href="/docs/dashboard/agents#web-access">
+                      Supported models and web access
+                    </DocsLink>
                   </FieldDescription>
                 </FieldContent>
                 <Switch

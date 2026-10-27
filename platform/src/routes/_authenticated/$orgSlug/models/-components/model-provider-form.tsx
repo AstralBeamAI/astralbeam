@@ -7,6 +7,7 @@ import { type SyntheticEvent, useState } from "react"
 import { Result, Schema, SchemaIssue } from "effect"
 
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -186,7 +187,8 @@ export function ModelProviderForm({
           <CardTitle>{existing ? "Configuration" : "Provider configuration"}</CardTitle>
           <CardDescription>
             Each provider has its own API key, API URL, and enabled models. You can add the same
-            provider more than once.
+            provider more than once.{" "}
+            <DocsLink href="/docs/dashboard/models#add-a-provider">Provider setup guide</DocsLink>
           </CardDescription>
         </CardHeader>
         <CardContent>

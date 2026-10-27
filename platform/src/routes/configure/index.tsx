@@ -1,6 +1,7 @@
 import { WarningCircleIcon } from "@phosphor-icons/react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 
+import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
@@ -38,6 +39,14 @@ function ConfigurePage() {
           <p className="text-sm text-muted-foreground">
             Manage your {APP_NAME} deployment settings.
           </p>
+          {state.status === "ready" &&
+            state.fields.some((field) => field.source === "environment") && (
+              <p className="text-sm text-muted-foreground">
+                <DocsLink href="/docs/self-hosting/configuration#environment-overrides">
+                  Change environment overrides
+                </DocsLink>
+              </p>
+            )}
         </div>
         {state.status === "ready" && (
           <OperatorSessionStatus sessionExpiresAt={state.sessionExpiresAt} />
@@ -113,6 +122,11 @@ function BootstrapErrorPage({
           <p>
             Use your deployment secret manager in production or{" "}
             <code>platform/.env.development.local</code> locally, then restart the server.
+          </p>
+          <p>
+            <DocsLink href="/docs/self-hosting/deploy#3-set-the-bootstrap-environment">
+              Set the bootstrap environment
+            </DocsLink>
           </p>
         </AlertDescription>
       </Alert>

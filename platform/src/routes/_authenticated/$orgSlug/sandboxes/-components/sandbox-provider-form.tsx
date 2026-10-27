@@ -10,6 +10,7 @@ import { strictParseOptions } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "../-lib/schemas"
 
 import { Button } from "@/components/ui/button"
+import { DocsLink } from "@/components/docs-link"
 import {
   Card,
   CardContent,
@@ -156,7 +157,10 @@ export function SandboxProviderForm({
       <CardHeader>
         <CardTitle>{existing ? "Configuration" : "New sandbox provider"}</CardTitle>
         <CardDescription>
-          Give each configuration a unique name so workflows can select it explicitly.
+          Give each configuration a unique name so workflows can select it explicitly.{" "}
+          <DocsLink href="/docs/dashboard/sandboxes#providers-and-their-options">
+            Sandbox providers and options
+          </DocsLink>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -198,9 +202,7 @@ export function SandboxProviderForm({
               </SelectContent>
             </Select>
             <FieldDescription>
-              <a href={descriptor.setupUrl} target="_blank" rel="noopener noreferrer">
-                Provider setup guide
-              </a>
+              <DocsLink href={descriptor.setupUrl}>Provider setup guide</DocsLink>
             </FieldDescription>
           </Field>
 

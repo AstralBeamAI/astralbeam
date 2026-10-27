@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 
-import { DocsLink, Navbar, UnderNavbar } from "@/components/navbar"
+import { NavbarDocsLink, Navbar, UnderNavbar } from "@/components/navbar"
 import { AppUserButton } from "../-components/app-user-button"
 
 export const Route = createFileRoute("/_authenticated/_user")({
@@ -12,7 +12,7 @@ function UserLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <Navbar wordmark>
-        <DocsLink />
+        <NavbarDocsLink />
         <AppUserButton align="end" size="icon" className="ms-2.5" />
       </Navbar>
       <main className="flex flex-1 flex-col">

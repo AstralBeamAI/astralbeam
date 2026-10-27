@@ -3,6 +3,7 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react"
 import { type FormEvent, useState } from "react"
 
+import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,7 +51,10 @@ export function OperatorLoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
           className="flex flex-col gap-4"
         >
           <p className="text-sm text-muted-foreground">
-            Enter the first active value from <code>DATABASE_ENCRYPTION_KEY</code>.
+            Enter the first active value from <code>DATABASE_ENCRYPTION_KEY</code>.{" "}
+            <DocsLink href="/docs/self-hosting/security#operator-access">
+              Operator access guide
+            </DocsLink>
           </p>
           {error && (
             <Alert variant="destructive">

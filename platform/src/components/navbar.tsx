@@ -91,7 +91,7 @@ export function NavbarCrumb({ children }: { children: ReactNode }) {
   )
 }
 
-export function DocsLink() {
+export function NavbarDocsLink() {
   return (
     <Link to="/docs" className={navLinkClassName}>
       Docs
@@ -200,7 +200,7 @@ export function PublicNavbar() {
   if (isDocs) return <DocsNavbar />
   return (
     <Navbar wordmark reloadDocument={hasWebsite}>
-      <DocsLink />
+      <NavbarDocsLink />
       <SessionLinks />
     </Navbar>
   )

@@ -132,10 +132,7 @@ export function ConfigFieldGroups({
         <ConfigSection
           key={group}
           title={group}
-          documentation={{
-            page: "configuration",
-            anchor: group.toLowerCase().replaceAll(" ", "-"),
-          }}
+          documentationHref={`/docs/self-hosting/configuration#${group.toLowerCase().replaceAll(" ", "-")}`}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
           optional={group === "Tracing"}
