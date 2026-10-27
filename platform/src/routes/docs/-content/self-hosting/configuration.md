@@ -12,7 +12,7 @@ A value in effect is resolved in this order, last one winning.
 2. The stored value in `config`, written by `/configure`.
 3. An uppercase environment variable of the same name.
 
-Every field on the page is badged **Database** or **Environment**, so you can see which source is in effect. Secret values are never sent to the browser on page load. A field that holds a stored secret shows `Configured` and reveals its value only when you ask for that one key.
+Every field on the page is badged **Database** or **Environment**, so you can see which source is in effect. Secret values are never sent to the browser on page load. Reveal a stored secret with its eye button before editing or clearing it.
 
 ## Environment overrides
 
@@ -189,7 +189,7 @@ Sandbox credentials are not deployment settings and are not on this page. Each o
 
 Edit the fields you need and press **Save**. A successful save briefly reports "Configuration saved". **Go to app** becomes available once configuration and owner onboarding are complete.
 
-The page saves the whole set of changes together, so a single invalid field blocks the batch and shows its message inline. A required setting cannot be emptied, which reports `Required configuration cannot be cleared`. An optional setting is cleared with **Clear value**, and an enum reset to **Use default** returns to its default.
+The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
 
 The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 
