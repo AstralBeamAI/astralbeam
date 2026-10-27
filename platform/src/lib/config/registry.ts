@@ -81,6 +81,78 @@ export function decodeConfigValue(
 
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
+    key: "otel_exporter_otlp_endpoint",
+    group: "Tracing",
+    label: "OTLP endpoint",
+    description:
+      "Optional OTLP/HTTP base URL. The traces path /v1/traces is appended. Leave unset to keep tracing disabled by default. Requires a server restart.",
+    kind: "url",
+    required: false,
+    schema: PublicHttpUrlSchema.check(
+      Schema.makeFilter((value) => {
+        const url = new URL(value)
+        return (
+          (!url.username && !url.password && !url.search && !url.hash) ||
+          "Use an OTLP base URL without credentials, query, or fragment"
+        )
+      }),
+    ),
+  },
+  {
+    key: "otel_exporter_otlp_headers",
+    group: "Tracing",
+    label: "OTLP headers",
+    description:
+      "Optional comma-separated key=value pairs sent to the receiver. Values containing commas must be percent-encoded. Traces headers override matching names.",
+    kind: "secret",
+    required: false,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "otel_exporter_otlp_traces_headers",
+    group: "Tracing",
+    label: "OTLP traces headers",
+    description:
+      "Comma-separated key=value pairs, for example Authorization=Bearer <token>. Values containing commas must be percent-encoded.",
+    kind: "secret",
+    required: false,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "otel_resource_attributes",
+    group: "Tracing",
+    label: "OTel resource attributes",
+    description:
+      "Comma-separated key=value labels, for example deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2. Attached to every exported span. Do not include secrets. Requires a server restart.",
+    kind: "text",
+    required: false,
+    schema: NonEmptyStringSchema,
+  },
+  {
+    key: "otel_sdk_disabled",
+    group: "Tracing",
+    label: "Disable tracing",
+    description:
+      "Disable span export while retaining the endpoint and credentials. Requires a server restart.",
+    kind: "enum",
+    required: false,
+    defaultValue: "false",
+    options: [
+      { value: "false", label: "No (export when an endpoint is configured)" },
+      { value: "true", label: "Yes (tracing disabled)" },
+    ],
+    schema: Schema.Union([
+      BooleanSettingSchema,
+      Schema.String.pipe(
+        Schema.decode({
+          decode: SchemaGetter.toLowerCase(),
+          encode: SchemaGetter.passthrough(),
+        }),
+        Schema.decodeTo(BooleanSettingSchema),
+      ),
+    ]),
+  },
+  {
     key: "s3_endpoint",
     group: "File storage",
     label: "S3 endpoint",

@@ -6,7 +6,9 @@ import {
   mergeAgentTools,
   type StreamChunk,
 } from "@tanstack/ai"
-import { Context, Effect, identity, Layer, Stream } from "effect"
+import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
+import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
+import { Context, Effect, identity, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
@@ -388,6 +390,9 @@ export class Chat extends Context.Service<
             })
             turn = managed.state
             const accounting = [
+              ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
+                otelMiddleware({ tracer, captureContent: false }),
+              ),
               ...managed.middleware,
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]

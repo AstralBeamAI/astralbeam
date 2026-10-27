@@ -62,10 +62,10 @@ function requirePlatformEnvironmentValue(key: string): string {
   return value
 }
 
-/** The first comma-separated entry is the active key, which is the one `/configure` accepts. */
-export const operatorKey = requirePlatformEnvironmentValue("DATABASE_ENCRYPTION_KEY")
-  .split(",")[0]!
-  .trim()
+/** Disposable runs use a synthetic key. Seeded runs use the deployment's active key. */
+export const operatorKey = seededMode
+  ? requirePlatformEnvironmentValue("DATABASE_ENCRYPTION_KEY").split(",")[0]!.trim()
+  : "e2e-only-operator-encryption-key-0000000000000000"
 
 /**
  * The suite owns a database beside the worktree's own, so a run never touches development data and
@@ -142,6 +142,15 @@ export function e2eWebServers() {
       env: {
         PORT: String(platformPort),
         DATABASE_URL: e2eDatabaseUrl,
+        DATABASE_ENCRYPTION_KEY: operatorKey,
+        BETTER_AUTH_SECRET: "",
+        GOOGLE_CLIENT_ID: "",
+        GOOGLE_CLIENT_SECRET: "",
+        GITHUB_CLIENT_ID: "",
+        GITHUB_CLIENT_SECRET: "",
+        RESEND_API_KEY: "",
+        AWS_ACCESS_KEY_ID: "",
+        AWS_SECRET_ACCESS_KEY: "",
         // Keep operator storage fields editable regardless of development overrides.
         S3_ENDPOINT: "",
         S3_REGION: "",

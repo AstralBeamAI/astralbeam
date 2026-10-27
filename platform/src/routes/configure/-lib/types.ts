@@ -24,7 +24,7 @@ export interface ConfigureField {
   value: string | null
 }
 
-export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string } | { kind: "clear" }
+export type FieldDraft = { kind: "unchanged" } | { kind: "set"; value: string }
 
 export interface PendingMigration {
   name: string
