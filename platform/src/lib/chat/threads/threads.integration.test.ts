@@ -845,7 +845,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(admitted.thread.updatedAt.getTime()).toBeGreaterThanOrEqual(afterWait.getTime())
   })
 
-  test("counts uploads only in their thread and rejects concurrent uploads beyond its budget", async () => {
+  test.each([false, true])("budgets uploads and recovered media (%s)", async (recovered) => {
     const thread = await create()
     const file = Buffer.alloc(10 * 1024 * 1024, " ")
     file.write("%PDF-1.7")
@@ -870,7 +870,50 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         })
         return yield* service.admit({ scope, id: thread.id, payload })
       })
-    await runtime.runPromise(upload())
+    const accepted = await runtime.runPromise(upload())
+    if (recovered) {
+      const source = accepted.inputMessage.payload.parts[0]!.source as { id: string }
+      const partId = crypto.randomUUID()
+      await runtime.runPromise(
+        service.checkpoint({
+          claim: accepted.claim!,
+          state: "complete",
+          payload: chatTestToolPayload({
+            id: partId,
+            type: "tool-call",
+            toolCallId: "recover",
+            name: "read_attachment",
+            arguments: "{}",
+            executionLocation: "server_api",
+            declaration: { source: "chat-attachment" },
+            targets: [{ id: targetA }],
+          }),
+        }),
+      )
+      await runtime.runPromise(
+        service.appendToolResults({
+          claim: accepted.claim!,
+          results: [
+            {
+              assistantMessageId: accepted.claim!.assistantMessageId,
+              toolPartId: partId,
+              responseTargetId: targetA,
+              payload: chatTestToolPayload({
+                id: crypto.randomUUID(),
+                type: "tool-result",
+                outcome: "succeeded",
+                output: {
+                  type: "attachment-reference",
+                  version: 1,
+                  fileId: source.id,
+                  sourceMessageId: accepted.inputMessage.id,
+                },
+              }),
+            },
+          ],
+        }),
+      )
+    }
     const separate = await runtime.runPromise(service.create({ scope: other }))
     const [original] = await db
       .select()
@@ -881,7 +924,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       runtime.runPromise(upload()),
       runtime.runPromise(upload()),
     ])
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
+      recovered ? 0 : 1,
+    )
     expect(results.find((result) => result.status === "rejected")).toMatchObject({
       reason: { _tag: "ChatThreadInvalid" },
     })
@@ -890,14 +935,14 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         .select({ id: chatMessage.id })
         .from(chatMessage)
         .where(eq(chatMessage.threadId, thread.id)),
-    ).toHaveLength(4)
+    ).toHaveLength(recovered ? 3 : 4)
     await admit(thread.id)
     expect(
       await db
         .select({ id: chatMessage.id })
         .from(chatMessage)
         .where(eq(chatMessage.threadId, thread.id)),
-    ).toHaveLength(6)
+    ).toHaveLength(recovered ? 5 : 6)
   })
 
   test("retains a manager while allowing a second manager to remove themselves", async () => {

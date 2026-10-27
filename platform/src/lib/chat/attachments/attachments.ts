@@ -482,7 +482,6 @@ export function redactChatAttachmentData(messages: ChatMessages): ChatMessages {
         : entry,
     )
   return messages.map((message) => {
-    if (message.role !== "user") return message
     const next = { ...message } as typeof message & { content?: unknown; parts?: unknown }
     if (Array.isArray(next.content)) next.content = redactEntries(next.content)
     if (Array.isArray(next.parts)) next.parts = redactEntries(next.parts)

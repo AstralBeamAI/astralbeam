@@ -253,15 +253,18 @@ test("names files in the message by handle, not by their original name", () => {
   ])
 })
 
-test("keeps attachment payloads out of the debug log", () => {
-  const redacted = redactChatAttachmentData(
-    userMessage([
-      {
-        type: "image",
-        source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
-      },
-    ]),
-  )
+test.each(["user", "tool"] as const)("redacts %s media in debug logs", (role) => {
+  const redacted = redactChatAttachmentData([
+    {
+      role,
+      content: [
+        {
+          type: "image",
+          source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
+        },
+      ],
+    },
+  ])
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 

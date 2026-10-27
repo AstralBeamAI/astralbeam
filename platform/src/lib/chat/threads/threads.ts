@@ -38,6 +38,7 @@ import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { detectSandboxArtifactMimeType } from "../sandbox/artifacts"
 import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants"
 import { fileObject } from "@/db/schema/files"
+import { chatAttachmentInputFileIds } from "../attachments/retrieval"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
@@ -1584,42 +1585,22 @@ export class ChatThreads extends Context.Service<
               })
               if (attachmentBytes > 0) {
                 const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
-                const [saved] = ids.length
+                const history = yield* historyMessages(tx, input.scope, input.id, ids)
+                const fileIds = chatAttachmentInputFileIds(history)
+                const saved = fileIds.length
                   ? yield* tx
-                      .select({
-                        bytes: sql<number>`coalesce(sum(${fileObject.byteSize}), 0)`.mapWith(
-                          Number,
-                        ),
-                      })
-                      .from(chatMessagePart)
-                      .innerJoin(
-                        chatMessage,
-                        and(
-                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
-                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
-                          eq(chatMessage.threadId, chatMessagePart.threadId),
-                          eq(chatMessage.id, chatMessagePart.messageId),
-                        ),
-                      )
-                      .innerJoin(
-                        fileObject,
-                        and(
-                          eq(fileObject.organizationId, chatMessagePart.organizationId),
-                          sql`${fileObject.id}::text = ${chatMessagePart.payload}->'source'->>'id'`,
-                        ),
-                      )
+                      .select({ id: fileObject.id, bytes: fileObject.byteSize })
+                      .from(fileObject)
                       .where(
                         and(
-                          chatPartWhere(input.scope, input.id),
-                          eq(chatMessage.role, "user"),
-                          inArray(
-                            chatMessagePart.messageId,
-                            ids.map((item) => item.id),
-                          ),
+                          eq(fileObject.organizationId, scope.organizationId),
+                          inArray(fileObject.id, fileIds),
                         ),
                       )
                   : []
-                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+                const sizes = new Map(saved.map((file) => [file.id, file.bytes]))
+                const bytes = fileIds.reduce((total, id) => total + (sizes.get(id) ?? 0), 0)
+                if (attachmentBytes + bytes > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
                   return yield* new ChatThreadInvalid()
               }
               yield* insertChatContent(tx, input.scope, input.id, userMessage!.id, payload)

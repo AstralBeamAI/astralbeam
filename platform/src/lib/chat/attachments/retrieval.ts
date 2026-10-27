@@ -122,6 +122,20 @@ function trustedChatAttachmentResult(
   return file ? { file, output } : undefined
 }
 
+/** Counts every original and verified recovery occurrence against the admission budget. */
+export function chatAttachmentInputFileIds(history: readonly ChatProjectionRecord[]) {
+  const catalogue = chatAttachmentCatalogue(history)
+  const records = new Map(history.map((record) => [record.id, record]))
+  return history.flatMap((record) => {
+    if (record.role === "user" && record.state === "complete")
+      return record.payload.parts.flatMap((part) =>
+        Schema.is(savedAttachmentSource)(part.source) ? [part.source.id] : [],
+      )
+    const result = trustedChatAttachmentResult(record, records, catalogue)
+    return result ? [result.file.fileId] : []
+  })
+}
+
 /** Expands a verified server result at its saved position, without trusting arbitrary tool JSON. */
 export function projectChatAttachmentRetrievals(options: {
   readonly history: readonly ChatProjectionRecord[]

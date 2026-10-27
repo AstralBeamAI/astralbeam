@@ -8,7 +8,11 @@ import { createChatAdapter } from "../adapter"
 import { projectChatModelHistory, type ChatProjectionRecord } from "../threads/projection"
 import { chatWebState } from "../web"
 import { normalizeChatAttachments } from "./attachments"
-import { chatAttachmentCatalogue, projectChatAttachmentRetrievals } from "./retrieval"
+import {
+  chatAttachmentCatalogue,
+  chatAttachmentInputFileIds,
+  projectChatAttachmentRetrievals,
+} from "./retrieval"
 import { createChatAttachmentTools } from "./tools"
 import { prepareChatProviderHistory } from "./provider-history"
 import { CHAT_ATTACHMENT_MAX_BYTES_BY_KIND, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants"
@@ -164,6 +168,7 @@ test("OpenRouter recovers bounded document groups after the complete tool-result
 })
 
 test("only a server result linked to an original upload on this ancestry expands", () => {
+  expect(chatAttachmentInputFileIds(attachmentHistory())).toEqual([FILE_ID, FILE_ID])
   const valid = attachmentProjection()
   expect(valid.trustedToolMessageIds).toEqual(new Set(["result:result-part"]))
   expect(valid.messages[1]?.content).toContainEqual({
@@ -180,6 +185,9 @@ test("only a server result linked to an original upload on this ancestry expands
     attachmentHistory({ responseTargetId: "other-slot" }),
   ]) {
     expect(attachmentProjection(history).trustedToolMessageIds.size).toBe(0)
+    expect(chatAttachmentInputFileIds(history)).toEqual(
+      history[0]?.role === "user" ? [FILE_ID] : [],
+    )
   }
 })
 
