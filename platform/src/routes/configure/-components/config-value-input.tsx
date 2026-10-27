@@ -132,7 +132,7 @@ export function ConfigValueInput({
           variant="outline"
           size="sm"
           className="self-start"
-          disabled={disabled || needsReveal}
+          disabled={disabled}
           onClick={() => setConfirmGenerateOpen(true)}
         >
           <ArrowsClockwiseIcon aria-hidden="true" />
