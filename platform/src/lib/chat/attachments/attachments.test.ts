@@ -60,7 +60,7 @@ test("a text file leaves the conversation as a name, with its contents behind a 
 
 test("stored file handles and provider text stay stable when earlier same-name files are omitted", () => {
   const ids = ["0199b600-0000-7000-8000-000000000001", "0199b600-0000-7000-8000-000000000002"]
-  const entry = documentEntry("notes.md", "text/markdown", base64("saved notes"))
+  const entry = documentEntry("notes.md", "text/markdown", btoa("saved notes"))
   const messages = ids.flatMap((id, index) =>
     userMessage([{ ...entry, source: { ...entry.source, id } }]).map((message) => ({
       ...message,
