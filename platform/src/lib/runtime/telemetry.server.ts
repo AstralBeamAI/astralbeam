@@ -44,7 +44,16 @@ export const telemetryLayer = Layer.unwrap(
   Effect.gen(function* () {
     // An explicit disable also avoids reading database-backed settings during bootstrap.
     if (getBooleanFromEnv("OTEL_SDK_DISABLED")) return NodeSdk.layerEmpty
-    const { values } = yield* (yield* Config).snapshot
+    // Optional telemetry must not prevent public routes or operator recovery while storage is down.
+    const snapshot = yield* (yield* Config).snapshot.pipe(
+      Effect.catchDefect(() =>
+        Effect.logWarning("Telemetry disabled because configuration is unavailable").pipe(
+          Effect.as(undefined),
+        ),
+      ),
+    )
+    if (!snapshot) return NodeSdk.layerEmpty
+    const { values } = snapshot
     const endpoint = values.otel_exporter_otlp_endpoint
     if (values.otel_sdk_disabled === "true" || !endpoint) return NodeSdk.layerEmpty
     const headers = parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? "")

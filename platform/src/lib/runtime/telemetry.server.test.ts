@@ -12,6 +12,18 @@ import { makeTracingProcessor, telemetryLayer } from "./telemetry.server.ts"
 
 afterEach(() => vi.unstubAllEnvs())
 
+it.effect("keeps the runtime available when telemetry configuration cannot be loaded", () => {
+  vi.stubEnv("OTEL_SDK_DISABLED", "false")
+  return Effect.gen(function* () {
+    assert.isTrue(Option.isNone(yield* Effect.serviceOption(OtelTracer.OtelTracer)))
+  }).pipe(
+    Effect.provide(telemetryLayer),
+    Effect.provideService(Config, {
+      snapshot: Effect.die(new Error("database unavailable")) as Config["Service"]["snapshot"],
+    } as Config["Service"]),
+  )
+})
+
 it.effect("keeps tracing disabled when only labels and headers are configured", () => {
   vi.stubEnv("OTEL_SDK_DISABLED", "false")
   return Effect.gen(function* () {
