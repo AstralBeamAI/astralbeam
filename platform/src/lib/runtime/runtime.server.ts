@@ -2,6 +2,7 @@ import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import { Layer, ManagedRuntime } from "effect"
 
 import { serverLoggerLayer } from "./logging.server.ts"
+import { tracingLayer } from "./tracing.server.ts"
 
 import { Database } from "@/db/database"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
@@ -30,6 +31,7 @@ import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 
 function makeAppLayer() {
+  // Preserve tracing for request/stream execution as well as service construction.
   return Layer.mergeAll(
     Agents.layer,
     ApiKeys.layer,
@@ -58,7 +60,7 @@ function makeAppLayer() {
     UsageLimits.layer,
     BunHttpClient.layer,
     serverLoggerLayer,
-  )
+  ).pipe(Layer.provideMerge(tracingLayer.pipe(Layer.provide(Config.layer))))
 }
 
 let appLayer: ReturnType<typeof makeAppLayer> | undefined

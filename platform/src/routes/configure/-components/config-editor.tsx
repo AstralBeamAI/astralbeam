@@ -188,7 +188,8 @@ export function ConfigEditor({
       toast.add({
         id: saveToastId,
         title: "Configuration saved",
-        description: "Restart other instances to apply these changes.",
+        description:
+          "Restart other instances to apply changes. Tracing changes require restarting this server too.",
         type: "success",
       })
     }, "save")
@@ -291,6 +292,7 @@ export function ConfigEditor({
       {onboarding && owner && (
         <ConfigSection
           title="Owner onboarding"
+          documentation={{ page: "deploy", anchor: "6-complete-setup" }}
           summary={
             [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
             "Invite the owner to finish setup."

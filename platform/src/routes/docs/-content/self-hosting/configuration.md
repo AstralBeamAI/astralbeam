@@ -26,6 +26,45 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 
 **NOTE**: An empty variable counts as unset, so the stored value applies again.
 
+## Tracing
+
+Tracing uses OpenTelemetry's OTLP/HTTP protobuf exporter with the [standard SDK environment variable names](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) and [OTLP base endpoint semantics](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp). Configure any compatible receiver in **Tracing** at `/configure`, then restart every server instance, including the one that saved the settings.
+
+| Setting | Environment variable | Default | Notes |
+| --- | --- | --- | --- |
+| `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. `/v1/traces` is appended for trace export |
+| `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Comma-separated `key=value` headers |
+| `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Trace-specific headers. Percent-encode commas in values |
+| `otel_sdk_disabled` | `OTEL_SDK_DISABLED` | `false` | Set to `true` to disable export without clearing the connection |
+| `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to every span. Do not include secrets |
+
+All fields are optional. AstralBeam keeps tracing disabled until an endpoint is explicitly configured, even if labels or headers are present. This opt-in behavior differs from the standard exporter's localhost endpoint default. The exporter sends traces using HTTP/protobuf. Batching, retries, and timeouts use SDK and exporter defaults.
+
+Environment variables override their corresponding stored settings through the same configuration system as every other field. Traces-specific headers override matching generic headers. For example, a local receiver can be configured with:
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318"
+OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development,service.instance.id=worktree-1"
+```
+
+For a hosted receiver, supply its base endpoint and authentication headers from its official instructions. The preset buttons fill only the base endpoint, leaving credentials and labels unchanged. Replace placeholders before saving. After saving and restarting, make an application request and check the receiver for traces, allowing time for batching and ingestion.
+
+| Receiver | OTLP base endpoint | Headers |
+| --- | --- | --- |
+| Local OpenTelemetry Collector, Tempo, or Datadog Agent | `http://127.0.0.1:4318` | Depends on the receiver. Enable its OTLP HTTP listener first |
+| [PostHog](https://posthog.com/docs/distributed-tracing/installation/nodejs) | `https://us.i.posthog.com/i` | `Authorization=Bearer <project-token>` |
+| [New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/) | `https://otlp.nr-data.net` | `api-key=<license-key>` |
+| [Datadog](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/) | `https://otlp.datadoghq.com` | `dd-api-key=<api-key>` |
+| [Sentry](https://docs.sentry.io/concepts/otlp/) | `https://o<organization-id>.ingest.us.sentry.io/api/<project-id>/integration/otlp` | Copy the project's `x-sentry-auth` header from **Client Keys (DSN) → OpenTelemetry** |
+| [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/) | `https://api.honeycomb.io` | `x-honeycomb-team=<ingest-key>` |
+| [Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) | Copy the stack's OTLP base endpoint, typically `https://<otlp-host>/otlp` | Copy the stack's generated `Authorization=Basic …` header |
+
+The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
+
+Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+
+Use `deployment.environment.name` to separate development, staging, and production, and `service.instance.id` to identify individual processes or worktrees. Set these through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES`, then restart. An environment override replaces the stored labels, so processes sharing a configuration database can identify themselves separately. These attributes apply to every exported span and can be used as filters in the receiver.
+
 ## General
 
 | Setting | Required | Default | Notes |
@@ -154,7 +193,7 @@ The page saves the whole set of changes together, so a single invalid field bloc
 
 The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 
-A save takes effect immediately on the process that handled it. Other replicas keep their cached snapshot until they restart, which the page states as "Saved changes apply immediately on this server. Restart other running server instances to load them." Roll a restart across the fleet after any configuration change.
+A save takes effect immediately on the process that handled it, except tracing, whose exporter is created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when tracing changes.
 
 While required settings are missing, the page lists each one and the application stays gated.
 
