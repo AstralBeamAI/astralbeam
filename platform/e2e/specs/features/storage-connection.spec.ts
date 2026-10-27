@@ -30,6 +30,7 @@ test("the operator saves storage settings and recovers from validation errors", 
   const trigger = storage.getByRole("button", { name: "File storage", exact: true })
   const save = page.getByRole("button", { name: "Save", exact: true }).first()
   const region = configure.fieldGroup("s3_region")
+  const originalRegion = await configure.field("s3_region").inputValue()
   await configure.setValue("s3_region", "")
   for (let attempt = 0; attempt < 2; attempt++) {
     await trigger.click()
@@ -38,7 +39,7 @@ test("the operator saves storage settings and recovers from validation errors", 
     await expect(trigger).toHaveAttribute("aria-expanded", "true")
     await expect(region.getByRole("alert")).toBeVisible()
   }
-  await region.getByRole("button", { name: "Discard", exact: true }).click()
+  await configure.setValue("s3_region", originalRegion)
   await expect(region.locator('[data-slot="field-error"]')).toHaveCount(0)
   await expect(storage.getByText("Configured", { exact: true })).toBeVisible()
   await expect(save).toBeDisabled()
@@ -59,6 +60,14 @@ test("the operator tests unsaved storage settings and sees safe verification fai
     await configure.openSection("File storage")
     const button = page.getByRole("button", { name: "Test storage", exact: true })
     await expect(button).toBeDisabled()
+    await configure
+      .fieldGroup("s3_access_key_id")
+      .getByRole("button", { name: /^Show / })
+      .click()
+    await configure
+      .fieldGroup("s3_secret_access_key")
+      .getByRole("button", { name: /^Show / })
+      .click()
     await configure.setValue("s3_access_key_id", "fixture-key")
     await configure.setValue("s3_secret_access_key", "fixture-secret")
     await page.getByRole("button", { name: "AWS S3 (us-east-1)", exact: true }).click()
