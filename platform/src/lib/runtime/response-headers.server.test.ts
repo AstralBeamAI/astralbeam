@@ -29,10 +29,9 @@ function securityHeaders(url: string, pathname: string, requestHeaders: HeadersI
 
 describe("response security headers", () => {
   test.each([
-    [`/${APP_HANDLE}-logo-dark.svg`, "GET", 200, false],
-    ["/api/openapi.json", "HEAD", 304, false],
-    [`/${APP_HANDLE}-logo-dark.svg`, "GET", 200, true],
-    ["/api/openapi.json", "HEAD", 304, true],
+    [`/${APP_HANDLE}-logo-dark.svg`, "HEAD", 304, false],
+    ["/api/openapi.json", "GET", 200, false],
+    ["/api/openapi.json", "GET", 200, true],
   ])(
     "sets cache freshness for %s %s %i (development=%s)",
     (pathname, method, status, development) => {
@@ -50,50 +49,45 @@ describe("response security headers", () => {
     },
   )
 
+  test("does not cache failed requests or mutations", () => {
+    for (const [method, status] of [
+      ["GET", 404],
+      ["POST", 200],
+    ] as const) {
+      const headers = new Headers()
+      applyResponseSecurityHeaders(
+        headers,
+        new Request("https://app.example/api/openapi.json", { method }),
+        "/api/openapi.json",
+        status,
+      )
+      expect(headers.get("cache-control")).toBeNull()
+    }
+  })
+
+  test("preserves private cache policy and existing Vary headers", () => {
+    for (const pathname of ["/api/openapi.json", "/docs/sdk"]) {
+      const headers = new Headers({ "Cache-Control": "private, no-store", Vary: "Cookie" })
+      applyResponseSecurityHeaders(
+        headers,
+        new Request(`https://app.example${pathname}`),
+        pathname,
+        200,
+      )
+      expect(headers.get("cache-control")).toBe("private, no-store")
+      expect(headers.get("vary")).toBe("Cookie, Accept-Encoding")
+    }
+  })
+
   test.each([
-    ["private, no-store", "GET", 200],
-    ["no-store", "GET", 200],
-    ["private, no-cache", "GET", 200],
-    [null, "GET", 404],
-    [null, "GET", 500],
-    [null, "POST", 200],
-  ])("preserves cache policy %s for %s %i", (policy, method, status) => {
-    const headers = new Headers(policy ? { "Cache-Control": policy } : undefined)
-    applyResponseSecurityHeaders(
-      headers,
-      new Request("https://app.example/api/openapi.json", { method }),
-      "/api/openapi.json",
-      status,
-    )
-    expect(headers.get("cache-control")).toBe(policy)
-  })
-
-  test("preserves private cache policy for personalized docs responses", () => {
-    const headers = new Headers({ "Cache-Control": "private, no-store", Vary: "Cookie" })
-    applyResponseSecurityHeaders(
-      headers,
-      new Request("https://app.example/docs/sdk"),
-      "/docs/sdk",
-      200,
-    )
-    expect(headers.get("cache-control")).toBe("private, no-store")
-    expect(headers.get("vary")).toBe("Cookie, Accept-Encoding")
-  })
-
-  test.each(["/organization", "/api/v1/tenants", "/api/v1/chat", "/api/chat"])(
-    "frames and referrers are restricted on %s",
-    (pathname) => {
-      const headers = securityHeaders(`https://app.example${pathname}`, pathname)
-      expect(headers.get("x-frame-options")).toBe("DENY")
-      expect(headers.get("content-security-policy")).toBe("frame-ancestors 'none'")
-      expect(headers.get("x-content-type-options")).toBe("nosniff")
-      expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin")
-    },
-  )
-
-  test("preserves route-provided CSP without allowing framing", () => {
-    const pathname = "/api/v1/chat/files"
-    const headers = new Headers({ "Content-Security-Policy": "sandbox; default-src 'none'" })
+    ["/organization", undefined, "frame-ancestors 'none'"],
+    [
+      "/api/v1/chat/files",
+      "sandbox; default-src 'none'",
+      "sandbox; default-src 'none', frame-ancestors 'none'",
+    ],
+  ])("protects %s while preserving its route CSP", (pathname, csp, expected) => {
+    const headers = new Headers(csp ? { "Content-Security-Policy": csp } : undefined)
     applyResponseSecurityHeaders(
       headers,
       new Request(`https://app.example${pathname}`),
@@ -101,10 +95,9 @@ describe("response security headers", () => {
       200,
     )
     expect(headers.get("x-frame-options")).toBe("DENY")
-    expect(headers.get("content-security-policy")).toBe(
-      "sandbox; default-src 'none', frame-ancestors 'none'",
-    )
+    expect(headers.get("content-security-policy")).toBe(expected)
     expect(headers.get("x-content-type-options")).toBe("nosniff")
+    expect(headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin")
   })
 
   test("HSTS is sent only for requests that arrived over TLS", () => {

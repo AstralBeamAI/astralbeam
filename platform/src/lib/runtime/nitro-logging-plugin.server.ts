@@ -10,10 +10,6 @@ type RequestLogContext = {
   requestStartedAt?: number
 }
 
-function isQuietRequest(path: string): boolean {
-  return path.startsWith("/assets/") || path === "/favicon.ico" || path === "/api/status"
-}
-
 const nitroLoggingPlugin: NitroAppPlugin = (nitro) => {
   if (import.meta.prerender) return
   // Validate the operator's log level before registering hooks that also use the logger.
@@ -51,7 +47,7 @@ const nitroLoggingPlugin: NitroAppPlugin = (nitro) => {
         ? Effect.logError
         : status >= 400
           ? Effect.logWarning
-          : isQuietRequest(path)
+          : path.startsWith("/assets/") || path === "/favicon.ico" || path === "/api/status"
             ? Effect.logDebug
             : Effect.logInfo
     Effect.runSync(
