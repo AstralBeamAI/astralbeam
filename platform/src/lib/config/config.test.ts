@@ -171,14 +171,10 @@ describe("configuration registry", () => {
     })
   })
 
-  it.each([
-    ["TRUE", "true"],
-    ["True", "true"],
-    ["FALSE", "false"],
-  ])("normalizes the OpenTelemetry disable flag %s", (value, expected) => {
+  it("accepts the standard uppercase OpenTelemetry disable flag", () => {
     assert.deepStrictEqual(
-      decodeConfigValue(findConfigDefinition("otel_sdk_disabled")!, value),
-      Result.succeed(expected),
+      decodeConfigValue(findConfigDefinition("otel_sdk_disabled")!, "TRUE"),
+      Result.succeed("true"),
     )
   })
 

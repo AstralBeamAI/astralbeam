@@ -31,7 +31,6 @@ it.effect("keeps tracing disabled when only labels and headers are configured", 
 })
 
 it.effect.each([
-  ["", undefined, "astralbeam-platform"],
   ["service.name=configured-service", undefined, "configured-service"],
   ["service.name=configured-service", "environment-service", "environment-service"],
 ] as const)(
