@@ -85,11 +85,24 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
       yield* Effect.logError(
         "Provider failed",
         Cause.die(new Error("Bearer opaque-bearer; password=opaque-inline-password")),
-        { password: "opaque-password", nested: { credentials: "opaque-credentials" } },
-      ).pipe(Effect.annotateLogs({ apiKey: "opaque-api-key" }))
-    }).pipe(Effect.provide(exporter))
+        {
+          password: "opaque-password message-secret-tail",
+          nested: { credentials: "opaque-credentials" },
+        },
+      )
+      assert.deepStrictEqual((yield* References.CurrentLogAnnotations).metadata, {
+        password: "opaque-annotation annotation-secret-tail",
+      })
+    }).pipe(
+      Effect.annotateLogs({
+        apiKey: "opaque-api-key",
+        metadata: { password: "opaque-annotation annotation-secret-tail" },
+      }),
+      Effect.provide(exporter),
+    )
     const output = batches.join("")
     assert.notInclude(output, "opaque-")
+    assert.notInclude(output, "secret-tail")
     for (const expected of [
       "HTTP response ready",
       "Provider failed",

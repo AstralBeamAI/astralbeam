@@ -4,6 +4,7 @@ import {
   Array,
   Config,
   ConfigProvider,
+  Context,
   Effect,
   Formatter,
   Layer,
@@ -109,7 +110,21 @@ export const otlpLoggerLayer = (options: Parameters<typeof OtlpLogger.make>[0]) 
 export const serverLoggerLayer = Layer.mergeAll(
   Logger.layer([
     ecsLogger,
-    Logger.make((options) => otlpLoggers.values().next().value?.log(options)),
+    Logger.make((options) => {
+      const logger = otlpLoggers.values().next().value
+      if (!logger) return
+      const { fiber } = options
+      const context = fiber.context
+      const annotations = redactLogRecord(fiber.getRef(References.CurrentLogAnnotations))
+      // Native OTLP formatting stringifies objects. Redact messages and annotations before it does.
+      // Emission is synchronous, so restore the context before any other logger or Effect runs.
+      fiber.setContext(Context.add(context, References.CurrentLogAnnotations, annotations))
+      try {
+        logger.log({ ...options, message: redactLogRecord(options.message) })
+      } finally {
+        fiber.setContext(context)
+      }
+    }),
   ]),
   Layer.effect(
     References.MinimumLogLevel,
