@@ -107,7 +107,9 @@ vi.mock("@/lib/chat/auth", async (original) => {
 })
 vi.mock("@/lib/runtime/runtime.server", async (original) => ({
   ...(await original<typeof import("@/lib/runtime/runtime.server")>()),
-  getAppLayer: () => restTestState.appLayer,
+  get appLayer() {
+    return restTestState.appLayer
+  },
   getAppRuntime: () => restTestState.appRuntime,
 }))
 vi.mock("@/lib/auth/organization-token.server", () => ({

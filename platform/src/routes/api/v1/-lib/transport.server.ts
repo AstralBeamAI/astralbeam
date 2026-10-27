@@ -13,7 +13,7 @@ import { Auth } from "@/lib/auth/auth.server"
 import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
-import { getAppLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
+import { appLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
 import { Tenants } from "@/lib/tenants/tenants"
 import { ApiV1 } from "./contract.server"
 import {
@@ -206,7 +206,7 @@ export const ApiV1Routes = Layer.mergeAll(
 function makeApiV1WebHandler() {
   const runtime = getAppRuntime()
   const webHandler = HttpRouter.toWebHandler(
-    ApiV1Routes.pipe(Layer.provideMerge(getAppLayer()), Layer.provide(HttpServer.layerServices)),
+    ApiV1Routes.pipe(Layer.provideMerge(appLayer), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true, memoMap: runtime.memoMap },
   )
   const disposeWebHandler = Effect.promise(() => {

@@ -1,20 +1,19 @@
 import { redirect } from "@tanstack/react-router"
 import { setResponseStatus } from "@tanstack/react-start/server"
-import { Cause, Effect, Exit, type ManagedRuntime, Option, Schema } from "effect"
+import { Cause, Data, Effect, Exit, type ManagedRuntime, Option } from "effect"
 
 import { reportFailure } from "./failure-report.server.ts"
 import { serverLoggerLayer } from "./logging.server.ts"
 import { declaredHttpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
-import { formatServerFnError, INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
+import { INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
 import { captureServerRequest, ServerRedirect, ServerRequest } from "./server-request.server.ts"
 
 /** A failure a server function chose to show, carrying its original tag and user-safe message. */
-export class ExposedError extends Schema.TaggedError<ExposedError>()("ExposedError", {
-  tag: Schema.String,
-  message: Schema.String,
-  status: Schema.Int,
-}) {}
+class ExposedError extends Data.TaggedError("ExposedError")<{
+  readonly message: string
+  readonly status: number
+}> {}
 
 /**
  * Marks a typed failure as safe to show the caller. Use it with `Effect.catchTag`, which checks
@@ -26,14 +25,11 @@ export function exposeError(error: {
 }): Effect.Effect<never, ExposedError> {
   return Effect.fail(
     new ExposedError({
-      tag: error._tag,
-      message: error.message,
+      message: `[${error._tag}] ${error.message}`,
       status: declaredHttpApiStatus(error) ?? 400,
     }),
   )
 }
-
-type ServerFnRuntime<R> = Pick<ManagedRuntime.ManagedRuntime<R, never>, "runPromiseExit">
 
 /**
  * Runs an Effect for a server function or its middleware. Exposed failures throw
@@ -55,7 +51,7 @@ export function runRequestEffect<A, E>(
 }
 
 async function runServerFnEffect<A, E, R>(
-  runtime: ServerFnRuntime<R>,
+  runtime: Pick<ManagedRuntime.ManagedRuntime<R, never>, "runPromiseExit">,
   effect: Effect.Effect<A, E, R | ServerRequest>,
   operation: string,
 ): Promise<A> {
@@ -66,6 +62,8 @@ async function runServerFnEffect<A, E, R>(
     { signal: request.request.signal },
   )
   if (Exit.isSuccess(exit)) return exit.value
+  // Preserve request cancellation without treating internal interruptions as client aborts.
+  if (Cause.hasInterruptsOnly(exit.cause)) request.request.signal.throwIfAborted()
   const failure = Cause.findErrorOption(exit.cause)
   if (Option.isSome(failure) && !Cause.hasDies(exit.cause)) {
     if (failure.value instanceof ServerRedirect) {
@@ -73,7 +71,7 @@ async function runServerFnEffect<A, E, R>(
     }
     if (failure.value instanceof ExposedError) {
       setResponseStatus(failure.value.status)
-      throw new Error(formatServerFnError(failure.value))
+      throw failure.value
     }
   }
   // Report without the app runtime so service-initialization failures still receive a reference.
@@ -84,12 +82,7 @@ async function runServerFnEffect<A, E, R>(
     ),
   )
   setResponseStatus(500)
-  throw new Error(
-    formatServerFnError({
-      tag: INTERNAL_ERROR_TAG,
-      message: `Something went wrong. Reference: ${referenceId}`,
-    }),
-  )
+  throw new Error(`[${INTERNAL_ERROR_TAG}] Something went wrong. Reference: ${referenceId}`)
 }
 
 /** Runs a server route's Effect with its request. The route answers every outcome itself. */

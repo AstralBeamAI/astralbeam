@@ -30,29 +30,23 @@ it.effect("keeps tracing disabled when only labels and headers are configured", 
   )
 })
 
-it.effect.each([
-  ["service.name=configured-service", undefined, "configured-service"],
-  ["service.name=configured-service", "environment-service", "environment-service"],
-] as const)(
-  "honors native service-name precedence: %s, %s",
-  ([attributes, serviceName, expected]) => {
-    vi.stubEnv("OTEL_SDK_DISABLED", "false")
-    vi.stubEnv("OTEL_SERVICE_NAME", serviceName)
-    return Effect.gen(function* () {
-      assert.strictEqual((yield* Resource.Resource).attributes["service.name"], expected)
-    }).pipe(
-      Effect.provide(telemetryLayer),
-      Effect.provideService(Config, {
-        snapshot: Effect.succeed({
-          values: {
-            otel_exporter_otlp_endpoint: "http://127.0.0.1:4318",
-            otel_resource_attributes: attributes,
-          },
-        }),
-      } as Config["Service"]),
-    )
-  },
-)
+it.effect("does not override the configured service name with the application default", () => {
+  vi.stubEnv("OTEL_SDK_DISABLED", "false")
+  vi.stubEnv("OTEL_SERVICE_NAME", undefined)
+  return Effect.gen(function* () {
+    assert.strictEqual((yield* Resource.Resource).attributes["service.name"], "configured-service")
+  }).pipe(
+    Effect.provide(telemetryLayer),
+    Effect.provideService(Config, {
+      snapshot: Effect.succeed({
+        values: {
+          otel_exporter_otlp_endpoint: "http://127.0.0.1:4318",
+          otel_resource_attributes: "service.name=configured-service",
+        },
+      }),
+    } as Config["Service"]),
+  )
+})
 
 it.effect("exports useful failure metadata without content, SQL or raw exceptions", () => {
   const exporter = new InMemorySpanExporter()

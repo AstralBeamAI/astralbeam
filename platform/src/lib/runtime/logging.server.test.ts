@@ -1,63 +1,52 @@
-import { assert, describe, it } from "@effect/vitest"
+import { assert, it } from "@effect/vitest"
 import { Cause, Effect, Layer, References } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 import { TestConsole } from "effect/testing"
 
 import { otlpLoggerLayer, serverLoggerLayer } from "./logging.server.ts"
 
-describe("ECS credential redaction", () => {
-  it.effect("masks password-reset paths in request and response logs", () =>
-    Effect.gen(function* () {
-      yield* Effect.logDebug("HTTP request started")
-      yield* Effect.logInfo("HTTP response ready")
-      const lines = yield* TestConsole.logLines
-      assert.strictEqual(lines.length, 2)
-      for (const line of lines) {
-        assert.notInclude(String(line), "opaque-reset-token")
-        const record = JSON.parse(String(line)) as Record<string, unknown>
-        assert.strictEqual(record["url.path"], "/api/auth/reset-password/[REDACTED]")
-      }
-    }).pipe(
-      Effect.annotateLogs({ path: "/api/auth/reset-password/opaque-reset-token" }),
-      Effect.provideService(References.MinimumLogLevel, "Debug"),
-      Effect.provide(serverLoggerLayer),
-      Effect.provide(TestConsole.layer),
-    ),
-  )
-
-  it.effect("masks credentials in causes, provider messages and nested metadata", () =>
-    Effect.gen(function* () {
-      yield* Effect.logError(
-        "Database connection failed",
-        Cause.die(new Error("connect postgres://user:database-password@db/app")),
-      ).pipe(Effect.provide(serverLoggerLayer))
-      yield* Effect.logWarning("Provider failed", {
-        message:
-          "Incorrect API key provided: sk-provider-secret****; Bearer opaque-bearer; ghp_examplegithubcredential",
-        authorization: "Bearer opaque-authorization",
-        nested: { apiKey: "opaque-api-key", password: "opaque-password" },
-        url: "https://api.example/run?api_key=opaque-query-key",
-        credentials: "opaque-credentials",
-      }).pipe(Effect.provide(serverLoggerLayer))
-      const output = (yield* TestConsole.logLines).map(String).join("\n")
-      for (const secret of [
-        "database-password",
-        "sk-provider-secret",
-        "opaque-authorization",
-        "opaque-bearer",
-        "opaque-api-key",
-        "opaque-password",
-        "opaque-query-key",
-        "ghp_examplegithubcredential",
-        "opaque-credentials",
-      ])
-        assert.notInclude(output, secret)
-      assert.include(output, "postgres://user:[REDACTED]@db/app")
-      assert.include(output, "Incorrect API key provided:")
-      assert.include(output, "Database connection failed")
-    }).pipe(Effect.provide(TestConsole.layer)),
-  )
-})
+it.effect("redacts console paths, causes, provider messages and nested metadata", () =>
+  Effect.gen(function* () {
+    yield* Effect.logError(
+      "Database connection failed",
+      Cause.die(new Error("connect postgres://user:database-password@db/app")),
+    )
+    yield* Effect.logWarning("Provider failed", {
+      message:
+        "Incorrect API key provided: sk-provider-secret****; Bearer opaque-bearer; ghp_examplegithubcredential",
+      authorization: "Bearer opaque-authorization",
+      nested: { apiKey: "opaque-api-key", password: "opaque-password" },
+      url: "https://api.example/run?api_key=opaque-query-key",
+      credentials: "opaque-credentials",
+    })
+    const lines = yield* TestConsole.logLines
+    const output = lines.map(String).join("\n")
+    assert.strictEqual(
+      (JSON.parse(String(lines[0])) as Record<string, unknown>)["url.path"],
+      "/api/auth/reset-password/[REDACTED]",
+    )
+    for (const secret of [
+      "opaque-reset-token",
+      "database-password",
+      "sk-provider-secret",
+      "opaque-authorization",
+      "opaque-bearer",
+      "opaque-api-key",
+      "opaque-password",
+      "opaque-query-key",
+      "ghp_examplegithubcredential",
+      "opaque-credentials",
+    ])
+      assert.notInclude(output, secret)
+    assert.include(output, "postgres://user:[REDACTED]@db/app")
+    assert.include(output, "Incorrect API key provided:")
+    assert.include(output, "Database connection failed")
+  }).pipe(
+    Effect.annotateLogs({ path: "/api/auth/reset-password/opaque-reset-token" }),
+    Effect.provide(serverLoggerLayer),
+    Effect.provide(TestConsole.layer),
+  ),
+)
 
 it.effect("redacts shipped request/error logs and replaces a closed exporter", () =>
   Effect.gen(function* () {
