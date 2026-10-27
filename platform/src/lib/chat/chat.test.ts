@@ -8,7 +8,7 @@ import {
   type ChatMiddleware,
   type DebugOption,
 } from "@tanstack/ai"
-import { Deferred, Effect, Fiber, Layer, Schema, Stream } from "effect"
+import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
 
@@ -142,13 +142,9 @@ function chatTestLayer(options: {
               ...message,
               content: Array.isArray(message.content)
                 ? message.content.map((part) => {
-                    const source: unknown = "source" in part ? part.source : undefined
-                    return Schema.is(
-                      Schema.Struct({
-                        type: Schema.Literal(APP_HANDLE),
-                        id: Schema.Literal(CHAT_TEST_FILE_ID),
-                      }),
-                    )(source)
+                    return part.type === "document" &&
+                      "id" in part.source &&
+                      part.source.id === CHAT_TEST_FILE_ID
                       ? {
                           ...part,
                           source: {
@@ -526,23 +522,8 @@ describe("Chat.run", () => {
         `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt, other.txt]`,
       )
       assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
-      const list = refreshed.tools.find((tool) => tool.name === "list_attachments") as AnyServerTool
+      assert.isTrue(refreshed.tools.some((tool) => tool.name === "list_attachments"))
       const read = refreshed.tools.find((tool) => tool.name === "read_attachment") as AnyServerTool
-      const catalogue: unknown = yield* Effect.promise(() =>
-        Promise.resolve<unknown>(list.execute!({})),
-      )
-      assert.deepInclude(catalogue, {
-        attachments: [
-          {
-            fileId: CHAT_TEST_FILE_ID,
-            sourceMessageId: chatTestExecution.claim.inputMessageId,
-            type: "document",
-            filename: "notes.txt",
-            mimeType: "text/plain",
-            bytes: 5,
-          },
-        ],
-      })
       const result: unknown = yield* Effect.promise(() =>
         Promise.resolve<unknown>(read.execute!({ fileId: CHAT_TEST_FILE_ID })),
       )

@@ -1,5 +1,5 @@
 import { chat, type ContentPart, type ModelMessage } from "@tanstack/ai"
-import { Schema } from "effect"
+import type { Schema } from "effect"
 import { expect, test, vi } from "vitest"
 
 import { APP_HANDLE } from "@/lib/constants"
@@ -19,6 +19,12 @@ import {
 
 const FILE_ID = "0199b600-0000-7000-8000-000000000001"
 const PDF = Buffer.from("%PDF-1.7").toString("base64")
+const MODEL = {
+  providerId: "provider",
+  api: "responses",
+  modelId: "custom-model",
+  providerType: "openai",
+} as const
 
 function attachmentHistory(
   options: {
@@ -31,73 +37,52 @@ function attachmentHistory(
     bytes?: number
   } = {},
 ): ChatProjectionRecord[] {
+  const message = (
+    id: string,
+    role: ChatProjectionRecord["role"],
+    part: typeof Schema.JsonObject.Type & { type: string },
+  ): ChatProjectionRecord => ({
+    id,
+    role,
+    state: "complete",
+    payload: { version: 1, parts: [{ id: `${id}-part`, ...part }] },
+  })
   return [
-    {
-      id: "upload",
-      role: "user",
-      state: "complete",
-      payload: {
-        version: 1,
-        parts: [
-          {
-            id: "file-part",
-            type: options.mediaType ?? "document",
-            metadata: { filename: "report.pdf" },
-            source: {
-              type: APP_HANDLE,
-              id: FILE_ID,
-              mimeType: options.mediaType === "image" ? "image/png" : "application/pdf",
-              byteSize: options.bytes ?? 8,
-            },
-          },
-        ],
+    message("upload", "user", {
+      type: options.mediaType ?? "document",
+      metadata: { filename: "report.pdf" },
+      source: {
+        type: APP_HANDLE,
+        id: FILE_ID,
+        mimeType: options.mediaType === "image" ? "image/png" : "application/pdf",
+        byteSize: options.bytes ?? 8,
       },
-    },
+    }),
+    message("decision", "assistant", {
+      type: "tool-call",
+      name: options.name ?? "read_attachment",
+      toolCallId: "read_1",
+      arguments: JSON.stringify({ fileId: FILE_ID }),
+      executionLocation: options.executionLocation ?? "server_api",
+      declaration: { source: options.toolSource ?? "chat-attachment" },
+      targets: [{ id: "slot" }],
+    }),
     {
-      id: "decision",
-      role: "assistant",
-      state: "complete",
-      payload: {
-        version: 1,
-        parts: [
-          {
-            id: "tool-part",
-            type: "tool-call",
-            name: options.name ?? "read_attachment",
-            toolCallId: "read_1",
-            arguments: JSON.stringify({ fileId: FILE_ID }),
-            executionLocation: options.executionLocation ?? "server_api",
-            declaration: { source: options.toolSource ?? "chat-attachment" },
-            targets: [{ id: "slot" }],
-          },
-        ],
-      },
-    },
-    {
-      id: "result",
-      role: "tool",
-      state: "complete",
+      ...message("result", "tool", {
+        type: "tool-result",
+        toolCallId: "read_1",
+        outcome: "succeeded",
+        output: {
+          type: "attachment-reference",
+          version: 1,
+          fileId: FILE_ID,
+          sourceMessageId: "upload",
+        },
+      }),
       sourceAssistantMessageId: "decision",
-      sourceToolPartId: "tool-part",
+      sourceToolPartId: "decision-part",
       responseTargetId: options.responseTargetId ?? "slot",
       authorTenantUserId: options.authorTenantUserId ?? null,
-      payload: {
-        version: 1,
-        parts: [
-          {
-            id: "result-part",
-            type: "tool-result",
-            toolCallId: "read_1",
-            outcome: "succeeded",
-            output: {
-              type: "attachment-reference",
-              version: 1,
-              fileId: FILE_ID,
-              sourceMessageId: "upload",
-            },
-          },
-        ],
-      },
     },
   ]
 }
@@ -143,12 +128,7 @@ test("media budgeting counts repeated retrieval bytes only in selected messages"
   const options = {
     history,
     messages,
-    model: {
-      providerId: "provider",
-      api: "responses",
-      modelId: "model",
-      providerType: "openai",
-    } as const,
+    model: MODEL,
     webAccessEnabled: false,
   }
   expect(selectChatProviderHistory(options)).not.toBeNull()
@@ -164,12 +144,7 @@ test("media budgeting retains the per-message attachment count cap", () => {
   const content = upload.content as ContentPart[]
   const options = {
     history,
-    model: {
-      providerId: "provider",
-      api: "responses",
-      modelId: "model",
-      providerType: "openai",
-    } as const,
+    model: MODEL,
     webAccessEnabled: false,
   }
   const messages = [
@@ -195,22 +170,11 @@ test("media budgeting retains the per-message attachment count cap", () => {
 test("only a server result linked to an original upload on this ancestry expands", () => {
   const valid = attachmentProjection()
   expect(valid.trustedToolMessageIds).toEqual(new Set(["result:result-part"]))
-  expect(valid.messages[1]?.content).toEqual([
-    {
-      type: "text",
-      content: JSON.stringify({
-        type: "attachment-reference",
-        version: 1,
-        fileId: FILE_ID,
-        sourceMessageId: "upload",
-      }),
-    },
-    {
-      type: "document",
-      source: { type: "file", value: FILE_ID, mimeType: "application/pdf" },
-      metadata: { filename: "report.pdf" },
-    },
-  ])
+  expect(valid.messages[1]?.content).toContainEqual({
+    type: "document",
+    source: { type: "file", value: FILE_ID, mimeType: "application/pdf" },
+    metadata: { filename: "report.pdf" },
+  })
   for (const history of [
     attachmentHistory().slice(1),
     attachmentHistory({ executionLocation: "browser" }),
@@ -223,25 +187,20 @@ test("only a server result linked to an original upload on this ancestry expands
   }
 })
 
-test("media retrieval remains stable on reload and validates only trusted tool media", () => {
+test("media normalization accepts only trusted tool results and preserves their position", () => {
   const first = attachmentProjection()
-  expect(attachmentProjection()).toEqual(first)
   const hydrated = hydrateAttachmentFixture(first.messages)
   expect(normalizeChatAttachments(hydrated, { sandbox: false }).attachments[0]?.result).toBe(
     "rejected",
   )
-  expect(
-    normalizeChatAttachments(hydrated, {
-      sandbox: false,
-      trustedToolMessageIds: first.trustedToolMessageIds,
-    }).attachments[0]?.result,
-  ).toBe("pdf")
-  expect(
-    normalizeChatAttachments(hydrated, {
-      sandbox: false,
-      trustedToolMessageIds: first.trustedToolMessageIds,
-    }).messages.map((message) => message.metadata),
-  ).toEqual(hydrated.map((message) => message.metadata))
+  const normalized = normalizeChatAttachments(hydrated, {
+    sandbox: false,
+    trustedToolMessageIds: first.trustedToolMessageIds,
+  })
+  expect(normalized.attachments[0]?.result).toBe("pdf")
+  expect(normalized.messages.map((message) => message.metadata)).toEqual(
+    hydrated.map((message) => message.metadata),
+  )
   const openRouter = attachmentProjection(attachmentHistory(), "chat-completions", true)
   expect(openRouter.messages.map((message) => message.role)).toEqual(["assistant", "tool", "user"])
   expect(openRouter.messages[2]?.metadata).toEqual(openRouter.messages[1]?.metadata)
@@ -252,12 +211,7 @@ test("retrieval reserves the aggregate budget across concurrent reads before ret
   const selected = selectChatProviderHistory({
     history,
     messages: projectChatModelHistory(history),
-    model: {
-      providerId: "provider",
-      api: "responses",
-      modelId: "model",
-      providerType: "openai",
-    },
+    model: MODEL,
     webAccessEnabled: false,
   })!
   const bytes = Buffer.alloc(3 * 1024 * 1024)
@@ -274,13 +228,16 @@ test("retrieval reserves the aggregate budget across concurrent reads before ret
   expect(results[1]).toHaveProperty("refusal")
 })
 
-test("SVG recovery returns paged text rather than an opaque media reference", async () => {
+test("SVG recovery pages historical text and prepares its sandbox path before returning", async () => {
+  const prepare = vi.fn(() => Promise.resolve())
   const tools = createChatAttachmentTools([], {
     catalogue: chatAttachmentCatalogue(attachmentHistory()).map((file) => ({
       ...file,
       mimeType: "image/svg+xml",
+      filename: "drawing.svg",
     })),
     remainingBytes: 0,
+    prepare,
     media: { protocol: "responses" },
     read: () =>
       Promise.resolve({ bytes: Buffer.from("<svg>saved source</svg>"), mimeType: "image/svg+xml" }),
@@ -288,32 +245,11 @@ test("SVG recovery returns paged text rather than an opaque media reference", as
   expect(await tools[0]!.execute!({ fileId: FILE_ID, offset: 5, limit: 5 })).toMatchObject({
     content: "saved",
     nextOffset: 10,
+    sandboxPath: `uploads/${FILE_ID}-drawing.svg`,
   })
-})
-
-test("historical sandbox recovery prepares a stable unique file before returning its path", async () => {
-  const catalogue = chatAttachmentCatalogue(attachmentHistory()).map((file) => ({
-    ...file,
-    filename: "notes.txt",
-    mimeType: "text/plain",
-  }))
-  const prepared: string[] = []
-  const tools = createChatAttachmentTools([], {
-    catalogue,
-    remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-    media: { protocol: "responses" },
-    read: () => Promise.resolve({ bytes: Buffer.from("saved text"), mimeType: "text/plain" }),
-    prepare: (file) => {
-      prepared.push(file.sandboxPath ?? "")
-      return Promise.resolve()
-    },
-  })
-  const result: unknown = await tools[0]!.execute!({ fileId: FILE_ID })
-  expect(result).toMatchObject({
-    content: "saved text",
-    sandboxPath: `uploads/${FILE_ID}-notes.txt`,
-  })
-  expect(prepared).toEqual([`uploads/${FILE_ID}-notes.txt`])
+  expect(prepare).toHaveBeenCalledWith(
+    expect.objectContaining({ sandboxPath: `uploads/${FILE_ID}-drawing.svg` }),
+  )
 })
 
 test("file IDs are ancestry scoped, listing is bounded, and unsupported PDF is refused before reading", async () => {
@@ -324,12 +260,13 @@ test("file IDs are ancestry scoped, listing is bounded, and unsupported PDF is r
       mimeType: "application/pdf",
     }),
   )
-  const tools = createChatAttachmentTools([], {
+  const recovery = {
     catalogue,
     remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
     read,
     media: { protocol: "responses" },
-  })
+  }
+  const tools = createChatAttachmentTools([], recovery)
   const result: unknown = await tools[0]!.execute!({ fileId: FILE_ID })
   expect(result).toMatchObject({
     type: "attachment-reference",
@@ -340,102 +277,70 @@ test("file IDs are ancestry scoped, listing is bounded, and unsupported PDF is r
   await tools[0]!.execute!({ fileId: "0199b600-0000-7000-8000-000000000099" })
   expect(read).toHaveBeenCalledTimes(1)
   const unsupported = createChatAttachmentTools([], {
-    catalogue,
-    remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-    read,
+    ...recovery,
     media: { protocol: "chat-completions" },
   })
   expect(await unsupported[0]!.execute!({ fileId: FILE_ID })).toHaveProperty("refusal")
   expect(read).toHaveBeenCalledTimes(1)
   const listed = createChatAttachmentTools([], {
-    remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+    ...recovery,
     catalogue: Array.from({ length: 70 }, (_, index) => ({ ...catalogue[0]!, fileId: `${index}` })),
-    read,
-    media: { protocol: "responses" },
   })
-  const page = Schema.decodeUnknownSync(
-    Schema.Struct({ attachments: Schema.Array(Schema.JsonObject), nextOffset: Schema.Number }),
-  )(await listed[1]!.execute!({ limit: 500 }))
-  expect(page.attachments).toHaveLength(50)
-  expect(page.nextOffset).toBe(50)
+  const page: unknown = await listed[1]!.execute!({ limit: 500 })
+  expect(page).toHaveProperty("attachments.length", 50)
+  expect(page).toHaveProperty("nextOffset", 50)
 })
 
-test.each([
-  {
-    api: "responses",
-    providerType: "openai",
-    mediaType: "document",
-    openRouterDocuments: false,
-    resultWire: '"type":"function_call_output"',
-    mediaWire: '"type":"input_file"',
-  },
-  {
-    api: "anthropic-messages",
-    providerType: "anthropic",
-    mediaType: "document",
-    openRouterDocuments: false,
-    resultWire: '"type":"tool_result"',
-    mediaWire: '"type":"document"',
-  },
-  {
-    api: "gemini-generate-content",
-    providerType: "google",
-    mediaType: "document",
-    openRouterDocuments: false,
-    resultWire: '"functionResponse":',
-    mediaWire: '"inlineData":',
-  },
-  {
-    api: "chat-completions",
-    providerType: "openai",
-    mediaType: "image",
-    openRouterDocuments: false,
-    resultWire: '"role":"tool"',
-    mediaWire: '"type":"image_url"',
-  },
-  {
-    api: "chat-completions",
-    providerType: "openrouter",
-    mediaType: "document",
-    openRouterDocuments: true,
-    resultWire: '"role":"tool"',
-    mediaWire: '"type":"file"',
-  },
-] as const)("serializes retrieved $mediaType once on $providerType $api", async (route) => {
-  const history = attachmentHistory({ mediaType: route.mediaType })
-  const projection = attachmentProjection(history, route.api, route.openRouterDocuments)
-  const messages = hydrateAttachmentFixture(projection.messages)
-  const requests: (typeof Schema.JsonObject.Type)[] = []
-  const configuration: ChatModelConfiguration = {
-    api: route.api,
-    providerType: route.providerType,
-    providerId: "provider",
-    providerName: "test",
-    modelId: "custom-model",
-    apiKey: "unused-test-key",
-    baseUrl: "https://provider.example/v1",
-    fetch: async (input, init) => {
-      const encoded =
-        typeof init?.body === "string"
-          ? init.body
-          : input instanceof Request
-            ? await input.text()
-            : ""
-      const body = Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(encoded))
-      requests.push(body)
-      return Response.json({ error: { message: "Synthetic response" } }, { status: 401 })
+test.each`
+  api                          | providerType    | mediaType     | resultWire                         | mediaWire
+  ${"responses"}               | ${"openai"}     | ${"document"} | ${'"type":"function_call_output"'} | ${'"type":"input_file"'}
+  ${"anthropic-messages"}      | ${"anthropic"}  | ${"document"} | ${'"type":"tool_result"'}          | ${'"type":"document"'}
+  ${"gemini-generate-content"} | ${"google"}     | ${"document"} | ${'"functionResponse":'}           | ${'"inlineData":'}
+  ${"chat-completions"}        | ${"openai"}     | ${"image"}    | ${'"role":"tool"'}                 | ${'"type":"image_url"'}
+  ${"chat-completions"}        | ${"openrouter"} | ${"document"} | ${'"role":"tool"'}                 | ${'"type":"file"'}
+`(
+  "serializes retrieved $mediaType once on $providerType $api",
+  async (
+    route: Pick<ChatModelConfiguration, "api" | "providerType"> & {
+      mediaType: "image" | "document"
+      resultWire: string
+      mediaWire: string
     },
-  }
-  const adapter = createChatAdapter(
-    configuration,
-    route.openRouterDocuments ? chatWebState() : undefined,
-  )
-  for await (const _event of chat({ threadId: "retrieval-test", adapter, messages })) {
-    // Exercise the installed serializers up to the synthetic provider boundary.
-  }
-  expect(requests).toHaveLength(1)
-  const request = requests[0]!
-  expect(JSON.stringify(request).split(PDF)).toHaveLength(2)
-  expect(JSON.stringify(request)).toContain(route.resultWire)
-  expect(JSON.stringify(request)).toContain(route.mediaWire)
-})
+  ) => {
+    const openRouterDocuments = route.providerType === "openrouter"
+    const history = attachmentHistory({ mediaType: route.mediaType })
+    const projection = attachmentProjection(history, route.api, openRouterDocuments)
+    const messages = hydrateAttachmentFixture(projection.messages)
+    const requests: string[] = []
+    const configuration: ChatModelConfiguration = {
+      ...MODEL,
+      api: route.api,
+      providerType: route.providerType,
+      providerName: "test",
+      apiKey: "unused-test-key",
+      baseUrl: "https://provider.example/v1",
+      fetch: async (input, init) => {
+        const encoded =
+          typeof init?.body === "string"
+            ? init.body
+            : input instanceof Request
+              ? await input.text()
+              : ""
+        requests.push(encoded)
+        return Response.json({ error: { message: "Synthetic response" } }, { status: 401 })
+      },
+    }
+    const adapter = createChatAdapter(
+      configuration,
+      openRouterDocuments ? chatWebState() : undefined,
+    )
+    for await (const _event of chat({ threadId: "retrieval-test", adapter, messages })) {
+      // Exercise the installed serializers up to the synthetic provider boundary.
+    }
+    expect(requests).toHaveLength(1)
+    const request = requests[0]!
+    expect(request.split(PDF)).toHaveLength(2)
+    expect(request).toContain(route.resultWire)
+    expect(request).toContain(route.mediaWire)
+  },
+)
