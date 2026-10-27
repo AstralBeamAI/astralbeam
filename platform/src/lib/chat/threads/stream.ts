@@ -118,6 +118,9 @@ function managedToolPart(
       name: tool?.name ?? part.name,
       inputSchema: tool?.inputSchema ? convertSchemaToJsonSchema(tool.inputSchema) : undefined,
       outputSchema: tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined,
+      ...(tool?.execute && tool.metadata?.source === "chat-attachment"
+        ? { source: "chat-attachment" }
+        : {}),
       ...(tool?.execute && tool.metadata?.source === "mcp"
         ? {
             source: "mcp",

@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 import { ChatThreadInvalid } from "../threads/errors"
+import { projectChatModelHistory, type ChatProjectionRecord } from "../threads/projection"
 import {
   base64ByteLength,
   ChatFiles,
@@ -13,12 +14,11 @@ import { CHAT_ATTACHMENT_MAX_COUNT, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./co
 import {
   chatAttachmentCatalogue,
   projectChatAttachmentRetrievals,
-  type ChatAttachmentHistoryRecord,
   type ChatAttachmentReference,
 } from "./retrieval"
 
 interface ChatProviderHistorySelection {
-  readonly history: readonly ChatAttachmentHistoryRecord[]
+  readonly history: readonly ChatProjectionRecord[]
   readonly messages: readonly ModelMessage[]
   readonly model: Pick<ChatModelConfiguration, "providerId" | "api" | "modelId" | "providerType">
   readonly webAccessEnabled: boolean
@@ -47,13 +47,19 @@ export function selectChatProviderHistory(options: ChatProviderHistorySelection)
     )
     return content.length ? [{ ...message, content }] : []
   })
-  return chatProviderHistoryFits(executable, catalogue)
-    ? { ...selected, messages: executable }
+  const bytes = chatProviderHistoryBytes(executable, catalogue)
+  return bytes !== null
+    ? {
+        ...selected,
+        messages: executable,
+        catalogue,
+        remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES - bytes,
+      }
     : null
 }
 
 /** Check aggregate bytes and per-message count before reading any saved file. */
-function chatProviderHistoryFits(
+function chatProviderHistoryBytes(
   messages: readonly ModelMessage[],
   catalogue: readonly ChatAttachmentReference[],
 ) {
@@ -65,9 +71,9 @@ function chatProviderHistoryFits(
       if (!["image", "document", "audio", "video"].includes(part.type) || !("source" in part))
         continue
       count++
-      if (count > CHAT_ATTACHMENT_MAX_COUNT) return false
+      if (count > CHAT_ATTACHMENT_MAX_COUNT) return null
       const source: unknown = part.source
-      if (!Schema.is(Schema.JsonObject)(source)) return false
+      if (!Schema.is(Schema.JsonObject)(source)) return null
       const id = source.type === "file" ? source.value : source.id
       const bytes =
         source.type === "data" && typeof source.value === "string"
@@ -75,22 +81,34 @@ function chatProviderHistoryFits(
           : typeof id === "string"
             ? sizes.get(id)
             : undefined
-      if (bytes === undefined) return false
+      if (bytes === undefined) return null
       total += bytes
-      if (total > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return false
+      if (total > CHAT_ATTACHMENT_MAX_TOTAL_BYTES) return null
     }
   }
-  return true
+  return total
 }
 
 /** Hydrate only the chosen provider context while retaining full-ancestry discovery authority. */
-export const prepareChatProviderHistory = Effect.fnUntraced(function* (options: {
-  readonly selected: NonNullable<ReturnType<typeof selectChatProviderHistory>>
-  readonly files: Pick<typeof ChatFiles.Service, "hydrate">
-  readonly sandbox: boolean
-  readonly scope: ChatFileScope
-}) {
-  const { selected } = options
+export const prepareChatProviderHistory = Effect.fnUntraced(function* (
+  options: Omit<ChatProviderHistorySelection, "messages"> & {
+    readonly files: Pick<typeof ChatFiles.Service, "hydrate">
+    readonly sandbox: boolean
+    readonly scope: ChatFileScope
+  },
+) {
+  const messages = yield* Effect.try({
+    try: () =>
+      projectChatModelHistory(options.history, {
+        providerId: options.model.providerId,
+        protocol: options.model.api,
+        modelId: options.model.modelId,
+        webAccessEnabled: options.webAccessEnabled,
+      }),
+    catch: () => new ChatThreadInvalid(),
+  })
+  const selected = selectChatProviderHistory({ ...options, messages })
+  if (!selected) return yield* new ChatThreadInvalid()
   const projected = yield* options.files.hydrate({
     scope: options.scope,
     messages: selected.messages,
@@ -101,5 +119,10 @@ export const prepareChatProviderHistory = Effect.fnUntraced(function* (options: 
   })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
-  return { projected, ...normalized }
+  return {
+    projected,
+    ...normalized,
+    catalogue: selected.catalogue,
+    remainingBytes: selected.remainingBytes,
+  }
 })

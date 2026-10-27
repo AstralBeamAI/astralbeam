@@ -2,7 +2,7 @@ import { type AnyServerTool, toolDefinition } from "@tanstack/ai"
 import * as Schema from "effect/Schema"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 
-import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants"
+import { CHAT_ATTACHMENT_IMAGE_MIME_TYPES, CHAT_ATTACHMENT_READ_MAX_CHARACTERS } from "./constants"
 import type { ChatAttachmentFile } from "./types"
 import { chatToolInputSchema } from "../tool-schema"
 import { normalizeChatAttachments } from "./attachments"
@@ -48,9 +48,11 @@ export function createChatAttachmentTools(
     readonly read: (fileId: string) => Promise<{ bytes: Uint8Array; mimeType: string }>
     readonly prepare?: (file: ChatAttachmentFile) => Promise<void>
     readonly media: ChatAttachmentMedia
+    readonly remainingBytes: number
   },
 ): AnyServerTool[] {
   if (files.length === 0 && !recovery?.catalogue.length) return []
+  let remainingBytes = recovery?.remainingBytes ?? 0
 
   const readAttachment = toolDefinition({
     name: "read_attachment",
@@ -68,7 +70,8 @@ export function createChatAttachmentTools(
       if (!reference || !recovery)
         return { refusal: "That file is not available in this conversation path." }
       const media =
-        reference.mimeType.startsWith("image/") || reference.mimeType === "application/pdf"
+        CHAT_ATTACHMENT_IMAGE_MIME_TYPES.includes(reference.mimeType) ||
+        reference.mimeType === "application/pdf"
       if (media && !chatAttachmentMediaSupported(reference, recovery.media))
         return { refusal: "This model connection cannot read this file as media." }
       if (media && (offset !== 0 || limit !== undefined))
@@ -97,7 +100,11 @@ export function createChatAttachmentTools(
       )
       if (normalized.attachments.some((entry) => entry.result === "rejected"))
         return { refusal: "This attachment cannot be read within the file limits." }
-      if (media)
+      if (media) {
+        // Reserve synchronously after the read so concurrent calls share the same budget.
+        if (saved.bytes.length > remainingBytes)
+          return { refusal: "This attachment would exceed the conversation's media limit." }
+        remainingBytes -= saved.bytes.length
         return {
           type: "attachment-reference",
           version: 1,
@@ -107,6 +114,7 @@ export function createChatAttachmentTools(
           mimeType: saved.mimeType,
           bytes: saved.bytes.length,
         }
+      }
       const file = normalized.files[0]
       if (!file) return { refusal: "This file has no readable text." }
       if (recovery.prepare) await recovery.prepare(file)

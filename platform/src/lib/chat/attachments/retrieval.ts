@@ -2,18 +2,8 @@ import type { ContentPart, ModelMessage } from "@tanstack/ai"
 import { Schema } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
-import type { ChatMessagePayload } from "../threads/schemas"
-
-export interface ChatAttachmentHistoryRecord {
-  readonly id: string
-  readonly role: "user" | "assistant" | "tool"
-  readonly state: "draft" | "complete" | "interrupted"
-  readonly payload: ChatMessagePayload
-  readonly sourceAssistantMessageId?: string | null
-  readonly sourceToolPartId?: string | null
-  readonly responseTargetId?: string | null
-  readonly authorTenantUserId?: string | null
-}
+import type { ChatProjectionRecord } from "../threads/projection"
+import { CHAT_ATTACHMENT_IMAGE_MIME_TYPES, CHAT_ATTACHMENT_MAX_COUNT } from "./constants"
 
 export interface ChatAttachmentReference {
   readonly fileId: string
@@ -45,7 +35,7 @@ const ChatAttachmentRetrievalSchema = Schema.Struct({
 })
 
 /** Only original user uploads on the selected canonical path grant retrieval access. */
-export function chatAttachmentCatalogue(history: readonly ChatAttachmentHistoryRecord[]) {
+export function chatAttachmentCatalogue(history: readonly ChatProjectionRecord[]) {
   const catalogue = new Map<string, ChatAttachmentReference>()
   for (const message of history) {
     if (message.role !== "user" || message.state !== "complete") continue
@@ -74,7 +64,7 @@ export function chatAttachmentMediaSupported(
   file: ChatAttachmentReference,
   media: ChatAttachmentMedia,
 ) {
-  if (file.mimeType.startsWith("image/")) return true
+  if (CHAT_ATTACHMENT_IMAGE_MIME_TYPES.includes(file.mimeType)) return true
   if (file.mimeType !== "application/pdf") return false
   return (
     media.openRouterDocuments === true ||
@@ -83,8 +73,8 @@ export function chatAttachmentMediaSupported(
 }
 
 function trustedChatAttachmentCall(
-  result: ChatAttachmentHistoryRecord,
-  records: ReadonlyMap<string, ChatAttachmentHistoryRecord>,
+  result: ChatProjectionRecord,
+  records: ReadonlyMap<string, ChatProjectionRecord>,
 ) {
   if (result.role !== "tool" || result.state !== "complete" || result.authorTenantUserId) return
   const decision = records.get(result.sourceAssistantMessageId ?? "")
@@ -110,8 +100,8 @@ function trustedChatAttachmentCall(
 }
 
 function trustedChatAttachmentResult(
-  result: ChatAttachmentHistoryRecord,
-  records: ReadonlyMap<string, ChatAttachmentHistoryRecord>,
+  result: ChatProjectionRecord,
+  records: ReadonlyMap<string, ChatProjectionRecord>,
   catalogue: readonly ChatAttachmentReference[],
 ) {
   const call = trustedChatAttachmentCall(result, records)
@@ -134,7 +124,7 @@ function trustedChatAttachmentResult(
 
 /** Expands a verified server result at its saved position, without trusting arbitrary tool JSON. */
 export function projectChatAttachmentRetrievals(options: {
-  readonly history: readonly ChatAttachmentHistoryRecord[]
+  readonly history: readonly ChatProjectionRecord[]
   readonly messages: readonly ModelMessage[]
   readonly catalogue: readonly ChatAttachmentReference[]
   readonly media: ChatAttachmentMedia
@@ -146,12 +136,13 @@ export function projectChatAttachmentRetrievals(options: {
   let documentSource: ModelMessage | undefined
   const flushDocuments = () => {
     if (!documentSource || documents.length === 0) return
-    messages.push({
-      id: `${documentSource.id}:attachments`,
-      role: "user",
-      content: documents.splice(0),
-      ...(documentSource.metadata ? { metadata: documentSource.metadata } : {}),
-    })
+    while (documents.length)
+      messages.push({
+        id: `${documentSource.id}:attachments:${documents.length}`,
+        role: "user",
+        content: documents.splice(0, CHAT_ATTACHMENT_MAX_COUNT),
+        ...(documentSource.metadata ? { metadata: documentSource.metadata } : {}),
+      })
     documentSource = undefined
   }
   for (const message of options.messages) {

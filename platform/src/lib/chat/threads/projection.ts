@@ -4,7 +4,7 @@ import { Schema } from "effect"
 import type { ChatMessagePayload } from "./schemas"
 import { APP_HANDLE } from "@/lib/constants"
 
-interface ChatProjectionRecord {
+export interface ChatProjectionRecord {
   readonly id: string
   readonly role: "user" | "assistant" | "tool"
   readonly state: "draft" | "complete" | "interrupted"

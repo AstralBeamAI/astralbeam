@@ -2,6 +2,7 @@ import {
   chat,
   EventType,
   toolDefinition,
+  type AnyServerTool,
   type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
@@ -10,6 +11,10 @@ import {
 import { Effect, Schema } from "effect"
 import { describe, expect, test } from "vitest"
 
+import { APP_HANDLE } from "@/lib/constants"
+import { createChatAttachmentTools } from "../attachments/tools"
+import { chatAttachmentCatalogue, projectChatAttachmentRetrievals } from "../attachments/retrieval"
+import { projectChatModelHistory, type ChatProjectionRecord } from "./projection"
 import { createChatAdapter } from "../adapter"
 import { chatToolInputSchema } from "../tool-schema"
 import { chatFailedUsageMiddleware } from "../usage-limits"
@@ -29,7 +34,7 @@ const managedStreamClaim: ChatWriterClaim = {
   invocationId: crypto.randomUUID(),
 }
 
-function managedProviderResponse(tool: boolean) {
+function managedProviderResponse(tool: boolean, name = "change") {
   const delta = tool
     ? {
         role: "assistant",
@@ -38,7 +43,13 @@ function managedProviderResponse(tool: boolean) {
             index: 0,
             id: "call_1",
             type: "function",
-            function: { name: "change", arguments: "{}" },
+            function: {
+              name,
+              arguments:
+                name === "read_attachment"
+                  ? JSON.stringify({ fileId: "0199b600-0000-7000-8000-000000000001" })
+                  : "{}",
+            },
           },
         ],
       }
@@ -59,6 +70,7 @@ function managedProviderResponse(tool: boolean) {
 }
 
 async function exerciseManagedStream(options: {
+  attachmentTool?: AnyServerTool
   browser?: boolean
   failDecision?: boolean
   failFinal?: boolean
@@ -94,7 +106,7 @@ async function exerciseManagedStream(options: {
       if (typeof init?.body !== "string") throw new Error("Expected provider JSON request")
       prompts.push(JSON.parse(init.body))
       requests += 1
-      return Promise.resolve(managedProviderResponse(requests === 1))
+      return Promise.resolve(managedProviderResponse(requests === 1, options.attachmentTool?.name))
     },
   }
   const definition = toolDefinition({
@@ -105,14 +117,16 @@ async function exerciseManagedStream(options: {
         ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
         : { type: "object", properties: {} },
   })
-  const tool = options.browser
-    ? definition.client()
-    : definition.server(() => {
-        order.push("execute")
-        executed += 1
-        if (options.failTool) throw new Error("Synthetic external outcome uncertainty")
-        return Promise.resolve({ updated: true })
-      })
+  const tool =
+    options.attachmentTool ??
+    (options.browser
+      ? definition.client()
+      : definition.server(() => {
+          order.push("execute")
+          executed += 1
+          if (options.failTool) throw new Error("Synthetic external outcome uncertainty")
+          return Promise.resolve({ updated: true })
+        }))
   const threads = {
     checkpoint: ({ payload, state }: { payload: ChatMessagePayload; state: string }) =>
       Effect.sync(() => {
@@ -310,6 +324,73 @@ describe("managed TanStack persistence boundaries", () => {
       expect(result.saved.at(-1)?.provenance?.usage).toMatchObject({ costUsd: "0.000105" })
     },
   )
+
+  test("committed attachment provenance authorizes media recovery after reload", async () => {
+    const history: ChatProjectionRecord[] = [
+      {
+        id: managedStreamClaim.inputMessageId,
+        role: "user",
+        state: "complete",
+        payload: {
+          version: 1,
+          parts: [
+            {
+              id: "file",
+              type: "document",
+              source: {
+                type: APP_HANDLE,
+                id: "0199b600-0000-7000-8000-000000000001",
+                mimeType: "application/pdf",
+                byteSize: 8,
+              },
+            },
+          ],
+        },
+      },
+    ]
+    const catalogue = chatAttachmentCatalogue(history)
+    const [attachmentTool] = createChatAttachmentTools([], {
+      catalogue,
+      remainingBytes: 8,
+      media: { protocol: "responses" },
+      read: () => Promise.resolve({ bytes: Buffer.from("%PDF-1.7"), mimeType: "application/pdf" }),
+    })
+    const result = await exerciseManagedStream({ attachmentTool: attachmentTool! })
+    expect(result.failed).toBe(false)
+    const saved = result.results[0]!
+    history.push(
+      {
+        id: saved.assistantMessageId,
+        role: "assistant",
+        state: "complete",
+        payload: result.saved.find((payload) =>
+          payload.parts.some((part) => part.type === "tool-call"),
+        )!,
+      },
+      {
+        id: "result",
+        role: "tool",
+        state: "complete",
+        payload: saved.payload,
+        sourceAssistantMessageId: saved.assistantMessageId,
+        sourceToolPartId: saved.toolPartId,
+        responseTargetId: saved.responseTargetId,
+      },
+    )
+    const reloaded: ChatProjectionRecord[] = JSON.parse(
+      JSON.stringify(history),
+    ) as ChatProjectionRecord[]
+    const recovered = projectChatAttachmentRetrievals({
+      history: reloaded,
+      catalogue,
+      messages: projectChatModelHistory(reloaded),
+      media: { protocol: "responses" },
+    })
+    expect(recovered.trustedToolMessageIds.size).toBe(1)
+    expect(recovered.messages.at(-1)?.content).toContainEqual(
+      expect.objectContaining({ type: "document" }),
+    )
+  })
 
   test("refreshes provider context between phases without replacing canonical saved history", async () => {
     const result = await exerciseManagedStream({ refresh: true })

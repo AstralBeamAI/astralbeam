@@ -510,7 +510,10 @@ describe("Chat.run", () => {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
       assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
-      assert.include(JSON.stringify(options.messages), `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt]`)
+      assert.include(
+        JSON.stringify(options.messages),
+        `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt, other.txt]`,
+      )
       const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
       const refreshed = yield* Effect.promise(async () =>
         gate.onConfig!(
@@ -520,7 +523,7 @@ describe("Chat.run", () => {
       )
       assert.include(
         JSON.stringify(refreshed?.providerMessages),
-        `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt]`,
+        `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt, other.txt]`,
       )
       assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
       const list = refreshed.tools.find((tool) => tool.name === "list_attachments") as AnyServerTool
@@ -549,6 +552,17 @@ describe("Chat.run", () => {
         chatTestLayer({
           agent: sandboxedAgent,
           model: CHAT_TEST_MODEL,
+          sandboxSession: () =>
+            Effect.succeed({
+              acquire: () => Effect.die("unused"),
+              prepareUploads: (files) =>
+                Effect.sync(() =>
+                  assert.sameMembers(
+                    files.map((file) => file.filename),
+                    ["notes.txt", "other.txt"],
+                  ),
+                ),
+            }),
           history: [
             {
               id: chatTestExecution.claim.inputMessageId,
@@ -567,6 +581,12 @@ describe("Chat.run", () => {
                       mimeType: "text/plain",
                     },
                     metadata: { filename: "notes.txt" },
+                  },
+                  {
+                    id: "other",
+                    type: "document",
+                    source: { type: "data", value: btoa("another file"), mimeType: "text/plain" },
+                    metadata: { filename: "other.txt" },
                   },
                 ],
               },
