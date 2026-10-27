@@ -1,12 +1,12 @@
 # Security
 
-A self-hosted deployment keeps its stored secrets under a key you own, and leaves the rest to how you put the application on the network. The embedded chat boundary is covered separately in the [SDK security model](/docs/sdk/security).
+Protect the deployment's encryption key, database, private storage, and operator endpoint. This guide covers self-hosting controls. For embedded chat and host tools, see the [SDK security model](/docs/sdk/security).
 
 ## Encryption at rest
 
-Encrypted values include deployment settings and the model catalog in `config.value`, model and sandbox provider credentials, MCP connection credentials, OAuth client details inside `mcp_server.auth_config`, and temporary MCP authorization attempts in `cache_entry`.
+Deployment settings, model and sandbox credentials, and MCP authorization data are encrypted in PostgreSQL.
 
-These values are sealed as compact JWE with AES-256-GCM using a key derived from `DATABASE_ENCRYPTION_KEY`. A non-secret header identifier selects the keyring entry during rotation. Stored identities are checked after decoding to prevent ciphertext from being reused for another row or authorization attempt. Malformed envelopes and unknown keys never fall back to unverified data.
+Encryption uses AES-256-GCM with a key derived from `DATABASE_ENCRYPTION_KEY`. Values are bound to their stored identity and keyring entry. Invalid ciphertext and unknown keys are rejected.
 
 Better Auth separately encrypts the OAuth tokens it retains. Everything else, including API key digests, is stored as it reads, so treat the whole database as sensitive and protect it with PostgreSQL's own transport and storage controls.
 
@@ -20,7 +20,7 @@ Better Auth separately encrypts the OAuth tokens it retains. Everything else, in
 4. Save each model provider under **Models**. Under **Sandboxes**, test and save a replacement credential: saving an unchanged credential does not rewrite it. MCP server definitions with stored OAuth clients must be recreated, and users must reconnect their private connections. The model catalog re-encrypts on its next successful refresh. These values do not report fallback keys on `/configure`.
 5. Finish or restart in-flight MCP authorizations and verify that every retained encrypted value has been replaced or rewritten with the active key before removing the old entry. Then restart all replicas with only the new entry. There is no automatic whole-database re-encryption command.
 
-Rotating the active entry has two immediate effects. Every operator session is invalidated, because session signing derives from the active entry, and sign-in now requires the new value.
+Changing the active entry invalidates operator sessions. Sign in again with the new value.
 
 **NOTE**: An empty fallback warning list on `/configure` does not prove rotation is complete. Removing a key still protecting any stored value makes that value unreadable.
 
@@ -28,21 +28,21 @@ Each entry must be 32 to 1024 characters, unique after trimming, and free of com
 
 ## Unreadable values
 
-A stored value that cannot be decrypted, because its key is gone or its envelope is damaged, is reported as such rather than guessed at. The deployment behaves as if the setting were unset, the log records `Ignoring invalid stored config value for '<key>'`, and the field at `/configure` says `The stored value cannot be read; enter and save a replacement.`.
+A missing key or damaged ciphertext makes a stored setting unreadable. It is treated as unset. The log identifies the affected key, and `/configure` asks for a replacement.
 
-You do not need to recover a value to replace it. Type a new one over the field and save. This blind replacement is deliberate, so a lost key never forces you to reveal or reconstruct the old secret.
+Enter a replacement and save. You do not need to recover or reveal the old value first.
 
 **TIP**: If the value was a credential held elsewhere, rotate it at that provider too, since you can no longer prove what was stored.
 
 ## Operator access
 
-Operator sign-in at `/configure` compares the submitted value against the first entry of `DATABASE_ENCRYPTION_KEY`, using a constant-time comparison. Dashboard accounts and database credentials give no access to this page, and neither does a fallback keyring entry.
+Sign in to `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`. Dashboard accounts, database credentials, and fallback entries cannot access it.
 
 - Sessions last 15 minutes and are carried in an `HttpOnly`, `SameSite=Strict` cookie that is `Secure` in production, unless `ALLOW_INSECURE=true`. **Sign out** and **Go to app** both end the session immediately.
 - Sign-in is throttled to 5 attempts per minute for the whole deployment. Over the limit, the response carries `Retry-After` and reports `Too many sign-in attempts; try again in <n> seconds.`. A wrong value reports `Invalid encryption key`.
 - Page responses are `Cache-Control: no-store` with `Referrer-Policy: no-referrer`.
 
-The encryption key grants access to every encrypted value in the database, so this page deserves more than its own throttle. Restrict who can reach `/configure` at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and add an ingress rate limit for it during first setup.
+Restrict `/configure` at the ingress with an IP allowlist, VPN, or identity-aware proxy, and add rate limiting during first setup. Its credential can decrypt the deployment's stored secrets.
 
 ## HTTPS and response headers
 
@@ -63,7 +63,7 @@ Framing is denied everywhere, including the API paths, because the embedded widg
 
 ## Reverse proxy trust
 
-`X-Forwarded-Host` and `X-Forwarded-Proto` are honored on `/configure` only when the request's own peer is a loopback address. That is the rule the deployment topology has to satisfy.
+`/configure` honors `X-Forwarded-Host` and `X-Forwarded-Proto` only from a loopback peer:
 
 - Connect the reverse proxy over loopback in the application's network namespace. A host-published container port does not satisfy this.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
@@ -83,7 +83,7 @@ Create a separate widget per deployment, restrict it to the hostnames that serve
 
 An organization API key is `key_<organizationId>_<id>_abo_<secret>`. Only a SHA-256 digest of the secret is stored, so the full value is available when the key is created and cannot be recovered afterwards. A lost key is replaced, not looked up.
 
-Chat tokens are the important nuance. Your server signs them offline with the digest of the key secret, and AstralBeam verifies them against the stored digest, which is what lets chat authenticate without the raw key ever reaching it. The consequence is direct: read access to the stored digest is equivalent to signing access. Treat a database read, a dump, or a replica as capable of minting chat tokens for any organization.
+Chat tokens are signed with the API key secret's digest and verified against the stored digest. Read access to that digest therefore grants signing access. Treat a database dump or replica as capable of minting chat tokens for any organization.
 
 | Property        | Value                                                         |
 | --------------- | ------------------------------------------------------------- |
@@ -99,4 +99,4 @@ A token is also re-checked against the key row after verification, so disabling 
 
 Report privately through [GitHub security advisories](https://github.com/AstralBeamAI/astralbeam/security/advisories/new). Do not open a public issue or pull request for a suspected vulnerability. Say whether you reproduced it on a self-hosted deployment or on AstralBeam Cloud, and include the version, tag, or commit you tested.
 
-AstralBeam is pre-1.0, and only the latest version is supported, which means the current `main` for self-hosted deployments. Fixes land there and ship in the next release, with no backports to older lines, so upgrade before you report.
+See [Versions and support](./overview.md#versions-and-support) before reporting.

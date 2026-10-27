@@ -1,104 +1,51 @@
 # Directories
 
-Directories show tenants, their users and saved conversations inside your application. Let's provision records and embed a read-only user directory for a customer administrator, scoped to their own tenant.
+Embed directories of customers, users, and saved conversations in your application. The example below gives a customer administrator a read-only user directory scoped to their Tenant.
 
 ## From records to a working directory
 
-1. Create the Tenant and TenantUser records from your server. Your Organization API key stays server-side. Keep the returned UUIDs for subsequent updates.
-
-   Let's create a customer and one of its users:
-
-   ```ts
-   import { createTenant, createTenantUser } from "@astralbeam/sdk/api"
-
-   const auth = { apiKey: organizationApiKey }
-   const tenant = await createTenant({ external_id: "northwind", name: "Northwind Traders" }, auth)
-   await createTenantUser(
-     tenant.id,
-     {
-       external_id: "nancy",
-       name: "Nancy",
-       metadata: { department: "Support" },
-     },
-     auth,
-   )
-   ```
-
-   These are create operations, not upserts. For repeatable synchronization, look up exact external IDs with `filter[external_id]`, then create or update using the returned UUIDs. If concurrent creation returns `409`, look up the existing record. See the [API client guide](./api.md).
-
-2. Authenticate the customer administrator in your host application before minting a token. Your authentication adapter must verify that this user is an administrator of the selected customer and reject unauthorized requests.
-
-   Let's connect that host-owned adapter to `/api/astralbeam/token`:
+1. Provision users through the [management API](./api.md), or let their first SDK session synchronize their own record.
+2. In your authenticated token endpoint, verify that the signed-in user is an administrator of the selected customer. Add `admin: true` to the signed user:
 
    ```ts
-   import { createAstralBeamToken } from "@astralbeam/sdk/server"
-   import { requireCustomerAdmin } from "./auth"
-
-   export async function POST(request: Request) {
-     const headers = { "Cache-Control": "no-store" }
-     const session = await requireCustomerAdmin(request)
-     try {
-       const token = await createAstralBeamToken({
-         apiKey: organizationApiKey,
-         tenant: { id: session.tenant.externalId },
-         user: { id: session.user.externalId, admin: true },
-       })
-       return Response.json({ token }, { headers })
-     } catch {
-       return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
-     }
-   }
+   const token = await createAstralBeamToken({
+     apiKey,
+     tenant: { id: session.tenant.id },
+     user: { id: session.user.id, admin: true },
+   })
    ```
 
-   `requireCustomerAdmin` and `organizationApiKey` belong to your application, not the SDK. The external IDs must match step 1. Map authentication failures to `401` or `403` in your host framework and never return signing errors or credentials. See [authentication](./authentication.md) for token endpoint requirements.
+3. Mount the directory using that endpoint, as shown below.
 
-3. Embed the directory. Tenant scope is the default, and the SDK resolves the signed Tenant identity to its persisted record.
+**NOTE**: The widget is read-only. Its tenant-admin token permits API writes to TenantUsers. Stored `admin` does not grant this authority.
 
-   Let's render it without installing Tailwind or providing a Query client:
+Sign in and confirm the expected users appear. Check another customer account to verify tenant isolation.
 
-   ```tsx
-   import { AstralBeamTenantUserList } from "@astralbeam/sdk/react"
+## Mount the directory
 
-   const tokenSource = { url: "/api/astralbeam/token" }
+Use `AstralBeamTenantUserList` for users or `AstralBeamTenantList` for Tenant records. No Tailwind setup or Query client is required.
 
-   export function CustomerUsers() {
-     return <AstralBeamTenantUserList fetchAstralBeamToken={tokenSource} />
-   }
-   ```
+<!-- ::start:tabs variant="files" -->
 
-**NOTE**: The widget is read-only, but its signed tenant-admin JWT permits reading the Tenant and reading and writing its TenantUsers through the API. Stored `admin` is informational, not an authorization source.
+```tsx title="React"
+import { AstralBeamTenantUserList } from "@astralbeam/sdk/react"
 
-## Mount in React
-
-Use `AstralBeamTenantUserList` for a tenant's users. `AstralBeamTenantList` shows Tenant records, limited to the signed tenant by default.
-
-Let's render the current tenant's record in React:
-
-```tsx
-import { AstralBeamTenantList } from "@astralbeam/sdk/react"
-
-;<AstralBeamTenantList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
+;<AstralBeamTenantUserList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
-React refs expose `refresh()` and `reset()`. Import `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef` from `/react`. Use props for updates and conditional rendering to unmount. Vanilla handles from `/client` also expose `update()` and `unmount()`.
-
-## Mount anywhere else
-
-`mountAstralBeamTenantUserList` takes a target element and options, and returns a handle.
-
-Let's mount the user directory and update its appearance:
-
-```ts
+```js title="JavaScript"
 import { mountAstralBeamTenantUserList } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamTenantUserList(document.getElementById("users")!, {
+const directory = mountAstralBeamTenantUserList(document.getElementById("users"), {
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
-handle.update({ colorScheme: "dark" })
-// When the host removes the directory, call handle.unmount().
+
+// When removing the container, call directory.unmount().
 ```
 
-Use `mountAstralBeamTenantList` from the same entry point for Tenant records. The directory loads lazily with its own bundled React.
+<!-- ::end:tabs -->
+
+React refs expose `refresh()` and `reset()`. Import the matching `AstralBeamTenantListRef`, `AstralBeamTenantUserListRef`, or `AstralBeamThreadListRef` from `/react`. JavaScript handles also expose `update()` and `unmount()`.
 
 ## Tenant identifiers
 
@@ -108,7 +55,7 @@ Tenant-scoped embeds resolve the Tenant from the signed token automatically. If 
 
 Unmount before sign-out or a user or tenant switch, even if the token endpoint URL stays the same. Render the new directory only after the host session is ready.
 
-Let's make the authenticated identity control the React lifecycle:
+Key the React component by the authenticated account:
 
 ```tsx
 import { AstralBeamTenantUserList } from "@astralbeam/sdk/react"
@@ -123,23 +70,17 @@ export function CustomerUsers({ accountId }: { accountId: string | null }) {
 
 Use an `accountId` that changes with either the signed-in user or tenant, and set it to `null` during transitions. Vanilla hosts call `unmount()` instead.
 
-Directory results stay fresh for 30 seconds, then refresh in the background when the tab becomes visible or the network reconnects. Unused data expires after five minutes.
+### Cache reuse
+
+Results stay fresh for 30 seconds, then refresh in the background on focus or reconnect. Unused data expires after five minutes.
 
 `cacheKey` is an optional opaque object defining the host-session boundary for remount reuse. The SDK uses its object identity, so keep the same object for the session and replace it on sign-out or account changes. Changing `cacheKey` clears authentication and the view. Without a key, unmounting discards the directory's data. Reuse also requires the same verified account and API.
 
-Each mount authenticates independently and owns its requests and cancellation. Concurrent mounts keep separate data, do not deduplicate requests, and do not refresh each other. For each directory kind and scope under the same key, the last unmounted directory replaces the data retained for a later mount. `cacheKey` does not create a shared live session.
+Each mount owns authentication, requests, and cancellation. Concurrent mounts keep separate data and do not deduplicate or refresh each other. For each directory kind and scope under a key, the last unmount replaces retained data. `cacheKey` enables remount reuse, not a shared live session.
 
-`refresh()` and `reset()` both return `Promise<void>`. Calls made before the lazy renderer is ready wait for it. They resolve after authentication and the enabled directory data requests complete, including the current rows or open conversation messages. They do not wait for attachment previews, hidden views, or pages that have not been requested.
+### Refresh and reset
 
-Let's wait for a directory to show a completed write before finishing the host workflow:
-
-```ts
-await saveChanges()
-await handle.refresh()
-finishEditing()
-```
-
-`saveChanges` and `finishEditing` belong to your application. React callers await the ref's `refresh()` action. Await or handle rejection from both `refresh()` and `reset()`.
+`refresh()` and `reset()` return `Promise<void>` after authentication and the current view's data finish loading. They wait for the lazy renderer, but not attachment previews, hidden views, or unrequested pages. Await the action before closing a host editor and handle rejection.
 
 - React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
 - `refresh()` reloads the current view and may reuse the cached JWT. Token-source updates apply on the next token acquisition.
@@ -151,34 +92,33 @@ Loading, authentication, and request failures reject the action's promise. Reque
 
 ## Browse saved conversations
 
-Conversation directories let administrators review saved conversations and uploads. Let's embed a Tenant-scoped directory with the same trusted administrator token source:
+Use the same administrator token source for saved conversations and uploads:
 
-```tsx
+<!-- ::start:tabs variant="files" -->
+
+```tsx title="React"
 import { AstralBeamThreadList } from "@astralbeam/sdk/react"
 
 ;<AstralBeamThreadList fetchAstralBeamToken={{ url: "/api/astralbeam/token" }} />
 ```
 
-For a vanilla application, let's mount the same directory:
-
-```ts
+```js title="JavaScript"
 import { mountAstralBeamThreadList } from "@astralbeam/sdk/client"
 
-const handle = mountAstralBeamThreadList(element, {
+const directory = mountAstralBeamThreadList(element, {
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
 ```
 
-- Rows show participants, conversation titles and last activity. Participant names fall back to external IDs.
-- Search matches literal title text, ordered by last activity. Open a title to read metadata, saved messages and uploads, load earlier messages, or refresh the saved view.
-- Tools and widgets show stored information without repeating actions or accepting answers. Partial output does not confirm that generation is running. Administrative reads grant no participant permissions.
-- Organization scope requires a selected Tenant, like the user directory. Clearing it clears the list. Use `tenantId` or `tenantExternalId` to pin a Tenant.
+<!-- ::end:tabs -->
 
-**NOTE**: Use the same options and lifecycle actions as the other directories, with signed Tenant-admin authority or an Organization-management token with current read permission.
+Search titles and open a conversation to read saved messages and uploads. History never repeats tool actions or accepts widget answers, and administrative reads grant no participant permissions. Partial output does not prove generation is still running.
+
+In organization scope, select or pin a Tenant. The component uses the same options and lifecycle as the other directories.
 
 ## Host callbacks
 
-Let's connect user row actions and terminal request failures to your application:
+Connect row actions and errors to your application:
 
 ```tsx
 <AstralBeamTenantUserList
@@ -188,17 +128,17 @@ Let's connect user row actions and terminal request failures to your application
 />
 ```
 
-`openUserDetails` and `reportDirectoryError` are host functions. Providing `onTenantSelect` or `onTenantUserSelect` adds an Open action. Callbacks receive API records with snake_case field names.
+`onTenantSelect` and `onTenantUserSelect` add an Open action and receive API records with snake_case fields.
 
-`onError` reports each failed request after the automatic authentication retry finishes. It includes initial and background authentication failures, excludes cancellations and identity-change resets, and preserves the widget's error UI. Shared authentication failures report once, including when several requests are waiting. Use `isAstralBeamApiError` from `/api` to inspect HTTP status and structured problem details. Multiple failed requests can report separately, so deduplicate host notifications if needed. A `403` is a permission failure, not necessarily an expired session.
+`onError` reports failed requests after authentication retry, including background failures, without replacing the widget's error UI. Cancellations are excluded and shared authentication failures report once. Separate failed requests can each report an error. Use `isAstralBeamApiError` from `/api` for status and problem details.
 
-`onTenantChange` observes actual organization-scope picker changes, returning a Tenant record or `null` when cleared. It does not fire for initial or pinned values and does not make the picker controlled.
+`onTenantChange` reports organization-scope picker changes as a Tenant or `null`. It does not fire for initial or pinned values and does not make the picker controlled.
 
 ## Options and behavior
 
 Directories share chat's `theme` and `colorScheme` options. Reuse the same theme object across widgets. Removing overrides restores the SDK palette without resetting the directory. See [Theming](./theming.md).
 
-Because directories render inside a Shadow DOM, host styles and React `className` only affect the outer container. Let's pass application-owned CSS through `customCss` to customize the contents:
+Host styles and React `className` affect only the outer container. Use `customCss` for styles inside the shadow root:
 
 ```tsx
 <AstralBeamTenantList
@@ -211,9 +151,9 @@ Because directories render inside a Shadow DOM, host styles and React `className
 />
 ```
 
-`customCss` is ordinary CSS, not uncompiled Tailwind classes. It applies only inside this widget. Changing or removing it updates styles without resetting filters, pagination, or authentication. Use `handle.update({ customCss })` with vanilla mounts, or change the React prop. Pass only trusted application CSS, never user-supplied content.
+`customCss` is ordinary CSS, not uncompiled Tailwind classes. It applies only inside this widget. Changing or removing it updates styles without resetting filters, pagination, or authentication. Use `directory.update({ customCss })` with vanilla mounts, or change the React prop. Pass only trusted application CSS, never user-supplied content.
 
-Conversation views also expose `directory-transcript`. The directory styling slots are `directory`, `directory-header`, `directory-toolbar`, `directory-page-controls`, `directory-tenant-picker`, `directory-tenant-label`, `directory-empty`, `directory-page`, `directory-pagination`, and `directory-avatar`. Shared control slots include `input`, `input-group`, `native-select`, `button`, `combobox-content`, `alert`, `table-container`, `table`, `table-head`, and `table-cell`. Select them with `[data-slot="..."]`. Prefer `theme` for colors and fonts, and `customCss` for layout, spacing, focus treatment, and component sizing.
+Conversation views also expose `directory-transcript`. Use `[data-slot="directory"]`, `[data-slot="directory-toolbar"]`, and the shared control slots shown above. The [directory renderer](https://github.com/AstralBeamAI/astralbeam/blob/main/sdk/src/widget/listings/listing-widget.tsx) contains the full slot names. Prefer `theme` for colors and fonts.
 
 | Option | Default | Purpose |
 | --- | --- | --- |
@@ -239,11 +179,21 @@ Conversation views also expose `directory-transcript`. The directory styling slo
 - Rows show external IDs under **ID**, names, metadata, and creation dates. Names do not expand rows. Internal UUIDs are not displayed.
 - Tokens refresh once on HTTP `401`. Other failures offer explicit retry.
 
-Organization owners and developers see **Usage (USD)** in the user directory, independently of `showAdmin`. Usage loads separately, so users and pagination remain available while costs load or fail. Choose this month, previous month, this week, previous week, last 30 days, or last 7 days. Calendar periods use UTC, with weeks running Monday through Sunday. Rolling periods end when fetched and span exactly 30 or 7 days. The current month is the default. Changing the period reloads only usage and preserves the directory state. Results are reused for 30 seconds, and Refresh reloads both users and usage with a new rolling cutoff. Viewers and Tenant administrators do not request usage.
+**NOTE**: For internal-management use cases, all three directories support `scope="organization"` with an [organization-management token](./api.md). User and conversation directories require a selected Tenant. Use the searchable picker or pin `tenantId` or `tenantExternalId`. When using that token with tenant scope, pin the Tenant explicitly. The read-only UI does not reduce token permissions.
 
-Usage totals include retained settled assistant replies. New replies save their resolved USD cost, preferring provider-reported cost and otherwise recording the configured token cost at generation time. Older replies without a saved cost use current configured rates and can change when rates change. Drafts are excluded. Users without settled replies have zero usage. Missing settled usage or pricing contributes $0 for now, including interrupted replies whose cost is unknown. A failed usage request shows **Unavailable** with Retry. Deleted conversations are excluded. Amounts show their precise value directly, with trailing zeros omitted. Server integrations can use `getTenantUserUsage` with an Organization API key, a comma-separated `user_ids` list, and ISO 8601 `start` and `end` timestamps with an explicit timezone, such as `2026-10-01T00:00:00.000Z`. The start is inclusive and the end is exclusive. Requests support up to 100 users and any positive time range no longer than 93 days, with millisecond precision.
+## Usage costs
 
-**NOTE**: For uncommon internal-management use cases, all three directories also support `scope="organization"` with an [organization-management token](./api.md). The user directory then offers a searchable Tenant picker. Set `tenantId` or `tenantExternalId` to pin one Tenant, or when using that token with tenant scope. Tokens retain their delegated permissions even though the UI is read-only.
+Organization owners and developers see **Usage (USD)** in the user directory, independently of `showAdmin`. Viewers and Tenant administrators do not request usage. Costs load separately, so failures do not block rows or pagination.
+
+Choose this month, previous month, this week, previous week, last 30 days, or last 7 days. Calendar periods use UTC and Monday-to-Sunday weeks. Rolling periods end when fetched and span exactly 30 or 7 days. The current month is the default.
+
+Changing periods reloads only costs. Results are reused for 30 seconds. Refresh reloads users and costs with a new rolling cutoff.
+
+Totals include retained settled assistant replies. New replies save their resolved USD cost, preferring the provider-reported amount over configured token prices. Older replies without a saved cost use current rates and can change after price updates. Drafts and deleted conversations are excluded. Missing usage or pricing currently contributes $0, including interrupted replies with unknown costs. Users without settled replies show zero.
+
+Amounts show precise values without trailing zeros. A failed request shows **Unavailable** with Retry.
+
+Server integrations can use `getTenantUserUsage` with an Organization API key, comma-separated `user_ids`, and ISO 8601 `start` and `end` timestamps with an explicit timezone. The start is inclusive and the end exclusive. Requests accept up to 100 users and a positive range of at most 93 days, with millisecond precision.
 
 ## Troubleshooting
 

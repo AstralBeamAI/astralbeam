@@ -1,10 +1,10 @@
 # Script tag
 
-The SDK's `client` entry is a self-contained ES module, so any server-rendered application can load it from jsDelivr without npm or a bundler. Let's add the chat sidebar with a script tag, send the token request through your framework's CSRF protection, and wire it into a Ruby on Rails app.
+Load the assistant from jsDelivr in any server-rendered application. You need an authenticated [token endpoint](./authentication.md), a container with a height, and a module script. No package manager or bundler is required.
 
 ## Load the widget
 
-Let's give the widget a container with a definite height and mount it from a module script:
+Mount the widget into an HTML element:
 
 ```html
 <div id="astralbeam-chat" style="height: 100vh"></div>
@@ -13,36 +13,21 @@ Let's give the widget a container with a definite height and mount it from a mod
 
   mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
     title: "Acme Assistant",
-    fetchAstralBeamToken: { url: "/astralbeam/token" },
   })
 </script>
 ```
 
-- Use `type="module"`. The loader imports the chat chunk lazily, relative to its own URL.
-- Import the full `/dist/client.js` path. The bare package URL has no browser entry.
-- Pin an exact version. A range such as `@0` lets jsDelivr's cache serve the loader and its chunks from different releases, which fails with a 404 after each release.
-- Every option in [Configuration](./configuration.md) works the same, and the returned handle has the same `update`, `reset`, `stop`, and `unmount` methods.
-- `mountAstralBeamTenantUserList` and `mountAstralBeamTenantList` load from the same URL. See [Tenant directories](./listings.md).
+Keep `type="module"`, the full `/dist/client.js` path, and an exact version so lazy chunks load from the same release. See [Configuration](./configuration.md) for options and handle methods, or [Directories](./listings.md) for list widgets.
 
 **NOTE**: If your application sends a Content Security Policy, allow `https://cdn.jsdelivr.net` in `script-src` and your AstralBeam API in `connect-src`. The widget injects its stylesheet into its shadow root with a `<style>` element, so `style-src` must also allow inline styles.
 
 ## Add the token endpoint
 
-The widget calls your server for a short-lived token before it chats. Your backend signs that token with your API key, in any language with a JWT library. [Authentication](./authentication.md) describes the endpoint's rules and the token format, with a Ruby example.
-
-Frameworks with CSRF protection reject the widget's `POST` without a CSRF token. Let's send it as a standard `RequestInit` header, here read from the `<meta name="csrf-token">` tag that Rails and Laravel render:
-
-```js
-const csrfToken = document.querySelector("meta[name=csrf-token]").content
-
-mountAstralBeamChat(element, {
-  fetchAstralBeamToken: { url: "/astralbeam/token", headers: { "X-CSRF-Token": csrfToken } },
-})
-```
+Add the [Quickstart's backend handler](/docs/start/quickstart#3-connect-your-backend) at `/api/astralbeam/token`. Any backend language works. Keep your framework's CSRF protection. The Rails example below sends its CSRF header.
 
 ## Ruby on Rails
 
-Rails loads JavaScript through import maps, so the SDK needs no npm or bundler there either. Let's wire the widget into a Rails 8 app:
+For a Rails 8 app using import maps:
 
 1. Pin the SDK by URL in `config/importmap.rb`, next to a pin for the page's own module. Avoid `bin/importmap pin`, because it vendors one file and the loader's lazy chunks would be missing.
 
@@ -58,7 +43,7 @@ Rails loads JavaScript through import maps, so the SDK needs no npm or bundler t
 
    const csrfToken = document.querySelector("meta[name=csrf-token]").content
    mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
-     fetchAstralBeamToken: { url: "/astralbeam/token", headers: { "X-CSRF-Token": csrfToken } },
+     fetchAstralBeamToken: { url: "/api/astralbeam/token", headers: { "X-CSRF-Token": csrfToken } },
    })
    ```
 
@@ -68,9 +53,10 @@ Rails loads JavaScript through import maps, so the SDK needs no npm or bundler t
    <div id="astralbeam-chat" style="height: 100vh"></div>
    ```
 
-4. Add `post "astralbeam/token" => "astral_beam_tokens#create"` to `config/routes.rb` and a controller that mints the token as shown in [Authentication](./authentication.md).
+4. Add the route and controller from the [Rails token example](/docs/start/quickstart#3-connect-your-backend).
 
-- A full page load can interrupt the current response, but saved history is restored by default in the same tab. Tools and forms that change server data should call your controllers with `fetch` and update the page in place.
-- Widgets render into the mount point's light DOM, so your stylesheet styles them. Name your CSS custom properties distinctly, because the widget's own tokens such as `--card` and `--border` shadow same-named variables inside the conversation.
+Sign in and send **"Say hello in one sentence."** Check that a reply streams into the widget.
+
+For page navigation and recovery, see [Saved conversations](./configuration.md#saved-conversations). Host-rendered widgets use your [application styles](./theming.md#widget-renders).
 
 **TIP**: The [`examples/todos-rails`](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos-rails) app is a complete Rails 8 integration with host tools over a JSON API, a `todoCard` widget, and the tenant-user directory.

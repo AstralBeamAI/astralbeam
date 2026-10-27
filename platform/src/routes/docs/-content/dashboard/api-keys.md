@@ -1,13 +1,15 @@
 # API keys
 
-An organization API key is a server-side credential scoped to one organization, and it has two uses.
+Use an organization API key on your server to call the [management API](/docs/api) and sign short-lived [tokens](/docs/sdk/authentication).
 
-- It authenticates calls to the [management API](/docs/api) for that organization's resources.
-- It signs short-lived TenantUser chat tokens with `createAstralBeamToken` and member management tokens with `createAstralBeamOrganizationToken`. See [Authentication](/docs/sdk/authentication).
+## Create a key
 
-Signing happens offline: your server mints a token from the key, and the endpoint verifies that token here without the key ever being sent. Holding the key is therefore the same as being able to sign, as anyone with it can mint a token naming any tenant and any tenant user of that organization.
+1. Open **API keys** as an owner or developer and create a key. You may need to sign in again to confirm recent authentication.
+2. Enter a name and choose an expiration.
+3. Copy the full `key_…_abo_…` value into your server's secret configuration. It is shown only once.
+4. Use it in your token endpoint and test chat, or run a management API request.
 
-**NOTE**: an API key can impersonate any of your users, so treat it as a credential rather than an identifier.
+**NOTE**: Anyone holding the key can mint a token as any tenant user in the organization. Keep it out of browser code, repositories, and widget props.
 
 ## What a key looks like
 
@@ -19,13 +21,11 @@ Signing happens offline: your server mints a token from the key, and the endpoin
 | Requests | 100 management API requests per 5 minutes, per key |
 | Tokens signed with it | 60 to 600 seconds of life, 300 by default. See [Limits](/docs/sdk/limits). |
 
-The full value is shown once, at creation, and only a hash of it is stored afterwards, so nobody can recover it later, not even an owner. If you lose it, create a replacement and delete the old key.
-
-Creating a key needs a recently authenticated session, so you may be asked to sign in again even though you are already signed in.
+Only the secret's hash is stored. A lost key cannot be recovered. Create a replacement and delete the old one.
 
 ## Keeping a key server-side
 
-Keep the key in server configuration, such as an environment variable your token endpoint reads. It must never appear in browser code, in a client bundle, in a repository, or as a widget option. Server-side SDK helpers accept API keys for token minting and management requests.
+Store the key in an environment variable or secret manager used by your backend. `createAstralBeamToken` signs tenant tokens and `createAstralBeamOrganizationToken` signs member-management tokens locally, without sending the raw key to AstralBeam.
 
 Keys belong to the organization rather than to the person who created them, so removing that person from the organization does not revoke their keys. Rotate a key when someone with access to it leaves.
 
@@ -33,22 +33,24 @@ Keys belong to the organization rather than to the person who created them, so r
 
 ## Rotating, expiring, and deleting
 
-Let's walk through a rotation. Create a new key, deploy it, then delete the old one. Nothing is shared between the two, so both work while you cut over.
+1. Create a replacement key.
+2. Deploy it to your backend and verify token issuance or management requests.
+3. Delete the old key.
 
-Deleting a key, or letting it expire, invalidates every chat auth token already minted from it. The key's status is re-checked after a token's signature verifies, so a deleted key does not keep working for the rest of a token's lifetime. Live conversations fail on their next turn, and applications using that key need the new one deployed.
+Both keys work during the transition.
 
-Renaming a key changes nothing about what it authorizes, as the name is only a label.
+Deleting or expiring a key invalidates its signed tokens immediately, including before their expiry. Applications using it fail on their next turn until the new key is deployed.
 
 The last key in an organization and the key configured for the deployment's dashboard assistant cannot be deleted. Create a replacement before retiring a last key.
 
 ## Request limits
 
-Each key allows 100 management API requests per 5 minutes. Over that, calls are refused with `429` and a `Retry-After` header giving the seconds to wait, so a client should back off rather than retry immediately.
+Management requests are limited per key, as listed above. A `429` response includes `Retry-After` in seconds. Wait before retrying.
 
-Chat traffic does not consume that allowance, as verifying a chat auth token never touches the key's request counters. Chat is limited separately, counted per organization, tenant, and tenant user rather than per key, in [Limits](/docs/sdk/limits).
+Chat has [separate identity-based limits](/docs/sdk/limits) and does not consume the key's management allowance.
 
 ## Who can see keys
 
 Owners and developers can list, create, rename, and delete keys, and viewers cannot open this page or see that any keys exist. See [Members](./members.md).
 
-A listed key can be renamed and deleted but never read again, so creation is the only privileged moment. Anyone who can create a key holds a signing credential for the whole organization from that moment on.
+Permission to create keys grants signing authority throughout the organization.

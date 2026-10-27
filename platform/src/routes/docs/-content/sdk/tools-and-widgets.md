@@ -1,13 +1,15 @@
 # Tools and widgets
 
-Tools let an agent act in your app, and widgets show your UI in its replies. Let’s connect both to the state your users already work with.
+Tools let an agent call your application code. Widgets render your components in its replies. Follow the [Todos tutorial](/docs/start/todos-tutorial) for a working integration with shared state, a test prompt, and two-way updates.
 
 ## Tools
+
+Register an action in the chat's `tools` prop. This fragment assumes your application provides `restartService`:
 
 ```ts
 tools: {
   restart_service: {
-    metadata: { title: "Restart a service" }, // transcript label; defaults to the tool's name
+    metadata: { title: "Restart a service" },
     description: "Restart one of the host app's services by name",
     parameters: { type: "object", properties: { service: { type: "string" } }, required: ["service"] },
     execute: async ({ service }) => await restartService(String(service)),
@@ -22,6 +24,8 @@ tools: {
 - New tools reach the agent on its next run.
 
 ## Widgets
+
+Register a component in `widgets`. Your application provides `StatusCard`:
 
 ```tsx
 widgets: {
@@ -51,7 +55,7 @@ widgets: {
 
 ## Typed definitions
 
-`defineTool` and `defineWidget` are identity helpers that exist for their generics: with a Standard Schema in `parameters`, the `execute` or `render` input is the schema's own output type.
+`defineTool` and `defineWidget` infer callback inputs from a Standard Schema. They return the definition unchanged.
 
 ```tsx
 import { defineTool, defineWidget } from "@astralbeam/sdk/react"
@@ -59,8 +63,8 @@ import { z } from "zod"
 
 const todoCard = defineWidget({
   description: "A single todo from the host app, addressed by its id",
-  parameters: z.object({ id: z.coerce.number(), highlight: z.boolean().optional() }),
-  render: ({ id, highlight }) => <TodoCard id={id} highlight={highlight ?? false} />,
+  parameters: z.object({ id: z.coerce.number() }),
+  render: ({ id }) => <TodoCard id={id} />,
 })
 
 const createTodo = defineTool({
@@ -75,7 +79,7 @@ const createTodo = defineTool({
 
 ## Live state
 
-Definitions are declared once but called many turns later, so make sure they read current state.
+Tools can run many turns after registration. Read current state when they execute.
 
 - All session adapters resolve the current `execute` callback after validation. Removing a tool or replacing its `parameters` schema blocks pending execution. Keep schema objects stable when updating only callbacks.
 - Widget renders re-read the current `widgets` prop, so host state changes re-render projected UI.
@@ -83,7 +87,7 @@ Definitions are declared once but called many turns later, so make sure they rea
 
 ## Read after a write
 
-An agent can call several tools before React renders again. Because state setters schedule a render, a second tool can read stale data if the first tool only called `setState`. Let’s keep the tool result and the next read in agreement.
+An agent can call several tools before React renders again. Commit each change before returning its result so the next tool reads it.
 
 - For server data, await the mutation and read from the authoritative response or refreshed cache.
 - For browser data, commit to a synchronous store before returning. React can subscribe to that store with `useSyncExternalStore`.

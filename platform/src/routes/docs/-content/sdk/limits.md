@@ -1,12 +1,12 @@
 # Limits
 
-The chat endpoint enforces every limit below on every request, whatever the SDK composer already checked. Narrowing a limit through an SDK option is a UX affordance, not a boundary.
+The server enforces these limits independently of the SDK. Client options can lower them for your interface but cannot raise them. Organization-specific token and spend allowances are configured under [Usage limits](/docs/dashboard/usage-limits).
 
 ## Requests
 
 | Limit | Value | When it is exceeded |
 | --- | --- | --- |
-| Request body | 32 MB, checked against `content-length` and again while reading | `413`, "The message and its attachments are too large." |
+| Request body | 32 MiB, checked against `content-length` and again while reading | `413`, "The message and its attachments are too large." |
 | Request rate | 20 new turns per 60 seconds, counted per organization, tenant, and tenant user | `429`, "Too many chat requests; try again in a minute." |
 | Tool-result and upload request rates | 200 requests per 60 seconds each, in separate buckets | `429`, "Too many chat requests; try again in a minute." |
 | Usage limits | Token and spend allowances your Organization configures, see [Usage limits](/docs/dashboard/usage-limits) | `429` with a `usage_limit` member naming the limit and when it resets |
@@ -23,17 +23,17 @@ A file rejected by the composer never reaches the agent. Server validation can r
 | Limit | Value |
 | --- | --- |
 | Files per message | 5 |
-| One file, by kind | 5 MB image, 10 MB PDF, 1 MB text, 10 MB data, 10 MB office |
-| All files along the selected conversation path | 20 MB, including the new message |
+| One file, by kind | 5 MiB image, 10 MiB PDF, 1 MiB text, 10 MiB data, 10 MiB office |
+| All files along the selected conversation path | 20 MiB, including the new message |
 | Accepted types | PNG, JPEG, WebP, GIF, PDF, text and source files, CSV, TSV, Parquet, SQLite, `.docx`, `.pptx`, `.xlsx` |
-| Declared type | Must match the file's leading bytes |
+| Declared type | Checked against known file signatures. Text formats are validated by decoding |
 | Display filename | 120 characters, truncated with an ellipsis |
 
 ## Files the agent reads
 
 | Limit | Value | What happens at the limit |
 | --- | --- | --- |
-| Office archive | 96 MB declared uncompressed, 2,048 kept parts, 4,096 entries walked | "it declares more content than this assistant will unpack." |
+| Office archive | 96 MiB declared uncompressed, 2,048 kept parts, 4,096 entries walked | "it declares more content than this assistant will unpack." |
 | Table shape | 50,000 rows, 512 columns, 200,000 cells per sheet | cells outside the bounds are skipped and the table is reported as truncated |
 | Column type profile | the first 50 data rows | types stay a hint the agent should confirm against the file itself |
 | Readable text per file | 2,000,000 characters | `read_attachment` returns `readableTextTruncated: true` |
@@ -45,7 +45,7 @@ A file rejected by the composer never reaches the agent. Server validation can r
 | --- | --- | --- |
 | Idle sandbox | 15 minutes after release, swept every minute | Destroyed only when no run or pending acquisition holds it |
 | Live sandboxes | 25 per server process, shared across Organizations | The oldest idle workspace is destroyed. If all are busy, a new workspace is unavailable |
-| Published artifact | 10 MB | "Artifacts are limited to 10485760 bytes. Compress or split the file." |
+| Published artifact | 10 MiB | "Artifacts are limited to 10485760 bytes. Compress or split the file." |
 | Published artifact retention | Until conversation deletion | Downloads check current conversation access |
 | Text in the transcript | 20,000 characters of command output, 40,000 of a file read, 200,000 of a file write | clamped with the middle elided |
 

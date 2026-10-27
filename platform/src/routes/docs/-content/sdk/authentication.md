@@ -1,52 +1,115 @@
 # Authentication
 
-Tenant JWTs identify your application's tenant users to AstralBeam. Let's connect your authenticated session to chat and tenant directories without exposing your API key.
+Connect your application's authenticated users to chat with short-lived tenant JWTs. Your server signs them with an organization API key. The browser receives only the token. Any backend language and session system can provide this endpoint.
 
 ## The auth token endpoint
 
-Chat uses `/api/astralbeam/token` by default. Directories require an explicit `fetchAstralBeamToken` option, which can point to that same endpoint. Your handler authenticates its own session and answers `{ token }`.
+Expose `POST /api/astralbeam/token` on your backend. Authenticate the request, derive user and customer-account IDs from the session, and return `{ token }` with `Cache-Control: no-store`. Keep your framework's session and CSRF protections.
 
-Let's issue a token for the user and tenant from your trusted session:
+The [Quickstart](/docs/start/quickstart#3-connect-your-backend) has TypeScript and Rails handlers. With the JavaScript SDK, sign the session identity like this:
 
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
-const apiKey = process.env.ASTRALBEAM_API_KEY // key_<organizationId>_<id>_abo_<secret>
-
-export async function POST(request: Request) {
-  const headers = { "Cache-Control": "no-store" }
-  if (!apiKey) return Response.json({ error: "Not configured" }, { status: 503, headers })
-  const session = await getApplicationSession(request)
-  if (!session) return Response.json({ error: "Unauthenticated" }, { status: 401, headers })
-  try {
-    const token = await createAstralBeamToken({
-      apiKey,
-      user: {
-        id: session.user.id,
-        name: session.user.name,
-        metadata: { email: session.user.email },
-      },
-      tenant: {
-        id: session.tenant.id,
-        name: session.tenant.name,
-        metadata: { plan: session.tenant.plan },
-      },
-    })
-    return Response.json({ token }, { headers })
-  } catch {
-    return Response.json({ error: "Token could not be issued" }, { status: 500, headers })
-  }
-}
+const token = await createAstralBeamToken({
+  apiKey: process.env.ASTRALBEAM_API_KEY!,
+  user: { id: session.user.id },
+  tenant: { id: session.tenant.id },
+})
 ```
 
-- Answer `cache-control: no-store`: a cached token would outlive its short expiry and reach the wrong end user.
-- Return `401` for a missing session and `503` for missing configuration. The widget displays the failure and offers a retry.
-- Catch the minting error rather than forwarding it, because its message can describe the API key's expected shape.
-- `getApplicationSession` is your host application's authentication adapter, not an SDK function. Apply your framework's session and CSRF protections.
+Never accept these IDs from the request body. Return an authentication error for a missing session and keep signing errors private.
+
+## Where the token comes from
+
+Chat calls `/api/astralbeam/token` by default. Set `fetchAstralBeamToken` for another endpoint or custom authentication:
+
+<!-- ::start:tabs variant="files" -->
+
+```tsx title="Endpoint"
+<AstralBeamChat
+  fetchAstralBeamToken={{
+    url: "https://api.acme.com/api/astralbeam/token",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }}
+/>
+```
+
+```tsx title="Function"
+async function fetchToken() {
+  const response = await fetch("/api/astralbeam/token", { method: "POST" })
+  return response.json()
+}
+
+;<AstralBeamChat fetchAstralBeamToken={fetchToken} />
+```
+
+<!-- ::end:tabs -->
+
+Endpoint requests default to `POST`, `credentials: "include"`, `cache: "no-store"`, and JSON responses. Standard `RequestInit` options override them. Keep CSRF headers when your backend requires them.
+
+Directories require an explicit token source. Both forms synchronize `/me` and renew tokens automatically. Returning `undefined` or throwing blocks authenticated work and offers retry.
+
+Cross-origin endpoints must allow your application's origin, required headers, and `OPTIONS` preflight. Cookie-based requests also need credentialed CORS.
+
+## Switching workspaces
+
+Remount chat when the signed-in user or Tenant changes. Updating a token callback alone takes effect only on the next acquisition:
+
+```tsx
+<AstralBeamChat key={`${session.tenant.id}:${session.user.id}`} />
+```
+
+Update your trusted server session before rendering the new identity. The token endpoint must check membership in the selected Tenant, and every host tool must enforce the same scope. Clearing the transcript alone does not establish a new identity.
+
+[Linearity](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/linearity-react) demonstrates remounting across two mock workspaces. Its demo identity policy is not suitable for production.
+
+## Directory access
+
+Verify customer-admin permissions on your backend before signing `user.admin: true`. This grants reading the Tenant and reading and writing its TenantUsers. A read-only widget does not reduce token authority, and the stored `admin` field grants none.
+
+The SDK synchronizes the signed Tenant and current TenantUser through `/me`. Other users appear after their own synchronization or a management API import. Deleting a TenantUser does not revoke its token: a later synchronization recreates it. See [Directories](./listings.md).
+
+## Usage limits
+
+Default usage limits apply automatically. Add plan-specific IDs with `usageLimits`. These apply alongside the defaults. See [Usage limits](/docs/dashboard/usage-limits).
+
+```ts
+const token = await createAstralBeamToken({ apiKey, user, tenant, usageLimits: planLimits[plan] })
+```
+
+## Troubleshooting
+
+- For a disabled composer, check the token endpoint and retry. `apiUrl` must point to the deployment that issued your API key.
+- For a revoked or expired key, create a replacement under **API Keys** and deploy it to your backend. New tokens signed with the old key cannot restore access.
+- Use widget `debug` logging or headless `streamCallbacks.onError` to distinguish host endpoint failures from rejected AstralBeam tokens.
+- For CORS errors, check headers on failure responses as well as successful ones.
+
+## Refresh and current-user behavior
+
+Authentication becomes ready after token acquisition and `/me` succeed. Visible, online components renew before expiry and resynchronize on focus or reconnect when the last check is at least 60 seconds old. Callback changes apply to the next acquisition.
+
+A `401` gets one renewal and retry. Network, `5xx`, and `429` synchronization failures get up to three delayed retries, respecting `Retry-After`. Other client errors require explicit retry. Failed synchronization hides the cached identity and blocks new work, while an authorized stream continues.
+
+Synchronization preserves omitted profile fields. Supplied metadata replaces the whole object. An older JWT can overwrite newer profile fields, so use current host claims. See the [current-user API](/docs/api#description/current-user) for response shapes and update rules.
+
+## Rules
+
+The tenant JWT identifies the tenant user to AstralBeam, so treat it like a session credential.
+
+- Authenticate once. Derive `user` and `tenant` from the same trusted server-side session, never browser-supplied identity.
+- `user.id` and `tenant.id` must be stable 1–255 character strings. Names are optional, and user IDs are tenant-local.
+- Set optional `user.admin` only from trusted application permissions.
+- Put custom fields in each identity's `metadata`. Tokens are signed, not encrypted, so include no secrets.
+- SDK fields use camelCase. AstralBeam-owned JWT claims use snake_case, preserving caller-owned metadata keys.
+- The issuer is the organization UUID from the API key, with audience `astralbeam`. AstralBeam does not require `sub`.
+- `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK retains tokens in memory and renews before expiry.
+
+**NOTE**: Internal tools can also use [organization-management tokens](./api.md). They are separate from tenant authentication and cannot authenticate chat or create a dashboard session.
 
 ## Mint tokens without JavaScript
 
-`createAstralBeamToken` produces a standard HS256 JWT, so a backend in any language can sign the same token with its own JWT library. Let's derive the signing key and claims from your API key:
+Use an HS256 JWT library in your backend language. The [Quickstart's Rails example](/docs/start/quickstart#3-connect-your-backend) shows a token endpoint. To implement the signing yourself:
 
 1. Split the API key at its last `_abo_`. The part before it, `key_<organizationId>_<id>`, is the key ID. The rest, starting with `abo_`, is the secret.
 2. Hash the whole secret, including `abo_`, with SHA-256 and encode the digest as unpadded base64url. The bytes of that ASCII string are the HMAC key, because AstralBeam stores only this digest.
@@ -65,130 +128,4 @@ export async function POST(request: Request) {
 - The `user` and `tenant` objects together must serialize to at most 8 KB of JSON, and the token to at most 16 KB.
 - AstralBeam allows 30 seconds of clock skew, so keep your server's clock synchronized.
 
-In Ruby, the [`jwt`](https://rubygems.org/gems/jwt) gem signs it in one call. This short version shows only the signing. For production, copy [`lib/astral_beam.rb`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos-rails/lib/astral_beam.rb) from the Rails example instead, because it also applies `createAstralBeamToken`'s lifetime, identity, and size checks, and AstralBeam rejects tokens that fail them.
-
-```ruby
-module AstralBeam
-  UUID = /\h{8}-\h{4}-\h{4}-\h{4}-\h{12}/
-  API_KEY = /\A(?<key_id>key_(?<organization_id>#{UUID})_#{UUID})_(?<secret>abo_[A-Za-z]{64})\z/
-
-  def self.token(api_key:, user:, tenant:, expires_in: 5.minutes)
-    key = API_KEY.match(api_key) or raise ArgumentError, "api_key must match key_<organizationId>_<id>_abo_<secret>"
-    now = Time.now.to_i
-    payload = { ver: 4, user:, tenant:, iss: key[:organization_id], aud: "astralbeam", iat: now, exp: now + expires_in.to_i }
-    signing_key = Base64.urlsafe_encode64(Digest::SHA256.digest(key[:secret]), padding: false)
-    JWT.encode(payload, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key[:key_id] })
-  end
-end
-```
-
-A Rails controller then applies the same rules as the handler above:
-
-```ruby
-class AstralBeamTokensController < ApplicationController
-  def create
-    no_store
-    api_key = ENV["ASTRALBEAM_API_KEY"]
-    return render json: { error: "Not configured" }, status: :service_unavailable unless api_key
-
-    token = AstralBeam.token(
-      api_key:,
-      user: { id: Current.user.id.to_s, name: Current.user.name },
-      tenant: { id: Current.user.account_id.to_s, name: Current.user.account.name }
-    )
-    render json: { token: }
-  rescue ArgumentError
-    render json: { error: "Token could not be issued" }, status: :internal_server_error
-  end
-end
-```
-
-`Current.user` comes from Rails' authentication generator, whose `Authentication` concern requires a signed-in session before this action runs. Substitute your own session and tenant lookup.
-
-## Usage limits
-
-Default usage limits apply to every token. Pass `usageLimits` with the IDs of any others that apply to this tenant user, such as their plan's limits, and they apply in addition. See [Usage limits](/docs/dashboard/usage-limits).
-
-```ts
-const token = await createAstralBeamToken({ apiKey, user, tenant, usageLimits: planLimits[plan] })
-```
-
-## Directory access
-
-The token above permits chat, not directory access. Only set `user.admin: true` after verifying the user's tenant-admin permissions in your application.
-
-**NOTE**: Signed admin authority permits reading the Tenant and reading and writing its TenantUsers through the API. A read-only widget does not make its token read-only. Stored `admin` fields do not grant this authority.
-
-After fetching a JWT, the SDK calls `POST /api/v1/me` to synchronize the Tenant and current TenantUser from signed claims before loading chat or directory data. Ordinary tenant users can synchronize their own identity too. Other TenantUsers appear after their own synchronization or a management API import. Deleting a TenantUser does not revoke its token, and a later synchronization recreates it. Follow [Tenant directories](./listings.md) for provisioning and embedding.
-
-## Where the token comes from
-
-`fetchAstralBeamToken` is the one option for this. Pass `{ url, ...init }` to point at an endpoint, which the widget calls as `fetch(url, init)` with a standard `RequestInit`, or pass a function that retrieves a server-minted token.
-
-```tsx
-// A token endpoint on another origin, behind header auth.
-<AstralBeamChat
-  agentId="agent_01990a5d-ac96-774b-b942-6b13c85384cb_01990a5d-ac96-774b-b942-6b13c85384ca"
-  fetchAstralBeamToken={{
-    url: "https://api.acme.com/astralbeam/token",
-    headers: { authorization: `Bearer ${accessToken}` },
-  }}
-/>
-
-// Or retrieve a server-minted token, returning undefined when unavailable.
-<AstralBeamChat fetchAstralBeamToken={async () => await mintChatAuthToken()} />
-```
-
-- Chat defaults to `{ url: "/api/astralbeam/token" }`. For directories, pass this explicitly. Cookie authentication requires a session cookie the browser will send.
-- Request defaults: `POST`, `credentials: "include"`, `cache: "no-store"`, and `accept: application/json`. Supplied values override these. Return `{ token }` in JSON.
-- Both forms call `/me` after every acquisition and use the same proactive renewal and failure recovery.
-- React reads the function prop from the latest render. Closures over current authentication state need no memoization.
-- Returning `undefined` or throwing fails closed. The widget shows the error and offers a retry.
-- Remount when switching users or Tenants so the previous identity’s transcript, directory rows, and in-flight work are discarded.
-- A cross-origin endpoint with a custom header is preflighted, so it must answer `OPTIONS` and return `Access-Control-Allow-Headers: authorization` with an exact `Access-Control-Allow-Origin`.
-
-## Refresh and current-user behavior
-
-Components become ready only after token acquisition and `/me` both succeed. They renew while visible and online before expiry, and refresh on focus or reconnect when the last synchronization is at least 60 seconds old. Updating a token-source callback changes the next acquisition without resetting the current session.
-
-A `401` gets one renewal and retry. Other client errors do not trigger token renewal. Transient network, `5xx`, and `429` synchronization failures get up to three delayed retries, respecting `Retry-After`. Failures hide the cached identity and block new authenticated work. Explicit retry or a later focus/reconnect can recover. An already authorized chat stream continues.
-
-Tenant synchronization preserves omitted names, metadata, and admin. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. Organization synchronization returns the current database membership and role without creating records. Profile freshness depends on updated host claims. An older valid JWT can overwrite newer tenant profile fields, so this is not cross-tab conflict resolution.
-
-**NOTE**: Deploy the server's `POST /api/v1/me` endpoint before updating clients. A missing endpoint fails authentication.
-
-## Rules
-
-The tenant JWT identifies the tenant user to AstralBeam, so treat it like a session credential.
-
-- Authenticate once. Derive `user` and `tenant` from the same trusted server-side session, never browser-supplied identity.
-- `user.id` and `tenant.id` must be stable 1–255 character strings. Names are optional, and user IDs are tenant-local.
-- Set optional `user.admin` only from trusted application permissions.
-- Put custom fields in each identity's `metadata`. Tokens are signed, not encrypted, so include no secrets.
-- SDK fields use camelCase. AstralBeam-owned JWT claims use snake_case, preserving caller-owned metadata keys.
-- The issuer is the organization UUID from the API key, with audience `astralbeam`. AstralBeam does not require `sub`.
-- `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK retains tokens in memory and renews before expiry.
-
-**NOTE**: Internal tools can also use [organization-management tokens](./api.md). They are separate from tenant authentication and cannot authenticate chat or create a dashboard session.
-
-## Troubleshooting
-
-- A disabled composer means token acquisition or verification failed. Retry refetches the token and verifies it again.
-- If the assistant's connection is rejected, check that `apiUrl` points to the deployment that issued your key. For a revoked or expired key, create a replacement under **API Keys**, update your server's secret, and retry. Minting another token with the old key cannot restore access.
-- Authentication failures reach the headless chat's `streamCallbacks.onError` callback and the widget's `debug` logging. These diagnostics distinguish a rejected AstralBeam token from a failing host token endpoint. The widget keeps raw error details out of its authentication message.
-- A CORS error in the console is usually a non-200 token response whose error path omits CORS headers.
-
-## Switching workspaces
-
-A workspace switch often changes the Tenant without changing the person at the keyboard. Because changing a token callback only affects the next acquisition, let’s remount chat when the active identity changes:
-
-```tsx
-<AstralBeamChat
-  key={`${session.tenant.id}:${session.user.id}`}
-  fetchAstralBeamToken={{ url: "/api/astralbeam/token" }}
-/>
-```
-
-Update your trusted server session before rendering the new identity. The token endpoint must check membership in the selected Tenant, and every host tool must enforce the same scope. Clearing the transcript alone does not establish a new identity.
-
-[Linearity](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/linearity-react) shows the component lifecycle with two mock workspaces. Its token route accepts a visitor ID only because the entire app is a shared-password demo with no real customer data. Do not copy that identity policy into an authenticated product.
+See the [Rails token endpoint](/docs/start/quickstart#3-connect-your-backend) for a complete signing example.

@@ -1,32 +1,28 @@
 # Authentication
 
-Chat and manage your application's Tenants and TenantUsers under `/api/v1`. See the [quickstart](/docs/api#description/getting-started) and [OpenAPI 3.1 contract](/api/openapi.json).
+Authenticate management requests with an organization API key on your server, or a scoped JWT in a browser. Chat requires a tenant JWT. See the [API quickstart](/docs/api#description/getting-started) and [OpenAPI contract](/api/openapi.json).
 
 ## Organization API keys
 
-Send the full decorated key through `X-API-Key` or `Authorization: Bearer <key>`. If both are present, `X-API-Key` takes precedence. Keys manage resources throughout their organization and retain their configured rate limits. Dashboard session cookies alone are not accepted. Never expose an organization key to browser code.
+Send the full `key_…_abo_…` value through `X-API-Key` or `Authorization: Bearer <key>`. If both are present, `X-API-Key` takes precedence. Keys manage resources throughout their organization and retain their configured rate limits. Dashboard session cookies alone are not accepted. Never expose an organization key to browser code.
 
-## Organization management JWTs
+## Examples
 
-The trusted API-key holder selects the authenticated member and delegates their current database permissions to the token recipient. These checks constrain the delegated token, not its issuer, who retains owner-equivalent resource access throughout the Organization.
+Set `ASTRALBEAM_API_KEY` securely in your server environment, then send it with each request:
 
-A short-lived organization-management JWT identifies an organization member for Tenant and TenantUser operations throughout its issuing Organization. The server reads current roles from the database on every request: owners and developers can GET, POST, and PATCH; viewers can GET only. Unknown roles grant no access. Composable roles retain the grants of their recognized roles. Issue tokens only to authenticated operators authorized by the host application to access that Organization.
+```sh
+curl "https://astralbeam.ai/api/v1/tenants" \
+  -H "X-API-Key: $ASTRALBEAM_API_KEY"
+```
 
-The protected type is `astralbeam-organization+jwt`, distinct from chat JWTs. Claims are version `ver: 1`, authenticated operator `email`, Organization UUID `organization_id`, matching issuer `iss`, audience `astralbeam`, `iat`, and `exp`. There is no `sub` or user-ID claim. The lifetime is 60–600 seconds. Both Organization claims must match the signing key's Organization, and the key must remain enabled and unexpired.
+Alternatively, with an admin JWT in `ASTRALBEAM_TOKEN`, use Bearer authentication.
 
-Organization JWTs cannot authenticate chat or manage dashboard Members, API keys, or configuration. Resource requests are limited to 100 per five minutes per Organization and resolved organization user. Changing tokens or the user's email does not reset the rate bucket.
+```sh
+curl "https://astralbeam.ai/api/v1/tenants" \
+  -H "Authorization: Bearer $ASTRALBEAM_TOKEN"
+```
 
-The email must identify an existing organization user with membership in the claimed Organization. The server matches email case-insensitively and checks membership on every request, returning `403` when it is absent, removed, or lacks permission for the operation. Role changes apply on the next request. Do not include role, roles, or admin claims in organization JWTs; they are rejected. Authentication does not create users, memberships, or login sessions.
-
-## Current user
-
-Send a tenant or organization JWT to `POST /api/v1/me` without a request body. Identity comes only from the verified JWT, and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
-
-Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`, using the public Tenant and TenantUser records. The request upserts only the signed Tenant and current TenantUser in one transaction. Ordinary non-admin users can synchronize themselves. Omitted names, metadata, and admin preserve existing values. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
-
-Organization JWTs return `{ scope: "organization", organization: { id }, user: { id, name, email, role } }`. Membership and role are read again, including for viewers, without creating users, memberships, tenants, or sessions. Removed membership returns `403`.
-
-Success is `200` with `Cache-Control: no-store`. Invalid or revoked JWTs return `401`. Synchronization has its own 100-request-per-five-minute bucket per authenticated identity. Throttling returns `429` with `Retry-After`.
+Both return `200 OK` with a paginated list in the credential's scope. POST/PATCH requests also require `Content-Type: application/json`.
 
 ## Tenant administrator JWTs
 
@@ -46,24 +42,35 @@ Chat accepts tenant JWTs without administrator privileges, but not API keys or o
 
 Downloads pass the saved `fileId` and `threadId`. Tenant JWTs require current conversation participation. Administrative downloads also pass `tenantId` and accept an Organization API key, an organization-management JWT with current directory-read permission, or a signed Tenant admin JWT within its Tenant. Published files survive sandbox shutdown.
 
+## Current user
+
+Send a tenant or organization JWT to `POST /api/v1/me` without a request body. Identity comes only from the verified JWT, and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
+
+Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`, using the public Tenant and TenantUser records. The request upserts only the signed Tenant and current TenantUser in one transaction. Ordinary non-admin users can synchronize themselves. Omitted names, metadata, and admin preserve existing values. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
+
+Organization JWTs return `{ scope: "organization", organization: { id }, user: { id, name, email, role } }`. Membership and role are read again, including for viewers, without creating users, memberships, tenants, or sessions. Removed membership returns `403`.
+
+Success is `200` with `Cache-Control: no-store`. Invalid or revoked JWTs return `401`. Synchronization has its own 100-request-per-five-minute bucket per authenticated identity. Throttling returns `429` with `Retry-After`.
+
+## Organization management JWTs
+
+Use these tokens for an existing organization member's Tenant and TenantUser operations. Each request checks current membership and roles: owners and developers can read and write, viewers can only read. Recognized roles combine their grants. Missing membership or permission returns `403`. Role changes apply immediately.
+
+The issuer must authenticate the operator and authorize access to the selected organization. The issuing API key retains organization-wide authority. Use the [SDK helper](/docs/sdk/api#browser-organization-jwt), or sign these fields with HS256:
+
+| Field | Value |
+| --- | --- |
+| Protected `typ` | `astralbeam-organization+jwt` |
+| `ver` | `1` |
+| `email` | Verified operator email, matched case-insensitively to an existing member |
+| `organization_id`, `iss` | Organization UUID matching the signing API key |
+| `aud` | `astralbeam` |
+| `iat`, `exp` | Epoch seconds, 60–600 seconds apart |
+
+Use the API key's ID as protected `kid` and its hashed secret as the signing key, as described in the [token format](/docs/sdk/authentication#mint-tokens-without-javascript). The key must remain enabled and unexpired. Do not include `role`, `roles`, `admin`, `sub`, or user-ID claims.
+
+These tokens cannot authenticate chat, create dashboard sessions, or manage dashboard configuration. They create no users or memberships. Requests are limited to 100 per five minutes per organization and resolved member. Changing the token or email does not reset the bucket.
+
 ## Browser transport
 
 The API permits credential-free CORS for GET, POST, PUT, PATCH, DELETE, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. Responses use `Cache-Control: no-store` except successful chat images and previews, which may use a private browser cache for 60 seconds and vary by authorization and preview headers.
-
-## Examples
-
-Set `ASTRALBEAM_API_KEY` securely in your server environment, then send it with each request:
-
-```sh
-curl "https://astralbeam.ai/api/v1/tenants" \
-  -H "X-API-Key: $ASTRALBEAM_API_KEY"
-```
-
-Alternatively, with an admin JWT in `ASTRALBEAM_TOKEN`, use Bearer authentication.
-
-```sh
-curl "https://astralbeam.ai/api/v1/tenants" \
-  -H "Authorization: Bearer $ASTRALBEAM_TOKEN"
-```
-
-Both return `200 OK` with a paginated list in the credential's scope. POST/PATCH requests also require `Content-Type: application/json`.

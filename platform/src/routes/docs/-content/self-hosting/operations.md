@@ -1,60 +1,41 @@
 # Operations
 
-A running deployment needs migrations applied, backups taken, and a handful of limits and log lines understood. [Deploy](./deploy.md) covers the install itself.
+Maintain a running deployment with migrations, coordinated backups, health checks, and logs. For installation, follow [Deploy](./deploy.md).
 
-Every command below needs `DATABASE_URL` in the environment. `astralbeam-platform` commands run from the installed binary and can also read it from [environment files](./deploy.md#3-set-the-bootstrap-environment), and `bun run` commands run from the repository root, in a checkout of the deployed version.
+Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
 ## Applying migrations
 
-Application migrations ship inside the artifact. When a release adds one, the setup gate closes on every replica, pages redirect to `/configure`, and the page shows a **Database migrations** card with the pending count, how many are already applied, and each migration's full SQL and optional TypeScript behind a disclosure. Read both sources, back up the database if it holds data you cannot lose, then apply.
+Application migrations ship with each release. When migrations are pending, pages redirect to `/configure`.
+
+1. Back up the database and bucket before upgrading a populated deployment.
+2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
+3. Apply the reviewed set. After success, restart other replicas to refresh their migration state.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
-Three things happen when we apply migrations through `/configure`.
+Migrations are serialized and each runs in a transaction. If another operator is applying migrations, wait and reload. If the pending set changes, review it again before applying.
 
-- Each migration takes a PostgreSQL transaction advisory lock on its execution connection and rechecks history. A competing attempt while the lock is held returns `A migration run is already in progress`.
-- The page approves the exact set it showed you, by their ordered names. If the pending set changed in between, the run is refused with `The pending migrations changed; review them again`, and you review the new list.
-- Each migration runs its SQL, then any TypeScript step, then records completion in one transaction before the next migration starts.
-
-A failure stops the run and reports `Migration '<name>' failed: <message>`, including a SQLSTATE code when PostgreSQL provides one. The migrations before it stay applied and recorded, the failed one is rolled back, and nothing after it runs. Fix the cause and apply again from the same page, and the already-applied migrations are not re-run. Setup and the CLI use the same transaction boundary.
-
-Applied migrations are tracked by name. Changes to their SQL, TypeScript, or imported dependencies do not cause them to run again. Add a new migration for additional work. Only queries through the supplied client share the transaction. External effects cannot be rolled back.
-
-Migration state is cached per process. After a CLI migration or history repair, restart the application replicas so they read the current history. Applying through `/configure` refreshes the process serving that request, so restart other replicas afterward.
+On failure, earlier migrations remain applied, the failed migration rolls back, and later ones do not run. Fix the reported cause and retry. Restart replicas after a CLI migration or history repair so they reload migration state.
 
 **NOTE**: Failed transactions roll back automatically. There is no command to undo a committed migration. Reverse an applied change with a new forward migration.
 
 ## Database commands
 
-The operator page, the binary's `migrate` command, and `bun run --cwd platform db migrate` share the application's bookkeeping table, `drizzle.__drizzle_migrations`, and match applied migrations by name. Repository setup uses the same runner. Reach for a command when you would rather migrate before restarting, or when you have no browser access to `/configure`.
-
-Run this command with the new binary to list the migrations it would apply, without changing the database:
+Use the application runner so both SQL and TypeScript migration steps execute:
 
 ```sh
 astralbeam-platform migrate --dry-run
-```
-
-Run this command to apply them:
-
-```sh
 astralbeam-platform migrate
 ```
 
-Run this command to apply every checked-in migration that has not run yet from a checkout instead:
+From a checkout of the deployed version:
 
 ```sh
 bun run --cwd platform db migrate
 ```
 
-Run this command to validate the consistency of the migration history on disk, which says nothing about the state of the live database:
-
-```sh
-bun run --cwd platform db check
-```
-
-The repository's `db` wrapper forwards only `generate`, `check`, `up`, and `export` to Drizzle Kit. It handles `migrate` itself and rejects every other command, including `push`, `pull`, and legacy aliases. `up` upgrades migration metadata on disk, not the database schema.
-
-**NOTE**: Use AstralBeam's migration commands. The wrapper cannot prevent someone with database access from invoking Drizzle Kit directly. Direct `drizzle-kit migrate` skips TypeScript steps while recording the SQL as applied. Never use Drizzle `push`, including `push --explain`, in any environment or for local prototypes. It compares the schema with a live database instead of applying reviewed migration files.
+**NOTE**: Do not invoke `drizzle-kit migrate` directly: it skips TypeScript steps while recording the SQL as applied. Never use `drizzle-kit push` against this schema. Contributor migration commands are documented in the [database guide](https://github.com/AstralBeamAI/astralbeam/blob/main/platform/src/db/README.md).
 
 ## Backups and restore
 
@@ -68,7 +49,7 @@ pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 
 Keep the replicas stopped and use your storage provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode from **File storage** alongside the backup.
 
-Two things make an AstralBeam dump different from an ordinary one. The dump is useless without the matching `DATABASE_ENCRYPTION_KEY`, because deployment settings, model provider credentials, and sandbox provider credentials are stored as ciphertext keyed from it, as described in [Security](./security.md). Restoring also needs a server at the same PostgreSQL major version or newer, with the `citext` extension available.
+Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. Use the same PostgreSQL major version or newer, with `citext` available. See [Security](./security.md).
 
 **NOTE**: Back the keyring up in your secret manager, separately from the dump, and never in the same place.
 
@@ -86,10 +67,10 @@ Then start the application with that `DATABASE_URL` and the encryption keyring t
 
 | Endpoint | Behavior |
 | --- | --- |
-| `/api/status` | Counts organization rows. `200` with `{"status":"ok"}` when that query succeeds, otherwise `503` with an `error` field. It does not read the request |
+| `/api/status` | `200` with `{"status":"ok"}` when the database query succeeds, otherwise `503` |
 | `/api/v1/*` | `503` with `Retry-After: 10` and a problem document whose detail is `Server configuration required.` while setup is incomplete |
-| `/api/auth/*` | `503` with `{"error":"Application is not configured"}` while setup is incomplete |
-| Page routes | Redirect to `/configure` while setup is incomplete |
+| `/api/auth/*` | `503` while bootstrap or deployment configuration is incomplete |
+| Application pages except `/docs` and `/configure` | Redirect to `/configure` while setup is incomplete |
 
 Point a process supervisor or load balancer probe at `/api/status`. It does not check cluster readiness. There is no separate readiness endpoint. For API readiness, probe an API route and treat `503` as not ready and `401` as ready.
 
@@ -97,7 +78,7 @@ Point a process supervisor or load balancer probe at `/api/status`. It does not 
 
 SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give the process supervisor more than ten seconds before sending SIGKILL.
 
-Long-lived streams such as chat runs can outlast the drain and be disconnected. Durably accepted workflows remain recoverable through PostgreSQL, but their callers must reconnect to inspect the result. Development reloads close the runner scope while retaining the shared database pools.
+Long-lived streams can be disconnected. Accepted durable work remains recoverable through PostgreSQL. Reconnect to inspect the result.
 
 ## Cluster readiness and recovery
 
@@ -109,19 +90,26 @@ The `effect_cluster_*` tables are framework-owned journal and coordination stora
 
 ## Logs
 
-Collect stdout and stderr with your init system or container runtime. Production Effect logs use logfmt, development uses a readable console format, and startup commands also print plain text. The application does not manage log files or expose a log-format setting.
+Collect stdout and stderr with your init system or container runtime. Application request and Effect logs use ECS JSON in development and production. Startup commands can also print plain text. The application does not manage log files. `LOG_LEVEL` sets the minimum level and defaults to `Info`, for example `LOG_LEVEL=Debug` includes debug entries.
 
 On Docker hosts, [enable log rotation](https://docs.docker.com/engine/logging/configure/) with the `local` logging driver or bounded `json-file` settings so container logs cannot exhaust the disk.
 
-Cluster readiness logs include the advertised private runner address. Failures on `/configure` and in the config layer omit submitted values and are recorded as a classification plus a PostgreSQL error code, precisely so a submitted secret cannot end up in the log. That is also why a `/configure` error in the log is terse, and why it is worth pairing with the message the page showed the operator.
+Request entries include method, status, duration, and request ID. Unexpected failures include a client-facing reference ID and a redacted cause. A stream can fail after its HTTP headers have been sent. Pair the reference with the message shown to the user.
 
-Four lines are worth alerting on. `Database pool idle client error` means an idle pooled connection failed, and it carries the pool name, the error code, and the pool counts. Repeated occurrences point at the pooler, a network path, or a server restart. `Migration failed` means a migration run stopped, and the operator page names the migration and reports the detail. `Ignoring invalid stored config value` carries the affected `key` in its annotations and means the deployment treats that setting as unset. `Request failed` records an unexposed failure with `operation`, `referenceId`, and redacted `reasons`. A chat stream can log it after HTTP headers have already been sent.
+| Message | What to check |
+| --- | --- |
+| `Database pool idle client error` | Pooler, network connectivity, and database restarts. The entry includes pool identity and counts |
+| `Migration failed` | The migration and detail shown at `/configure` |
+| `Ignoring invalid stored config value` | Replace the named setting at `/configure`. It is treated as unset |
+| `Request failed` | Correlate the reference ID, operation, and redacted error cause |
+
+Cluster readiness entries include the advertised private runner address. Configuration failures omit submitted values. See [Observability](./configuration.md#observability) to export request, model, and tool spans and server logs.
 
 ## Connection pooling
 
 Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
 
-Each application process opens two independent pools, one for the authentication client with up to 5 connections and one for the main application client with up to 10, so budget up to 15 client connections to PgBouncer per replica. Budget PostgreSQL backend connections separately using PgBouncer pool sizes and database limits. Both pools use an explicit five-second connection timeout. Both pools close a connection after 30 seconds idle and recycle one after 30 minutes of life, which keeps a pooler or NAT idle timeout from handing back a connection that has quietly died. TCP keepalives are on for the same reason.
+Budget up to 15 client connections per replica: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
 
 Size the pooler's own limits for the number of replicas you run, and remember that the migration runner holds one connection for the duration of a migration run.
 
@@ -138,26 +126,10 @@ Counters live in the shared `rate_limit` table, so every replica enforces the sa
 | Management API with an API key | 100 per 5 minutes | The API key |
 | Management API with a chat token | 100 per 5 minutes | The token's identity |
 
-The validated endpoint operation selects one of three independent chat buckets, so budget for up to 420 requests per minute from one tenant user.
-
 Exceeding a limit returns `429` with a `Retry-After` header. Before the first migration, operator sign-in permits attempts so first boot remains possible. Chat reaches the setup gate first and returns `503` with `Retry-After: 10` while configuration or migrations are incomplete.
 
 **TIP**: The operator bucket counts attempts for the deployment as a whole rather than per client address, so add an ingress-level limit in front of `/configure` if you want per-address throttling during setup.
 
 ## Seeding a demo environment
 
-`db-seed` fills a database with everything a demo or a browser test would otherwise create by hand: deployment configuration, verified accounts, two organizations with members and a pending invitation, agents, organization API keys, Tenants and tenant users, and a Docker sandbox provider. It skips `/configure`, sign-up, email verification, and API key creation.
-
-Run these commands to recreate the local database, migrate it, and seed it:
-
-```sh
-bun run --cwd platform db-reset
-bun run --cwd platform db migrate
-bun run --cwd platform db-seed
-```
-
-The seed prints every account with its password, each agent's public ID, and each API key's full value. It skips any setting that has an environment override. When `OPENAI_API_KEY` is set, it creates a **Development OpenAI** connection, enables its default model, and assigns that model to agents in seeded organizations and dogfood that have no provider. Existing provider settings and model assignments are preserved.
-
-It refuses anything but a loopback database host, reporting `Refusing to seed the database at '<host>': seeding writes fixed development credentials and is limited to a loopback host`, because it writes fixed, published credentials. It also requires `DATABASE_ENCRYPTION_KEY`, refuses to run against an unmigrated database, runs in one transaction, and can be re-run to restore the fixture values.
-
-**NOTE**: `db-reset` drops and recreates the disposable local database that `DATABASE_URL` selects. Skip it to seed into an already-migrated database, and never point either command at anything holding real data.
+For disposable local environments, follow [Seed sample data](https://github.com/AstralBeamAI/astralbeam/blob/main/platform/src/db/README.md#seed-sample-data). It creates fixed development credentials and bypasses onboarding. Never seed or reset a database holding real data.

@@ -1,6 +1,6 @@
 # Security model
 
-One principle everywhere: the dashboard grants, the chat endpoint enforces, and the client can only narrow a grant, never widen it. Nothing the browser sends is trusted for policy.
+The dashboard defines agent capabilities and the server enforces them. SDK options can restrict those capabilities but cannot grant more access. Your backend remains responsible for authorizing host-tool actions.
 
 ## The boundary
 
