@@ -1,0 +1,277 @@
+import { expect, test } from "../../fixtures.ts"
+import { directoriesPage, openVanillaDirectories } from "../../pages/directories-page.ts"
+import { captureMoment } from "../../capture.ts"
+import { SEED_ORGANIZATIONS, SEED_USERS } from "../../../../../platform/scripts/seed/fixtures.ts"
+import type { TenantPage } from "../../../../../sdk/dist/api.js"
+import { createAstralBeamOrganizationToken, createAstralBeamToken } from "@astralbeam/sdk/server"
+import { seedTarget } from "../../worktree.ts"
+
+test("example lists only its tenant's users and filters stored admin status", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  const directory = directoriesPage(page)
+  const tenant = SEED_ORGANIZATIONS[0].tenants[0]
+  const [admin] = tenant.users
+  await directory.open()
+  await expect(directory.user(admin.name)).toBeVisible()
+  await expect(directory.tenantPicker).toHaveCount(0)
+  await expect(directory.user(SEED_ORGANIZATIONS[0].tenants[1].users[0].name)).toHaveCount(0)
+  await expect(directory.adminFilter).toHaveCount(0)
+  await directory.users.getByRole("searchbox").focus()
+  await captureMoment(page, "tenant-users-search-focus")
+  await directory.users.getByRole("combobox", { name: "Rows per page" }).click()
+  await captureMoment(page, "tenant-users-themed-page-menu")
+  await directory.users.getByRole("combobox", { name: "Rows per page" }).press("Escape")
+  await directory.refresh.focus()
+  await captureMoment(page, "tenant-users-refresh-focus")
+  await directory.showAdmin.check()
+  await directory.selectAdmin("Non-admins")
+  await expect(directory.user(admin.name)).toHaveCount(0)
+  await directory.selectAdmin("Admins")
+  await expect(directory.user(admin.name)).toBeVisible()
+  await expect(directory.metadata).toContainText(admin.metadata.email)
+  await captureMoment(page, "filtered-user-metadata")
+  await directory.users.getByRole("searchbox").fill("no matching user")
+  await expect(directory.users.getByText("No records match your filters.")).toBeVisible()
+  await directory.users.getByRole("button", { name: "Clear filters", exact: true }).click()
+  await expect(directory.users.getByRole("searchbox")).toHaveValue("")
+  await expect(directory.adminFilter).toHaveValue("all")
+  await expect(directory.user(admin.name)).toBeVisible()
+  await directory.showAdmin.uncheck()
+  await expect(directory.adminFilter).toHaveCount(0)
+  await expect(directory.user(admin.name)).toBeVisible()
+})
+
+test("a missing tenant can be refreshed after provisioning without remounting", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  await page.route("**/api/v1/tenants?*", (route) =>
+    route.fulfill({ json: { items: [], page_after: null, page_before: null } }),
+  )
+  await directory.open()
+  await expect(directory.users).toContainText("This tenant is not available.")
+  await captureMoment(page, "missing-tenant-refresh")
+  await page.unroute("**/api/v1/tenants?*")
+  await directory.refresh.click()
+  await expect(directory.user(seedTarget.user.name)).toBeVisible()
+})
+
+test("directories share chat theme tokens across system, dark, and removed overrides", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  const directory = directoriesPage(page)
+  const tenant = SEED_ORGANIZATIONS[0].tenants[0]
+  await directory.open()
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(43, 36, 22)")
+  await captureMoment(page, "tenant-users-shared-dark-theme")
+  await directory.theme.click()
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
+  await directory.customTheme.click()
+  await expect(directory.userTable).toHaveCSS("background-color", /^oklch\((1|100%) 0 0\)$/)
+  await expect(directory.user(tenant.users[0].name)).toBeVisible()
+  await directory.customTheme.click()
+  await expect(directory.userTable).toHaveCSS("background-color", "rgb(253, 249, 240)")
+})
+
+test("terminal API failures reach the host without losing the widget error UI", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  await page.route("**/api/v1/tenants/*/tenant_users?*", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/problem+json",
+      body: JSON.stringify({
+        type: "about:blank",
+        title: "Forbidden",
+        status: 403,
+        detail: "Directory access denied",
+      }),
+    }),
+  )
+  await directory.open()
+  await expect(directory.error).toContainText("Directory error: Directory access denied")
+  await expect(directory.users.getByText("Directory access denied")).toBeVisible()
+  await page.unroute("**/api/v1/tenants/*/tenant_users?*")
+  await directory.retry.click()
+  await expect(directory.user(seedTarget.user.name)).toBeVisible()
+  await captureMoment(page, "recovered-directory-dismissible-error")
+  await directory.dismissError.click()
+  await expect(directory.error).toHaveCount(0)
+})
+
+test("vanilla tenant directories enforce admin authority across reset and remount", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  const tenant = SEED_ORGANIZATIONS[0].tenants[1]
+  const [admin, member] = tenant.users
+  const adminTarget = {
+    apiKey: seedTarget.apiKey,
+    tenant: { id: tenant.externalId, name: tenant.name },
+    user: { id: admin.externalId, name: admin.name, admin: admin.admin, metadata: admin.metadata },
+  }
+  const memberTarget = {
+    ...adminTarget,
+    user: {
+      id: member.externalId,
+      name: member.name,
+      admin: member.admin,
+      metadata: member.metadata,
+    },
+  }
+  let token = await createAstralBeamToken(adminTarget)
+  await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+  await openVanillaDirectories(page)
+  await expect(directory.tenant(tenant.name)).toBeVisible()
+  await expect(directory.user(admin.name)).toBeVisible()
+  await expect(directory.tenant(seedTarget.tenant.name)).toHaveCount(0)
+  await directory.unmount.click()
+  await expect(directory.tenants).toHaveCount(0)
+  await expect(directory.users).toHaveCount(0)
+  await directory.remount.click()
+  await expect(directory.user(admin.name)).toBeVisible()
+
+  token = await createAstralBeamToken(memberTarget)
+  const denied = page.waitForResponse(
+    (response) => response.url().includes("/api/v1/tenants") && response.status() === 403,
+  )
+  const reset = await directory.runCommand("reset")
+  await denied
+  await expect(reset).toHaveText("AstralBeamApiError")
+  await expect(directory.hostErrors).toHaveText("2")
+  await expect(directory.users).toContainText("Access denied")
+  await expect(directory.user(admin.name)).toHaveCount(0)
+  token = await createAstralBeamToken(adminTarget)
+  await expect(await directory.runCommand("reset")).toHaveText("fulfilled")
+  await expect(directory.user(admin.name)).toBeVisible()
+  await expect(directory.hostErrors).toHaveText("2")
+  await captureMoment(page, "vanilla-tenant-directories")
+})
+
+test("directory table and tenant search follow real server cursors", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const directory = directoriesPage(page)
+  const [first, second] = SEED_ORGANIZATIONS[0].tenants
+  const refreshedName = `${first.name} refreshed`
+  const searchCursors: string[] = []
+  let failNextPage = true
+  let refresh = false
+  const token = await createAstralBeamOrganizationToken({
+    apiKey: seedTarget.apiKey,
+    organizationId: seedTarget.organizationId,
+    email: SEED_USERS[0].email,
+  })
+  await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+  await page.route("**/api/v1/tenants?*", async (route) => {
+    const url = new URL(route.request().url())
+    const q = url.searchParams.get("q")
+    const cursor = url.searchParams.get("page_after") ?? ""
+    if (q === "o") searchCursors.push(cursor)
+    if (q === "o" && cursor && failNextPage) {
+      failNextPage = false
+      await route.fulfill({
+        status: 503,
+        json: { detail: "Tenant search temporarily unavailable" },
+      })
+      return
+    }
+    url.searchParams.set("page_size", "1")
+    const response = await route.fetch({ url: url.href })
+    const data = (await response.json()) as TenantPage
+    for (const item of data.items) {
+      item.metadata = { details: "x".repeat(300), context: { note: "y".repeat(300) } }
+    }
+    if (refresh && q === "o" && !cursor) data.items[0]!.name = refreshedName
+    await route.fulfill({ response, json: data })
+  })
+  await openVanillaDirectories(page, { scope: "organization" })
+  await expect(directory.tenant(first.name)).toBeVisible()
+  expect(
+    await directory.tenants
+      .locator("dl dd")
+      .evaluateAll(
+        (values) =>
+          values.length > 0 && values.every((value) => value.scrollWidth <= value.clientWidth),
+      ),
+  ).toBe(true)
+  await captureMoment(page, "wrapped-tenant-metadata-mobile")
+  await directory.next.click()
+  await expect(directory.tenant(second.name)).toBeVisible()
+  await expect(directory.tenant(first.name)).toHaveCount(0)
+  await directory.previous.click()
+  await expect(directory.tenant(first.name)).toBeVisible()
+  await expect(directory.tenant(second.name)).toHaveCount(0)
+  await directory.next.click()
+  await expect(directory.tenant(second.name)).toBeVisible()
+  const resized = page.waitForRequest((request) => {
+    const url = new URL(request.url())
+    return url.pathname === "/api/v1/tenants" && url.searchParams.get("page_size") === "50"
+  })
+  await directory.tenants.getByRole("combobox", { name: "Rows per page" }).selectOption("50")
+  expect(new URL((await resized).url()).searchParams.has("page_after")).toBe(false)
+  await expect(directory.tenant(first.name)).toBeVisible()
+  const searched = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get("q") === "o",
+  )
+  await directory.tenantPicker.fill("o")
+  await searched
+  await expect(directory.retry).toBeVisible()
+  await directory.retry.click()
+  await expect(directory.tenantOption(second.name)).toBeVisible()
+  expect(searchCursors[1]).not.toBe("")
+  expect(searchCursors.slice(0, 3)).toEqual(["", searchCursors[1], searchCursors[1]])
+  await directory.tenantOption(second.name).click()
+  await expect(directory.user(second.users[0].name)).toBeVisible()
+  const selectedLabel = `${second.name} · ${second.externalId}`
+  const selectedLabelSearch = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get("q") === selectedLabel,
+  )
+  await directory.tenantPicker.fill("o")
+  await directory.tenantPicker.fill(selectedLabel)
+  await selectedLabelSearch
+  await directory.tenantPicker.press("Escape")
+  await expect(directory.tenantPicker).toHaveValue(selectedLabel)
+  await directory.tenantPicker.press("ArrowDown")
+  await expect(directory.tenantOption(first.name)).toBeVisible()
+  await directory.tenantPicker.fill("missing-tenant-for-search")
+  await expect(directory.users.getByText("No matches.")).toBeVisible()
+  await expect(directory.tenantContext).toContainText(second.name)
+  await directory.clearTenant.click()
+  await expect(directory.clearCount).toHaveText("1")
+  await expect(directory.user(second.users[0].name)).toHaveCount(0)
+  await directory.selectTenant(first.name)
+  await expect(directory.user(first.users[0].name)).toBeVisible()
+  await directory.tenantPicker.fill("o")
+  await expect(directory.tenantOption(first.name)).toBeVisible()
+  refresh = true
+  await directory.refreshMounted.dispatchEvent("click")
+  await expect(directory.tenantOption(refreshedName)).toBeVisible()
+  await captureMoment(page, "tenant-search-real-cursors")
+})
+
+test("external tenant IDs resolve exactly and missing tenants never show another tenant's users", async ({
+  page,
+}) => {
+  const directory = directoriesPage(page)
+  const tenant = SEED_ORGANIZATIONS[0].tenants[1]
+  const token = await createAstralBeamOrganizationToken({
+    apiKey: seedTarget.apiKey,
+    organizationId: seedTarget.organizationId,
+    email: SEED_USERS[0].email,
+  })
+  await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
+  await openVanillaDirectories(page, { scope: "organization", tenantExternalId: tenant.externalId })
+  await expect(directory.user(tenant.users[0].name)).toBeVisible()
+  await expect(directory.tenantContext).toContainText(tenant.name)
+  await expect(directory.tenantPicker).toHaveCount(0)
+  await openVanillaDirectories(page, {
+    scope: "organization",
+    tenantExternalId: "missing-tenant-for-lookup",
+  })
+  await expect(directory.users).toContainText("This tenant is not available.")
+  await expect(directory.user(tenant.users[0].name)).toHaveCount(0)
+})

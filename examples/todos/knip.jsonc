@@ -3,4 +3,11 @@
   "tags": ["-knipignore"],
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
+  "entry": ["e2e/fixtures/authentication.tsx"],
+  // The suite's config lives under `e2e/`, so Knip's Playwright plugin is pointed at it
+  // explicitly; its spec files and setup are the execution roots. https://knip.dev/reference/plugins/playwright
+  "playwright": {
+    "config": ["e2e/playwright.config.ts"],
+    "entry": ["e2e/preflight.setup.ts", "e2e/specs/**/*.spec.ts"],
+  },
 }

@@ -8,6 +8,9 @@
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
     "check:fix": "bun run lint:fix && bun run format",
     "dev": "vite",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:capture": "E2E_CAPTURE=all playwright test --config e2e/playwright.config.ts",
+    "e2e:install": "playwright install chromium",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "knip": "knip",
@@ -21,12 +24,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@astralbeam/sdk": "workspace:*",
     "@tanstack/react-router": "^1.170.44",
     "@tanstack/react-start": "^1.169.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tanstack/eslint-plugin-router": "^1.162.0",
     "@tanstack/eslint-plugin-start": "^0.1.0",
     "@types/node": "^26.6.5",

@@ -1,0 +1,69 @@
+# Todos end-to-end suite
+
+Browser tests cover the example, SDK, and chat endpoint against a seeded platform. Deterministic specs run without a model, while agent specs use real model calls.
+
+The suite and database seed share identities from `platform/scripts/seed/fixtures.ts`. Complete the repository [setup](../../../SETUP.md) before running the suite.
+
+## Run it
+
+```sh
+bun run --cwd platform db migrate
+bun run --cwd platform db-seed
+bun run --cwd sdk build                # the example consumes sdk/dist
+bun run --cwd examples/todos e2e:install
+bun run --cwd examples/todos e2e
+```
+
+- `bun run --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
+- `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
+- The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
+- `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
+
+The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
+
+The `list` reporter narrates every `test.step` as it starts and finishes, with its duration. An agent spec's steps say what turn is running and, if the endpoint throttles it, that it is waiting out the rate-limit window rather than hanging.
+
+## Evidence
+
+Failure videos, traces, and screenshots land in gitignored `e2e/.output`. The HTML report is `e2e/.output/report/index.html`, with traces under `test-results/<test>/trace.zip`.
+
+```sh
+bun run --cwd examples/todos e2e:capture      # record video, trace, and screenshots for passing specs too
+```
+
+Use `E2E_CAPTURE=all` when the run itself is the evidence for a pull request. `captureMoment(page, name)` from `capture.ts` attaches a labelled screenshot to the report, for a moment worth showing on its own.
+
+## Layout
+
+| File | Owns |
+| --- | --- |
+| `playwright.config.ts` | Projects, retries, capture settings, and the two dev servers |
+| `worktree.ts` | Project paths, ports, and the environment each server is given |
+| `preflight.setup.ts` | Fails once with an actionable message when the database is not seeded |
+| `fixtures.ts` | The `test` a spec imports, with `todos` and `chat` open and hydrated |
+| `pages/todos-page.ts` | Selectors and actions for the host app's own UI |
+| `pages/chat-widget.ts` | Selectors and actions for the embedded widget, including shadow-root notes |
+| `tokens.ts` | Signs chat auth tokens directly, kept in step with `sdk/src/server/index.ts` |
+| `capture.ts` | Attaches a labelled screenshot to the report |
+| `specs/app/` | Deterministic specs, never call a model |
+| `specs/agent/` | Specs that drive a real agent run |
+
+## Adding a flow
+
+Compose it from the page objects. A spec should read as the user's steps and nothing else.
+
+1. Decide the project. Does it need a model reply? `specs/agent/`. Otherwise `specs/app/`.
+2. Add `specs/<project>/<feature>.spec.ts` and import `{ expect, test }` from `../../fixtures.ts`.
+3. Take what you need from the `todos` and `chat` fixtures. Add a method to a page object rather than putting a raw selector in a spec.
+4. Assert on side effects: the host's todo list, a tool row, the sandbox panel. Never assert on the assistant's wording, which changes between runs.
+
+## Things that will bite you
+
+- **The widget lives in an open shadow root.** Locators reach into it, but `body.innerText` does not. Assert through locators.
+- **`getByLabel("Message")` is ambiguous** once a transcript exists, because the messages region matches too. Use `getByRole("textbox", { name: "Message" })`.
+- **The page is server-rendered, so a click can land before React hydrates** and be silently dropped. `todosPage.open()` waits for hydration. Keep new entry points going through it.
+- **Every idle signal is an absence**, so a check that runs a moment too early passes against a run that never started. `chat.sendAndWait` waits for a new assistant turn first, which is why specs should use it rather than `send` plus `waitForIdle`.
+- **Do not wait on `role="status"` generally.** The sandbox status pill uses it and stays as long as the conversation has a sandbox.
+- **The widget renders a sandbox file write from the tool call, not its result**, so a row and a download appear even when the sandbox never started. Assert on `Wrote` versus `Could not write`, and on a command's `exit 0`.
+- **`/api/v1/chat` allows 20 new turns a minute per tenant user**, and host-tool continuations count against a separate 200-a-minute bucket. The example mints one fixed tenant user, so every spec shares those windows. `chat.sendAndWait` waits the window out and presses Retry rather than failing.
+- **Use the SDK’s server helpers.** `tokens.ts` mints tokens through `createAstralBeamToken`, and preflight verifies that the platform accepts them.
