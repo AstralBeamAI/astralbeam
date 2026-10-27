@@ -1,4 +1,4 @@
-import { Result, Schema, SchemaGetter } from "effect"
+import { Result, Schema, SchemaGetter, SchemaTransformation } from "effect"
 
 import {
   EmailProviderSchema,
@@ -82,10 +82,10 @@ export function decodeConfigValue(
 export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
     key: "otel_exporter_otlp_endpoint",
-    group: "Tracing",
+    group: "Observability",
     label: "OTLP endpoint",
     description:
-      "Optional OTLP/HTTP base URL. The traces path /v1/traces is appended. Leave unset to keep tracing disabled by default. Requires a server restart.",
+      "Optional OTLP/HTTP base URL. Appends /v1/traces, and /v1/logs when log export is enabled. Requires a server restart.",
     kind: "url",
     required: false,
     schema: PublicHttpUrlSchema.check(
@@ -100,7 +100,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "otel_exporter_otlp_headers",
-    group: "Tracing",
+    group: "Observability",
     label: "OTLP headers",
     description:
       "Optional comma-separated key=value pairs sent to the receiver. Values containing commas must be percent-encoded. Traces headers override matching names.",
@@ -110,7 +110,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   },
   {
     key: "otel_exporter_otlp_traces_headers",
-    group: "Tracing",
+    group: "Observability",
     label: "OTLP traces headers",
     description:
       "Comma-separated key=value pairs, for example Authorization=Bearer <token>. Values containing commas must be percent-encoded.",
@@ -119,35 +119,50 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: NonEmptyStringSchema,
   },
   {
+    key: "otel_logs_exporter",
+    group: "Observability",
+    label: "Log export",
+    description:
+      "Optional. Send server logs to the OTLP receiver while keeping console JSON. Uses the shared endpoint and headers. Requires a server restart.",
+    kind: "enum",
+    required: false,
+    defaultValue: "none",
+    options: [
+      { value: "none", label: "Disabled (console only)" },
+      { value: "otlp", label: "OTLP and console" },
+    ],
+    schema: Schema.String.pipe(
+      Schema.decode(SchemaTransformation.toLowerCase()),
+      Schema.decodeTo(Schema.Literals(["none", "otlp"])),
+    ),
+  },
+  {
     key: "otel_resource_attributes",
-    group: "Tracing",
+    group: "Observability",
     label: "OTel resource attributes",
     description:
-      "Comma-separated key=value labels, for example deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2. Attached to every exported span. Do not include secrets. Requires a server restart.",
+      "Comma-separated key=value labels, for example deployment.environment.name=development-hasan,service.instance.id=worktree-7fd2. Attached to exported spans and logs. Do not include secrets. Requires a server restart.",
     kind: "text",
     required: false,
     schema: NonEmptyStringSchema,
   },
   {
     key: "otel_sdk_disabled",
-    group: "Tracing",
-    label: "Disable tracing",
+    group: "Observability",
+    label: "Disable telemetry export",
     description:
-      "Disable span export while retaining the endpoint and credentials. Requires a server restart.",
+      "Disable span and log export while retaining the endpoint and credentials. Console JSON continues. Requires a server restart.",
     kind: "enum",
     required: false,
     defaultValue: "false",
     options: [
       { value: "false", label: "No (export when an endpoint is configured)" },
-      { value: "true", label: "Yes (tracing disabled)" },
+      { value: "true", label: "Yes (telemetry export disabled)" },
     ],
     schema: Schema.Union([
       BooleanSettingSchema,
       Schema.String.pipe(
-        Schema.decode({
-          decode: SchemaGetter.toLowerCase(),
-          encode: SchemaGetter.passthrough(),
-        }),
+        Schema.decode(SchemaTransformation.toLowerCase()),
         Schema.decodeTo(BooleanSettingSchema),
       ),
     ]),

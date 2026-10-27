@@ -1,6 +1,7 @@
 import process from "node:process"
 
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
+import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import { getBooleanFromEnv, parseKeyPairsIntoRecord } from "@opentelemetry/core"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto"
 import {
@@ -11,6 +12,7 @@ import {
 import { ConfigProvider, Effect, Layer } from "effect"
 
 import { Config } from "@/lib/config/config"
+import { otlpLoggerLayer } from "./logging.server.ts"
 
 /** Content capture off does not prevent SDKs from attaching raw errors or SQL statements. */
 // https://github.com/Effect-TS/effect/blob/main/packages/opentelemetry/src/OtelTracer.ts
@@ -36,28 +38,37 @@ export function makeTracingProcessor(exporter: SpanExporter): SpanProcessor {
   }
 }
 
-// NodeSdk owns scoped flush/shutdown. Configuration is captured once, so changes need a restart.
+// Native exporters own scoped flush/shutdown. Configuration is captured once, so changes need a restart.
 // https://effect.website/docs/v4/observability/tracing
-export const tracingLayer = Layer.unwrap(
+export const telemetryLayer = Layer.unwrap(
   Effect.gen(function* () {
     // An explicit disable also avoids reading database-backed settings during bootstrap.
     if (getBooleanFromEnv("OTEL_SDK_DISABLED")) return NodeSdk.layerEmpty
     const { values } = yield* (yield* Config).snapshot
     const endpoint = values.otel_exporter_otlp_endpoint
     if (values.otel_sdk_disabled === "true" || !endpoint) return NodeSdk.layerEmpty
-    return NodeSdk.layer(() => ({
-      spanProcessor: makeTracingProcessor(
-        new OTLPTraceExporter({
-          // The constructor takes a full signal URL, while base endpoints append the signal path.
-          // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
-          url: `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/traces`,
-          headers: {
-            ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? ""),
-            ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
-          },
-        }),
-      ),
-    })).pipe(
+    const headers = parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? "")
+    const baseUrl = `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/`
+    return Layer.mergeAll(
+      NodeSdk.layer(() => ({
+        spanProcessor: makeTracingProcessor(
+          new OTLPTraceExporter({
+            // The constructor takes a full signal URL, while base endpoints append the signal path.
+            // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
+            url: `${baseUrl}traces`,
+            headers: {
+              ...headers,
+              ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
+            },
+          }),
+        ),
+      })),
+      values.otel_logs_exporter === "otlp"
+        ? otlpLoggerLayer({ url: `${baseUrl}logs`, headers }).pipe(
+            Layer.provide(BunHttpClient.layer),
+          )
+        : Layer.empty,
+    ).pipe(
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromEnvRecord({

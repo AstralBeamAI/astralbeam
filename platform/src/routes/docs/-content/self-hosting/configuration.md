@@ -26,28 +26,30 @@ Values are parsed as JSON when they happen to be valid JSON, and otherwise taken
 
 **NOTE**: An empty variable counts as unset, so the stored value applies again.
 
-## Tracing
+## Observability
 
-Tracing uses OpenTelemetry's OTLP/HTTP protobuf exporter with the [standard SDK environment variable names](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) and [OTLP base endpoint semantics](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp). Configure any compatible receiver in **Tracing** at `/configure`, then restart every server instance, including the one that saved the settings.
+Tracing and optional log shipping use OpenTelemetry's OTLP/HTTP protobuf protocol with the [standard SDK environment variable names](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) and [OTLP base endpoint semantics](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp). Configure a compatible receiver in **Observability** at `/configure`, then restart every server instance, including the one that saved the settings.
 
 | Setting | Environment variable | Default | Notes |
 | --- | --- | --- | --- |
-| `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. `/v1/traces` is appended for trace export |
+| `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. Appends `/v1/traces` for traces and `/v1/logs` for logs |
 | `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Comma-separated `key=value` headers |
 | `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Trace-specific headers. Percent-encode commas in values |
+| `otel_logs_exporter` | `OTEL_LOGS_EXPORTER` | `none` | Set to `otlp` to also ship server logs. Console JSON continues |
 | `otel_sdk_disabled` | `OTEL_SDK_DISABLED` | `false` | Set to `true` to disable export without clearing the connection |
-| `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to every span. Do not include secrets |
+| `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to exported spans and logs. Do not include secrets |
 
-All fields are optional. AstralBeam keeps tracing disabled until an endpoint is explicitly configured, even if labels or headers are present. This opt-in behavior differs from the standard exporter's localhost endpoint default. The exporter sends traces using HTTP/protobuf. Batching, retries, and timeouts use SDK and exporter defaults.
+All fields are optional. AstralBeam keeps export disabled until an endpoint is explicitly configured, even if labels or headers are present. Log shipping also requires `otel_logs_exporter=otlp`. These opt-in defaults differ from the standard exporter's localhost endpoint and log-exporter defaults. Batching, retries, timeouts and shutdown flushing use the native exporters' defaults. Delivery is best effort, without a persistent queue.
 
 Environment variables override their corresponding stored settings through the same configuration system as every other field. Traces-specific headers override matching generic headers. For example, a local receiver can be configured with:
 
 ```sh
 OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318"
+OTEL_LOGS_EXPORTER="otlp"
 OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development,service.instance.id=worktree-1"
 ```
 
-For a hosted receiver, supply its base endpoint and authentication headers from its official instructions. The preset buttons fill only the base endpoint, leaving credentials and labels unchanged. Replace placeholders before saving. After saving and restarting, make an application request and check the receiver for traces, allowing time for batching and ingestion.
+For a hosted receiver, supply its base endpoint and authentication headers from its official instructions. Check that the receiver accepts the signals you enable. The preset buttons fill only the base endpoint, leaving credentials and labels unchanged. Replace placeholders before saving. After saving and restarting, make an application request and check the receiver for traces and enabled logs, allowing time for batching and ingestion.
 
 | Receiver | OTLP base endpoint | Headers |
 | --- | --- | --- |
@@ -63,7 +65,9 @@ The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For
 
 Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
 
-Use `deployment.environment.name` to separate development, staging, and production, and `service.instance.id` to identify individual processes or worktrees. Set these through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES`, then restart. An environment override replaces the stored labels, so processes sharing a configuration database can identify themselves separately. These attributes apply to every exported span and can be used as filters in the receiver.
+Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger), keeping messages, native causes, request metadata and active trace/span IDs. Console and shipped logs share credential redaction. Log records include full causes, unlike the content-limited spans. Request and error logs written outside the application runtime use the exporter once that runtime has initialized. Before initialization, or if it cannot start, console logging remains available. Log export uses generic OTLP headers, not traces-specific headers.
+
+Use `deployment.environment.name` to separate development, staging, and production, and `service.instance.id` to identify individual processes or worktrees. Set these through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES`, then restart. An environment override replaces the stored labels, so processes sharing a configuration database can identify themselves separately. These attributes apply to exported spans and logs and can be used as filters in the receiver.
 
 ## General
 
@@ -193,7 +197,7 @@ The page saves changes together, so an invalid field blocks the batch and shows 
 
 The Email Delivery group has a **Test connection** action that checks the settings currently in the form, including unsaved edits, without sending any email. A successful SMTP test reports that DNS, SMTP, the selected security mode, and authentication passed. The SES test calls `GetAccount`, so its credentials also need the `ses:GetAccount` permission, and it confirms that account sending is enabled.
 
-A save takes effect immediately on the process that handled it, except tracing, whose exporter is created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when tracing changes.
+A save takes effect immediately on the process that handled it, except observability, whose exporters are created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when observability changes.
 
 While required settings are missing, the page lists each one and the application stays gated.
 

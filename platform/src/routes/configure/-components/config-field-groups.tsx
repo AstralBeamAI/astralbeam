@@ -19,7 +19,7 @@ const configGroupOrder = [
   "Authentication",
   "Email Delivery",
   "File storage",
-  "Tracing",
+  "Observability",
 ] as const
 
 const storageConnectionPresets = [
@@ -43,7 +43,7 @@ const storageConnectionPresets = [
   },
 ]
 
-const tracingEndpointPresets = [
+const otlpEndpointPresets = [
   { label: "Local", endpoint: "http://127.0.0.1:4318" },
   { label: "PostHog", endpoint: "https://us.i.posthog.com/i" },
   { label: "New Relic", endpoint: "https://otlp.nr-data.net" },
@@ -138,7 +138,7 @@ export function ConfigFieldGroups({
           }}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
-          optional={group === "Tracing"}
+          optional={group === "Observability"}
           hasChanges={groupFields.some((field) => changedKeys.has(field.key))}
           errorAttempt={
             groupFields.some((field) => Boolean(fieldErrors[field.key]))
@@ -146,15 +146,15 @@ export function ConfigFieldGroups({
               : undefined
           }
         >
-          {group === "Tracing" && (
+          {group === "Observability" && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Optional. Tracing is disabled until an endpoint is configured. Presets fill the base
-                endpoint only. Add provider headers separately and replace any placeholders before
-                saving.
+                Optional. Configure an endpoint to export traces. Log export is disabled by default
+                and always keeps console JSON. Presets fill the base endpoint only. Add provider
+                headers separately and replace any placeholders before saving.
               </p>
               <div className="flex flex-wrap gap-2">
-                {tracingEndpointPresets.map((preset) => (
+                {otlpEndpointPresets.map((preset) => (
                   <Button
                     key={preset.label}
                     type="button"
@@ -318,7 +318,7 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
       value("email_from_address") || (provider === "smtp" && "Default sender"),
     ],
     "File storage": [value("s3_bucket"), value("s3_region")],
-    Tracing: [
+    Observability: [
       value("otel_sdk_disabled") === "true"
         ? "Disabled"
         : value("otel_exporter_otlp_endpoint") || "Disabled",

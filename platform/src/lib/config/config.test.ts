@@ -171,10 +171,14 @@ describe("configuration registry", () => {
     })
   })
 
-  it("accepts the standard uppercase OpenTelemetry disable flag", () => {
+  it("accepts standard uppercase OpenTelemetry settings", () => {
     assert.deepStrictEqual(
       decodeConfigValue(findConfigDefinition("otel_sdk_disabled")!, "TRUE"),
       Result.succeed("true"),
+    )
+    assert.deepStrictEqual(
+      decodeConfigValue(findConfigDefinition("otel_logs_exporter")!, "OTLP"),
+      Result.succeed("otlp"),
     )
   })
 
