@@ -1,67 +1,14 @@
-import type {
-  AstralBeamChatColorScheme,
-  AstralBeamChatTheme,
-  ToolDefinition,
-} from "@astralbeam/sdk/react"
+import type { AstralBeamChatTheme } from "@astralbeam/sdk/react"
 
 import type { Todo } from "./types.ts"
 
-export const COLOR_SCHEME_CYCLE: AstralBeamChatColorScheme[] = ["system", "light", "dark"]
+export const COLOR_SCHEME_CYCLE = ["system", "light", "dark"] as const
 
 export const INITIAL_TODOS: Todo[] = [
   { id: 1, text: "Write the launch announcement", completed: false },
   { id: 2, text: "Review the open pull requests", completed: false },
   { id: 3, text: "Book the offsite venue", completed: true },
 ]
-
-export const TODO_TOOL_METADATA = {
-  get_todos: {
-    metadata: { title: "List the todos" },
-    description: "List every todo with its id, text, and completed flag.",
-  },
-  create_todo: {
-    metadata: { title: "Create a todo" },
-    description: "Create a new todo and append it to the list.",
-    parameters: {
-      type: "object",
-      properties: {
-        text: { type: "string", description: "What needs to be done" },
-        completed: {
-          type: "boolean",
-          description: "Whether it starts out done. Defaults to false.",
-        },
-      },
-      required: ["text"],
-    },
-  },
-  update_todo: {
-    metadata: { title: "Update a todo" },
-    description: "Update a todo's text, its completed flag, or both, by its id.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "number", description: "Id of the todo to update" },
-        text: { type: "string", description: "Replacement text; omit to keep the current one" },
-        completed: {
-          type: "boolean",
-          description: "New completed state; omit to keep the current one",
-        },
-      },
-      required: ["id"],
-    },
-  },
-  delete_todo: {
-    metadata: { title: "Delete a todo" },
-    description: "Delete a todo from the list by its id.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "number", description: "Id of the todo to delete" },
-      },
-      required: ["id"],
-    },
-  },
-} satisfies Record<string, Omit<ToolDefinition, "execute">>
 
 export const WIDGET_THEME: AstralBeamChatTheme = {
   light: {

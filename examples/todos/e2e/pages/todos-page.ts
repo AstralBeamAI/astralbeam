@@ -60,11 +60,11 @@ export function todosPage(page: Page) {
      * tree as light-DOM children of the widget's shadow host, so they are ordinary page elements.
      */
     projectedCards(): Locator {
-      return page.locator(".todo-card")
+      return page.locator(".chat-sidebar .todo-card").filter({ visible: true })
     },
 
     projectedCard(text: string | RegExp): Locator {
-      return page.locator(".todo-card").filter({ hasText: text })
+      return this.projectedCards().filter({ hasText: text })
     },
 
     controls,

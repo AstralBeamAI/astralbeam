@@ -1,13 +1,12 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 import { useState } from "react"
-import type { AstralBeamChatColorScheme } from "@astralbeam/sdk/react"
 
 import { TodosAssistant } from "@/components/todos-assistant.tsx"
 import { AppearanceContext } from "@/lib/appearance.ts"
 import { toggleDebug, useDebug } from "@/hooks/use-debug.ts"
 import { useSystemDark } from "@/hooks/use-system-dark.ts"
 import { APP_NAME } from "@/lib/config.ts"
-import { COLOR_SCHEME_CYCLE } from "@/lib/constants.ts"
+import { COLOR_SCHEME_CYCLE, WIDGET_THEME } from "@/lib/constants.ts"
 
 const pages = [
   { path: "/", title: "Todos", description: "Browse, search and manage your todos." },
@@ -29,7 +28,7 @@ export function AppShell() {
   const debug = useDebug()
   const systemDark = useSystemDark()
   const [chatOpen, setChatOpen] = useState(true)
-  const [colorScheme, setColorScheme] = useState<AstralBeamChatColorScheme>("system")
+  const [colorScheme, setColorScheme] = useState<(typeof COLOR_SCHEME_CYCLE)[number]>("system")
   const [customTheme, setCustomTheme] = useState(true)
   const dark = colorScheme === "dark" || (colorScheme === "system" && systemDark)
   return (
@@ -82,7 +81,7 @@ export function AppShell() {
         {chatOpen && (
           <TodosAssistant
             colorScheme={colorScheme}
-            customTheme={customTheme}
+            theme={customTheme ? WIDGET_THEME : undefined}
             debug={debug}
             onClose={() => setChatOpen(false)}
           />

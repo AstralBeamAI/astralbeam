@@ -277,7 +277,7 @@ body {
 }
 
 /* The todo representation that the chat widget projects into the conversation. */
-.todo-card {
+:where(.chat-sidebar) .todo-card {
   padding: 0.75rem;
   border: 2px solid var(--border);
   border-radius: 10px;

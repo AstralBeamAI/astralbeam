@@ -1,75 +1,77 @@
-import {
-  AstralBeamChat,
-  type AstralBeamChatColorScheme,
-  type ToolDefinition,
-} from "@astralbeam/sdk/react"
-import { useCallback, useRef } from "react"
-
+import { AstralBeamChat, type ToolDefinition } from "@astralbeam/sdk/react"
+import { useCallback, useRef, type ComponentProps } from "react"
 import { TodoCard } from "@/components/todo-card.tsx"
-import { ASTRALBEAM_API_URL, CHAT_AGENT_ID, CHAT_TITLE } from "@/lib/config.ts"
-import { TODO_TOOL_METADATA, WIDGET_THEME } from "@/lib/constants.ts"
 import { useTodos } from "@/hooks/use-todos.ts"
-import { deleteTodoFromToolInput, updateTodoFromToolInput } from "@/lib/todo-tools.ts"
+import { ASTRALBEAM_API_URL, CHAT_AGENT_ID, CHAT_TITLE } from "@/lib/config.ts"
 
-interface TodosAssistantProps {
-  colorScheme: AstralBeamChatColorScheme
-  customTheme: boolean
-  debug: boolean
-  onClose: () => void
-}
-
-export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: TodosAssistantProps) {
-  const { todos, getTodos, setTodos, createTodo } = useTodos()
+export function TodosAssistant(
+  props: Pick<ComponentProps<typeof AstralBeamChat>, "colorScheme" | "theme" | "debug" | "onClose">,
+) {
+  const { todos, getTodos, createTodo, updateTodo, deleteTodo, toggleTodo } = useTodos()
   const sidebar = useRef<HTMLElement>(null)
   const resizeContainer = useCallback(() => sidebar.current?.parentElement ?? null, [])
-  const onToggleTodo = (id: number) =>
-    setTodos((current) =>
-      current.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
-    )
   const tools: Record<string, ToolDefinition> = {
     get_todos: {
-      ...TODO_TOOL_METADATA.get_todos,
+      metadata: { title: "List the todos" },
+      description: "List every todo with its id, text, and completed flag.",
       execute: () => ({ todos: getTodos() }),
     },
     create_todo: {
-      ...TODO_TOOL_METADATA.create_todo,
+      metadata: { title: "Create a todo" },
+      description: "Create a new todo and append it to the list.",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What needs to be done" },
+          completed: {
+            type: "boolean",
+            description: "Whether it starts out done. Defaults to false.",
+          },
+        },
+        required: ["text"],
+      },
       execute: (input) => ({ created: createTodo(input) }),
     },
     update_todo: {
-      ...TODO_TOOL_METADATA.update_todo,
-      execute: (input) => {
-        const updated = updateTodoFromToolInput({ input, todos: getTodos() })
-        setTodos((current) =>
-          current.map((candidate) => (candidate.id === updated.id ? updated : candidate)),
-        )
-        return { updated }
+      metadata: { title: "Update a todo" },
+      description: "Update a todo's text, its completed flag, or both, by its id.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "Id of the todo to update" },
+          text: { type: "string", description: "Replacement text; omit to keep the current one" },
+          completed: {
+            type: "boolean",
+            description: "New completed state; omit to keep the current one",
+          },
+        },
+        required: ["id"],
       },
+      execute: (input) => ({ updated: updateTodo(input) }),
     },
     delete_todo: {
-      ...TODO_TOOL_METADATA.delete_todo,
-      execute: (input) => {
-        const deleted = deleteTodoFromToolInput({ input, todos: getTodos() })
-        setTodos((current) => current.filter((candidate) => candidate.id !== deleted.id))
-        return { deleted }
+      metadata: { title: "Delete a todo" },
+      description: "Delete a todo from the list by its id.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "number", description: "Id of the todo to delete" } },
+        required: ["id"],
       },
+      execute: (input) => ({ deleted: deleteTodo(input) }),
     },
   }
 
   return (
     <aside ref={sidebar} className="chat-sidebar">
       <AstralBeamChat
-        resizeContainer={resizeContainer}
+        {...props}
         agentId={CHAT_AGENT_ID}
+        apiUrl={ASTRALBEAM_API_URL}
         title={CHAT_TITLE}
-        onClose={onClose}
+        resizeContainer={resizeContainer}
         emptyHeadline="What would you like to get done?"
         emptyDescription="Try asking to list your tasks, add a new task, or mark one complete."
-        apiUrl={ASTRALBEAM_API_URL}
         tools={tools}
-        colorScheme={colorScheme}
-        theme={customTheme ? WIDGET_THEME : undefined}
-        sandboxPanel
-        debug={debug}
         widgets={{
           todoCard: {
             description: "A single todo from the host app, addressed by its id",
@@ -85,21 +87,20 @@ export function TodosAssistant({ colorScheme, customTheme, debug, onClose }: Tod
               required: ["id"],
             },
             render: ({ id, highlight }) => {
-              // Host state changes re-render this definition, keeping projected cards live.
-              const todo = todos.find((candidate) => candidate.id === Number(id))
+              const todo = todos.find((entry) => entry.id === Number(id))
               return (
                 todo && (
                   <TodoCard
-                    title={todo.text}
-                    completed={todo.completed}
+                    todo={todo}
                     highlight={Boolean(highlight)}
-                    onToggle={() => onToggleTodo(todo.id)}
+                    onToggle={() => toggleTodo(todo.id)}
                   />
                 )
               )
             },
           },
         }}
+        sandboxPanel
       />
     </aside>
   )
