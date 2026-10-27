@@ -178,18 +178,14 @@ export function projectChatAttachmentRetrievals(options: {
 }
 
 /** Remove only the duplicate shape emitted for our media tool by TanStack AI 1.0.0. */
-export function normalizeChatAttachmentRequest(
-  body: typeof Schema.JsonObject.Type,
-  protocol: string,
-) {
-  if (protocol !== "gemini-generate-content" || !Array.isArray(body.contents)) return body
+export function normalizeGeminiAttachmentRequest(body: typeof Schema.JsonObject.Type) {
+  if (!Array.isArray(body.contents)) return body
   return {
     ...body,
     contents: body.contents.map((entry: typeof Schema.Json.Type) => {
       const content: unknown = entry
-      if (!Schema.is(Schema.JsonObject)(content)) return entry
+      if (!Schema.is(Schema.Struct({ parts: Schema.Array(Schema.Json) }))(content)) return entry
       const parts = content.parts
-      if (!Schema.is(Schema.Array(Schema.Json))(parts)) return content
       const last = parts.at(-1)
       if (
         !Schema.is(
@@ -202,10 +198,10 @@ export function normalizeChatAttachmentRequest(
           }),
         )(last)
       )
-        return content
+        return entry
       const response = last.functionResponse
       const duplicate = [{ text: response.response.content }, ...response.parts]
-      if (JSON.stringify(parts.slice(0, -1)) !== JSON.stringify(duplicate)) return content
+      if (JSON.stringify(parts.slice(0, -1)) !== JSON.stringify(duplicate)) return entry
       // https://github.com/TanStack/ai/blob/v1.0.0/packages/ai-gemini/src/adapters/text.ts
       return { ...content, parts: [last] }
     }),

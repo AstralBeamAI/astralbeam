@@ -19,7 +19,7 @@ import { Effect, Queue, Schema, Stream } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
-import { normalizeChatAttachmentRequest } from "./attachments/retrieval"
+import { normalizeGeminiAttachmentRequest } from "./attachments/retrieval"
 
 import { CHAT_WEB_ACTIVITY_EVENT, fetchChatWeb, type ChatWebState } from "./web"
 
@@ -134,9 +134,8 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
               ? {
                   ...init,
                   body: JSON.stringify(
-                    normalizeChatAttachmentRequest(
+                    normalizeGeminiAttachmentRequest(
                       Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(init.body)),
-                      configuration.api,
                     ),
                   ),
                 }

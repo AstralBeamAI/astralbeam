@@ -1,5 +1,5 @@
-import { chat, type ContentPart, type ModelMessage } from "@tanstack/ai"
-import type { Schema } from "effect"
+import { chat, type ModelMessage } from "@tanstack/ai"
+import { Effect, type Schema } from "effect"
 import { expect, test, vi } from "vitest"
 
 import { APP_HANDLE } from "@/lib/constants"
@@ -10,12 +10,8 @@ import { chatWebState } from "../web"
 import { normalizeChatAttachments } from "./attachments"
 import { chatAttachmentCatalogue, projectChatAttachmentRetrievals } from "./retrieval"
 import { createChatAttachmentTools } from "./tools"
-import { selectChatProviderHistory } from "./provider-history"
-import {
-  CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
-  CHAT_ATTACHMENT_MAX_COUNT,
-  CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-} from "./constants"
+import { prepareChatProviderHistory } from "./provider-history"
+import { CHAT_ATTACHMENT_MAX_BYTES_BY_KIND, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants"
 
 const FILE_ID = "0199b600-0000-7000-8000-000000000001"
 const PDF = Buffer.from("%PDF-1.7").toString("base64")
@@ -87,7 +83,7 @@ function attachmentHistory(
   ]
 }
 
-function hydrateAttachmentFixture(messages: readonly ModelMessage[]): ModelMessage[] {
+function hydrateAttachmentFixture(messages: readonly ModelMessage[], value = PDF): ModelMessage[] {
   return messages.map((message) => ({
     ...message,
     content: Array.isArray(message.content)
@@ -97,7 +93,7 @@ function hydrateAttachmentFixture(messages: readonly ModelMessage[]): ModelMessa
                 ...part,
                 source: {
                   type: "data",
-                  value: PDF,
+                  value,
                   mimeType: part.type === "image" ? "image/png" : "application/pdf",
                 },
               }
@@ -122,49 +118,49 @@ function attachmentProjection(
   })
 }
 
-test("media budgeting counts repeated retrieval bytes only in selected messages", () => {
-  const history = attachmentHistory({ bytes: CHAT_ATTACHMENT_MAX_BYTES_BY_KIND.pdf })
-  const messages = projectChatModelHistory(history)
-  const options = {
-    history,
-    messages,
-    model: MODEL,
-    webAccessEnabled: false,
-  }
-  expect(selectChatProviderHistory(options)).not.toBeNull()
-  expect(
-    selectChatProviderHistory({ ...options, messages: [...messages, messages.at(-1)!] }),
-  ).toBeNull()
-  expect(selectChatProviderHistory({ ...options, messages: messages.slice(1) })).not.toBeNull()
+function prepareAttachmentFixture(history: ChatProjectionRecord[], value: string) {
+  return Effect.runPromise(
+    prepareChatProviderHistory({
+      history,
+      model: MODEL,
+      webAccessEnabled: false,
+      sandbox: false,
+      scope: { organizationId: "organization", tenantId: "tenant", threadId: "thread" },
+      files: {
+        hydrate: ({ messages }) => Effect.succeed(hydrateAttachmentFixture(messages, value)),
+      },
+    }),
+  )
+}
+
+test("provider preparation budgets actual hydrated bytes, including repeated recovery", async () => {
+  const bytes = Buffer.alloc(CHAT_ATTACHMENT_MAX_BYTES_BY_KIND.pdf)
+  bytes.write("%PDF-1.7")
+  const value = bytes.toString("base64")
+  const history = attachmentHistory()
+  expect((await prepareAttachmentFixture(history, value)).remainingBytes).toBe(0)
+  await expect(
+    prepareAttachmentFixture(
+      [history[0]!, { ...history[0]!, id: "another-upload" }, ...history.slice(1)],
+      value,
+    ).then(() => undefined),
+  ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
 })
 
-test("media budgeting retains the per-message attachment count cap", () => {
+test("OpenRouter recovers bounded document groups after the complete tool-result group", () => {
   const history = attachmentHistory()
-  const upload = projectChatModelHistory(history)[0]!
-  const content = upload.content as ContentPart[]
-  const options = {
+  const result = projectChatAttachmentRetrievals({
     history,
-    model: MODEL,
-    webAccessEnabled: false,
-  }
-  const messages = [
-    { ...upload, content: Array.from({ length: CHAT_ATTACHMENT_MAX_COUNT }, () => content[0]!) },
-  ]
-  expect(selectChatProviderHistory({ ...options, messages })).not.toBeNull()
-  messages[0]!.content.push(content[0]!)
-  expect(selectChatProviderHistory({ ...options, messages })).toBeNull()
-  const openRouter = selectChatProviderHistory({
-    ...options,
-    model: { ...options.model, api: "chat-completions", providerType: "openrouter" },
-    webAccessEnabled: true,
+    catalogue: chatAttachmentCatalogue(history),
     messages: Array.from({ length: 6 }, () => projectChatModelHistory(history).at(-1)!),
-  })!
-  expect(openRouter.messages.map((message) => message.role)).toEqual([
+    media: { protocol: "chat-completions", openRouterDocuments: true },
+  })
+  expect(result.messages.map((message) => message.role)).toEqual([
     ...Array.from({ length: 6 }, () => "tool"),
     "user",
     "user",
   ])
-  expect(openRouter.messages.slice(-2).map((message) => message.content?.length)).toEqual([5, 1])
+  expect(result.messages.slice(-2).map((message) => message.content?.length)).toEqual([5, 1])
 })
 
 test("only a server result linked to an original upload on this ancestry expands", () => {
@@ -207,13 +203,9 @@ test("media normalization accepts only trusted tool results and preserves their 
 })
 
 test("retrieval reserves the aggregate budget across concurrent reads before returning references", async () => {
-  const history = attachmentHistory({ bytes: 8 * 1024 * 1024 })
-  const selected = selectChatProviderHistory({
-    history,
-    messages: projectChatModelHistory(history),
-    model: MODEL,
-    webAccessEnabled: false,
-  })!
+  const existing = Buffer.alloc(8 * 1024 * 1024)
+  existing.write("%PDF-1.7")
+  const selected = await prepareAttachmentFixture(attachmentHistory(), existing.toString("base64"))
   const bytes = Buffer.alloc(3 * 1024 * 1024)
   bytes.write("%PDF-1.7")
   const tools = createChatAttachmentTools([], {

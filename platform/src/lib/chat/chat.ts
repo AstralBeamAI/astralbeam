@@ -274,11 +274,7 @@ export class Chat extends Context.Service<
                           fileId,
                         }),
                       ),
-                    media: {
-                      protocol: model.api,
-                      openRouterDocuments:
-                        model.providerType === "openrouter" && agent.webAccessEnabled,
-                    },
+                    media: prepared.media,
                     ...(session
                       ? {
                           prepare: (file: ChatAttachmentFile) => {
