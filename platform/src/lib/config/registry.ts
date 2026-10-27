@@ -141,7 +141,16 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       { value: "false", label: "No (export when an endpoint is configured)" },
       { value: "true", label: "Yes (tracing disabled)" },
     ],
-    schema: BooleanSettingSchema,
+    schema: Schema.Union([
+      BooleanSettingSchema,
+      Schema.String.pipe(
+        Schema.decode({
+          decode: SchemaGetter.toLowerCase(),
+          encode: SchemaGetter.passthrough(),
+        }),
+        Schema.decodeTo(BooleanSettingSchema),
+      ),
+    ]),
   },
   {
     key: "s3_endpoint",

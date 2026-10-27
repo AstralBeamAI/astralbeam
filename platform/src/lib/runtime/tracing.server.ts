@@ -1,7 +1,7 @@
 import process from "node:process"
 
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
-import { parseKeyPairsIntoRecord } from "@opentelemetry/core"
+import { getBooleanFromEnv, parseKeyPairsIntoRecord } from "@opentelemetry/core"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto"
 import {
   BatchSpanProcessor,
@@ -41,12 +41,11 @@ export function makeTracingProcessor(exporter: SpanExporter): SpanProcessor {
 export const tracingLayer = Layer.unwrap(
   Effect.gen(function* () {
     // An explicit disable also avoids reading database-backed settings during bootstrap.
-    if (process.env.OTEL_SDK_DISABLED === "true") return NodeSdk.layerEmpty
+    if (getBooleanFromEnv("OTEL_SDK_DISABLED")) return NodeSdk.layerEmpty
     const { values } = yield* (yield* Config).snapshot
     const endpoint = values.otel_exporter_otlp_endpoint
     if (values.otel_sdk_disabled === "true" || !endpoint) return NodeSdk.layerEmpty
     return NodeSdk.layer(() => ({
-      resource: { serviceName: "astralbeam-platform" },
       spanProcessor: makeTracingProcessor(
         new OTLPTraceExporter({
           // The constructor takes a full signal URL, while base endpoints append the signal path.
@@ -63,7 +62,8 @@ export const tracingLayer = Layer.unwrap(
         ConfigProvider.layer(
           ConfigProvider.fromEnvRecord({
             ...process.env,
-            OTEL_RESOURCE_ATTRIBUTES: values.otel_resource_attributes ?? "",
+            // Native parsing lets configured attributes and OTEL_SERVICE_NAME override this default.
+            OTEL_RESOURCE_ATTRIBUTES: `service.name=astralbeam-platform,${values.otel_resource_attributes ?? ""}`,
           }),
         ),
       ),

@@ -1,6 +1,7 @@
 import { assert, it } from "@effect/vitest"
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
+import * as Resource from "@effect/opentelemetry/Resource"
 import { SpanStatusCode } from "@opentelemetry/api"
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base"
 import { Effect, Option } from "effect"
@@ -28,6 +29,31 @@ it.effect("keeps tracing disabled when only labels and headers are configured", 
     } as Config["Service"]),
   )
 })
+
+it.effect.each([
+  ["", undefined, "astralbeam-platform"],
+  ["service.name=configured-service", undefined, "configured-service"],
+  ["service.name=configured-service", "environment-service", "environment-service"],
+] as const)(
+  "honors native service-name precedence: %s, %s",
+  ([attributes, serviceName, expected]) => {
+    vi.stubEnv("OTEL_SDK_DISABLED", "false")
+    vi.stubEnv("OTEL_SERVICE_NAME", serviceName)
+    return Effect.gen(function* () {
+      assert.strictEqual((yield* Resource.Resource).attributes["service.name"], expected)
+    }).pipe(
+      Effect.provide(tracingLayer),
+      Effect.provideService(Config, {
+        snapshot: Effect.succeed({
+          values: {
+            otel_exporter_otlp_endpoint: "http://127.0.0.1:4318",
+            otel_resource_attributes: attributes,
+          },
+        }),
+      } as Config["Service"]),
+    )
+  },
+)
 
 it.effect("exports useful failure metadata without content, SQL or raw exceptions", () => {
   const exporter = new InMemorySpanExporter()

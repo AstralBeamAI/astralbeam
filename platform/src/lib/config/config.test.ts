@@ -171,6 +171,17 @@ describe("configuration registry", () => {
     })
   })
 
+  it.each([
+    ["TRUE", "true"],
+    ["True", "true"],
+    ["FALSE", "false"],
+  ])("normalizes the OpenTelemetry disable flag %s", (value, expected) => {
+    assert.deepStrictEqual(
+      decodeConfigValue(findConfigDefinition("otel_sdk_disabled")!, value),
+      Result.succeed(expected),
+    )
+  })
+
   it("derives public configuration without any stored secret", () => {
     const serialized = JSON.stringify(
       publicConfigFromValues({
