@@ -70,6 +70,14 @@ export function DocsMarkdown({
 }) {
   const components: MarkdownComponents = {
     ...docsStyledTags,
+    img: ({ className, ...props }) => (
+      <img
+        {...props}
+        alt={props.alt ?? ""}
+        {...(props.src === "/docs/quickstart-preview.png" ? { width: 900, height: 360 } : {})}
+        className={cn(docsTagClasses.img, className)}
+      />
+    ),
     pre: DocsCodeBlock,
     "md-comment-component": DocsCodeTabs,
     "md-tab-panel": ({ children, "data-tab-slug": slug }) => (
