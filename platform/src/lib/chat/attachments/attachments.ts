@@ -62,7 +62,7 @@ type ContentShape = "agui" | "ui"
 
 interface MediaEntry {
   type: "image" | "audio" | "video" | "document"
-  source: { type?: unknown; value?: unknown; mimeType?: unknown }
+  source: { type?: unknown; value?: unknown; mimeType?: unknown; id?: unknown }
   metadata?: unknown
 }
 
@@ -242,17 +242,14 @@ function refusalText(filename: string, mimeType: string, reason: string): string
   }, which could not be included: ${reason} Tell the user if it matters to their request.`
 }
 
-/**
- * A filesystem-safe name that still reads like the original, made unique across the run so two
- * files called `data.csv` are separately addressable. The handle is what the agent passes to
- * `read_attachment` and the basename of the sandbox path, so it is one name for both.
- */
-function attachmentHandle(filename: string, taken: Set<string>): string {
+/** Stored IDs keep handles stable across reloads. Unsaved files use collision-safe names. */
+function attachmentHandle(filename: string, taken: Set<string>, fileId?: string): string {
   const cleaned =
     filename
       .replace(/[^\w.-]+/g, "_")
       .replace(/^[._]+/, "")
       .slice(0, 80) || "attachment"
+  if (fileId) return `${fileId}-${cleaned}`
   const dot = cleaned.lastIndexOf(".")
   const stem = dot > 0 ? cleaned.slice(0, dot) : cleaned
   const suffix = dot > 0 ? cleaned.slice(dot) : ""
@@ -264,7 +261,10 @@ function attachmentHandle(filename: string, taken: Set<string>): string {
 
 export function normalizeChatAttachments(
   messages: ChatMessages,
-  options: { readonly sandbox: boolean },
+  options: {
+    readonly sandbox: boolean
+    readonly trustedToolMessageIds?: ReadonlySet<string>
+  },
 ): {
   messages: ChatMessages
   attachments: ChatAttachmentOutcome[]
@@ -357,7 +357,10 @@ export function normalizeChatAttachments(
       return refuse("this agent has no sandbox to open a file of that type in.")
     }
     totalBytes += size
-    const handle = attachmentHandle(filename, handles)
+    const fileId = Schema.is(Schema.String.check(Schema.isUUID()))(entry.source.id)
+      ? entry.source.id
+      : undefined
+    const handle = attachmentHandle(filename, handles, fileId)
     const file: ChatAttachmentFile = {
       handle,
       filename,
@@ -430,7 +433,12 @@ export function normalizeChatAttachments(
 
   const normalized = messages.map((message) => {
     const next = { ...message } as typeof message & { content?: unknown; parts?: unknown }
-    if (message.role === "user") {
+    if (
+      message.role === "user" ||
+      (message.role === "tool" &&
+        message.id !== undefined &&
+        options.trustedToolMessageIds?.has(message.id))
+    ) {
       if (Array.isArray(next.content)) next.content = normalizeUserEntries(next.content, "agui")
       if (Array.isArray(next.parts)) next.parts = normalizeUserEntries(next.parts, "ui")
       return next
@@ -856,6 +864,7 @@ export class ChatFiles extends Context.Service<
                     ...part,
                     source: {
                       type: "data" as const,
+                      id,
                       value: Buffer.from(file.bytes).toString("base64"),
                       mimeType: file.mimeType,
                       byteSize: file.bytes.length,

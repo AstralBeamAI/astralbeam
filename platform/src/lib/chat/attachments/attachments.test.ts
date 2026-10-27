@@ -58,6 +58,27 @@ test("a text file leaves the conversation as a name, with its contents behind a 
   ])
 })
 
+test("stored file handles and provider text stay stable when earlier same-name files are omitted", () => {
+  const ids = ["0199b600-0000-7000-8000-000000000001", "0199b600-0000-7000-8000-000000000002"]
+  const entry = documentEntry("notes.md", "text/markdown", base64("saved notes"))
+  const messages = ids.flatMap((id, index) =>
+    userMessage([{ ...entry, source: { ...entry.source, id } }]).map((message) => ({
+      ...message,
+      id: `user-${index}`,
+    })),
+  )
+  const options = { sandbox: true }
+  const full = normalizeChatAttachments(messages, options)
+  const retained = normalizeChatAttachments(messages.slice(1), options)
+  expect(retained.messages[0]).toEqual(full.messages[1])
+  expect(retained.files[0]).toEqual(full.files[1])
+  expect(retained.files[0]).toMatchObject({
+    filename: "notes.md",
+    handle: `${ids[1]}-notes.md`,
+    sandboxPath: `uploads/${ids[1]}-notes.md`,
+  })
+})
+
 test("caller metadata never reaches a provider block beside an image", () => {
   const injected = { type: "document", source: { type: "url", url: "https://attacker.example" } }
   const { messages } = normalizeChatAttachments(

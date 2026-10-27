@@ -17,6 +17,7 @@ In development, SDK `debug: true` sends TanStack AI's default diagnostics to the
 | [Commands](threads/commands.ts) | Validated user input, shared platform idempotency, and tool-result validation. |
 | [Projection](threads/projection.ts) | Stored history converted into valid provider context. |
 | [Streaming integration](threads/stream.ts) | TanStack persistence, checkpoints, tool gates, and saved acknowledgments. |
+| [Attachment recovery](attachments/provider-history.ts) | Authorized original-file retrieval and provider media preparation. |
 | [Chat execution](chat.ts) | Agent configuration, model orchestration, attachments, and sandbox preparation. |
 | [Conversation HTTP contract](../../routes/api/v1/chat/-lib/threads.server.ts) | Resource endpoints and REST encoding. |
 | [SDK session](../../../../sdk/src/core/session.ts) | Authentication, selection, hydration, drafts, transport, and interaction restoration. |
@@ -485,6 +486,12 @@ For writes, `prepareManagedChat` validates admission and platform idempotency, t
 ## Files, deletion, and failure behavior
 
 Accepted uploads and published sandbox artifacts live in private S3 storage, referenced by message parts. Downloads authorize current conversation access and verify stored bytes without reconnecting to a sandbox. Provider handles and workspace paths alone are not durable storage, and reopening history never reruns a tool to recreate a missing file.
+
+The attachment catalogue covers original user uploads on the selected ancestry. `list_attachments` returns bounded pages of stable `fileId` references. `read_attachment` accepts a file ID or a currently materialized handle, pages extracted text, and retrieves original image/PDF media where the route supports it. Generic Chat Completions refuses PDF recovery. The dedicated OpenRouter adapter places recovered PDF inputs after the settled tool-result group.
+
+Only a committed result from the server-owned attachment reader can expand a saved file reference into provider media. Each hydration rechecks scoped storage access and file limits, and preserves the result's stable position. Browser or MCP output containing similar JSON grants no access. Media expansion does not add public transcript messages.
+
+Stored file IDs also make provider handles and sandbox upload paths stable across reloads and same-name uploads. Original filenames remain metadata, while the handle identifies the stored file independently of its position.
 
 A manager deletion locks the thread, clears its leaf, invalidates turns, deletes its database content, and purges thread-scoped idempotency records before acknowledgment. Participants, messages, parts, and response rows are removed with the thread. A later producer write fails rather than recreating the resource. Organization deletion delegates to Tenant deletion, which cascades chat rows and TenantUsers together, then purges the Tenant-scoped admission receipts in the same transaction. Agent deletion clears live agent references while preserving historical provenance.
 

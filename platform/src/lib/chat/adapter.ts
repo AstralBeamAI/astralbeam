@@ -19,6 +19,8 @@ import { Effect, Queue, Schema, Stream } from "effect"
 
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
+import { normalizeChatAttachmentRequest } from "./attachments/retrieval"
+
 import { CHAT_WEB_ACTIVITY_EVENT, fetchChatWeb, type ChatWebState } from "./web"
 
 type ChatWebTerminal = Extract<AdapterYieldChunk, { type: "RUN_FINISHED" | "RUN_ERROR" }>
@@ -123,7 +125,24 @@ function createChatProviderAdapter(configuration: ChatModelConfiguration, native
     // Explicit Gemini API mode stops the SDK reading Vertex AI settings from the deployment.
     return createGeminiModel(configuration.modelId, configuration.apiKey, {
       vertexai: false,
-      httpOptions: { baseUrl: configuration.baseUrl, fetch: configuration.fetch },
+      httpOptions: {
+        baseUrl: configuration.baseUrl,
+        fetch: (input, init) =>
+          configuration.fetch(
+            input,
+            typeof init?.body === "string"
+              ? {
+                  ...init,
+                  body: JSON.stringify(
+                    normalizeChatAttachmentRequest(
+                      Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(init.body)),
+                      configuration.api,
+                    ),
+                  ),
+                }
+              : init,
+          ),
+      },
     })
   }
   if (configuration.providerType === "xai") {

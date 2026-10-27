@@ -56,6 +56,14 @@ test("reads a file's text by handle", async () => {
   expect(result.nextOffset).toBeUndefined()
 })
 
+test("reads the files materialized after tool declaration instead of stale handles", async () => {
+  const files = [file("old", "old.md")]
+  const [tool] = createChatAttachmentTools(files)
+  files.splice(0, files.length, file("new", "new.md"))
+  expect(await tool!.execute!({ file: "new.md" })).toMatchObject({ content: "new" })
+  expect(await tool!.execute!({ file: "old.md" })).toHaveProperty("refusal")
+})
+
 // The shape has to arrive with the contents, because it is the only place it arrives at all: a
 // column name comes from the file, so it is never written into a prompt.
 test("reports a table's shape and the sandbox path alongside the text", async () => {
