@@ -9,7 +9,6 @@ interface TodoListProps {
   onChangeDraft: (draft: string) => void
   onSearch: (search: string) => void
   onToggleTodo: (id: number) => void
-  onDeleteTodo: (id: number) => void
 }
 
 export function TodoList({
@@ -20,7 +19,6 @@ export function TodoList({
   onChangeDraft,
   onSearch,
   onToggleTodo,
-  onDeleteTodo,
 }: TodoListProps) {
   return (
     <section className="page-content">
@@ -49,14 +47,6 @@ export function TodoList({
                 </td>
                 <td>
                   <span className="todo-status">{todo.completed ? "Completed" : "Pending"}</span>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${todo.text}`}
-                    title="Delete todo"
-                    onClick={() => onDeleteTodo(todo.id)}
-                  >
-                    ×
-                  </button>
                 </td>
               </tr>
             ))}

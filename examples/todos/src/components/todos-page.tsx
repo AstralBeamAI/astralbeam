@@ -3,7 +3,7 @@ import { TodoList } from "@/components/todo-list.tsx"
 import { useTodos } from "@/hooks/use-todos.ts"
 
 export function TodosPage() {
-  const { todos, createTodo, toggleTodo, deleteTodo } = useTodos()
+  const { todos, createTodo, toggleTodo } = useTodos()
   const [draft, setDraft] = useState("")
   const [search, setSearch] = useState("")
   const addTodo = () => {
@@ -21,7 +21,6 @@ export function TodosPage() {
       onChangeDraft={setDraft}
       onSearch={setSearch}
       onToggleTodo={toggleTodo}
-      onDeleteTodo={(id) => deleteTodo({ id })}
     />
   )
 }

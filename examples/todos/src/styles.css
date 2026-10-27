@@ -181,7 +181,7 @@ body {
 }
 
 .todos-list th:last-child {
-  width: 12rem;
+  width: 8rem;
 }
 
 .todos-list tbody tr:last-child td {
@@ -208,10 +208,6 @@ body {
 .todo-status {
   opacity: 0.75;
   white-space: nowrap;
-}
-
-.todo-status + button {
-  margin-inline-start: 0.75rem;
 }
 
 .todo-done {
