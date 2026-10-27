@@ -192,7 +192,7 @@ export function ConfigEditor({
         id: saveToastId,
         title: "Configuration saved",
         description:
-          "Restart other instances to apply changes. Tracing changes require restarting this server too.",
+          "Restart other instances to apply changes. Observability changes require restarting this server too.",
         type: "success",
       })
     }, "save")

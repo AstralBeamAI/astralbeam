@@ -8,7 +8,7 @@ import { Effect, Option } from "effect"
 import { afterEach, vi } from "vitest"
 
 import { Config } from "@/lib/config/config"
-import { makeTracingProcessor, tracingLayer } from "./tracing.server.ts"
+import { makeTracingProcessor, telemetryLayer } from "./telemetry.server.ts"
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -17,7 +17,7 @@ it.effect("keeps tracing disabled when only labels and headers are configured", 
   return Effect.gen(function* () {
     assert.isTrue(Option.isNone(yield* Effect.serviceOption(OtelTracer.OtelTracer)))
   }).pipe(
-    Effect.provide(tracingLayer),
+    Effect.provide(telemetryLayer),
     Effect.provideService(Config, {
       snapshot: Effect.succeed({
         values: {
@@ -41,7 +41,7 @@ it.effect.each([
     return Effect.gen(function* () {
       assert.strictEqual((yield* Resource.Resource).attributes["service.name"], expected)
     }).pipe(
-      Effect.provide(tracingLayer),
+      Effect.provide(telemetryLayer),
       Effect.provideService(Config, {
         snapshot: Effect.succeed({
           values: {

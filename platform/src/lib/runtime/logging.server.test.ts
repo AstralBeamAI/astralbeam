@@ -1,8 +1,9 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Cause, Effect, References } from "effect"
+import { Cause, Effect, Layer, References } from "effect"
+import { HttpClient, HttpClientResponse } from "effect/http"
 import { TestConsole } from "effect/testing"
 
-import { serverLoggerLayer } from "./logging.server.ts"
+import { otlpLoggerLayer, serverLoggerLayer } from "./logging.server.ts"
 
 describe("ECS credential redaction", () => {
   it.effect("masks password-reset paths in request and response logs", () =>
@@ -57,3 +58,63 @@ describe("ECS credential redaction", () => {
     }).pipe(Effect.provide(TestConsole.layer)),
   )
 })
+
+it.effect("redacts shipped request/error logs and replaces a closed exporter", () =>
+  Effect.gen(function* () {
+    const batches: string[] = []
+    const client = HttpClient.make((request) => {
+      assert(request.body._tag === "Uint8Array")
+      batches.push(new TextDecoder().decode(request.body.body))
+      return Effect.succeed(HttpClientResponse.fromWeb(request, new Response("{}")))
+    })
+    const exporter = otlpLoggerLayer({
+      url: "http://localhost:4318/v1/logs",
+      resource: { serviceName: "logging-test" },
+    }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, client)))
+    yield* Effect.gen(function* () {
+      // Nitro and fallback errors log outside the application's runtime.
+      Effect.runSync(
+        Effect.logInfo("HTTP response ready").pipe(
+          Effect.annotateLogs({
+            requestId: "request-export-test",
+            path: "/api/auth/reset-password/opaque-reset-token",
+          }),
+          Effect.provide(serverLoggerLayer),
+        ),
+      )
+      yield* Effect.logError(
+        "Provider failed",
+        Cause.die(new Error("Bearer opaque-bearer; password=opaque-inline-password")),
+        {
+          password: "opaque-password message-secret-tail",
+          nested: { credentials: "opaque-credentials" },
+        },
+      )
+      assert.deepStrictEqual((yield* References.CurrentLogAnnotations).metadata, {
+        password: "opaque-annotation annotation-secret-tail",
+      })
+    }).pipe(
+      Effect.annotateLogs({
+        apiKey: "opaque-api-key",
+        metadata: { password: "opaque-annotation annotation-secret-tail" },
+      }),
+      Effect.provide(exporter),
+    )
+    const output = batches.join("")
+    assert.notInclude(output, "opaque-")
+    assert.notInclude(output, "secret-tail")
+    for (const expected of [
+      "HTTP response ready",
+      "Provider failed",
+      "request-export-test",
+      "exception.stacktrace",
+      "Bearer [REDACTED]; password=[REDACTED]",
+    ])
+      assert.include(output, expected)
+    const consoleOutput = (yield* TestConsole.logLines).map(String).join("\n")
+    assert.include(consoleOutput, "Provider failed")
+    assert.notInclude(consoleOutput, "opaque-")
+    yield* Effect.logInfo("Replacement exporter").pipe(Effect.provide(exporter))
+    assert.include(batches.join(""), "Replacement exporter")
+  }).pipe(Effect.provide(serverLoggerLayer), Effect.provide(TestConsole.layer)),
+)
