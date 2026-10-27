@@ -40,7 +40,7 @@ import {
   CHAT_MODEL_UNAVAILABLE_MESSAGE,
   CHAT_SYSTEM_PROMPT,
 } from "./constants"
-import { chatDebugLog, withChatDebugLog } from "./debug"
+import { chatDebugLog, chatDebugLogger } from "./debug"
 import {
   ChatAgentNotFound,
   ChatDefaultAgentMissing,
@@ -227,14 +227,6 @@ export class Chat extends Context.Service<
         // whole conversations, so, like the refused `systemPrompt`, it is honored only in DEV.
         const log = debug === true && IS_DEVELOPMENT_SERVER ? chatDebugLog(params.runId) : undefined
         if (log) {
-          yield* log("request", `POST /api/v1/chat, ${inputMessages.length} messages`, {
-            threadId: params.threadId,
-            runId: params.runId,
-            parentRunId: params.parentRunId,
-            resume: params.resume,
-            agentId,
-            debug,
-          })
           yield* log("request", "conversation messages", redactChatAttachmentData(inputMessages))
           yield* log("request", `client-declared tools (${params.tools.length})`, params.tools)
         }
@@ -246,7 +238,7 @@ export class Chat extends Context.Service<
           organizationId: principal.organization.id,
           listedIds: principal.usageLimitIds ?? [],
         })
-        const events = Stream.unwrap(
+        return Stream.unwrap(
           Effect.gen(function* () {
             let turn = { claim: input.managed.claim }
             yield* Effect.addFinalizer(() =>
@@ -394,6 +386,8 @@ export class Chat extends Context.Service<
             return chatEventStream((abortController) => {
               const source = chat({
                 adapter: createChatAdapter(model, web),
+                // Undefined still enables TanStack's default error logger.
+                debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
                 messages,
                 systemPrompts,
                 // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
@@ -475,7 +469,6 @@ export class Chat extends Context.Service<
             )
           }),
         )
-        return log ? events.pipe(withChatDebugLog(log)) : events
       })
 
       const capabilities = Effect.fn("Chat.capabilities")(function* (input: {
