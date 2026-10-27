@@ -33,8 +33,8 @@ Tracing uses OpenTelemetry's OTLP/HTTP protobuf exporter with the [standard SDK 
 | Setting | Environment variable | Default | Notes |
 | --- | --- | --- | --- |
 | `otel_exporter_otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP base URL. `/v1/traces` is appended for trace export |
-| `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Encrypted comma-separated `key=value` headers |
-| `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Encrypted trace-specific headers. Percent-encode commas in values |
+| `otel_exporter_otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | none | Comma-separated `key=value` headers |
+| `otel_exporter_otlp_traces_headers` | `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | none | Trace-specific headers. Percent-encode commas in values |
 | `otel_sdk_disabled` | `OTEL_SDK_DISABLED` | `false` | Set to `true` to disable export without clearing the connection |
 | `otel_resource_attributes` | `OTEL_RESOURCE_ATTRIBUTES` | none | Comma-separated labels attached to every span. Do not include secrets |
 
