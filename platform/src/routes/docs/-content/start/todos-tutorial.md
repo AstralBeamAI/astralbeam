@@ -41,7 +41,7 @@ const token = await createAstralBeamToken({
   user: DEMO_CHAT_USER,
   tenant: DEMO_CHAT_TENANT,
 })
-return Response.json({ token }, { headers })
+return tokenResponse({ token }, 200)
 ```
 
 The SDK calls `/api/astralbeam/token` by default. Restart Todos after changing environment values.
@@ -77,8 +77,7 @@ Register `todoCard` in the assistant's `widgets` prop with an `id` number parame
 ```tsx title="src/components/todos-assistant.tsx"
 render: ({ id }) => {
   const todo = todos.find((entry) => entry.id === Number(id))
-  if (!todo) return <p>This todo was deleted.</p>
-  return <TodoCard todo={todo} onToggle={() => toggleTodo(todo.id)} />
+  return todo && <TodoCard todo={todo} onToggle={() => toggleTodo(todo.id)} />
 },
 ```
 

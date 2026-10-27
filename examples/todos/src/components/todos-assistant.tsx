@@ -21,20 +21,29 @@ export function TodosAssistant(
       description: "Create a new todo and append it to the list.",
       parameters: {
         type: "object",
-        properties: { text: { type: "string" }, completed: { type: "boolean" } },
+        properties: {
+          text: { type: "string", description: "What needs to be done" },
+          completed: {
+            type: "boolean",
+            description: "Whether it starts out done. Defaults to false.",
+          },
+        },
         required: ["text"],
       },
       execute: (input) => ({ created: createTodo(input) }),
     },
     update_todo: {
       metadata: { title: "Update a todo" },
-      description: "Update a todo's text, completed flag, or both, by its id.",
+      description: "Update a todo's text, its completed flag, or both, by its id.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "number" },
-          text: { type: "string" },
-          completed: { type: "boolean" },
+          id: { type: "number", description: "Id of the todo to update" },
+          text: { type: "string", description: "Replacement text; omit to keep the current one" },
+          completed: {
+            type: "boolean",
+            description: "New completed state; omit to keep the current one",
+          },
         },
         required: ["id"],
       },
@@ -42,8 +51,12 @@ export function TodosAssistant(
     },
     delete_todo: {
       metadata: { title: "Delete a todo" },
-      description: "Delete a todo by its id.",
-      parameters: { type: "object", properties: { id: { type: "number" } }, required: ["id"] },
+      description: "Delete a todo from the list by its id.",
+      parameters: {
+        type: "object",
+        properties: { id: { type: "number", description: "Id of the todo to delete" } },
+        required: ["id"],
+      },
       execute: (input) => ({ deleted: deleteTodo(input) }),
     },
   }
@@ -64,18 +77,25 @@ export function TodosAssistant(
             description: "A single todo from the host app, addressed by its id",
             parameters: {
               type: "object",
-              properties: { id: { type: "number" }, highlight: { type: "boolean" } },
+              properties: {
+                id: { type: "number", description: "Id of the todo to render" },
+                highlight: {
+                  type: "boolean",
+                  description: "Make the todo stand out in the conversation",
+                },
+              },
               required: ["id"],
             },
             render: ({ id, highlight }) => {
               const todo = todos.find((entry) => entry.id === Number(id))
-              if (!todo) return <p>This todo was deleted.</p>
               return (
-                <TodoCard
-                  todo={todo}
-                  highlight={Boolean(highlight)}
-                  onToggle={() => toggleTodo(todo.id)}
-                />
+                todo && (
+                  <TodoCard
+                    todo={todo}
+                    highlight={Boolean(highlight)}
+                    onToggle={() => toggleTodo(todo.id)}
+                  />
+                )
               )
             },
           },
