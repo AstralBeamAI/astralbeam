@@ -9,7 +9,14 @@ import { fileObject } from "@/db/schema/files"
 import { ChatFiles } from "../attachments/attachments"
 import { CHAT_ATTACHMENT_MAX_FILENAME_LENGTH } from "../attachments/constants"
 import { and, eq, like, sql } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Effect, Layer, ManagedRuntime, Stream } from "effect"
+import { EventType, chatParamsFromRequestBody, type UIMessage } from "@tanstack/ai"
+import { Chat } from "../chat"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
+import { ChatSandboxes } from "../sandbox/sandbox"
+import { McpTools } from "@/lib/mcp/tools.server"
+import { UsageLimits, type UsageLimit } from "@/lib/usage-limits/usage-limits.server"
+import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
 
 const integration = vi.hoisted(() => {
@@ -26,7 +33,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
-import { prepareManagedChat, resolveManagedChatTools } from "./commands"
+import { prepareManagedChat, prepareManagedSteering, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
   agent,
@@ -152,6 +159,292 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
+
+  test("steering is participant-owned, idempotent, and retains unprocessed guidance on exhaustion", async () => {
+    const thread = await create()
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 0,
+        tenantUserId: other.tenantUserId,
+        role: "member",
+      }),
+    )
+    const first = await admit(thread.id)
+    const request = {
+      scope,
+      id: thread.id,
+      turnMessageId: first.inputMessage.id,
+      clientId: targetB,
+      idempotencyKey: "guidance",
+      parts: [{ type: "text" as const, content: "Use blue" }],
+    }
+    const submit = (input = request) =>
+      runtime.runPromise(
+        prepareManagedSteering(input).pipe(
+          Effect.provideService(Agents, {
+            resolveForChat: () =>
+              Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+          } as unknown as typeof Agents.Service),
+        ),
+      )
+    await expect(submit({ ...request, scope: other })).rejects.toMatchObject({
+      _tag: "ChatThreadForbidden",
+    })
+    const receipt = await submit()
+    const pending = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(
+      projectChatModelHistory(pending).some((message) =>
+        JSON.stringify(message).includes("Use blue"),
+      ),
+    ).toBe(false)
+    expect(
+      await runtime.runPromise(service.finish({ claim: first.claim!, continueSteering: false })),
+    ).toMatchObject({ turnState: "interrupted", nextClaim: undefined })
+    expect(await submit()).toEqual(receipt)
+    await expect(
+      submit({ ...request, parts: [{ type: "text", content: "Changed" }] }),
+    ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })
+    await expect(submit({ ...request, idempotencyKey: "late-guidance" })).rejects.toMatchObject({
+      _tag: "ChatSteeringFinished",
+    })
+    expect(
+      (await runtime.runPromise(service.history({ scope, id: thread.id }))).find(
+        (message) => message.id === receipt.acceptedMessageId,
+      )?.metadata.steering,
+    ).toEqual({})
+  })
+
+  test("completion and steering serialize without dropping accepted input", async () => {
+    const thread = await create()
+    const first = await admit(thread.id)
+    const [steering, finished] = await Promise.all([
+      runtime.runPromise(
+        service
+          .steer({
+            scope,
+            id: thread.id,
+            turnMessageId: first.inputMessage.id,
+            clientId: targetB,
+            payload,
+          })
+          .pipe(Effect.result),
+      ),
+      runtime.runPromise(service.finish({ claim: first.claim!, continueSteering: true })),
+    ])
+    expect(finished.turnState).toBe(steering._tag === "Success" ? "running" : "completed")
+    expect(finished.nextClaim?.inputMessageId).toBe(
+      steering._tag === "Success" ? first.inputMessage.id : undefined,
+    )
+    expect(steering._tag === "Failure" ? steering.failure._tag : undefined).toBe(
+      steering._tag === "Failure" ? "ChatSteeringFinished" : undefined,
+    )
+  })
+
+  test.each(["complete", "exhaust", "cancel", "usage-limit"])(
+    "steering preserves the stream, files, and model-call budget: %s",
+    async (mode) => {
+      const exhaust = mode === "exhaust"
+      const cancel = mode === "cancel"
+      const limited = mode === "usage-limit"
+      const unprocessed = cancel || limited
+      const thread = await create()
+      const first = await admit(thread.id)
+      const prompts: unknown[] = []
+      let guidanceId: string | undefined
+      let fileId: string | undefined
+      const model = {
+        providerId: crypto.randomUUID(),
+        providerName: "Test",
+        providerType: "openai" as const,
+        api: "chat-completions" as const,
+        modelId: "test-model",
+        apiKey: "synthetic-test-key",
+        baseUrl: "https://model.example/v1",
+        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+          prompts.push(JSON.parse(init!.body as string))
+          if (exhaust || prompts.length === 1) {
+            const prepared = await runtime.runPromise(
+              files.store({
+                scope: { ...scope, threadId: thread.id },
+                payload: {
+                  version: 1,
+                  parts: [
+                    {
+                      id: crypto.randomUUID(),
+                      type: "text",
+                      content: `Guidance ${prompts.length}`,
+                    },
+                    ...(prompts.length === 1
+                      ? [
+                          {
+                            id: crypto.randomUUID(),
+                            type: "document",
+                            source: {
+                              type: "data",
+                              value: btoa("Source file"),
+                              mimeType: "text/plain",
+                            },
+                            metadata: { filename: "guide.txt" },
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              }),
+            )
+            const receipt = await runtime.runPromise(
+              service.steer({
+                scope,
+                id: thread.id,
+                turnMessageId: first.inputMessage.id,
+                clientId: targetB,
+                payload: prepared,
+              }),
+            )
+            if (prompts.length === 1) {
+              guidanceId = receipt.acceptedMessageId
+              fileId = (prepared.parts[1]!.source as { id: string }).id
+            }
+          }
+          const chunks = [
+            {
+              id: `phase-${prompts.length}`,
+              model: "test-model",
+              choices: [
+                {
+                  index: 0,
+                  delta: { role: "assistant", content: `Answer ${prompts.length}` },
+                  finish_reason: null,
+                },
+              ],
+            },
+            {
+              id: `phase-${prompts.length}`,
+              model: "test-model",
+              choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+            },
+          ]
+          return new Response(
+            chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
+              "data: [DONE]\n\n",
+            { headers: { "Content-Type": "text/event-stream" } },
+          )
+        },
+      }
+      const layer = Chat.layerNoDeps.pipe(
+        Layer.provide([
+          Layer.succeed(ChatThreads, service),
+          Layer.succeed(ChatFiles, files),
+          Layer.succeed(Agents, {
+            resolveForChat: () =>
+              Effect.succeed({
+                id: thread.agentId!,
+                attachmentsEnabled: true,
+                webAccessEnabled: false,
+                systemPrompt: "Help",
+                sandboxProviderId: null,
+              }),
+          } as unknown as typeof Agents.Service),
+          Layer.succeed(ModelProviders, {
+            resolveForAgent: () => Effect.succeed(model),
+            pricing: () => Effect.succeed(null),
+          } as unknown as typeof ModelProviders.Service),
+          Layer.succeed(ChatSandboxes, {} as typeof ChatSandboxes.Service),
+          Layer.succeed(McpTools, {
+            acquire: () => Effect.succeed({ tools: [], presentation: [], unavailable: [] }),
+          } as unknown as typeof McpTools.Service),
+          Layer.succeed(UsageLimits, {
+            applicable: () => Effect.succeed(limited ? [{} as UsageLimit] : []),
+            record: () => Effect.void,
+            check: () =>
+              limited && prompts.length > 0
+                ? Effect.fail(
+                    new UsageLimitReached({
+                      usageLimit: { name: "Budget", resetsAt: "2026-10-29T00:00:00Z" },
+                      retryAfterSeconds: 60,
+                    }),
+                  )
+                : Effect.void,
+          } as unknown as typeof UsageLimits.Service),
+        ]),
+      )
+      const events = await runtime.runPromise(
+        Effect.gen(function* () {
+          const chat = yield* Chat
+          const params = yield* Effect.promise(() =>
+            chatParamsFromRequestBody({
+              threadId: thread.id,
+              runId: targetB,
+              messages: [],
+              tools: [],
+              context: [],
+            }),
+          )
+          const stream = yield* chat.run({
+            params,
+            principal: {
+              organization: { id: scope.organizationId },
+              tenantUser: { id: scope.tenantUserId, tenant: { id: scope.tenantId } },
+            },
+            managed: {
+              claim: first.claim!,
+              clientId: targetA,
+              threadVersion: first.thread.lockVersion,
+              acceptedMessageId: first.inputMessage.id,
+            },
+          })
+          return yield* Stream.runCollect(
+            cancel
+              ? Stream.takeUntil(stream, (event) => {
+                  if (event.type !== EventType.CUSTOM || event.name !== "astralbeam_thread")
+                    return false
+                  const value = event.value as { saved?: boolean; turnState?: string }
+                  return value.saved === true && value.turnState === "running"
+                })
+              : stream,
+          )
+        }).pipe(Effect.provide(layer)),
+      )
+      expect(prompts).toHaveLength(unprocessed ? 1 : exhaust ? 25 : 2)
+      expect(
+        prompts.slice(1).every((prompt) => JSON.stringify(prompt).includes("Guidance 1")),
+      ).toBe(true)
+      expect(events.filter((event) => event.type === EventType.RUN_STARTED)).toHaveLength(1)
+      expect(events.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(
+        mode === "complete" ? 1 : 0,
+      )
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust || limited)
+      expect(
+        events.some(
+          (event) =>
+            event.type === EventType.CUSTOM && event.name === "astralbeam.usage_limit.reached",
+        ),
+      ).toBe(limited)
+      const snapshots = events.flatMap((event) =>
+        event.type === EventType.MESSAGES_SNAPSHOT ? event.messages : [],
+      )
+      const guidance = snapshots.findLast((message) => message.id === guidanceId) as unknown as
+        | UIMessage
+        | undefined
+      const attachment = guidance?.parts.find((part) => part.type === "document") as
+        | { fileId: string; metadata: { filename: string } }
+        | undefined
+      expect(attachment?.fileId).toBe(unprocessed ? undefined : fileId)
+      expect(attachment?.metadata.filename).toBe(unprocessed ? undefined : "guide.txt")
+      const saved = await runtime.runPromise(service.history({ scope, id: thread.id }))
+      expect(saved.find((message) => message.id === first.inputMessage.id)?.turnState).toBe(
+        mode === "complete" ? "completed" : "interrupted",
+      )
+      expect(saved.some((message) => message.state === "draft")).toBe(false)
+      expect(
+        saved.filter(
+          (message) => message.payload.steering && !message.payload.steering.appliedToMessageId,
+        ),
+      ).toHaveLength(mode === "complete" ? 0 : 1)
+    },
+  )
 
   test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
     const thread = await create()

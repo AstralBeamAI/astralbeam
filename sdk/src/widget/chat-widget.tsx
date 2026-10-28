@@ -11,6 +11,7 @@ import {
 } from "react"
 import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
+import { PendingMessages } from "./components/pending-messages.tsx"
 import { ChatComposer } from "./components/chat-composer.tsx"
 import { ChatResizeHandle } from "./components/chat-resize-handle.tsx"
 import { useChatWidth } from "./use-chat-width.ts"
@@ -201,16 +202,9 @@ export function ChatWidget({
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
-  const isBusy =
-    authPending ||
-    authError !== undefined ||
+  const processing =
     streamBusy ||
-    !composer.attachmentsLoaded ||
-    composer.saving ||
-    history === "loading" ||
-    history === "failed" ||
-    chatState.thread?.role === "viewer" ||
-    chatState.thread?.agentId === null ||
+    chatState.activeTurnId !== undefined ||
     hasPendingToolRun(
       messages.map((message) => ({
         ...message,
@@ -220,6 +214,16 @@ export function ChatWidget({
       })),
       toolNames,
     )
+  const sendBlocked =
+    authPending ||
+    authError !== undefined ||
+    !composer.attachmentsLoaded ||
+    composer.saving ||
+    history === "loading" ||
+    history === "failed" ||
+    chatState.thread?.role === "viewer" ||
+    chatState.thread?.agentId === null
+  const isBusy = processing || chatState.pendingMessages.length > 0
 
   // Every picked file becomes a chip, a rejected one included, so a file the limits turn away
   // says why instead of vanishing. Reads are per file: one unreadable file must not lose the rest.
@@ -271,13 +275,13 @@ export function ChatWidget({
     composer.updateAttachments((current) => current.filter((attachment) => attachment.id !== id))
   }
 
-  const sendDraft = () => {
+  const sendDraft = (whenBusy: "queue" | "steer" = "queue") => {
     const text = composer.text.trim()
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
     const pendingRead = attachments.some((attachment) => attachment.status === "reading")
-    if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
+    if (sendBlocked || pendingRead || (text.length === 0 && parts.length === 0)) return
     debug?.(
       "send",
       text.length > 0 ? text : `${parts.length} attachment(s), no message text`,
@@ -305,7 +309,8 @@ export function ChatWidget({
               ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
             ],
           },
-      callbacks,
+      { ...callbacks, onQueued: callbacks.onAccepted },
+      { whenBusy },
     )
     void sent.then((outcome) => {
       if (outcome.phase === "refused") restore(outcome.content)
@@ -321,8 +326,7 @@ export function ChatWidget({
   )
 
   const resetThread = () => {
-    // The session's reset is the client's own: it aborts an active stream, drops queued sends,
-    // resets resume state, and disposes the live widget renders.
+    // Changing conversations pauses pending input and preserves it in its original scope.
     chat.reset()
     composer.reset()
   }
@@ -509,6 +513,20 @@ export function ChatWidget({
             Files cannot be recovered after reload because browser storage is unavailable.
           </p>
         )}
+        <PendingMessages
+          messages={chatState.pendingMessages}
+          paused={chatState.queuePaused}
+          canSteer={!!chatState.activeTurnId && !sendBlocked}
+          onEdit={chat.editPendingMessage}
+          onRemove={chat.removePendingMessage}
+          onSteer={(id) => void chat.steerPendingMessage(id)}
+          onResume={() => void chat.resumeQueue()}
+          onHold={chat.holdQueue}
+          onReattach={(id) => {
+            const entry = chatState.pendingMessages.find((entry) => entry.id === id)
+            if (entry) chat.editPendingMessage(id, entry.content)
+          }}
+        />
         <ChatComposer
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={
@@ -516,7 +534,9 @@ export function ChatWidget({
           }
           draft={composer.text}
           onDraftChange={composer.setText}
-          onSend={sendDraft}
+          onSend={() => sendDraft()}
+          onSteer={chatState.activeTurnId ? () => sendDraft("steer") : undefined}
+          sendBlocked={sendBlocked}
           onStop={() => {
             debug?.("status", "generation stopped by user")
             chat.stop()
@@ -533,8 +553,8 @@ export function ChatWidget({
           retryLabel={submission?.phase === "failed" ? "Retry" : "Refresh"}
           showError={error !== undefined}
           error={error}
-          streamBusy={streamBusy}
-          isBusy={isBusy || submission?.phase === "failed"}
+          streamBusy={processing}
+          isBusy={isBusy}
           authPending={authPending}
           threadLoading={history === "loading"}
           authError={authError}

@@ -31,9 +31,12 @@ function MyChat() {
 
 - State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, `history`, `submission`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
 - Actions: `sendMessage`, `retry`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
-- Each send becomes the `submission`, whose `phase` moves from `submitting` to `accepted`, `failed`, or `refused`. `sendMessage` and `retry()` resolve with the attempt's outcome.
+- Each dispatched send becomes the `submission`, whose `phase` moves from `submitting` to `accepted`, `failed`, or `refused`. `sendMessage` and `retry()` resolve with the attempt's outcome.
 - Clear your composer when you send, and return the `content` of a `refused` outcome to it. A `failed` submission may have reached the server, so offer `retry()`.
-- An attempt the session declines, such as one sent while another is active, resolves `refused` without replacing the active submission. `stop()` returns an unsent message the same way.
+- While processing, `sendMessage` retains input locally and resolves `queued` without replacing the active submission. `onQueued` acknowledges local retention and `onAccepted` acknowledges the server. Follow-ups run individually after the active turn and its browser tools finish.
+- Pass a third argument, `{ whenBusy: "steer" }`, to guide the active turn before its next model request. Completed output and tool effects remain. A completed target falls back to a queued follow-up.
+- Read `pendingMessages` and `queuePaused`, and use `editPendingMessage`, `removePendingMessage`, `steerPendingMessage`, and `resumeQueue` for controls. Stop, errors, conversation changes, and reload pause automatic delivery. Restored files require explicit reattachment. File references can be recovered, but file bytes are never stored with the queue.
+- Other declined attempts resolve `refused` with their content. `stop()` returns input that was never dispatched the same way.
 - `retry()` reuses the admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Remount when the host identity changes, as described in [Authentication](./authentication.md#switching-workspaces).
 - No shadow root and no bundled styles: your markup, your CSS.

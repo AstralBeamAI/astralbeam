@@ -1,4 +1,8 @@
-import { convertMessagesToModelMessages, normalizeToUIMessage } from "@tanstack/ai"
+import {
+  chatParamsFromRequestBody,
+  convertMessagesToModelMessages,
+  normalizeToUIMessage,
+} from "@tanstack/ai"
 import { type Cause, Effect, JsonSchema, Schema, SchemaRepresentation } from "effect"
 
 import { NonEmptyStringSchema } from "@/lib/schemas"
@@ -24,6 +28,7 @@ import {
 import { chatStoredJson } from "./projection"
 import {
   ChatSubmissionReceiptSchema,
+  ChatUserPartsSchema,
   type ChatThreadScope,
   type ChatToolResolution,
 } from "./schemas"
@@ -64,32 +69,11 @@ const chatQuestionnaireArguments = Schema.fromJsonString(
 )
 const chatWidgetOutput = Schema.Struct({ widget: Schema.String, rendered: Schema.Boolean })
 const chatWidgetArguments = Schema.fromJsonString(Schema.Struct({ widget: Schema.String }))
-const managedUserParts = Schema.Array(
-  Schema.Union([
-    Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
-    Schema.Struct({
-      type: Schema.Literals(["image", "document", "audio", "video"]),
-      source: Schema.Union([
-        Schema.Struct({
-          type: Schema.Literal("data"),
-          value: Schema.String,
-          mimeType: Schema.optionalKey(Schema.String),
-        }),
-        Schema.Struct({
-          type: Schema.Literal("file"),
-          value: ApiUuidSchema,
-          mimeType: Schema.optionalKey(Schema.String),
-        }),
-      ]),
-      metadata: Schema.optionalKey(Schema.JsonObject),
-    }),
-  ]),
-).check(Schema.isMinLength(1))
-
 const chatAdmissionOperation = {
   name: "ChatAdmission/v1",
   parameters: Schema.Struct({
     id: ApiUuidSchema,
+    turnMessageId: Schema.optionalKey(ApiUuidSchema),
     parts: Schema.Array(Schema.JsonObject),
     tools: Schema.Array(Schema.JsonObject),
     clientId: ApiUuidSchema,
@@ -113,6 +97,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   readonly scope: ChatThreadScope
   readonly params: ChatParams
   readonly idempotencyKey?: string | undefined
+  readonly turnMessageId?: string | undefined
 }) {
   const threads = yield* ChatThreads
   const agents = yield* Agents
@@ -153,7 +138,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       ).parts.map(chatStoredJson),
     catch: () => new ChatThreadInvalid(),
   })
-  const parts = (yield* Schema.decodeUnknownEffect(managedUserParts)(normalizedParts).pipe(
+  const parts = (yield* Schema.decodeUnknownEffect(ChatUserPartsSchema)(normalizedParts).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )).map((part) =>
     part.type === "text"
@@ -181,6 +166,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
     id,
+    ...(input.turnMessageId ? { turnMessageId: input.turnMessageId } : {}),
     parts: yield* identifyChatFiles(parts),
     tools,
     clientId: options.clientId,
@@ -220,6 +206,14 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
+    if (command.turnMessageId)
+      return yield* threads.steer({
+        scope,
+        id: command.id,
+        turnMessageId: command.turnMessageId,
+        clientId: command.clientId,
+        payload: stored,
+      })
     admission = yield* threads.admit({
       scope,
       id: command.id,
@@ -262,6 +256,34 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
           ),
         )
   return { admission, receipt, clientId: options.clientId }
+})
+
+export const prepareManagedSteering = Effect.fn("prepareManagedSteering")(function* (
+  input: ThreadInput & {
+    turnMessageId: string
+    clientId: string
+    idempotencyKey: string
+    parts: typeof ChatUserPartsSchema.Type
+  },
+) {
+  const params = yield* Effect.tryPromise({
+    try: () =>
+      chatParamsFromRequestBody({
+        threadId: input.id,
+        runId: input.turnMessageId,
+        messages: [{ id: crypto.randomUUID(), role: "user", content: input.parts }],
+        tools: [],
+        context: [],
+        forwardedProps: { clientId: input.clientId },
+      }),
+    catch: () => new ChatThreadInvalid(),
+  })
+  return (yield* prepareManagedChat({
+    scope: input.scope,
+    params,
+    turnMessageId: input.turnMessageId,
+    idempotencyKey: input.idempotencyKey,
+  })).receipt
 })
 
 export interface ManagedToolResultInput {

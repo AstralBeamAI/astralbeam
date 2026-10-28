@@ -1,6 +1,7 @@
 import {
   chat,
   convertMessagesToModelMessages,
+  normalizeToUIMessage,
   EventType,
   maxIterations,
   mergeAgentTools,
@@ -44,6 +45,7 @@ import {
 } from "./constants"
 import { chatDebugLog, chatDebugLogger } from "./debug"
 import {
+  CHAT_TURN_LIMIT_MESSAGE,
   ChatAgentNotFound,
   ChatDefaultAgentMissing,
   ChatModelMissing,
@@ -61,6 +63,7 @@ import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
+  turn_limit: CHAT_TURN_LIMIT_MESSAGE,
   web_access_unavailable:
     "The provider rejected web access. Ask the site owner to check the model and provider web-tool permissions.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
@@ -123,7 +126,12 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     return content.length ? [{ ...message, content }] : []
   })
   const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(
+    projected.map((message) =>
+      message.role === "user" ? normalizeToUIMessage(message, () => crypto.randomUUID()) : message,
+    ),
+    { sandbox },
+  )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -242,10 +250,13 @@ export class Chat extends Context.Service<
         })
         return Stream.unwrap(
           Effect.gen(function* () {
-            let turn = { claim: input.managed.claim }
+            let turn: {
+              claim: typeof input.managed.claim
+              nextClaim?: typeof input.managed.claim | undefined
+            } = { claim: input.managed.claim }
             yield* Effect.addFinalizer(() =>
               threads
-                .interrupt({ claim: turn.claim })
+                .interrupt({ claim: turn.nextClaim ?? turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
             const pricing = yield* modelProviders.pricing(model)
@@ -312,125 +323,203 @@ export class Chat extends Context.Service<
                     params.tools,
                   ),
                 ]
-            const managed = managedChatMiddleware({
-              managed: input.managed,
-              threads,
-              history: convertMessagesToModelMessages(messages),
-              tools,
-              model,
-              pricing,
-              web,
-              publicHistory:
-                web ||
-                history.some((record) =>
-                  record.payload.parts.some((part) => part.executionLocation === "provider"),
+            const telemetry = Option.toArray(
+              yield* Effect.serviceOption(OtelTracer.OtelTracer),
+            ).map((tracer) => otelMiddleware({ tracer, captureContent: false }))
+            let modelTurns = 0
+            let execution = input.managed
+            const createManagedPhase = (phaseMessages: typeof messages) =>
+              managedChatMiddleware({
+                managed: execution,
+                threads,
+                history: convertMessagesToModelMessages(phaseMessages),
+                canContinueSteering: () =>
+                  modelTurns < CHAT_MAX_MODEL_TURNS && (usageLimitGuard?.canContinue() ?? true),
+                tools,
+                model,
+                pricing,
+                web,
+                publicHistory:
+                  web ||
+                  history.some(
+                    (record) =>
+                      record.payload.steering ||
+                      record.payload.parts.some((part) => part.executionLocation === "provider"),
+                  )
+                    ? projectChatPublicHistory(history)
+                    : undefined,
+                agentId: `agent_${input.principal.organization.id}_${agent.id}`,
+                execute: Effect.runPromiseWith(services),
+                refreshContext: (claim, beforeModel) =>
+                  Effect.runPromiseWith(services)(
+                    Effect.gen(function* () {
+                      const saved = yield* threads.history({
+                        scope: claim.scope,
+                        id: claim.threadId,
+                      })
+                      const steering = beforeModel
+                        ? saved.filter(
+                            (record) =>
+                              record.role === "user" &&
+                              record.turnMessageId === claim.inputMessageId &&
+                              record.payload.steering &&
+                              !record.payload.steering.appliedToMessageId,
+                          )
+                        : []
+                      const steeringMessageIds = steering.map((record) => record.id)
+                      for (const record of steering)
+                        record.payload = {
+                          ...record.payload,
+                          steering: { appliedToMessageId: claim.assistantMessageId },
+                        }
+                      history.splice(0, history.length, ...saved)
+                      const normalized = yield* prepareChatHistory({
+                        history: saved,
+                        files: storedFiles,
+                        scope: { ...claim.scope, threadId: claim.threadId },
+                        model,
+                        sandbox: agent.sandboxProviderId !== null,
+                        webAccessEnabled: agent.webAccessEnabled,
+                      })
+                      files.splice(0, files.length, ...normalized.files)
+                      inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                      if (session) yield* session.prepareUploads(files)
+                      if (!unknownOutcome)
+                        tools.splice(
+                          0,
+                          tools.length,
+                          ...mergeAgentTools(
+                            [
+                              ...chatWebTools(model, agent.webAccessEnabled, params.tools),
+                              ...mcp.tools,
+                              ...sandboxTools,
+                              ...createChatAttachmentTools(files),
+                            ],
+                            params.tools,
+                          ),
+                        )
+                      if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
+                        systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
+                      if (steering.length)
+                        yield* threads.incorporateSteering({
+                          claim,
+                          messageIds: steeringMessageIds,
+                        })
+                      return {
+                        providerMessages: convertMessagesToModelMessages(normalized.messages),
+                        publicMessages: projectChatPublicHistory(saved),
+                        steeringMessageIds,
+                        publicHistory:
+                          web ||
+                          saved.some(
+                            (record) =>
+                              record.payload.steering ||
+                              record.payload.parts.some(
+                                (part) => part.executionLocation === "provider",
+                              ),
+                          )
+                            ? projectChatPublicHistory(saved)
+                            : undefined,
+                        tools,
+                        systemPrompts,
+                      }
+                    }),
+                  ),
+              })
+            return chatEventStream(async function* (abortController) {
+              let phaseMessages = messages
+              let started = false
+              const runId = params.runId ?? crypto.randomUUID()
+              while (!abortController.signal.aborted) {
+                const managed = createManagedPhase(phaseMessages)
+                turn = managed.state
+                const accounting = [
+                  ...telemetry,
+                  ...managed.middleware,
+                  ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
+                ]
+                const source = chat({
+                  adapter: createChatAdapter(model, web),
+                  // Undefined still enables TanStack's default error logger.
+                  debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
+                  messages: phaseMessages,
+                  systemPrompts,
+                  // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
+                  // drops a client tool named like a server tool.
+                  tools,
+                  // A sandbox command or publication can depend on an earlier tool's file write.
+                  // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
+                  toolExecution: "sequential",
+                  repairToolInput: false,
+                  // Interrupt snapshots preserve original uploads after provider normalization.
+                  middleware: [
+                    chatFailedUsageMiddleware(accounting),
+                    createChatAttachmentSnapshotMiddleware(inputMessages, history),
+                    ...accounting,
+                    {
+                      name: "model-turn-budget",
+                      onIteration: () => {
+                        modelTurns++
+                      },
+                    },
+                    {
+                      name: "mcp-presentation",
+                      onStart: (ctx) =>
+                        ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
+                          tools: mcp.presentation,
+                          unavailable: mcp.unavailable,
+                        }),
+                    },
+                  ],
+                  agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS - modelTurns),
+                  threadId: params.threadId,
+                  runId,
+                  parentRunId: params.parentRunId,
+                  resume: modelTurns === 0 ? params.resume : undefined,
+                  ...(model.providerType === "openai" &&
+                    model.api === "responses" && { reasoning: "high" }),
+                  abortController,
+                })
+                const delivered = managedChatDelivery({
+                  source,
+                  managed: execution,
+                  state: managed.state,
+                })
+                for await (const chunk of usageLimitGuard
+                  ? usageLimitGuard.announce(delivered)
+                  : delivered) {
+                  if (chunk.type === EventType.RUN_STARTED) {
+                    if (started) continue
+                    started = true
+                  }
+                  yield chunk
+                }
+                if (!managed.state.nextClaim) break
+                execution = {
+                  clientId: execution.clientId,
+                  claim: managed.state.nextClaim,
+                  threadVersion: managed.state.version,
+                }
+                history.splice(
+                  0,
+                  history.length,
+                  ...(await Effect.runPromiseWith(services)(
+                    threads.history({ scope: execution.claim.scope, id: execution.claim.threadId }),
+                  )),
                 )
-                  ? projectChatPublicHistory(history)
-                  : undefined,
-              agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-              execute: Effect.runPromiseWith(services),
-              refreshContext: (claim) =>
-                Effect.runPromiseWith(services)(
-                  Effect.gen(function* () {
-                    const saved = yield* threads.history({
-                      scope: claim.scope,
-                      id: claim.threadId,
-                    })
-                    const normalized = yield* prepareChatHistory({
-                      history: saved,
+                phaseMessages = (
+                  await Effect.runPromiseWith(services)(
+                    prepareChatHistory({
+                      history,
                       files: storedFiles,
-                      scope: { ...claim.scope, threadId: claim.threadId },
+                      scope: { ...execution.claim.scope, threadId: execution.claim.threadId },
                       model,
                       sandbox: agent.sandboxProviderId !== null,
                       webAccessEnabled: agent.webAccessEnabled,
-                    })
-                    files.splice(0, files.length, ...normalized.files)
-                    inputMessages.splice(0, inputMessages.length, ...normalized.projected)
-                    if (session) yield* session.prepareUploads(files)
-                    if (!unknownOutcome)
-                      tools.splice(
-                        0,
-                        tools.length,
-                        ...mergeAgentTools(
-                          [
-                            ...chatWebTools(model, agent.webAccessEnabled, params.tools),
-                            ...mcp.tools,
-                            ...sandboxTools,
-                            ...createChatAttachmentTools(files),
-                          ],
-                          params.tools,
-                        ),
-                      )
-                    if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
-                      systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
-                    return {
-                      providerMessages: convertMessagesToModelMessages(normalized.messages),
-                      publicHistory:
-                        web ||
-                        saved.some((record) =>
-                          record.payload.parts.some(
-                            (part) => part.executionLocation === "provider",
-                          ),
-                        )
-                          ? projectChatPublicHistory(saved)
-                          : undefined,
-                      tools,
-                      systemPrompts,
-                    }
-                  }),
-                ),
-            })
-            turn = managed.state
-            const accounting = [
-              ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
-                otelMiddleware({ tracer, captureContent: false }),
-              ),
-              ...managed.middleware,
-              ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
-            ]
-            return chatEventStream((abortController) => {
-              const source = chat({
-                adapter: createChatAdapter(model, web),
-                // Undefined still enables TanStack's default error logger.
-                debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
-                messages,
-                systemPrompts,
-                // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
-                // drops a client tool named like a server tool.
-                tools,
-                // A sandbox command or publication can depend on an earlier tool's file write.
-                // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
-                toolExecution: "sequential",
-                repairToolInput: false,
-                // Interrupt snapshots preserve original uploads after provider normalization.
-                middleware: [
-                  chatFailedUsageMiddleware(accounting),
-                  createChatAttachmentSnapshotMiddleware(inputMessages, history),
-                  ...accounting,
-                  {
-                    name: "mcp-presentation",
-                    onStart: (ctx) =>
-                      ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
-                        tools: mcp.presentation,
-                        unavailable: mcp.unavailable,
-                      }),
-                  },
-                ],
-                agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
-                threadId: params.threadId,
-                runId: params.runId,
-                parentRunId: params.parentRunId,
-                resume: params.resume,
-                ...(model.providerType === "openai" &&
-                  model.api === "responses" && { reasoning: "high" }),
-                abortController,
-              })
-              const delivered = managedChatDelivery({
-                source,
-                managed: input.managed,
-                state: managed.state,
-              })
-              return usageLimitGuard ? usageLimitGuard.announce(delivered) : delivered
+                    }),
+                  )
+                ).messages
+              }
             })
           }),
         ).pipe(

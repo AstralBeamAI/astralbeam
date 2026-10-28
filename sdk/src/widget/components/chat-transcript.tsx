@@ -102,6 +102,13 @@ const TranscriptMessage = memo(function TranscriptMessage({
       <Message align={message.role === "user" && !anotherParticipant ? "end" : "start"}>
         <MessageContent className="gap-1">
           {anotherParticipant && <span className="text-xs text-muted-foreground">Participant</span>}
+          {message.role === "user" && saved?.turnMessageId && (
+            <span className="text-xs text-muted-foreground">
+              {saved.steeringAppliedToMessageId
+                ? "Guidance delivered"
+                : "Guidance received, not delivered"}
+            </span>
+          )}
           {message.role === "user" ? (
             <UserMessageBody message={message} />
           ) : (

@@ -69,7 +69,7 @@ export function chatUsageLimitGuard(options: {
     yield* notice()
   }
 
-  return { middleware, announce }
+  return { middleware, announce, canContinue: () => reached === undefined }
 }
 
 /** Core reports successful-call usage, but usage-bearing failed streams bypass that hook.

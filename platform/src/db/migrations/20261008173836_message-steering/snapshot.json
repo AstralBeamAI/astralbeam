@@ -1,0 +1,46 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8e970fc8-9570-4f82-ad6b-152c688280f4",
+  "prevIds": [
+    "7e6f6fa2-429e-489f-8406-0a51eb7b56e5"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "chat_message"
+      ],
+      "writes": [
+        "s|ck|public.chat_message.chat_message_role_check"
+      ],
+      "reads": [
+        "n|tbl|public.chat_message",
+        "n|sch|public",
+        "n|col|public.chat_message.role",
+        "n|col|public.chat_message.state",
+        "n|col|public.chat_message.author_tenant_user_id",
+        "n|col|public.chat_message.turn_message_id",
+        "n|col|public.chat_message.turn_state",
+        "e|col|public.chat_message.role",
+        "e|col|public.chat_message.state",
+        "e|col|public.chat_message.author_tenant_user_id",
+        "e|col|public.chat_message.turn_message_id",
+        "e|col|public.chat_message.turn_state"
+      ],
+      "sqlHash": "a9285b73a0ca3f1f"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"chat_message\",\"chat_message_role_check\"]",
+      "set": {
+        "value": "(\n    (\"role\" = 'user' and \"state\" = 'complete' and \"author_tenant_user_id\" is not null and ((\"turn_message_id\" is null and \"turn_state\" is not null) or (\"turn_message_id\" is not null and \"turn_state\" is null)))\n    or (\"role\" in ('assistant', 'tool') and \"turn_message_id\" is not null and \"turn_state\" is null)\n  ) and (\"role\" = 'assistant' or \"state\" = 'complete') and (\"role\" <> 'assistant' or \"author_tenant_user_id\" is null)"
+      }
+    }
+  ]
+}

@@ -21,7 +21,10 @@ import {
 } from "../../-lib/shared.server"
 import type { ThreadRecord, MessageRecord, ParticipantRecord } from "@/lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
-import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema } from "@/lib/chat/threads/schemas.ts"
+import {
+  ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema,
+  ChatUserPartsSchema,
+} from "@/lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
 const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser"])
@@ -92,6 +95,9 @@ export const chatMessageRecord = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "tool"]),
   state: Schema.Literals(["draft", "complete", "interrupted"]),
   parentMessageId: Schema.NullOr(ApiUuidSchema),
+  turnMessageId: Schema.NullOr(ApiUuidSchema),
+  turnState: Schema.NullOr(Schema.Literals(["running", "waiting", "completed", "interrupted"])),
+  steeringAppliedToMessageId: Schema.NullOr(ApiUuidSchema),
   parts: Schema.Array(Schema.JsonObject),
   authorTenantUserId: Schema.NullOr(ApiUuidSchema),
   sourceAssistantMessageId: Schema.NullOr(ApiUuidSchema),
@@ -102,6 +108,9 @@ export const chatMessageRecord = Schema.Struct({
   Schema.annotate({ identifier: "ChatMessage" }),
   Schema.encodeKeys({
     parentMessageId: "parent_message_id",
+    turnMessageId: "turn_message_id",
+    turnState: "turn_state",
+    steeringAppliedToMessageId: "steering_applied_to_message_id",
     authorTenantUserId: "author_tenant_user_id",
     sourceAssistantMessageId: "source_assistant_message_id",
     sourceToolPartId: "source_tool_part_id",
@@ -220,6 +229,15 @@ const resolveToolInput = Schema.Struct({
   }),
 )
 
+const steerChatInput = Schema.Struct({
+  turnMessageId: ApiUuidSchema,
+  clientId: ApiUuidSchema,
+  parts: ChatUserPartsSchema,
+}).pipe(
+  Schema.annotate({ identifier: "SteerChatInput" }),
+  Schema.encodeKeys({ turnMessageId: "turn_message_id", clientId: "client_id" }),
+)
+
 export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true })
   .add(
     HttpApiEndpoint.post("createChatThread", "/chat/threads", {
@@ -306,6 +324,17 @@ export const chatThreadApi = HttpApiGroup.make("chatThreads", { topLevel: true }
         ChatToolResultReceiptSchema,
       ]),
     }).annotate(OpenApi.Summary, "Submit a pending tool result"),
+    HttpApiEndpoint.post("steerChatTurn", "/chat/threads/:id/steer", {
+      params: threadParams,
+      payload: steerChatInput,
+      success: ChatSubmissionReceiptSchema,
+      headers: Schema.StructWithRest(
+        Schema.Struct({
+          "idempotency-key": NonEmptyStringSchema.check(Schema.isMaxCodePoints(255)),
+        }),
+        [Schema.Record(Schema.String, Schema.String)],
+      ),
+    }).annotate(OpenApi.Summary, "Add guidance to your active turn"),
   )
   .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
@@ -344,6 +373,9 @@ export function messageResource(row: MessageRecord) {
     role: row.role,
     state: row.state,
     parentMessageId: row.parentMessageId,
+    turnMessageId: row.turnMessageId,
+    turnState: row.turnState,
+    steeringAppliedToMessageId: row.metadata.steering?.appliedToMessageId ?? null,
     parts: row.payload.parts.map((part) => {
       const source = part.source
       if (
@@ -378,7 +410,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
     Effect.fn("chatThreadHandlers")(function* (handlers) {
       const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
       const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
-      const { resolveManagedChatTools } = yield* Effect.promise(
+      const { resolveManagedChatTools, prepareManagedSteering } = yield* Effect.promise(
         () => import("@/lib/chat/threads/commands"),
       )
       const { ChatThreadForbidden } = yield* Effect.promise(
@@ -422,6 +454,29 @@ export function chatThreadHandlers(api: typeof ApiV1) {
           ),
         )
       return handlers
+        .handleRaw(
+          "steerChatTurn",
+          Effect.fn("steerChatTurn")(function* ({ request, params }) {
+            const principal = yield* authenticate(request)
+            yield* consumeChatRateLimit(principal, "message").pipe(Effect.provideContext(services))
+            const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
+            const key = native.headers.get("Idempotency-Key")
+            if (!key?.trim()) return yield* new ChatRunInputInvalid()
+            const payload = yield* Schema.decodeUnknownEffect(steerChatInput)(
+              yield* readChatRequestBody(native),
+              { onExcessProperty: "error" },
+            ).pipe(Effect.mapError(() => new ChatRunInputInvalid()))
+            const receipt = yield* prepareManagedSteering({
+              scope: yield* threads.resolveScope({ principal }),
+              id: params.id,
+              ...payload,
+              idempotencyKey: key,
+            }).pipe(Effect.provideService(ChatThreads, threads), Effect.provideContext(services))
+            return HttpServerResponse.jsonUnsafe(
+              Schema.encodeSync(ChatSubmissionReceiptSchema)(receipt),
+            )
+          }),
+        )
         .handleRaw(
           "resolveChatToolResult",
           Effect.fn("resolveChatToolResult")(function* ({ request, params }) {

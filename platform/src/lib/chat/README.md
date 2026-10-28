@@ -509,7 +509,7 @@ A manager deletion locks the thread, clears its leaf, invalidates turns, deletes
 
 ## Extension boundaries and verification
 
-Current behavior includes shared participants, concurrent appends, structured hydration, saved partial output, and accepted tool responses. It does not provide FIFO admission, live cross-client streaming, delivery replay, automatic crash recovery, scheduled execution, branch selection, regeneration, or fork APIs.
+Current behavior includes shared participants, concurrent appends, structured hydration, saved partial output, and accepted tool responses. The SDK queues local follow-ups in FIFO order and can steer the authenticated participant's active turn. Server admission remains concurrent across clients. It does not provide FIFO admission, live cross-client streaming, delivery replay, automatic crash recovery, scheduled execution, branch selection, regeneration, or fork APIs.
 
 Parent links support future named branch heads. Forks can copy a selected prefix and remap message, part, turn, and response identities. Multiple expected-response rows support future fan-out after client registration and targeted delivery are added. Independent run tables become appropriate when one input launches several separately managed executions or execution no longer originates from user input.
 

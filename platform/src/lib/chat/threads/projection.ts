@@ -8,6 +8,7 @@ interface ChatProjectionRecord {
   readonly id: string
   readonly role: "user" | "assistant" | "tool"
   readonly state: "draft" | "complete" | "interrupted"
+  readonly turnMessageId?: string | null
   readonly payload: Omit<ChatMessagePayload, "version"> & { readonly version: number }
   readonly sourceAssistantMessageId?: string | null
   readonly sourceToolPartId?: string | null
@@ -197,7 +198,11 @@ export function projectChatModelHistory(
   for (const record of records) {
     if (record.payload.version !== 1) throw new Error("Unsupported conversation payload version")
   }
-  return completeChatExchanges(records).flatMap((record) => {
+  const incorporated = records.filter(
+    (record) =>
+      !record.payload.steering || record.payload.steering.appliedToMessageId !== undefined,
+  )
+  return completeChatExchanges(incorporated).flatMap((record) => {
     const provenance = record.payload.provenance
     const compatible =
       target !== undefined &&
@@ -290,6 +295,8 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
             astralbeam: {
               state: record.state,
               authorTenantUserId: record.authorTenantUserId ?? null,
+              turnMessageId: record.turnMessageId ?? null,
+              steeringAppliedToMessageId: record.payload.steering?.appliedToMessageId ?? null,
             },
           },
         },
