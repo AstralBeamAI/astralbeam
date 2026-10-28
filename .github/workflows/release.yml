@@ -34,7 +34,7 @@ jobs:
       - name: Verify the tag matches the SDK, CLI, and Platform versions
         id: version
         # `sdk`, `cli`, and `platform` are the versioned projects and move in lockstep: examples/todos
-        # declares no version and www is a private placeholder at 0.0.0.
+        # declares no version and website is a private placeholder at 0.0.0.
         run: |
           version="$(jq -r .version sdk/package.json)"
           echo "version=$version" >> "$GITHUB_OUTPUT"

@@ -1,21 +1,21 @@
-# @astralbeam/www
+# @astralbeam/website
 
 TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting. See [repository setup](../SETUP.md) for dependencies.
 
 Run common commands from the repository root:
 
 ```sh
-bun run --cwd www dev      # development server on 4600
-bun run --cwd www build    # static output in .output/public/
-bun run --cwd www preview  # production preview on 4001
-bun run --cwd www generate:blog-images # refresh optimized PNGs from blog SVGs
-bun run --cwd www ready    # check, build, then test
-bun run --cwd www deploy   # ready, then deploy to Cloudflare
+bun run --cwd website dev      # development server on 4600
+bun run --cwd website build    # static output in .output/public/
+bun run --cwd website preview  # production preview on 4001
+bun run --cwd website generate:blog-images # refresh optimized PNGs from blog SVGs
+bun run --cwd website ready    # check, build, then test
+bun run --cwd website deploy   # ready, then deploy to Cloudflare
 ```
 
 `ready` builds before testing because the tests inspect `.output/public/`. Use `deploy` only when publishing the website is intended.
 
-For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `www`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
+For [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/), keep the root directory at `website`, set `BUN_VERSION` to the version in the repository’s `.bun-version`, and use `bun install --frozen-lockfile && bun run build` as the build command. Bun installs the parent workspace. Use `bun run wrangler deploy` for production and `bun run wrangler versions upload` for preview branches. These dashboard settings are separate from `wrangler.json` and must be updated when changing build runtimes.
 
 Routes live in `src/routes/`, landing content in `src/routes/-landing/`, and styles in `src/styles/`.
 

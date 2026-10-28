@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": [
     "platform",
-    "www",
+    "website",
     "sdk",
     "cli",
     "examples/todos",
@@ -15,8 +15,8 @@
     "format:check": "oxfmt --disable-nested-config --check",
     "dev:platform": "bun run --cwd platform dev",
     "build:platform": "bun run --cwd platform build",
-    "dev:www": "bun run --cwd www dev",
-    "build:www": "bun run --cwd www build",
+    "dev:website": "bun run --cwd website dev",
+    "build:website": "bun run --cwd website build",
     "dev:sdk": "bun run --cwd sdk dev",
     "build:sdk": "bun run --cwd sdk build",
     "build:cli": "bun run --cwd cli build",
@@ -24,12 +24,12 @@
     "build:todos": "bun run --cwd examples/todos build",
     "dev:linearity": "bun run --cwd examples/linearity-react dev",
     "build:linearity": "bun run --cwd examples/linearity-react build",
-    "dev": "bun run --parallel dev:platform dev:www dev:sdk dev:todos dev:linearity",
-    "build": "bun run build:sdk && bun run build:platform && bun run build:www && bun run build:cli && bun run build:todos && bun run build:linearity",
+    "dev": "bun run --parallel dev:platform dev:website dev:sdk dev:todos dev:linearity",
+    "build": "bun run build:sdk && bun run build:platform && bun run build:website && bun run build:cli && bun run build:todos && bun run build:linearity",
     "release": "scripts/release.sh"
   },
   "devDependencies": {
-    "@types/bun": "1.4.3",
+    "@types/bun": "1.4.4",
     "oxfmt": "0.73.0"
   },
   "packageManager": "bun@1.4.4",

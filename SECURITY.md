@@ -8,7 +8,7 @@ Please do not open a public issue, pull request, or Discord message for a suspec
 
 A useful report includes:
 
-- The affected project (`platform`, `www`, `sdk`, `cli`, or `examples`) and the version, tag, or commit you tested.
+- The affected project (`platform`, `website`, `sdk`, `cli`, or `examples`) and the version, tag, or commit you tested.
 - Whether you reproduced it against a self-hosted deployment or AstralBeam Cloud.
 - Steps to reproduce, the impact you believe it has, and any proof-of-concept code.
 

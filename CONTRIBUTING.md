@@ -15,7 +15,7 @@ Bun is the runtime and package manager for the six JavaScript/TypeScript project
 The repository holds six Bun projects in one workspace:
 
 - `platform`, the TanStack Start product application, database, theme, and dashboard UI with app-local shadcn/ui components.
-- `www`, the public website, a prerendered TanStack Start application.
+- `website`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Bun binaries.
 - `examples/linearity-react`, [Linearity](examples/linearity-react), a multi-workspace project tracker with an embedded Astro assistant that consumes the built SDK.
@@ -31,7 +31,7 @@ Each Bun project defines `check` for static validation, `test` for Vitest, and `
 
 ```sh
 bun run --cwd platform ready
-bun run --cwd www ready
+bun run --cwd website ready
 bun run --cwd sdk ready
 bun run --cwd cli ready
 bun run --cwd examples/todos ready
@@ -53,7 +53,7 @@ CI runs checks, tests, and builds for all six projects and compiles and smoke-te
 
 ## Licensing of contributions
 
-Different parts of this repository carry different licenses. Files under [`www`](www), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
+Different parts of this repository carry different licenses. Files under [`website`](website), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
 
 AstralBeam also asks contributors to agree to the [Contributor License Agreement](docs/legal/CLA.md). It grants AstralBeam Inc. a copyright and patent license to your contribution and lets AstralBeam license that contribution onward under any terms, expressly including AGPL-3.0-only, the MIT License, and proprietary or commercial terms. That is what makes separate proprietary licensing and closed distributions possible alongside the open source releases. You keep ownership of your contribution and every right to use it yourself.
 

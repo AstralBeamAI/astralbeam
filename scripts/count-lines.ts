@@ -15,7 +15,7 @@ const buildOutputs: Record<string, string> = {
   platform: ".output/astralbeam-platform",
   sdk: "dist",
   cli: "dist",
-  www: ".output/public",
+  website: ".output/public",
   todos: ".output",
   "linearity-react": ".output",
 }

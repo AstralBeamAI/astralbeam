@@ -18,7 +18,7 @@ To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/dep
 
 Portions of this repository are licensed as follows:
 
-- Files under [`www`](www), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
+- Files under [`website`](website), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
 - All other files in this repository are licensed under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL) (`AGPL-3.0-only`), except where an adjacent license or notice states otherwise.
 - Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
 

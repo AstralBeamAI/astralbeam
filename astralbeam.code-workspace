@@ -33,8 +33,8 @@
       "path": "platform",
     },
     {
-      "name": "www",
-      "path": "www",
+      "name": "website",
+      "path": "website",
     },
   ],
   "settings": {
@@ -44,7 +44,7 @@
       "examples": true,
       "sdk": true,
       "platform": true,
-      "www": true,
+      "website": true,
     },
     // NOTE: Keep in sync with .vscode/settings.json
     "vitest.runtime": "bun",
