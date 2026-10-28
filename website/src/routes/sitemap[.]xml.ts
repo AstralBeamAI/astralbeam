@@ -4,16 +4,22 @@ import { blogPosts } from "@/lib/blog"
 import { landingUpdated, siteUrl } from "@/lib/site"
 
 // The canonical URL of every indexable page. /404 is deliberately absent.
-const indexablePaths = ["/", "/terms", "/privacy", "/blog", ...blogPosts.map((post) => post.path)]
+const indexablePages = [
+  { path: "/", lastmod: landingUpdated },
+  { path: "/terms", lastmod: "2026-09-21" },
+  { path: "/privacy", lastmod: "2026-10-17" },
+  { path: "/blog", lastmod: blogPosts[0]!.date },
+  ...blogPosts.map((post) => ({ path: post.path, lastmod: post.date })),
+]
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: () => {
-        const entries = indexablePaths
+        const entries = indexablePages
           .map(
-            (path) =>
-              `  <url><loc>${siteUrl(path)}</loc>${path === "/" ? `<lastmod>${landingUpdated}</lastmod>` : ""}</url>`,
+            ({ path, lastmod }) =>
+              `  <url><loc>${siteUrl(path)}</loc><lastmod>${lastmod}</lastmod></url>`,
           )
           .join("\n")
         return new Response(

@@ -1,17 +1,15 @@
-import { createFileRoute, Link, notFound, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import { PublicNavbar } from "@/components/navbar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { authClient } from "@/lib/auth/client"
-import { isValidSlug } from "@/lib/organizations/slug"
 import { AppShell } from "../-components/app-shell"
 import { getOrganizationRouteContext } from "../-functions/get-organization-route-context"
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug")({
   beforeLoad: async ({ params }) => {
-    if (!isValidSlug(params.orgSlug)) throw notFound()
     const organization = await getOrganizationRouteContext({
       data: { organizationSlug: params.orgSlug },
     }).catch((error: unknown) => throwOrganizationRouteError(error, params.orgSlug))
