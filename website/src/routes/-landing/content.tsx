@@ -189,7 +189,7 @@ export const integrations: Integration[] = [
       { name: "Langfuse", soon: true },
       { name: "Braintrust", soon: true },
       { name: "LangSmith", soon: true },
-      { name: "OpenTelemetry", soon: true },
+      { name: "OpenTelemetry" },
     ],
   },
   {
@@ -205,7 +205,7 @@ export const integrations: Integration[] = [
   },
   {
     label: "IDENTITY & BILLING",
-    desc: "Your session is the source of truth. Usage rolls up into your billing.",
+    desc: "Your session is the source of truth. Set per-customer token and spend limits.",
     items: [{ name: "Any auth provider" }, { name: "Stripe", soon: true }],
   },
 ]

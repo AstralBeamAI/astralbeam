@@ -176,7 +176,7 @@ export function LandingPage() {
             </h2>
             <p className="section-sub reveal">
               AstralBeam sits between your app and the providers you already pay for. Swap any of
-              them without touching the widget.
+              them without touching the code.
             </p>
           </div>
 
@@ -224,14 +224,15 @@ export function LandingPage() {
             <div className="panel os-panel reveal">
               <h3 className="os-name mono">SELF-HOST</h3>
               <p>
-                Run the whole platform on your own infrastructure. Your data never leaves your
-                orbit.
+                Run the whole platform on your own infrastructure. Choose where conversations and
+                files are stored.
               </p>
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".1s" })}>
               <h3 className="os-name mono">CLOUD</h3>
               <p>
-                Let us run it for you: managed infrastructure, zero maintenance, always current.
+                Let us run it for you: a managed backend for the agentic loop, conversation history,
+                and files.
               </p>
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".2s" })}>
@@ -240,10 +241,7 @@ export function LandingPage() {
             </div>
             <div className="panel os-panel reveal" style={cssVars({ "--reveal-delay": ".3s" })}>
               <h3 className="os-name mono">OPEN PROTOCOLS</h3>
-              <p>
-                Built on open protocols: AG-UI, MCP, A2A. Swap pieces in and out instead of adopting
-                a proprietary runtime.
-              </p>
+              <p>Built on open protocols: AG-UI and MCP.</p>
             </div>
           </div>
 
