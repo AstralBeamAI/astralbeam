@@ -50,6 +50,7 @@ test("analyzes Office originals in the sandbox", async ({ todos, chat }) => {
   ]) {
     await expect(todos.item(result)).toBeVisible()
   }
+  await expect(todos.items().filter({ hasText: /ORBIT-11|ORBIT-99|Elara/ })).toHaveCount(0)
   await expect(chat.toolRow(/exit 0/).first()).toBeVisible()
 })
 

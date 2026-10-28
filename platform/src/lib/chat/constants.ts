@@ -24,6 +24,8 @@ export const CHAT_ATTACHMENT_SYSTEM_PROMPT =
   "offset and any truncation reported. Office documents and opaque data require code in the " +
   "sandbox. When a sandbox path is available, use the original file for structured analysis: " +
   "identify sheets, columns and types, count rows, and calculate values with suitable libraries. " +
+  "For Word documents, read current visible text and field results. Exclude tracked deletions " +
+  "and field instructions unless requested. " +
   "Install missing libraries in the sandbox as needed. Never answer about a file you have not " +
   "read, and never invent values or treat a truncated text view as the whole file. A file that " +
   "could not be attached arrives as a sentence saying so, which you should relay when it " +
