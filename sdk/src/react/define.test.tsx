@@ -1,7 +1,7 @@
 import { expect, expectTypeOf, test } from "vitest"
-import { defineTool, defineWidget } from "./define.ts"
-import { defineWidget as defineReactWidget } from "../react/index.tsx"
-import type { StandardSchemaV1, ToolInput, ToolRegistry } from "./types.ts"
+import { defineTool } from "../lib/define.ts"
+import { defineWidget as defineReactWidget } from "./index.tsx"
+import type { StandardSchemaV1, ToolInput, ToolRegistry } from "../lib/types.ts"
 
 test("schema helpers preserve transformed inputs, domain arrays and widget call types", () => {
   interface Item {
@@ -34,18 +34,6 @@ test("schema helpers preserve transformed inputs, domain arrays and widget call 
       expectTypeOf(callTool("lookup", { id: "1" })).toEqualTypeOf<Promise<Item[]>>()
       return null
     },
-  })
-  defineWidget({
-    description: "Native card",
-    parameters,
-    tools,
-    render: (_props, _container, _context) => ({
-      update: ({ input, callTool }) => {
-        expectTypeOf(input.id).toEqualTypeOf<number>()
-        expectTypeOf(callTool("lookup", { id: "1" })).toEqualTypeOf<Promise<Item[]>>()
-      },
-      dispose: () => {},
-    }),
   })
   expect(tools.lookup.execute({ id: 1 })).toEqual([{ id: 1 }])
 })

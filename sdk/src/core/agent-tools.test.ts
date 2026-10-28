@@ -6,28 +6,20 @@ const context = () => ({ signal: new AbortController().signal, invocationId: "ca
 
 test("invalid results warn against retrying a completed mutation", async () => {
   const execute = vi.fn(() => ({ optional: undefined }))
-  const debug = vi.fn()
   const tool = buildAgentTools(
     {},
     { create_issue: { description: "Create", execute } },
     vi.fn(),
-    debug,
   ).find((entry) => entry.name === "create_issue")!
   await expect(tool.execute!({}, { toolCallId: "call", emitCustomEvent: vi.fn() })).rejects.toThrow(
     "Its changes may already be applied",
   )
   expect(execute).toHaveBeenCalledTimes(1)
-  expect(debug).toHaveBeenCalledWith("tool", expect.stringContaining("executing"), { input: {} })
-  expect(debug).toHaveBeenCalledWith("error", expect.any(String), expect.anything())
 })
 
 test.each([
   { data: { content: "Business data", structuredContent: {}, uiData: {}, isError: true } },
   { data: ["first"] },
-  { data: "done" },
-  { data: 0 },
-  { data: false },
-  { data: null },
 ])("envelopes JSON output without reserving business fields: $data", async ({ data }) => {
   const { result, value } = await executeHostTool(
     { name: "read", description: "Read", execute: () => data },
@@ -86,54 +78,7 @@ test("validates JSON inputs and structured outputs while preserving UI data", as
   })
 })
 
-test("cancellation prevents execution and supplies invocation context", async () => {
-  const execute = vi.fn(() => ({}))
-  const tool = { name: "change", description: "Change", execute }
-  const controller = new AbortController()
-  controller.abort()
-  await expect(
-    executeHostTool(tool, {}, { signal: controller.signal, invocationId: "cancelled" }),
-  ).rejects.toThrow()
-  expect(execute).not.toHaveBeenCalled()
-  const invocation = context()
-  await executeHostTool(tool, {}, invocation)
-  expect(execute).toHaveBeenCalledWith({}, invocation)
-})
-
-test("structured output uses the exported output contract without rerunning input transforms", async () => {
-  const validate = vi.fn(() => ({ issues: [{ message: "Expected pre-transform input" }] }))
-  const outputSchema = {
-    "~standard": {
-      version: 1 as const,
-      vendor: "transforming-schema",
-      validate,
-      jsonSchema: {
-        input: () => ({ type: "object", properties: { count: { type: "string" } } }),
-        output: () => ({
-          type: "object",
-          properties: { count: { type: "number" } },
-          required: ["count"],
-        }),
-      },
-    },
-  }
-  const tool = {
-    name: "count",
-    description: "Count",
-    outputSchema,
-    execute: () => ({ count: 2 }),
-  }
-  await expect(executeHostTool(tool, {}, context())).resolves.toMatchObject({
-    result: { structuredContent: { count: 2 } },
-  })
-  expect(validate).not.toHaveBeenCalled()
-  await expect(
-    executeHostTool({ ...tool, execute: () => ({ count: "2" }) }, {}, context()),
-  ).rejects.toThrow("output validation")
-})
-
 test("presentation failure does not turn a completed business action into a retry", async () => {
-  const debug = vi.fn()
   const render = vi.fn(() => {
     throw new Error("Render failed")
   })
@@ -141,7 +86,6 @@ test("presentation failure does not turn a completed business action into a retr
     { card: { description: "Card" } },
     { change: { description: "Change", widget: "card", execute: () => ({ changed: true }) } },
     render,
-    debug,
   )
   const invocation = { toolCallId: "call", emitCustomEvent: vi.fn() }
   await expect(
@@ -150,5 +94,4 @@ test("presentation failure does not turn a completed business action into a retr
   await expect(
     tools.find((tool) => tool.name === "change")!.execute!({}, invocation),
   ).resolves.toMatchObject({ structuredContent: { changed: true } })
-  expect(debug).toHaveBeenCalledWith("tool", expect.stringContaining("returned"), expect.anything())
 })

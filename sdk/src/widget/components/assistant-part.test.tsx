@@ -94,8 +94,6 @@ test.each([
     const html = renderToStaticMarkup(
       <AssistantPart
         part={part}
-        messageId="saved-message"
-        getAttachment={vi.fn()}
         widgets={{}}
         toolTitles={{}}
         activeSlots={new Map()}

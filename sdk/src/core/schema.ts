@@ -1,21 +1,19 @@
-import {
-  convertSchemaToJsonSchema,
-  validateWithStandardSchema,
-  type SchemaInput,
-} from "@tanstack/ai/client"
+import { convertSchemaToJsonSchema, validateWithStandardSchema } from "@tanstack/ai/client"
 import { JsonSchema, Schema, SchemaRepresentation } from "effect"
 import { toolResult } from "../lib/define.ts"
-import type { OutputSchema, ParametersSchema, ToolResult, StandardSchemaV1 } from "../lib/types.ts"
+import type { OutputSchema, ParametersSchema, ToolResult } from "../lib/types.ts"
 
 export function toJsonSchema(
   schema?: OutputSchema,
   io: "input" | "output" = "input",
 ): Record<string, unknown> {
-  if (!schema) return { type: "object", properties: {}, additionalProperties: false }
-  if (!("~standard" in schema)) return schema
-  if (!("jsonSchema" in (schema as StandardSchemaV1)["~standard"]))
-    throw new Error("A tool or widget schema must provide JSON Schema export")
-  return convertSchemaToJsonSchema(schema as SchemaInput, { io }) as Record<string, unknown>
+  return (
+    convertSchemaToJsonSchema(schema, { io }) ?? {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    }
+  )
 }
 
 export async function validateParameters(

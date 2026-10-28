@@ -5,10 +5,11 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
+  type Tool,
 } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
-import { Context, Effect, identity, Layer, Option, Stream } from "effect"
+import { Context, Effect, identity, Layer, Option, Stream, Schema } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
@@ -58,6 +59,16 @@ import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits"
+
+// AG-UI drops metadata. Admission retains descriptors for browser tool stubs.
+function mergeChatTools(server: readonly Tool[], browser: ChatParams["tools"]): Tool[] {
+  return mergeAgentTools(server, browser).map((tool) => {
+    if ("execute" in tool && tool.execute) return tool
+    const declaration: unknown = browser.find((item) => item.name === tool.name)
+    const metadata = Schema.is(Schema.JsonObject)(declaration) ? declaration.metadata : undefined
+    return Schema.is(Schema.JsonObject)(metadata) ? { ...tool, metadata } : tool
+  })
+}
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
@@ -302,7 +313,7 @@ export class Chat extends Context.Service<
             const tools = unknownOutcome
               ? webTools
               : [
-                  ...mergeAgentTools(
+                  ...mergeChatTools(
                     [
                       ...webTools,
                       ...mcp.tools,
@@ -351,7 +362,7 @@ export class Chat extends Context.Service<
                       tools.splice(
                         0,
                         tools.length,
-                        ...mergeAgentTools(
+                        ...mergeChatTools(
                           [
                             ...chatWebTools(model, agent.webAccessEnabled, params.tools),
                             ...mcp.tools,

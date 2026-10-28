@@ -51,7 +51,7 @@ await chat.sendMessage("What can you do?")
 // Keep the session alive for the reply. On teardown, call unsubscribe() and chat.dispose().
 ```
 
-- Widgets declare `{ description, parameters }`. Standard Schema parameters validate props before `onRenderWidget` draws the widget and optionally returns cleanup. Plain JSON Schema does not provide browser validation.
+- Widgets declare `{ description, parameters }`. JSON Schema and Standard Schema validate props before `onRenderWidget` receives `{ widget, props, context, toolCallId, release }`. Return cleanup or an update/dispose handle.
 - `agentTools` lists the tools declared to the agent with their titles, and `retryAuthentication()` requests a fresh token after rejection.
 - If your renderer disposes a widget early, call its request's `release()` to release the session cleanup.
 - `chat.updateOptions({ agentId })` applies the agent to new conversations. The current saved conversation retains its agent and transcript.
@@ -68,7 +68,7 @@ Import transcript helpers from `@astralbeam/sdk/core`:
 
 - `isSandboxTool`, `readSandboxFileWrite`, `readSandboxCommandRun`, `readSandboxArtifact`, `collectSandboxActivity`.
 - `isSettledToolCall`, `lastPartInProgress`, `hasPendingToolRun` for busy states.
-- Protocol names (`RENDER_WIDGET_TOOL`, `ASK_QUESTIONNAIRE_TOOL`, sandbox tool names) for custom renderers.
+- For tool-call parts, use `ChatToolCallPart.widget` and `widgetRenderId ?? id` to associate native widget renders. `agentTools` supplies names and titles only. `RENDER_WIDGET_TOOL` identifies older saved widget calls.
 
 ## Saved conversation controls
 

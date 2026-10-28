@@ -13,7 +13,7 @@ export {
   type WidgetRenderRequest,
 } from "./session.ts"
 export type { ChatAuthenticationState } from "./auth.ts"
-export type { ChatThread, ChatPendingInteraction } from "./threads.ts"
+export type { ChatThread, ChatPendingInteraction, ChatToolCallPart } from "./threads.ts"
 export { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./messages.ts"
 export {
