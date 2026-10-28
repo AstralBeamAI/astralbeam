@@ -2,7 +2,7 @@ name: astralbeam-self-hosted
 
 services:
   platform:
-    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.23.4}
+    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.23.5}
     restart: unless-stopped
     stop_grace_period: 15s
     # Signed downloads need the same localhost endpoint in Platform and the browser.
