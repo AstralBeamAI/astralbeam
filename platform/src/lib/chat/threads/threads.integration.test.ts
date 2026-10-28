@@ -26,6 +26,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
@@ -622,6 +623,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const run = (input: typeof request) =>
       runtime.runPromise(
         prepareManagedChat(input).pipe(
+          Effect.provide(SandboxProviders.layer),
           Effect.provideService(Agents, {
             resolveForChat: () =>
               Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
