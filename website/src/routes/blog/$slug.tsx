@@ -87,7 +87,15 @@ const markdownComponents: Components = {
     return <pre>{children}</pre>
   },
   img({ src, alt }) {
-    return <img src={src} alt={alt ?? ""} loading="lazy" decoding="async" />
+    return (
+      <img
+        src={src}
+        alt={alt ?? ""}
+        {...(src === "/blog/images/chat-state-map.svg" ? { width: 720, height: 300 } : {})}
+        loading="lazy"
+        decoding="async"
+      />
+    )
   },
 }
 

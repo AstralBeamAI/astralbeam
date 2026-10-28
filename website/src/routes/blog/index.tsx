@@ -9,7 +9,7 @@ export const Route = createFileRoute("/blog/")({
   head: () =>
     pageHead({
       title: "AstralBeam Blog",
-      description: "The latest news and articles from our team",
+      description: "Design and engineering notes for agents in your application.",
       canonicalPath: "/blog",
     }),
   component: BlogIndex,
@@ -20,7 +20,7 @@ function BlogIndex() {
     <BlogShell>
       <header className="blog-intro">
         <h1>AstralBeam Blog</h1>
-        <p>The latest news and articles from our team</p>
+        <p>Design and engineering notes for agents in your application.</p>
       </header>
       <section className="blog-posts" aria-label="Latest articles">
         {blogPosts.map((post) => (

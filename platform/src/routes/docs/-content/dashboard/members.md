@@ -31,7 +31,11 @@ Invitations last 48 hours. Invite the same address again to resend the email and
 
 ## Accepting an invitation
 
-Open the invitation while signed in with the invited, verified email address. Another account cannot accept it.
+1. Open the invitation link and sign in, or create an account with the invited email address.
+2. Verify that email if prompted, then return to the invitation.
+3. Choose **Join organization**.
+
+If you are signed in with another account, choose **Sign in with another account** to switch without losing the invitation link. Only the invited, verified email address can accept it.
 
 **NOTE**: a sign-in address cannot be changed from the dashboard, so invite people at the address they already use to sign in.
 

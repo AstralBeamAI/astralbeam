@@ -16,12 +16,10 @@ export function SignalLost() {
           >
             SIGNAL LOST
           </h1>
-          <p className="hero-sub">
-            This sector is uncharted. The page you requested does not exist.
-          </p>
+          <p className="hero-sub">We couldn’t find this page. Check the address or return home.</p>
           <div className="hero-ctas">
             <a className="btn btn-primary btn-lg" href="/">
-              RETURN TO BASE
+              RETURN HOME
             </a>
           </div>
         </div>

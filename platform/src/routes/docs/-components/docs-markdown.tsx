@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router"
 import type { MarkdownInput } from "@tanstack/markdown"
 import { cn } from "cn"
 import { createElement, type ReactNode } from "react"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { TabsContent } from "@/components/ui/tabs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -17,7 +18,7 @@ import { DocsCodeTabs } from "./docs-code-tabs"
 // Tailwind's preflight drops heading sizes, list markers, and block margins, so each element the
 // renderer emits is restyled here rather than through a typography plugin.
 const docsTagClasses: Record<string, string> = {
-  p: "my-3 leading-7 first:mt-0 last:mb-0",
+  p: "my-3 max-w-prose leading-7 first:mt-0 last:mb-0",
   h1: "mb-4 font-heading text-3xl font-semibold tracking-tight",
   h2: "mt-10 mb-3 scroll-mt-20 border-b pb-2 font-heading text-xl font-semibold tracking-tight",
   h3: "mt-8 mb-2 scroll-mt-20 font-heading text-lg font-semibold",
@@ -51,9 +52,20 @@ const docsLinkClass = "font-medium text-primary underline underline-offset-4"
 
 function DocsMarkdownTable(props: MarkdownComponentProps<"table">) {
   return (
-    <div className="my-4 overflow-x-auto rounded-lg border">
-      <table {...props} className="w-full border-collapse text-sm" />
-    </div>
+    <ScrollArea.Root className="relative my-4 min-w-0 rounded-lg border">
+      <ScrollArea.Viewport
+        role="region"
+        aria-label="Reference table"
+        className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <ScrollArea.Content>
+          <table {...props} className="w-full border-collapse text-sm" />
+        </ScrollArea.Content>
+      </ScrollArea.Viewport>
+      <ScrollArea.Scrollbar orientation="horizontal" className="m-1 h-1.5 rounded-full bg-muted">
+        <ScrollArea.Thumb className="rounded-full bg-muted-foreground" />
+      </ScrollArea.Scrollbar>
+    </ScrollArea.Root>
   )
 }
 

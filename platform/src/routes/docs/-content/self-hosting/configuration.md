@@ -16,7 +16,7 @@ The tables below are the setting reference. Telemetry export and social sign-in 
 
 Settings are encrypted in PostgreSQL and edited at `/configure`. Environment variables override stored values, which override built-in defaults.
 
-Each field shows **Database** or **Environment** as its source. Reveal a stored secret before editing or clearing it. Sign in with the active encryption key. See [Operator access](./security.md#operator-access).
+Fields supplied by an environment variable show an **Environment** badge and are read only. Reveal a stored secret before editing or clearing it. Sign in with the active encryption key. See [Operator access](./security.md#operator-access).
 
 ## General
 

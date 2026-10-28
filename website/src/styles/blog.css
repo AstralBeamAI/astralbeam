@@ -719,7 +719,14 @@
   }
 }
 
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
+  .blog-back,
+  .blog-read {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
   .demo-modes button {
     min-height: 44px;
   }

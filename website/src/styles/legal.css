@@ -68,7 +68,7 @@
 }
 
 .legal-main {
-  width: min(calc(100% - 2.5rem), 52rem);
+  width: min(calc(100% - 2.5rem), 44rem);
   margin-inline: auto;
   padding-block: clamp(4rem, 10vw, 7rem);
 }
@@ -101,6 +101,10 @@
 
 .legal-content {
   padding-top: 1rem;
+}
+
+.legal-content a {
+  text-decoration-color: currentColor;
 }
 
 .legal-content section {
@@ -153,7 +157,7 @@
   }
 
   .legal-main {
-    width: min(calc(100% - 2rem), 52rem);
+    width: min(calc(100% - 2rem), 44rem);
   }
 
   .legal-brand-wordmark {
@@ -166,5 +170,15 @@
 
   .legal-footer a:first-of-type {
     margin-left: 0;
+  }
+}
+
+@media (any-pointer: coarse) {
+  .legal-header nav a,
+  .legal-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
