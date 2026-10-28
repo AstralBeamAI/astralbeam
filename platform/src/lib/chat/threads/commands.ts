@@ -12,7 +12,11 @@ import {
   normalizeChatAttachments,
   sanitizeAttachmentFilename,
 } from "../attachments/attachments"
-import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
+import {
+  ChatAttachmentSandboxRequired,
+  ChatAttachmentsDisabled,
+  ChatSystemPromptRefused,
+} from "../errors"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ChatAdmission, type ThreadInput } from "./threads"
 import {
@@ -204,10 +208,11 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       scope: { ...scope, threadId: id },
       messages: convertMessagesToModelMessages(params.messages),
     }),
-    { sandbox: agent.sandboxProviderId !== null },
   )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
+  if (agent.sandboxProviderId === null && normalized.files.some((file) => file.text === undefined))
+    return yield* new ChatAttachmentSandboxRequired()
   const stored = yield* files.store({
     scope: { ...scope, threadId: id },
     payload: {

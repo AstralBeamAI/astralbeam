@@ -93,7 +93,6 @@ function chatEventStream(start: (abortController: AbortController) => AsyncItera
 const prepareChatHistory = Effect.fnUntraced(function* ({
   history,
   model,
-  sandbox,
   scope,
   files,
   webAccessEnabled,
@@ -101,7 +100,6 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly files: typeof ChatFiles.Service
-  readonly sandbox: boolean
   readonly webAccessEnabled: boolean
   readonly scope: { organizationId: string; tenantId: string; threadId: string }
 }) {
@@ -123,7 +121,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     return content.length ? [{ ...message, content }] : []
   })
   const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(projected)
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -215,7 +213,6 @@ export class Chat extends Context.Service<
           history,
           files: storedFiles,
           model,
-          sandbox: agent.sandboxProviderId !== null,
           webAccessEnabled: agent.webAccessEnabled,
           scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
@@ -307,7 +304,7 @@ export class Chat extends Context.Service<
                       ...webTools,
                       ...mcp.tools,
                       ...sandboxTools,
-                      ...createChatAttachmentTools(files),
+                      ...createChatAttachmentTools(files, { sandbox: Boolean(session) }),
                     ],
                     params.tools,
                   ),
@@ -341,7 +338,6 @@ export class Chat extends Context.Service<
                       files: storedFiles,
                       scope: { ...claim.scope, threadId: claim.threadId },
                       model,
-                      sandbox: agent.sandboxProviderId !== null,
                       webAccessEnabled: agent.webAccessEnabled,
                     })
                     files.splice(0, files.length, ...normalized.files)
@@ -356,7 +352,7 @@ export class Chat extends Context.Service<
                             ...chatWebTools(model, agent.webAccessEnabled, params.tools),
                             ...mcp.tools,
                             ...sandboxTools,
-                            ...createChatAttachmentTools(files),
+                            ...createChatAttachmentTools(files, { sandbox: Boolean(session) }),
                           ],
                           params.tools,
                         ),

@@ -19,24 +19,6 @@ export const CHAT_ATTACHMENT_MAX_FILENAME_LENGTH = 120
 export const CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS = 2_000_000
 export const CHAT_ATTACHMENT_READ_MAX_CHARACTERS = 40_000
 
-// Column types are inferred from the leading rows rather than the whole file, which bounds the
-// work per column and is why a profile is a hint the agent should confirm in code.
-export const CHAT_ATTACHMENT_PROFILE_TYPED_ROWS = 50
-
-// Declared ZIP sizes are attacker-chosen and `unzipSync` inflates every selected entry, so one
-// archive-wide budget bounds both a single bomb and many modest entries.
-export const CHAT_ATTACHMENT_MAX_OFFICE_ARCHIVE_BYTES = 96 * 1024 * 1024
-export const CHAT_ATTACHMENT_MAX_OFFICE_ENTRIES = 2_048
-// `filter` runs for every declared entry, so the caps above bound only the entries that are kept.
-// This bounds the walk itself, well above the few hundred parts a real deck or workbook holds.
-export const CHAT_ATTACHMENT_MAX_OFFICE_VISITED_ENTRIES = 4_096
-
-// One worksheet value at `XFD1048576` describes a 17-billion-cell grid and a delimited file can
-// be one 10 MB row, so table shape is bounded before anything is allocated from it.
-export const CHAT_ATTACHMENT_MAX_SHEET_CELLS = 200_000
-export const CHAT_ATTACHMENT_MAX_TABLE_ROWS = 50_000
-export const CHAT_ATTACHMENT_MAX_TABLE_COLUMNS = 512
-
 /** Where attached files land in the sandbox, relative to its workspace directory. */
 export const CHAT_ATTACHMENT_UPLOAD_DIRECTORY = "uploads"
 
@@ -48,7 +30,7 @@ export const CHAT_ATTACHMENT_IMAGE_MIME_TYPES = [
   "image/gif",
 ]
 
-/** The only document type the provider takes as a file. Everything else is read here. */
+/** PDF uses the model's native document input. */
 export const CHAT_ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
 
 // Textual `application/*` types, since `text/*` is matched by prefix. SVG is markup, so its
@@ -67,7 +49,7 @@ export const CHAT_ATTACHMENT_TEXT_MIME_TYPES = [
   "image/svg+xml",
 ]
 
-/** Delimited text: read as text, and profiled as a table because that is what it is. */
+/** Delimited files keep a text view and the larger data-file size limit. */
 export const CHAT_ATTACHMENT_DELIMITED_MIME_TYPES = [
   "text/csv",
   "text/tab-separated-values",
@@ -82,13 +64,19 @@ export const CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES = [
   "application/x-sqlite3",
 ]
 
-/** The OOXML office formats, which `office.ts` unpacks. */
-export const CHAT_ATTACHMENT_DOCX_MIME_TYPE =
+/** The OOXML Office formats, interpreted only in the sandbox. */
+const CHAT_ATTACHMENT_DOCX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-export const CHAT_ATTACHMENT_PPTX_MIME_TYPE =
+const CHAT_ATTACHMENT_PPTX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-export const CHAT_ATTACHMENT_XLSX_MIME_TYPE =
+const CHAT_ATTACHMENT_XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+export const CHAT_ATTACHMENT_OFFICE_MIME_TYPES = [
+  CHAT_ATTACHMENT_DOCX_MIME_TYPE,
+  CHAT_ATTACHMENT_PPTX_MIME_TYPE,
+  CHAT_ATTACHMENT_XLSX_MIME_TYPE,
+]
 
 /** Types a browser labels badly, repaired from the extension. Only data and office formats are
  * listed, because a mislabeled `.csv` changes delivery while a mislabeled `.md` is text either way. */

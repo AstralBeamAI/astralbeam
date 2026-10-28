@@ -4,6 +4,7 @@ import { assert, describe, it } from "@effect/vitest"
 import {
   chatParamsFromRequestBody,
   EventType,
+  type AnyServerTool,
   type ChatMiddleware,
   type DebugOption,
 } from "@tanstack/ai"
@@ -471,25 +472,77 @@ describe("Chat.run", () => {
       ),
   )
 
-  it.effect("replays saved attachments after uploads are disabled, including context refresh", () =>
-    Effect.gen(function* () {
-      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
-      const options = chatRunTest.options[0]!
-      assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
-      assert.include(JSON.stringify(options.messages), "[Attached: notes.txt]")
-      const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
-      const refreshed = yield* Effect.promise(async () =>
-        gate.onConfig!(
-          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
-          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+  it.effect.each([
+    { sandboxProviderId: null, reason: "removed" },
+    { sandboxProviderId: sandboxedAgent.sandboxProviderId, reason: "unreadable" },
+  ])(
+    "replays saved attachments after uploads are disabled and sandbox is $reason",
+    ({ sandboxProviderId }) =>
+      Effect.gen(function* () {
+        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+        const options = chatRunTest.options[0]!
+        assert.include(JSON.stringify(options.messages), "[Attached: sales.xlsx]")
+        assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
+        assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
+        assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
+        const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
+        const refreshed = yield* Effect.promise(async () =>
+          gate.onConfig!(
+            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+          ),
+        )
+        assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.xlsx]")
+        for (const tools of [options.tools, refreshed?.tools]) {
+          const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
+          const result = yield* Effect.promise(() =>
+            Promise.resolve(reader.execute?.({ file: "sales.xlsx" }) as unknown),
+          )
+          assert.notProperty(result, "sandboxPath")
+          assert.include(JSON.stringify(result), "no sandbox")
+        }
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, sandboxProviderId },
+            model: CHAT_TEST_MODEL,
+            history: [
+              {
+                id: chatTestExecution.claim.inputMessageId,
+                role: "user",
+                state: "complete",
+                payload: {
+                  version: 1,
+                  parts: [
+                    {
+                      id: "office",
+                      type: "document",
+                      source: {
+                        type: "data",
+                        value: btoa("PK\x03\x04opaque workbook bytes"),
+                        mimeType:
+                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      },
+                      metadata: { filename: "sales.xlsx" },
+                    },
+                  ],
+                },
+              },
+            ] as unknown as MessageRecord[],
+          }),
         ),
-      )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes.txt]")
-      assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
+      ),
+  )
+
+  it.effect("rejects malformed saved attachments even when their analysis is unavailable", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(runChat())
+      assert.strictEqual(failure._tag, "ChatThreadInvalid")
+      assert.isEmpty(chatRunTest.options)
     }).pipe(
       Effect.provide(
         chatTestLayer({
-          agent: sandboxedAgent,
+          agent: { ...sandboxedAgent, sandboxProviderId: null },
           model: CHAT_TEST_MODEL,
           history: [
             {
@@ -502,8 +555,12 @@ describe("Chat.run", () => {
                   {
                     id: "document",
                     type: "document",
-                    source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
-                    metadata: { filename: "notes.txt" },
+                    source: {
+                      type: "data",
+                      value: btoa("not an Office archive"),
+                      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    },
+                    metadata: { filename: "broken.xlsx" },
                   },
                 ],
               },
