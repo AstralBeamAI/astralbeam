@@ -16,7 +16,7 @@ export function renderSiteLogo(size: number, { opaque = true } = {}) {
     background: transparent,
   })
   return (opaque ? logo.flatten({ background: palette.dark.background.srgbHex }) : logo)
-    .png()
+    .png({ compressionLevel: 9 })
     .toBuffer()
 }
 

@@ -34,24 +34,26 @@ export function applyResponseSecurityHeaders(
   // Vary on encoding even when Nitro serves the uncompressed representation.
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary
   headers.append("Vary", "Accept-Encoding")
+  const cacheableRead =
+    (status === 200 || status === 304) && (request.method === "GET" || request.method === "HEAD")
   if (pathname === "/api/openapi.json") {
     headers.set("Access-Control-Allow-Origin", "*")
   }
-  if (
-    (PUBLIC_LOGO_PATH.test(pathname) || pathname === "/api/openapi.json") &&
-    (status === 200 || status === 304) &&
-    (request.method === "GET" || request.method === "HEAD") &&
-    !headers.has("Cache-Control")
-  ) {
-    // Stable URLs can change between releases, so revalidate after their short freshness window.
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#must-revalidate
-    headers.set(
-      "Cache-Control",
-      IS_DEVELOPMENT_SERVER ? "no-cache" : "public, max-age=300, must-revalidate",
-    )
+  // Static prefix rules also match missing URLs that redirect into application setup.
+  // Preserve explicit policies only for successful reads or responses already marked no-store.
+  if (!cacheableRead && !headers.get("Cache-Control")?.includes("no-store")) {
+    headers.set("Cache-Control", "private, no-store")
   }
-  if ((pathname === "/docs" || pathname.startsWith("/docs/")) && !headers.has("Cache-Control")) {
-    headers.set("Cache-Control", "public, no-cache")
+  if (!headers.has("Cache-Control")) {
+    let cacheControl = "private, no-store"
+    if (PUBLIC_LOGO_PATH.test(pathname) || pathname === "/api/openapi.json") {
+      // Stable URLs can change between releases, so revalidate after their short freshness window.
+      // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#must-revalidate
+      cacheControl = IS_DEVELOPMENT_SERVER ? "no-cache" : "public, max-age=300, must-revalidate"
+    } else if (pathname === "/docs" || pathname.startsWith("/docs/")) {
+      cacheControl = "public, no-cache"
+    }
+    headers.set("Cache-Control", cacheControl)
   }
   if (isSecureRequest(request)) headers.set("Strict-Transport-Security", STRICT_TRANSPORT_SECURITY)
   headers.set("X-Content-Type-Options", "nosniff")

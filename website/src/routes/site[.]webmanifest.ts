@@ -29,7 +29,10 @@ export const Route = createFileRoute("/site.webmanifest")({
     handlers: {
       GET: () =>
         new Response(JSON.stringify(manifest, null, 2), {
-          headers: { "Content-Type": "application/manifest+json; charset=utf-8" },
+          headers: {
+            "Content-Type": "application/manifest+json; charset=utf-8",
+            "Cache-Control": "no-cache",
+          },
         }),
     },
   },

@@ -24,6 +24,7 @@ const structuredData = {
 }
 
 export const Route = createRootRoute({
+  headers: () => ({ "Cache-Control": "public, no-cache" }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },

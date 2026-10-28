@@ -9,7 +9,7 @@ export const Route = createFileRoute("/robots.txt")({
         new Response(
           `User-agent: *\nAllow: /\nContent-Signal: search=yes, ai-input=yes, ai-train=yes\n\nSitemap: ${siteUrl("/sitemap.xml")}\n`,
           {
-            headers: { "Content-Type": "text/plain; charset=utf-8" },
+            headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" },
           },
         ),
     },

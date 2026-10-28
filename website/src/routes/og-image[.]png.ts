@@ -12,7 +12,8 @@ export const Route = createFileRoute("/og-image.png")({
         const logo = await renderSiteLogo(150, { opaque: false })
         return sharp(new TextEncoder().encode(socialCardSvg()))
           .composite([{ input: logo, left: 984, top: 75 }])
-          .png()
+          .removeAlpha()
+          .png({ compressionLevel: 9 })
           .toBuffer()
       }),
     },

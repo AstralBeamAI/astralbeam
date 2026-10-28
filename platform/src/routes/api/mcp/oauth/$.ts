@@ -46,7 +46,9 @@ const handleMcpBrowserRequest = Effect.gen(function* () {
   const authority = yield* McpAuthorization
   if (url.pathname.endsWith("/client-metadata.json"))
     return Response.json(mcpClientMetadata(baseUrl), {
-      headers: { "Cache-Control": "public, max-age=300" },
+      headers: {
+        "Cache-Control": import.meta.env.DEV ? "no-cache" : "public, max-age=300, must-revalidate",
+      },
     })
   if (url.pathname.endsWith("/connect")) {
     const reference = mcpAttemptLocator(url.searchParams.get("attempt") ?? "")
