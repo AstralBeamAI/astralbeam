@@ -1,6 +1,6 @@
 import { XIcon } from "@phosphor-icons/react"
+import { useHydrated } from "@tanstack/react-router"
 import { useState } from "react"
-import { useIsHydrated } from "@/components/auth/use-is-hydrated"
 import { Button } from "@/components/ui/button"
 import { FieldDescription, FieldError } from "@/components/ui/field"
 import { LocalDateTime } from "@/components/local-date-time"
@@ -21,7 +21,7 @@ export function ModelPriceSchedule({
   onChange: (prices: NonNullable<ProviderModelFields["scheduledPrices"]>) => void
 }) {
   const schedule = model.scheduledPrices ?? []
-  const hydrated = useIsHydrated()
+  const hydrated = useHydrated()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [minimum] = useState(() =>
     new Date(Date.now() - new Date().getTimezoneOffset() * 60_000 + 60_000)
