@@ -111,7 +111,7 @@ class AstralbeamTokensController < ApplicationController
 end
 ```
 
-Keep `csrf_meta_tags` in your Rails layout.
+Keep `csrf_meta_tags` in your Rails layout and include the CSRF header shown in the [Rails integration](/docs/sdk/script-tag#ruby-on-rails).
 
 <!-- ::end:tabs -->
 
@@ -125,11 +125,7 @@ Pass a function that calls your token handler:
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 async function fetchToken() {
-  const csrfMeta = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")
-  const response = await fetch("/api/astralbeam/token", {
-    method: "POST",
-    headers: csrfMeta ? { "X-CSRF-Token": csrfMeta.content } : {},
-  })
+  const response = await fetch("/api/astralbeam/token", { method: "POST" })
   return response.json()
 }
 
