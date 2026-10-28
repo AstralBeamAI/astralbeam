@@ -23,6 +23,7 @@ import { AuthProvider } from "@/components/auth/auth-provider"
 import { AnalyticsIdentity } from "@/components/analytics-identity"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicNavbar } from "@/components/navbar"
+import { NavigationProgress } from "@/components/navigation-progress"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
@@ -278,6 +279,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="min-h-svh antialiased">
         <ThemeProvider storageKey="theme">
+          <NavigationProgress />
           <Toaster>
             <AnalyticsIdentity />
             <AppProviders>{children}</AppProviders>
