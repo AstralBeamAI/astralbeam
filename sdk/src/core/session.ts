@@ -1204,6 +1204,7 @@ export function createAstralBeamChat(
       },
       onError: (error) => {
         if (client !== next) return
+        update({ activeTurnId: undefined, activeTurnState: "interrupted", queuePaused: true })
         // An unaccepted send keeps its failure on the submission.
         if (submission?.phase !== "submitting" && error.name !== "AbortError") update({ error })
         notifyError(error)
@@ -1624,7 +1625,6 @@ export function createAstralBeamChat(
       ...(entry ? {} : { queuePaused: false }),
     })
     publishQueue()
-    if (!entry) notifySubmission(callbacks?.onQueued)
     client.stop()
     liveToolCalls.clear()
     scopeCompletedToolCalls()

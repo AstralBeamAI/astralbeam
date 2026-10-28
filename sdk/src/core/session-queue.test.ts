@@ -111,6 +111,10 @@ function network(announceTurn = true) {
     steering,
     emit,
     finish,
+    fail: () => {
+      emit({ type: "RUN_ERROR", message: "Provider failed" })
+      controller.close()
+    },
     announce,
     setFollowupResponse: (next: typeof followupResponse) => {
       followupResponse = next
@@ -219,10 +223,8 @@ test("reload retains the first input and follow-ups while thread creation is pen
   )
   const chat = createTestSession({ threadId: "new" })
   await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
-  const retained = vi.fn()
-  const first = chat.sendMessage("First", { onQueued: retained })
+  const first = chat.sendMessage("First")
   await vi.waitFor(() => expect(release).toBeTypeOf("function"))
-  expect(retained).toHaveBeenCalledOnce()
   await chat.sendMessage("Second")
   const restored = createTestSession({ threadId: "auto" })
   await vi.waitFor(() => expect(restored.getState().auth.status).toBe("ready"))
@@ -234,6 +236,22 @@ test("reload retains the first input and follow-ups while thread creation is pen
   chat.dispose()
   release()
   await first
+})
+
+test("terminal stream errors release the turn for an explicit queue resume", async () => {
+  const net = network()
+  const chat = createTestSession(options)
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadId))
+  const active = chat.sendMessage("First")
+  await vi.waitFor(() => expect(chat.getState().activeTurnId).toBe(turnId))
+  await chat.sendMessage("Second")
+  net.fail()
+  await active
+  expect(chat.getState().activeTurnId).toBeUndefined()
+  expect(chat.getState().queuePaused).toBe(true)
+  await chat.reload()
+  await chat.resumeQueue()
+  expect(net.requests).toHaveLength(2)
 })
 
 test.each(["accepted", "finished"])(
