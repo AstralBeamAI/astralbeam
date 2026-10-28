@@ -28,7 +28,7 @@ jobs:
           - { project: platform, leg: platform unit tests, tasks: test --project=unit }
           - { project: platform, leg: platform integration tests, tasks: test --project=integration, database: true }
           - { project: platform, leg: platform build, tasks: build && bun run binary:check, database: true }
-          - { project: www, tasks: ready }
+          - { project: website, tasks: ready }
           - { project: sdk, tasks: ready }
           - { project: cli, tasks: check && bun run test && bun run binary:check }
           - { project: examples/todos, tasks: ready }

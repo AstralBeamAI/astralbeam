@@ -8,7 +8,7 @@ body:
       label: Project
       options:
         - platform
-        - www
+        - website
         - sdk
         - examples
         - Not sure

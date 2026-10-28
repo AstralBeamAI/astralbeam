@@ -66,7 +66,7 @@ export function LandingPage() {
         <section className="hero" id="top">
           <div className="hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow reveal" suppressHydrationWarning>
+              <p className="eyebrow">
                 OPEN SOURCE · <span>SELF-HOSTED</span> OR MANAGED
               </p>
               <h1 className="display hero-title">
@@ -92,18 +92,8 @@ export function LandingPage() {
                   IN MINUTES
                 </span>
               </h1>
-              <p
-                className="hero-sub reveal"
-                style={cssVars({ "--reveal-delay": ".36s" })}
-                suppressHydrationWarning
-              >
-                {siteMetadata.description}
-              </p>
-              <div
-                className="hero-ctas reveal"
-                style={cssVars({ "--reveal-delay": ".48s" })}
-                suppressHydrationWarning
-              >
+              <p className="hero-sub">{siteMetadata.description}</p>
+              <div className="hero-ctas">
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
                   GET STARTED
                 </a>

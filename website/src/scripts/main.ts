@@ -150,7 +150,19 @@ function initStarfield() {
 
 /* ============ scramble-in headlines ============ */
 
-export function reveal(el: HTMLElement, animate: boolean) {
+export async function reveal(el: HTMLElement, animate: boolean) {
+  // Both the inline hero script and hydration's scroll observer must wait before revealing.
+  if (animate && el.classList.contains("scramble")) {
+    const { fontWeight, fontSize, fontFamily } = getComputedStyle(el)
+    try {
+      await document.fonts.load(
+        `${fontWeight} ${fontSize} ${fontFamily}`,
+        el.dataset.text ?? el.textContent ?? "",
+      )
+    } catch {
+      animate = false
+    }
+  }
   if (el.classList.contains("in-view")) return
   const delay = parseFloat(getComputedStyle(el).getPropertyValue("--reveal-delay")) || 0
   el.classList.add("in-view")
@@ -194,7 +206,7 @@ function initReveals() {
         if (!entry.isIntersecting) continue
         const el = entry.target
         if (!(el instanceof HTMLElement)) continue
-        reveal(el, true)
+        void reveal(el, true)
         io.unobserve(el)
       }
     },

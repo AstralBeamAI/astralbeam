@@ -28,7 +28,7 @@
     },
     {
       "name": "Public website",
-      "command": "bun run --cwd www dev",
+      "command": "bun run --cwd website dev",
       "description": "Runs the public website on port 4600."
     }
   ]
