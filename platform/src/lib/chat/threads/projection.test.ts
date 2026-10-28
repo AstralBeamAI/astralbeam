@@ -97,6 +97,12 @@ describe("stored conversation model projection", () => {
         expect(context).toContain('\\"text\\":\\"a\\"')
       }
     expect(records).toEqual(before)
+    const legacy = structuredClone(records)
+    for (const record of legacy)
+      for (const part of record.payload.parts) Reflect.deleteProperty(part, "resultVersion")
+    expect(JSON.stringify(projectChatModelHistory(legacy, projectionTarget))).toContain(
+      "UI_ONLY_SENTINEL",
+    )
     expect(
       projectChatPublicHistory([{ ...input, authorTenantUserId: "another-user" }])[0]!.metadata,
     ).toMatchObject({ astralbeam: { state: "complete", authorTenantUserId: "another-user" } })

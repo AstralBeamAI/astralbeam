@@ -215,7 +215,11 @@ export function projectChatModelHistory(
       (target.webAccessEnabled !== false ||
         !record.payload.parts.some((part) => part.executionLocation === "provider"))
     let messages: ModelMessage[]
-    if (record.role !== "tool" && compatible && record.payload.modelMessages) {
+    if (
+      compatible &&
+      record.payload.modelMessages &&
+      !record.payload.parts.some((part) => part.resultVersion === 1)
+    ) {
       messages = structuredClone(record.payload.modelMessages).map((message) => ({
         ...message,
         ...(typeof message.createdAt === "string"
