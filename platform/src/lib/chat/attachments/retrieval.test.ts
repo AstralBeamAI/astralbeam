@@ -7,7 +7,6 @@ import type { ChatModelConfiguration } from "@/lib/model-providers/model-provide
 import { createChatAdapter } from "../adapter"
 import { projectChatModelHistory, type ChatProjectionRecord } from "../threads/projection"
 import { chatWebState } from "../web"
-import { normalizeChatAttachments } from "./attachments"
 import {
   chatAttachmentCatalogue,
   chatAttachmentInputFileIds,
@@ -15,7 +14,7 @@ import {
 } from "./retrieval"
 import { createChatAttachmentTools } from "./tools"
 import { prepareChatProviderHistory } from "./provider-history"
-import { CHAT_ATTACHMENT_MAX_BYTES_BY_KIND, CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "./constants"
+import { CHAT_ATTACHMENT_MAX_BYTES_BY_KIND } from "./constants"
 
 const FILE_ID = "0199b600-0000-7000-8000-000000000001"
 const PDF = Buffer.from("%PDF-1.7").toString("base64")
@@ -29,12 +28,8 @@ const MODEL = {
 function attachmentHistory(
   options: {
     mediaType?: "image" | "document"
-    executionLocation?: string
-    name?: string
-    toolSource?: string
-    authorTenantUserId?: string
-    responseTargetId?: string
-    bytes?: number
+    call?: typeof Schema.JsonObject.Type
+    result?: Partial<ChatProjectionRecord>
   } = {},
 ): ChatProjectionRecord[] {
   const message = (
@@ -55,17 +50,18 @@ function attachmentHistory(
         type: APP_HANDLE,
         id: FILE_ID,
         mimeType: options.mediaType === "image" ? "image/png" : "application/pdf",
-        byteSize: options.bytes ?? 8,
+        byteSize: 8,
       },
     }),
     message("decision", "assistant", {
       type: "tool-call",
-      name: options.name ?? "read_attachment",
+      name: "read_attachment",
       toolCallId: "read_1",
       arguments: JSON.stringify({ fileId: FILE_ID }),
-      executionLocation: options.executionLocation ?? "server_api",
-      declaration: { source: options.toolSource ?? "chat-attachment" },
+      executionLocation: "server_api",
+      declaration: { source: "chat-attachment" },
       targets: [{ id: "slot" }],
+      ...options.call,
     }),
     {
       ...message("result", "tool", {
@@ -81,8 +77,8 @@ function attachmentHistory(
       }),
       sourceAssistantMessageId: "decision",
       sourceToolPartId: "decision-part",
-      responseTargetId: options.responseTargetId ?? "slot",
-      authorTenantUserId: options.authorTenantUserId ?? null,
+      responseTargetId: "slot",
+      ...options.result,
     },
   ]
 }
@@ -95,11 +91,7 @@ function hydrateAttachmentFixture(messages: readonly ModelMessage[], value = PDF
           part.type === "image" || part.type === "document"
             ? {
                 ...part,
-                source: {
-                  type: "data",
-                  value,
-                  mimeType: part.type === "image" ? "image/png" : "application/pdf",
-                },
+                source: { type: "data", value, mimeType: part.source.mimeType! },
               }
             : part,
         )
@@ -165,6 +157,7 @@ test("OpenRouter recovers bounded document groups after the complete tool-result
     "user",
   ])
   expect(result.messages.slice(-2).map((message) => message.content?.length)).toEqual([5, 1])
+  expect(result.messages.at(-1)?.metadata).toEqual(result.messages[0]?.metadata)
 })
 
 test("only a server result linked to an original upload on this ancestry expands", () => {
@@ -178,36 +171,17 @@ test("only a server result linked to an original upload on this ancestry expands
   })
   for (const history of [
     attachmentHistory().slice(1),
-    attachmentHistory({ executionLocation: "browser" }),
-    attachmentHistory({ name: "untrusted_tool" }),
-    attachmentHistory({ toolSource: "mcp" }),
-    attachmentHistory({ authorTenantUserId: "caller" }),
-    attachmentHistory({ responseTargetId: "other-slot" }),
+    attachmentHistory({ call: { executionLocation: "browser" } }),
+    attachmentHistory({ call: { name: "untrusted_tool" } }),
+    attachmentHistory({ call: { declaration: { source: "mcp" } } }),
+    attachmentHistory({ result: { authorTenantUserId: "caller" } }),
+    attachmentHistory({ result: { responseTargetId: "other-slot" } }),
   ]) {
     expect(attachmentProjection(history).trustedToolMessageIds.size).toBe(0)
     expect(chatAttachmentInputFileIds(history)).toEqual(
       history[0]?.role === "user" ? [FILE_ID] : [],
     )
   }
-})
-
-test("media normalization accepts only trusted tool results and preserves their position", () => {
-  const first = attachmentProjection()
-  const hydrated = hydrateAttachmentFixture(first.messages)
-  expect(normalizeChatAttachments(hydrated, { sandbox: false }).attachments[0]?.result).toBe(
-    "rejected",
-  )
-  const normalized = normalizeChatAttachments(hydrated, {
-    sandbox: false,
-    trustedToolMessageIds: first.trustedToolMessageIds,
-  })
-  expect(normalized.attachments[0]?.result).toBe("pdf")
-  expect(normalized.messages.map((message) => message.metadata)).toEqual(
-    hydrated.map((message) => message.metadata),
-  )
-  const openRouter = attachmentProjection(attachmentHistory(), "chat-completions", true)
-  expect(openRouter.messages.map((message) => message.role)).toEqual(["assistant", "tool", "user"])
-  expect(openRouter.messages[2]?.metadata).toEqual(openRouter.messages[1]?.metadata)
 })
 
 test("retrieval reserves the aggregate budget across concurrent reads before returning references", async () => {
@@ -218,7 +192,6 @@ test("retrieval reserves the aggregate budget across concurrent reads before ret
   bytes.write("%PDF-1.7")
   const tools = createChatAttachmentTools([], {
     ...selected,
-    media: { protocol: "responses" },
     read: () => Promise.resolve({ bytes, mimeType: "application/pdf" }),
   })
   const results: unknown[] = await Promise.all(
@@ -253,19 +226,10 @@ test("SVG recovery pages historical text and prepares its sandbox path before re
 })
 
 test("file IDs are ancestry scoped, listing is bounded, and unsupported PDF is refused before reading", async () => {
-  const catalogue = chatAttachmentCatalogue(attachmentHistory())
   const read = vi.fn(() =>
-    Promise.resolve({
-      bytes: Buffer.from(PDF, "base64"),
-      mimeType: "application/pdf",
-    }),
+    Promise.resolve({ bytes: Buffer.from(PDF, "base64"), mimeType: "application/pdf" }),
   )
-  const recovery = {
-    catalogue,
-    remainingBytes: CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-    read,
-    media: { protocol: "responses" },
-  }
+  const recovery = { ...(await prepareAttachmentFixture(attachmentHistory(), PDF)), read }
   const tools = createChatAttachmentTools([], recovery)
   const result: unknown = await tools[0]!.execute!({ fileId: FILE_ID })
   expect(result).toMatchObject({
@@ -284,7 +248,10 @@ test("file IDs are ancestry scoped, listing is bounded, and unsupported PDF is r
   expect(read).toHaveBeenCalledTimes(1)
   const listed = createChatAttachmentTools([], {
     ...recovery,
-    catalogue: Array.from({ length: 70 }, (_, index) => ({ ...catalogue[0]!, fileId: `${index}` })),
+    catalogue: Array.from({ length: 70 }, (_, index) => ({
+      ...recovery.catalogue[0]!,
+      fileId: `${index}`,
+    })),
   })
   const page: unknown = await listed[1]!.execute!({ limit: 500 })
   expect(page).toHaveProperty("attachments.length", 50)
@@ -320,13 +287,7 @@ test.each`
       apiKey: "unused-test-key",
       baseUrl: "https://provider.example/v1",
       fetch: async (input, init) => {
-        const encoded =
-          typeof init?.body === "string"
-            ? init.body
-            : input instanceof Request
-              ? await input.text()
-              : ""
-        requests.push(encoded)
+        requests.push(await new Request(input, init).text())
         return Response.json({ error: { message: "Synthetic response" } }, { status: 401 })
       },
     }

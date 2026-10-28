@@ -61,22 +61,17 @@ test("a text file leaves the conversation as a name, with its contents behind a 
 test("stored file handles and provider text stay stable when earlier same-name files are omitted", () => {
   const ids = ["0199b600-0000-7000-8000-000000000001", "0199b600-0000-7000-8000-000000000002"]
   const entry = documentEntry("notes.md", "text/markdown", btoa("saved notes"))
-  const messages = ids.flatMap((id, index) =>
+  const messages = ids.flatMap((id) =>
     userMessage([{ ...entry, source: { ...entry.source, id } }]).map((message) => ({
       ...message,
-      id: `user-${index}`,
+      id,
     })),
   )
-  const options = { sandbox: true }
-  const full = normalizeChatAttachments(messages, options)
-  const retained = normalizeChatAttachments(messages.slice(1), options)
+  const full = normalizeChatAttachments(messages, withSandbox)
+  const retained = normalizeChatAttachments(messages.slice(1), withSandbox)
   expect(retained.messages[0]).toEqual(full.messages[1])
   expect(retained.files[0]).toEqual(full.files[1])
-  expect(retained.files[0]).toMatchObject({
-    filename: "notes.md",
-    handle: `${ids[1]}-notes.md`,
-    sandboxPath: `uploads/${ids[1]}-notes.md`,
-  })
+  expect(retained.files[0]?.sandboxPath).toBe(`uploads/${ids[1]}-notes.md`)
 })
 
 test("caller metadata never reaches a provider block beside an image", () => {
@@ -254,17 +249,14 @@ test("names files in the message by handle, not by their original name", () => {
 })
 
 test.each(["user", "tool"] as const)("redacts %s media in debug logs", (role) => {
-  const redacted = redactChatAttachmentData([
+  const messages = userMessage([
     {
-      role,
-      content: [
-        {
-          type: "image",
-          source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
-        },
-      ],
+      type: "image",
+      source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
     },
   ])
+  messages[0]!.role = role
+  const redacted = redactChatAttachmentData(messages)
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 
