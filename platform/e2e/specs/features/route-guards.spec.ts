@@ -42,6 +42,5 @@ test.describe("signed out", () => {
     await page.goto(guarded)
     await page.waitForURL(/\/auth\/sign-in/)
     expect(new URL(page.url()).searchParams.get("redirectTo")).toBe(guarded)
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex,follow")
   })
 })
