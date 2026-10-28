@@ -86,16 +86,24 @@ export function ConfigValueInput({
       <InputGroup>
         <ValueInput
           id={`config-${field.key}`}
-          type={!valueVisible ? "password" : field.kind === "url" ? "url" : undefined}
+          type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
           autoComplete={
             field.kind === "secret" && !(multiline && valueVisible) ? "new-password" : "off"
           }
           value={value}
-          placeholder={field.isSet ? "Configured" : "Not set"}
+          placeholder={
+            needsReveal && !readOnly ? "Reveal to edit" : field.isSet ? "Configured" : "Not set"
+          }
           disabled={disabled || readOnly}
+          readOnly={needsReveal}
           onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+          onKeyDown={(event) => {
+            if (!needsReveal && !value && ["Backspace", "Delete"].includes(event.key)) {
+              onDraftChange({ kind: "set", value: "" })
+            }
+          }}
           onPaste={(event) => {
-            if (!multiline || valueVisible) return
+            if (!multiline || valueVisible || needsReveal) return
             event.preventDefault()
             onDraftChange({ kind: "set", value: event.clipboardData.getData("text") })
           }}

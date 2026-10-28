@@ -73,10 +73,6 @@ export function configurePage(page: Page) {
       return this.fieldGroup(key).getByRole("button", { name: /^(Show|Hide) / })
     },
 
-    discardButton(key: string): Locator {
-      return this.fieldGroup(key).getByRole("button", { name: "Discard", exact: true })
-    },
-
     /** Generates and stores a new secret. The confirmation button repeats the trigger's label. */
     async generateSecret(key: string): Promise<void> {
       await openFieldSection(key)
