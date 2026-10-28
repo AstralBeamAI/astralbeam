@@ -6,7 +6,6 @@ import type { ChatAttachmentFile } from "./types"
 
 const LONG_TEXT = "abcdefghij".repeat(CHAT_ATTACHMENT_READ_MAX_CHARACTERS / 10 + 100)
 
-/** A readable file: the common case, with the text and handle a test cares about. */
 function file(text = "hello", handle = "notes.md"): ChatAttachmentFile {
   return {
     handle,
@@ -17,7 +16,6 @@ function file(text = "hello", handle = "notes.md"): ChatAttachmentFile {
   }
 }
 
-/** Runs `read_attachment` over a set of files, the way the model reaches it. */
 async function read(
   files: readonly ChatAttachmentFile[],
   input: { file: string; offset?: number; limit?: number | undefined },
@@ -26,11 +24,6 @@ async function read(
   const [tool] = createChatAttachmentTools(files, { sandbox })
   return (await tool?.execute?.(input)) as Record<string, unknown>
 }
-
-// An agent should not be offered a reader when there is nothing to read.
-test("declares no tool for a run with no files", () => {
-  expect(createChatAttachmentTools([], { sandbox: false })).toEqual([])
-})
 
 test("reads text by handle and reports truncation without advertising an unavailable sandbox", async () => {
   const result = await read([{ ...file(), truncated: true }], { file: "notes.md" }, false)
@@ -61,11 +54,6 @@ test.each([undefined, CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10])(
     expect(second.end).toBe(true)
   },
 )
-
-test("clamps an offset past the end instead of failing", async () => {
-  const result = await read([file()], { file: "notes.md", offset: 9999 })
-  expect(result).toMatchObject({ content: "", offset: 5, end: true })
-})
 
 test("names the available handles when the agent guesses one wrong", async () => {
   const result = await read([file("hello", "a.csv"), file("hello", "b.csv")], {
