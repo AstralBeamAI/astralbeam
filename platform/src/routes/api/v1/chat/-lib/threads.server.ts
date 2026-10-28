@@ -21,7 +21,10 @@ import {
 } from "../../-lib/shared.server"
 import type { ThreadRecord, MessageRecord, ParticipantRecord } from "@/lib/chat/threads/threads"
 import { ChatRunInputInvalid } from "./errors"
-import { ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema , ChatUserPartsSchema } from "@/lib/chat/threads/schemas.ts"
+import {
+  ChatSubmissionReceiptSchema as StoredChatSubmissionReceiptSchema,
+  ChatUserPartsSchema,
+} from "@/lib/chat/threads/schemas.ts"
 
 const threadRole = Schema.Literals(["viewer", "member", "manager"])
 const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser"])

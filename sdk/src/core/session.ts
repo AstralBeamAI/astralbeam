@@ -23,6 +23,7 @@ import {
   listChatThreads,
   updateChatThread,
   personalMcpGetCatalog,
+  steerChatTurn,
 } from "../api/generated/api.ts"
 import {
   astralBeamChatFetch,
@@ -74,6 +75,13 @@ import {
   selectedThread,
 } from "./threads.ts"
 
+import {
+  loadPendingMessages,
+  storePendingMessages,
+  pendingMessageText,
+  type PendingChatMessage,
+} from "./pending-messages.ts"
+
 const HISTORY_FAILED = "Reopen this conversation or start a new one before sending."
 
 /** A widget render the agent requested, handed to the host's `onRenderWidget`. */
@@ -105,6 +113,8 @@ export interface ChatSubmissionCallbacks {
   onThreadReady?: ((threadId: string) => void) | undefined
   /** Called once after the server acknowledges input, before generation finishes. */
   onAccepted?: (() => void) | undefined
+  /** The session retained this input locally. Server acceptance is separate. */
+  onQueued?: (() => void) | undefined
 }
 
 /**
@@ -164,7 +174,7 @@ function sameAgentTools(
 export interface ChatSubmission {
   id: string
   content: string | MultimodalContent
-  phase: "submitting" | "accepted" | "failed" | "refused"
+  phase: "submitting" | "accepted" | "failed" | "refused" | "queued"
   error?: Error | undefined
 }
 
@@ -191,6 +201,10 @@ export interface AstralBeamChatState {
   messagesCursor: string | undefined
   olderMessagesLoading: boolean
   submission: ChatSubmission | undefined
+  pendingMessages: readonly PendingChatMessage[]
+  queuePaused: boolean
+  activeTurnId: string | undefined
+  activeTurnState: "running" | "waiting" | "completed" | "interrupted" | undefined
   activeToolCallIds: readonly string[]
   pendingInteractions: readonly ChatPendingInteraction[]
 }
@@ -214,9 +228,15 @@ export interface AstralBeamChatCore {
   sendMessage: (
     content: string | MultimodalContent,
     callbacks?: ChatSubmissionCallbacks,
+    options?: { whenBusy: "queue" | "steer" },
   ) => Promise<ChatSubmission>
   /** Resends a `failed` submission with its original key and callbacks, resolving its outcome. */
   retry: () => Promise<ChatSubmission | undefined>
+  editPendingMessage: (id: string, content: string | MultimodalContent) => boolean
+  removePendingMessage: (id: string) => void
+  steerPendingMessage: (id: string) => Promise<void>
+  resumeQueue: () => Promise<void>
+  holdQueue: () => () => void
   /** Resolves a client tool call the host executed itself (a questionnaire, an approval). */
   addToolResult: ChatClient["addToolResult"]
   /** Stops the in-flight generation; the transcript keeps what already streamed. */
@@ -284,21 +304,34 @@ export function createAstralBeamChat(
     messagesCursor: undefined,
     olderMessagesLoading: false,
     submission: undefined,
+    pendingMessages: [],
+    queuePaused: false,
+    activeTurnId: undefined,
+    activeTurnState: undefined,
     activeToolCallIds: [],
     pendingInteractions: [],
   }
   // The selected conversation's admitted send. Retryable sends are kept per conversation.
   type Submission = ChatSubmission & {
     key: string
-    tools?: Array<Record<string, unknown>>
+    tools?: Array<Record<string, unknown>> | undefined
     callbacks?: ChatSubmissionCallbacks | undefined
     /** Hands a refused send back to its sender at once, before its pending work unwinds. */
     onRefused?: () => void
     /** The current delivery attempt. Identity and key stay stable across Retry, authority does not. */
     attempt: number
+    queued?: boolean
   }
   let submission: Submission | undefined
   const submissions = new Map<string, Submission>()
+  let pendingMessages: PendingChatMessage[] = []
+  const pendingQueues = new Map<string, PendingChatMessage[]>()
+  let queueKey: string | undefined
+  const pendingCallbacks = new Map<string, ChatSubmissionCallbacks | undefined>()
+  const steeringRequests = new Map<PendingChatMessage, Promise<void>>()
+  const queueHolds = new Set<symbol>()
+  let draining = false
+  let delivering: Submission | undefined
   // The session owns the run status, so a send is "submitted" while its conversation is prepared,
   // and a replaced client's reports never reach it.
   let clientStatus: ChatClientState = "ready"
@@ -307,8 +340,14 @@ export function createAstralBeamChat(
       submission?.phase === "submitting" && clientStatus !== "streaming"
         ? "submitted"
         : clientStatus
-    state = { ...state, ...next, status }
+    state = {
+      ...state,
+      ...next,
+      status,
+      ...(next.error || next.auth?.status === "error" ? { queuePaused: true } : {}),
+    }
     for (const listener of listeners) listener()
+    queueMicrotask(() => void drainQueue())
   }
   const project = ({ id, content, phase, error }: Submission): ChatSubmission => ({
     id,
@@ -318,6 +357,7 @@ export function createAstralBeamChat(
   })
   // Only these moves are legal, so a late report cannot reopen a settled send.
   const nextPhases: Record<ChatSubmission["phase"], readonly ChatSubmission["phase"][]> = {
+    queued: [],
     submitting: ["accepted", "failed", "refused"],
     failed: ["submitting"],
     accepted: [],
@@ -327,6 +367,15 @@ export function createAstralBeamChat(
     if (!nextPhases[sent.phase].includes(phase)) return false
     sent.phase = phase
     sent.error = error
+    if (phase === "refused") {
+      if (sent === submission) delivering = undefined
+      const entry = pendingMessages.find((entry) => entry.id === sent.id)
+      if (entry && sent.queued) {
+        entry.status = "queued"
+        delete entry.tools
+      } else pendingMessages = pendingMessages.filter((entry) => entry.id !== sent.id)
+      publishQueue()
+    }
     if (sent === submission) update({ submission: project(sent) })
     if (phase === "refused") sent.onRefused?.()
     return true
@@ -353,6 +402,7 @@ export function createAstralBeamChat(
     if (released?.phase === "submitting")
       endUnaccepted(released, released.tools ? undefined : new Error(reason))
     submission = undefined
+    delivering = undefined
     return released
   }
 
@@ -401,11 +451,14 @@ export function createAstralBeamChat(
       presentationVersion++
     }
   }
-  const clientId = newUuid()
+  let clientId = newUuid()
   const acceptSubmission = () => {
     if (!submission || !settle(submission, "accepted")) return
     if (state.thread) update({ thread: { ...state.thread, hasMessages: true } })
-    submission.callbacks?.onAccepted?.()
+    pendingCallbacks.delete(submission.id)
+    pendingMessages = pendingMessages.filter((entry) => entry.id !== submission!.id)
+    publishQueue()
+    notifySubmission(submission.callbacks?.onAccepted)
   }
   const replaceAcceptedMessage = (record: ChatHistoryPageEncodedMessagesItem) => {
     const messages = [...client.getSnapshot().messages]
@@ -803,7 +856,24 @@ export function createAstralBeamChat(
     liveToolCalls.clear()
     update({ activeToolCallIds: [] })
     const headers = new Headers(init.headers)
-    if (sent) headers.set("Idempotency-Key", sent.key)
+    if (sent) {
+      headers.set("Idempotency-Key", sent.key)
+      let entry = pendingMessages.find((entry) => entry.id === sent.id)
+      if (!entry) {
+        entry = {
+          id: sent.id,
+          key: sent.key,
+          content: sent.content,
+          mode: "queue",
+          status: "sending",
+          attachmentsRequired: false,
+        }
+        pendingMessages.push(entry)
+      }
+      entry.status = "sending"
+      entry.tools = sent.tools
+      publishQueue()
+    }
     const response = await astralBeamChatFetch(path, {
       ...auth,
       ...init,
@@ -817,7 +887,7 @@ export function createAstralBeamChat(
         sent &&
         !previouslyAttempted &&
         isAstralBeamApiError(error) &&
-        (error.status === 400 || error.status === 413 || error.status === 429)
+        [400, 403, 404, 413, 429].includes(error.status)
       )
         delete sent.tools
       throw error
@@ -1056,18 +1126,38 @@ export function createAstralBeamChat(
             acceptedMessageId?: string
             acceptedMessage?: ChatHistoryPageEncodedMessagesItem
             executableToolCallIds?: string[]
+            turnMessageId?: string
+            turnState?: AstralBeamChatState["activeTurnState"]
+            appliedSteeringMessageIds?: string[]
           }
           if (state.thread?.id === event.threadId) {
             if (event.acceptedMessage && submission?.phase === "submitting")
               replaceAcceptedMessage(event.acceptedMessage)
             if (event.acceptedMessageId) acceptSubmission()
+            if (event.appliedSteeringMessageIds?.length) {
+              pendingMessages = pendingMessages.filter(
+                (entry) =>
+                  !event.appliedSteeringMessageIds!.includes(entry.acceptedMessageId ?? ""),
+              )
+              publishQueue()
+            }
             if (event.saved)
               for (const id of event.executableToolCallIds ?? []) {
                 if (!liveToolCalls.has(id)) toolResults.delete(toolResultKey(id))
                 liveToolCalls.add(id)
               }
             update({
-              thread: { ...state.thread, version: event.version },
+              thread: { ...state.thread, version: event.version ?? state.thread.version },
+              ...(event.turnState
+                ? {
+                    activeTurnId:
+                      event.turnState === "running" || event.turnState === "waiting"
+                        ? event.turnMessageId
+                        : undefined,
+                    activeTurnState: event.turnState,
+                    ...(event.turnState === "interrupted" ? { queuePaused: true } : {}),
+                  }
+                : {}),
               activeToolCallIds: [...liveToolCalls],
             })
           }
@@ -1110,6 +1200,8 @@ export function createAstralBeamChat(
         if (client !== next) return
         if (chunk.type === EventType.RUN_STARTED)
           update({ serverToolTitles: {}, unavailableMcpConnections: [] })
+        if (chunk.type === EventType.RUN_FINISHED && chunk.outcome?.type !== "interrupt")
+          update({ activeTurnId: undefined })
         live.streamCallbacks?.onChunk?.(chunk)
       },
       onResponse: (response) => {
@@ -1142,13 +1234,17 @@ export function createAstralBeamChat(
       next.usageLimitReached = undefined
     clientStatus = snapshot.status
     if (messagesChanged) {
+      rememberAttachments(snapshot.messages)
       next.messages = projectMessages(snapshot.messages)
       next.sandbox = collectSandboxActivity(next.messages)
       snapshotMessages = snapshot.messages
       projectedPresentationVersion = presentationVersion
     }
     update(next)
-    if (messagesChanged) restoreCompletedWidgets(state.messages)
+    if (messagesChanged) {
+      restoreCompletedWidgets(state.messages)
+      publishQueue()
+    }
   }
   const attachClient = () => {
     if (!unsubscribeSnapshot) {
@@ -1231,6 +1327,7 @@ export function createAstralBeamChat(
     }
     selectionGeneration++
     selectedId = threadId
+    restoreQueue()
     requestController.abort()
     requestController = new AbortController()
     toolResults = threadToolResults.get(threadId ?? "") ?? new Map<string, ToolResult>()
@@ -1244,6 +1341,9 @@ export function createAstralBeamChat(
     update({
       thread: undefined,
       messages: [],
+      activeTurnId: undefined,
+      activeTurnState: undefined,
+      queuePaused: true,
       submission: undefined,
       error: undefined,
       sandbox: { files: [], commands: [] },
@@ -1306,6 +1406,12 @@ export function createAstralBeamChat(
     const record = await createChatThread(live.agentId ? { agent_id: live.agentId } : {}, options)
     if (!owns(sent, attempt)) throw new DOMException("Send cancelled", "AbortError")
     selectedId = record.id
+    const oldQueueKey = queueKey
+    queueKey = threadKey ? `${threadKey}:queue:${record.id}` : undefined
+    pendingMessages = [...loadPendingMessages(queueKey), ...pendingMessages]
+    storePendingMessages(oldQueueKey, [])
+    if (oldQueueKey) pendingQueues.delete(oldQueueKey)
+    publishQueue()
     update({ thread: threadFromRecord(record, false) })
     void resolveCapabilities()
     if (threadKey) selectedThread(threadKey, record.id)
@@ -1446,6 +1552,7 @@ export function createAstralBeamChat(
   // a send taken during a full history read waits for that read.
   const deliver = async (sent: Submission): Promise<ChatSubmission> => {
     const attempt = ++sent.attempt
+    delivering = sent
     try {
       await getValidChatAuthToken(authentication)
       await hydration.catch(() => undefined)
@@ -1453,7 +1560,7 @@ export function createAstralBeamChat(
       if (state.history === "failed") throw new Error(HISTORY_FAILED)
       await ensureThread(sent, attempt)
       if (!owns(sent, attempt)) return project(sent)
-      sent.callbacks?.onThreadReady?.(state.thread!.id)
+      notifySubmission(() => sent.callbacks?.onThreadReady?.(state.thread!.id))
       if (!owns(sent, attempt)) return project(sent)
       scopeCompletedToolCalls()
       await client.sendMessage(sent.content)
@@ -1465,13 +1572,20 @@ export function createAstralBeamChat(
       const failure = error instanceof Error ? error : new Error(String(error))
       if (failure.name === "AbortError") endUnaccepted(sent)
       else if (endUnaccepted(sent, failure)) notifyError(failure)
+    } finally {
+      if (current(sent, attempt)) {
+        delivering = undefined
+        if (sent.phase !== "accepted" || state.error) update({ queuePaused: true })
+        publishQueue()
+      }
     }
     return project(sent)
   }
 
-  const sendMessage = async (
+  const submitMessage = async (
     content: string | MultimodalContent,
     callbacks?: ChatSubmissionCallbacks,
+    entry?: PendingChatMessage,
   ): Promise<ChatSubmission> => {
     const rejection =
       submission?.phase === "submitting" || state.status === "streaming" || client.getIsLoading()
@@ -1484,21 +1598,29 @@ export function createAstralBeamChat(
               ? "This conversation’s agent is unavailable. Start a new conversation to continue."
               : state.thread?.role === "viewer"
                 ? "You have read-only access to this conversation."
-                : submission?.phase === "failed"
+                : submission?.phase === "failed" && submission.id !== entry?.id
                   ? "The previous message’s acceptance is unconfirmed. Retry that message before sending different text, or start a new conversation."
                   : undefined
     // A rejected attempt stays its caller's and never replaces the session's submission.
     if (rejection) return { id: newUuid(), content, phase: "refused", error: new Error(rejection) }
     const sent: Submission = {
-      id: newUuid(),
+      id: entry?.id ?? newUuid(),
       content,
       phase: "submitting",
-      key: newUuid(),
+      key: entry?.key ?? entry?.id ?? newUuid(),
+      ...(entry ? { tools: entry.tools, queued: true } : {}),
       callbacks,
       attempt: 0,
     }
     submission = sent
-    update({ submission: project(sent), error: undefined, olderMessagesLoading: false })
+    update({
+      submission: project(sent),
+      activeTurnId: undefined,
+      activeTurnState: undefined,
+      error: undefined,
+      olderMessagesLoading: false,
+      ...(entry ? {} : { queuePaused: false }),
+    })
     client.stop()
     liveToolCalls.clear()
     scopeCompletedToolCalls()
@@ -1509,9 +1631,190 @@ export function createAstralBeamChat(
   }
 
   const retry = async () => {
-    if (!submission || !settle(submission, "submitting")) return undefined
-    update({ error: undefined })
-    return deliver(submission)
+    if (submission?.phase === "failed" && settle(submission, "submitting")) {
+      update({ error: undefined })
+      return deliver(submission)
+    }
+    const entry = pendingMessages.find(
+      (entry) => entry.status === "sending" || entry.id === submission?.id,
+    )
+    if (entry) {
+      if (entry.attachmentsRequired) return undefined
+      if (entry.mode === "steer") {
+        await dispatchSteering(entry)
+        return undefined
+      }
+      return submitMessage(entry.content, pendingCallbacks.get(entry.id), entry)
+    }
+    return undefined
+  }
+
+  function notifySubmission(callback?: () => void) {
+    try {
+      callback?.()
+    } catch (error) {
+      debug?.("error", "Submission callback failed", error)
+    }
+  }
+  function publishQueue() {
+    pendingMessages = pendingMessages.filter(
+      (entry) =>
+        entry.status !== "accepted" ||
+        !state.messages.some((message) => message.id === entry.acceptedMessageId),
+    )
+    storePendingMessages(queueKey, pendingMessages)
+    if (queueKey) pendingQueues.set(queueKey, pendingMessages)
+    update({ pendingMessages: pendingMessages.map((entry) => ({ ...entry })) })
+  }
+  function restoreQueue() {
+    storePendingMessages(queueKey, pendingMessages)
+    if (queueKey) pendingQueues.set(queueKey, pendingMessages)
+    const key = threadKey ? `${threadKey}:queue:${selectedId ?? "new"}` : undefined
+    if (key === queueKey) return
+    pendingMessages = [
+      ...(key ? (pendingQueues.get(key) ?? loadPendingMessages(key)) : []),
+      ...(queueKey === undefined ? pendingMessages : []),
+    ]
+    queueKey = key
+    update({ queuePaused: pendingMessages.length > 0 || state.queuePaused })
+    publishQueue()
+  }
+  const turnBusy = () =>
+    delivering !== undefined ||
+    client.getIsLoading() ||
+    state.status === "submitted" ||
+    state.status === "streaming" ||
+    state.activeTurnId !== undefined
+
+  async function dispatchSteering(entry: PendingChatMessage): Promise<void> {
+    if (steeringRequests.has(entry)) return steeringRequests.get(entry)
+    const generation = selectionGeneration
+    const threadId = state.thread?.id
+    const turnMessageId = entry.turnMessageId ?? state.activeTurnId
+    if (!threadId || !turnMessageId || entry.attachmentsRequired) return
+    const request = (async () => {
+      const attempted = entry.status === "sending"
+      entry.mode = "steer"
+      entry.turnMessageId = turnMessageId
+      try {
+        const auth = await requestOptions()
+        if (generation !== selectionGeneration) return
+        entry.status = "sending"
+        publishQueue()
+        const content = typeof entry.content === "string" ? entry.content : entry.content.content
+        const receipt = await steerChatTurn(
+          threadId,
+          {
+            client_id: clientId,
+            turn_message_id: turnMessageId,
+            parts: (typeof content === "string"
+              ? [{ type: "text", content }]
+              : content) as Parameters<typeof steerChatTurn>[1]["parts"],
+          },
+          { ...auth, headers: { "Idempotency-Key": entry.key ?? entry.id } },
+        )
+        if (generation !== selectionGeneration) return
+        entry.status = "accepted"
+        entry.acceptedMessageId = receipt.accepted_message_id
+        update({
+          thread: {
+            ...state.thread!,
+            version: Math.max(state.thread!.version, receipt.thread_version),
+          },
+        })
+        notifySubmission(pendingCallbacks.get(entry.id)?.onAccepted)
+        pendingCallbacks.delete(entry.id)
+      } catch (error) {
+        if (generation !== selectionGeneration) return
+        if (
+          isAstralBeamApiError(error) &&
+          error.status === 409 &&
+          error.body?.detail === "This turn has finished. Queue your message as a new turn"
+        ) {
+          entry.mode = "queue"
+          entry.status = "queued"
+          entry.key = newUuid()
+          entry.steeringFallback = true
+          entry.turnMessageId = undefined
+        } else {
+          if (
+            !attempted &&
+            isAstralBeamApiError(error) &&
+            [400, 403, 404, 413, 429].includes(error.status)
+          )
+            entry.status = "queued"
+          update({ queuePaused: true })
+          reportError(error)
+        }
+      } finally {
+        publishQueue()
+      }
+    })().finally(() => steeringRequests.delete(entry))
+    steeringRequests.set(entry, request)
+    return request
+  }
+  async function drainQueue(): Promise<void> {
+    if (draining) return
+    const generation = selectionGeneration
+    draining = true
+    try {
+      while (
+        generation === selectionGeneration &&
+        !state.queuePaused &&
+        !queueHolds.size &&
+        !turnBusy() &&
+        state.history === "idle" &&
+        state.auth.status === "ready" &&
+        !state.error
+      ) {
+        const entry = pendingMessages.find((entry) => entry.status !== "accepted")
+        if (!entry) return
+        if (
+          entry.attachmentsRequired ||
+          state.thread?.role === "viewer" ||
+          state.thread?.agentId === null
+        ) {
+          update({ queuePaused: true })
+          return
+        }
+        if (entry.mode === "steer") {
+          await dispatchSteering(entry)
+          if (entry.status === "accepted") continue
+          if (entry.mode === "steer") return
+        }
+        const outcome = await submitMessage(entry.content, pendingCallbacks.get(entry.id), entry)
+        if (outcome.phase !== "accepted") {
+          update({ queuePaused: true })
+          return
+        }
+      }
+    } finally {
+      draining = false
+    }
+  }
+  const sendMessage: AstralBeamChatCore["sendMessage"] = async (content, callbacks, options) => {
+    if (
+      submission?.phase === "failed" ||
+      state.thread?.role === "viewer" ||
+      state.thread?.agentId === null ||
+      state.history === "failed"
+    )
+      return submitMessage(content, callbacks)
+    if (!turnBusy() && !pendingMessages.length && !queueHolds.size && state.history !== "loading")
+      return submitMessage(content, callbacks)
+    const entry: PendingChatMessage = {
+      id: newUuid(),
+      content,
+      mode: "queue",
+      status: "queued",
+      attachmentsRequired: false,
+    }
+    pendingMessages.push(entry)
+    pendingCallbacks.set(entry.id, callbacks)
+    publishQueue()
+    notifySubmission(callbacks?.onQueued)
+    if (options?.whenBusy === "steer" && state.activeTurnId) await dispatchSteering(entry)
+    return { id: entry.id, content, phase: "queued" }
   }
 
   const observeAuthentication = () => {
@@ -1522,6 +1825,7 @@ export function createAstralBeamChat(
       if (identity !== undefined && identity !== nextIdentity) {
         releaseSubmission("The account changed before this was sent.")
         submissions.clear()
+        pendingCallbacks.clear()
         threadToolResults.clear()
         toolResults.clear()
       }
@@ -1531,12 +1835,20 @@ export function createAstralBeamChat(
         // The first identity has nothing to clear, so a send made before it resolves continues.
         if (threadKey !== undefined) changeSelection()
         threadKey = nextThreadKey
+        const savedClient = selectedThread(`${nextThreadKey}:client`)
+        clientId =
+          savedClient &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(savedClient)
+            ? savedClient
+            : newUuid()
+        selectedThread(`${nextThreadKey}:client`, clientId)
         if (startWithNewThread) {
           selectedThread(nextThreadKey, null)
           startWithNewThread = false
         } else {
           selectConfiguredThread(true)
         }
+        restoreQueue()
       }
       if (capabilityIdentity !== nextIdentity) {
         capabilityIdentity = nextIdentity
@@ -1584,6 +1896,7 @@ export function createAstralBeamChat(
       if (live.apiUrl !== apiUrl) {
         releaseSubmission("The chat service changed before this was sent.")
         submissions.clear()
+        pendingCallbacks.clear()
         threadToolResults.clear()
         toolResults.clear()
         changeSelection()
@@ -1598,10 +1911,69 @@ export function createAstralBeamChat(
     },
     sendMessage,
     retry,
+    editPendingMessage: (id, content) => {
+      const entry = pendingMessages.find((entry) => entry.id === id)
+      if (
+        !entry ||
+        entry.status === "accepted" ||
+        (entry.status === "sending" &&
+          (!entry.attachmentsRequired ||
+            pendingMessageText(content) !== pendingMessageText(entry.content)))
+      )
+        return false
+      entry.content =
+        typeof content === "string" &&
+        typeof entry.content !== "string" &&
+        Array.isArray(entry.content.content)
+          ? {
+              content: [
+                ...entry.content.content.filter((part) => part.type !== "text"),
+                { type: "text", content },
+              ],
+            }
+          : content
+      if (
+        typeof content !== "string" &&
+        Array.isArray(content.content) &&
+        content.content.some((part) => part.type !== "text")
+      )
+        entry.attachmentsRequired = false
+      if (submission?.id === id && submission.phase === "refused") {
+        submission.content = entry.content
+        update({ submission: project(submission) })
+      }
+      publishQueue()
+      return true
+    },
+    removePendingMessage: (id) => {
+      pendingMessages = pendingMessages.filter(
+        (entry) => entry.id !== id || entry.status !== "queued",
+      )
+      pendingCallbacks.delete(id)
+      publishQueue()
+    },
+    steerPendingMessage: async (id) => {
+      const entry = pendingMessages.find((entry) => entry.id === id && entry.status === "queued")
+      if (entry && state.activeTurnId && !queueHolds.size) await dispatchSteering(entry)
+    },
+    resumeQueue: async () => {
+      update({ queuePaused: false, error: undefined })
+      await drainQueue()
+    },
+    holdQueue: () => {
+      const hold = Symbol()
+      queueHolds.add(hold)
+      return () => {
+        queueHolds.delete(hold)
+        void drainQueue()
+      }
+    },
     addToolResult,
     // Stop ends the active attempt: a never-dispatched input returns to its sender, and one the
     // server may have stays failed with its key for Retry.
     stop: () => {
+      update({ queuePaused: true, activeTurnId: undefined, activeTurnState: "interrupted" })
+      delivering = undefined
       toolExecutionGeneration++
       if (submission?.phase === "submitting") endUnaccepted(submission)
       client.stop()
@@ -1610,6 +1982,7 @@ export function createAstralBeamChat(
       void getValidChatAuthToken({ ...authentication, force: true }).catch(() => undefined)
     },
     reload: async () => {
+      update({ queuePaused: true })
       const generation = selectionGeneration
       await refreshThread()
       if (generation !== selectionGeneration || state.error) return
@@ -1682,6 +2055,9 @@ export function createAstralBeamChat(
       newThread()
     },
     dispose: () => {
+      if (!started && requestController.signal.aborted) return
+      update({ queuePaused: true })
+      publishQueue()
       releaseSubmission("The chat closed before this was sent.")
       unsubscribeSnapshot?.()
       unsubscribeSnapshot = undefined

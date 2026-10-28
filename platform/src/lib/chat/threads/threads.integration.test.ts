@@ -10,7 +10,12 @@ import { ChatFiles } from "../attachments/attachments"
 import { CHAT_ATTACHMENT_MAX_FILENAME_LENGTH } from "../attachments/constants"
 import { and, eq, like, sql } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime, Stream } from "effect"
-import { EventType, chatParamsFromRequestBody } from "@tanstack/ai"
+import { EventType, chatParamsFromRequestBody, type UIMessage } from "@tanstack/ai"
+import { Chat } from "../chat"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
+import { ChatSandboxes } from "../sandbox/sandbox"
+import { McpTools } from "@/lib/mcp/tools.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
 
 const integration = vi.hoisted(() => {
@@ -27,11 +32,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
-import { prepareManagedChat, resolveManagedChatTools } from "./commands"
-import { prepareManagedChat, prepareManagedSteering } from "./commands"
-import { Chat } from "../chat"
-import { ModelProviders } from "@/lib/model-providers/model-providers.server"
-import { ChatSandboxes } from "../sandbox/sandbox"
+import { prepareManagedChat, prepareManagedSteering, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
   agent,
@@ -158,6 +159,260 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
+  test("steering is participant-owned, idempotent, and retains unprocessed guidance on exhaustion", async () => {
+    const thread = await create()
+    await runtime.runPromise(
+      service.setParticipant({
+        scope,
+        id: thread.id,
+        lockVersion: 0,
+        tenantUserId: other.tenantUserId,
+        role: "member",
+      }),
+    )
+    const first = await admit(thread.id)
+    const request = {
+      scope,
+      id: thread.id,
+      turnMessageId: first.inputMessage.id,
+      clientId: targetB,
+      idempotencyKey: "guidance",
+      parts: [{ type: "text" as const, content: "Use blue" }],
+    }
+    const submit = (input = request) =>
+      runtime.runPromise(
+        prepareManagedSteering(input).pipe(
+          Effect.provideService(Agents, {
+            resolveForChat: () =>
+              Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
+          } as unknown as typeof Agents.Service),
+        ),
+      )
+    await expect(submit({ ...request, scope: other })).rejects.toMatchObject({
+      _tag: "ChatThreadForbidden",
+    })
+    const receipt = await submit()
+    const pending = await runtime.runPromise(service.history({ scope, id: thread.id }))
+    expect(
+      projectChatModelHistory(pending).some((message) =>
+        JSON.stringify(message).includes("Use blue"),
+      ),
+    ).toBe(false)
+    expect(
+      await runtime.runPromise(service.finish({ claim: first.claim!, continueSteering: false })),
+    ).toMatchObject({ turnState: "interrupted", nextClaim: undefined })
+    expect(await submit()).toEqual(receipt)
+    await expect(
+      submit({ ...request, parts: [{ type: "text", content: "Changed" }] }),
+    ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })
+    await expect(submit({ ...request, idempotencyKey: "late-guidance" })).rejects.toMatchObject({
+      _tag: "ChatSteeringFinished",
+    })
+    expect(
+      (await runtime.runPromise(service.history({ scope, id: thread.id }))).find(
+        (message) => message.id === receipt.acceptedMessageId,
+      )?.metadata.steering,
+    ).toEqual({})
+  })
+
+  test("completion and steering serialize without dropping accepted input", async () => {
+    const thread = await create()
+    const first = await admit(thread.id)
+    const [steering, finished] = await Promise.all([
+      runtime.runPromise(
+        service
+          .steer({
+            scope,
+            id: thread.id,
+            turnMessageId: first.inputMessage.id,
+            clientId: targetB,
+            payload,
+          })
+          .pipe(Effect.result),
+      ),
+      runtime.runPromise(service.finish({ claim: first.claim!, continueSteering: true })),
+    ])
+    expect(finished.turnState).toBe(steering._tag === "Success" ? "running" : "completed")
+    expect(finished.nextClaim?.inputMessageId).toBe(
+      steering._tag === "Success" ? first.inputMessage.id : undefined,
+    )
+    expect(steering._tag === "Failure" ? steering.failure._tag : undefined).toBe(
+      steering._tag === "Failure" ? "ChatSteeringFinished" : undefined,
+    )
+  })
+
+  test.each([false, true])(
+    "steering preserves the stream, files, and model-call budget, exhaust=%s",
+    async (exhaust) => {
+      const thread = await create()
+      const first = await admit(thread.id)
+      const prompts: unknown[] = []
+      let guidanceId: string | undefined
+      let fileId: string | undefined
+      const model = {
+        providerId: crypto.randomUUID(),
+        providerName: "Test",
+        providerType: "openai" as const,
+        api: "chat-completions" as const,
+        modelId: "test-model",
+        apiKey: "synthetic-test-key",
+        baseUrl: "https://model.example/v1",
+        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+          prompts.push(JSON.parse(init!.body as string))
+          if (exhaust || prompts.length === 1) {
+            const prepared = await runtime.runPromise(
+              files.store({
+                scope: { ...scope, threadId: thread.id },
+                payload: {
+                  version: 1,
+                  parts: [
+                    {
+                      id: crypto.randomUUID(),
+                      type: "text",
+                      content: `Guidance ${prompts.length}`,
+                    },
+                    ...(prompts.length === 1
+                      ? [
+                          {
+                            id: crypto.randomUUID(),
+                            type: "document",
+                            source: {
+                              type: "data",
+                              value: btoa("Source file"),
+                              mimeType: "text/plain",
+                            },
+                            metadata: { filename: "guide.txt" },
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              }),
+            )
+            const receipt = await runtime.runPromise(
+              service.steer({
+                scope,
+                id: thread.id,
+                turnMessageId: first.inputMessage.id,
+                clientId: targetB,
+                payload: prepared,
+              }),
+            )
+            if (prompts.length === 1) {
+              guidanceId = receipt.acceptedMessageId
+              fileId = (prepared.parts[1]!.source as { id: string }).id
+            }
+          }
+          const chunks = [
+            {
+              id: `phase-${prompts.length}`,
+              model: "test-model",
+              choices: [
+                {
+                  index: 0,
+                  delta: { role: "assistant", content: `Answer ${prompts.length}` },
+                  finish_reason: null,
+                },
+              ],
+            },
+            {
+              id: `phase-${prompts.length}`,
+              model: "test-model",
+              choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+            },
+          ]
+          return new Response(
+            chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
+              "data: [DONE]\n\n",
+            { headers: { "Content-Type": "text/event-stream" } },
+          )
+        },
+      }
+      const layer = Chat.layerNoDeps.pipe(
+        Layer.provide([
+          Layer.succeed(ChatThreads, service),
+          Layer.succeed(ChatFiles, files),
+          Layer.succeed(Agents, {
+            resolveForChat: () =>
+              Effect.succeed({
+                id: thread.agentId!,
+                attachmentsEnabled: true,
+                webAccessEnabled: false,
+                systemPrompt: "Help",
+                sandboxProviderId: null,
+              }),
+          } as unknown as typeof Agents.Service),
+          Layer.succeed(ModelProviders, {
+            resolveForAgent: () => Effect.succeed(model),
+            pricing: () => Effect.succeed(null),
+          } as unknown as typeof ModelProviders.Service),
+          Layer.succeed(ChatSandboxes, {} as typeof ChatSandboxes.Service),
+          Layer.succeed(McpTools, {
+            acquire: () => Effect.succeed({ tools: [], presentation: [], unavailable: [] }),
+          } as unknown as typeof McpTools.Service),
+          Layer.succeed(UsageLimits, {
+            applicable: () => Effect.succeed([]),
+          } as unknown as typeof UsageLimits.Service),
+        ]),
+      )
+      const events = await runtime.runPromise(
+        Effect.gen(function* () {
+          const chat = yield* Chat
+          const params = yield* Effect.promise(() =>
+            chatParamsFromRequestBody({
+              threadId: thread.id,
+              runId: targetB,
+              messages: [],
+              tools: [],
+              context: [],
+            }),
+          )
+          const stream = yield* chat.run({
+            params,
+            principal: {
+              organization: { id: scope.organizationId },
+              tenantUser: { id: scope.tenantUserId, tenant: { id: scope.tenantId } },
+            },
+            managed: {
+              claim: first.claim!,
+              clientId: targetA,
+              threadVersion: first.thread.lockVersion,
+              acceptedMessageId: first.inputMessage.id,
+            },
+          })
+          return yield* Stream.runCollect(stream)
+        }).pipe(Effect.provide(layer)),
+      )
+      expect(prompts).toHaveLength(exhaust ? 25 : 2)
+      expect(JSON.stringify(prompts[1])).toContain("Guidance 1")
+      expect(events.filter((event) => event.type === EventType.RUN_STARTED)).toHaveLength(1)
+      expect(events.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(
+        exhaust ? 0 : 1,
+      )
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust)
+      const snapshots = events.flatMap((event) =>
+        event.type === EventType.MESSAGES_SNAPSHOT ? event.messages : [],
+      )
+      const guidance = snapshots.findLast(
+        (message) => message.id === guidanceId,
+      ) as unknown as UIMessage
+      expect(guidance.parts.find((part) => part.type === "document")).toMatchObject({
+        type: "document",
+        fileId,
+        metadata: { filename: "guide.txt" },
+      })
+      const saved = await runtime.runPromise(service.history({ scope, id: thread.id }))
+      expect(saved.find((message) => message.id === first.inputMessage.id)?.turnState).toBe(
+        exhaust ? "interrupted" : "completed",
+      )
+      expect(
+        saved.filter(
+          (message) => message.payload.steering && !message.payload.steering.appliedToMessageId,
+        ),
+      ).toHaveLength(exhaust ? 1 : 0)
+    },
+  )
+
   test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
     const thread = await create()
     const { claim } = await admit(thread.id)
@@ -239,298 +494,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(portable).not.toContain("opaque")
     expect(portable).toContain(source.url)
   })
-
-  const steer = (id: string, turnMessageId: string, text = "Use blue") =>
-    service.steer({
-      scope,
-      id,
-      turnMessageId,
-      clientId: targetA,
-      payload: {
-        version: 1,
-        parts: [{ id: crypto.randomUUID(), type: "text", content: text }],
-      },
-    })
-  const answer = () => ({
-    ...payload,
-    parts: payload.parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
-  })
-
-  test("steering extends the same turn and records the phase that first includes it", async () => {
-    const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
-    const guidance = await runtime.runPromise(steer(thread.id, first.inputMessage.id))
-    expect(guidance.message).toMatchObject({
-      role: "user",
-      turnMessageId: first.inputMessage.id,
-      turnState: null,
-      metadata: { steering: {} },
-    })
-    const next = await runtime.runPromise(
-      service.finish({ claim: first.claim!, payload: answer(), continueSteering: true }),
-    )
-    expect(next).toMatchObject({
-      inputMessageId: first.inputMessage.id,
-      invocationId: first.claim!.invocationId,
-    })
-    expect(next!.assistantMessageId).not.toBe(first.claim!.assistantMessageId)
-    const history = await runtime.runPromise(service.modelHistory({ claim: next! }))
-    expect(
-      history.find((message) => message.id === guidance.message.id)?.metadata.steering,
-    ).toEqual({ appliedToMessageId: next!.assistantMessageId })
-    expect(
-      await runtime.runPromise(
-        service.finish({ claim: next!, payload: answer(), continueSteering: true }),
-      ),
-    ).toBeUndefined()
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: first.inputMessage.id }),
-        )
-      ).turnState,
-    ).toBe("completed")
-    expect(
-      (await runtime.runPromise(steer(thread.id, first.inputMessage.id).pipe(Effect.flip)))._tag,
-    ).toBe("ChatSteeringFinished")
-  })
-
-  test.each([true, false])(
-    "completion and steering serialize without losing an admitted input, steering first=%s",
-    async (steeringFirst) => {
-      const thread = await create()
-      const first = await runtime.runPromise(
-        service.admit({
-          scope,
-          id: thread.id,
-          payload: { ...payload, provenance: { clientId: targetA } },
-        }),
-      )
-      const completion = service.finish({
-        claim: first.claim!,
-        payload: answer(),
-        continueSteering: true,
-      })
-      const guidance = steer(thread.id, first.inputMessage.id).pipe(Effect.result)
-      const tasks = steeringFirst
-        ? [runtime.runPromise(guidance), runtime.runPromise(completion)]
-        : [runtime.runPromise(completion), runtime.runPromise(guidance)]
-      const results = await Promise.all(tasks)
-      const admitted = results[steeringFirst ? 0 : 1] as Effect.Success<typeof guidance>
-      const continuation = results[steeringFirst ? 1 : 0] as ChatWriterClaim | undefined
-      expect(continuation?.inputMessageId).toBe(
-        admitted._tag === "Success" ? first.inputMessage.id : undefined,
-      )
-      expect(admitted._tag === "Failure" ? admitted.failure._tag : undefined).toBe(
-        admitted._tag === "Failure" ? "ChatSteeringFinished" : undefined,
-      )
-    },
-  )
-
-  test("steering requires the initiating participant and client and remains unprocessed on exhaustion", async () => {
-    const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
-    for (const input of [
-      { scope, clientId: targetB },
-      { scope: other, clientId: targetA },
-    ]) {
-      expect(
-        (
-          await runtime.runPromise(
-            service
-              .steer({ ...input, id: thread.id, turnMessageId: first.inputMessage.id, payload })
-              .pipe(Effect.flip),
-          )
-        )._tag,
-      ).toBe(input.scope === scope ? "ChatThreadForbidden" : "ChatThreadNotFound")
-    }
-    const guidance = await runtime.runPromise(steer(thread.id, first.inputMessage.id))
-    expect(
-      await runtime.runPromise(
-        service.finish({ claim: first.claim!, payload: answer(), continueSteering: false }),
-      ),
-    ).toBeUndefined()
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: first.inputMessage.id }),
-        )
-      ).turnState,
-    ).toBe("interrupted")
-    expect(
-      (
-        await runtime.runPromise(
-          service.getMessage({ scope, id: thread.id, messageId: guidance.message.id }),
-        )
-      ).metadata.steering,
-    ).toEqual({})
-  })
-
-  test("steering receipts survive completion and reject changed input without adding another message", async () => {
-    const thread = await create()
-    const first = await runtime.runPromise(
-      service.admit({
-        scope,
-        id: thread.id,
-        payload: { ...payload, provenance: { clientId: targetA } },
-      }),
-    )
-    const request = {
-      scope,
-      id: thread.id,
-      turnMessageId: first.inputMessage.id,
-      clientId: targetA,
-      idempotencyKey: "guidance",
-      parts: [{ type: "text" as const, content: "Use blue" }],
-    }
-    const run = (input: typeof request) =>
-      runtime.runPromise(
-        prepareManagedSteering(input).pipe(
-          Effect.provideService(Agents, {
-            resolveForChat: () =>
-              Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
-          } as unknown as Agents["Service"]),
-        ),
-      )
-    const receipt = await run(request)
-    await runtime.runPromise(service.interrupt({ claim: first.claim! }))
-    expect(await run(request)).toEqual(receipt)
-    await expect(
-      run({ ...request, parts: [{ type: "text", content: "Changed" }] }),
-    ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })
-    expect(
-      (await runtime.runPromise(service.history({ scope, id: thread.id }))).filter(
-        (message) => message.turnMessageId === first.inputMessage.id && message.role === "user",
-      ),
-    ).toHaveLength(1)
-  })
-
-  test.each([false, true])(
-    "text-only steering continues in one stream and preserves the model-call budget, exhaust=%s",
-    async (exhaust) => {
-      const thread = await create()
-      const first = await runtime.runPromise(
-        service.admit({
-          scope,
-          id: thread.id,
-          payload: { ...payload, provenance: { clientId: targetA } },
-        }),
-      )
-      const prompts: unknown[] = []
-      const model = {
-        providerId: crypto.randomUUID(),
-        providerName: "Test",
-        providerType: "openai" as const,
-        api: "chat-completions" as const,
-        modelId: "test-model",
-        apiKey: "synthetic-test-key",
-        baseUrl: "https://model.example/v1",
-        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
-          prompts.push(JSON.parse(init!.body as string))
-          if (exhaust || prompts.length === 1)
-            await runtime.runPromise(
-              steer(thread.id, first.inputMessage.id, `Guidance ${prompts.length}`),
-            )
-          const chunks = [
-            {
-              id: `phase-${prompts.length}`,
-              model: "test-model",
-              choices: [
-                {
-                  index: 0,
-                  delta: { role: "assistant", content: `Answer ${prompts.length}` },
-                  finish_reason: null,
-                },
-              ],
-            },
-            {
-              id: `phase-${prompts.length}`,
-              model: "test-model",
-              choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-            },
-          ]
-          return new Response(
-            chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
-              "data: [DONE]\n\n",
-            { headers: { "Content-Type": "text/event-stream" } },
-          )
-        },
-      }
-      const layer = Chat.layerNoDeps.pipe(
-        Layer.provide([
-          Layer.succeed(ChatThreads, service),
-          Layer.succeed(Agents, {
-            resolveForChat: () =>
-              Effect.succeed({
-                id: thread.agentId!,
-                attachmentsEnabled: true,
-                systemPrompt: "Help",
-                sandboxProviderId: null,
-              }),
-          } as unknown as Agents["Service"]),
-          Layer.succeed(ModelProviders, {
-            resolveForAgent: () => Effect.succeed(model),
-          } as unknown as ModelProviders["Service"]),
-          Layer.succeed(ChatSandboxes, {} as ChatSandboxes["Service"]),
-        ]),
-      )
-      const events = await runtime.runPromise(
-        Effect.gen(function* () {
-          const chat = yield* Chat
-          const params = yield* Effect.promise(() =>
-            chatParamsFromRequestBody({
-              threadId: thread.id,
-              runId: targetB,
-              messages: [],
-              tools: [],
-              context: [],
-            }),
-          )
-          const stream = yield* chat.run({
-            params,
-            principal: {
-              organization: { id: scope.organizationId },
-              tenantUser: { id: scope.tenantUserId, tenant: { id: scope.tenantId } },
-            },
-            managed: {
-              claim: first.claim!,
-              clientId: targetA,
-              threadVersion: first.thread.lockVersion,
-              acceptedMessageId: first.inputMessage.id,
-            },
-          })
-          return yield* Stream.runCollect(stream)
-        }).pipe(Effect.provide(layer)),
-      )
-      expect(prompts).toHaveLength(exhaust ? 25 : 2)
-      expect(JSON.stringify(prompts[1])).toContain("Guidance 1")
-      expect(events.filter((event) => event.type === EventType.RUN_STARTED)).toHaveLength(1)
-      expect(events.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(
-        exhaust ? 0 : 1,
-      )
-      const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
-      expect(history.find((message) => message.id === first.inputMessage.id)?.turnState).toBe(
-        exhaust ? "interrupted" : "completed",
-      )
-      const guidance = history.filter((message) => message.metadata.steering)
-      expect(
-        guidance.filter((message) => message.metadata.steering!.appliedToMessageId === undefined),
-      ).toHaveLength(exhaust ? 1 : 0)
-      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust)
-    },
-  )
 
   test("administrative history and uploads preserve scope without granting participant actions", async () => {
     const thread = await create()

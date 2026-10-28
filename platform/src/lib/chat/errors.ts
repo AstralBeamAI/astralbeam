@@ -70,3 +70,6 @@ export class ChatAttachmentsDisabled extends Schema.TaggedError<ChatAttachmentsD
 ) {
   override readonly message = "This agent does not accept file attachments."
 }
+
+export const CHAT_TURN_LIMIT_MESSAGE =
+  "The response reached its limit. Review guidance marked as not delivered and resend it in a new message."

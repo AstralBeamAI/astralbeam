@@ -19,6 +19,8 @@ interface ChatComposerProps {
   onDraftChange: (draft: string) => void
   onSend: () => void
   onStop: () => void
+  onSteer?: (() => void) | undefined
+  sendBlocked?: boolean | undefined
   /** Retry unacknowledged input, or refresh saved history after an accepted response fails. */
   onRetry: (() => void) | undefined
   retryLabel: "Retry" | "Refresh"
@@ -27,7 +29,7 @@ interface ChatComposerProps {
   error: Error | undefined
   /** A run is submitted or streaming; swaps the send button for a stop button. */
   streamBusy: boolean
-  /** `streamBusy` or host tools executing between runs; blocks sending. */
+  /** Processing or pending messages, so new input enters the queue. */
   isBusy: boolean
   threadLoading: boolean
   /** Authentication is not ready, so the composer cannot start a run. */
@@ -48,6 +50,8 @@ export function ChatComposer({
   onDraftChange,
   onSend,
   onStop,
+  onSteer,
+  sendBlocked = false,
   onRetry,
   retryLabel,
   showError,
@@ -74,7 +78,7 @@ export function ChatComposer({
     attachments.filter((attachment) => attachment.status !== "error").length >=
     attachmentLimits.maxFiles
   const canAttach = attachmentLimits.enabled && !blocked
-  const sendDisabled = isBusy || blocked || reading || (draft.trim().length === 0 && !sendable)
+  const sendDisabled = sendBlocked || blocked || reading || (draft.trim().length === 0 && !sendable)
 
   const addFiles = (files: FileList | null) => {
     if (!canAttach || !files || files.length === 0) return
@@ -211,7 +215,10 @@ export function ChatComposer({
             if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
-              if (!sendDisabled) onSend()
+              if (!sendDisabled) {
+                if ((event.metaKey || event.ctrlKey) && onSteer) onSteer()
+                else onSend()
+              }
             }
           }}
         />
@@ -236,12 +243,11 @@ export function ChatComposer({
           {/* Host controls project here in the host page's own style; the slot lays out as
             display: contents, so each projected child is a flex item of this row. */}
           {actionsSlot && <slot name={actionsSlot} />}
-          {streamBusy ? (
+          {streamBusy && (
             <TooltipButton
               type="button"
-              variant="default"
+              variant="outline"
               size="icon"
-              className="ml-auto"
               tooltip="Stop"
               onClick={(event) => {
                 // A second Send click can land on Stop. Keep keyboard and single-click stops.
@@ -251,23 +257,36 @@ export function ChatComposer({
             >
               <StopIcon />
             </TooltipButton>
-          ) : (
+          )}
+          {onSteer && (
             <TooltipButton
-              type="submit"
-              variant="default"
-              size="icon"
-              className="ml-auto"
-              tooltip="Send"
+              type="button"
+              variant="outline"
+              size="sm"
+              tooltip="Guide the current task after its current step (⌘/Ctrl+Enter)"
               disabled={sendDisabled}
+              onClick={onSteer}
             >
-              <ArrowUpIcon />
+              Steer
             </TooltipButton>
           )}
+          <TooltipButton
+            type="submit"
+            variant="default"
+            size={isBusy ? "sm" : "icon"}
+            className="ml-auto"
+            tooltip={isBusy ? "Queue" : "Send"}
+            disabled={sendDisabled}
+          >
+            {isBusy ? "Queue" : <ArrowUpIcon />}
+          </TooltipButton>
         </InputGroupAddon>
       </InputGroup>
       <p className="mt-1 text-center text-xs text-muted-foreground">
-        <span id={shortcutId}>Enter to send, Shift+Enter for a new line.</span> AI can make
-        mistakes.
+        <span id={shortcutId}>
+          Enter to {isBusy ? "queue" : "send"}, Shift+Enter for a new line.
+        </span>{" "}
+        AI can make mistakes.
       </p>
     </form>
   )

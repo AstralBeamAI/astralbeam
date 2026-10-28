@@ -6,6 +6,8 @@ Embed an agent chat sidebar or read-only tenant directories in your web app, or 
 npm install @astralbeam/sdk
 ```
 
+Messages queue while the assistant is processing. Use Steer for guidance in the active turn and Stop to pause it. Pending input survives reload within the same account, API, and conversation, with explicit Resume and reattachment for files. See the [headless guide](https://astralbeam.ai/docs/sdk/headless) for queue controls.
+
 ## Quick start
 
 One component in React, one function everywhere else. Full setup, including the required token endpoint, is in [Getting started](https://astralbeam.ai/docs/sdk/getting-started).

@@ -13,11 +13,18 @@ export const ChatUserPartsSchema = Schema.Array(
     Schema.Struct({ type: Schema.Literal("text"), content: Schema.String }),
     Schema.Struct({
       type: Schema.Literals(["image", "document", "audio", "video"]),
-      source: Schema.Struct({
-        type: Schema.Literal("data"),
-        value: Schema.String,
-        mimeType: Schema.optionalKey(Schema.String),
-      }),
+      source: Schema.Union([
+        Schema.Struct({
+          type: Schema.Literal("data"),
+          value: Schema.String,
+          mimeType: Schema.optionalKey(Schema.String),
+        }),
+        Schema.Struct({
+          type: Schema.Literal("file"),
+          value: ApiUuidSchema,
+          mimeType: Schema.optionalKey(Schema.String),
+        }),
+      ]),
       metadata: Schema.optionalKey(Schema.JsonObject),
     }),
   ]),

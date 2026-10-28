@@ -501,46 +501,47 @@ export function createChatAttachmentSnapshotMiddleware(
     "id" | "payload" | "createdAt" | "state" | "authorTenantUserId"
   >[],
 ): ChatMiddleware {
-  const sent = new Map<string, ChatMessages[number]>()
-  for (const message of messages) {
-    if (message.role !== "user") continue
-    const source = message as { id?: unknown; content?: unknown; parts?: unknown }
-    if (!Predicate.isString(source.id) || source.id.length === 0) continue
-    const entries = Array.isArray(source.parts) ? source.parts : source.content
-    if (Array.isArray(entries) && entries.some(isMediaEntry)) {
-      const id = source.id
-      const record = records.find((record) => record.id === id.split(":")[0])
-      if (!record) continue
-      const parts = record.payload.parts.map((part) => {
-        const file = part.source
-        return Schema.is(Schema.JsonObject)(file) && file.type === APP_HANDLE
-          ? {
-              ...part,
-              source: {
-                type: "file",
-                value: file.id,
-                mimeType: file.mimeType,
-                byteSize: file.byteSize,
-              },
-              fileId: file.id,
-            }
-          : part
-      })
-      sent.set(id, {
-        id,
-        role: "user",
-        createdAt: record.createdAt,
-        metadata: {
-          astralbeam: { state: record.state, authorTenantUserId: record.authorTenantUserId },
-        },
-        parts,
-      } as unknown as ChatMessages[number])
-    }
-  }
   return {
     name: `${APP_HANDLE}-chat-attachment-snapshot`,
     onChunk: (_context, chunk) => {
-      if (sent.size === 0 || chunk.type !== EventType.MESSAGES_SNAPSHOT) return
+      if (chunk.type !== EventType.MESSAGES_SNAPSHOT) return
+      const sent = new Map<string, ChatMessages[number]>()
+      for (const message of messages) {
+        if (message.role !== "user") continue
+        const source = message as { id?: unknown; content?: unknown; parts?: unknown }
+        if (!Predicate.isString(source.id) || source.id.length === 0) continue
+        const entries = Array.isArray(source.parts) ? source.parts : source.content
+        if (Array.isArray(entries) && entries.some(isMediaEntry)) {
+          const id = source.id
+          const record = records.find((record) => record.id === id.split(":")[0])
+          if (!record) continue
+          const parts = record.payload.parts.map((part) => {
+            const file = part.source
+            return Schema.is(Schema.JsonObject)(file) && file.type === APP_HANDLE
+              ? {
+                  ...part,
+                  source: {
+                    type: "file",
+                    value: file.id,
+                    mimeType: file.mimeType,
+                    byteSize: file.byteSize,
+                  },
+                  fileId: file.id,
+                }
+              : part
+          })
+          sent.set(id, {
+            id,
+            role: "user",
+            createdAt: record.createdAt,
+            metadata: {
+              astralbeam: { state: record.state, authorTenantUserId: record.authorTenantUserId },
+            },
+            parts,
+          } as unknown as ChatMessages[number])
+        }
+      }
+
       let restored = false
       const snapshot = chunk.messages.map((message) => {
         const original = message.role === "user" ? sent.get(message.id) : undefined

@@ -8,7 +8,6 @@ interface ChatProjectionRecord {
   readonly id: string
   readonly role: "user" | "assistant" | "tool"
   readonly state: "draft" | "complete" | "interrupted"
-  readonly authorTenantUserId?: string | null
   readonly turnMessageId?: string | null
   readonly payload: Omit<ChatMessagePayload, "version"> & { readonly version: number }
   readonly sourceAssistantMessageId?: string | null
@@ -257,20 +256,7 @@ export function projectChatModelHistory(
       return {
         ...message,
         id: `${record.id}:${id}`,
-        metadata: {
-          ...message.metadata,
-          astralbeam: {
-            messageId: record.id,
-            ...(record.payload.steering
-              ? {
-                  state: record.state,
-                  authorTenantUserId: record.authorTenantUserId ?? null,
-                  turnMessageId: record.turnMessageId ?? null,
-                  steeringAppliedToMessageId: record.payload.steering.appliedToMessageId ?? null,
-                }
-              : {}),
-          },
-        },
+        metadata: { ...message.metadata, astralbeam: { messageId: record.id } },
       }
     })
   })
@@ -309,6 +295,8 @@ export function projectChatPublicHistory(records: readonly ChatProjectionRecord[
             astralbeam: {
               state: record.state,
               authorTenantUserId: record.authorTenantUserId ?? null,
+              turnMessageId: record.turnMessageId ?? null,
+              steeringAppliedToMessageId: record.payload.steering?.appliedToMessageId ?? null,
             },
           },
         },

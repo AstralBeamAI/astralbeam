@@ -46,14 +46,15 @@ import { tenantSearchPattern } from "@/lib/tenants/tenants"
 import {
   ChatThreadConflict,
   ChatThreadForbidden,
+  ChatSteeringFinished,
   ChatThreadInvalid,
   ChatFileUnavailable,
   ChatThreadNotFound,
   ChatIdentityNotSynchronized,
-  ChatSteeringFinished,
   type ChatThreadError,
 } from "./errors.ts"
 import {
+  ChatSubmissionReceiptSchema,
   ChatMessagePayloadSchema,
   ChatToolDecisionSchema,
   type ChatThreadScope,
@@ -440,6 +441,75 @@ const historyIds = Effect.fnUntraced(function* (
     "objects",
   )
 })
+
+const attachChatInput = Effect.fnUntraced(function* ({
+  tx,
+  files,
+  input,
+  leafId,
+  messageId,
+  payload,
+}: {
+  tx: Executor
+  files: typeof ChatFiles.Service
+  input: ThreadInput
+  leafId: string | null
+  messageId: string
+  payload: ChatMessagePayload
+}) {
+  const attachmentBytes = yield* files.attach({
+    scope: { ...input.scope, threadId: input.id },
+    messageId: messageId,
+    value: payload.parts,
+  })
+  if (attachmentBytes > 0) {
+    const ids = yield* historyIds(tx, input.scope, input.id, leafId)
+    const [saved] = ids.length
+      ? yield* tx
+          .select({
+            bytes: sql<number>`coalesce(sum(${fileObject.byteSize}), 0)`.mapWith(Number),
+          })
+          .from(chatMessagePart)
+          .innerJoin(
+            chatMessage,
+            and(
+              eq(chatMessage.organizationId, chatMessagePart.organizationId),
+              eq(chatMessage.tenantId, chatMessagePart.tenantId),
+              eq(chatMessage.threadId, chatMessagePart.threadId),
+              eq(chatMessage.id, chatMessagePart.messageId),
+            ),
+          )
+          .innerJoin(
+            fileObject,
+            and(
+              eq(fileObject.organizationId, chatMessagePart.organizationId),
+              sql`${fileObject.id}::text = ${chatMessagePart.payload}->'source'->>'id'`,
+            ),
+          )
+          .where(
+            and(
+              chatPartWhere(input.scope, input.id),
+              eq(chatMessage.role, "user"),
+              inArray(
+                chatMessagePart.messageId,
+                ids.map((item) => item.id),
+              ),
+            ),
+          )
+      : []
+    if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
+      return yield* new ChatThreadInvalid()
+  }
+})
+
+const pendingChatSteeringWhere = (claim: ChatWriterClaim) =>
+  and(
+    messageWhere(claim.scope, claim.threadId),
+    eq(chatMessage.turnMessageId, claim.inputMessageId),
+    eq(chatMessage.role, "user"),
+    sql`${chatMessage.metadata}->'steering' is not null`,
+    sql`${chatMessage.metadata}->'steering'->>'appliedToMessageId' is null`,
+  )
 
 const checkClaim = Effect.fnUntraced(function* (db: Executor, claim: ChatWriterClaim) {
   const row = yield* readThread(db, { scope: claim.scope, id: claim.threadId }, true)
@@ -1009,10 +1079,11 @@ export class ChatThreads extends Context.Service<
     readonly admit: (input: AdmitInput) => Effect.Effect<ChatAdmission, ChatThreadError>
     readonly steer: (
       input: AdmitInput & { turnMessageId: string; clientId: string },
-    ) => Effect.Effect<{ thread: ThreadRecord; message: MessageRecord }, ChatThreadError>
-    readonly modelHistory: (input: {
+    ) => Effect.Effect<typeof ChatSubmissionReceiptSchema.Type, ChatThreadError>
+    readonly incorporateSteering: (input: {
       claim: ChatWriterClaim
-    }) => Effect.Effect<MessageRecord[], ChatThreadError>
+      messageIds: string[]
+    }) => Effect.Effect<void, ChatThreadError>
     readonly checkpoint: (input: {
       claim: ChatWriterClaim
       payload: ChatMessagePayload
@@ -1038,9 +1109,15 @@ export class ChatThreads extends Context.Service<
     ) => Effect.Effect<ChatAdmission, ChatThreadError>
     readonly finish: (input: {
       claim: ChatWriterClaim
-      payload?: ChatMessagePayload | undefined
       continueSteering?: boolean | undefined
-    }) => Effect.Effect<ChatWriterClaim | undefined, ChatThreadError>
+    }) => Effect.Effect<
+      {
+        nextClaim: ChatWriterClaim | undefined
+        turnState: NonNullable<MessageRecord["turnState"]>
+        version: number
+      },
+      ChatThreadError
+    >
     readonly interrupt: (input: { claim: ChatWriterClaim }) => Effect.Effect<void, ChatThreadError>
   }
 >()("astralbeam/chat/threads/ChatThreads") {
@@ -1564,7 +1641,6 @@ export class ChatThreads extends Context.Service<
       )
 
       const admit = Effect.fn("ChatThreads.admit")(function* (input: AdmitInput) {
-        const scope = { ...input.scope, threadId: input.id }
         return yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
@@ -1588,51 +1664,14 @@ export class ChatThreads extends Context.Service<
                   turnState: "running",
                 })
                 .returning()
-              const attachmentBytes = yield* files.attach({
-                scope,
+              yield* attachChatInput({
+                tx,
+                files,
+                input,
+                leafId: row.currentLeafMessageId,
                 messageId: userMessage!.id,
-                value: payload.parts,
+                payload,
               })
-              if (attachmentBytes > 0) {
-                const ids = yield* historyIds(tx, input.scope, input.id, row.currentLeafMessageId)
-                const [saved] = ids.length
-                  ? yield* tx
-                      .select({
-                        bytes: sql<number>`coalesce(sum(${fileObject.byteSize}), 0)`.mapWith(
-                          Number,
-                        ),
-                      })
-                      .from(chatMessagePart)
-                      .innerJoin(
-                        chatMessage,
-                        and(
-                          eq(chatMessage.organizationId, chatMessagePart.organizationId),
-                          eq(chatMessage.tenantId, chatMessagePart.tenantId),
-                          eq(chatMessage.threadId, chatMessagePart.threadId),
-                          eq(chatMessage.id, chatMessagePart.messageId),
-                        ),
-                      )
-                      .innerJoin(
-                        fileObject,
-                        and(
-                          eq(fileObject.organizationId, chatMessagePart.organizationId),
-                          sql`${fileObject.id}::text = ${chatMessagePart.payload}->'source'->>'id'`,
-                        ),
-                      )
-                      .where(
-                        and(
-                          chatPartWhere(input.scope, input.id),
-                          eq(chatMessage.role, "user"),
-                          inArray(
-                            chatMessagePart.messageId,
-                            ids.map((item) => item.id),
-                          ),
-                        ),
-                      )
-                  : []
-                if (attachmentBytes + (saved?.bytes ?? 0) > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-                  return yield* new ChatThreadInvalid()
-              }
               yield* insertChatContent(tx, input.scope, input.id, userMessage!.id, payload)
               const assistantMessage = yield* appendDraft(
                 tx,
@@ -1690,8 +1729,7 @@ export class ChatThreads extends Context.Service<
                 if (
                   turn.role !== "user" ||
                   turn.turnMessageId !== null ||
-                  turn.authorTenantUserId !== input.scope.tenantUserId ||
-                  turn.metadata.provenance?.clientId !== input.clientId
+                  turn.authorTenantUserId !== input.scope.tenantUserId
                 )
                   return yield* new ChatThreadForbidden()
                 if (turn.turnState !== "running" && turn.turnState !== "waiting")
@@ -1714,8 +1752,16 @@ export class ChatThreads extends Context.Service<
                     metadata: chatMetadata(payload),
                   })
                   .returning()
+                yield* attachChatInput({
+                  tx,
+                  files,
+                  input,
+                  leafId: thread.currentLeafMessageId,
+                  messageId: message!.id,
+                  payload,
+                })
                 yield* insertChatContent(tx, input.scope, input.id, message!.id, payload)
-                yield* tx
+                const [receipt] = yield* tx
                   .update(chatThread)
                   .set({
                     currentLeafMessageId: message!.id,
@@ -1723,51 +1769,25 @@ export class ChatThreads extends Context.Service<
                     updatedAt: sql`clock_timestamp()`,
                   })
                   .where(scopeWhere(input.scope, input.id))
-                return {
-                  thread: yield* readThread(tx, input),
-                  message: (yield* readChatMessages(tx, input.scope, input.id, [message!]))[0]!,
-                }
+                  .returning({ threadId: chatThread.id, threadVersion: chatThread.lockVersion })
+                return { ...receipt!, acceptedMessageId: message!.id }
               }),
             )
             .pipe(mapDatabaseErrors()),
       )
 
-      const modelHistory = Effect.fn("ChatThreads.modelHistory")(
-        ({ claim }: { claim: ChatWriterClaim }) =>
+      const incorporateSteering = Effect.fn("ChatThreads.incorporateSteering")(
+        ({ claim, messageIds }: { claim: ChatWriterClaim; messageIds: string[] }) =>
           db
             .transaction((tx) =>
               Effect.gen(function* () {
-                const { thread } = yield* checkClaim(tx, claim)
-                const history = yield* historyMessages(
-                  tx,
-                  claim.scope,
-                  claim.threadId,
-                  yield* historyIds(tx, claim.scope, claim.threadId, thread.currentLeafMessageId),
-                )
-                for (const message of history) {
-                  if (
-                    message.role !== "user" ||
-                    message.turnMessageId !== claim.inputMessageId ||
-                    !message.metadata.steering ||
-                    message.metadata.steering.appliedToMessageId
-                  )
-                    continue
-                  message.metadata = {
-                    ...message.metadata,
-                    steering: { appliedToMessageId: claim.assistantMessageId },
-                  }
-                  message.payload = { ...message.payload, steering: message.metadata.steering }
-                  yield* tx
-                    .update(chatMessage)
-                    .set({ metadata: message.metadata })
-                    .where(
-                      and(
-                        messageWhere(claim.scope, claim.threadId),
-                        eq(chatMessage.id, message.id),
-                      ),
-                    )
-                }
-                return history
+                yield* checkClaim(tx, claim)
+                yield* tx
+                  .update(chatMessage)
+                  .set({
+                    metadata: sql`jsonb_set(${chatMessage.metadata}, '{steering}', jsonb_build_object('appliedToMessageId', ${claim.assistantMessageId}::text))`,
+                  })
+                  .where(and(pendingChatSteeringWhere(claim), inArray(chatMessage.id, messageIds)))
               }),
             )
             .pipe(mapDatabaseErrors()),
@@ -1949,11 +1969,9 @@ export class ChatThreads extends Context.Service<
       const finish = Effect.fn("ChatThreads.finish")(
         ({
           claim,
-          payload,
           continueSteering,
         }: {
           claim: ChatWriterClaim
-          payload?: ChatMessagePayload | undefined
           continueSteering?: boolean | undefined
         }) =>
           db
@@ -1961,34 +1979,24 @@ export class ChatThreads extends Context.Service<
               Effect.gen(function* () {
                 const { message, thread } = yield* checkClaim(tx, claim)
                 if (message.state === "draft")
-                  yield* persistChatOutput(
-                    tx,
-                    claim,
-                    message,
-                    payload ?? message.payload,
-                    "complete",
-                  )
+                  yield* persistChatOutput(tx, claim, message, message.payload, "complete")
                 const pending = (yield* unresolvedCalls(tx, claim.scope, thread)).some(
                   ({ message: source }) => source.turnMessageId === claim.inputMessageId,
                 )
                 const [steering] = yield* tx
                   .select({ id: chatMessage.id })
                   .from(chatMessage)
-                  .where(
-                    and(
-                      messageWhere(claim.scope, claim.threadId),
-                      eq(chatMessage.turnMessageId, claim.inputMessageId),
-                      eq(chatMessage.role, "user"),
-                      sql`${chatMessage.metadata}->'steering' is not null`,
-                      sql`${chatMessage.metadata}->'steering'->>'appliedToMessageId' is null`,
-                    ),
-                  )
+                  .where(pendingChatSteeringWhere(claim))
                   .limit(1)
-                if (!pending && steering) {
-                  if (!continueSteering) {
-                    yield* releaseChatTurn(tx, claim, "interrupted")
-                    return undefined
-                  }
+                const turnState: NonNullable<MessageRecord["turnState"]> = pending
+                  ? "waiting"
+                  : steering
+                    ? continueSteering
+                      ? "running"
+                      : "interrupted"
+                    : "completed"
+                let nextClaim: ChatWriterClaim | undefined
+                if (turnState === "running") {
                   const next = yield* appendDraft(
                     tx,
                     claim.scope,
@@ -1996,10 +2004,9 @@ export class ChatThreads extends Context.Service<
                     claim.inputMessageId,
                     claim.invocationId,
                   )
-                  return { ...claim, assistantMessageId: next.id }
-                }
-                yield* releaseChatTurn(tx, claim, pending ? "waiting" : "completed")
-                return undefined
+                  nextClaim = { ...claim, assistantMessageId: next.id }
+                } else yield* releaseChatTurn(tx, claim, turnState)
+                return { nextClaim, turnState, version: thread.lockVersion }
               }),
             )
             .pipe(mapDatabaseErrors()),
@@ -2051,12 +2058,12 @@ export class ChatThreads extends Context.Service<
         setParticipant,
         removeParticipant,
         admit,
+        steer,
+        incorporateSteering,
         checkpoint,
         assertActive,
         publishArtifact,
         nextDraft,
-        steer,
-        modelHistory,
         appendToolResults,
         resolveTools,
         finish,

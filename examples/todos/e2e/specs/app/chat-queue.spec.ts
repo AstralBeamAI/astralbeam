@@ -58,7 +58,7 @@ test.beforeEach(async ({ page }) => {
       const emit = (event: object) =>
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
       ;(globalThis as HarnessWindow).queueHarness = harness
-      globalThis.fetch = async (input, init) => {
+      globalThis.fetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = new URL(
           typeof input === "string" || input instanceof URL ? input : input.url,
           location.href,
@@ -113,7 +113,7 @@ test.beforeEach(async ({ page }) => {
           }),
           { headers: { "Content-Type": "text/event-stream" } },
         )
-      }
+      }, original)
     },
     { id, turn },
   )
@@ -180,6 +180,11 @@ test("reload restores paused text and requires files before resume", async ({ pa
     widget.root.getByText("Queue paused. Review messages, then resume.", { exact: true }),
   ).toBeVisible()
   await expect(widget.root.getByRole("button", { name: "Reattach files" })).toBeVisible()
+  await widget.composer().fill("Keep this separate draft")
+  await widget.root
+    .locator('input[type="file"]')
+    .setInputFiles({ name: "draft.txt", mimeType: "text/plain", buffer: Buffer.from("Draft") })
+  await expect(widget.root.getByRole("button", { name: "Queue", exact: true })).toBeEnabled()
   expect(
     await page.evaluate(() => (globalThis as HarnessWindow).queueHarness.requests),
   ).toHaveLength(0)
@@ -188,11 +193,9 @@ test("reload restores paused text and requires files before resume", async ({ pa
     .poll(() => page.evaluate(() => (globalThis as HarnessWindow).queueHarness.requests.length))
     .toBe(1)
   await widget.root.getByRole("button", { name: "Reattach files" }).click()
-  await expect(widget.root.getByRole("button", { name: "Resume queue" })).toBeDisabled()
-  await widget.root
-    .locator('input[type="file"]')
-    .setInputFiles({ name: "note.txt", mimeType: "text/plain", buffer: Buffer.from("Hello") })
-  await widget.root.getByRole("button", { name: "Save attachments", exact: true }).click()
+  await expect(widget.composer()).toHaveValue("Keep this separate draft")
+  await expect(widget.root.getByRole("button", { name: "Remove draft.txt" })).toBeVisible()
+  await expect(widget.root.getByRole("button", { name: "Resume queue" })).toBeEnabled()
   await captureMoment(page, "reattached-queue")
   await widget.root.getByRole("button", { name: "Resume queue" }).click()
   await expect
@@ -200,6 +203,8 @@ test("reload restores paused text and requires files before resume", async ({ pa
     .toBe(2)
   await page.reload()
   await widget.waitForReady()
+  await expect(widget.composer()).toHaveValue("Keep this separate draft")
+  await expect(widget.root.getByRole("button", { name: "Remove draft.txt" })).toBeVisible()
   await expect(widget.root.getByRole("button", { name: "Remove note.txt" })).toHaveCount(0)
   await expect(widget.root.getByRole("button", { name: "Reattach files" })).toHaveCount(0)
 })

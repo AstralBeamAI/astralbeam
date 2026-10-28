@@ -4,6 +4,7 @@ import type { PendingChatMessage } from "../../core/pending-messages.ts"
 import { pendingMessageText } from "../../core/pending-messages.ts"
 import { Button } from "./ui/button.tsx"
 import { InputGroupTextarea } from "./ui/input-group.tsx"
+import { TooltipButton } from "./tooltip-button.tsx"
 
 export function PendingMessages({
   messages,
@@ -140,13 +141,11 @@ export function PendingMessages({
                   </div>
                   {message.status === "queued" && editing?.id !== message.id && (
                     <>
-                      <Button
+                      <TooltipButton
                         type="button"
                         size="icon-sm"
-                        className="min-h-11 min-w-11"
                         variant="ghost"
-                        aria-label="Edit queued message"
-                        title="Edit queued message"
+                        tooltip="Edit queued message"
                         onClick={() => {
                           setEditing({
                             id: message.id,
@@ -156,18 +155,16 @@ export function PendingMessages({
                         }}
                       >
                         <PencilSimpleIcon />
-                      </Button>
-                      <Button
+                      </TooltipButton>
+                      <TooltipButton
                         type="button"
                         size="icon-sm"
-                        className="min-h-11 min-w-11"
                         variant="ghost"
-                        aria-label="Remove queued message"
-                        title="Remove queued message"
+                        tooltip="Remove queued message"
                         onClick={() => onRemove(message.id)}
                       >
                         <XIcon />
-                      </Button>
+                      </TooltipButton>
                       {canSteer && !editing && !message.attachmentsRequired && (
                         <Button
                           type="button"

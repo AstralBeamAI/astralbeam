@@ -2,6 +2,7 @@ import type { MultimodalContent } from "@tanstack/ai-client"
 
 export interface PendingChatMessage {
   id: string
+  key?: string | undefined
   content: string | MultimodalContent
   mode: "queue" | "steer"
   status: "queued" | "sending" | "accepted"
@@ -35,7 +36,11 @@ export function storePendingMessages(
             content:
               typeof message.content === "string" || typeof message.content.content === "string"
                 ? message.content
-                : { content: message.content.content.filter((part) => part.type === "text") },
+                : {
+                    content: message.content.content.filter(
+                      (part) => part.type === "text" || part.source.type === "file",
+                    ),
+                  },
             attachmentsRequired:
               message.attachmentsRequired ||
               (typeof message.content !== "string" &&
@@ -61,11 +66,20 @@ export function loadPendingMessages(key: string | undefined): PendingChatMessage
       const parts = typeof content === "string" ? content : content?.content
       return (
         typeof entry.id === "string" &&
+        (entry.key === undefined || typeof entry.key === "string") &&
         (typeof parts === "string" ||
           (Array.isArray(parts) &&
             parts.every((value: unknown) => {
-              const part = value as { type?: unknown; content?: unknown } | null
-              return part?.type === "text" && typeof part.content === "string"
+              const part = value as {
+                type?: unknown
+                content?: unknown
+                source?: { type?: unknown; value?: unknown }
+              } | null
+              return part?.type === "text"
+                ? typeof part.content === "string"
+                : ["image", "document", "audio", "video"].includes(String(part?.type)) &&
+                    part?.source?.type === "file" &&
+                    typeof part.source.value === "string"
             }))) &&
         (entry.mode === "queue" || entry.mode === "steer") &&
         (entry.status === "queued" || entry.status === "sending" || entry.status === "accepted") &&
