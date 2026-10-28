@@ -482,7 +482,7 @@ describe("Chat.run", () => {
       }
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
-      assert.include(JSON.stringify(options.messages), "[Attached: sales.xlsx]")
+      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv]")
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -493,13 +493,14 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.xlsx]")
+      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
       for (const tools of [options.tools, refreshed?.tools]) {
         const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
         const result = yield* Effect.promise(() =>
-          Promise.resolve(reader.execute?.({ file: "sales.xlsx" }) as unknown),
+          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
         )
         assert.notProperty(result, "sandboxPath")
+        assert.notProperty(result, "content")
       }
     }).pipe(
       Effect.provide(
@@ -522,10 +523,10 @@ describe("Chat.run", () => {
                     type: "document",
                     source: {
                       type: "data",
-                      value: btoa(state === "malformed" ? "invalid" : "PK\x03\x04opaque"),
+                      value: btoa(state === "malformed" ? "invalid" : "name\tamount\nSaved\t12"),
                       mimeType: "application/octet-stream",
                     },
-                    metadata: { filename: "sales.xlsx" },
+                    metadata: { filename: state === "malformed" ? "sales.xlsx" : "sales.tsv" },
                   },
                 ],
               },

@@ -17,11 +17,11 @@ export const MAX_ATTACHMENT_BYTES_BY_KIND = {
 /** Image types the chat endpoint's model reads natively; SVG is text, so it is not one of them. */
 export const ATTACHMENT_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 
-/** The one document type the model reads natively; every other document is read as text. */
+/** The one document type the model reads natively. */
 export const ATTACHMENT_PDF_MIME_TYPE = "application/pdf"
 
-// Types the endpoint reads as text for the agent. `text/*` is covered by prefix, so this lists
-// only the textual formats browsers label as `application/*` (plus SVG, which is markup).
+// Non-data `text/*` types are covered by prefix. These are the textual formats browsers label
+// as `application/*`, plus SVG markup.
 export const ATTACHMENT_TEXT_MIME_TYPES = [
   "application/json",
   "application/xml",
@@ -36,8 +36,7 @@ export const ATTACHMENT_TEXT_MIME_TYPES = [
   "image/svg+xml",
 ]
 
-// CSV and TSV keep a text view, while binary data needs a sandbox. This kind allows larger
-// uploads than ordinary text so the agent can analyze the original file with code.
+// Data files require a sandbox and allow larger uploads than ordinary text.
 export const ATTACHMENT_DATA_MIME_TYPES = [
   "text/csv",
   "text/tab-separated-values",
@@ -57,7 +56,7 @@ export const ATTACHMENT_PPTX_MIME_TYPE =
 export const ATTACHMENT_XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-/** The OOXML office formats, which the endpoint unpacks into text and tables. */
+/** The OOXML Office formats, analyzed from their original bytes in a sandbox. */
 export const ATTACHMENT_OFFICE_MIME_TYPES = [
   ATTACHMENT_DOCX_MIME_TYPE,
   ATTACHMENT_PPTX_MIME_TYPE,

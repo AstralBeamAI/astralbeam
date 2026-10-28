@@ -35,7 +35,7 @@ export function createChatAttachmentTools(
     name: "read_attachment",
     description:
       "Read the text of a file the user attached, by the name shown in their message. Answers " +
-      "with the file's type, size, and available sandbox path. Office and opaque data files " +
+      "with the file's type, size, and available sandbox path. Office and data files " +
       "must be opened with code in the sandbox. Long files come back a page at a time: read on from " +
       "`nextOffset` until `end` is true.",
     inputSchema: ReadAttachmentInputSchema,
@@ -76,7 +76,6 @@ export function createChatAttachmentTools(
       totalCharacters: file.text.length,
       end: done,
       ...(done ? {} : { nextOffset: stop }),
-      ...(file.truncated ? { readableTextTruncated: true } : {}),
     }
   })
 

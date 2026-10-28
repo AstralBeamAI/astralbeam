@@ -113,7 +113,7 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
-      const officeParams: ChatParams = {
+      const uploadParams: ChatParams = {
         ...commandParams,
         messages: [
           {
@@ -124,10 +124,10 @@ describe("managed conversation commands", () => {
                 type: "document",
                 source: {
                   type: "data",
-                  value: btoa("PK\x03\x04original"),
+                  value: btoa("name,amount\nSaved,12"),
                   mimeType: "application/octet-stream",
                 },
-                metadata: { filename: "book.xlsx" },
+                metadata: { filename: "sales.csv" },
               },
             ],
           },
@@ -135,7 +135,7 @@ describe("managed conversation commands", () => {
       }
       for (const providerId of [null, commandThreadId]) {
         sandboxProviderId = providerId
-        const unavailable = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+        const unavailable = yield* prepareManagedChat({ ...input, params: uploadParams }).pipe(
           Effect.flip,
         )
         assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
@@ -143,9 +143,9 @@ describe("managed conversation commands", () => {
         assert.equal(stored, 1)
       }
       sandboxReadable = true
-      yield* prepareManagedChat({ ...input, params: officeParams })
+      yield* prepareManagedChat({ ...input, params: uploadParams })
       attachmentsEnabled = false
-      const disabled = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+      const disabled = yield* prepareManagedChat({ ...input, params: uploadParams }).pipe(
         Effect.flip,
       )
       assert.equal(disabled._tag, "ChatAttachmentsDisabled")

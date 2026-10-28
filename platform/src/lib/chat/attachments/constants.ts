@@ -14,9 +14,6 @@ export const CHAT_ATTACHMENT_MAX_COUNT = 5
 
 export const CHAT_ATTACHMENT_MAX_FILENAME_LENGTH = 120
 
-// The readable text view of a file, held for the run so `read_attachment` can page through it.
-// This is a memory bound, not a context bound: what reaches the model is one page at a time.
-export const CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS = 2_000_000
 export const CHAT_ATTACHMENT_READ_MAX_CHARACTERS = 40_000
 
 /** Where attached files land in the sandbox, relative to its workspace directory. */
@@ -49,15 +46,11 @@ export const CHAT_ATTACHMENT_TEXT_MIME_TYPES = [
   "image/svg+xml",
 ]
 
-/** Delimited files keep a text view and the larger data-file size limit. */
-export const CHAT_ATTACHMENT_DELIMITED_MIME_TYPES = [
+/** Data files are analyzed from their original bytes in the sandbox. */
+export const CHAT_ATTACHMENT_DATA_MIME_TYPES = [
   "text/csv",
   "text/tab-separated-values",
   "application/csv",
-]
-
-/** Data files with no text view at all, so only the sandbox can open them. */
-export const CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES = [
   "application/vnd.apache.parquet",
   "application/x-parquet",
   "application/vnd.sqlite3",
@@ -98,8 +91,7 @@ const PARQUET_SIGNATURE = [{ offset: 0, bytes: [0x50, 0x41, 0x52, 0x31] }]
 /** "SQLite format 3\0". */
 const SQLITE_SIGNATURE = [{ offset: 0, bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65] }]
 
-/** Leading bytes each type must start with, so a renamed file is refused with a reason. A type
- * without one, such as delimited text, is validated by decoding. https://www.iana.org/assignments/media-types/media-types.xhtml */
+// Check known signatures at admission. CSV and TSV have no signature and stay opaque.
 export const CHAT_ATTACHMENT_MAGIC_BYTES: Record<
   string,
   ReadonlyArray<{ offset: number; bytes: readonly number[] }>

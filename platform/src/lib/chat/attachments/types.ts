@@ -14,10 +14,9 @@ export interface ChatAttachmentOutcome {
   reason?: string
 }
 
-/** Original bytes and a bounded text view, when the file is UTF-8 text. */
+/** Original bytes and decoded text for text attachments. */
 export interface ChatAttachmentFile {
   readonly text?: string
-  readonly truncated?: true
   /** Unique within the run and used as the basename in the sandbox uploads directory. */
   readonly handle: string
   readonly filename: string
