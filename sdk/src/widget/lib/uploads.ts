@@ -1,7 +1,7 @@
 import { isAstralBeamApiError } from "../../api/api.ts"
 import type { AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
-import { storedThreadAttachments } from "./drafts.ts"
+import { storedThreadAttachments } from "../../lib/drafts.ts"
 import { readAttachmentData } from "./attachments.ts"
 
 interface UploadSlots {
@@ -58,14 +58,17 @@ function putPart(url: string, bytes: Blob, signal: AbortSignal, progress: (bytes
 }
 
 async function fingerprint(file: File): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("Use HTTPS to resume this upload.")
   const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer())
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
 /** Signed URLs and File objects exist only in memory. */
-export function attachmentUploadState(chat: AstralBeamChatCore) {
+export function attachmentUploadState(chat: AstralBeamChatCore, apiUrl = "", identity = "") {
   return {
     chat,
+    apiUrl,
+    identity,
     files: new Map<string, File>(),
     tasks: new Map<string, UploadTask>(),
     previews: new Map<string, string>(),
@@ -80,7 +83,7 @@ function checkUploadAuthentication(isCurrentAuthentication: () => boolean) {
   if (!isCurrentAuthentication()) throw new DOMException("Authentication changed", "AbortError")
 }
 
-export function attachmentUploadPreview({
+function attachmentUploadPreview({
   uploads,
   id,
   blob,
@@ -128,6 +131,13 @@ export async function recoverAttachmentUpload({
   const reselect = { ...draft, status: "reselect" as const, fileId: undefined }
   try {
     const session = await getAttachmentUpload({ chat, id: draft.sessionId })
+    if (session?.claimed)
+      return {
+        ...draft,
+        status: "error",
+        fileId: undefined,
+        error: "This file was already sent. Remove it.",
+      }
     return session?.status === "completed" && session.file_id
       ? { ...draft, status: "ready", fileId: session.file_id }
       : reselect
@@ -138,7 +148,7 @@ export async function recoverAttachmentUpload({
       error.status < 500 &&
       error.status !== 408 &&
       error.status !== 429
-    return draft.status === "ready" && draft.fileId && !denied ? draft : reselect
+    return draft.fileId && !denied ? { ...draft, status: "ready" } : reselect
   }
 }
 
@@ -257,6 +267,7 @@ export function startAttachmentUpload({
   tasks.set(draft.id, task)
   settle({
     status: "uploading",
+    ...(draft.agentId ? { agentId: draft.agentId } : {}),
     error: undefined,
     ...(draft.kind === "image"
       ? { preview: attachmentUploadPreview({ uploads, id: draft.id, blob: file }) }
@@ -268,13 +279,10 @@ export function startAttachmentUpload({
       check()
       await task.preparation
       check()
-      const sha256 = await fingerprint(file)
+      const sha256 =
+        draft.size === file.size && draft.name === file.name ? await fingerprint(file) : undefined
       check()
-      if (
-        draft.size !== file.size ||
-        draft.name !== file.name ||
-        (draft.sha256 && draft.sha256 !== sha256)
-      ) {
+      if (!sha256 || (draft.sha256 && draft.sha256 !== sha256)) {
         files.delete(draft.id)
         const preview = uploads.previews.get(draft.id)
         if (preview) URL.revokeObjectURL(preview)
@@ -304,7 +312,13 @@ export function startAttachmentUpload({
           check()
           const data = await readAttachmentData(file)
           check()
-          settle({ status: "ready", data, prepareAttempted: false })
+          const uploaded = await chat.uploadAttachment({
+            data,
+            filename: draft.name,
+            mimeType: draft.mimeType,
+          })
+          check()
+          settle({ status: "ready", fileId: uploaded.fileId, prepareAttempted: false })
           return
         }
         check()
@@ -343,7 +357,7 @@ export function startAttachmentUpload({
       check()
       if (!finished.file_id || finished.status !== "completed")
         throw new Error("Upload did not complete")
-      settle({ status: "ready", fileId: finished.file_id, progress: 1, data: undefined })
+      settle({ status: "ready", fileId: finished.file_id, progress: 1 })
     },
     signal,
   )
@@ -434,6 +448,8 @@ export async function discardAttachmentUploads({
   threadId,
   attachments,
   attachmentIds,
+  onCancelled,
+  onRemoved,
   isCurrentAuthentication = uploads.chat.captureAuthentication(),
 }: {
   uploads: AttachmentUploads
@@ -442,6 +458,8 @@ export async function discardAttachmentUploads({
   threadId: string
   attachments: readonly DraftAttachment[]
   attachmentIds?: ReadonlySet<string>
+  onCancelled?: (id: string) => void
+  onRemoved?: (id: string) => void
   isCurrentAuthentication?: () => boolean
 }) {
   checkUploadAuthentication(isCurrentAuthentication)
@@ -454,36 +472,36 @@ export async function discardAttachmentUploads({
         (file.prepareAttempted || files.get(file.id)?.prepareAttempted) ?? file.prepareAttempted,
     })
   if (attachmentIds) for (const id of files.keys()) if (!attachmentIds.has(id)) files.delete(id)
-  await Promise.all(
-    [...files.values()].map(async (file) => {
-      checkUploadAuthentication(isCurrentAuthentication)
-      const task = uploads.tasks.get(file.id)
-      pauseAttachmentUpload({ uploads, id: file.id })
-      await task?.preparation?.catch(() => undefined)
-      checkUploadAuthentication(isCurrentAuthentication)
-      const attempted = task?.prepareAttempted ?? file.prepareAttempted ?? !!file.sha256
-      if (!file.sessionId && !attempted) return
+  for (const file of files.values()) {
+    checkUploadAuthentication(isCurrentAuthentication)
+    const task = uploads.tasks.get(file.id)
+    pauseAttachmentUpload({ uploads, id: file.id })
+    await task?.preparation?.catch(() => undefined)
+    checkUploadAuthentication(isCurrentAuthentication)
+    const attempted = task?.prepareAttempted ?? file.prepareAttempted ?? !!file.sha256
+    if (file.sessionId || attempted) {
       await (
         file.sessionId
           ? uploads.chat.cancelUpload(file.sessionId)
           : uploads.chat.cancelPreparedUpload(file.id)
       ).catch((error: unknown) => {
-        if (isRemovedUpload(error)) return
-        throw error
+        if (!isRemovedUpload(error)) throw error
       })
-    }),
-  )
-  await storedThreadAttachments({
-    apiUrl,
-    identity,
-    threadId,
-    update: (current) => {
-      checkUploadAuthentication(isCurrentAuthentication)
-      return current.filter((file) => !files.has(file.id))
-    },
-  })
-  checkUploadAuthentication(isCurrentAuthentication)
-  for (const id of files.keys()) releaseAttachmentUpload({ uploads, id })
+      onCancelled?.(file.id)
+    }
+    await storedThreadAttachments({
+      apiUrl,
+      identity,
+      threadId,
+      update: (current) => {
+        checkUploadAuthentication(isCurrentAuthentication)
+        return current.filter((saved) => saved.id !== file.id)
+      },
+    })
+    checkUploadAuthentication(isCurrentAuthentication)
+    releaseAttachmentUpload({ uploads, id: file.id })
+    onRemoved?.(file.id)
+  }
 }
 
 export function disposeAttachmentUploads(uploads: AttachmentUploads) {

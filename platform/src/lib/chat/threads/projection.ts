@@ -1,6 +1,5 @@
 import { convertMessagesToModelMessages, type ModelMessage, type UIMessage } from "@tanstack/ai"
-import { Option, Schema } from "effect"
-import { storedChatMediaSource } from "../attachments/stored-media"
+import { Schema } from "effect"
 
 import type { ChatMessagePayload } from "./schemas"
 import { APP_HANDLE } from "@/lib/constants"
@@ -45,8 +44,7 @@ function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.J
     case "video":
     case "document": {
       const source = Schema.decodeUnknownSync(Schema.JsonObject)(part.source)
-      if (source.type === "file" && Option.isNone(storedChatMediaSource(part)))
-        throw new Error("Provider file handles require original media")
+      if (source.type === "file") throw new Error("Provider file handles require original media")
       const metadata = Schema.is(Schema.JsonObject)(part.metadata) ? part.metadata : undefined
       return [
         {

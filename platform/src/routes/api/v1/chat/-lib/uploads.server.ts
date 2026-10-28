@@ -1,4 +1,3 @@
-import { and, eq, gt, isNotNull, sql } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 import { HttpServerRequest } from "effect/http"
 import {
@@ -8,11 +7,8 @@ import {
   HttpApiSchema,
   OpenApi,
 } from "effect/http-api"
-import { ApiUuidSchema } from "../../../../../lib/tenants/schemas.ts"
-import {
-  UploadInputSchema,
-  UploadStatusSchema,
-} from "../../../../../lib/chat/attachments/upload-schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { UploadInputSchema, UploadStatusSchema } from "@/lib/chat/attachments/upload-schemas"
 import type { ApiV1 } from "../../-lib/contract.server"
 
 const uploadParams = Schema.Struct({ id: ApiUuidSchema })
@@ -62,13 +58,6 @@ export const uploadApi = HttpApiGroup.make("uploads", { topLevel: true })
         OpenApi.Description,
         "Files claimed by a conversation return 409 with problem type urn:file-upload:claimed. Other conflicts remain retryable.",
       ),
-    HttpApiEndpoint.get("downloadStoredChatFile", "/chat/files/:id", {
-      params: uploadParams,
-      success: HttpApiSchema.WithHeaders(HttpApiSchema.StreamUint8Array({ contentType: "*/*" }), {
-        "Content-Disposition": Schema.String,
-        "Content-Length": Schema.String,
-      }),
-    }).annotate(OpenApi.Summary, "Download a private conversation file"),
   )
   .annotateEndpoints(OpenApi.Override, { security: [{ astralBeamToken: [] }] })
 
@@ -77,34 +66,24 @@ export function uploadHandlers(api: typeof ApiV1) {
     api,
     "uploads",
     Effect.fn("uploadHandlers")(function* (handlers) {
-      const { authenticateChatRequest } = yield* Effect.promise(
-        () => import("@/lib/chat/auth.server"),
-      )
+      const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
       const { consumeRestRateLimit } = yield* Effect.promise(() => import("../../-lib/auth.server"))
       const { Agents } = yield* Effect.promise(() => import("@/lib/agents/agents.server"))
-      const { ChatThreads } = yield* Effect.promise(
-        () => import("@/lib/chat/threads/threads.server"),
-      )
+      const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { Uploads } = yield* Effect.promise(
         () => import("@/lib/chat/attachments/uploads.server"),
       )
-      const { UploadNotFound, UploadInvalid } = yield* Effect.promise(
-        () => import("@/lib/chat/attachments/errors"),
-      )
+      const { UploadInvalid } = yield* Effect.promise(() => import("@/lib/chat/attachments/errors"))
       const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
-      const { Database } = yield* Effect.promise(() => import("@/db/database.server"))
-      const { chatFile, fileObject, fileUpload } = yield* Effect.promise(
-        () => import("@/db/schema.server"),
+      const { provideClusterWorkflowEngine } = yield* Effect.promise(
+        () => import("@/lib/cluster/runtime"),
       )
-      const { mapDatabaseErrors } = yield* Effect.promise(() => import("@/db/lib/sqlstate.server"))
-      const { chatStoredFileResponse } = yield* Effect.promise(() => import("./files.server"))
       const { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } = yield* Effect.promise(
-        () => import("@/lib/chat/attachments/constants.server"),
+        () => import("@/lib/chat/attachments/constants"),
       )
       const threads = yield* ChatThreads
       const uploads = yield* Uploads
       const agents = yield* Agents
-      const db = yield* Database
       const services = yield* Effect.context<
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof consumeRestRateLimit>>
@@ -134,7 +113,7 @@ export function uploadHandlers(api: typeof ApiV1) {
             if (!grant.attachmentsEnabled) return yield* new ChatAttachmentsDisabled()
             if (payload.byteSize > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
               return yield* new UploadInvalid()
-            return yield* uploads.prepare(scope, payload)
+            return yield* uploads.prepare(scope, payload).pipe(provideClusterWorkflowEngine)
           }),
         )
         .handle(
@@ -152,64 +131,25 @@ export function uploadHandlers(api: typeof ApiV1) {
         .handle(
           "completeChatUpload",
           Effect.fn("completeChatUpload")(function* ({ params, request }) {
-            return yield* uploads.complete((yield* authorize(request)).scope, params.id)
+            return yield* uploads
+              .complete((yield* authorize(request)).scope, params.id)
+              .pipe(provideClusterWorkflowEngine)
           }),
         )
         .handle(
           "cancelChatUpload",
           Effect.fn("cancelChatUpload")(function* ({ params, request }) {
-            yield* uploads.cancel((yield* authorize(request)).scope, params.id)
+            yield* uploads
+              .cancel((yield* authorize(request)).scope, params.id)
+              .pipe(provideClusterWorkflowEngine)
           }),
         )
         .handle(
           "cancelPreparedChatUpload",
           Effect.fn("cancelPreparedChatUpload")(function* ({ query, request }) {
-            yield* uploads.cancelPrepared((yield* authorize(request)).scope, query.prepare_key)
-          }),
-        )
-        .handle(
-          "downloadStoredChatFile",
-          Effect.fn("downloadStoredChatFile")(function* ({ params, request }) {
-            const { scope } = yield* authorize(request)
-            const [owner] = yield* db
-              .select()
-              .from(chatFile)
-              .where(
-                and(
-                  eq(chatFile.organizationId, scope.organizationId),
-                  eq(chatFile.tenantId, scope.tenantId),
-                  eq(chatFile.id, params.id),
-                ),
-              )
-              .pipe(mapDatabaseErrors())
-            let filename: string | undefined
-            if (owner) yield* threads.get({ scope, id: owner.threadId })
-            else {
-              const [upload] = yield* db
-                .select()
-                .from(fileUpload)
-                .where(
-                  and(
-                    eq(fileUpload.organizationId, scope.organizationId),
-                    eq(fileUpload.tenantId, scope.tenantId),
-                    eq(fileUpload.tenantUserId, scope.tenantUserId),
-                    eq(fileUpload.fileId, params.id),
-                    eq(fileUpload.status, "completed"),
-                    gt(fileUpload.expiresAt, sql`now()`),
-                    sql`not exists (select 1 from chat_file where id = ${params.id}::uuid)`,
-                  ),
-                )
-                .pipe(mapDatabaseErrors())
-              if (!upload) return yield* new UploadNotFound()
-              filename = upload.filename
-            }
-            const [file] = yield* db
-              .select()
-              .from(fileObject)
-              .where(and(eq(fileObject.id, params.id), isNotNull(fileObject.verifiedAt)))
-              .pipe(mapDatabaseErrors())
-            if (!file) return yield* new UploadNotFound()
-            return yield* chatStoredFileResponse(file, filename ?? "file")
+            yield* uploads
+              .cancelPrepared((yield* authorize(request)).scope, query.prepare_key)
+              .pipe(provideClusterWorkflowEngine)
           }),
         )
     }),

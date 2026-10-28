@@ -9,7 +9,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Context, Effect, Layer } from "effect"
 
-import { Config } from "@/lib/config/config.server"
+import { Config } from "@/lib/config/config"
 import { StorageUnavailable, MultipartMissing } from "./errors"
 import {
   acquireStorageClient,
@@ -60,9 +60,6 @@ export class MultipartStorage extends Context.Service<
           Effect.gen(function* () {
             const connection = yield* objectStorageConnection(config)
             const client = yield* acquireStorageClient(connection)
-            yield* config
-              .reserveStorageDestination(connection)
-              .pipe(Effect.mapError(() => new StorageUnavailable()))
             return yield* run(client, connection.bucket)
           }),
         )

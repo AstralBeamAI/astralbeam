@@ -38,6 +38,8 @@ interface ChatComposerProps {
   attachments: readonly DraftAttachment[]
   attachmentLimits: ResolvedAttachmentOptions
   onAddFiles: (files: File[]) => void
+  onPauseAttachment?: ((id: string) => void) | undefined
+  onRetryAttachment?: ((id: string) => void) | undefined
   onRemoveAttachment: (id: string) => void
 }
 
@@ -62,13 +64,17 @@ export function ChatComposer({
   attachmentLimits,
   onAddFiles,
   onRemoveAttachment,
+  onPauseAttachment,
+  onRetryAttachment,
 }: ChatComposerProps) {
   const shortcutId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
   const blocked = authPending || authError !== undefined || threadLoading
   // A file still being read would be left out of the message, so the send waits for it.
-  const reading = attachments.some((attachment) => attachment.status === "reading")
+  const reading = attachments.some(
+    (attachment) => attachment.status !== "ready" && attachment.status !== "error",
+  )
   const sendable = attachments.some((attachment) => attachment.status === "ready")
   const attachmentsFull =
     attachments.filter((attachment) => attachment.status !== "error").length >=
@@ -182,7 +188,12 @@ export function ChatComposer({
       <InputGroup className={cn("cursor-text", dropTarget && "border-ring ring-3 ring-ring/50")}>
         {attachments.length > 0 && (
           <InputGroupAddon align="block-start" className="py-1">
-            <ComposerAttachments attachments={attachments} onRemove={onRemoveAttachment} />
+            <ComposerAttachments
+              attachments={attachments}
+              onRemove={onRemoveAttachment}
+              onPause={onPauseAttachment}
+              onRetry={onRetryAttachment}
+            />
           </InputGroupAddon>
         )}
         <InputGroupTextarea

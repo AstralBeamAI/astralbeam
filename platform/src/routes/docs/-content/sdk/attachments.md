@@ -1,12 +1,12 @@
 # Attachments
 
-Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. With a sandbox enabled, their original bytes are also available for OCR, conversion, and editing. Other files are read through tools or analyzed in a sandbox.
+Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message, with progress, pause, and retry controls when the server supports direct uploads. Images and PDFs go directly to the model, which must support those inputs. With a sandbox enabled, their original bytes are also available for OCR, conversion, and editing. Other files are read through tools or analyzed in a sandbox.
 
 Enable **Allow attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a short text file and ask the assistant to summarize it.
 
 ## Draft recovery
 
-Uploaded file IDs and metadata stay with the local draft. Reloading restores them without sending. File bytes and signed URLs are never saved locally. Clearing storage removes draft references. Uploads do not expire, but files still uploading cannot be recovered yet.
+Uploaded file IDs and metadata stay with the local draft. Reloading restores them without sending. File bytes and signed URLs are never saved locally. Clearing storage removes draft references. Completed files do not expire. Unfinished direct-upload sessions last 24 hours. After reloading, choose **Resume upload** and select the original file. Its fingerprint must match before uploading resumes. Removing a file cancels its unclaimed upload. If cancellation fails, the draft stays available so you can retry.
 
 ## Options
 

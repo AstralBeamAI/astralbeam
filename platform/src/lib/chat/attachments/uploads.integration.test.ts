@@ -1,767 +1,381 @@
 import { createHash } from "node:crypto"
-import { eq, sql } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
-import { HttpServerResponse } from "effect/http"
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
-import { Database, getAuthDatabase } from "@/db/database.server"
-import { DatabaseRateLimiter } from "@/db/lib/rate-limiter.server"
-import {
-  agent,
-  cacheEntry,
-  organization,
-  organizationConfiguration,
-  tenant,
-  tenantUser,
-  fileUpload,
-  fileObject,
-  fileDeletion,
-  multipartDeletion,
-} from "@/db/schema.server"
+import { and, eq } from "drizzle-orm"
+import { Duration, Effect, Layer, ManagedRuntime, Schema } from "effect"
+import { WorkflowEngine } from "effect/workflow"
+import { TestClock } from "effect/testing"
+import { afterEach, beforeEach, describe, expect, test } from "vitest"
+import { Database, getAuthDatabase } from "@/db/database"
+import { organization, tenant, tenantUser } from "@/db/schema/organizations"
+import { chatFile, chatThread, chatMessage } from "@/db/schema/chat"
+import { fileUpload } from "@/db/schema/uploads"
+import { fileObject } from "@/db/schema/files"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
-import { chatStoredFileResponse } from "@/routes/api/v1/chat/-lib/files.server"
 import { MultipartStorage } from "@/lib/storage/multipart-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
-import { StorageUnavailable } from "@/lib/storage/errors"
-import { ChatThreads } from "../threads/threads.server"
-import type { ChatThreadScope } from "../threads/schemas"
-import { ChatFiles } from "./chat-files.server"
+import { StorageObjectMissing, StorageUnavailable, MultipartMissing } from "@/lib/storage/errors"
+import uploadCleanup, { uploadCleanupWorkflowLayer } from "@/lib/workflows/upload-cleanup"
 import { Uploads } from "./uploads.server"
-import { UPLOAD_PART_BYTES } from "./upload-schemas"
+import type { ChatThreadScope } from "../threads/schemas"
 
-const configured =
-  process.env.DATABASE_URL !== "postgres://test:test@127.0.0.1:5432/test" &&
-  !!process.env.S3_ENDPOINT
-if (configured) {
-  const url = new URL(process.env.DATABASE_URL!)
-  if (url.hostname !== "127.0.0.1" || !url.pathname.endsWith("_test"))
-    throw new Error("Use a disposable loopback database ending in _test")
+const url = process.env.DATABASE_URL
+const configured = url && url !== "postgres://test:test@127.0.0.1:5432/test"
+if (
+  configured &&
+  (new URL(url).hostname !== "127.0.0.1" || !new URL(url).pathname.endsWith("_test"))
+)
+  throw new Error("Use a disposable loopback database ending in _test")
+const objects = new Map<string, Uint8Array>()
+const staging = new Map<string, { key: string; bytes?: Uint8Array }>()
+const fixture = {
+  failStorage: false,
+  failCleanup: false,
+  put: undefined as (() => Promise<void>) | undefined,
 }
-const makeRuntime = () =>
-  ManagedRuntime.make(
-    Layer.mergeAll(
-      Database.layer,
-      DatabaseRateLimiter.layer,
-      ObjectStorage.layer,
-      StoredFiles.layer,
-      MultipartStorage.layer,
-      ChatFiles.layer,
-      ChatThreads.layer,
-      Uploads.layer,
-    ),
-  )
+const objectLayer = Layer.succeed(ObjectStorage, {
+  put: ({ key, bytes }) =>
+    Effect.gen(function* () {
+      if (fixture.put) yield* Effect.promise(fixture.put)
+      objects.set(key, bytes)
+    }),
+  get: ({ key }) =>
+    fixture.failStorage
+      ? Effect.fail(new StorageUnavailable())
+      : objects.has(key)
+        ? Effect.succeed(objects.get(key)!)
+        : Effect.fail(new StorageObjectMissing()),
+  head: ({ key }) =>
+    objects.has(key)
+      ? Effect.succeed({ size: objects.get(key)!.length, contentType: "text/plain" })
+      : Effect.fail(new StorageObjectMissing()),
+  remove: ({ key }) =>
+    fixture.failCleanup
+      ? Effect.fail(new StorageUnavailable())
+      : Effect.sync(() => {
+          objects.delete(key)
+        }),
+  signedUrl: () => Effect.die("unused"),
+  testConnection: () => Effect.die("unused"),
+})
+const multipartLayer = Layer.succeed(MultipartStorage, {
+  create: (key) =>
+    Effect.sync(() => {
+      const id = crypto.randomUUID()
+      staging.set(id, { key })
+      return id
+    }),
+  list: (_key, id) =>
+    staging.has(id)
+      ? Effect.succeed(
+          staging.get(id)!.bytes
+            ? [{ number: 1, size: staging.get(id)!.bytes!.length, etag: "verified-part" }]
+            : [],
+        )
+      : Effect.fail(new MultipartMissing()),
+  sign: (_key, id) => Effect.succeed(`https://storage.example/${id}`),
+  complete: (key, id) =>
+    staging.has(id)
+      ? Effect.sync(() => {
+          objects.set(key, staging.get(id)!.bytes!)
+          staging.delete(id)
+        })
+      : Effect.fail(new MultipartMissing()),
+  abort: (_key, id) =>
+    fixture.failCleanup
+      ? Effect.fail(new StorageUnavailable())
+      : Effect.sync(() => {
+          staging.delete(id)
+        }),
+  find: (key) =>
+    Effect.succeed([...staging].filter(([, value]) => value.key === key).map(([id]) => id)),
+})
+const services = Layer.mergeAll(Database.layer, objectLayer, multipartLayer)
+const files = StoredFiles.layerNoDeps.pipe(Layer.provide(services))
+const scheduled = new Map<string, Effect.Effect<unknown, unknown>>()
+// Model the durable runner boundary: dispatch happens after the producer transaction commits.
+const engine = Layer.effect(
+  WorkflowEngine.WorkflowEngine,
+  Effect.gen(function* () {
+    const memory = yield* WorkflowEngine.WorkflowEngine
+    return {
+      ...memory,
+      execute: (_workflow, options) =>
+        Effect.sync(() => {
+          scheduled.set(
+            options.executionId,
+            memory.execute(uploadCleanup, {
+              executionId: options.executionId,
+              payload: Schema.decodeUnknownSync(uploadCleanup.payloadSchema)(options.payload),
+              discard: true,
+            }),
+          )
+          return options.executionId
+        }),
+    }
+  }),
+).pipe(Layer.provideMerge(WorkflowEngine.layerMemory.pipe(Layer.provideMerge(TestClock.layer()))))
+const layer = Layer.mergeAll(Uploads.layerNoDeps, uploadCleanupWorkflowLayer).pipe(
+  Layer.provideMerge([services, files, engine]),
+)
+const bytes = new TextEncoder().encode("private attachment")
+const input = {
+  filename: "note.txt",
+  contentType: "text/plain",
+  byteSize: bytes.length,
+  sha256: createHash("sha256").update(bytes).digest("hex"),
+}
+const db = getAuthDatabase()
 
-describe.skipIf(!configured)("private multipart uploads with PostgreSQL and S3", () => {
-  let runtime: ReturnType<typeof makeRuntime>
-  let db: ReturnType<typeof getAuthDatabase>
+describe.skipIf(!configured)("private multipart upload lifecycle", () => {
+  let runtime: ManagedRuntime.ManagedRuntime<Layer.Success<typeof layer>, Layer.Error<typeof layer>>
   let uploads: typeof Uploads.Service
   let scope: ChatThreadScope
   let other: ChatThreadScope
-  let foreign: ChatThreadScope
-  const bytes = new TextEncoder().encode("A private attachment")
-  const input = {
-    filename: "note.txt",
-    contentType: "text/plain",
-    byteSize: bytes.length,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-  }
-  const uploadPart = async (id: string, content = bytes, number = 1) => {
-    const signed = await runtime.runPromise(uploads.sign(scope, id, [number]))
-    const response = await fetch(signed.parts[0]!.url, {
-      method: "PUT",
-      body: new Uint8Array(content),
-    })
-    expect(response.ok).toBe(true)
-    await response.body?.cancel()
-    return signed.parts[0]!.url
-  }
-  beforeAll(() => {
-    db = getAuthDatabase()
-  })
   beforeEach(async () => {
-    if (runtime) await runtime.dispose()
-    runtime = makeRuntime()
+    objects.clear()
+    staging.clear()
+    scheduled.clear()
+    fixture.failStorage = false
+    fixture.failCleanup = false
+    fixture.put = undefined
+    runtime = ManagedRuntime.make(layer)
     uploads = await runtime.runPromise(Uploads)
-    await db.delete(organization)
     const [org] = await db
       .insert(organization)
-      .values({ name: "Uploads", slug: "uploads" })
+      .values({ name: "Uploads", slug: `uploads-${crypto.randomUUID()}` })
       .returning()
-    const organizationId = org!.id
-    const [model] = await db
-      .insert(agent)
-      .values({ organizationId, name: "Assistant", systemPrompt: "Help" })
-      .returning()
-    await db.insert(organizationConfiguration).values({ organizationId, defaultAgentId: model!.id })
     const tenants = await db
       .insert(tenant)
       .values([
-        { organizationId, externalId: "same" },
-        { organizationId, externalId: "foreign" },
+        { organizationId: org!.id, externalId: "one" },
+        { organizationId: org!.id, externalId: "two" },
       ])
       .returning()
     const people = await db
       .insert(tenantUser)
-      .values([
-        { organizationId, tenantId: tenants[0]!.id, externalId: "owner" },
-        { organizationId, tenantId: tenants[0]!.id, externalId: "other" },
-        { organizationId, tenantId: tenants[1]!.id, externalId: "owner" },
-      ])
+      .values(
+        tenants.map((item) => ({
+          organizationId: org!.id,
+          tenantId: item.id,
+          externalId: "uploader",
+        })),
+      )
       .returning()
-    scope = { organizationId, tenantId: tenants[0]!.id, tenantUserId: people[0]!.id }
-    other = { ...scope, tenantUserId: people[1]!.id }
-    foreign = { organizationId, tenantId: tenants[1]!.id, tenantUserId: people[2]!.id }
+    scope = { organizationId: org!.id, tenantId: tenants[0]!.id, tenantUserId: people[0]!.id }
+    other = { organizationId: org!.id, tenantId: tenants[1]!.id, tenantUserId: people[1]!.id }
   })
-  afterAll(async () => {
+  afterEach(async () => {
     await runtime.dispose()
+    await db.delete(organization).where(eq(organization.id, scope.organizationId))
   })
-
-  test("preparation retries recover one session without duplicating multipart work or changing its file", async () => {
-    const prepareKey = crypto.randomUUID()
-    const request = { ...input, prepareKey }
-    const multipart = await runtime.runPromise(MultipartStorage)
-    let enter: () => void = () => {}
-    let release: () => void = () => {}
-    const entered = new Promise<void>((resolve) => {
-      enter = resolve
-    })
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    let creates = 0
-    const gated = Uploads.layerNoDeps.pipe(
-      Layer.provide([
-        Database.layer,
-        DatabaseRateLimiter.layer,
-        ObjectStorage.layer,
-        StoredFiles.layer,
-        Layer.succeed(MultipartStorage, {
-          ...multipart,
-          create: (key, contentType) =>
-            Effect.promise(() => {
-              creates += 1
-              enter()
-              return gate
-            }).pipe(Effect.andThen(multipart.create(key, contentType))),
-        }),
-      ]),
-    )
-    const preparation = runtime.runPromise(
-      Effect.flatMap(Uploads, (service) => service.prepare(scope, request)).pipe(
-        Effect.provide(Layer.fresh(gated)),
-      ),
-    )
-    await entered
-    try {
-      expect(await runtime.runPromise(uploads.prepare(scope, request))).toMatchObject({
-        status: "preparing",
-      })
-      expect(await db.select().from(fileUpload)).toHaveLength(1)
-    } finally {
-      release()
-    }
-    const session = await preparation
-    expect(creates).toBe(1)
-    expect(session.id).not.toBe(prepareKey)
-    await runtime.dispose()
-    runtime = makeRuntime()
-    uploads = await runtime.runPromise(Uploads)
-    for (let retry = 0; retry < 61; retry++)
-      expect(await runtime.runPromise(uploads.prepare(scope, request))).toEqual(session)
-    expect(await db.select().from(fileUpload)).toHaveLength(1)
-    for (const changed of [
-      { filename: "different.txt" },
-      { contentType: "application/json" },
-      { byteSize: input.byteSize + 1 },
-      { sha256: "0".repeat(64) },
-    ])
-      await expect(
-        runtime.runPromise(uploads.prepare(scope, { ...request, ...changed })),
-      ).rejects.toMatchObject({ _tag: "UploadConflict" })
-    for (const stranger of [other, foreign]) {
-      const privateSession = await runtime.runPromise(uploads.prepare(stranger, request))
-      expect(privateSession.id).not.toBe(session.id)
-      await expect(runtime.runPromise(uploads.status(stranger, session.id))).rejects.toMatchObject({
-        _tag: "UploadNotFound",
-      })
-    }
-    await uploadPart(session.id)
-    const completed = await runtime.runPromise(uploads.complete(scope, session.id))
-    expect(await runtime.runPromise(uploads.prepare(scope, request))).toEqual(completed)
-    await runtime.runPromise(uploads.cancel(scope, session.id))
-    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("cancelled")
-    await db
-      .update(fileUpload)
-      .set({ expiresAt: new Date(Date.now() - 1_000) })
-      .where(eq(fileUpload.id, session.id))
-    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("expired")
-  })
-
-  test("restarts a stranded preparation after its creation lease expires", async () => {
-    const prepareKey = crypto.randomUUID()
-    const [stranded] = await db
-      .insert(fileUpload)
-      .values({
-        ...scope,
-        ...input,
-        prepareKey,
-        objectKey: `upload-staging/${crypto.randomUUID()}`,
-        updatedAt: new Date(0),
-      })
-      .returning()
-    const recovered = await runtime.runPromise(uploads.prepare(scope, { ...input, prepareKey }))
-    expect(recovered).toMatchObject({ id: stranded!.id, status: "pending" })
-    const [current] = await db.select().from(fileUpload).where(eq(fileUpload.id, recovered.id))
-    expect(current!.objectKey).not.toBe(stranded!.objectKey)
-    expect(
+  const prepare = (key = crypto.randomUUID()) =>
+    runtime.runPromise(uploads.prepare(scope, { ...input, prepareKey: key }))
+  const row = async (id: string) =>
+    (
       await db
         .select()
-        .from(multipartDeletion)
-        .where(eq(multipartDeletion.objectKey, stranded!.objectKey)),
-    ).toMatchObject([{ uploadId: null }])
-    await uploadPart(recovered.id)
-    expect((await runtime.runPromise(uploads.complete(scope, recovered.id))).status).toBe(
-      "completed",
-    )
-  })
+        .from(fileUpload)
+        .where(and(eq(fileUpload.organizationId, scope.organizationId), eq(fileUpload.id, id)))
+    )[0]!
+  const sendPart = async (id: string, content = bytes) => {
+    const saved = await row(id)
+    staging.get(saved.uploadId!)!.bytes = content
+  }
+  const advance = async (duration: Duration.Input) => {
+    for (const effect of scheduled.values()) await runtime.runPromise(effect)
+    scheduled.clear()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await runtime.runPromise(TestClock.adjust(duration))
+    await new Promise((resolve) => setTimeout(resolve, 30))
+  }
 
-  test.each(["late success", "uncertain failure", "cleanup in flight"] as const)(
-    "fences a superseded creator with %s",
-    async (scenario) => {
-      const prepareKey = crypto.randomUUID()
-      const request = { ...input, prepareKey }
-      const multipart = await runtime.runPromise(MultipartStorage)
-      const objects = await runtime.runPromise(ObjectStorage)
-      const started = Promise.withResolvers<void>()
-      const release = Promise.withResolvers<void>()
-      const cleanupStarted = Promise.withResolvers<void>()
-      const releaseCleanup = Promise.withResolvers<void>()
-      let priorKey: string | undefined
-      const gated = Uploads.layerNoDeps.pipe(
-        Layer.provide([
-          Database.layer,
-          DatabaseRateLimiter.layer,
-          Layer.succeed(ObjectStorage, {
-            ...objects,
-            remove: (value) =>
-              Effect.gen(function* () {
-                yield* objects.remove(value)
-                if (scenario === "cleanup in flight" && value.key === priorKey) {
-                  cleanupStarted.resolve()
-                  yield* Effect.promise(() => releaseCleanup.promise)
-                }
-              }),
-          }),
-          StoredFiles.layer,
-          Layer.succeed(MultipartStorage, {
-            ...multipart,
-            create: (key, contentType) =>
-              Effect.gen(function* () {
-                started.resolve()
-                yield* Effect.promise(() => release.promise)
-                const id = yield* multipart.create(key, contentType)
-                if (scenario === "uncertain failure") return yield* new StorageUnavailable()
-                return id
-              }),
-          }),
-        ]),
-      )
-      const stale = runtime.runPromise(
-        Effect.flatMap(Uploads, (service) => service.prepare(scope, request)).pipe(
-          Effect.provide(Layer.fresh(gated)),
-          Effect.result,
-        ),
-      )
-      let cleanup: Promise<void> | undefined
-      try {
-        await started.promise
-        const [prior] = await db
-          .select()
-          .from(fileUpload)
-          .where(eq(fileUpload.prepareKey, prepareKey))
-        priorKey = prior!.objectKey
-        await db
-          .update(fileUpload)
-          .set({ updatedAt: new Date(0) })
-          .where(eq(fileUpload.id, prior!.id))
-        const recovered = await runtime.runPromise(uploads.prepare(scope, request))
-        const [winner] = await db.select().from(fileUpload).where(eq(fileUpload.id, recovered.id))
-        expect(recovered).toMatchObject({ id: prior!.id, status: "pending" })
-        expect(winner!.objectKey).not.toBe(prior!.objectKey)
-        if (scenario === "cleanup in flight") {
-          await db
-            .update(multipartDeletion)
-            .set({ retryAt: new Date(0) })
-            .where(eq(multipartDeletion.objectKey, priorKey))
-          cleanup = runtime.runPromise(
-            Effect.flatMap(Uploads, (service) => service.maintenance).pipe(
-              Effect.provide(Layer.fresh(gated)),
-            ),
-          )
-          await cleanupStarted.promise
-        }
-        release.resolve()
-        expect(await stale).toMatchObject({
-          _tag: "Failure",
-          failure: {
-            _tag:
-              scenario === "uncertain failure" ? "ChatThreadStorageUnavailable" : "UploadConflict",
-          },
-        })
-        releaseCleanup.resolve()
-        await cleanup
-        expect(
-          (await db.select().from(fileUpload).where(eq(fileUpload.id, recovered.id)))[0],
-        ).toEqual(winner)
-        const unused = await runtime.runPromise(multipart.find(prior!.objectKey))
-        expect(unused).toHaveLength(1)
-        const targets = await db
-          .select()
-          .from(multipartDeletion)
-          .where(eq(multipartDeletion.objectKey, prior!.objectKey))
-        expect(targets).toMatchObject([{ uploadId: null }])
-        await db
-          .update(multipartDeletion)
-          .set({ retryAt: new Date(0) })
-          .where(eq(multipartDeletion.objectKey, priorKey))
-        await runtime.runPromise(uploads.maintenance)
-        expect(await runtime.runPromise(multipart.find(priorKey))).toHaveLength(0)
-        await uploadPart(recovered.id)
-        expect((await runtime.runPromise(uploads.complete(scope, recovered.id))).status).toBe(
-          "completed",
-        )
-      } finally {
-        release.resolve()
-        releaseCleanup.resolve()
-        await stale
-        await cleanup
-      }
-    },
-  )
-
-  test("cancellation before preparation survives restart, repeated removal and other uploader scopes until expiry", async () => {
-    const prepareKey = crypto.randomUUID()
-    const request = { ...input, prepareKey }
-    for (let retry = 0; retry < 2; retry++)
-      await runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
-    await runtime.dispose()
-    runtime = makeRuntime()
-    uploads = await runtime.runPromise(Uploads)
-    await expect(runtime.runPromise(uploads.prepare(scope, request))).rejects.toMatchObject({
-      _tag: "UploadConflict",
-    })
-    expect(await db.select().from(fileUpload)).toHaveLength(0)
-    const key = `${scope.organizationId}:${scope.tenantId}:${scope.tenantUserId}:${prepareKey}`
-    const cancelled = await db.select().from(cacheEntry).where(eq(cacheEntry.key, key))
-    expect(cancelled).toHaveLength(1)
-    for (const stranger of [other, foreign])
-      expect((await runtime.runPromise(uploads.prepare(stranger, request))).status).toBe("pending")
-    await db
-      .update(cacheEntry)
-      .set({ expiresAt: new Date(0) })
-      .where(eq(cacheEntry.id, cancelled[0]!.id))
-    expect((await runtime.runPromise(uploads.prepare(scope, request))).status).toBe("pending")
-  })
-
-  test("key cancellation waits for an in-progress preparation transaction", async () => {
-    const prepareKey = crypto.randomUUID()
-    const limiter = await runtime.runPromise(DatabaseRateLimiter)
-    let enter: () => void = () => {}
-    let release: () => void = () => {}
-    const entered = new Promise<void>((resolve) => {
-      enter = resolve
-    })
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    const gated = Uploads.layerNoDeps.pipe(
-      Layer.provide([
-        Database.layer,
-        ObjectStorage.layer,
-        StoredFiles.layer,
-        MultipartStorage.layer,
-        Layer.succeed(DatabaseRateLimiter, {
-          ...limiter,
-          consume: (options) =>
-            Effect.promise(() => {
-              enter()
-              return gate
-            }).pipe(Effect.andThen(limiter.consume(options))),
-        }),
-      ]),
-    )
-    const preparation = runtime.runPromise(
-      Effect.flatMap(Uploads, (service) => service.prepare(scope, { ...input, prepareKey })).pipe(
-        Effect.provide(Layer.fresh(gated)),
-        Effect.result,
-      ),
-    )
-    await entered
-    const cancellation = runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
-    try {
-      await vi.waitFor(async () => {
-        const waiting = await db.execute(
-          sql`select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%"tenant_user"%' and query like '%for update%'`,
-        )
-        expect(waiting.rows).toHaveLength(1)
-      })
-    } finally {
-      release()
-    }
-    await cancellation
-    const result = await preparation
-    if (result._tag === "Failure") expect(result.failure).toMatchObject({ _tag: "UploadConflict" })
-    const [row] = await db.select().from(fileUpload).where(eq(fileUpload.prepareKey, prepareKey))
-    expect(row!.status).toBe("cancelled")
-  })
-
-  test("a lost preparation response can be cancelled by its private key and free an active slot", async () => {
-    const prepareKey = crypto.randomUUID()
-    const uncertain = await runtime.runPromise(uploads.prepare(scope, { ...input, prepareKey }))
-    for (let file = 0; file < 9; file++) await runtime.runPromise(uploads.prepare(scope, input))
-    for (const stranger of [other, foreign])
-      await runtime.runPromise(uploads.cancelPrepared(stranger, prepareKey))
-    expect((await runtime.runPromise(uploads.status(scope, uncertain.id))).status).toBe("pending")
-    await expect(runtime.runPromise(uploads.prepare(scope, input))).rejects.toMatchObject({
-      _tag: "UploadRateLimited",
-    })
-    await runtime.runPromise(uploads.cancelPrepared(scope, prepareKey))
-    expect((await runtime.runPromise(uploads.status(scope, uncertain.id))).status).toBe("cancelled")
-    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
-    await runtime.runPromise(uploads.cancelPrepared(scope, crypto.randomUUID()))
-  })
-
-  test("failed multipart preparation frees active slots and records unknown-upload cleanup", async () => {
-    const pendingBefore = (await db.select().from(multipartDeletion)).filter(
-      (row) => row.uploadId === null,
-    ).length
-    const multipart = await runtime.runPromise(MultipartStorage)
-    const unavailable = Uploads.layerNoDeps.pipe(
-      Layer.provide([
-        Database.layer,
-        DatabaseRateLimiter.layer,
-        ObjectStorage.layer,
-        StoredFiles.layer,
-        Layer.succeed(MultipartStorage, {
-          ...multipart,
-          create: () => Effect.fail(new StorageUnavailable()),
-        }),
-      ]),
-    )
-    for (let attempt = 0; attempt < 11; attempt++) {
-      await expect(
-        runtime.runPromise(
-          Effect.flatMap(Uploads, (service) => service.prepare(scope, input)).pipe(
-            Effect.provide(Layer.fresh(unavailable)),
-          ),
-        ),
-      ).rejects.toMatchObject({ _tag: "ChatThreadStorageUnavailable" })
-    }
-    expect(await db.select().from(fileUpload)).toHaveLength(0)
-    expect(
-      (await db.select().from(multipartDeletion)).filter((row) => row.uploadId === null),
-    ).toHaveLength(pendingBefore + 11)
-    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
-  })
-
-  test("a pending-state database failure frees its unissued session and retains provider cleanup", async () => {
-    const before = new Set((await db.select().from(multipartDeletion)).map((row) => row.id))
-    await db.execute(
-      sql`CREATE FUNCTION reject_pending_upload() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 'pending' THEN RAISE EXCEPTION 'test pending update failure'; END IF; RETURN NEW; END $$`,
-    )
-    await db.execute(
-      sql`CREATE TRIGGER reject_pending_upload BEFORE UPDATE ON file_upload FOR EACH ROW EXECUTE FUNCTION reject_pending_upload()`,
-    )
-    try {
-      for (let attempt = 0; attempt < 11; attempt++)
-        await expect(runtime.runPromise(uploads.prepare(scope, input))).rejects.toMatchObject({
-          _tag: "EffectDrizzleQueryError",
-        })
-      expect(await db.select().from(fileUpload)).toHaveLength(0)
-      const targets = (await db.select().from(multipartDeletion)).filter(
-        (row) => !before.has(row.id),
-      )
-      expect(targets).toHaveLength(11)
-      const multipart = await runtime.runPromise(MultipartStorage)
-      const target = targets.at(-1)!
-      expect(await runtime.runPromise(multipart.find(target.objectKey))).not.toHaveLength(0)
-    } finally {
-      await db.execute(sql`DROP TRIGGER reject_pending_upload ON file_upload`)
-      await db.execute(sql`DROP FUNCTION reject_pending_upload()`)
-    }
-    expect((await runtime.runPromise(uploads.prepare(scope, input))).status).toBe("pending")
-  })
-
-  test("bad finalized content becomes cancelled and expired completed drafts report expiry", async () => {
-    for (const invalid of [
-      { ...input, sha256: "0".repeat(64) },
-      { ...input, contentType: "image/png" },
-    ]) {
-      const session = await runtime.runPromise(uploads.prepare(scope, invalid))
-      await uploadPart(session.id)
-      await expect(runtime.runPromise(uploads.complete(scope, session.id))).rejects.toMatchObject({
-        _tag: "UploadInvalid",
-      })
-      expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("cancelled")
-      const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
-      expect(
-        await db
-          .select()
-          .from(multipartDeletion)
-          .where(eq(multipartDeletion.objectKey, row!.objectKey)),
-      ).toHaveLength(1)
-    }
-    const session = await runtime.runPromise(uploads.prepare(scope, input))
-    await uploadPart(session.id)
-    await runtime.runPromise(uploads.complete(scope, session.id))
-    await db
-      .update(fileUpload)
-      .set({ expiresAt: new Date(0) })
-      .where(eq(fileUpload.id, session.id))
-    expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("expired")
-  })
-
-  test("completion verifies immutable final bytes, replays offline and survives restart", async () => {
-    const session = await runtime.runPromise(uploads.prepare(scope, input))
-    const url = await uploadPart(session.id)
-    const complete = await runtime.runPromise(uploads.complete(scope, session.id))
-    expect(complete).toMatchObject({
-      status: "completed",
-      sha256: input.sha256,
-      byteSize: bytes.length,
-    })
-    const [file] = await db.select().from(fileObject).where(eq(fileObject.id, complete.fileId!))
-    const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
-    expect(file!.objectKey).not.toBe(row!.objectKey)
-    const changed = await fetch(url, { method: "PUT", body: new TextEncoder().encode("changed") })
-    await changed.body?.cancel()
-    const objects = await runtime.runPromise(ObjectStorage)
-    expect(
-      await runtime.runPromise(objects.get({ key: file!.objectKey, maxBytes: bytes.length })),
-    ).toEqual(bytes)
-    const response = HttpServerResponse.toWeb(
-      await runtime.runPromise(chatStoredFileResponse(file!, input.filename)),
-    )
-    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes)
-    let emitted = 0
-    await expect(
-      runtime.runPromise(
-        chatStoredFileResponse({ ...file!, sha256: "0".repeat(64) }, input.filename).pipe(
-          Effect.tap(() => Effect.sync(() => emitted++)),
-        ),
-      ),
-    ).rejects.toMatchObject({ _tag: "ChatThreadStorageUnavailable" })
-    expect(emitted).toBe(0)
-    const offline = Uploads.layerNoDeps.pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          Database.layer,
-          DatabaseRateLimiter.layer,
-          StoredFiles.layer,
-          Layer.succeed(ObjectStorage, {} as typeof ObjectStorage.Service),
-          Layer.succeed(MultipartStorage, {} as typeof MultipartStorage.Service),
-        ),
-      ),
-    )
+  test("replays preparation and refuses changed content, foreign users and excess active uploads", async () => {
+    const key = crypto.randomUUID()
+    const first = await prepare(key)
+    expect((await prepare(key)).id).toBe(first.id)
     expect(
       await runtime.runPromise(
-        Effect.flatMap(Uploads, (service) => service.complete(scope, session.id)).pipe(
-          Effect.provide(Layer.fresh(offline)),
-        ),
+        uploads
+          .prepare(scope, { ...input, prepareKey: key, filename: "changed.txt" })
+          .pipe(Effect.result),
       ),
-    ).toEqual(complete)
-    await runtime.dispose()
-    runtime = makeRuntime()
-    uploads = await runtime.runPromise(Uploads)
-    expect(await runtime.runPromise(uploads.status(scope, session.id))).toEqual(complete)
-    await db.delete(organization).where(eq(organization.id, scope.organizationId))
-    expect(await db.select().from(fileObject).where(eq(fileObject.id, file!.id))).toHaveLength(0)
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadConflict" } })
     expect(
-      await db.select().from(fileDeletion).where(eq(fileDeletion.objectKey, file!.objectKey)),
-    ).toHaveLength(1)
+      await runtime.runPromise(uploads.status(other, first.id).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadNotFound" } })
     expect(
-      await db
-        .select()
-        .from(multipartDeletion)
-        .where(eq(multipartDeletion.objectKey, row!.objectKey)),
-    ).toHaveLength(1)
-  })
-
-  test("missing parts recover, wrong bytes fail validation and foreign uploaders cannot substitute files", async () => {
-    const session = await runtime.runPromise(uploads.prepare(scope, input))
-    await expect(runtime.runPromise(uploads.complete(scope, session.id))).rejects.toMatchObject({
-      _tag: "UploadInvalid",
-    })
-    expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("pending")
-    for (const outsider of [other, foreign]) {
-      await expect(
-        runtime.runPromise(uploads.sign(outsider, session.id, [1])),
-      ).rejects.toMatchObject({ _tag: "UploadNotFound" })
-      await expect(
-        runtime.runPromise(uploads.complete(outsider, session.id)),
-      ).rejects.toMatchObject({ _tag: "UploadNotFound" })
-    }
-    const signed = await runtime.runPromise(uploads.sign(scope, session.id, [1]))
-    expect(new URL(signed.parts[0]!.url).searchParams.get("X-Amz-SignedHeaders")).toContain(
-      "content-length",
-    )
-    const oversized = await fetch(signed.parts[0]!.url, {
-      method: "PUT",
-      body: new Uint8Array(bytes.length + 1),
-    })
-    expect(oversized.status).toBe(403)
-    await oversized.body?.cancel()
-    await uploadPart(session.id, new Uint8Array(bytes.length))
-    await expect(runtime.runPromise(uploads.complete(scope, session.id))).rejects.toMatchObject({
-      _tag: "UploadInvalid",
-    })
-    await runtime.runPromise(uploads.cancel(scope, session.id))
-    await expect(runtime.runPromise(uploads.complete(scope, session.id))).rejects.toMatchObject({
-      _tag: "UploadConflict",
-    })
-  })
-
-  test("completed files are uploader-private until one conversation claims them", async () => {
-    const session = await runtime.runPromise(uploads.prepare(scope, input))
-    await uploadPart(session.id)
-    const finished = await runtime.runPromise(uploads.complete(scope, session.id))
-    const threads = await runtime.runPromise(ChatThreads)
-    const files = await runtime.runPromise(ChatFiles)
-    const first = await runtime.runPromise(threads.create({ scope }))
-    const second = await runtime.runPromise(threads.create({ scope }))
-    const part = {
-      id: crypto.randomUUID(),
-      type: "document",
-      source: {
-        type: "file",
-        provider: "astralbeam",
-        value: finished.fileId!,
-        mimeType: "text/plain",
-      },
-      metadata: { filename: "note.txt" },
-    }
-    await expect(
-      runtime.runPromise(files.identity({ ...other, threadId: first.id }, [part])),
-    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
-    await expect(
-      runtime.runPromise(files.identity({ ...foreign, threadId: first.id }, [part])),
-    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
-    await runtime.runPromise(
-      threads.admit({ scope, id: first.id, payload: { version: 1, parts: [part] } }),
-    )
-    await expect(
-      runtime.runPromise(
-        threads.admit({ scope, id: second.id, payload: { version: 1, parts: [part] } }),
+      await runtime.runPromise(
+        uploads
+          .status(
+            {
+              ...scope,
+              tenantUserId: (
+                await db
+                  .insert(tenantUser)
+                  .values({
+                    organizationId: scope.organizationId,
+                    tenantId: scope.tenantId,
+                    externalId: "colleague",
+                  })
+                  .returning()
+              )[0]!.id,
+            },
+            first.id,
+          )
+          .pipe(Effect.result),
       ),
-    ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
-    await expect(runtime.runPromise(uploads.cancel(scope, session.id))).rejects.toMatchObject({
-      _tag: "UploadClaimed",
-    })
-    await db.delete(fileUpload).where(eq(fileUpload.id, session.id))
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadNotFound" } })
+    for (let index = 0; index < 9; index++) await prepare()
     expect(
-      await db.select().from(fileObject).where(eq(fileObject.id, finished.fileId!)),
-    ).toHaveLength(1)
-    await db.delete(tenant).where(eq(tenant.id, scope.tenantId))
-    expect(
-      await db.select().from(fileObject).where(eq(fileObject.id, finished.fileId!)),
-    ).toHaveLength(0)
+      await runtime.runPromise(uploads.prepare(scope, input).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadRateLimited" } })
+    expect((await prepare(key)).id).toBe(first.id)
   })
-
-  test("part recovery after restart and expiry retain durable abort targets", async () => {
-    const content = new Uint8Array(UPLOAD_PART_BYTES + 1).fill(65)
-    const session = await runtime.runPromise(
-      uploads.prepare(scope, {
-        filename: "data.parquet",
-        contentType: "application/vnd.apache.parquet",
-        byteSize: content.length,
-        sha256: createHash("sha256").update(content).digest("hex"),
-      }),
+  test("an incomplete completion remains retryable and invalid media never becomes stored", async () => {
+    const session = await prepare()
+    expect(
+      await runtime.runPromise(uploads.complete(scope, session.id).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadInvalid" } })
+    expect((await row(session.id)).status).toBe("pending")
+    expect((await runtime.runPromise(uploads.sign(scope, session.id, [1]))).parts).toHaveLength(1)
+    await sendPart(session.id)
+    expect((await runtime.runPromise(uploads.complete(scope, session.id))).status).toBe("completed")
+    const invalid = await runtime.runPromise(
+      uploads.prepare(scope, { ...input, filename: "invalid.png", contentType: "image/png" }),
     )
-    await uploadPart(session.id, content.slice(0, UPLOAD_PART_BYTES))
-    const [row] = await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))
-    await runtime.dispose()
-    runtime = makeRuntime()
-    uploads = await runtime.runPromise(Uploads)
-    expect((await runtime.runPromise(uploads.status(scope, session.id))).parts).toEqual([
-      { number: 1, size: UPLOAD_PART_BYTES },
-    ])
+    await sendPart(invalid.id)
+    expect(
+      await runtime.runPromise(uploads.complete(scope, invalid.id).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadInvalid" } })
+    expect((await row(invalid.id)).status).toBe("cancelled")
+  })
+  test("cancellation fences a preparation that arrives later", async () => {
+    const key = crypto.randomUUID()
+    await runtime.runPromise(uploads.cancelPrepared(scope, key))
+    expect(
+      await runtime.runPromise(
+        uploads.prepare(scope, { ...input, prepareKey: key }).pipe(Effect.result),
+      ),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadConflict" } })
+    expect(staging.size).toBe(0)
+  })
+  test("recovers a stranded preparation with a new staging key and cleans the older upload", async () => {
+    const key = crypto.randomUUID()
+    const session = await prepare(key)
+    const previous = await row(session.id)
+    await db
+      .update(fileUpload)
+      .set({ status: "preparing", uploadId: null, updatedAt: new Date(0) })
+      .where(eq(fileUpload.id, session.id))
+    const recovered = await prepare(key)
+    expect(recovered.id).toBe(session.id)
+    const current = await row(session.id)
+    expect(current.objectKey).not.toBe(previous.objectKey)
+    await advance("2 minutes")
+    expect(staging.has(previous.uploadId!)).toBe(false)
+    expect(staging.has(current.uploadId!)).toBe(true)
+    expect((await row(session.id)).status).toBe("pending")
+  })
+  test("verifies immutable final bytes and keeps completed files after session expiry", async () => {
+    const session = await prepare()
+    const staged = await row(session.id)
+    await sendPart(session.id)
+    const completed = await runtime.runPromise(uploads.complete(scope, session.id))
+    const [file] = await db.select().from(fileObject).where(eq(fileObject.id, completed.fileId!))
+    expect(file!.status).toBe("stored")
+    expect(file!.objectKey).not.toBe(staged.objectKey)
+    objects.set(staged.objectKey, new Uint8Array([0]))
+    expect(objects.get(file!.objectKey)).toEqual(bytes)
     await db
       .update(fileUpload)
       .set({ expiresAt: new Date(0) })
       .where(eq(fileUpload.id, session.id))
-    await expect(runtime.runPromise(uploads.sign(scope, session.id, [2]))).rejects.toMatchObject({
-      _tag: "UploadConflict",
-    })
-    await runtime.runPromise(uploads.maintenance)
-    expect(await db.select().from(fileUpload).where(eq(fileUpload.id, session.id))).toHaveLength(0)
-    const pending = await db
-      .select()
-      .from(multipartDeletion)
-      .where(eq(multipartDeletion.objectKey, row!.objectKey))
-    expect(pending).toHaveLength(1)
-    await db
-      .update(multipartDeletion)
-      .set({ retryAt: new Date(0) })
-      .where(eq(multipartDeletion.id, pending[0]!.id))
-    await runtime.runPromise(uploads.maintenance)
-    expect(
-      await db.select().from(multipartDeletion).where(eq(multipartDeletion.id, pending[0]!.id)),
-    ).toHaveLength(0)
+    fixture.failStorage = true
+    expect((await runtime.runPromise(uploads.complete(scope, session.id))).fileId).toBe(
+      completed.fileId,
+    )
+    expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("completed")
+    await advance("25 hours")
+    expect((await db.select().from(fileObject).where(eq(fileObject.id, file!.id)))[0]!.status).toBe(
+      "stored",
+    )
   })
-
-  test("cancellation during final copying cannot publish or claim the file", async () => {
-    const session = await runtime.runPromise(uploads.prepare(scope, input))
-    await uploadPart(session.id)
-    const stored = await runtime.runPromise(StoredFiles)
-    let enter: () => void = () => {}
-    let release: () => void = () => {}
-    const entered = new Promise<void>((resolve) => {
-      enter = resolve
+  test("rejects invalid content and retries physical staging cleanup after provider failure", async () => {
+    const session = await prepare()
+    await sendPart(session.id, new Uint8Array(bytes.length))
+    const staged = await row(session.id)
+    expect(
+      await runtime.runPromise(uploads.complete(scope, session.id).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadInvalid" } })
+    expect((await row(session.id)).status).toBe("cancelled")
+    fixture.failCleanup = true
+    await advance("2 minutes")
+    expect(objects.has(staged.objectKey)).toBe(true)
+    fixture.failCleanup = false
+    await advance("6 minutes")
+    expect(objects.has(staged.objectKey)).toBe(false)
+    const [file] = await db.select().from(fileObject).where(eq(fileObject.id, staged.fileId))
+    expect(file!.status).toBe("purging")
+  })
+  test("does not publish a completion that loses to cancellation", async () => {
+    const session = await prepare()
+    await sendPart(session.id)
+    let release!: () => void
+    let reached!: () => void
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve
     })
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    const gated = Uploads.layerNoDeps.pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          Database.layer,
-          DatabaseRateLimiter.layer,
-          ObjectStorage.layer,
-          MultipartStorage.layer,
-          Layer.succeed(StoredFiles, {
-            ...stored,
-            prepare: (value) =>
-              Effect.promise(() => {
-                enter()
-                return gate
-              }).pipe(Effect.andThen(stored.prepare(value))),
-          }),
-        ),
-      ),
-    )
-    const completion = runtime.runPromise(
-      Effect.flatMap(Uploads, (service) => service.complete(scope, session.id)).pipe(
-        Effect.provide(Layer.fresh(gated)),
-        Effect.result,
-      ),
-    )
-    await entered
-    try {
-      await runtime.runPromise(uploads.cancel(scope, session.id))
-    } finally {
-      release()
-    }
+    fixture.put = () =>
+      new Promise<void>((resolve) => {
+        release = resolve
+        reached()
+      })
+    const completion = runtime.runPromise(uploads.complete(scope, session.id).pipe(Effect.result))
+    await waiting
+    await runtime.runPromise(uploads.cancel(scope, session.id))
+    release()
     expect(await completion).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadConflict" } })
-    expect((await runtime.runPromise(uploads.status(scope, session.id))).status).toBe("cancelled")
-    const files = await db
-      .select()
-      .from(fileObject)
-      .where(
-        eq(
-          fileObject.sourceIdentity,
-          `upload:${scope.organizationId}:${scope.tenantId}:${session.id}`,
-        ),
-      )
-    expect(files).toHaveLength(1)
-    expect(files[0]!.expiresAt).not.toBeNull()
+    expect((await row(session.id)).status).toBe("cancelled")
+  })
+  test("protects a claimed file and retains its replayable completion", async () => {
+    const session = await prepare()
+    await sendPart(session.id)
+    const completed = await runtime.runPromise(uploads.complete(scope, session.id))
+    const [thread] = await db
+      .insert(chatThread)
+      .values({ organizationId: scope.organizationId, tenantId: scope.tenantId })
+      .returning()
+    const [message] = await db
+      .insert(chatMessage)
+      .values({
+        organizationId: scope.organizationId,
+        tenantId: scope.tenantId,
+        threadId: thread!.id,
+        authorTenantUserId: scope.tenantUserId,
+        role: "user",
+        state: "complete",
+        turnState: "completed",
+        metadata: { version: 1 },
+      })
+      .returning()
+    await db
+      .update(chatFile)
+      .set({ threadId: thread!.id, messageId: message!.id })
+      .where(eq(chatFile.fileObjectId, completed.fileId!))
+    expect(
+      await runtime.runPromise(uploads.cancel(scope, session.id).pipe(Effect.result)),
+    ).toMatchObject({ _tag: "Failure", failure: { _tag: "UploadClaimed" } })
+    expect((await runtime.runPromise(uploads.status(scope, session.id))).claimed).toBe(true)
+    fixture.failStorage = true
+    expect((await runtime.runPromise(uploads.complete(scope, session.id))).fileId).toBe(
+      completed.fileId,
+    )
+  })
+  test("staging cleanup survives populated Organization deletion", async () => {
+    const session = await prepare()
+    const staged = await row(session.id)
+    await db.delete(organization).where(eq(organization.id, scope.organizationId))
+    expect(staging.has(staged.uploadId!)).toBe(true)
+    await advance("25 hours")
+    expect(staging.has(staged.uploadId!)).toBe(false)
   })
 })

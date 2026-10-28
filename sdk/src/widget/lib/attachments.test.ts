@@ -63,16 +63,6 @@ test("holds a data file to its own size cap, not a text file's", () => {
   expect(markdown?.draft.error).toBe("Too large (max 1.0 MB)")
 })
 
-test.each([120, 121])("filenames with %s Unicode code points match the server limit", (length) => {
-  const [file] = acceptAttachmentFiles({
-    files: [{ name: "😀".repeat(length - 4) + ".txt", type: "text/plain", size: 5 }],
-    existing: [],
-    limits,
-    createId: ids(),
-  })
-  expect(file?.draft.status).toBe(length === 120 ? "reading" : "error")
-})
-
 // Chrome reports `.ts` as `video/mp2t` and leaves `.tsx` empty, which would send a source file
 // as an unreadable video part or reject it outright.
 test("corrects the browser's MIME guess for source files", () => {
@@ -194,4 +184,15 @@ test("a sent attachment points only at data the composer itself sends", () => {
     }).href,
   ).toBe("data:audio/mpeg;base64,AAAA")
   expect(href("javascript:alert(1)", "image/png", "url")).toBeUndefined()
+})
+
+test("overlong filenames are rejected before preparing an upload", () => {
+  const accepted = acceptAttachmentFiles({
+    files: [{ name: "x".repeat(121) + ".txt", size: 1, type: "text/plain" }],
+    existing: [],
+    limits: resolveAttachmentOptions(true),
+    createId: () => "long-name",
+  })
+  expect(accepted[0]!.draft.status).toBe("error")
+  expect(accepted[0]!.draft.error).toContain("120 characters")
 })

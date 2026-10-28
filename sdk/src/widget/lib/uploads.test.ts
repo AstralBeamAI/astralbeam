@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest"
 import { createAstralBeamChat, type AstralBeamChatCore } from "../../core/session.ts"
 import type { DraftAttachment } from "./types.ts"
-import { storedThreadAttachments } from "./drafts.ts"
+import { storedThreadAttachments } from "../../lib/drafts.ts"
 import { readAttachmentData } from "./attachments.ts"
 import {
   attachmentUploadState,
@@ -301,11 +301,13 @@ test.each([true, false])(
   },
 )
 
-test("failed preparation metadata keeps local and inline files removable offline", async () => {
+test("failed recovery metadata uses the server upload and keeps local files removable offline", async () => {
   const prepareUpload = vi.fn()
   const cancelPreparedUpload = vi.fn(() => Promise.reject(new Error("Offline")))
   const uploads = attachmentUploadState({
     prepareUpload,
+    uploadAttachment: () =>
+      Promise.resolve({ fileId: "fallback-file", mimeType: "text/plain", byteSize: 5 }),
     cancelPreparedUpload,
     captureAuthentication,
   } as unknown as AstralBeamChatCore)
@@ -320,12 +322,12 @@ test("failed preparation metadata keeps local and inline files removable offline
     persist: () => Promise.reject(new Error("Draft storage unavailable")),
   })
   await vi.waitFor(() => expect(state.status).toBe("ready"))
-  expect(state.data).toBe("aGVsbG8=")
+  expect(state.fileId).toBe("fallback-file")
   expect(state.prepareAttempted).toBe(false)
   expect(prepareUpload).not.toHaveBeenCalled()
   for (const file of [
     state,
-    { ...draft, status: "ready" as const, data: "aGVsbG8=" },
+    { ...draft, status: "ready" as const, fileId: "fallback-file" },
     { ...draft, kind: undefined },
   ])
     await removeAttachmentUpload({ uploads, draft: file })
@@ -552,6 +554,7 @@ test.each(["identity", "api", "remove identity", "refresh", "prepare identity", 
           persist,
         })
       }
+      await vi.waitFor(() => expect(chat.getState().capabilitiesLoading).toBe(false))
       const error = await result
       expect(error instanceof Error ? error.message : undefined).toBe(
         change === "refresh" || uploading ? undefined : "Authentication changed",
@@ -579,7 +582,7 @@ test.each(["identity", "api", "remove identity", "refresh", "prepare identity", 
   },
 )
 
-test("partial discard retains resources and clears only captured files after successful cleanup", async () => {
+test("partial discard records completed removals and retains failed and uncaptured files", async () => {
   const first = { ...draft, id: "first", sessionId: "first-session" }
   const second = { ...draft, id: "second", sessionId: "second-session" }
   const newer = { ...draft, id: "newer", sessionId: "newer-session" }
@@ -614,14 +617,13 @@ test("partial discard retains resources and clears only captured files after suc
       attachmentIds: new Set([first.id, second.id]),
     })
   await expect(discard()).rejects.toThrow("Offline")
-  expect(stored).toEqual([first, second, newer])
-  expect(uploads.files.size).toBe(3)
-  expect(uploads.previews.size).toBe(3)
-  expect(
-    [first, second].every((file) => uploads.tasks.get(file.id)?.controller.signal.aborted),
-  ).toBe(true)
+  expect(stored).toEqual([second, newer])
+  expect(uploads.files.size).toBe(2)
+  expect(uploads.previews.size).toBe(2)
+  expect(uploads.tasks.get(first.id)).toBeUndefined()
+  expect(uploads.tasks.get(second.id)?.controller.signal.aborted).toBe(true)
   expect(uploads.tasks.get(newer.id)?.controller.signal.aborted).toBe(false)
-  expect(revokeObjectURL).not.toHaveBeenCalled()
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:first")
   await discard()
   expect(stored).toEqual([newer])
   expect([...uploads.files.keys()]).toEqual([newer.id])
@@ -630,7 +632,7 @@ test("partial discard retains resources and clears only captured files after suc
   expect(revokeObjectURL).toHaveBeenCalledTimes(2)
 })
 
-test("discard retains targets when authentication changes before the IndexedDB update", async () => {
+test("discard retains targets when authentication changes before the persisted draft update", async () => {
   let authorized = true
   let stored: DraftAttachment[] = [{ ...draft, prepareAttempted: true }]
   const cancelPreparedUpload = vi.fn(() => Promise.resolve())
@@ -703,4 +705,25 @@ test("removal and discard retain transitioning targets and leave claimed files t
   expect(cancelUpload).toHaveBeenCalledTimes(4)
   expect(vi.mocked(storedThreadAttachments).mock.calls.at(-1)?.[0]).toHaveProperty("update")
   disposeAttachmentUploads(uploads)
+})
+
+test("a recovered claimed file cannot be sent again and remains removable", async () => {
+  const chat = {
+    captureAuthentication,
+    getUpload: () =>
+      Promise.resolve({ ...session, status: "completed", file_id: "verified", claimed: true }),
+    cancelUpload: () =>
+      Promise.reject(
+        Object.assign(new Error("Claimed"), {
+          name: "AstralBeamApiError",
+          status: 409,
+          body: { type: "urn:file-upload:claimed" },
+        }),
+      ),
+  } as unknown as AstralBeamChatCore
+  const ready = { ...draft, status: "ready" as const, fileId: "verified", sessionId: "upload" }
+  const recovered = await recoverAttachmentUpload({ chat, draft: ready })
+  expect(recovered.status).toBe("error")
+  expect(recovered.fileId).toBeUndefined()
+  await removeAttachmentUpload({ uploads: attachmentUploadState(chat), draft: recovered })
 })

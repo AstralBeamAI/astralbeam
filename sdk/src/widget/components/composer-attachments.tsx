@@ -1,4 +1,4 @@
-import { EyeIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, PauseIcon, EyeIcon, XIcon } from "@phosphor-icons/react"
 import { useEffect, useRef } from "react"
 import {
   Attachment,
@@ -16,6 +16,9 @@ import { TooltipButton } from "./tooltip-button.tsx"
 // Reading and uploading share the chip's busy state until the server returns a file reference.
 const CHIP_STATE = {
   reading: "uploading",
+  uploading: "uploading",
+  paused: "idle",
+  reselect: "idle",
   ready: "done",
   error: "error",
 } as const
@@ -27,9 +30,13 @@ const CHIP_STATE = {
 export function ComposerAttachments({
   attachments,
   onRemove,
+  onPause,
+  onRetry,
 }: {
   attachments: readonly DraftAttachment[]
   onRemove: (id: string) => void
+  onPause?: ((id: string) => void) | undefined
+  onRetry?: ((id: string) => void) | undefined
 }) {
   const group = useRef<HTMLDivElement>(null)
   const newest = attachments.at(-1)?.id
@@ -83,10 +90,41 @@ export function ComposerAttachments({
               <AttachmentContent>
                 <AttachmentTitle title={attachment.name}>{attachment.name}</AttachmentTitle>
                 <AttachmentDescription>
-                  {attachment.error ?? formatByteSize(attachment.size)}
+                  {attachment.error ??
+                    (attachment.status === "uploading"
+                      ? `Uploading ${Math.round((attachment.progress ?? 0) * 100)}%`
+                      : attachment.status === "paused"
+                        ? "Upload paused"
+                        : attachment.status === "reselect"
+                          ? "Choose the original file to resume"
+                          : formatByteSize(attachment.size))}
                 </AttachmentDescription>
               </AttachmentContent>
               <AttachmentActions>
+                {onPause && attachment.status === "uploading" && (
+                  <TooltipButton
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    tooltip="Pause upload"
+                    onClick={() => onPause(attachment.id)}
+                  >
+                    <PauseIcon />
+                  </TooltipButton>
+                )}
+                {onRetry &&
+                  ["paused", "reselect", "error"].includes(attachment.status) &&
+                  (attachment.sessionId || attachment.sha256) && (
+                    <TooltipButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      tooltip="Resume upload"
+                      onClick={() => onRetry(attachment.id)}
+                    >
+                      <ArrowClockwiseIcon />
+                    </TooltipButton>
+                  )}
                 <TooltipButton
                   data-slot="attachment-action"
                   type="button"

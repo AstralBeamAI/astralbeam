@@ -1,6 +1,6 @@
 import { Schema } from "effect"
-import { ApiUuidSchema } from "../../tenants/schemas.ts"
-import { NonEmptyStringSchema } from "../../schemas.ts"
+import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { NonEmptyStringSchema } from "@/lib/schemas"
 
 export const UPLOAD_PART_BYTES = 8 * 1024 * 1024
 export const UploadInputSchema = Schema.Struct({
@@ -30,6 +30,7 @@ export const UploadInputSchema = Schema.Struct({
   .annotate({ identifier: "ChatUploadInput" })
 export const UploadStatusSchema = Schema.Struct({
   id: ApiUuidSchema,
+  claimed: Schema.optionalKey(Schema.Boolean),
   status: Schema.Literals([
     "preparing",
     "pending",

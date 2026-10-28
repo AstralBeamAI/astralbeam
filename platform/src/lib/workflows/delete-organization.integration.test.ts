@@ -780,9 +780,6 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     })
     await createDeletionChat({ ...deleted, tenantId: anotherTenant!.id })
     const keptChat = await createDeletionChat({ ...kept, id: deletedChat.threadId })
-    const prepareKey = crypto.randomUUID()
-    const deletedCancellationKey = `${deletedId}:${deleted.tenantId}:${deletedChat.authorId}:${prepareKey}`
-    const keptCancellationKey = `${keptId}:${kept.tenantId}:${keptChat.authorId}:${prepareKey}`
     await db.insert(cacheEntry).values([
       {
         namespace: "chat",
@@ -793,16 +790,6 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         namespace: "chat",
         key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted`,
         value: "kept input",
-      },
-      {
-        namespace: "UploadCancellation/v1",
-        key: deletedCancellationKey,
-        value: "true",
-      },
-      {
-        namespace: "UploadCancellation/v1",
-        key: keptCancellationKey,
-        value: "true",
       },
     ])
 
@@ -830,11 +817,9 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await deletion
     }
 
-    expect(
-      new Set((await db.select({ key: cacheEntry.key }).from(cacheEntry)).map(({ key }) => key)),
-    ).toEqual(
-      new Set([`${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted`, keptCancellationKey]),
-    )
+    expect(await db.select({ key: cacheEntry.key }).from(cacheEntry)).toEqual([
+      { key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted` },
+    ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
     const tenantUsers = await db

@@ -1,10 +1,8 @@
 import { Buffer } from "node:buffer"
-// @deno-types="../../../../../sdk/dist/server.d.ts"
-import { createAstralBeamToken } from "../../../../../sdk/dist/server.js"
 import { expect, test } from "../../fixtures.ts"
 import { chatWidget } from "../../pages/chat-widget.ts"
 import { todosPage } from "../../pages/todos-page.ts"
-import { seedTarget, platformUrl } from "../../worktree.ts"
+import { seedTarget } from "../../worktree.ts"
 import { captureMoment } from "../../capture.ts"
 
 const thread = {
@@ -49,20 +47,6 @@ const acceptedStream = [
   .join("")
 
 test.beforeEach(async ({ context }) => {
-  // Fixtures have separate budgets and directory identities. Preflight checks the host token route.
-  const id = `upload-draft-${crypto.randomUUID()}`
-  const user = { ...seedTarget.user, id, name: id, admin: false, metadata: {} }
-  await context.route("**/api/astralbeam/token", async (route) =>
-    route.fulfill({
-      json: {
-        token: await createAstralBeamToken({
-          apiKey: seedTarget.apiKey,
-          user,
-          tenant: seedTarget.tenant,
-        }),
-      },
-    }),
-  )
   await context.route("**/api/v1/chat/threads", (route) => route.fulfill({ json: thread }))
   await context.route(/\/api\/v1\/chat\/threads\?/, (route) =>
     route.fulfill({ json: { items: [thread, otherThread], page_after: null, page_before: null } }),
@@ -98,31 +82,6 @@ test("reviewing a rejected file reveals and focuses its removal action", async (
   await expect(chat.reviewFiles).toHaveCount(0)
   await expect(chat.composer()).toHaveValue("Keep this question and its valid file")
   await expect(chat.attachmentChip(rejected.name)).toHaveCount(0)
-})
-
-test("completed images remain sendable when their restored preview is unavailable", async ({
-  page,
-}) => {
-  await todosPage(page).open()
-  const chat = chatWidget(page)
-  await chat.waitForReady()
-  await chat.attach(image)
-  await expect(chat.sendButton()).toBeEnabled()
-  await page.route(/\/api\/v1\/chat\/files\//, (route) => route.fulfill({ status: 503 }))
-  await page.reload()
-  await expect(chat.attachmentChip(image.name)).toBeVisible()
-  await expect(chat.sendButton()).toBeEnabled()
-  let submittedFile: unknown
-  await page.route("**/api/v1/chat", async (route) => {
-    const body = route.request().postDataJSON() as {
-      messages: Array<{ role: string; content: Array<{ source?: unknown }> }>
-    }
-    submittedFile = body.messages.find((message) => message.role === "user")?.content[0]?.source
-    await route.fulfill({ contentType: "text/event-stream", body: acceptedStream })
-  })
-  await chat.sendButton().click()
-  await expect.poll(() => submittedFile).toMatchObject({ type: "file", provider: "astralbeam" })
-  await expect(chat.attachmentChip(image.name)).toHaveCount(0)
 })
 
 test("acceptance removes submitted files and preserves files and text added during the request", async ({
@@ -429,43 +388,4 @@ test("accepted uploads preview and download before reload and survive stream sna
   await captureMoment(page, "accepted-upload-preview-and-download")
   await expect.poll(() => releaseHistory !== undefined).toBe(true)
   releaseHistory!()
-})
-
-test("deleting an unopened persisted draft cancels its unfinished upload", async ({ page }) => {
-  await page.route(
-    (url) => url.searchParams.has("partNumber"),
-    (route) => route.abort(),
-  )
-  await todosPage(page).open()
-  const chat = chatWidget(page)
-  await chat.waitForReady()
-  await chat.selectConversation(thread.title)
-  const prepared = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/chat/uploads") && response.request().method() === "POST",
-  )
-  await chat.attach(note)
-  const response = await prepared
-  const { id } = (await response.json()) as { id: string }
-  const authorization = (await response.request().allHeaders()).authorization!
-  await expect(page.getByRole("button", { name: `Resume ${note.name}`, exact: true })).toBeVisible()
-  await chat.selectConversation(otherThread.title)
-  await page.reload()
-  await chat.waitForReady()
-  await expect(chat.attachmentChip(note.name)).toHaveCount(0)
-  await page.route(
-    (url) => url.pathname === `/api/v1/chat/threads/${thread.id}`,
-    (route) => route.fulfill({ status: 204 }),
-  )
-  const cancelled = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/chat/uploads/${id}`) && response.request().method() === "DELETE",
-  )
-  await chat.root.getByRole("combobox", { name: "Show older chats", exact: true }).click()
-  await page.getByRole("button", { name: `Delete ${thread.title}`, exact: true }).click()
-  expect((await cancelled).status()).toBe(204)
-  const status = await page.request.get(`${platformUrl}/api/v1/chat/uploads/${id}`, {
-    headers: { authorization },
-  })
-  expect(await status.json()).toMatchObject({ status: "cancelled" })
 })

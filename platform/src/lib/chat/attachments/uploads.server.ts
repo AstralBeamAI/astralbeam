@@ -1,26 +1,23 @@
-import { and, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm"
+import { createHash } from "node:crypto"
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
+import type { WorkflowEngine } from "effect/workflow"
 
-import { Database } from "@/db/database.server"
-import { mapDatabaseErrors } from "@/db/lib/sqlstate.server"
-import { DatabaseRateLimiter, hashedRateLimitKey } from "@/db/lib/rate-limiter.server"
-import {
-  cacheEntry,
-  chatFile,
-  fileObject,
-  fileUpload,
-  multipartDeletion,
-  tenantUser,
-} from "@/db/schema.server"
+import { Database } from "@/db/database"
+import { mapDatabaseErrors } from "@/db/lib/sqlstate"
+import { cacheEntry } from "@/db/schema/cache"
+import { chatFile } from "@/db/schema/chat"
+import { fileObject } from "@/db/schema/files"
+import { fileUpload } from "@/db/schema/uploads"
+import { tenantUser } from "@/db/schema/organizations"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
 import { MultipartStorage, type StoragePart } from "@/lib/storage/multipart-storage.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
-import { fileSha256 } from "@/lib/storage/images"
-import { ChatThreadStorageUnavailable } from "../threads/errors"
+import uploadCleanup from "@/lib/workflows/upload-cleanup"
+import { ChatFileUnavailable } from "../threads/errors"
 import type { ChatThreadScope } from "../threads/schemas"
-import { normalizeChatAttachments, normalizeMimeType } from "./attachments.server"
+import { normalizeChatAttachments } from "./attachments"
 import { UPLOAD_PART_BYTES, type UploadStatus, type UploadInputSchema } from "./upload-schemas"
-
 import {
   UploadNotFound,
   UploadConflict,
@@ -35,10 +32,10 @@ type UploadFailure =
   | UploadClaimed
   | UploadInvalid
   | UploadRateLimited
-  | ChatThreadStorageUnavailable
+  | ChatFileUnavailable
 type UploadRow = typeof fileUpload.$inferSelect
-const uploadCancellationKey = (scope: ChatThreadScope, prepareKey: string) =>
-  `${scope.organizationId}:${scope.tenantId}:${scope.tenantUserId}:${prepareKey}`
+const uploadCancellationKey = (scope: ChatThreadScope, key: string) =>
+  `${scope.organizationId}:${scope.tenantId}:${scope.tenantUserId}:${key}`
 const uploadOwnerWhere = (scope: ChatThreadScope, id?: string) =>
   and(
     eq(fileUpload.organizationId, scope.organizationId),
@@ -46,20 +43,24 @@ const uploadOwnerWhere = (scope: ChatThreadScope, id?: string) =>
     eq(fileUpload.tenantUserId, scope.tenantUserId),
     id ? eq(fileUpload.id, id) : undefined,
   )
-function uploadResource(row: UploadRow, parts: readonly StoragePart[] = []): UploadStatus {
-  return {
-    id: row.id,
-    status: row.expiresAt.getTime() <= Date.now() ? "expired" : row.status,
-    filename: row.filename,
-    contentType: row.contentType,
-    byteSize: row.byteSize,
-    sha256: row.sha256,
-    expiresAt: row.expiresAt.toISOString(),
-    partSize: UPLOAD_PART_BYTES,
-    parts: parts.map(({ number, size }) => ({ number, size })),
-    fileId: row.fileId,
-  }
-}
+const uploadResource = (
+  row: UploadRow,
+  parts: readonly StoragePart[] = [],
+  claimed = false,
+): UploadStatus => ({
+  id: row.id,
+  claimed,
+  status:
+    row.status !== "completed" && row.expiresAt.getTime() <= Date.now() ? "expired" : row.status,
+  filename: row.filename,
+  contentType: row.contentType,
+  byteSize: row.byteSize,
+  sha256: row.sha256,
+  expiresAt: row.expiresAt.toISOString(),
+  partSize: UPLOAD_PART_BYTES,
+  parts: parts.map(({ number, size }) => ({ number, size })),
+  fileId: row.status === "completed" ? row.fileId : null,
+})
 
 export class Uploads extends Context.Service<
   Uploads,
@@ -67,7 +68,7 @@ export class Uploads extends Context.Service<
     readonly prepare: (
       scope: ChatThreadScope,
       input: typeof UploadInputSchema.Type,
-    ) => Effect.Effect<UploadStatus, UploadFailure>
+    ) => Effect.Effect<UploadStatus, UploadFailure, WorkflowEngine.WorkflowEngine>
     readonly status: (
       scope: ChatThreadScope,
       id: string,
@@ -80,13 +81,15 @@ export class Uploads extends Context.Service<
     readonly complete: (
       scope: ChatThreadScope,
       id: string,
-    ) => Effect.Effect<UploadStatus, UploadFailure>
-    readonly cancel: (scope: ChatThreadScope, id: string) => Effect.Effect<void, UploadFailure>
+    ) => Effect.Effect<UploadStatus, UploadFailure, WorkflowEngine.WorkflowEngine>
+    readonly cancel: (
+      scope: ChatThreadScope,
+      id: string,
+    ) => Effect.Effect<void, UploadFailure, WorkflowEngine.WorkflowEngine>
     readonly cancelPrepared: (
       scope: ChatThreadScope,
-      prepareKey: string,
-    ) => Effect.Effect<void, UploadFailure>
-    readonly maintenance: Effect.Effect<void>
+      key: string,
+    ) => Effect.Effect<void, UploadFailure, WorkflowEngine.WorkflowEngine>
   }
 >()("astralbeam/chat/Uploads") {
   static readonly layerNoDeps = Layer.effect(
@@ -96,9 +99,8 @@ export class Uploads extends Context.Service<
       const objects = yield* ObjectStorage
       const multipart = yield* MultipartStorage
       const stored = yield* StoredFiles
-      const limiter = yield* DatabaseRateLimiter
-      const safeStorage = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        effect.pipe(Effect.mapError(() => new ChatThreadStorageUnavailable()))
+      const storage = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        effect.pipe(Effect.mapError(() => new ChatFileUnavailable()))
       const owned = Effect.fnUntraced(function* (scope: ChatThreadScope, id: string) {
         const [row] = yield* db
           .select()
@@ -108,8 +110,6 @@ export class Uploads extends Context.Service<
         if (!row) return yield* new UploadNotFound()
         return row
       })
-      const active = (row: UploadRow) =>
-        row.expiresAt.getTime() > Date.now() && row.uploadId !== null
       const lockUploader = Effect.fnUntraced(function* (scope: ChatThreadScope) {
         const [person] = yield* db
           .select({ id: tenantUser.id })
@@ -124,77 +124,94 @@ export class Uploads extends Context.Service<
           .for("update")
         if (!person) return yield* new UploadNotFound()
       })
+      const cleanup = (row: UploadRow, cancel = false) =>
+        uploadCleanup.execute(
+          {
+            organizationId: row.organizationId,
+            tenantId: row.tenantId,
+            uploadId: row.id,
+            objectKey: row.objectKey,
+            deadline: cancel ? 0 : row.expiresAt.getTime(),
+          },
+          { discard: true },
+        )
+      const active = (row: UploadRow) =>
+        row.expiresAt.getTime() > Date.now() && row.uploadId !== null
       const status = Effect.fn("Uploads.status")(function* (scope: ChatThreadScope, id: string) {
         const row = yield* owned(scope, id)
-        const parts =
-          active(row) && row.status === "pending"
-            ? yield* safeStorage(multipart.list(row.objectKey, row.uploadId!))
+        const [claim] =
+          row.status === "completed"
+            ? yield* db
+                .select({ messageId: chatFile.messageId })
+                .from(chatFile)
+                .where(
+                  and(
+                    eq(chatFile.organizationId, scope.organizationId),
+                    eq(chatFile.tenantId, scope.tenantId),
+                    eq(chatFile.fileObjectId, row.fileId),
+                  ),
+                )
+                .pipe(mapDatabaseErrors())
             : []
-        return uploadResource(row, parts)
+        return uploadResource(
+          row,
+          active(row) && row.status === "pending"
+            ? yield* storage(multipart.list(row.objectKey, row.uploadId!))
+            : [],
+          claim?.messageId != null,
+        )
       })
       const prepare = Effect.fn("Uploads.prepare")(function* (
         scope: ChatThreadScope,
         input: typeof UploadInputSchema.Type,
       ) {
-        const contentType = normalizeMimeType(input.contentType)
-        if (!/^[\w.+-]+\/[\w.+-]+$/.test(contentType) || contentType.length > 255)
-          return yield* new UploadInvalid()
+        const contentType = input.contentType.split(";")[0]!.trim().toLowerCase()
+        if (!/^[\w.+-]+\/[\w.+-]+$/.test(contentType)) return yield* new UploadInvalid()
         const prepared = yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
               yield* lockUploader(scope)
-              if (input.prepareKey) {
-                const [existing] = yield* tx
-                  .select()
-                  .from(fileUpload)
-                  .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, input.prepareKey)))
-                if (existing) {
-                  if (
-                    existing.filename !== input.filename ||
-                    existing.contentType !== contentType ||
-                    existing.byteSize !== input.byteSize ||
-                    existing.sha256 !== input.sha256
-                  )
-                    return yield* new UploadConflict()
-                  if (existing.status === "preparing") {
-                    const [claimed] = yield* tx
-                      .update(fileUpload)
-                      .set({
-                        objectKey: `upload-staging/${crypto.randomUUID()}`,
-                        updatedAt: sql`now()`,
-                      })
-                      .where(
-                        and(
-                          uploadOwnerWhere(scope, existing.id),
-                          eq(fileUpload.status, "preparing"),
-                          eq(fileUpload.objectKey, existing.objectKey),
-                          // Multipart creation is bounded to 30 seconds. A new key fences late creators.
-                          lte(fileUpload.updatedAt, sql`now() - interval '30 seconds'`),
-                          gt(fileUpload.expiresAt, sql`now()`),
-                        ),
-                      )
-                      .returning()
-                    if (claimed) {
-                      yield* tx
-                        .insert(multipartDeletion)
-                        .values({ objectKey: existing.objectKey })
-                        .onConflictDoNothing()
-                      return { row: claimed, created: true }
-                    }
-                  }
-                  return { row: existing, created: false }
-                }
-                const [cancelled] = yield* tx
-                  .select({ id: cacheEntry.id })
-                  .from(cacheEntry)
-                  .where(
-                    and(
-                      eq(cacheEntry.namespace, "UploadCancellation/v1"),
-                      eq(cacheEntry.key, uploadCancellationKey(scope, input.prepareKey)),
-                      gt(cacheEntry.expiresAt, sql`statement_timestamp()`),
-                    ),
-                  )
-                if (cancelled) return yield* new UploadConflict()
+              const prepareKey = input.prepareKey ?? crypto.randomUUID()
+              const [cancelled] = yield* tx
+                .select({ id: cacheEntry.id })
+                .from(cacheEntry)
+                .where(
+                  and(
+                    eq(cacheEntry.namespace, "UploadCancellation/v1"),
+                    eq(cacheEntry.key, uploadCancellationKey(scope, prepareKey)),
+                    gt(cacheEntry.expiresAt, sql`now()`),
+                  ),
+                )
+              if (cancelled) return yield* new UploadConflict()
+              const [existing] = yield* tx
+                .select()
+                .from(fileUpload)
+                .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, prepareKey)))
+              if (existing) {
+                if (
+                  existing.filename !== input.filename ||
+                  existing.contentType !== contentType ||
+                  existing.byteSize !== input.byteSize ||
+                  existing.sha256 !== input.sha256
+                )
+                  return yield* new UploadConflict()
+                if (
+                  existing.status !== "preparing" ||
+                  existing.expiresAt.getTime() <= Date.now() ||
+                  existing.updatedAt.getTime() > Date.now() - 30_000
+                )
+                  return { row: existing, create: false }
+                const [recovered] = yield* tx
+                  .update(fileUpload)
+                  .set({
+                    objectKey: `upload-staging/${crypto.randomUUID()}`,
+                    updatedAt: sql`now()`,
+                  })
+                  .where(uploadOwnerWhere(scope, existing.id))
+                  .returning()
+                yield* cleanup(existing, true)
+                yield* cleanup(recovered!)
+                return { row: recovered!, create: true }
               }
               const pending = yield* tx
                 .select({ id: fileUpload.id })
@@ -208,88 +225,61 @@ export class Uploads extends Context.Service<
                 )
                 .limit(10)
               if (pending.length >= 10) return yield* new UploadRateLimited()
-              yield* limiter
-                .consume({
-                  key: hashedRateLimitKey("file-upload", [
-                    scope.organizationId,
-                    scope.tenantId,
-                    scope.tenantUserId,
-                  ]),
-                  limit: 60,
-                  window: "1 hour",
+              const [file] = yield* tx
+                .insert(fileObject)
+                .values({
+                  organizationId: scope.organizationId,
+                  objectKey: `files/${scope.organizationId}/${crypto.randomUUID()}`,
+                  contentType,
+                  byteSize: input.byteSize,
+                  sha256: input.sha256,
                 })
-                .pipe(
-                  Effect.mapError((error) =>
-                    error.reason._tag === "RateLimitExceeded"
-                      ? new UploadRateLimited()
-                      : new ChatThreadStorageUnavailable(),
-                  ),
-                )
-              const [created] = yield* tx
+                .returning()
+              yield* tx.insert(chatFile).values({
+                organizationId: scope.organizationId,
+                tenantId: scope.tenantId,
+                uploaderTenantUserId: scope.tenantUserId,
+                fileObjectId: file!.id,
+              })
+              const [row] = yield* tx
                 .insert(fileUpload)
                 .values({
                   ...scope,
-                  prepareKey: input.prepareKey,
+                  prepareKey,
+                  fileId: file!.id,
+                  objectKey: `upload-staging/${crypto.randomUUID()}`,
                   filename: input.filename,
                   contentType,
                   byteSize: input.byteSize,
                   sha256: input.sha256,
-                  objectKey: `upload-staging/${crypto.randomUUID()}`,
                 })
                 .returning()
-              return { row: created!, created: true }
+              yield* cleanup(row!)
+              return { row: row!, create: true }
             }),
           )
           .pipe(mapDatabaseErrors())
-        const { row } = prepared
-        if (!prepared.created) return uploadResource(row)
-        let uploadId: string | undefined
-        return yield* Effect.gen(function* () {
-          uploadId = yield* safeStorage(multipart.create(row.objectKey, row.contentType))
-          const [pending] = yield* db
-            .update(fileUpload)
-            .set({ uploadId, status: "pending" })
-            .where(
-              and(
-                uploadOwnerWhere(scope, row.id),
-                eq(fileUpload.status, "preparing"),
-                eq(fileUpload.objectKey, row.objectKey),
-                gt(fileUpload.expiresAt, sql`now()`),
-              ),
-            )
-            .returning()
-            .pipe(mapDatabaseErrors())
-          if (!pending) return yield* new UploadConflict()
-          return uploadResource(pending)
-        }).pipe(
-          Effect.onError(() =>
-            Effect.gen(function* () {
-              yield* db
-                .delete(fileUpload)
-                .where(
-                  and(
-                    uploadOwnerWhere(scope, row.id),
-                    eq(fileUpload.status, "preparing"),
-                    eq(fileUpload.objectKey, row.objectKey),
-                  ),
-                )
-                .pipe(mapDatabaseErrors())
-              // A fresh deletion ID prevents an older cleanup from acknowledging a late creation.
-              yield* db
-                .execute(sql`
-                insert into ${multipartDeletion} (object_key, upload_id)
-                select ${row.objectKey}, ${uploadId ?? null} where not exists (
-                  select 1 from ${fileUpload} where ${fileUpload.objectKey} = ${row.objectKey}
-                    and ${fileUpload.status} in ('preparing', 'pending', 'completing')
-                    and ${fileUpload.expiresAt} > now()
-                ) on conflict (object_key) do update set
-                  id = uuidv7(), upload_id = null, updated_at = now(),
-                  retry_at = least(${multipartDeletion.retryAt}, now() + interval '1 minute')
-              `)
-                .pipe(mapDatabaseErrors())
-            }),
-          ),
-        )
+        if (!prepared.create) return uploadResource(prepared.row)
+        const row = prepared.row
+        const uploadId = yield* storage(multipart.create(row.objectKey, row.contentType))
+        const [pending] = yield* db
+          .update(fileUpload)
+          .set({ uploadId, status: "pending" })
+          .where(
+            and(
+              uploadOwnerWhere(scope, row.id),
+              eq(fileUpload.status, "preparing"),
+              eq(fileUpload.objectKey, row.objectKey),
+              gt(fileUpload.expiresAt, sql`now()`),
+            ),
+          )
+          .returning()
+          .pipe(mapDatabaseErrors())
+        if (!pending) {
+          yield* cleanup(row, true)
+          return yield* new UploadConflict()
+        }
+        return uploadResource(pending)
       })
       const sign = Effect.fn("Uploads.sign")(function* (
         scope: ChatThreadScope,
@@ -303,11 +293,11 @@ export class Uploads extends Context.Service<
           !numbers.length ||
           numbers.length > 4 ||
           new Set(numbers).size !== numbers.length ||
-          numbers.some((number) => !Number.isInteger(number) || number < 1 || number > count)
+          numbers.some((n) => !Number.isInteger(n) || n < 1 || n > count)
         )
           return yield* new UploadInvalid()
         const parts = yield* Effect.forEach(numbers, (number) =>
-          safeStorage(
+          storage(
             multipart.sign(
               row.objectKey,
               row.uploadId!,
@@ -318,19 +308,68 @@ export class Uploads extends Context.Service<
         )
         return { parts }
       })
+      const cancel = Effect.fn("Uploads.cancel")(function* (scope: ChatThreadScope, id: string) {
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* lockUploader(scope)
+              const row = yield* owned(scope, id)
+              yield* tx
+                .select()
+                .from(fileObject)
+                .where(
+                  and(
+                    eq(fileObject.organizationId, scope.organizationId),
+                    eq(fileObject.id, row.fileId),
+                  ),
+                )
+                .for("update")
+              const [claimed] = yield* tx
+                .select({ messageId: chatFile.messageId })
+                .from(chatFile)
+                .where(
+                  and(
+                    eq(chatFile.organizationId, scope.organizationId),
+                    eq(chatFile.tenantId, scope.tenantId),
+                    eq(chatFile.fileObjectId, row.fileId),
+                  ),
+                )
+              if (claimed?.messageId) return yield* new UploadClaimed()
+              yield* tx
+                .update(fileUpload)
+                .set({ status: "cancelled" })
+                .where(uploadOwnerWhere(scope, id))
+              yield* tx
+                .delete(chatFile)
+                .where(
+                  and(
+                    eq(chatFile.organizationId, scope.organizationId),
+                    eq(chatFile.tenantId, scope.tenantId),
+                    eq(chatFile.fileObjectId, row.fileId),
+                    isNull(chatFile.messageId),
+                  ),
+                )
+              yield* tx
+                .update(fileObject)
+                .set({ status: "purging" })
+                .where(
+                  and(
+                    eq(fileObject.organizationId, scope.organizationId),
+                    eq(fileObject.id, row.fileId),
+                  ),
+                )
+              yield* cleanup(row, true)
+            }),
+          )
+          .pipe(mapDatabaseErrors())
+      })
       const completeStaging = Effect.fnUntraced(function* (row: UploadRow) {
         const existing = yield* objects.head({ key: row.objectKey }).pipe(
           Effect.catchTag("StorageObjectMissing", () => Effect.succeed(null)),
-          Effect.mapError(() => new ChatThreadStorageUnavailable()),
+          Effect.mapError(() => new ChatFileUnavailable()),
         )
         if (existing) return
-        const parts = yield* multipart.list(row.objectKey, row.uploadId!).pipe(
-          Effect.catchTag("MultipartMissing", () =>
-            objects.head({ key: row.objectKey }).pipe(Effect.as(null)),
-          ),
-          Effect.mapError(() => new ChatThreadStorageUnavailable()),
-        )
-        if (!parts) return
+        const parts = yield* storage(multipart.list(row.objectKey, row.uploadId!))
         const count = Math.ceil(row.byteSize / UPLOAD_PART_BYTES)
         if (
           parts.length !== count ||
@@ -346,33 +385,24 @@ export class Uploads extends Context.Service<
           Effect.catchTag("MultipartMissing", () =>
             objects.head({ key: row.objectKey }).pipe(Effect.asVoid),
           ),
-          Effect.mapError(() => new ChatThreadStorageUnavailable()),
+          Effect.mapError(() => new ChatFileUnavailable()),
         )
       })
       const complete = Effect.fn("Uploads.complete")(function* (
         scope: ChatThreadScope,
         id: string,
       ) {
-        let row = yield* owned(scope, id)
-        if (row.status === "completed" && row.fileId) return uploadResource(row)
+        const row = yield* owned(scope, id)
+        if (row.status === "completed") return uploadResource(row)
         if (!active(row) || !["pending", "completing"].includes(row.status))
           return yield* new UploadConflict()
-        if (row.status === "pending") {
-          const [claimed] = yield* db
-            .update(fileUpload)
-            .set({ status: "completing" })
-            .where(
-              and(
-                uploadOwnerWhere(scope, id),
-                eq(fileUpload.status, "pending"),
-                gt(fileUpload.expiresAt, sql`now()`),
-              ),
-            )
-            .returning()
-            .pipe(mapDatabaseErrors())
-          row = claimed ?? (yield* owned(scope, id))
-          if (row.status !== "completing") return yield* new UploadConflict()
-        }
+        yield* db
+          .update(fileUpload)
+          .set({ status: "completing" })
+          .where(
+            and(uploadOwnerWhere(scope, id), inArray(fileUpload.status, ["pending", "completing"])),
+          )
+          .pipe(mapDatabaseErrors())
         yield* completeStaging(row).pipe(
           Effect.catchTag("UploadInvalid", (error) =>
             db
@@ -382,13 +412,7 @@ export class Uploads extends Context.Service<
               .pipe(mapDatabaseErrors(), Effect.andThen(Effect.fail(error))),
           ),
         )
-        const bytes = yield* safeStorage(
-          objects.get({ key: row.objectKey, maxBytes: row.byteSize }),
-        )
-        if (bytes.length !== row.byteSize || (yield* fileSha256(bytes)) !== row.sha256) {
-          yield* cancel(scope, id)
-          return yield* new UploadInvalid()
-        }
+        const bytes = yield* storage(objects.get({ key: row.objectKey, maxBytes: row.byteSize }))
         const part = {
           type: row.contentType.startsWith("image/") ? ("image" as const) : ("document" as const),
           source: {
@@ -398,167 +422,102 @@ export class Uploads extends Context.Service<
           },
           metadata: { filename: row.filename },
         }
-        const validated = normalizeChatAttachments([{ role: "user", content: [part] }], {
+        const valid = normalizeChatAttachments([{ role: "user", content: [part] }], {
           sandbox: true,
         })
-        if (validated.attachments.some((attachment) => attachment.result === "rejected")) {
+        if (
+          bytes.length !== row.byteSize ||
+          createHash("sha256").update(bytes).digest("hex") !== row.sha256 ||
+          valid.attachments.some((a) => a.result === "rejected")
+        ) {
           yield* cancel(scope, id)
           return yield* new UploadInvalid()
         }
-        // Signed part URLs can be reused. Final objects always have a different server-only key.
-        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html
-        const file = yield* safeStorage(
-          stored.prepare({
-            bytes,
-            contentType: row.contentType,
-            sourceIdentity: `upload:${row.organizationId}:${row.tenantId}:${row.id}`,
-          }),
-        )
-        const [finished] = yield* db
-          .update(fileUpload)
-          .set({ status: "completed", fileId: file.id })
+        const [file] = yield* db
+          .select()
+          .from(fileObject)
           .where(
-            and(
-              uploadOwnerWhere(scope, id),
-              eq(fileUpload.status, "completing"),
-              gt(fileUpload.expiresAt, sql`now()`),
-            ),
+            and(eq(fileObject.organizationId, scope.organizationId), eq(fileObject.id, row.fileId)),
           )
-          .returning()
           .pipe(mapDatabaseErrors())
-        if (!finished) {
-          const current = yield* owned(scope, id)
-          if (current.status === "completed" && current.fileId === file.id)
-            return uploadResource(current)
-          return yield* new UploadConflict()
-        }
-        yield* db
-          .insert(multipartDeletion)
-          .values({ objectKey: row.objectKey, uploadId: row.uploadId! })
-          .onConflictDoNothing()
-          .pipe(mapDatabaseErrors())
-        yield* Effect.logInfo("File upload completed", {
-          organizationId: scope.organizationId,
-          tenantId: scope.tenantId,
-          uploadId: id,
-          byteSize: row.byteSize,
-        })
-        return uploadResource(finished)
-      })
-      const cancel = Effect.fn("Uploads.cancel")(function* (scope: ChatThreadScope, id: string) {
-        const row = yield* owned(scope, id)
-        yield* db
+        if (!file || file.status === "purging") return yield* new UploadConflict()
+        // Accepted keys never receive browser write grants. https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html
+        yield* storage(objects.put({ key: file.objectKey, bytes, contentType: row.contentType }))
+        yield* storage(stored.read({ file }))
+        return yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
-              if (row.fileId) {
-                yield* tx
-                  .select()
-                  .from(fileObject)
-                  .where(eq(fileObject.id, row.fileId))
-                  .for("update")
-                const [claimed] = yield* tx
-                  .select({ id: chatFile.id })
-                  .from(chatFile)
-                  .where(eq(chatFile.id, row.fileId))
-                if (claimed) return yield* new UploadClaimed()
-              }
-              const [cancelled] = yield* tx
+              const [current] = yield* tx
+                .select()
+                .from(fileObject)
+                .where(
+                  and(
+                    eq(fileObject.organizationId, scope.organizationId),
+                    eq(fileObject.id, row.fileId),
+                  ),
+                )
+                .for("update")
+              if (!current || current.status === "purging") return yield* new UploadConflict()
+              const [finished] = yield* tx
                 .update(fileUpload)
-                .set({ status: "cancelled" })
+                .set({ status: "completed" })
                 .where(
                   and(
                     uploadOwnerWhere(scope, id),
-                    row.fileId ? eq(fileUpload.fileId, row.fileId) : isNull(fileUpload.fileId),
+                    inArray(fileUpload.status, ["completing", "completed"]),
+                    gt(fileUpload.expiresAt, sql`now()`),
                   ),
                 )
                 .returning()
-              if (!cancelled) return yield* new UploadConflict()
-              if (row.fileId) yield* tx.delete(fileObject).where(eq(fileObject.id, row.fileId))
+              if (!finished) return yield* new UploadConflict()
               yield* tx
-                .insert(multipartDeletion)
-                .values({ objectKey: row.objectKey, uploadId: row.uploadId })
-                .onConflictDoNothing()
+                .update(fileObject)
+                .set({ status: "stored" })
+                .where(
+                  and(
+                    eq(fileObject.organizationId, scope.organizationId),
+                    eq(fileObject.id, row.fileId),
+                  ),
+                )
+              yield* cleanup(row, true)
+              return uploadResource(finished)
             }),
           )
           .pipe(mapDatabaseErrors())
       })
       const cancelPrepared = Effect.fn("Uploads.cancelPrepared")(function* (
         scope: ChatThreadScope,
-        prepareKey: string,
+        key: string,
       ) {
         yield* db
           .transaction((tx) =>
             Effect.gen(function* () {
               yield* lockUploader(scope)
+              yield* tx
+                .insert(cacheEntry)
+                .values({
+                  namespace: "UploadCancellation/v1",
+                  key: uploadCancellationKey(scope, key),
+                  value: "true",
+                  expiresAt: sql`now() + interval '24 hours'`,
+                })
+                .onConflictDoUpdate({
+                  target: [cacheEntry.namespace, cacheEntry.key],
+                  set: { expiresAt: sql`now() + interval '24 hours'` },
+                })
               const [row] = yield* tx
-                .select({ id: fileUpload.id })
+                .select()
                 .from(fileUpload)
-                .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, prepareKey)))
+                .where(and(uploadOwnerWhere(scope), eq(fileUpload.prepareKey, key)))
               if (row) yield* cancel(scope, row.id)
-              else
-                yield* tx
-                  .insert(cacheEntry)
-                  .values({
-                    namespace: "UploadCancellation/v1",
-                    key: uploadCancellationKey(scope, prepareKey),
-                    value: "true",
-                    expiresAt: sql`statement_timestamp() + interval '24 hours'`,
-                  })
-                  .onConflictDoUpdate({
-                    target: [cacheEntry.namespace, cacheEntry.key],
-                    set: { expiresAt: sql`statement_timestamp() + interval '24 hours'` },
-                  })
             }),
           )
           .pipe(mapDatabaseErrors())
       })
-      const maintenance = Effect.gen(function* () {
-        yield* db
-          .execute(
-            sql`with expired as materialized (select organization_id, tenant_id, id from file_upload where expires_at <= now() order by expires_at, id limit 1000 for update skip locked) delete from file_upload using expired where (file_upload.organization_id, file_upload.tenant_id, file_upload.id) = (expired.organization_id, expired.tenant_id, expired.id)`,
-          )
-          .pipe(mapDatabaseErrors())
-        const pending = yield* db
-          .select()
-          .from(multipartDeletion)
-          .where(lte(multipartDeletion.retryAt, sql`now()`))
-          .orderBy(multipartDeletion.retryAt)
-          .limit(100)
-          .pipe(mapDatabaseErrors())
-        for (const row of pending)
-          yield* Effect.gen(function* () {
-            const ids = row.uploadId ? [row.uploadId] : yield* multipart.find(row.objectKey)
-            for (const id of ids) yield* multipart.abort(row.objectKey, id)
-            yield* objects.remove({ key: row.objectKey })
-            yield* db.delete(multipartDeletion).where(eq(multipartDeletion.id, row.id))
-          }).pipe(
-            Effect.catch(() =>
-              db
-                .update(multipartDeletion)
-                .set({
-                  attempts: sql`${multipartDeletion.attempts} + 1`,
-                  retryAt: sql`now() + interval '5 minutes'`,
-                })
-                .where(eq(multipartDeletion.id, row.id))
-                .pipe(
-                  Effect.andThen(Effect.logWarning("Multipart cleanup will retry")),
-                  Effect.asVoid,
-                ),
-            ),
-          )
-        if (pending.length)
-          yield* Effect.logInfo("Multipart cleanup processed", { count: pending.length })
-      }).pipe(Effect.catch(() => Effect.logWarning("Upload maintenance will retry")))
-      return Uploads.of({ prepare, status, sign, complete, cancel, cancelPrepared, maintenance })
+      return Uploads.of({ prepare, status, sign, complete, cancel, cancelPrepared })
     }),
   )
   static readonly layer = Uploads.layerNoDeps.pipe(
-    Layer.provide([
-      Database.layer,
-      ObjectStorage.layer,
-      MultipartStorage.layer,
-      StoredFiles.layer,
-      DatabaseRateLimiter.layer,
-    ]),
+    Layer.provide([Database.layer, ObjectStorage.layer, MultipartStorage.layer, StoredFiles.layer]),
   )
 }

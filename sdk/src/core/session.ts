@@ -16,6 +16,14 @@ import {
   type GetThreadAttachmentParams,
   getChatConfig,
   uploadChatFile,
+  prepareChatUpload,
+  getChatUpload,
+  signChatUploadParts,
+  completeChatUpload,
+  cancelChatUpload,
+  cancelPreparedChatUpload,
+  type ChatUploadEncoded,
+  type ChatUploadInputEncoded,
   type UploadedChatFile,
   type ChatHistoryPageEncodedMessagesItem,
   getResolveChatToolResultUrl,
@@ -185,7 +193,8 @@ export interface AstralBeamChatState {
   error: Error | undefined
   auth: ChatAuthenticationState
   /** What the resolved agent grants; the UI should render only that. */
-  capabilities: { attachments: boolean }
+  capabilities: { attachments: boolean; resolvedAgentId?: string; uploads?: { available: boolean } }
+  capabilitiesLoading: boolean
   /** The tool set currently declared to the agent, in declaration order. */
   serverToolTitles?: Readonly<Record<string, string>>
   unavailableMcpConnections?: readonly string[]
@@ -212,9 +221,6 @@ export interface AstralBeamChatCore {
   getOptions: () => Readonly<AstralBeamChatCoreOptions>
   /** @internal Binds one interactive view without transferring session ownership. */
   attachView: (view: ChatView) => { update: (view: ChatView) => void; dispose: () => void }
-      },
-  /** Captures the authenticated scope without invalidating it on a same-identity token refresh. */
-  captureAuthentication: () => () => boolean
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
   /**
@@ -253,10 +259,24 @@ export interface AstralBeamChatCore {
   openThread: (id: string) => Promise<void>
   renameThread: (title: string) => Promise<boolean>
   /** Deletes a listed conversation, the selected one by default; resolves whether it succeeded. */
-  deleteThread: (thread?: ChatThread) => Promise<boolean>
+  deleteThread: (
+    thread?: ChatThread,
+    beforeDelete?: (id: string) => Promise<void>,
+  ) => Promise<boolean>
   refreshThread: () => Promise<void>
   loadOlderMessages: () => Promise<void>
   abandonToolCall: (toolCallId: string) => Promise<void>
+  captureAuthentication: () => () => boolean
+  prepareUpload: (input: ChatUploadInputEncoded, signal?: AbortSignal) => Promise<ChatUploadEncoded>
+  getUpload: (id: string, signal?: AbortSignal) => Promise<ChatUploadEncoded>
+  signUploadParts: (
+    id: string,
+    parts: number[],
+    signal?: AbortSignal,
+  ) => Promise<{ parts: { number: number; url: string }[] }>
+  completeUpload: (id: string, signal?: AbortSignal) => Promise<ChatUploadEncoded>
+  cancelUpload: (id: string, signal?: AbortSignal) => Promise<void>
+  cancelPreparedUpload: (key: string, signal?: AbortSignal) => Promise<void>
   uploadAttachment: (file: {
     data: string | Promise<string>
     filename: string
@@ -293,6 +313,7 @@ export function createAstralBeamChat(
     error: undefined,
     auth: { status: "loading" },
     capabilities: { attachments: true },
+    capabilitiesLoading: true,
     agentTools: [],
     sandboxStatus: undefined,
     usageLimitReached: undefined,
@@ -503,6 +524,33 @@ export function createAstralBeamChat(
     }
   }
 
+  const coreAuthenticationScope = () => {
+    const capturedIdentity = identity
+    const apiUrl = authentication.apiUrl
+    const signal = authentication.session.abortController.signal
+    return () =>
+      capturedIdentity !== undefined &&
+      capturedIdentity === identity &&
+      apiUrl === authentication.apiUrl &&
+      !signal.aborted
+  }
+  const uploadOptions = async (signal?: AbortSignal): Promise<JwtOptions> => {
+    const current = coreAuthenticationScope()
+    const options = await requestOptions(false)
+    const check = () => {
+      if (!current()) throw new DOMException("Authentication changed", "AbortError")
+    }
+    check()
+    return {
+      ...options,
+      signal: AbortSignal.any([options.signal!, ...(signal ? [signal] : [])]),
+      fetchClient: async (input, init) => {
+        check()
+        return options.fetchClient!(input, init)
+      },
+    }
+  }
+
   // Agent capability handshake; fails open for state (the endpoint still enforces its policy).
   // Generation-checked, so a slower response for a superseded agent or API base is dropped
   // instead of overwriting the grant resolved for the current one.
@@ -511,8 +559,12 @@ export function createAstralBeamChat(
   const resolveCapabilities = async () => {
     const generation = ++capabilitiesGeneration
     const selection = selectionGeneration
+    update({
+      capabilitiesLoading: true,
+      capabilities: { attachments: state.capabilities.attachments },
+    })
     if (state.thread?.agentId === null) {
-      update({ capabilities: { attachments: false } })
+      update({ capabilitiesLoading: false, capabilities: { attachments: false } })
       return
     }
     const agentId = state.thread ? state.thread.agentId : live.agentId
@@ -522,9 +574,18 @@ export function createAstralBeamChat(
       const body = await getChatConfig(agentId ? { agentId } : {}, auth)
       if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
       const attachments = body.capabilities?.attachments !== false
-      update({ capabilities: { attachments } })
+      update({
+        capabilitiesLoading: false,
+        capabilities: {
+          attachments,
+          resolvedAgentId: body.capabilities.resolved_agent_id,
+          uploads: body.capabilities.uploads,
+        },
+      })
       debug?.("mount", "agent capabilities resolved", { attachments })
     } catch (error) {
+      if (generation !== capabilitiesGeneration || selection !== selectionGeneration) return
+      update({ capabilitiesLoading: false })
       debug?.("error", "agent capabilities could not be resolved; keeping the defaults", error)
     }
   }
@@ -1407,15 +1468,18 @@ export function createAstralBeamChat(
     }
   }
 
-  const deleteThread = async (thread = state.thread) => {
+  const deleteThread = async (
+    thread = state.thread,
+    beforeDelete?: (id: string) => Promise<void>,
+  ) => {
     if (!thread || thread.role !== "manager") return false
     const generation = selectionGeneration
     try {
-      await deleteChatThread(
-        thread.id,
-        { expected_version: String(thread.version) },
-        await requestOptions(),
-      )
+      const current = coreAuthenticationScope()
+      const auth = await requestOptions(false)
+      await beforeDelete?.(thread.id)
+      if (!current()) throw new DOMException("Authentication changed", "AbortError")
+      await deleteChatThread(thread.id, { expected_version: String(thread.version) }, auth)
       if (generation === selectionGeneration && state.thread?.id === thread.id) newThread()
       return true
     } catch (error) {
@@ -1643,12 +1707,8 @@ export function createAstralBeamChat(
           refresh()
         },
       }
-      },
-    captureAuthentication: () => {
-      const epoch = authEpoch
-      const signal = authentication.session.abortController.signal
-      return () => epoch === authEpoch && !signal.aborted
     },
+    captureAuthentication: coreAuthenticationScope,
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -1675,6 +1735,7 @@ export function createAstralBeamChat(
         toolResults.clear()
         changeSelection()
         threadKey = undefined
+        capabilityIdentity = undefined
         observeAuthentication()
       } else if (placementChanged) {
         startWithNewThread = false
@@ -1738,6 +1799,17 @@ export function createAstralBeamChat(
     deleteThread,
     refreshThread: () => refreshThread(),
     loadOlderMessages,
+    prepareUpload: async (input, signal) => prepareChatUpload(input, await uploadOptions(signal)),
+    getUpload: async (id, signal) => getChatUpload(id, await uploadOptions(signal)),
+    signUploadParts: async (id, parts, signal) =>
+      signChatUploadParts(id, { parts }, await uploadOptions(signal)),
+    completeUpload: async (id, signal) => completeChatUpload(id, await uploadOptions(signal)),
+    cancelUpload: async (id, signal) => {
+      await cancelChatUpload(id, await uploadOptions(signal))
+    },
+    cancelPreparedUpload: async (key, signal) => {
+      await cancelPreparedChatUpload({ prepare_key: key }, await uploadOptions(signal))
+    },
     uploadAttachment: async ({ data, filename, mimeType }) => {
       const agentId = state.thread ? state.thread.agentId : live.agentId
       const [encoded, options] = await Promise.all([data, requestOptions(false)])

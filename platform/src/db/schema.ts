@@ -18,3 +18,5 @@ export {
 } from "./schema/usage-limits.ts"
 
 export const tables = databaseTables
+
+export { fileUploadStatus } from "./schema/uploads"

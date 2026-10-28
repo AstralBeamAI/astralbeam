@@ -154,9 +154,15 @@ export function useComposerDraft({
           }
           for (const file of value.attachments) {
             if (
-              file.status === "ready" &&
+              (file.fileId || file.sha256 || file.prepareAttempted) &&
               !value.savedAttachments.some(
-                (saved) => saved.id === file.id && saved.status === "ready",
+                (saved) =>
+                  saved.id === file.id &&
+                  saved.sessionId === file.sessionId &&
+                  saved.fileId === file.fileId &&
+                  saved.prepareAttempted === file.prepareAttempted &&
+                  saved.sha256 === file.sha256 &&
+                  (saved.status === "ready") === (file.status === "ready"),
               )
             )
               stored.set(file.id, file)
@@ -257,6 +263,19 @@ export function useComposerDraft({
     identity,
     text: draft.text,
     attachments: draft.attachments,
+    attachmentsFor: (key: string) => drafts.threads.get(key)?.attachments ?? EMPTY_ATTACHMENTS,
+    dropAttachment: (id: string) =>
+      setDrafts((current) => {
+        if (current.apiUrl !== apiUrl || current.identity !== identity) return current
+        const threads = new Map(current.threads)
+        for (const [key, value] of threads)
+          if (value.attachments.some((file) => file.id === id))
+            threads.set(key, {
+              ...value,
+              attachments: value.attachments.filter((file) => file.id !== id),
+            })
+        return { ...current, threads }
+      }),
     attachmentsLoaded: draft.attachmentsLoaded,
     /** Attachment changes are still being written to storage. */
     saving: draft.attachments !== draft.settledAttachments,
