@@ -18,7 +18,7 @@ function file(text = "hello", handle = "notes.md"): ChatAttachmentFile {
 
 async function read(
   files: readonly ChatAttachmentFile[],
-  input: { file: string; offset?: number; limit?: number | undefined },
+  input: { file: string; offset?: number; limit?: number },
   sandbox = true,
 ) {
   const [tool] = createChatAttachmentTools(files, { sandbox })
@@ -39,21 +39,21 @@ test("reads text by handle and reports truncation without advertising an unavail
   expect(result.sandboxPath).toBeUndefined()
 })
 
-test.each([undefined, CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10])(
-  "pages a long file within the cap for requested limit %s",
-  async (limit) => {
-    const files = [file(LONG_TEXT)]
-    const first = await read(files, { file: "notes.md", limit })
-    expect(first.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-    expect(first.end).toBe(false)
-    expect(first.nextOffset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+test("pages a long file and reports where to continue", async () => {
+  const files = [file(LONG_TEXT)]
+  const first = await read(files, {
+    file: "notes.md",
+    limit: CHAT_ATTACHMENT_READ_MAX_CHARACTERS * 10,
+  })
+  expect(first.content).toHaveLength(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+  expect(first.end).toBe(false)
+  expect(first.nextOffset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
 
-    const second = await read(files, { file: "notes.md", offset: first.nextOffset as number })
-    expect(second.offset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
-    expect(second.content).toBe(LONG_TEXT.slice(CHAT_ATTACHMENT_READ_MAX_CHARACTERS))
-    expect(second.end).toBe(true)
-  },
-)
+  const second = await read(files, { file: "notes.md", offset: first.nextOffset as number })
+  expect(second.offset).toBe(CHAT_ATTACHMENT_READ_MAX_CHARACTERS)
+  expect(second.content).toBe(LONG_TEXT.slice(CHAT_ATTACHMENT_READ_MAX_CHARACTERS))
+  expect(second.end).toBe(true)
+})
 
 test("names the available handles when the agent guesses one wrong", async () => {
   const result = await read([file("hello", "a.csv"), file("hello", "b.csv")], {

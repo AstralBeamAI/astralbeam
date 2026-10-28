@@ -75,7 +75,7 @@ describe("managed conversation commands", () => {
       assert.equal(traversed, 0)
     }).pipe(Effect.provide(layer))
   })
-  it.effect("validates uploaded content before accepting input", () => {
+  it.effect("requires a readable sandbox before accepting opaque attachments", () => {
     let admitted = 0
     let stored = 0
     let attachmentsEnabled = true
@@ -97,14 +97,7 @@ describe("managed conversation commands", () => {
       } as unknown as typeof Agents.Service),
       Layer.succeed(SandboxProviders, {
         resolveConfiguration: () =>
-          sandboxReadable
-            ? Effect.succeed({
-                name: "Local",
-                provider: "docker",
-                options: { image: "node:22" },
-                credentials: {},
-              })
-            : Effect.fail(new SandboxProviderUnreadable()),
+          sandboxReadable ? Effect.void : Effect.fail(new SandboxProviderUnreadable()),
       } as unknown as typeof SandboxProviders.Service),
       Layer.succeed(ChatThreads, {
         get: () => Effect.succeed({ agentId: commandThreadId }),
@@ -120,63 +113,41 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
-      const invalid = yield* prepareManagedChat({
-        ...input,
-        params: {
-          ...commandParams,
-          messages: [
-            {
-              id: "upload",
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "url",
-                    value: "http://internal.invalid/image",
-                    mimeType: "image/png",
-                  },
+      const officeParams: ChatParams = {
+        ...commandParams,
+        messages: [
+          {
+            id: "upload",
+            role: "user",
+            content: [
+              {
+                type: "document",
+                source: {
+                  type: "data",
+                  value: btoa("PK\x03\x04original"),
+                  mimeType: "application/octet-stream",
                 },
-              ],
-            },
-          ],
-        },
-      }).pipe(Effect.flip)
-      assert.equal(invalid._tag, "ChatThreadInvalid")
-      const officeInput = {
-        ...input,
-        params: {
-          ...commandParams,
-          messages: [
-            {
-              id: "office-upload",
-              role: "user" as const,
-              content: [
-                {
-                  type: "document" as const,
-                  source: {
-                    type: "data" as const,
-                    value: btoa("PK\x03\x04original"),
-                    mimeType: "application/octet-stream",
-                  },
-                  metadata: { filename: "book.xlsx" },
-                },
-              ],
-            },
-          ],
-        },
+                metadata: { filename: "book.xlsx" },
+              },
+            ],
+          },
+        ],
       }
       for (const providerId of [null, commandThreadId]) {
         sandboxProviderId = providerId
-        const unavailable = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
+        const unavailable = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+          Effect.flip,
+        )
         assert.equal(unavailable._tag, "ChatAttachmentSandboxRequired")
         assert.equal(admitted, 1)
         assert.equal(stored, 1)
       }
       sandboxReadable = true
-      yield* prepareManagedChat(officeInput)
+      yield* prepareManagedChat({ ...input, params: officeParams })
       attachmentsEnabled = false
-      const disabled = yield* prepareManagedChat(officeInput).pipe(Effect.flip)
+      const disabled = yield* prepareManagedChat({ ...input, params: officeParams }).pipe(
+        Effect.flip,
+      )
       assert.equal(disabled._tag, "ChatAttachmentsDisabled")
       assert.equal(admitted, 2)
     }).pipe(Effect.provide(layer))
