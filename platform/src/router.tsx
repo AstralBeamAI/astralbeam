@@ -6,13 +6,14 @@ import { RouteErrorBoundary } from "@/components/route-error-boundary"
 import { routeTree } from "./routeTree.gen"
 
 export function getRouter() {
-  // Query-backed loaders seed data, so mounting components reuse it instead of refetching.
+  // Loaders seed each page's queries, so a mounting component reuses them instead of refetching.
   const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } })
   const router = createTanStackRouter({
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
     defaultPreload: "intent",
+    defaultPreloadStaleTime: 0,
     defaultPendingMinMs: 200,
     defaultErrorComponent: RouteErrorBoundary,
   })
