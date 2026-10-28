@@ -19,7 +19,7 @@ export function updateModelPriceHistory(input: {
   const now = input.timestamp.toISOString()
   const active = activeModelPrice(input)
   const { policy, scheduledPrices } = input.change ?? {}
-  if (policy && input.change!.expectedVersionId !== (active?.id ?? null)) return null
+  if (input.change && input.change.expectedVersionId !== (active?.id ?? null)) return null
   const past = input.history.filter((version) => version.effectiveFrom <= now)
   const future =
     policy?.kind === "catalog"

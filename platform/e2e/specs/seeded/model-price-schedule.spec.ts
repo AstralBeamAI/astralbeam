@@ -107,7 +107,8 @@ test("manual prices can be scheduled, edited and cancelled while viewers cannot 
   } finally {
     await pool.end()
   }
-  await page.getByLabel(`Input price for ${model}`, { exact: true }).fill("5")
+  await schedule.locator("summary").filter({ hasText: "Scheduled" }).click()
+  await schedule.getByRole("button", { name: "Cancel scheduled price" }).click()
   await page.getByRole("button", { name: "Save provider", exact: true }).click()
   await expect(page.getByRole("button", { name: "Save provider", exact: true })).toBeDisabled()
   await page.getByRole("button", { name: "Reload latest", exact: true }).click()

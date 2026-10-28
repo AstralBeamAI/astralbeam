@@ -3009,7 +3009,7 @@
             }
           }
         },
-        "description": "Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Existing users with no settled replies in the range return zero. Results are computed at request time from retained settled replies. Drafts and deleted conversations are excluded, and older replies without saved costs use current rates.",
+        "description": "Read usage in USD for up to 100 users within one Tenant over a positive time range no longer than 93 days. start is inclusive and end is exclusive. Supply ISO 8601 timestamps with an explicit timezone and at most millisecond precision. Only Organization API keys and organization owners or developers may read usage. Missing and out-of-scope user IDs are omitted. Results sum saved costs from retained settled replies. New requests count in the period when each request started. Older replies retain their saved aggregate cost in the period when the reply was created. Historical costs are never repriced. Missing costs contribute zero. Drafts and deleted conversations are excluded.",
         "summary": "Get TenantUser usage"
       }
     },

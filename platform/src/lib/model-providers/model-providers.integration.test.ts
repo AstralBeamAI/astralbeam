@@ -272,7 +272,6 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
               ...modelTestFields,
               pricing: {
                 expectedVersionId: saved.models[0]!.priceVersionId,
-                policy: { kind: "manual", prices: modelTestFields.pricing.policy.prices },
                 scheduledPrices: [],
               },
             },
