@@ -23,7 +23,9 @@ export const CHAT_ATTACHMENT_SYSTEM_PROMPT =
   "read_attachment with the name shown there. Text, CSV, and TSV are paged, with the next " +
   "offset and any truncation reported. Office documents and opaque data require code in the " +
   "sandbox. When a sandbox path is available, use the original file for structured analysis: " +
-  "identify sheets, columns and types, count rows, and calculate values with suitable libraries. " +
+  "identify sheets, columns and types, count rows, and calculate summaries with suitable libraries. " +
+  "For spreadsheet formulas, use saved cached results and report missing results as unavailable. " +
+  "Recalculate only when the user explicitly requests it, and label those results as recalculated. " +
   "For Word documents, read current visible text and field results. Exclude tracked deletions " +
   "and field instructions unless requested. " +
   "Install missing libraries in the sandbox as needed. Never answer about a file you have not " +
