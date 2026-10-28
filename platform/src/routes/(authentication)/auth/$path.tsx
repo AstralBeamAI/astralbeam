@@ -63,6 +63,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
       replace: true,
     })
   },
+  head: () => ({ meta: [{ name: "robots", content: "noindex,follow" }] }),
   component: AuthRoute,
 })
 

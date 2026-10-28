@@ -3,7 +3,7 @@ import { expect, test } from "vitest"
 
 import {
   DOCS_SECTIONS,
-  docsSitemapPaths,
+  docsSitemapEntries,
   findDocsArticleNeighbors,
   type DocsSection,
 } from "./content"
@@ -38,8 +38,9 @@ test("same-folder Markdown links resolve to a page the same reader can reach", (
 })
 
 // The sitemap is the one place that advertises docs URLs to crawlers, so a draft must not reach it.
-test("the sitemap lists the published docs without drafts or redirects", () => {
-  const paths = docsSitemapPaths()
+test("the sitemap lists dated published docs without drafts or redirects", () => {
+  const entries = docsSitemapEntries()
+  const paths = entries.map((entry) => entry.path)
   const draftPaths = DOCS_SECTIONS.filter((section) => section.draft).flatMap((section) =>
     section.pages.map((page) => `/docs/${section.slug}/${page.slug}`),
   )
@@ -51,6 +52,7 @@ test("the sitemap lists the published docs without drafts or redirects", () => {
   expect(paths).toContain("/docs/dashboard/agents")
   expect(paths).toContain("/docs/self-hosting/overview")
   expect(paths.filter((path) => draftPaths.includes(path))).toEqual([])
+  for (const entry of entries) expect(entry.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/u)
   // A bare section URL only redirects to its first page.
   expect(paths).not.toContain("/docs/sdk")
 })
@@ -80,9 +82,9 @@ const docsNavigationSections: DocsSection[] = [
     title: "Start",
     description: "",
     pages: [
-      { slug: "overview", title: "Overview", description: "" },
-      { slug: "draft", title: "Draft", description: "", draft: true },
-      { slug: "tutorial", title: "Tutorial", description: "" },
+      { slug: "overview", title: "Overview", description: "", updated: "2026-01-01" },
+      { slug: "draft", title: "Draft", description: "", updated: "2026-01-01", draft: true },
+      { slug: "tutorial", title: "Tutorial", description: "", updated: "2026-01-01" },
     ],
   },
   {
@@ -90,20 +92,20 @@ const docsNavigationSections: DocsSection[] = [
     title: "Unpublished",
     description: "",
     draft: true,
-    pages: [{ slug: "overview", title: "Overview", description: "" }],
+    pages: [{ slug: "overview", title: "Overview", description: "", updated: "2026-01-01" }],
   },
   {
     slug: "api",
     title: "API",
     description: "",
     href: "/docs/api",
-    pages: [{ slug: "overview", title: "Overview", description: "" }],
+    pages: [{ slug: "overview", title: "Overview", description: "", updated: "2026-01-01" }],
   },
   {
     slug: "sdk",
     title: "SDK",
     description: "",
-    pages: [{ slug: "overview", title: "Overview", description: "" }],
+    pages: [{ slug: "overview", title: "Overview", description: "", updated: "2026-01-01" }],
   },
 ]
 

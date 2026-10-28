@@ -39,6 +39,7 @@ export function landingPageHead() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           "@id": siteUrl("/"),
+          name: siteMetadata.title,
           dateModified: landingUpdated,
         }),
       },

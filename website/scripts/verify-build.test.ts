@@ -66,6 +66,7 @@ describe("production website build", () => {
     expect(html).toContain('<link rel="manifest" href="/site.webmanifest"/>')
     expect(html).toContain('<link rel="license" href="/licenses.txt"/>')
     expect(html).toMatch(/application\/ld\+json/u)
+    expect(html).toContain(`"name":"${siteMetadata.title}"`)
     expect(html).not.toMatch(/astralbeam\.com/iu)
   })
 
@@ -155,8 +156,8 @@ describe("production website build", () => {
     expect(licenses).toContain(mitLicense.trimEnd())
     expect(licenses).toContain(oflLicense.trimEnd())
     expect(sitemap).toContain(`<loc>${homeUrl}</loc>`)
-    expect(sitemap).toContain(`<loc>${origin}/privacy</loc>`)
-    expect(sitemap).toContain(`<loc>${origin}/terms</loc>`)
+    expect(sitemap).toContain(`<loc>${origin}/privacy</loc><lastmod>2026-10-17</lastmod>`)
+    expect(sitemap).toContain(`<loc>${origin}/terms</loc><lastmod>2026-09-21</lastmod>`)
     expect(sitemap).not.toContain("/404")
     expect(manifest).toMatchObject({
       name: "AstralBeam",
@@ -201,7 +202,7 @@ describe("production website build", () => {
         `${post.path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline`,
       )
       expect(index).toContain(`href="${post.path}"`)
-      expect(sitemap).toContain(`<loc>${origin}${post.path}</loc>`)
+      expect(sitemap).toContain(`<loc>${origin}${post.path}</loc><lastmod>${post.date}</lastmod>`)
       expect(feed).toContain(`<link>${origin}${post.path}</link>`)
       expect(llms).toContain(`[${post.title}](${origin}${post.path})`)
       expect(html).toContain(`<link rel="canonical" href="${origin}${post.path}"/>`)
