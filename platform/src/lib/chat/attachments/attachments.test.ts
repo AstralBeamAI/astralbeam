@@ -1,5 +1,5 @@
 import { APP_HANDLE } from "@/lib/constants"
-import type { ChatMiddleware, ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
+import type { ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
 import { expect, test } from "vitest"
 
 import {
@@ -268,12 +268,6 @@ test("strips media smuggled onto a non-user message", () => {
   expect(attachments).toHaveLength(2)
 })
 
-function onChunk(middleware: ChatMiddleware, chunk: unknown) {
-  const hook = middleware.onChunk
-  if (!hook) throw new Error("The middleware declares no onChunk hook.")
-  return hook({} as ChatMiddlewareContext, chunk as StreamChunk)
-}
-
 // Snapshots keep authenticated file references while hydrated model input stays server-side.
 test("restores the user's own attachments in a messages snapshot", () => {
   const sent = [
@@ -294,32 +288,30 @@ test("restores the user's own attachments in a messages snapshot", () => {
       { id: "user-2", role: "user", content: "and this one has no file" },
     ],
   }
-  const stored = onChunk(
-    createChatAttachmentSnapshotMiddleware(sent, [
-      {
-        id: "user-1",
-        createdAt: new Date(0),
-        state: "complete",
-        authorTenantUserId: null,
-        payload: {
-          version: 1,
-          parts: [
-            {
-              id: "file-part",
-              type: "document",
-              source: {
-                type: APP_HANDLE,
-                id: "00000000-0000-4000-8000-000000000001",
-                mimeType: "text/csv",
-                byteSize: 4,
-              },
+  const middleware = createChatAttachmentSnapshotMiddleware(sent, [
+    {
+      id: "user-1",
+      createdAt: new Date(0),
+      state: "complete",
+      authorTenantUserId: null,
+      payload: {
+        version: 1,
+        parts: [
+          {
+            id: "file-part",
+            type: "document",
+            source: {
+              type: APP_HANDLE,
+              id: "00000000-0000-4000-8000-000000000001",
+              mimeType: "text/csv",
+              byteSize: 4,
             },
-          ],
-        },
+          },
+        ],
       },
-    ]),
-    snapshot,
-  )
+    },
+  ])
+  const stored = middleware.onChunk!({} as ChatMiddlewareContext, snapshot as StreamChunk)
   expect(stored).toMatchObject({
     messages: [
       {

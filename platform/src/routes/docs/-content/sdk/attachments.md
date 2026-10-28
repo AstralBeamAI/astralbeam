@@ -38,7 +38,7 @@ For other file types, the agent receives a handle and reads the contents through
 - Results include type and size. Ask the agent to calculate sheet names, column types, row counts, and totals in the sandbox.
 - Agents with a sandbox receive the original file at `uploads/<name>` when they first use a sandbox tool.
 - Large files can exceed the sandbox's 30-second transfer timeout, particularly with Docker. Split the file if analysis fails during sandbox startup.
-- Office and data files, including CSV and TSV, require a sandbox. Without one, server admission rejects a new message containing these formats.
+- New Office and data attachments, including CSV and TSV, require a sandbox. Visible thumbnails do not provide their contents to the agent.
 - Earlier attachments remain downloadable if sandbox access becomes unavailable. You can continue chatting and reading plain text, but rereading Office and data requires restored access.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button. See [Security model](./security.md).
