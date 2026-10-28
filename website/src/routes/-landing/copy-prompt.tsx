@@ -61,7 +61,9 @@ export function CopyPrompt() {
             </button>
           </header>
           <ol className="prompt-steps">
-            <li>Open your app’s repository in your coding agent.</li>
+            <li>
+              Open your app’s repository in Cursor, Claude Code, Codex, or another coding agent.
+            </li>
             <li>Copy and paste the prompt below to start the integration.</li>
           </ol>
           <pre className="prompt-text mono">{agentPrompt}</pre>
