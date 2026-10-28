@@ -241,9 +241,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
   })
 
-  test.each([false, true])(
-    "steering preserves the stream, files, and model-call budget, exhaust=%s",
-    async (exhaust) => {
+  test.each(["complete", "exhaust", "cancel"])(
+    "steering preserves the stream, files, and model-call budget: %s",
+    async (mode) => {
+      const exhaust = mode === "exhaust"
+      const cancel = mode === "cancel"
       const thread = await create()
       const first = await admit(thread.id)
       const prompts: unknown[] = []
@@ -380,36 +382,48 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
               acceptedMessageId: first.inputMessage.id,
             },
           })
-          return yield* Stream.runCollect(stream)
+          return yield* Stream.runCollect(
+            cancel
+              ? Stream.takeUntil(stream, (event) => {
+                  if (event.type !== EventType.CUSTOM || event.name !== "astralbeam_thread")
+                    return false
+                  const value = event.value as { saved?: boolean; turnState?: string }
+                  return value.saved === true && value.turnState === "running"
+                })
+              : stream,
+          )
         }).pipe(Effect.provide(layer)),
       )
-      expect(prompts).toHaveLength(exhaust ? 25 : 2)
-      expect(JSON.stringify(prompts[1])).toContain("Guidance 1")
+      expect(prompts).toHaveLength(cancel ? 1 : exhaust ? 25 : 2)
+      expect(
+        prompts.slice(1).every((prompt) => JSON.stringify(prompt).includes("Guidance 1")),
+      ).toBe(true)
       expect(events.filter((event) => event.type === EventType.RUN_STARTED)).toHaveLength(1)
       expect(events.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(
-        exhaust ? 0 : 1,
+        mode === "complete" ? 1 : 0,
       )
       expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust)
       const snapshots = events.flatMap((event) =>
         event.type === EventType.MESSAGES_SNAPSHOT ? event.messages : [],
       )
-      const guidance = snapshots.findLast(
-        (message) => message.id === guidanceId,
-      ) as unknown as UIMessage
-      expect(guidance.parts.find((part) => part.type === "document")).toMatchObject({
-        type: "document",
-        fileId,
-        metadata: { filename: "guide.txt" },
-      })
+      const guidance = snapshots.findLast((message) => message.id === guidanceId) as unknown as
+        | UIMessage
+        | undefined
+      const attachment = guidance?.parts.find((part) => part.type === "document") as
+        | { fileId: string; metadata: { filename: string } }
+        | undefined
+      expect(attachment?.fileId).toBe(cancel ? undefined : fileId)
+      expect(attachment?.metadata.filename).toBe(cancel ? undefined : "guide.txt")
       const saved = await runtime.runPromise(service.history({ scope, id: thread.id }))
       expect(saved.find((message) => message.id === first.inputMessage.id)?.turnState).toBe(
-        exhaust ? "interrupted" : "completed",
+        mode === "complete" ? "completed" : "interrupted",
       )
+      expect(saved.some((message) => message.state === "draft")).toBe(false)
       expect(
         saved.filter(
           (message) => message.payload.steering && !message.payload.steering.appliedToMessageId,
         ),
-      ).toHaveLength(exhaust ? 1 : 0)
+      ).toHaveLength(mode === "complete" ? 0 : 1)
     },
   )
 

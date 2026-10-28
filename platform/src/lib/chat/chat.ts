@@ -250,10 +250,13 @@ export class Chat extends Context.Service<
         })
         return Stream.unwrap(
           Effect.gen(function* () {
-            let turn = { claim: input.managed.claim }
+            let turn: {
+              claim: typeof input.managed.claim
+              nextClaim?: typeof input.managed.claim | undefined
+            } = { claim: input.managed.claim }
             yield* Effect.addFinalizer(() =>
               threads
-                .interrupt({ claim: turn.claim })
+                .interrupt({ claim: turn.nextClaim ?? turn.claim })
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
             const pricing = yield* modelProviders.pricing(model)
