@@ -95,7 +95,7 @@ bun run dev
 | Application | Local URL | Setup |
 | --- | --- | --- |
 | Platform | `http://localhost:4500` | [Authentication and email](#authentication-and-transactional-email) |
-| Website | `http://localhost:4600` | [Website guide](www/README.md) |
+| Website | `http://localhost:4600` | [Website guide](website/README.md) |
 | Todos | `http://localhost:4700` | [Example guide](examples/todos/README.md) |
 | Linearity | `http://localhost:4900` | [Set Basic Auth and Astro credentials first](examples/linearity-react/README.md) |
 
