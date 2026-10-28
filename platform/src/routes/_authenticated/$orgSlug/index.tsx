@@ -31,8 +31,10 @@ function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {data.organizationName}
         </h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Configure the agents this organization embeds with {APP_NAME}.
+        <p className="text-sm text-muted-foreground">
+          {permissions.updateConfiguration
+            ? "Build and manage the AI agents in your app."
+            : "View your organization’s setup and customer activity."}
         </p>
       </div>
       {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}

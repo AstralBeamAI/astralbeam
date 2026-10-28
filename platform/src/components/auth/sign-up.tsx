@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements. Use TanStack hydration readiness.
+// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance.
 
 "use client"
 
@@ -192,12 +192,11 @@ export function SignUp({
         <CardTitle className="text-xl font-semibold">
           <h1>{localization.auth.signUp}</h1>
         </CardTitle>
-        {invitation && (
-          <CardDescription>
-            Create an account to join {invitation.organization}. Use{" "}
-            {invitation.email || "the email address that received the invitation"}.
-          </CardDescription>
-        )}
+        <CardDescription className="wrap-anywhere text-sm">
+          {invitation
+            ? `Create an account to join ${invitation.organization}. Use ${invitation.email || "the email address that received the invitation"}.`
+            : "Verify your email to get started."}
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -284,9 +283,10 @@ export function SignUp({
                       }))
                     }}
                     aria-invalid={!!fieldErrors.email}
+                    aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
                   />
 
-                  <FieldError>{fieldErrors.email}</FieldError>
+                  <FieldError id="signup-email-error">{fieldErrors.email}</FieldError>
                 </Field>
 
                 <Field data-invalid={!!fieldErrors.password}>
@@ -306,8 +306,8 @@ export function SignUp({
                     }}
                     placeholder={localization.auth.passwordPlaceholder}
                     required
-                    minLength={emailAndPassword?.minPasswordLength}
-                    maxLength={emailAndPassword?.maxPasswordLength}
+                    minLength={emailAndPassword.minPasswordLength}
+                    maxLength={emailAndPassword.maxPasswordLength}
                     disabled={isPending}
                     onInvalid={(e) => {
                       e.preventDefault()
@@ -326,14 +326,14 @@ export function SignUp({
                       }))
                     }}
                     aria-invalid={!!fieldErrors.password}
-                    aria-describedby="signup-password-requirements"
+                    aria-describedby={`signup-password-requirements${fieldErrors.password ? " signup-password-error" : ""}`}
                   />
 
                   <FieldDescription id="signup-password-requirements">
                     Use {emailAndPassword.minPasswordLength}–{emailAndPassword.maxPasswordLength}{" "}
                     characters.
                   </FieldDescription>
-                  <FieldError>{fieldErrors.password}</FieldError>
+                  <FieldError id="signup-password-error">{fieldErrors.password}</FieldError>
 
                   <PasswordStrengthMeter password={password} />
                 </Field>
@@ -359,8 +359,8 @@ export function SignUp({
                       }}
                       placeholder={localization.auth.confirmPasswordPlaceholder}
                       required
-                      minLength={emailAndPassword?.minPasswordLength}
-                      maxLength={emailAndPassword?.maxPasswordLength}
+                      minLength={emailAndPassword.minPasswordLength}
+                      maxLength={emailAndPassword.maxPasswordLength}
                       disabled={isPending}
                       onInvalid={(e) => {
                         e.preventDefault()
@@ -379,9 +379,14 @@ export function SignUp({
                         }))
                       }}
                       aria-invalid={!!fieldErrors.confirmPassword}
+                      aria-describedby={
+                        fieldErrors.confirmPassword ? "signup-confirm-password-error" : undefined
+                      }
                     />
 
-                    <FieldError>{fieldErrors.confirmPassword}</FieldError>
+                    <FieldError id="signup-confirm-password-error">
+                      {fieldErrors.confirmPassword}
+                    </FieldError>
                   </Field>
                 )}
 
@@ -406,7 +411,7 @@ export function SignUp({
                             href={link.href}
                             className="font-medium text-foreground underline underline-offset-4"
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                           >
                             {link.label}
                           </a>

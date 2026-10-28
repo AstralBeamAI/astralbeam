@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated. Use TanStack hydration readiness.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Keep verification usable when browser storage is blocked.
 
 "use client"
 
@@ -41,8 +41,14 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
   const isHydrated = useHydrated()
-  const email =
-    (isHydrated && globalThis.sessionStorage.getItem("better-auth-ui.verify-email")) || ""
+  let email = ""
+  if (isHydrated) {
+    try {
+      email = globalThis.sessionStorage.getItem("better-auth-ui.verify-email") || ""
+    } catch {
+      // Verification links and sign-in remain available without the stored recipient hint.
+    }
+  }
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
 
   useEffect(() => {
@@ -81,12 +87,15 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
       <CardContent>
         <div className="flex flex-col gap-4">
           <FieldDescription>
-            {localization.auth.checkYourEmail}. Check your spam folder if it is missing.
+            Open the verification link in your email to continue. It expires in one hour.
           </FieldDescription>
 
           {email && (
             <div className="flex flex-col gap-3">
               <p className="break-all text-sm font-medium">{email}</p>
+              <p className="text-sm text-muted-foreground">
+                No email yet? Check your spam folder, or resend the link below.
+              </p>
               <OpenEmailButton email={email} />
 
               <Button

@@ -28,7 +28,7 @@ export function OrganizationOnboarding({
   return (
     <section
       aria-labelledby="organization-onboarding-title"
-      className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12"
+      className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12"
     >
       <div className="space-y-2">
         <h1
@@ -37,26 +37,35 @@ export function OrganizationOnboarding({
         >
           Join or create an organization
         </h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Accept a pending invitation or create a new organization to continue.
+        <p className="text-sm text-muted-foreground">
+          Bring your agents, models, and team together in one organization.
         </p>
       </div>
 
       <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
 
-      <div className="flex flex-col items-stretch gap-2 sm:items-start">
+      <div className="flex flex-col items-stretch gap-4 border bg-card p-4 sm:items-start sm:p-6">
+        <div className="space-y-2">
+          <h2 className="text-base font-semibold">Start with your own organization</h2>
+          <p className="text-sm text-muted-foreground">
+            We’ll create a starter agent. Next, connect a model and set up your app.
+          </p>
+        </div>
         <Button type="button" disabled={!hydrated} onClick={() => setCreateOpen(true)}>
           {hydrated ? "Create a new organization" : "Loading organization setup…"}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          You will be the organization owner and can add members afterward.
+        <p className="text-sm text-muted-foreground">
+          You’ll be the owner. Invite teammates whenever you’re ready.
         </p>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Already part of an organization? Ask its owner to invite{" "}
-        <strong className="break-all">{email}</strong>, the email address you use to sign in.
-      </p>
+      <div className="space-y-2 px-4 sm:px-6">
+        <h2 className="text-base font-semibold">Joining your team?</h2>
+        <p className="text-sm text-muted-foreground">
+          Ask an owner to invite you using this email. Pending invitations will appear here.
+        </p>
+        <p className="break-all text-sm font-medium">{email}</p>
+      </div>
 
       <CreateOrganizationDialog
         open={createOpen}

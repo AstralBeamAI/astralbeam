@@ -1,5 +1,6 @@
 // Added from @better-auth-ui/auth
-// Local changes: Keep failed sign-outs retryable, clear all cached page data on success, and destructure the mutate function for exhaustive effect dependencies.
+// Local changes: Keep failed sign-outs retryable, clear all cached page data on success, and destructure the mutate function for exhaustive effect dependencies. Preserve the return path when switching accounts for an invitation.
+import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth, useSignOut } from "@better-auth-ui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
@@ -20,7 +21,7 @@ export type SignOutProps = {
  * @returns The spinner shown during sign-out
  */
 export function SignOut({ className }: SignOutProps) {
-  const { authClient, basePaths, localization, navigate, viewPaths } = useAuth()
+  const { authClient, basePaths, localization, navigate, redirectTo, viewPaths } = useAuth()
   const queryClient = useQueryClient()
   const router = useRouter()
 
@@ -29,7 +30,7 @@ export function SignOut({ className }: SignOutProps) {
       queryClient.clear()
       router.clearCache()
       navigate({
-        to: `${basePaths.auth}/${viewPaths.auth.signIn}`,
+        to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo),
         replace: true,
       })
     },

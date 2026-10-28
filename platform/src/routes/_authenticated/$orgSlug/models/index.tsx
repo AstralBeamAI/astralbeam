@@ -32,7 +32,7 @@ function ModelsPage() {
   const { data, permissions } = Route.useLoaderData()
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex max-w-4xl flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Models</h1>
           <p className="text-sm text-muted-foreground">
@@ -54,8 +54,8 @@ function ModelsPage() {
             </EmptyMedia>
             <EmptyTitle>No model providers yet</EmptyTitle>
             <EmptyDescription>
-              Add your first provider and enable at least one model to set up an agent. You can use
-              multiple connections to the same provider.
+              Connect your provider account and enable a model so your agent can reply. You’ll need
+              an API key from that provider.
             </EmptyDescription>
           </EmptyHeader>
           {permissions.updateConfiguration && (

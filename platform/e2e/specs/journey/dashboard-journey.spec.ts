@@ -95,12 +95,15 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "03-onboarding")
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
-    await page.waitForURL(`**/${identity.organizationSlug}/models`)
-    await expect(page.getByRole("heading", { level: 1, name: "Models", exact: true })).toBeVisible()
-    await captureMilestone(page, "04-model-onboarding")
+    await page.waitForURL(`**/${identity.organizationSlug}`)
+    await expect(
+      page.getByRole("heading", { name: "Set up your first agent", exact: true }),
+    ).toBeVisible()
+    await captureMilestone(page, "04-organization-setup")
   })
 
   await test.step("the owner adds a provider and enables a model before configuring agents", async () => {
+    await shell.openSection("Models", "Models")
     await models.create({
       name: modelProviderName,
       modelId: journeyModelId,
@@ -250,10 +253,10 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       identity.secondOrganizationName,
       identity.secondOrganizationSlug,
     )
-    await page.waitForURL(`**/${identity.secondOrganizationSlug}/models`)
+    await page.waitForURL(`**/${identity.secondOrganizationSlug}`)
 
     await shell.switchOrganization(identity.secondOrganizationName, renamedOrganization)
-    await page.waitForURL(`**/${movedSlug}/models`)
+    await page.waitForURL(`**/${movedSlug}`)
 
     await page.goto("/organizations")
     await expect(page.getByRole("heading", { level: 1, name: "Organizations" })).toBeVisible()
