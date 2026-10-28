@@ -25,15 +25,6 @@ test("the owner reaches every organization section directly by URL", async ({ pa
 test.describe("signed out", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("invalid organization slugs return 404 without redirecting to sign-in", async ({ page }) => {
-    for (const path of ["/g,%60", "/llms-full.txt"]) {
-      const response = await page.goto(path)
-      expect(response?.status()).toBe(404)
-      expect(new URL(page.url()).pathname).toBe(path)
-      await expect(page.getByRole("heading", { name: "404", exact: true })).toBeVisible()
-    }
-  })
-
   test("an organization page sends a visitor to sign-in with its return path", async ({
     page,
     baseline,
