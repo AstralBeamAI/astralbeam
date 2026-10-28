@@ -54,10 +54,11 @@ function McpDashboardPage() {
       className={`flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 ${widgetThemeClassName}`}
       style={widgetThemeStyle}
     >
-      <div>
-        <h1 className="text-2xl font-semibold">MCP servers</h1>
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">MCP servers</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Make remote tools available to your embedded agents.{" "}
+          Connect external services to give your agents more tools. Add these when your app needs
+          them.{" "}
           <DocsLink href="/docs/dashboard/connections#add-a-server-and-connect">
             Server and OAuth setup
           </DocsLink>

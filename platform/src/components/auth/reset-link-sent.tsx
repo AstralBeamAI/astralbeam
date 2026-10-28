@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated. Use TanStack hydration readiness.
+// Local changes: Use browser-safe globals and a semantic page heading, and read the stored email during render once hydrated. Use TanStack hydration readiness. Keep confirmation usable when browser storage is blocked.
 
 import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
@@ -32,7 +32,14 @@ export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth()
 
   const isHydrated = useHydrated()
-  const email = (isHydrated && globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY)) || ""
+  let email = ""
+  if (isHydrated) {
+    try {
+      email = globalThis.sessionStorage.getItem(RESET_LINK_SENT_STORAGE_KEY) || ""
+    } catch {
+      // The confirmation and reset email remain usable without the stored recipient hint.
+    }
+  }
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>

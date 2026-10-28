@@ -76,6 +76,7 @@ export function SandboxProviderForm({
   const [secret, setSecret] = useState(initialSecret)
   const [secretVisible, setSecretVisible] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
 
   // Base UI resolves the trigger's label from `items`, not from the rendered options.
@@ -102,7 +103,8 @@ export function SandboxProviderForm({
     id: existing?.id ?? null,
     lockVersion: existing?.lockVersion ?? null,
   })
-  const issues = Result.isFailure(input) ? formatSandboxIssues(input.failure.issue).issues : []
+  const issues =
+    submitted && Result.isFailure(input) ? formatSandboxIssues(input.failure.issue).issues : []
   const sandboxFieldErrors = (path: string) =>
     issues.filter(
       (issue) =>
@@ -121,7 +123,8 @@ export function SandboxProviderForm({
   const disabled = saving || readOnly
 
   const save = async () => {
-    if (Result.isFailure(input)) return
+    setSubmitted(true)
+    if (disabled || Result.isFailure(input)) return
     setSaving(true)
     setNameError(null)
     try {
@@ -270,7 +273,7 @@ export function SandboxProviderForm({
       </CardContent>
       {!readOnly && (
         <CardFooter className="flex flex-wrap gap-2">
-          <Button disabled={saving || Result.isFailure(input)} onClick={() => void save()}>
+          <Button disabled={disabled} onClick={() => void save()}>
             {saving
               ? requiresConnectionTest
                 ? "Testing and saving…"

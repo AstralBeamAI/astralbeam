@@ -12,7 +12,7 @@ test("dashboard guidance and agent drafts work across screen sizes", async ({
 }) => {
   await page.goto(`/${baseline.organizationSlug}`)
   await expect(page.getByRole("heading", { name: "Connect your app", exact: true })).toBeVisible()
-  const setup = page.getByRole("button", { name: "Add a provider and enable models", exact: false })
+  const setup = page.getByRole("button", { name: "Connect a model provider", exact: false })
   await waitForHydration(setup)
   await expect(setup).toHaveAttribute("aria-expanded", "false")
   await setup.click()

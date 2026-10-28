@@ -162,7 +162,7 @@ export function UsageLimitForm({
   const global = scope === "global"
   const input = decodeUsageLimitFields({
     name: name.trim(),
-    enabled: existing?.enabled ?? true,
+    enabled: existing === null || existing.enabled,
     appliesByDefault: global || appliesByDefault,
     scope,
     metric,
@@ -175,10 +175,17 @@ export function UsageLimitForm({
   const issues = Result.isFailure(input) ? formatUsageLimitIssues(input.failure.issue).issues : []
   const summaryIssues = [
     ...new Set(
-      issues.map((issue) => {
-        const field = issue.path?.[0] as keyof UsageLimitFields
-        return `${usageLimitFieldLabels[field] ?? "Configuration"}: ${issue.message}`
-      }),
+      issues
+        .filter((issue) => {
+          if (submitted) return true
+          if (issue.path?.[0] === "name") return name.trim().length > 0
+          if (issue.path?.[0] === "amount") return amount.trim().length > 0
+          return true
+        })
+        .map((issue) => {
+          const field = issue.path?.[0] as keyof UsageLimitFields
+          return `${usageLimitFieldLabels[field] ?? "Configuration"}: ${issue.message}`
+        }),
     ),
   ]
   const fieldErrors = (field: string) =>
@@ -420,12 +427,16 @@ export function UsageLimitForm({
             <p className="font-medium">Limit summary</p>
             {Result.isSuccess(input) ? (
               <p className="mt-1 text-muted-foreground">{summarizeUsageLimit(input.success)}</p>
-            ) : (
+            ) : summaryIssues.length > 0 ? (
               <ul className="mt-1 list-disc space-y-1 ps-4 text-muted-foreground">
                 {summaryIssues.map((issue) => (
                   <li key={issue}>{issue}</li>
                 ))}
               </ul>
+            ) : (
+              <p className="mt-1 text-muted-foreground">
+                Fill in the fields above to preview your limit.
+              </p>
             )}
           </div>
           {saveError && (

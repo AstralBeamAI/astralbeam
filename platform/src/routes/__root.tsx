@@ -259,7 +259,8 @@ function AppProviders({ children }: { children: ReactNode }) {
             keyExpiration: { defaultInterval: null },
             pageSize: ORGANIZATION_API_KEY_PAGE_SIZE,
             localization: {
-              apiKeysDescription: "Manage API keys.",
+              apiKeysDescription:
+                "Create a key so your application server can connect to this organization. Keep it in your server’s secrets, never in browser code.",
             },
           }),
         ]}

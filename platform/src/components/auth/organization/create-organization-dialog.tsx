@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, explain its URL role, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, reset closed-dialog state during render, and keep pointer clicks outside the form from dismissing it.
+// Local changes: use Phosphor and domain-specific function names, generate an organization slug from the display name without a random suffix, explain its URL role, accept an onboarding name suggestion, reject reserved slugs before the availability round trip, hand the created organization to callers, omit unsupported organization model fields while retaining the official create flow, focus the name through the dialog's initialFocus, render a taken slug from the availability check or a create race against the slug field, reset closed-dialog state during render, and keep pointer clicks outside the form from dismissing it. Improve onboarding copy, layout, and form guidance.
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -113,7 +113,7 @@ export function CreateOrganizationDialog({
             </DialogTitle>
 
             <DialogDescription>
-              {organizationLocalization.organizationsDescription}
+              Give your team’s shared space a name. You can change it later.
             </DialogDescription>
           </DialogHeader>
 
@@ -148,7 +148,7 @@ export function CreateOrganizationDialog({
             <GeneratedSlugField
               key={String(open)}
               id="create-organization-slug"
-              label="Organization slug"
+              label="Organization URL"
               sourceValue={name}
               checkAvailability={checkOrganizationSlug}
               unavailableValue={takenSlug}

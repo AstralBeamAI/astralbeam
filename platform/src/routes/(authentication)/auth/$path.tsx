@@ -73,7 +73,10 @@ function AuthRoute() {
     <div className="flex min-h-svh flex-col">
       <PublicNavbar />
       <main className="flex flex-1 items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
-        <Auth path={path} />
+        <Auth
+          path={path}
+          className="max-w-md [--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]"
+        />
       </main>
     </div>
   )
