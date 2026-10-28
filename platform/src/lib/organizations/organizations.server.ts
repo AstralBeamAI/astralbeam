@@ -2,6 +2,7 @@ import { and, asc, count, eq, gt, isNull, or, sql, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
+import { chatThread } from "@/db/schema/chat"
 import { agent, apiKey, member, organization, sandboxProvider } from "@/db/schema/organizations"
 import { Auth } from "@/lib/auth/auth.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
@@ -37,6 +38,7 @@ export interface OrganizationResourceCounts {
   readonly sandboxProviders: number | null
   readonly apiKeys: number | null
   readonly usableApiKeys: number | null
+  readonly hasConversations: boolean | null
   readonly members: number
 }
 
@@ -166,12 +168,12 @@ export class Organizations extends Context.Service<
             )
         const countIf = (allowed: boolean, table: OrganizationOwnedTable, filter?: SQL) =>
           allowed ? countRows(table, filter) : Effect.succeed(null)
-        const [agents, sandboxProviders, apiKeys, usableApiKeys, members] = yield* Effect.all(
-          [
-            countIf(input.permissions.readConfiguration, agent),
-            countIf(input.permissions.readConfiguration, sandboxProvider),
-            countIf(input.permissions.readApiKey, apiKey),
-            countIf(
+        return yield* Effect.all(
+          {
+            agents: countIf(input.permissions.readConfiguration, agent),
+            sandboxProviders: countIf(input.permissions.readConfiguration, sandboxProvider),
+            apiKeys: countIf(input.permissions.readApiKey, apiKey),
+            usableApiKeys: countIf(
               input.permissions.readApiKey,
               apiKey,
               and(
@@ -180,11 +182,21 @@ export class Organizations extends Context.Service<
                 or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
               ),
             ),
-            countRows(member),
-          ],
+            members: countRows(member),
+            hasConversations: input.permissions.readTenants
+              ? db
+                  .select({ id: chatThread.id })
+                  .from(chatThread)
+                  .where(eq(chatThread.organizationId, input.organizationId))
+                  .limit(1)
+                  .pipe(
+                    Effect.map((rows) => rows.length > 0),
+                    Effect.orDie,
+                  )
+              : Effect.succeed(null),
+          },
           { concurrency: "unbounded" },
         )
-        return { agents, sandboxProviders, apiKeys, usableApiKeys, members }
       })
 
       return Organizations.of({

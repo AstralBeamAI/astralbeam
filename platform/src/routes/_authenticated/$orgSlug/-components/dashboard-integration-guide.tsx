@@ -12,6 +12,7 @@ export function DashboardIntegrationGuide({
   organizationSlug,
   modelSetup,
   usableApiKeyCount,
+  hasConversations,
   permissions,
 }: {
   organizationSlug: string
@@ -22,6 +23,7 @@ export function DashboardIntegrationGuide({
     defaultAgentId: string | null
   } | null
   usableApiKeyCount: number | null
+  hasConversations: boolean | null
   permissions: Pick<
     OrganizationPermissions,
     "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
@@ -71,7 +73,7 @@ export function DashboardIntegrationGuide({
     },
     {
       title: "Embed and verify in your app",
-      complete: false,
+      complete: hasConversations === true,
       description:
         "Follow the quickstart to authenticate your app’s users and mount the widget. Verify a reply, then connect a tool and try an app action.",
       link: { href: "/docs/start/quickstart" },

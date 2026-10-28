@@ -42,6 +42,7 @@ function DashboardPage() {
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}
+        hasConversations={data.counts.hasConversations}
         permissions={permissions}
       />
       {!configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
