@@ -31,7 +31,7 @@ export const steps: Step[] = [
   {
     index: "01",
     title: "ADD THE FRONTEND SDK",
-    desc: "Install the SDK and mount the agent chat in your app. Stream replies, upload files, and match your app’s styles.",
+    desc: "Install the SDK and mount the agent chat in your app. You get robust message streaming, file uploads, and style customization.",
     file: "sidebar.tsx",
     code: `$ npm install @astralbeam/sdk
 + added 1 package
