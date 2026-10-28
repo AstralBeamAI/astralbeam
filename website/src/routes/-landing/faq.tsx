@@ -127,10 +127,9 @@ const questions = [
     question: "What will I pay for?",
     answer: (
       <>
-        Cloud pricing includes a usage-based platform fee and conversation and file storage. Your
-        model, sandbox, and other provider charges are as-is. Monthly free credits cover AstralBeam
-        fees for most customers just trying it out. See <a href="#pricing">pricing</a> for the rates
-        and hosting options.
+        Cloud pricing includes a usage-based platform fee and conversation and file storage. Model
+        and sandbox providers bill you directly. Monthly free credits cover AstralBeam fees only.
+        See <a href="#pricing">pricing</a> for the rates and hosting options.
       </>
     ),
   },

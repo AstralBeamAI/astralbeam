@@ -9,7 +9,7 @@ export const siteMetadata = {
   origin,
   title: "AstralBeam - Add an Agent to Your App in Minutes",
   description:
-    "Embed a Cursor-style agent in your product. It answers questions, takes action in your app, renders your UI components, and works with users' files.",
+    "Embed a Cursor-style agentic chat sidebar in your app. It answers questions, takes actions, displays your UI widgets, and works with users' files.",
   email: "hello@astralbeam.ai",
   links: {
     signUp: "/auth/sign-up",

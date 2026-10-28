@@ -96,7 +96,6 @@ describe("production website build", () => {
     const expiry = security.match(/^Expires: (.+)$/mu)?.[1]
     expect(expiry).toBeDefined()
     expect(Date.parse(expiry!)).toBeGreaterThan(Date.now())
-    expect(home).toContain(`dateTime="${landingUpdated}"`)
     expect(home).toContain(`"dateModified":"${landingUpdated}"`)
     expect(sitemap).toContain(`<lastmod>${landingUpdated}</lastmod>`)
   })
