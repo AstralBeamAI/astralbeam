@@ -177,6 +177,12 @@ test("busy sends retain FIFO and receipts while editing holds delivery after com
   expect(accepted).not.toHaveBeenCalled()
   expect(net.requests).toHaveLength(1)
   expect(net.requests[0]?.body.forwardedProps.clientId).toMatch(/^[0-9a-f-]{36}$/i)
+  await chat.sendMessage("Remove this guidance")
+  const removed = chat.getState().pendingMessages.at(-1)!
+  const steering = chat.steerPendingMessage(removed.id)
+  chat.removePendingMessage(removed.id)
+  await steering
+  expect(net.steering).toHaveLength(0)
   const release = chat.holdQueue()
   const second = chat.getState().pendingMessages[0]!
   net.finish()
@@ -198,6 +204,36 @@ test("busy sends retain FIFO and receipts while editing holds delivery after com
   ])
   expect(new Set(net.requests.map((request) => request.key)).size).toBe(4)
   expect(accepted).toHaveBeenCalledTimes(3)
+})
+
+test("reload retains the first input and follow-ups while thread creation is pending", async () => {
+  network()
+  let release!: () => void
+  const fetch = globalThis.fetch
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) =>
+    new URL(input).pathname.endsWith("/threads")
+      ? new Promise<Response>((resolve) => {
+          release = () => resolve(Response.json(thread))
+        })
+      : fetch(input, init),
+  )
+  const chat = createTestSession({ threadId: "new" })
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const retained = vi.fn()
+  const first = chat.sendMessage("First", { onQueued: retained })
+  await vi.waitFor(() => expect(release).toBeTypeOf("function"))
+  expect(retained).toHaveBeenCalledOnce()
+  await chat.sendMessage("Second")
+  const restored = createTestSession({ threadId: "auto" })
+  await vi.waitFor(() => expect(restored.getState().auth.status).toBe("ready"))
+  expect(restored.getState().pendingMessages.map((entry) => entry.content)).toEqual([
+    "First",
+    "Second",
+  ])
+  expect(restored.getState().queuePaused).toBe(true)
+  chat.dispose()
+  release()
+  await first
 })
 
 test.each(["accepted", "finished"])(

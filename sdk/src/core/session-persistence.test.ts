@@ -1037,7 +1037,7 @@ test("server-side revocation interrupts generation and blocks subsequent sends",
   expect(sends).toBe(1)
 })
 
-test("browser tools settle once before a queued follow-up runs", async () => {
+test.each([false, true])("browser tools settle, limited=%s", async (limited) => {
   let phase = 0
   let queued: string | undefined
   const executed = vi.fn(async () => {
@@ -1069,6 +1069,8 @@ test("browser tools settle once before a queued follow-up runs", async () => {
           version: index,
           saved: true,
           acceptedMessageId: "user",
+          turnMessageId: "user",
+          turnState: index < 3 ? "waiting" : "completed",
           executableToolCallIds: index < 3 ? [part.toolCallId] : [],
         },
       },
@@ -1169,6 +1171,14 @@ test("browser tools settle once before a queued follow-up runs", async () => {
       if (typeof init?.body !== "string") throw new Error("Expected a tool-result request body")
       const body = JSON.parse(init.body) as { run_id?: string }
       outputs.push(body)
+      if (limited) {
+        phase = 3
+        return sessionResponse({
+          thread_version: 3,
+          accepted_message_id: "result",
+          usage_limit: { name: "Budget", resets_at: "2026-10-29T00:00:00Z" },
+        })
+      }
       return Promise.resolve(stream(++phase, body.run_id ?? "server-generated-run"))
     }
     return sessionResponse({ capabilities: { attachments: true } })
@@ -1182,26 +1192,31 @@ test("browser tools settle once before a queued follow-up runs", async () => {
   await vi.waitFor(() => expect(chat.getState().thread).toBeDefined())
   await chat.sendMessage("Change and show")
   expect(queued).toBe("queued")
+  expect(chat.getState().activeTurnId).toBeUndefined()
+  expect(chat.getState().queuePaused).toBe(limited)
+  await chat.resumeQueue()
   await vi.waitFor(() =>
     expect(chat.getState().submission).toMatchObject({ content: "Follow-up", phase: "accepted" }),
   )
   expect(executed).toHaveBeenCalledTimes(1)
-  expect(rendered).toHaveBeenCalledTimes(1)
-  expect(outputs).toEqual([
-    expect.objectContaining({
-      results: [
-        expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
-      ],
-    }),
-    expect.objectContaining({
-      results: [
-        expect.objectContaining({
-          source_message_id: "assistant-2",
-          output: { widget: "card", rendered: true },
-        }),
-      ],
-    }),
-  ])
+  expect(rendered).toHaveBeenCalledTimes(limited ? 0 : 1)
+  expect(outputs).toEqual(
+    [
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
+        ],
+      }),
+      expect.objectContaining({
+        results: [
+          expect.objectContaining({
+            source_message_id: "assistant-2",
+            output: { widget: "card", rendered: true },
+          }),
+        ],
+      }),
+    ].slice(0, limited ? 1 : 2),
+  )
   expect(chat.getState().error).toBeUndefined()
   expect(chat.getState().pendingInteractions).toEqual([])
 })

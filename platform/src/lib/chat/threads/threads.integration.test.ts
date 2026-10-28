@@ -15,7 +15,8 @@ import { Chat } from "../chat"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { ChatSandboxes } from "../sandbox/sandbox"
 import { McpTools } from "@/lib/mcp/tools.server"
-import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
+import { UsageLimits, type UsageLimit } from "@/lib/usage-limits/usage-limits.server"
+import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from "vitest"
 
 const integration = vi.hoisted(() => {
@@ -241,11 +242,13 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
   })
 
-  test.each(["complete", "exhaust", "cancel"])(
+  test.each(["complete", "exhaust", "cancel", "usage-limit"])(
     "steering preserves the stream, files, and model-call budget: %s",
     async (mode) => {
       const exhaust = mode === "exhaust"
       const cancel = mode === "cancel"
+      const limited = mode === "usage-limit"
+      const unprocessed = cancel || limited
       const thread = await create()
       const first = await admit(thread.id)
       const prompts: unknown[] = []
@@ -353,7 +356,17 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             acquire: () => Effect.succeed({ tools: [], presentation: [], unavailable: [] }),
           } as unknown as typeof McpTools.Service),
           Layer.succeed(UsageLimits, {
-            applicable: () => Effect.succeed([]),
+            applicable: () => Effect.succeed(limited ? [{} as UsageLimit] : []),
+            record: () => Effect.void,
+            check: () =>
+              limited && prompts.length > 0
+                ? Effect.fail(
+                    new UsageLimitReached({
+                      usageLimit: { name: "Budget", resetsAt: "2026-10-29T00:00:00Z" },
+                      retryAfterSeconds: 60,
+                    }),
+                  )
+                : Effect.void,
           } as unknown as typeof UsageLimits.Service),
         ]),
       )
@@ -394,7 +407,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           )
         }).pipe(Effect.provide(layer)),
       )
-      expect(prompts).toHaveLength(cancel ? 1 : exhaust ? 25 : 2)
+      expect(prompts).toHaveLength(unprocessed ? 1 : exhaust ? 25 : 2)
       expect(
         prompts.slice(1).every((prompt) => JSON.stringify(prompt).includes("Guidance 1")),
       ).toBe(true)
@@ -402,7 +415,13 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       expect(events.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(
         mode === "complete" ? 1 : 0,
       )
-      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust)
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(exhaust || limited)
+      expect(
+        events.some(
+          (event) =>
+            event.type === EventType.CUSTOM && event.name === "astralbeam.usage_limit.reached",
+        ),
+      ).toBe(limited)
       const snapshots = events.flatMap((event) =>
         event.type === EventType.MESSAGES_SNAPSHOT ? event.messages : [],
       )
@@ -412,8 +431,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       const attachment = guidance?.parts.find((part) => part.type === "document") as
         | { fileId: string; metadata: { filename: string } }
         | undefined
-      expect(attachment?.fileId).toBe(cancel ? undefined : fileId)
-      expect(attachment?.metadata.filename).toBe(cancel ? undefined : "guide.txt")
+      expect(attachment?.fileId).toBe(unprocessed ? undefined : fileId)
+      expect(attachment?.metadata.filename).toBe(unprocessed ? undefined : "guide.txt")
       const saved = await runtime.runPromise(service.history({ scope, id: thread.id }))
       expect(saved.find((message) => message.id === first.inputMessage.id)?.turnState).toBe(
         mode === "complete" ? "completed" : "interrupted",

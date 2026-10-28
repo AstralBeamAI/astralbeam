@@ -333,7 +333,8 @@ export class Chat extends Context.Service<
                 managed: execution,
                 threads,
                 history: convertMessagesToModelMessages(phaseMessages),
-                canContinueSteering: () => modelTurns < CHAT_MAX_MODEL_TURNS,
+                canContinueSteering: () =>
+                  modelTurns < CHAT_MAX_MODEL_TURNS && (usageLimitGuard?.canContinue() ?? true),
                 tools,
                 model,
                 pricing,

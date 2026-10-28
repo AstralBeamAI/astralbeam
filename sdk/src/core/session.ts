@@ -858,18 +858,7 @@ export function createAstralBeamChat(
     const headers = new Headers(init.headers)
     if (sent) {
       headers.set("Idempotency-Key", sent.key)
-      let entry = pendingMessages.find((entry) => entry.id === sent.id)
-      if (!entry) {
-        entry = {
-          id: sent.id,
-          key: sent.key,
-          content: sent.content,
-          mode: "queue",
-          status: "sending",
-          attachmentsRequired: false,
-        }
-        pendingMessages.push(entry)
-      }
+      const entry = pendingMessages.find((entry) => entry.id === sent.id)!
       entry.status = "sending"
       entry.tools = sent.tools
       publishQueue()
@@ -904,9 +893,12 @@ export function createAstralBeamChat(
         throw new DOMException("Conversation changed", "AbortError")
       update({
         thread: { ...state.thread!, version: receipt.thread_version },
+        activeTurnId: undefined,
+        activeTurnState: receipt.usage_limit ? "interrupted" : undefined,
         // Saved tool results whose continuation a used-up limit skipped.
         ...(receipt.usage_limit
           ? {
+              queuePaused: true,
               usageLimitReached: {
                 name: receipt.usage_limit.name,
                 resetsAt: receipt.usage_limit.resets_at,
@@ -1613,6 +1605,16 @@ export function createAstralBeamChat(
       attempt: 0,
     }
     submission = sent
+    if (entry) entry.status = "sending"
+    else
+      pendingMessages.push({
+        id: sent.id,
+        key: sent.key,
+        content,
+        mode: "queue",
+        status: "sending",
+        attachmentsRequired: false,
+      })
     update({
       submission: project(sent),
       activeTurnId: undefined,
@@ -1621,6 +1623,8 @@ export function createAstralBeamChat(
       olderMessagesLoading: false,
       ...(entry ? {} : { queuePaused: false }),
     })
+    publishQueue()
+    if (!entry) notifySubmission(callbacks?.onQueued)
     client.stop()
     liveToolCalls.clear()
     scopeCompletedToolCalls()
@@ -1689,6 +1693,7 @@ export function createAstralBeamChat(
   async function dispatchSteering(entry: PendingChatMessage): Promise<void> {
     if (steeringRequests.has(entry)) return steeringRequests.get(entry)
     const generation = selectionGeneration
+    const execution = toolExecutionGeneration
     const threadId = state.thread?.id
     const turnMessageId = entry.turnMessageId ?? state.activeTurnId
     if (!threadId || !turnMessageId || entry.attachmentsRequired) return
@@ -1698,7 +1703,12 @@ export function createAstralBeamChat(
       entry.turnMessageId = turnMessageId
       try {
         const auth = await requestOptions()
-        if (generation !== selectionGeneration) return
+        if (
+          generation !== selectionGeneration ||
+          execution !== toolExecutionGeneration ||
+          !pendingMessages.includes(entry)
+        )
+          return
         entry.status = "sending"
         publishQueue()
         const content = typeof entry.content === "string" ? entry.content : entry.content.content
