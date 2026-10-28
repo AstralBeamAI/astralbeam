@@ -61,21 +61,17 @@ export function CopyPrompt() {
             </button>
           </header>
           <ol className="prompt-steps">
-            <li>Copy the prompt below.</li>
             <li>
-              Open a coding agent (Cursor, Claude Code, Codex, etc.) in your app’s code repository.
+              Open your app’s repository in Cursor, Claude Code, Codex, or another coding agent.
             </li>
-            <li>
-              Paste the prompt. The agent will install the SDK and integrate AstralBeam into your
-              app.
-            </li>
+            <li>Copy and paste the prompt below to start the integration.</li>
           </ol>
           <pre className="prompt-text mono">{agentPrompt}</pre>
           <p className="prompt-note">
             <a href={signUpUrl} target="_blank" rel="noopener noreferrer">
               Sign up
             </a>{" "}
-            to generate an AstralBeam API key needed to authorize chat requests.
+            and create an organization API key to authorize chat requests.
           </p>
           <p className="prompt-manual" role="status">
             Your browser blocked the clipboard, so the prompt is selected. Copy it with Ctrl+C or

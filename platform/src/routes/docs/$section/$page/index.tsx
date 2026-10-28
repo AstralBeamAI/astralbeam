@@ -58,6 +58,12 @@ function DocsArticlePage() {
   })
   const pageLinks = (
     <>
+      <Link
+        to="/docs"
+        className="mb-5 block py-1.5 text-sm text-muted-foreground hover:text-foreground any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+      >
+        All documentation
+      </Link>
       <p className="mb-3 text-sm font-semibold">{section.title}</p>
       <ul className="space-y-1 border-s">
         {publishedDocsPages(section).map((entry) => (
@@ -72,6 +78,22 @@ function DocsArticlePage() {
             </Link>
           </li>
         ))}
+      </ul>
+      <p className="mt-6 mb-2 text-sm font-semibold">Other sections</p>
+      <ul>
+        {DOCS_SECTIONS.filter((entry) => !entry.draft && entry.slug !== section.slug).map(
+          (entry) => (
+            <li key={entry.slug}>
+              <Link
+                to="/docs/$section"
+                params={{ section: entry.slug }}
+                className="block py-1.5 text-sm text-muted-foreground hover:text-foreground any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+              >
+                {entry.title}
+              </Link>
+            </li>
+          ),
+        )}
       </ul>
     </>
   )
@@ -102,12 +124,6 @@ function DocsArticlePage() {
           >
             <summary className="cursor-pointer py-3 text-sm font-medium">Browse docs</summary>
             <nav aria-label="Browse documentation" className="pb-4">
-              <Link
-                to="/docs"
-                className="mb-4 block py-2 text-sm text-primary underline underline-offset-4"
-              >
-                All documentation
-              </Link>
               {pageLinks}
             </nav>
           </details>
