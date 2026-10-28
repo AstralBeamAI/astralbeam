@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest"
 
 import { palette } from "../src/brand/palette"
 import { blogPosts } from "../src/lib/blog"
-import { siteMetadata } from "../src/lib/site"
+import { landingUpdated, siteMetadata } from "../src/lib/site"
 
 const origin = "https://astralbeam.ai"
 const homeUrl = `${origin}/`
@@ -84,6 +84,23 @@ describe("production website build", () => {
     expect(privacy).toContain("Google API Services User Data Policy")
   })
 
+  test("publishes a current security contact and landing page update date", async () => {
+    const [home, security, sitemap] = await Promise.all([
+      readText("index.html"),
+      readText(".well-known/security.txt"),
+      readText("sitemap.xml"),
+    ])
+    expect(security).toContain(
+      "Contact: https://github.com/AstralBeamAI/astralbeam/security/advisories/new",
+    )
+    const expiry = security.match(/^Expires: (.+)$/mu)?.[1]
+    expect(expiry).toBeDefined()
+    expect(Date.parse(expiry!)).toBeGreaterThan(Date.now())
+    expect(home).toContain(`dateTime="${landingUpdated}"`)
+    expect(home).toContain(`"dateModified":"${landingUpdated}"`)
+    expect(sitemap).toContain(`<lastmod>${landingUpdated}</lastmod>`)
+  })
+
   test("ships brand colors without Node APIs", async () => {
     const assetDirectory = new URL("website-assets/", distUrl)
     const assets = await readdir(assetDirectory)
@@ -133,6 +150,7 @@ describe("production website build", () => {
 
     expect(headers).toContain("frame-ancestors 'none'")
     expect(robots).toContain(`Sitemap: ${origin}/sitemap.xml`)
+    expect(robots).toContain("Content-Signal: search=yes, ai-input=yes, ai-train=yes")
     expect(llms).toMatch(/^# AstralBeam$/mu)
     expect(llms).toContain(homeUrl)
     expect(licenses).toContain(mitLicense.trimEnd())
