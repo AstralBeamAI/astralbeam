@@ -55,9 +55,7 @@ export function ConfigFieldInput({
         {field.label}
         {field.required && <Badge variant="outline">Required</Badge>}
         {field.isPublic && <Badge variant="secondary">Public</Badge>}
-        <Badge variant={field.source === "environment" ? "secondary" : "outline"}>
-          {field.source === "environment" ? "Environment" : "Database"}
-        </Badge>
+        {field.source === "environment" && <Badge variant="secondary">Environment</Badge>}
       </FieldLabel>
       {field.kind === "enum" ? (
         <Select
