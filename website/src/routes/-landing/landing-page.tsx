@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { cssVars } from "@/lib/css-vars"
 import { pageHead } from "@/lib/page-head"
-import { siteMetadata } from "@/lib/site"
+import { landingUpdated, siteMetadata, siteUrl } from "@/lib/site"
 import { reveal, shouldAnimate, startSiteEffects } from "@/scripts/main"
 
 import { AgentDemo } from "./agent-demo"
@@ -32,6 +32,17 @@ export function landingPageHead() {
   })
   return {
     ...head,
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "@id": siteUrl("/"),
+          dateModified: landingUpdated,
+        }),
+      },
+    ],
     links: [
       ...head.links,
       ...[antonFontUrl, spaceGroteskFontUrl].map((href) => ({

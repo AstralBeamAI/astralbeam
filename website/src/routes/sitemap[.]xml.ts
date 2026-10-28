@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { blogPosts } from "@/lib/blog"
-import { siteUrl } from "@/lib/site"
+import { landingUpdated, siteUrl } from "@/lib/site"
 
 // The canonical URL of every indexable page. /404 is deliberately absent.
 const indexablePaths = ["/", "/terms", "/privacy", "/blog", ...blogPosts.map((post) => post.path)]
@@ -11,7 +11,10 @@ export const Route = createFileRoute("/sitemap.xml")({
     handlers: {
       GET: () => {
         const entries = indexablePaths
-          .map((path) => `  <url><loc>${siteUrl(path)}</loc></url>`)
+          .map(
+            (path) =>
+              `  <url><loc>${siteUrl(path)}</loc>${path === "/" ? `<lastmod>${landingUpdated}</lastmod>` : ""}</url>`,
+          )
           .join("\n")
         return new Response(
           `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`,

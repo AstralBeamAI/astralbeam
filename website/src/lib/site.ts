@@ -1,6 +1,9 @@
 // The platform serves this website under its own origin, so the app and website links share it.
 const origin = "https://astralbeam.ai"
 
+// Update when the landing page's product or pricing information changes.
+export const landingUpdated = "2026-10-28"
+
 export const siteMetadata = {
   name: "AstralBeam",
   origin,

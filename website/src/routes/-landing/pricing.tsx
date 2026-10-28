@@ -1,4 +1,11 @@
-import { siteMetadata } from "@/lib/site"
+import { landingUpdated, siteMetadata } from "@/lib/site"
+
+const updatedLabel = new Date(`${landingUpdated}T00:00:00Z`).toLocaleDateString("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+})
 
 function UsageRates() {
   return (
@@ -84,6 +91,10 @@ export function Pricing() {
       <p className="pricing-providers">
         Bring your own LLM keys. Models, sandboxes, and observability are billed directly by
         providers. Cloud credits cover AstralBeam fees only. All prices in USD.
+      </p>
+      <p className="pricing-providers">
+        Product and pricing information updated{" "}
+        <time dateTime={landingUpdated}>{updatedLabel}</time>.
       </p>
     </section>
   )

@@ -1,5 +1,5 @@
 astralbeam.ai {
-	@public path / /home /terms /privacy /blog /blog/* /docs /docs/* /docs.md /assets/* /website-assets/* /demo/* /api/openapi.json /robots.txt /llms.txt /licenses.txt /sitemap.xml /site.webmanifest
+	@public path / /home /terms /privacy /blog /blog/* /docs /docs/* /docs.md /assets/* /website-assets/* /demo/* /api/openapi.json /robots.txt /llms.txt /licenses.txt /sitemap.xml /site.webmanifest /.well-known/security.txt
 	encode @public zstd gzip
 	@redirectRecovery query _redirect_recovery=1
 	# Clear the old apex-to-www redirect without touching sessions or local storage.

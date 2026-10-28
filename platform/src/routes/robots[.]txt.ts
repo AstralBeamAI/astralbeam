@@ -17,6 +17,9 @@ export const Route = createFileRoute("/robots.txt")({
           "# https://www.robotstxt.org/robotstxt.html",
           "User-agent: *",
           "Disallow:",
+          ...(origin === "https://astralbeam.ai"
+            ? ["Content-Signal: search=yes, ai-input=yes, ai-train=yes"]
+            : []),
           "",
           `Sitemap: ${origin}/docs/sitemap.xml`,
           ...(websiteUrl === undefined ? [] : [`Sitemap: ${origin}/sitemap.xml`]),

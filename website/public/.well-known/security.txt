@@ -1,0 +1,5 @@
+Contact: https://github.com/AstralBeamAI/astralbeam/security/advisories/new
+Expires: 2027-04-28T00:00:00Z
+Policy: https://github.com/AstralBeamAI/astralbeam/security/policy
+Canonical: https://astralbeam.ai/.well-known/security.txt
+Preferred-Languages: en

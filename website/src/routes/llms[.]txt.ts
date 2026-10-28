@@ -10,6 +10,8 @@ const llmsText = `# AstralBeam
 
 ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Items marked "in progress" are on the roadmap and not shipped yet.
 
+AstralBeam is for developers and product teams building SaaS and multi-tenant apps who want to add an AI assistant to their product. It brings the chat UI, model calls, tool orchestration, conversation history, and file handling together, while developers connect their app's data and actions and retain their own permission checks. It is open source, supports your own model provider keys, and can run on your infrastructure.
+
 ## Integration
 
 1. Add the frontend SDK (@astralbeam/sdk): Cursor-style agentic chat, managed backend, full customization of copy, colors, and slots, users' file attachments, coding sandboxes with downloadable artifacts, resumable streaming (in progress).
@@ -32,6 +34,7 @@ ${siteMetadata.description} Self-host the platform or use AstralBeam Cloud. Item
 ## Links
 
 - [Home](${siteUrl("/")}): Product overview, integration steps, and deployment model.
+- [Pricing](${siteUrl("/home#pricing")}): Cloud, managed hosting, and self-hosting rates.
 - [Hosted app](${siteUrl(logIn)}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${siteUrl(docs)}): Guides and reference for the SDK and the platform.
 - [CLI and coding agents](${siteUrl("/docs/cli/coding-agents")}): Install the CLI skill and configure agent access.
