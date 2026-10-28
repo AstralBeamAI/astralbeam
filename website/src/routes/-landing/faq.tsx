@@ -27,12 +27,12 @@ const questions = [
     question: "Why choose AstralBeam instead of building an agent myself?",
     answer: (
       <>
-        AstralBeam brings the chat UI, model calls, tool orchestration, conversation history, and
-        file handling together, so your team can focus on your product instead of assembling and
-        maintaining that infrastructure. It is open source, supports your own model provider keys,
-        and can run on your infrastructure. Try the{" "}
-        <a href={`${docs}/start/quickstart`}>quickstart</a> or{" "}
-        <a href={`${docs}/self-hosting`}>self-host it</a>.
+        You have to patch together a lot of tools. It&apos;s error-prone, and you might end up
+        building something sub-optimal or something that blows up your LLM bills. It&apos;s a moving
+        target: models are changing, protocols are evolving, and best practices are changing.
+        Developers should be able to focus on their product rather than keeping up with all this.
+        That&apos;s why we made AstralBeam open source. We encourage you to try{" "}
+        <a href={`${docs}/self-hosting`}>self-hosting it</a> before building your own.
       </>
     ),
   },
