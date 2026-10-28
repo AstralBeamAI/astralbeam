@@ -64,7 +64,7 @@ test("stored file handles and provider text stay stable when earlier same-name f
   const messages = ids.flatMap((id) =>
     userMessage([{ ...entry, source: { ...entry.source, id } }]).map((message) => ({
       ...message,
-      id,
+      id: `message-${id}`,
     })),
   )
   const full = normalizeChatAttachments(messages, withSandbox)
