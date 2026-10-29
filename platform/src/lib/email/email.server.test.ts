@@ -100,7 +100,7 @@ describe("Mailer", () => {
       const [welcome, support, passwordChanged] = sent
       for (const email of [welcome, support]) {
         assert.deepStrictEqual(email?.to, [user.email])
-        assert.deepStrictEqual(email?.cc, ["support@example.test"])
+        assert.deepStrictEqual(email === welcome ? email?.bcc : email?.cc, ["support@example.test"])
         assert.strictEqual(email?.replyTo, "support@example.test")
       }
       assert.strictEqual(support?.subject, `${APP_NAME} support request: The sidebar`)
@@ -163,6 +163,7 @@ describe("EmailProviders", () => {
           email: {
             to: ["person@example.com"],
             cc: [],
+            bcc: [],
             from: "sender@example.com",
             replyTo: "sender@example.com",
             subject: "Test",

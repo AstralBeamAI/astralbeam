@@ -27,6 +27,7 @@ export interface EmailMessage {
   readonly to: string
   /** Copies the support address so replies start a thread with the team. */
   readonly cc?: string | undefined
+  readonly bcc?: string | undefined
   readonly subject: string
   readonly react: ReactElement
   readonly attachments?: readonly ProviderEmailAttachment[]
@@ -199,7 +200,7 @@ export function welcomeEmailMessage(
 ): EmailMessage {
   return {
     to: data.user.email,
-    cc: supportEmailAddress,
+    bcc: supportEmailAddress,
     subject: `Welcome to ${APP_NAME}`,
     react: createElement(WelcomeEmail, {
       appName: APP_NAME,
