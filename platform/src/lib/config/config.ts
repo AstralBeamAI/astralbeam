@@ -78,7 +78,7 @@ const environmentConfig = EffectConfig.all(
   ),
 )
 
-/** Invalid CloudFront overrides gate only the selected strategy. Other invalid values fail loads. */
+/** Environment values, decoded like stored ones. An invalid value fails every load until fixed. */
 const readEnvironmentConfig = Effect.fnUntraced(function* () {
   const raw = yield* environmentConfig.pipe(
     // Each load rereads the process environment, as it rereads the stored values it overrides.
@@ -92,11 +92,6 @@ const readEnvironmentConfig = Effect.fnUntraced(function* () {
     const decoded = decodeConfigValue(definition, parseEnvironmentConfigValue(value.value))
     if (Result.isSuccess(decoded)) {
       values[definition.key] = decoded.success
-      continue
-    }
-    if (definition.key.startsWith("cloudfront_")) {
-      // Keep the override present so an invalid value cannot fall back to stored credentials.
-      values[definition.key] = undefined
       continue
     }
     const variable = configEnvironmentVariable(definition.key)
@@ -165,17 +160,6 @@ export class Config extends Context.Service<
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
         const issues = validateConfigCompleteness(values, environmentKeys)
-        if (
-          stored.rows?.some(
-            (row) => row.key === "download_signing_strategy" && row.storageStatus === "unreadable",
-          )
-        ) {
-          issues.push({
-            key: "download_signing_strategy",
-            message:
-              "Download signing configuration cannot be read. Replace or clear the stored value.",
-          })
-        }
         return {
           generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,

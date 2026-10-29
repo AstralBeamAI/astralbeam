@@ -1,4 +1,3 @@
-import { createPrivateKey } from "node:crypto"
 import { Result, Schema, SchemaGetter, SchemaTransformation } from "effect"
 
 import {
@@ -13,7 +12,6 @@ import { allowInsecure } from "@/lib/runtime/environment.server"
 import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
   EmailAddressSchema,
-  enumSchema,
   NonEmptyStringSchema,
   strictParseOptions,
   UuidV7Schema,
@@ -202,7 +200,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "File storage",
     label: "S3 access-key ID",
     description:
-      "Object read, write, and delete permissions. AWS also needs s3:ListBucket. Use lifecycle rules to expire retained versions.",
+      "Object read, write, and delete permissions. AWS also needs s3:ListBucket, and versioned buckets need s3:DeleteObjectVersion.",
     kind: "secret",
     required: true,
     schema: NonEmptyStringSchema,
@@ -229,67 +227,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
       { value: "true", label: "Path style" },
     ],
     schema: BooleanSettingSchema,
-  },
-  {
-    key: "download_signing_strategy",
-    group: "File storage",
-    label: "Download signing strategy",
-    description: "Choose how private avatar and logo downloads are signed. Uploads always use S3.",
-    kind: "enum",
-    required: false,
-    defaultValue: "s3",
-    options: [
-      { value: "s3", label: "Native S3" },
-      { value: "cloudfront", label: "CloudFront" },
-    ],
-    schema: enumSchema(["s3", "cloudfront"]),
-  },
-  {
-    key: "cloudfront_download_origin",
-    group: "File storage",
-    label: "CloudFront download origin",
-    description:
-      "The distribution's HTTPS origin, using its assigned cloudfront.net hostname or a custom hostname. Keep the S3 endpoint unchanged.",
-    kind: "url",
-    required: false,
-    isPublic: true,
-    schema: ServerOriginSchema.check(
-      Schema.makeFilter((value) => value.startsWith("https://") && !new URL(value).port, {
-        message: "Use an HTTPS origin on port 443 without credentials, path, query, or fragment",
-      }),
-    ),
-  },
-  {
-    key: "cloudfront_key_pair_id",
-    group: "File storage",
-    label: "CloudFront public key ID",
-    description: "Public key in the distribution's trusted key group for signed viewer URLs.",
-    kind: "text",
-    required: false,
-    isPublic: true,
-    schema: NonEmptyStringSchema,
-  },
-  {
-    key: "cloudfront_private_key",
-    group: "File storage",
-    label: "CloudFront private key",
-    description:
-      "RSA 2048-bit PEM private key matching the trusted public key. Stored encrypted in the database.",
-    kind: "secret",
-    required: false,
-    schema: Schema.String.check(
-      Schema.makeFilter(
-        (value) => {
-          const parsed = Result.try(() => createPrivateKey(value))
-          if (Result.isFailure(parsed)) return false
-          const key = parsed.success
-          // The SDK signer does not support CloudFront's ECDSA keys yet.
-          // https://github.com/aws/aws-sdk-js-v3/issues/7851
-          return key.asymmetricKeyType === "rsa" && key.asymmetricKeyDetails?.modulusLength === 2048
-        },
-        { message: "Enter an unencrypted RSA 2048-bit PEM private key" },
-      ),
-    ),
   },
   {
     key: "dogfood_organization_id",
@@ -637,25 +574,6 @@ export function validateConfigCompleteness(
           findConfigDefinition(missing)?.label
         } is required to enable this sign-in provider`,
       })
-    }
-  }
-  const cloudfrontKeys = [
-    "cloudfront_download_origin",
-    "cloudfront_key_pair_id",
-    "cloudfront_private_key",
-  ] as const
-  const hasCloudfrontEnvironmentOverride = cloudfrontKeys.some((key) => environmentKeys.has(key))
-  if (values.download_signing_strategy === "cloudfront") {
-    for (const key of cloudfrontKeys) {
-      const missingOverride = hasCloudfrontEnvironmentOverride && !environmentKeys.has(key)
-      if (missingOverride || !values[key]) {
-        issues.push({
-          key,
-          message: missingOverride
-            ? `${configEnvironmentVariable(key)} is required with other CloudFront overrides`
-            : `A valid ${findConfigDefinition(key)?.label} is required for CloudFront`,
-        })
-      }
     }
   }
   if (values.email_provider && values.email_provider !== "smtp" && !values.email_from_address) {

@@ -115,7 +115,6 @@
         "@astralbeam/sdk": "workspace:*",
         "@aws-sdk/client-s3": "^3.1151.0",
         "@aws-sdk/client-sesv2": "^3.1151.0",
-        "@aws-sdk/cloudfront-signer": "^3.1149.0",
         "@aws-sdk/s3-request-presigner": "^3.1151.0",
         "@base-ui/react": "^1.9.0",
         "@better-auth-ui/core": "1.7.12",
@@ -360,8 +359,6 @@
     "@aws-sdk/client-s3": ["@aws-sdk/client-s3@3.1151.0", "", { "dependencies": { "@aws-sdk/checksums": "^3.1001.3", "@aws-sdk/core": "^3.978.3", "@aws-sdk/credential-provider-node": "^3.972.86", "@aws-sdk/middleware-sdk-s3": "^3.972.79", "@aws-sdk/signature-v4-multi-region": "^3.996.48", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.2", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-Kg20OP7F+rrWMFjPv/aCsNUt/qDbvh1bLJFQM8k/8fnxowR/DA67qL5KHzWWN5gwJCYplS3KQde6P/knOB+lxg=="],
 
     "@aws-sdk/client-sesv2": ["@aws-sdk/client-sesv2@3.1151.0", "", { "dependencies": { "@aws-sdk/core": "^3.978.3", "@aws-sdk/credential-provider-node": "^3.972.86", "@aws-sdk/signature-v4-multi-region": "^3.996.48", "@aws-sdk/types": "^3.974.6", "@smithy/core": "^3.35.2", "@smithy/fetch-http-handler": "^5.8.0", "@smithy/node-http-handler": "^4.12.1", "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-Gann1GbKHVmksv0igE+7t96NIIWU83tPKyYvqzpYzbskVGzc4GOC6D98pxzucNQHKmwagK4OweR7LoPLZjiLSA=="],
-
-    "@aws-sdk/cloudfront-signer": ["@aws-sdk/cloudfront-signer@3.1149.0", "", { "dependencies": { "@smithy/core": "^3.35.2", "tslib": "^2.6.2" } }, "sha512-KQWf9uMG4r/L6lI1t4oMSeFlKNRCql6SLA9Kz7Xgg/nzJXDsXfOZyG1Da2N9WZ5nWnbBytPuPTXClOGC051ZTA=="],
 
     "@aws-sdk/core": ["@aws-sdk/core@3.978.3", "", { "dependencies": { "@aws-sdk/types": "^3.974.6", "@aws-sdk/xml-builder": "^3.972.41", "@aws/lambda-invoke-store": "^0.3.0", "@smithy/core": "^3.35.2", "@smithy/signature-v4": "^5.7.4", "@smithy/types": "^4.19.0", "bowser": "^2.11.0", "tslib": "^2.6.2" } }, "sha512-nslpzUCTI9b2IQMWSd6mSAXldBexPc8rr0d3dXUutXYFLFaTdsHa2GD7sJdsn3PhyjK0O5K8ypd6zi+RXXPVlg=="],
 

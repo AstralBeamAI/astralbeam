@@ -20,7 +20,6 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-  InputGroupTextarea,
 } from "@/components/ui/input-group"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { CopyValueButton } from "./copy-value-button"
@@ -59,8 +58,6 @@ export function ConfigValueInput({
   const readOnly = field.source === "environment"
   const needsReveal = field.kind === "secret" && field.isSet && !revealed
   const valueVisible = field.kind !== "secret" || visible
-  const multiline = field.key === "cloudfront_private_key"
-  const ValueInput = multiline && valueVisible ? InputGroupTextarea : InputGroupInput
 
   const revealValue = async () => {
     if (!needsReveal) {
@@ -84,12 +81,10 @@ export function ConfigValueInput({
   return (
     <div className="flex flex-col gap-2">
       <InputGroup>
-        <ValueInput
+        <InputGroupInput
           id={`config-${field.key}`}
           type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
-          autoComplete={
-            field.kind === "secret" && !(multiline && valueVisible) ? "new-password" : "off"
-          }
+          autoComplete={field.kind === "secret" ? "new-password" : "off"}
           value={value}
           placeholder={
             needsReveal && !readOnly ? "Reveal to edit" : field.isSet ? "Configured" : "Not set"
@@ -101,11 +96,6 @@ export function ConfigValueInput({
             if (!needsReveal && !value && ["Backspace", "Delete"].includes(event.key)) {
               onDraftChange({ kind: "set", value: "" })
             }
-          }}
-          onPaste={(event) => {
-            if (!multiline || valueVisible || needsReveal) return
-            event.preventDefault()
-            onDraftChange({ kind: "set", value: event.clipboardData.getData("text") })
           }}
         />
         <InputGroupAddon align="inline-end">
