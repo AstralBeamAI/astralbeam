@@ -36,7 +36,7 @@ export function organizationHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "organization",
-    Effect.fn("organizationHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { Organizations } = yield* Effect.promise(
         () => import("@/lib/organizations/organizations.server"),
       )

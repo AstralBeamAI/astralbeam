@@ -112,7 +112,7 @@ export function threadDirectoryHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "threadDirectory",
-    Effect.fn("threadDirectoryHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),

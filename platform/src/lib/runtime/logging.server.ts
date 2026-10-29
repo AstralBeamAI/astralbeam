@@ -1,4 +1,6 @@
 import process from "node:process"
+import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
+import { context as otelContext, isSpanContextValid, trace } from "@opentelemetry/api"
 
 import {
   Array,
@@ -11,6 +13,7 @@ import {
   Logger,
   Predicate,
   References,
+  Tracer,
 } from "effect"
 import { OtlpExporter, OtlpLogger, OtlpSerialization } from "effect/observability"
 
@@ -119,6 +122,16 @@ export const serverLoggerLayer = Layer.mergeAll(
       // Native OTLP formatting stringifies objects. Redact messages and annotations before it does.
       // Emission is synchronous, so restore the context before any other logger or Effect runs.
       fiber.setContext(Context.add(context, References.CurrentLogAnnotations, annotations))
+      const active = trace.getSpanContext(otelContext.active())
+      if (
+        (!fiber.cache.span || fiber.getRef(Tracer.Tracer) === Tracer.nativeTracer) &&
+        active &&
+        isSpanContextValid(active)
+      ) {
+        fiber.setContext(
+          Context.add(fiber.context, Tracer.ParentSpan, OtelTracer.makeExternalSpan(active)),
+        )
+      }
       try {
         logger.log({ ...options, message: redactLogRecord(options.message) })
       } finally {
