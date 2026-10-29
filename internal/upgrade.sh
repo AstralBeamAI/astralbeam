@@ -2,19 +2,33 @@
 
 set -euo pipefail
 
-repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-platform_binary="$(command -v astralbeam-platform)"
+# Parse the whole upgrade before the pull can replace this script.
+{
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+  platform_binary=/usr/local/bin/astralbeam-platform
+  database_url="$(sed -n 's/^[[:space:]]*Environment="DATABASE_URL=\([^"]*\)"[[:space:]]*$/\1/p' /etc/systemd/system/astralbeam-platform.service)"
+  database_url="${database_url//%%/%}"
+  : "${database_url:?DATABASE_URL is missing from the platform service configuration}"
 
-NODE_ENV=production /root/.bun/bin/bun run --cwd "$repo_root/sdk" build
-NODE_ENV=production /root/.bun/bin/bun run --cwd "$repo_root/examples/linearity-react" build
-NODE_ENV=production /root/.bun/bin/bun run --cwd "$repo_root/website" build
+  git switch main
+  git pull --ff-only origin main
+  NODE_ENV=development /root/.bun/bin/bun install --frozen-lockfile
 
-sudo systemctl restart astralbeam-linearity
-sudo systemctl restart astralbeam-website
+  for project in sdk examples/linearity-react website; do
+    NODE_ENV=production /root/.bun/bin/bun run --cwd "$project" build
+  done
 
-sudo "$platform_binary" upgrade --yes "$@"
+  systemctl restart astralbeam-linearity
+  systemctl restart astralbeam-website
+  "$platform_binary" upgrade --yes "$@"
 
-printf '\n%s\n' \
-  'Database migrations have NOT been run.' \
-  "Run $platform_binary migrate with the production DATABASE_URL, then:" \
-  'sudo systemctl restart astralbeam-platform'
+  DATABASE_URL="$database_url" NODE_ENV=production "$platform_binary" migrate
+  systemctl restart astralbeam-platform
+  systemctl status astralbeam-platform --no-pager
+  "$platform_binary" version
+  curl --fail --silent --show-error \
+    --retry 10 --retry-connrefused --retry-delay 1 \
+    http://127.0.0.1:3100/api/status
+  printf '\n'
+  exit
+}

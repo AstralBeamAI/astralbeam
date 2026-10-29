@@ -244,47 +244,16 @@ sudo journalctl -u caddy --since "5 minutes ago" --no-pager
 
 ## Upgrading applications
 
-Use [upgrade.sh](upgrade.sh) after updating and reviewing the server checkout. Have reviewed database and configuration backups, the Bun version from [`.bun-version`](../.bun-version) installed at `/root/.bun/bin/bun`, frozen dependencies, and `astralbeam-platform` available on `PATH`. The supplied platform unit uses `/usr/local/bin/astralbeam-platform`. Use the existing production configuration and do not run contributor `scripts/setup.sh` on this server.
+Have reviewed database and configuration backups and the Bun version from [`.bun-version`](../.bun-version) installed at `/root/.bun/bin/bun`. Keep `DATABASE_URL` in the literal `Environment="DATABASE_URL=..."` line in `/etc/systemd/system/astralbeam-platform.service`, using `%%` for literal percent signs. Drop-ins and `EnvironmentFile=` settings are not read. Do not run contributor `scripts/setup.sh` on this server.
 
-From the checkout, install dependencies and run the script from `internal/`:
+Run [upgrade.sh](upgrade.sh) as root:
 
 ```sh
 cd /root/work/astralbeam
-/root/.bun/bin/bun install --frozen-lockfile
-cd internal
-./upgrade.sh
+./internal/upgrade.sh
 ```
 
-With no argument, the script installs the latest platform release. To select a reviewed release, pass its tag as `./upgrade.sh vX.Y.Z`, replacing `vX.Y.Z` with the desired tag. The script resolves the repository from its own location, so an absolute invocation also works from any directory.
-
-The script performs this sequence:
-
-1. Build the SDK, the Linearity example, and the website, in that order, using `NODE_ENV=production` and `/root/.bun/bin/bun`.
-2. Restart `astralbeam-linearity`, then `astralbeam-website`.
-3. Run the installed platform binary's `upgrade --yes` command, forwarding the optional release tag.
-
-It runs no migrations and does not restart the platform. Replacing the binary on disk leaves the running platform process on its previous binary until the manual migration and restart are complete. The prototype's separate checkout is outside this script.
-
-### Apply production migrations and restart the platform
-
-The migration command needs the production `DATABASE_URL` from the platform service configuration. Your SSH shell does not inherit systemd's environment. This explicit Bash command prompts without echoing the value and works even when the login shell is zsh:
-
-```sh
-bash -c '
-set -euo pipefail
-read -r -s -p "Production DATABASE_URL: " DATABASE_URL
-printf "\n"
-export DATABASE_URL
-sudo --preserve-env=DATABASE_URL /usr/local/bin/astralbeam-platform migrate
-'
-```
-
-Only after the migration succeeds, restart the platform to load the new binary:
-
-```sh
-sudo systemctl restart astralbeam-platform
-sudo systemctl status astralbeam-platform --no-pager
-```
+To select a specific platform release, use `./internal/upgrade.sh vX.Y.Z` with the desired tag. Omit the tag for the latest release.
 
 ## Verify HTTP and HTTPS
 
