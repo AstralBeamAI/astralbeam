@@ -5,6 +5,7 @@ import { createContext, type ReactNode, useContext } from "react"
 import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { buttonVariants } from "@/components/ui/button"
+import { WebsiteLink } from "@/components/website-link"
 import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import {
@@ -192,9 +193,7 @@ export function DocsNavbar({
         </div>
       }
     >
-      <a href="/home" className={navLinkClassName}>
-        Website
-      </a>
+      <WebsiteLink className={navLinkClassName}>Website</WebsiteLink>
       {signedIn ? <DashboardLink reloadDocument /> : <AuthLinks reloadDocument />}
     </Navbar>
   )

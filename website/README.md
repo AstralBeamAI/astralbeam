@@ -23,6 +23,8 @@ Routes live in `src/routes/`, landing content in `src/routes/-landing/`, and sty
 
 Production caching follows `public/_headers`: hashed build assets stay fresh for one year, and explicitly listed public files for five minutes. Add an exact path entry for each new public file that needs this policy. Stable files revalidate after expiry. HTML revalidates on each visit. Platform preserves these headers through the rewrite, prevents caching upstream errors, and keeps `/` private and revalidated because sign-in changes it to the dashboard.
 
+The Website links in docs and the platform's profile menu always open `https://astralbeam.ai/home` directly, including on self-hosted deployments without `website_url`.
+
 The build publishes the [CLI skill](../cli/skills/astralbeam/SKILL.md) and its discovery index from this single source.
 
 Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
