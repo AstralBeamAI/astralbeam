@@ -70,6 +70,7 @@ export const organization = snakeCase.table(
     // https://better-auth.com/docs/plugins/organization#schema
     logo: text(),
     logoFileId: uuid(),
+    domain: text().notNull(),
     metadata: text(),
     ...timestamps(),
   },

@@ -94,7 +94,10 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       await db.execute(sql`truncate organization cascade`)
       await db.delete(cacheEntry).where(eq(cacheEntry.namespace, "mcp-oauth"))
       mcpIntegration.baseUrl = "https://astralbeam.example"
-      const [org] = await db.insert(organization).values({ name: "MCP", slug: "mcp" }).returning()
+      const [org] = await db
+        .insert(organization)
+        .values({ domain: "example.com", name: "MCP", slug: "mcp" })
+        .returning()
       const [customer] = await db
         .insert(tenant)
         .values({ organizationId: org!.id, externalId: "tenant" })

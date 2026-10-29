@@ -1,7 +1,7 @@
 import { defineRequestState } from "@better-auth/core/context"
 import { APIError } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { Effect, Result, Schema } from "effect"
 
 import { Database } from "@/db/database"
@@ -19,6 +19,7 @@ import { StoredFiles } from "@/lib/storage/stored-files.server"
 import { organizationRoleHooks, organizationProvisioningHooks } from "./hooks.server"
 import { logoFileUrl } from "./images"
 import { consumeImageUpload, retireImage } from "./images.server"
+import { enqueueOrganizationLogoImport } from "./logo-import.server"
 
 const organizationImageRequest = defineRequestState<{
   logo?: { bytes: Uint8Array; contentType: string }
@@ -125,16 +126,21 @@ export const organizationImageHooks = {
     ),
   beforeCreateOrganization: async (input) => {
     await organizationRoleHooks.beforeCreateOrganization(input)
+    const domain = input.user.email.slice(input.user.email.lastIndexOf("@") + 1).toLowerCase()
     const source = input.organization.logo
-    if (!source) return { data: { logo: null, logoFileId: null } }
+    const data = { domain, logo: null, logoFileId: null }
+    if (!source) return { data }
     const state = await organizationImageRequest.get()
     state.logo = await imageApiEffect(prepareOrganizationLogo({ source, userId: input.user.id }))
-    return { data: { logo: null, logoFileId: null } }
+    return { data }
   },
   afterCreateOrganization: async (input) => {
     await organizationProvisioningHooks.afterCreateOrganization(input)
     const image = (await organizationImageRequest.get()).logo
-    if (!image) return
+    if (!image) {
+      await enqueueOrganizationLogoImport({ organizationId: input.organization.id })
+      return
+    }
     // Creation has committed, so a failed optional logo upload must not report a failed creation.
     const saved = await runAppEffect(
       Effect.gen(function* () {
@@ -161,12 +167,14 @@ export const organizationImageHooks = {
     const source = input.organization.logo
     if (source === undefined) return
     const organizationId = input.member.organizationId
+    // Invalidate older imports and read the current reference atomically before replacing it.
     const [current] = await imageApiEffect(
       Effect.flatMap(Database, (db) =>
         db
-          .select({ logoFileId: organization.logoFileId })
-          .from(organization)
+          .update(organization)
+          .set({ updatedAt: sql`clock_timestamp()` })
           .where(eq(organization.id, organizationId))
+          .returning({ logoFileId: organization.logoFileId })
           .pipe(mapDatabaseErrors()),
       ),
     )

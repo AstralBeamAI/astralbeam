@@ -23,7 +23,7 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
     db = getAuthDatabase()
     const [row] = await db
       .insert(organization)
-      .values({ name: "JSONB", slug: "jsonb-test" })
+      .values({ domain: "example.com", name: "JSONB", slug: "jsonb-test" })
       .returning()
     organizationId = row!.id
   })

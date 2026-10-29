@@ -189,7 +189,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       for (const fixture of SEED_ORGANIZATIONS) {
         await db
           .insert(organization)
-          .values({ id: fixture.id, name: fixture.name, slug: fixture.slug })
+          .values({ domain: "example.com", id: fixture.id, name: fixture.name, slug: fixture.slug })
         await db.insert(agent).values({
           organizationId: fixture.id,
           name: fixture.agents[0].name,
@@ -328,8 +328,8 @@ describe.skipIf(!dogfoodIntegration.url)(
       const [first, second] = await db
         .insert(organization)
         .values([
-          { name: "First", slug: "first" },
-          { name: "Second", slug: "second" },
+          { domain: "example.com", name: "First", slug: "first" },
+          { domain: "example.com", name: "Second", slug: "second" },
         ])
         .returning()
       const principal = {

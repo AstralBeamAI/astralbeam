@@ -35,7 +35,7 @@ describe.skipIf(!databaseUrl)("stored file lifecycle", () => {
     runtime = ManagedRuntime.make(previewLayer)
     const [owner] = await db
       .insert(organization)
-      .values({ name: "Files", slug: `files-${crypto.randomUUID()}` })
+      .values({ domain: "example.com", name: "Files", slug: `files-${crypto.randomUUID()}` })
       .returning()
     organizationId = owner!.id
     storedFileFixture.objects.clear()

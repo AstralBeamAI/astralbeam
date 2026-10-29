@@ -22,7 +22,12 @@ export async function seedOrganizations(
   for (const seedOrganization of SEED_ORGANIZATIONS) {
     const [inserted] = await transaction
       .insert(organization)
-      .values({ id: seedOrganization.id, slug: seedOrganization.slug, name: seedOrganization.name })
+      .values({
+        id: seedOrganization.id,
+        slug: seedOrganization.slug,
+        name: seedOrganization.name,
+        domain: seedOrganization.members[0].email.split("@")[1]!.toLowerCase(),
+      })
       .onConflictDoUpdate({
         target: organization.id,
         set: { name: seedOrganization.name, updatedAt: sql`now()` },
