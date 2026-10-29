@@ -244,13 +244,13 @@ sudo journalctl -u caddy --since "5 minutes ago" --no-pager
 
 ## Upgrading applications
 
-Use [upgrade.sh](upgrade.sh) after updating and reviewing the server checkout. Have reviewed database and configuration backups, the Bun version from [`.bun-version`](../.bun-version), frozen dependencies, and `astralbeam-platform` available on `PATH`. The supplied platform unit uses `/usr/local/bin/astralbeam-platform`. Use the existing production configuration and do not run contributor `scripts/setup.sh` on this server.
+Use [upgrade.sh](upgrade.sh) after updating and reviewing the server checkout. Have reviewed database and configuration backups, the Bun version from [`.bun-version`](../.bun-version) installed at `/root/.bun/bin/bun`, frozen dependencies, and `astralbeam-platform` available on `PATH`. The supplied platform unit uses `/usr/local/bin/astralbeam-platform`. Use the existing production configuration and do not run contributor `scripts/setup.sh` on this server.
 
 From the checkout, install dependencies and run the script from `internal/`:
 
 ```sh
 cd /root/work/astralbeam
-bun install --frozen-lockfile
+/root/.bun/bin/bun install --frozen-lockfile
 cd internal
 ./upgrade.sh
 ```
@@ -259,7 +259,7 @@ With no argument, the script installs the latest platform release. To select a r
 
 The script performs this sequence:
 
-1. Build the SDK, the Linearity example, and the website, in that order.
+1. Build the SDK, the Linearity example, and the website, in that order, using `NODE_ENV=production` and `/root/.bun/bin/bun`.
 2. Restart `astralbeam-linearity`, then `astralbeam-website`.
 3. Run the installed platform binary's `upgrade --yes` command, forwarding the optional release tag.
 
