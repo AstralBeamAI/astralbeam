@@ -28,6 +28,7 @@ export const acquireSender = (settings: ResendProviderSettings) =>
           from: email.from,
           to: [...email.to],
           cc: [...email.cc],
+          bcc: [...email.bcc],
           subject: email.subject,
           html: email.html,
           text: email.text,
