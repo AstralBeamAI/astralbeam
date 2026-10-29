@@ -22,6 +22,26 @@ test("the owner reaches every organization section directly by URL", async ({ pa
   }
 })
 
+test("docs and profile-menu website links point directly to the public landing page", async ({
+  page,
+  baseline,
+  shell,
+}) => {
+  await page.goto(`/${baseline.organizationSlug}`)
+  await shell.openUserMenu()
+  const menuLink = page.getByRole("menuitem", { name: "Website", exact: true })
+  await expect(menuLink).toHaveAttribute("href", "https://astralbeam.ai/home")
+  await expect(menuLink).toHaveAttribute("target", "_blank")
+
+  await page.goto("/docs")
+  const docsLink = page.getByRole("navigation", { name: "Main" }).getByRole("link", {
+    name: "Website",
+    exact: true,
+  })
+  await expect(docsLink).toHaveAttribute("href", "https://astralbeam.ai/home")
+  await expect(docsLink).toHaveAttribute("target", "_blank")
+})
+
 test.describe("signed out", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
