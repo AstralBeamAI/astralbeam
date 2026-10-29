@@ -138,7 +138,7 @@ export const organizationImageHooks = {
     await organizationProvisioningHooks.afterCreateOrganization(input)
     const image = (await organizationImageRequest.get()).logo
     if (!image) {
-      await enqueueOrganizationLogoImport(input.organization.id)
+      await enqueueOrganizationLogoImport({ organizationId: input.organization.id })
       return
     }
     // Creation has committed, so a failed optional logo upload must not report a failed creation.

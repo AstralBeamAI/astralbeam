@@ -46,7 +46,7 @@ describe.skipIf(!databaseUrl)("organization logo import", () => {
         updatedAt: sql<string>`${organization.updatedAt}::text`,
       })
     ids.push(created!.organizationId)
-    return created!
+    return { ...created!, imageUrl: "https://example.com/logo.png" }
   }
 
   function logoRuntime(fetch: ImageSources["Service"]["fetch"]) {

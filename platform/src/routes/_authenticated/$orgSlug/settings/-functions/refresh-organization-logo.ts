@@ -4,12 +4,12 @@ import { Effect } from "effect"
 import { Auth } from "@/lib/auth/auth.server"
 import { provideClusterWorkflowEngine } from "@/lib/cluster/runtime"
 import { consumeImageUpload } from "@/lib/organizations/images.server"
+import { queueOrganizationLogoImport } from "@/lib/organizations/logo-import.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { OrganizationRouteInputSchema } from "@/lib/organizations/schemas"
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { toValidationSchema } from "@/lib/schemas"
-import { queueOrganizationLogoImport } from "@/lib/workflows/organization-logo-import"
 
 export const refreshOrganizationLogo = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organization: ["update"] })])
@@ -21,7 +21,7 @@ export const refreshOrganizationLogo = createServerFn({ method: "POST" })
           headers: (yield* ServerRequest).request.headers,
         })
         yield* consumeImageUpload({ userId: session.user.id })
-        yield* queueOrganizationLogoImport(context.organizationId)
+        yield* queueOrganizationLogoImport({ organizationId: context.organizationId })
       }).pipe(
         provideClusterWorkflowEngine,
         Effect.catchTag(["ImageUploadRateLimited", "ClusterUnavailableError"], exposeError),

@@ -10,25 +10,10 @@ import { UuidV7Schema } from "@/lib/schemas"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
 
-const organizationLogoImport = Workflow.make("OrganizationLogoImport/v2", {
-  payload: { organizationId: UuidV7Schema, updatedAt: Schema.String },
+const organizationLogoImport = Workflow.make("OrganizationLogoImport/v3", {
+  payload: { organizationId: UuidV7Schema, updatedAt: Schema.String, imageUrl: Schema.String },
+  // A fresh execution lets an explicit refresh retry the same source URL.
   idempotencyKey: () => crypto.randomUUID(),
-})
-
-export const queueOrganizationLogoImport = Effect.fn("queueOrganizationLogoImport")(function* (
-  organizationId: string,
-) {
-  const db = yield* Database
-  const [current] = yield* db
-    .select({ updatedAt: sql<string>`${organization.updatedAt}::text` })
-    .from(organization)
-    .where(and(eq(organization.id, organizationId), isNull(organization.logoFileId)))
-    .pipe(mapDatabaseErrors())
-  if (current)
-    yield* organizationLogoImport.execute(
-      { organizationId, updatedAt: current.updatedAt },
-      { discard: true },
-    )
 })
 
 export const organizationLogoImportWorkflowLayer = organizationLogoImport.toLayer((input) =>
@@ -36,22 +21,21 @@ export const organizationLogoImportWorkflowLayer = organizationLogoImport.toLaye
     name: "ImportLogo",
     execute: Effect.gen(function* () {
       const db = yield* Database
+      const files = yield* StoredFiles
+      const sources = yield* ImageSources
       const pending = and(
         eq(organization.id, input.organizationId),
         sql`${organization.updatedAt} = ${input.updatedAt}::timestamptz`,
         isNull(organization.logoFileId),
       )
       const [current] = yield* db
-        .select({ domain: organization.domain })
+        .select({ id: organization.id })
         .from(organization)
         .where(pending)
         .pipe(mapDatabaseErrors())
       if (!current) return
-      // Google S2 is an undocumented, best-effort favicon source. Missing icons return HTTP 404.
-      // Keep the initials fallback if lookup fails, and persist valid images in our own storage.
-      const source = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(current.domain)}&sz=128`
-      const image = yield* (yield* ImageSources).fetch({ source })
-      const file = yield* (yield* StoredFiles).upload({
+      const image = yield* sources.fetch({ source: input.imageUrl })
+      const file = yield* files.upload({
         ...image,
         organizationId: input.organizationId,
       })
