@@ -489,6 +489,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
           organization: {
             additionalFields: {
               logoFileId: storedFileIdField,
+              domain: { type: "string", input: false, required: false },
               updatedAt: {
                 type: "date",
                 input: false,

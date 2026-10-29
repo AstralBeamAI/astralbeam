@@ -42,7 +42,10 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
   })
 
   async function createSubjects() {
-    const [org] = await db.insert(organization).values({ name: "Acme", slug: "acme" }).returning()
+    const [org] = await db
+      .insert(organization)
+      .values({ domain: "example.com", name: "Acme", slug: "acme" })
+      .returning()
     const organizationId = org!.id
     const [owned] = await db
       .insert(tenant)

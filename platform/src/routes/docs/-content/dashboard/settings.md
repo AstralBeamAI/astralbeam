@@ -1,6 +1,6 @@
 # Settings
 
-Owners manage the organization's display name and dashboard URL under **Settings**. Other configuration has its own dashboard pages, linked below.
+Owners manage the organization's display name and slug under **Settings**. Other configuration has its own dashboard pages, linked below.
 
 ## The name
 
@@ -40,8 +40,14 @@ Every member, pending invitation, and API key is removed at once, so dashboard a
 
 Deployment caps on requests, attachments, and sandboxes cannot be raised here. See [Limits](/docs/sdk/limits). Configure your own token and spend allowances under [Usage limits](./usage-limits.md).
 
+## Logo and domain
+
+Upload or remove the Organization logo under **Settings**. These changes save immediately. PNG, JPEG, GIF, and WebP images are supported. If the logo is empty, use **Refresh logo** to request an update.
+
+The required, read-only **Domain** field starts with the creator's email domain. It does not verify domain ownership. Domain editing is unavailable.
+
 ## Your own account
 
-Open your account from your name at the bottom of the sidebar to change your display name. Update your Organization avatar under **Members**. Your sign-in email cannot be changed from the dashboard.
+Open your account from your name at the bottom of the sidebar to change your display name. Update your personal Organization avatar under **Members**. Your sign-in email cannot be changed from the dashboard.
 
 Use the adjacent security page to manage passwords, connected sign-in providers, and active sessions. Revoke a session to disconnect a device. Changing your password revokes your other sessions.

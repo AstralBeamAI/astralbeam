@@ -33,8 +33,8 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
     const created = await db
       .insert(organization)
       .values([
-        { name: "Dashboard", slug: `dashboard-${crypto.randomUUID()}` },
-        { name: "Other", slug: `other-${crypto.randomUUID()}` },
+        { domain: "example.com", name: "Dashboard", slug: `dashboard-${crypto.randomUUID()}` },
+        { domain: "example.com", name: "Other", slug: `other-${crypto.randomUUID()}` },
       ])
       .returning({ id: organization.id })
     organizationIds.push(...created.map((row) => row.id))

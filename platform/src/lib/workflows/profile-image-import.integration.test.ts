@@ -75,7 +75,7 @@ describe.skipIf(!databaseUrl)("Organization profile files", () => {
     }
     const [customer] = await db
       .insert(organization)
-      .values({ name: "Profiles", slug: `profiles-${crypto.randomUUID()}` })
+      .values({ domain: "example.com", name: "Profiles", slug: `profiles-${crypto.randomUUID()}` })
       .returning()
     organizationIds.push(customer!.id)
     const [membership] = await db

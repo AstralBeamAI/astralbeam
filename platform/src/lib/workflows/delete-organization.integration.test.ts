@@ -72,7 +72,10 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .insert(user)
       .values({ name: slug, email: `${slug}@example.com` })
       .returning()
-    const [created] = await db.insert(organization).values({ name: slug, slug }).returning()
+    const [created] = await db
+      .insert(organization)
+      .values({ domain: "example.com", name: slug, slug })
+      .returning()
     const organizationId = created!.id
     await db.insert(member).values({ organizationId, userId: owner!.id, role: "owner" })
     const [provider] = await db

@@ -108,7 +108,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   })
   beforeEach(async () => {
     await db.execute(sql`truncate organization cascade`)
-    const [org] = await db.insert(organization).values({ name: "Chat", slug: "chat" }).returning()
+    const [org] = await db
+      .insert(organization)
+      .values({ domain: "example.com", name: "Chat", slug: "chat" })
+      .returning()
     const organizationId = org!.id
     const [model] = await db
       .insert(agent)

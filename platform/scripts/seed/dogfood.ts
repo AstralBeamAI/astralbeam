@@ -30,6 +30,7 @@ export async function seedDogfood(
     id: fixture.organizationId,
     name: fixture.name,
     slug: fixture.slug,
+    domain: fixture.ownerEmail.split("@")[1]!.toLowerCase(),
   })
   await transaction.insert(member).values({
     organizationId: fixture.organizationId,

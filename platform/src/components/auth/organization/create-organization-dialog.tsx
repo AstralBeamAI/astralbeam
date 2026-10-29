@@ -148,7 +148,7 @@ export function CreateOrganizationDialog({
             <GeneratedSlugField
               key={String(open)}
               id="create-organization-slug"
-              label="Organization URL"
+              label="Organization slug"
               sourceValue={name}
               checkAvailability={checkOrganizationSlug}
               unavailableValue={takenSlug}
