@@ -42,7 +42,7 @@ Deployment caps on requests, attachments, and sandboxes cannot be raised here. S
 
 ## Logo and domain
 
-Upload or remove the Organization logo under **Settings**. These changes save immediately. PNG, JPEG, GIF, and WebP images are supported. If the logo is empty, use **Refresh logo** to request an update.
+Click the logo or initials under **Settings** to choose an image, or open **Change logo** to upload or remove it. These changes save immediately. PNG, JPEG, GIF, and WebP images are supported. If the logo is empty, select **Refresh logo from domain** from the menu to request an update.
 
 The required, read-only **Domain** field starts with the creator's email domain. It does not verify domain ownership. Domain editing is unavailable.
 

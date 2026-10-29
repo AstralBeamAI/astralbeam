@@ -19,7 +19,6 @@ test("organization logo changes persist and its required domain cannot be edited
   await organizationSettings.uploadLogo()
   await page.reload()
   await expect(organizationSettings.logo).toBeVisible()
-  await expect(organizationSettings.refreshLogoButton).toBeHidden()
 
   await organizationSettings.removeLogo()
   await page.reload()

@@ -8,11 +8,10 @@ export function organizationSettingsPage(page: Page) {
   return {
     domain: page.getByLabel("Domain", { exact: true }),
     logo: page.locator("form img"),
-    refreshLogoButton: page.getByRole("button", { name: "Refresh organization logo", exact: true }),
 
     async uploadLogo(): Promise<void> {
       const chooser = page.waitForEvent("filechooser")
-      await page.getByRole("button", { name: "Upload organization logo", exact: true }).click()
+      await page.getByRole("button", { name: "Change organization logo", exact: true }).click()
       await (
         await chooser
       ).setFiles(fileURLToPath(new URL("../../public/astralbeam-logo-light.png", import.meta.url)))
@@ -20,12 +19,14 @@ export function organizationSettingsPage(page: Page) {
     },
 
     async removeLogo(): Promise<void> {
-      await page.getByRole("button", { name: "Remove organization logo", exact: true }).click()
+      await page.getByRole("button", { name: "Change logo", exact: true }).click()
+      await page.getByRole("menuitem", { name: "Remove logo", exact: true }).click()
       await expectToast(page, "Organization logo removed")
     },
 
     async refreshLogo(): Promise<void> {
-      await this.refreshLogoButton.click()
+      await page.getByRole("button", { name: "Change logo", exact: true }).click()
+      await page.getByRole("menuitem", { name: "Refresh logo from domain", exact: true }).click()
       await expectToast(page, "Logo refresh requested")
     },
 

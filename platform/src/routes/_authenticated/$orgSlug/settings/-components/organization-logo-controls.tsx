@@ -6,7 +6,13 @@ import { useHydrated, useRouter } from "@tanstack/react-router"
 import { type ChangeEvent, useRef, useState } from "react"
 
 import { OrganizationLogo } from "@/components/auth/organization/organization-logo"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
@@ -79,8 +85,7 @@ export function OrganizationLogoControls({
   return (
     <Field>
       <FieldLabel>Organization logo</FieldLabel>
-      <div className="flex items-center gap-3" aria-busy={pending}>
-        <OrganizationLogo organization={organization} size="lg" />
+      <div className="flex items-center gap-4" aria-busy={pending}>
         <input
           ref={fileInput}
           type="file"
@@ -95,37 +100,48 @@ export function OrganizationLogoControls({
             render={
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Upload organization logo"
+                variant="ghost"
+                className="p-0 h-auto w-auto rounded-full"
+                aria-label="Change organization logo"
                 disabled={controlsDisabled}
                 onClick={() => fileInput.current?.click()}
               />
             }
           >
-            {pending ? <Spinner /> : <UploadSimpleIcon />}
+            <OrganizationLogo organization={organization} size="lg" />
           </TooltipTrigger>
-          <TooltipContent>Upload organization logo</TooltipContent>
+          <TooltipContent>Change organization logo</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label={hasLogo ? "Remove organization logo" : "Refresh organization logo"}
-                disabled={controlsDisabled}
-                onClick={() => void (hasLogo ? saveLogo(null) : refreshLogo())}
-              />
-            }
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            type="button"
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+            disabled={controlsDisabled}
           >
-            {hasLogo ? <TrashIcon /> : <ArrowsClockwiseIcon />}
-          </TooltipTrigger>
-          <TooltipContent>
-            {hasLogo ? "Remove organization logo" : "Refresh logo from organization domain"}
-          </TooltipContent>
-        </Tooltip>
+            {pending && <Spinner />}
+            Change logo
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-fit">
+            <DropdownMenuItem onClick={() => fileInput.current?.click()}>
+              <UploadSimpleIcon className="text-muted-foreground" />
+              Upload logo
+            </DropdownMenuItem>
+            {!hasLogo && (
+              <DropdownMenuItem onClick={() => void refreshLogo()}>
+                <ArrowsClockwiseIcon className="text-muted-foreground" />
+                Refresh logo from domain
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!hasLogo}
+              onClick={() => void saveLogo(null)}
+            >
+              <TrashIcon />
+              Remove logo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <FieldDescription>
         PNG, JPEG, GIF, or WebP. Logo changes are saved immediately.
