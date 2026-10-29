@@ -47,9 +47,9 @@ export function AppUserButton(props: Pick<UserButtonProps, "align" | "size" | "c
           // The website is served by a server rewrite, so leave the client router with a full page load.
           ...(hasWebsite
             ? [
-                <DropdownMenuItem key="homepage" onClick={() => window.location.assign("/home")}>
+                <DropdownMenuItem key="website" onClick={() => window.location.assign("/home")}>
                   <GlobeIcon className="text-muted-foreground" />
-                  Homepage
+                  Website
                 </DropdownMenuItem>,
               ]
             : []),

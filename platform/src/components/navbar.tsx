@@ -17,6 +17,7 @@ import {
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import { cn } from "cn"
+import { useIsSignedIn } from "@website/lib/use-is-signed-in"
 
 const navLinkClassName = buttonVariants({ variant: "ghost", size: "sm" })
 const UnderNavbarContext = createContext(false)
@@ -107,6 +108,18 @@ export function NavbarDocsLink() {
   )
 }
 
+function DashboardLink({ reloadDocument = false }: { reloadDocument?: boolean }) {
+  return (
+    <Link
+      to="/"
+      reloadDocument={reloadDocument}
+      className={cn(buttonVariants({ size: "sm" }), "ms-2.5")}
+    >
+      Dashboard
+    </Link>
+  )
+}
+
 /** Docs pages load without the auth providers, so their links leave through a full navigation. */
 function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
   const redirectTo = useLocation({
@@ -142,6 +155,7 @@ export function DocsNavbar({
 }: {
   section?: { slug: string; title: string; href?: string } | undefined
 }) {
+  const signedIn = useIsSignedIn()
   // Scalar replaces router history state, so leave its document on navigation.
   // https://github.com/scalar/scalar/blob/545bab57b0b18d8811504389396953f60a354443/packages/api-reference/src/components/ApiReference.vue#L1701
   const reloadDocument = Boolean(section?.href)
@@ -178,10 +192,10 @@ export function DocsNavbar({
         </div>
       }
     >
-      <a href="/" className={navLinkClassName}>
-        Home
+      <a href="/home" className={navLinkClassName}>
+        Website
       </a>
-      <AuthLinks reloadDocument />
+      {signedIn ? <DashboardLink reloadDocument /> : <AuthLinks reloadDocument />}
     </Navbar>
   )
 }
@@ -190,11 +204,7 @@ function SessionLinks() {
   const session = useSession(authClient)
   if (session.isPending) return null
   if (!session.data) return <AuthLinks />
-  return (
-    <Link to="/" className={navLinkClassName}>
-      Home
-    </Link>
-  )
+  return <DashboardLink />
 }
 
 /** The navbar of pages outside the dashboard, which offers a signed-in visitor a way back home. */

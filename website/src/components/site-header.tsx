@@ -4,6 +4,7 @@ import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inli
 import astralbeamDarkWordmarkUrl from "@/assets/astralbeam-wordmark-dark.svg?url&no-inline"
 import { DiscordIcon, GithubIcon, XIcon } from "@/components/icons"
 import { siteMetadata } from "@/lib/site"
+import { useIsSignedIn } from "@/lib/use-is-signed-in"
 
 const {
   signUp: signUpUrl,
@@ -15,6 +16,7 @@ const {
 } = siteMetadata.links
 
 export function SiteHeader() {
+  const signedIn = useIsSignedIn()
   const [open, setOpen] = useState(false)
   const toggleRef = useRef<HTMLButtonElement>(null)
 
@@ -95,10 +97,10 @@ export function SiteHeader() {
           <a href={docsUrl}>DOCS</a>
           <a href="/blog">BLOG</a>
           <a href="/home#pricing">PRICING</a>
-          <a href={logInUrl}>SIGN IN</a>
+          {!signedIn && <a href={logInUrl}>SIGN IN</a>}
         </nav>
-        <a className="btn btn-primary hud-cta" href={signUpUrl}>
-          GET STARTED
+        <a className="btn btn-primary hud-cta" href={signedIn ? "/" : signUpUrl}>
+          {signedIn ? "DASHBOARD" : "GET STARTED"}
         </a>
         <button
           className="hud-menu"
