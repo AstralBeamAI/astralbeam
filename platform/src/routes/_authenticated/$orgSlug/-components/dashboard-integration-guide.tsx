@@ -84,8 +84,8 @@ export function DashboardIntegrationGuide({
   const setupKnown = modelSetup !== null && usableApiKeyCount !== null
   const nextStep = setupKnown ? steps.findIndex((step) => !step.complete && step.visible) : -1
   const [expanded, setExpanded] = useState<number | null>(null)
-  const activeStep = expanded ?? Math.max(nextStep, 0)
   const completed = steps.filter((step) => step.complete).length
+  const activeStep = expanded ?? (completed === steps.length ? -1 : Math.max(nextStep, 0))
   const configured = steps.slice(0, -1).every((step) => step.complete)
   const introduction = (() => {
     if (!setupKnown)

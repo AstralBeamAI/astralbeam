@@ -19,23 +19,23 @@ import { DocsCodeTabs } from "./docs-code-tabs"
 // renderer emits is restyled here rather than through a typography plugin.
 const docsTagClasses: Record<string, string> = {
   p: "my-3 max-w-prose leading-7 first:mt-0 last:mb-0",
-  h1: "mb-4 font-heading text-3xl font-semibold tracking-tight",
+  h1: "mb-4 scroll-mt-20 font-heading text-3xl font-semibold tracking-tight",
   h2: "mt-10 mb-3 scroll-mt-20 border-b pb-2 font-heading text-xl font-semibold tracking-tight",
   h3: "mt-8 mb-2 scroll-mt-20 font-heading text-lg font-semibold",
-  h4: "mt-6 mb-2 font-heading text-base font-semibold",
-  h5: "mt-6 mb-2 font-heading text-base font-medium",
-  h6: "mt-6 mb-2 font-heading text-base font-medium",
+  h4: "mt-6 mb-2 scroll-mt-20 font-heading text-base font-semibold",
+  h5: "mt-6 mb-2 scroll-mt-20 font-heading text-base font-medium",
+  h6: "mt-6 mb-2 scroll-mt-20 font-heading text-base font-medium",
   ul: "my-3 list-disc space-y-1.5 ps-6",
   ol: "my-3 list-decimal space-y-1.5 ps-6",
   li: "marker:text-muted-foreground [&>ol]:my-1 [&>ul]:my-1",
   blockquote: "my-3 border-s-2 ps-4 text-muted-foreground italic",
   code: "rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.85em]",
   figcaption: "sr-only",
-  img: "my-6 h-auto max-w-full rounded-lg border",
+  img: "my-6 h-auto max-w-full border",
   hr: "my-6",
   thead: "border-b",
-  th: "px-3 py-2 text-start font-medium",
-  td: "border-t px-3 py-2",
+  th: "px-4 py-3 text-start align-top font-medium whitespace-nowrap",
+  td: "border-t px-4 py-3 align-top",
   strong: "font-medium",
   del: "line-through",
 }
@@ -52,14 +52,17 @@ const docsLinkClass = "font-medium text-primary underline underline-offset-4"
 
 function DocsMarkdownTable(props: MarkdownComponentProps<"table">) {
   return (
-    <ScrollArea.Root className="relative my-4 min-w-0 rounded-lg border">
+    <ScrollArea.Root className="relative my-4 min-w-0 border">
       <ScrollArea.Viewport
         role="region"
         aria-label="Reference table"
-        className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <ScrollArea.Content>
-          <table {...props} className="w-full border-collapse text-sm" />
+          <table
+            {...props}
+            className="w-full border-collapse text-sm/6 has-[th:nth-child(3)]:min-w-2xl"
+          />
         </ScrollArea.Content>
       </ScrollArea.Viewport>
       <ScrollArea.Scrollbar orientation="horizontal" className="m-1 h-1.5 rounded-full bg-muted">
@@ -93,7 +96,7 @@ export function DocsMarkdown({
     pre: DocsCodeBlock,
     "md-comment-component": DocsCodeTabs,
     "md-tab-panel": ({ children, "data-tab-slug": slug }) => (
-      <TabsContent value={slug} className="min-w-0 [&>figure>div]:mt-2">
+      <TabsContent value={slug} className="min-w-0 text-base/7 [&>figure>div]:mt-2">
         {children}
       </TabsContent>
     ),
@@ -129,7 +132,7 @@ export function DocsMarkdown({
   }
   return (
     <TooltipProvider>
-      <div className="docs-markdown">
+      <div className="docs-markdown leading-7">
         <Markdown components={components} highlighter={docsHighlightMarkdownCode}>
           {markdown}
         </Markdown>
