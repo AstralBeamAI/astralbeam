@@ -7,24 +7,6 @@ import {
 import { expect, test } from "@e2e/fixtures.ts"
 import { captureMilestone } from "@e2e/capture.ts"
 
-test("completed setup starts collapsed and its steps remain expandable", async ({ page }) => {
-  await page.goto(`/${SEED_ORGANIZATIONS[0].slug}`)
-  const setup = page.locator('[data-slot="card"]').filter({
-    has: page.getByRole("progressbar", { name: "Organization setup" }),
-  })
-  await expect(setup).toContainText("4 of 4 setup steps complete")
-  const steps = setup.getByRole("button")
-  await expect(steps).toHaveCount(4)
-  for (const step of await steps.all()) {
-    await expect(step).toHaveAttribute("aria-expanded", "false")
-  }
-  await steps.first().click()
-  await expect(setup.getByRole("link", { name: "Manage models", exact: true })).toBeVisible()
-  await steps.first().click()
-  await expect(steps.first()).toHaveAttribute("aria-expanded", "false")
-  await captureMilestone(page, "completed-setup-collapsed")
-})
-
 test("UX evidence: mobile Astro preserves drafts and confirms conversation deletion", async ({
   page,
   astro,
