@@ -375,7 +375,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "chatThreads",
-    Effect.fn("chatThreadHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
       const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
       const { resolveManagedChatTools } = yield* Effect.promise(

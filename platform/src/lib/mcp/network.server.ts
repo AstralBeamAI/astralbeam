@@ -4,6 +4,7 @@ import { isIP } from "node:net"
 // https://github.com/oven-sh/bun/issues/38840
 import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici/index.js"
 import { isPrivateModelEndpointAddress } from "@/lib/model-providers/endpoints.server"
+import { traceRequestInit } from "@/lib/runtime/tracing-context.server"
 import { MCP_MAX_METADATA_BYTES, MCP_MAX_RESULT_BYTES } from "./schemas.ts"
 
 export function mcpAddressIsPublic(address: string): boolean {
@@ -75,7 +76,7 @@ export async function mcpGuardedFetch(
   input: string | URL | Request,
   init?: RequestInit,
 ): Promise<Response> {
-  const request = new Request(input, init)
+  const request = new Request(input, traceRequestInit(input, init))
   const url = new URL(request.url)
   if (!mcpUrlIsPublic(url)) throw new TypeError("MCP endpoint must be public HTTPS")
   const options = {

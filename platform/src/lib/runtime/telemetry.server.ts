@@ -13,6 +13,7 @@ import { ConfigProvider, Effect, Layer } from "effect"
 
 import { Config } from "@/lib/config/config"
 import { otlpLoggerLayer } from "./logging.server.ts"
+import { requestTracingLayer } from "./tracing-context.server.ts"
 
 /** Content capture off does not prevent SDKs from attaching raw errors or SQL statements. */
 // https://github.com/Effect-TS/effect/blob/main/packages/opentelemetry/src/OtelTracer.ts
@@ -59,19 +60,23 @@ export const telemetryLayer = Layer.unwrap(
     const headers = parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? "")
     const baseUrl = `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/`
     return Layer.mergeAll(
-      NodeSdk.layer(() => ({
-        spanProcessor: makeTracingProcessor(
-          new OTLPTraceExporter({
-            // The constructor takes a full signal URL, while base endpoints append the signal path.
-            // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
-            url: `${baseUrl}traces`,
-            headers: {
-              ...headers,
-              ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
-            },
-          }),
+      requestTracingLayer.pipe(
+        Layer.provideMerge(
+          NodeSdk.layer(() => ({
+            spanProcessor: makeTracingProcessor(
+              new OTLPTraceExporter({
+                // The constructor takes a full signal URL, while base endpoints append the signal path.
+                // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
+                url: `${baseUrl}traces`,
+                headers: {
+                  ...headers,
+                  ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
+                },
+              }),
+            ),
+          })),
         ),
-      })),
+      ),
       values.otel_logs_exporter === "otlp"
         ? otlpLoggerLayer({ url: `${baseUrl}logs`, headers }).pipe(
             Layer.provide(BunHttpClient.layer),

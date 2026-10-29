@@ -16,6 +16,7 @@ import {
   providerModel,
 } from "@/db/schema/organizations"
 import { fetchPublicModelEndpoint, isPublicModelEndpointUrl } from "./endpoints.server.ts"
+import { fetchWithTraceContext } from "@/lib/runtime/tracing-context.server"
 import { formatAgentId } from "../agents/schemas.ts"
 import {
   ModelProviderChanged,
@@ -623,7 +624,7 @@ export class ModelProviders extends Context.Service<
         return {
           ...configuration,
           apiKey,
-          fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
+          fetch: (yield* allowsPrivateEndpoints) ? fetchWithTraceContext : fetchPublicModelEndpoint,
         }
       })
 
@@ -669,7 +670,7 @@ export class ModelProviders extends Context.Service<
           baseUrl: provider.baseUrl,
           modelId: model.modelId,
           apiKey,
-          fetch: (yield* allowsPrivateEndpoints) ? fetch : fetchPublicModelEndpoint,
+          fetch: (yield* allowsPrivateEndpoints) ? fetchWithTraceContext : fetchPublicModelEndpoint,
         })
         const current = yield* readModelProviderRow(input.organizationId, input.id)
         if (current?.lockVersion !== input.lockVersion) return yield* new ModelProviderChanged()

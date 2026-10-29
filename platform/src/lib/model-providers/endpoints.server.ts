@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises"
 import { BlockList, isIP } from "node:net"
+import { fetchWithTraceContext } from "@/lib/runtime/tracing-context.server"
 
 // Non-public IANA ranges, including cloud metadata and address-translation destinations.
 // https://www.iana.org/assignments/iana-ipv4-special-registry
@@ -74,5 +75,5 @@ export const fetchPublicModelEndpoint: (
     addresses.some(({ address }) => isPrivateModelEndpointAddress(address))
   )
     throw new TypeError("The model provider URL does not resolve to a public HTTPS endpoint")
-  return fetch(input, { ...init, redirect: "manual" })
+  return fetchWithTraceContext(input, { ...init, redirect: "manual" })
 }

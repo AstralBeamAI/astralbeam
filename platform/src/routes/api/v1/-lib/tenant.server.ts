@@ -134,7 +134,7 @@ export function tenantHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "tenants",
-    Effect.fn("tenantHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { Tenants } = yield* Effect.promise(() => import("@/lib/tenants/tenants"))
       const { restPage, restPageOptions } = yield* Effect.promise(
         () => import("./pagination.server"),
