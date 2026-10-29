@@ -118,20 +118,14 @@ function DocsArticlePage() {
       </nav>
       <main className="min-w-0 max-w-3xl pb-16">
         <div className="mb-6 space-y-2 lg:hidden">
-          <details
-            key={`browse:${section.slug}/${params.page}`}
-            className="rounded-lg border px-4 md:hidden"
-          >
+          <details key={`browse:${section.slug}/${params.page}`} className="border px-4 md:hidden">
             <summary className="cursor-pointer py-3 text-sm font-medium">Browse docs</summary>
             <nav aria-label="Browse documentation" className="pb-4">
               {pageLinks}
             </nav>
           </details>
           {headings.length > 0 && (
-            <details
-              key={`outline:${section.slug}/${params.page}`}
-              className="rounded-lg border px-4"
-            >
+            <details key={`outline:${section.slug}/${params.page}`} className="border px-4">
               <summary className="cursor-pointer py-3 text-sm font-medium">On this page</summary>
               <nav aria-label="On this page" className="pb-3">
                 <ul>{outlineLinks}</ul>
@@ -153,7 +147,7 @@ function DocsArticlePage() {
               to="/docs/$section/$page"
               params={{ section: previous.section.slug, page: previous.page.slug }}
               rel="prev"
-              className="min-w-0 rounded-lg border p-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="min-w-0 border p-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="block text-sm text-muted-foreground">Previous</span>
               <span className="mt-1 block font-medium wrap-break-word">
@@ -166,7 +160,7 @@ function DocsArticlePage() {
               to="/docs/$section/$page"
               params={{ section: next.section.slug, page: next.page.slug }}
               rel="next"
-              className="min-w-0 rounded-lg border p-4 text-end hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:col-start-2"
+              className="min-w-0 border p-4 text-end hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:col-start-2"
             >
               <span className="block text-sm text-muted-foreground">Next</span>
               <span className="mt-1 block font-medium wrap-break-word">

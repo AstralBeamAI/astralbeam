@@ -27,7 +27,7 @@ export function DocsCodeBlock({
 
   return (
     <CodeBlock className="my-4">
-      <CodeBlockHeader>
+      <CodeBlockHeader className="px-4 py-2">
         <CodeBlockTitle aria-hidden={Boolean(title)} className="font-mono">
           {title ?? language ?? "Code"}
         </CodeBlockTitle>
