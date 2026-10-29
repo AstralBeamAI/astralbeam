@@ -24,7 +24,7 @@ import {
 } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
-import { APP_NAME } from "@/lib/constants"
+import { APP_HANDLE, APP_NAME } from "@/lib/constants"
 import { Mailer } from "@/lib/email/email.server"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
 import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
@@ -72,6 +72,10 @@ const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 // The default basePath, which a resend outside an endpoint context must repeat because it cannot
 // read `context.baseURL`. https://better-auth.com/docs/reference/options#basepath
 const AUTH_BASE_PATH = "/api/auth"
+
+// The session cookie is HttpOnly, so the public website reads this hint instead. Keep the name in
+// step with `signedInCookie` in website/src/lib/use-is-signed-in.ts.
+const SIGNED_IN_COOKIE = `${APP_HANDLE}_signed_in`
 
 interface AuthConfig {
   appBaseUrl: string
@@ -434,7 +438,15 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
       after: createAuthMiddleware(async (context) => {
         assertAuthEmailDelivered(context.request)
         const signedIn = context.context.newSession?.user
-        if (signedIn) await enqueueOAuthProfileImage(signedIn.id)
+        if (signedIn) {
+          await enqueueOAuthProfileImage(signedIn.id)
+          context.setCookie(SIGNED_IN_COOKIE, "1", {
+            ...context.context.authCookies.sessionToken.attributes,
+            httpOnly: false,
+          })
+        } else if (context.path === "/sign-out") {
+          context.setCookie(SIGNED_IN_COOKIE, "", { path: "/", maxAge: 0 })
+        }
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(mailer, user)
