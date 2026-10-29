@@ -105,7 +105,7 @@ export function OrganizationLogoControls({
           >
             {pending ? <Spinner /> : <UploadSimpleIcon />}
           </TooltipTrigger>
-          <TooltipContent>Upload logo</TooltipContent>
+          <TooltipContent>Upload organization logo</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -122,7 +122,9 @@ export function OrganizationLogoControls({
           >
             {hasLogo ? <TrashIcon /> : <ArrowsClockwiseIcon />}
           </TooltipTrigger>
-          <TooltipContent>{hasLogo ? "Remove logo" : "Refresh logo"}</TooltipContent>
+          <TooltipContent>
+            {hasLogo ? "Remove organization logo" : "Refresh logo from organization domain"}
+          </TooltipContent>
         </Tooltip>
       </div>
       <FieldDescription>
