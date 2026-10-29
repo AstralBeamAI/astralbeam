@@ -244,7 +244,7 @@ sudo journalctl -u caddy --since "5 minutes ago" --no-pager
 
 ## Upgrading applications
 
-Have reviewed database and configuration backups and the Bun version from [`.bun-version`](../.bun-version) installed at `/root/.bun/bin/bun`. Keep `DATABASE_URL` in the literal `Environment="DATABASE_URL=..."` line in `/etc/systemd/system/astralbeam-platform.service`. Drop-ins and `EnvironmentFile=` settings are not read. Do not run contributor `scripts/setup.sh` on this server.
+Have reviewed database and configuration backups and the Bun version from [`.bun-version`](../.bun-version) installed at `/root/.bun/bin/bun`. Keep `DATABASE_URL` in the literal `Environment="DATABASE_URL=..."` line in `/etc/systemd/system/astralbeam-platform.service`, using `%%` for literal percent signs. Drop-ins and `EnvironmentFile=` settings are not read. Do not run contributor `scripts/setup.sh` on this server.
 
 Run [upgrade.sh](upgrade.sh) as root:
 

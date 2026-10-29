@@ -7,6 +7,7 @@ set -euo pipefail
   cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
   platform_binary=/usr/local/bin/astralbeam-platform
   database_url="$(sed -n 's/^[[:space:]]*Environment="DATABASE_URL=\([^"]*\)"[[:space:]]*$/\1/p' /etc/systemd/system/astralbeam-platform.service)"
+  database_url="${database_url//%%/%}"
   : "${database_url:?DATABASE_URL is missing from the platform service configuration}"
 
   git switch main
