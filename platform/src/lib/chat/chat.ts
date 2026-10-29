@@ -383,7 +383,14 @@ export class Chat extends Context.Service<
             turn = managed.state
             const accounting = [
               ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
-                otelMiddleware({ tracer, captureContent: false }),
+                otelMiddleware({
+                  tracer,
+                  captureContent: false,
+                  attributeEnricher: () => ({
+                    "gen_ai.conversation.id": params.threadId,
+                    "gen_ai.agent.id": agent.id,
+                  }),
+                }),
               ),
               ...managed.middleware,
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),

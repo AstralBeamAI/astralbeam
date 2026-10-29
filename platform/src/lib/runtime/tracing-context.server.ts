@@ -65,6 +65,7 @@ export function traceHttpRequest(
 ): Response | Promise<Response> {
   const tracer = tracingContext.tracers.values().next().value
   if (!tracer) return next(request)
+  const url = new URL(request.url)
   const parent = traceContextPropagator.extract(
     context.active(),
     request.headers,
@@ -72,14 +73,25 @@ export function traceHttpRequest(
   )
   return tracer.startActiveSpan(
     request.method,
-    { kind: SpanKind.SERVER, attributes: { "http.request.method": request.method } },
+    {
+      kind: SpanKind.SERVER,
+      attributes: {
+        "http.request.method": request.method,
+        "url.scheme": url.protocol.slice(0, -1),
+        "server.address": url.hostname,
+        "server.port": Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+      },
+    },
     parent,
     async (span) => {
       getEventContext<HttpTracingContext>({ req: request }).serverSpan = span
       try {
         const response = await next(request)
         span.setAttribute("http.response.status_code", response.status)
-        if (response.status >= 500) span.setStatus({ code: SpanStatusCode.ERROR })
+        if (response.status >= 500) {
+          span.setAttribute("error.type", String(response.status))
+          span.setStatus({ code: SpanStatusCode.ERROR })
+        }
         return response
       } catch (error) {
         span.setAttribute("error.type", error instanceof Error ? error.name : "Error")
