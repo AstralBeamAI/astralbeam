@@ -29,6 +29,21 @@ function securityHeaders(url: string, pathname: string, requestHeaders: HeadersI
 
 describe("response security headers", () => {
   test.each([
+    ["GET", 307],
+    ["HEAD", 404],
+    ["POST", 200],
+  ])("does not apply asset-prefix freshness to %s %i fallbacks", (method, status) => {
+    const headers = new Headers({ "Cache-Control": "public, max-age=31536000, immutable" })
+    applyResponseSecurityHeaders(
+      headers,
+      new Request("https://app.example/assets/missing.js", { method }),
+      "/assets/missing.js",
+      status,
+    )
+    expect(headers.get("cache-control")).toBe("private, no-store")
+  })
+
+  test.each([
     [`/${APP_HANDLE}-logo-dark.svg`, "HEAD", 304, false],
     ["/api/openapi.json", "GET", 200, false],
     ["/api/openapi.json", "GET", 200, true],
@@ -49,20 +64,50 @@ describe("response security headers", () => {
     },
   )
 
-  test("does not cache failed requests or mutations", () => {
-    for (const [method, status] of [
-      ["GET", 404],
-      ["POST", 200],
-    ] as const) {
-      const headers = new Headers()
-      applyResponseSecurityHeaders(
-        headers,
-        new Request("https://app.example/api/openapi.json", { method }),
-        "/api/openapi.json",
-        status,
-      )
-      expect(headers.get("cache-control")).toBeNull()
-    }
+  test.each([
+    ["/api/openapi.json", "GET", 404],
+    ["/api/openapi.json", "POST", 200],
+    ["/docs", "GET", 404],
+    ["/docs", "POST", 200],
+  ])("does not cache %s %s %i", (pathname, method, status) => {
+    const headers = new Headers()
+    applyResponseSecurityHeaders(
+      headers,
+      new Request(`https://app.example${pathname}`, { method }),
+      pathname,
+      status,
+    )
+    expect(headers.get("cache-control")).toBe("private, no-store")
+  })
+
+  test("revalidates successful public docs reads", () => {
+    const headers = new Headers()
+    applyResponseSecurityHeaders(
+      headers,
+      new Request("https://app.example/docs/start", { method: "HEAD" }),
+      "/docs/start",
+      304,
+    )
+    expect(headers.get("cache-control")).toBe("public, no-cache")
+  })
+
+  test("defaults dynamic responses to no-store", () => {
+    const headers = securityHeaders("https://app.example/auth/sign-in", "/auth/sign-in")
+    expect(headers.get("cache-control")).toBe("private, no-store")
+  })
+
+  test.each([
+    ["/assets/app-abc123.js", "public, max-age=31536000, immutable"],
+    ["/api/v1/chat/files/image", "private, max-age=60, must-revalidate"],
+  ])("preserves an explicit cache policy at %s", (pathname, cacheControl) => {
+    const headers = new Headers({ "Cache-Control": cacheControl })
+    applyResponseSecurityHeaders(
+      headers,
+      new Request(`https://app.example${pathname}`),
+      pathname,
+      200,
+    )
+    expect(headers.get("cache-control")).toBe(cacheControl)
   })
 
   test("preserves private cache policy and existing Vary headers", () => {

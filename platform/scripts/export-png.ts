@@ -44,7 +44,7 @@ for (const svgFile of svgFiles) {
   const output = await sharp(join(publicDirectory, svgFile), {
     density: 72 * scale,
   })
-    .png()
+    .png({ compressionLevel: 9 })
     .toBuffer()
 
   await writeFile(pngPath, output)

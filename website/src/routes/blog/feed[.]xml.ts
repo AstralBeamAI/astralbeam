@@ -24,7 +24,12 @@ export const Route = createFileRoute("/blog/feed.xml")({
 <atom:link href="${siteUrl("/blog/feed.xml")}" rel="self" type="application/rss+xml"/>
 ${blogPosts.map((post) => `<item><title>${escapeXml(post.title)}</title><link>${siteUrl(post.path)}</link><guid>${siteUrl(post.path)}</guid><description>${escapeXml(post.description)}</description><pubDate>${new Date(`${post.date}T00:00:00Z`).toUTCString()}</pubDate></item>`).join("\n")}
 </channel></rss>`,
-          { headers: { "Content-Type": "application/rss+xml; charset=utf-8" } },
+          {
+            headers: {
+              "Content-Type": "application/rss+xml; charset=utf-8",
+              "Cache-Control": "no-cache",
+            },
+          },
         ),
     },
   },

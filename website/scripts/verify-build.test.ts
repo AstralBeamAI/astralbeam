@@ -1,5 +1,7 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createHash } from "node:crypto"
+import { relative } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import sharp from "sharp"
 import { describe, expect, test } from "vitest"
@@ -19,6 +21,27 @@ function readText(path: string) {
 }
 
 describe("production website build", () => {
+  test("gives every published asset exactly one cache policy", async () => {
+    const rules = (await readText("_headers")).split("\n\n").flatMap((block) => {
+      const path = /^\/\S*$/mu.exec(block)?.[0]
+      const cache = /^ {2}Cache-Control: (.+)$/mu.exec(block)?.[1]
+      return path && cache ? [{ path, cache }] : []
+    })
+    for (const file of await readdir(distUrl, { recursive: true, withFileTypes: true })) {
+      if (!file.isFile() || file.name === "_headers") continue
+      const path = `/${relative(fileURLToPath(distUrl), `${file.parentPath}/${file.name}`)}`
+        .replace(/\/index\.html$/u, "/")
+        .replace(/\.html$/u, "")
+      const matches = rules.filter((rule) =>
+        rule.path.endsWith("*") ? path.startsWith(rule.path.slice(0, -1)) : path === rule.path,
+      )
+      expect({ path, policies: matches.map((rule) => rule.cache) }).toEqual({
+        path,
+        policies: [expect.any(String)],
+      })
+    }
+  })
+
   test("publishes the CLI skill with a digest of the exact served bytes", async () => {
     const source = await readFile(new URL("../../cli/skills/astralbeam/SKILL.md", import.meta.url))
     const payload = await readFile(new URL("agent-skills/astralbeam/SKILL.md", distUrl))

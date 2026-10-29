@@ -82,6 +82,12 @@ async function checkBinaryAssetCompression(url: URL) {
     })
     const bytes = Buffer.from(await response.arrayBuffer())
     if (
+      url.pathname.startsWith("/assets/") &&
+      response.headers.get("cache-control") !== "public, max-age=31536000, immutable"
+    ) {
+      throw new Error(`Binary did not preserve immutable asset caching for ${url.pathname}`)
+    }
+    if (
       response.headers.get("content-encoding") !== encoding ||
       !response.headers
         .get("vary")
@@ -340,8 +346,15 @@ async function runBinaryCheck() {
       throw new Error("Binary did not serve docs with cache and security headers")
     }
     const cached = await fetch(docsUrl, { headers: { "If-None-Match": etag } })
-    if (cached.status !== 304) {
+    if (cached.status !== 304 || cached.headers.get("cache-control") !== "public, no-cache") {
       throw new Error("Binary did not revalidate unchanged docs")
+    }
+    const missingAsset = await fetch(new URL("/assets/missing.js", baseUrl), {
+      redirect: "manual",
+    })
+    await missingAsset.body?.cancel()
+    if (missingAsset.ok || missingAsset.headers.get("cache-control") !== "private, no-store") {
+      throw new Error("Binary allowed a missing asset to inherit immutable caching")
     }
     await checkBinaryDocsDiscovery(baseUrl)
   } finally {

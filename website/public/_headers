@@ -12,6 +12,9 @@
 /website-assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+/404
+  Cache-Control: no-store
+
 # Match public files exactly so missing paths do not inherit a fresh cache lifetime.
 # https://developers.cloudflare.com/workers/static-assets/headers/
 /blog/images/agentic-chat-failures.png
@@ -54,6 +57,9 @@
   Cache-Control: public, max-age=300, must-revalidate
 
 /blog/feed.xml
+  Cache-Control: public, max-age=300, must-revalidate
+
+/.well-known/security.txt
   Cache-Control: public, max-age=300, must-revalidate
 
 /.well-known/agent-skills/index.json
