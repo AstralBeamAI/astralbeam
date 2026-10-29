@@ -141,11 +141,11 @@ Keep **Asset delivery** on **Default delivery** unless your reverse proxy implem
 
 The proxy sets `X-Asset-Proxy: 1` on avatar, logo and chat-preview requests. AstralBeam authorizes current file access before returning an empty `200` with these internal response headers:
 
-| Header | Meaning |
-| --- | --- |
-| `X-Asset-Upstream` | Storage host and port to connect to over HTTPS |
-| `X-Asset-Host` | Exact storage `Host` header required by the signature |
-| `X-Accel-Redirect` | Presigned object path and query, preserved exactly |
+| Header             | Meaning                                               |
+| ------------------ | ----------------------------------------------------- |
+| `X-Asset-Upstream` | Storage host and port to connect to over HTTPS        |
+| `X-Asset-Host`     | Exact storage `Host` header required by the signature |
+| `X-Accel-Redirect` | Presigned object path and query, preserved exactly    |
 
 For avatars, logos and chat previews, the proxy streams the object, forwards `If-None-Match` and `If-Modified-Since`, and returns storage validators with `private, no-cache` on `200` and `304`. Profile images also support HEAD. Missing previews are generated from verified source bytes before handoff, or return `204` when unavailable. Original chat downloads keep their existing application byte verification and `no-store`. The proxy must strip the internal handoff headers and exclude application cookies and authorization from storage requests. Preserve the application's security headers, and keep errors `no-store`.
 
