@@ -128,16 +128,13 @@ const REST_CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 }
 
-/** Keep v1 responses uncacheable except successful, explicitly private browser caches. */
+/** Keep v1 responses uncacheable, including chat images and previews. */
 export function restResponseHeaders(response: HttpServerResponse.HttpServerResponse) {
   const cache = response.headers["cache-control"]
   const noStore = cache?.split(",").some((value) => value.trim().toLowerCase() === "no-store")
-  const privateCache = response.status === 200 && cache?.startsWith("private, max-age=")
   return HttpServerResponse.setHeaders(response, {
     ...REST_CORS_HEADERS,
-    ...(noStore || privateCache
-      ? {}
-      : { "Cache-Control": cache ? `${cache}, no-store` : "no-store" }),
+    ...(noStore ? {} : { "Cache-Control": cache ? `${cache}, no-store` : "no-store" }),
   })
 }
 

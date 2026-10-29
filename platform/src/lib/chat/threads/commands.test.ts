@@ -80,6 +80,7 @@ describe("managed conversation commands", () => {
       Layer.succeed(ChatFiles, {
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
+        previewUrl: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),
         attach: () => Effect.succeed(0),
       }),

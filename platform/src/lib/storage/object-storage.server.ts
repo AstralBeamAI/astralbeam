@@ -80,7 +80,12 @@ export class ObjectStorage extends Context.Service<
       key: string
     }) => Effect.Effect<{ size: number; contentType: string }, StorageFailure>
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
-    readonly signedUrl: (input: { key: string }) => Effect.Effect<string, StorageFailure>
+    readonly signedUrl: (input: {
+      key: string
+      method?: "GET" | "HEAD"
+      contentType?: string
+      contentDisposition?: string
+    }) => Effect.Effect<string, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
 >()("astralbeam/storage/ObjectStorage") {
@@ -198,10 +203,12 @@ export class ObjectStorage extends Context.Service<
             storageRequest(() =>
               getSignedUrl(
                 client,
-                new GetObjectCommand({
+                new (input.method === "HEAD" ? HeadObjectCommand : GetObjectCommand)({
                   Bucket: connection.bucket,
                   Key: input.key,
                   ResponseCacheControl: "private, no-store",
+                  ResponseContentType: input.contentType,
+                  ResponseContentDisposition: input.contentDisposition,
                 }),
                 { expiresIn: 60 },
               ),

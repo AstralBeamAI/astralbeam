@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/files/organizations/$organizationId/l
   server: {
     handlers: {
       GET: ({ params }) => runRouteEffect(fileResponse(logoDownloadUrl(params))),
+      HEAD: ({ params }) => runRouteEffect(fileResponse(logoDownloadUrl(params))),
     },
   },
 })

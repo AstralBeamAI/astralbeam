@@ -43,6 +43,7 @@ export const Route = createFileRoute("/api/files/organizations/$organizationId/a
   server: {
     handlers: {
       GET: ({ params }) => runRouteEffect(fileResponse(avatarDownloadUrl(params))),
+      HEAD: ({ params }) => runRouteEffect(fileResponse(avatarDownloadUrl(params))),
     },
   },
 })

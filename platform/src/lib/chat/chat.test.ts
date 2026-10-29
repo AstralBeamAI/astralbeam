@@ -126,6 +126,7 @@ function chatTestLayer(options: {
       Layer.succeed(ChatFiles, {
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
+        previewUrl: () => Effect.die("unused"),
         hydrate: ({ messages }) => {
           chatRunTest.hydrated = messages
           return Effect.succeed([...messages])

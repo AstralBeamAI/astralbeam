@@ -25,6 +25,18 @@ const textTypes = [
   "image/svg+xml",
 ]
 
+function supportsFilePreview(file: StoredFile): boolean {
+  return (
+    file.status === "stored" &&
+    file.byteSize <= 10 * 1024 * 1024 &&
+    (imageTypes.includes(file.contentType) ||
+      file.contentType.startsWith("text/") ||
+      file.contentType.endsWith("+json") ||
+      file.contentType.endsWith("+xml") ||
+      textTypes.includes(file.contentType))
+  )
+}
+
 const renderPreview = Effect.fn("FilePreviews.render")(
   (
     file: StoredFile,
@@ -76,6 +88,9 @@ export const FilePreviewRenderer = Context.Reference("astralbeam/storage/FilePre
 export class FilePreviews extends Context.Service<
   FilePreviews,
   {
+    readonly url: (input: {
+      file: StoredFile
+    }) => Effect.Effect<string | undefined, StorageUnavailable | StorageObjectMissing>
     readonly read: (input: {
       file: StoredFile
     }) => Effect.Effect<FilePreview | undefined, StorageUnavailable | StorageObjectMissing>
@@ -90,18 +105,7 @@ export class FilePreviews extends Context.Service<
       const renders = yield* Semaphore.make(2)
       const scope = yield* Effect.scope
       const read = Effect.fn("FilePreviews.read")(function* ({ file }: { file: StoredFile }) {
-        if (
-          file.status !== "stored" ||
-          file.byteSize > 10 * 1024 * 1024 ||
-          !(
-            imageTypes.includes(file.contentType) ||
-            file.contentType.startsWith("text/") ||
-            file.contentType.endsWith("+json") ||
-            file.contentType.endsWith("+xml") ||
-            textTypes.includes(file.contentType)
-          )
-        )
-          return
+        if (!supportsFilePreview(file)) return
         const key = filePreviewObjectKey(file.objectKey)
         const cached = yield* storage
           .get({ key, maxBytes: 256 * 1024 })
@@ -134,7 +138,22 @@ export class FilePreviews extends Context.Service<
         }
         return { bytes, mimeType: "image/webp" as const }
       })
-      return FilePreviews.of({ read })
+      const url = Effect.fn("FilePreviews.url")(function* ({ file }: { file: StoredFile }) {
+        if (!supportsFilePreview(file)) return
+        const key = filePreviewObjectKey(file.objectKey)
+        const cached = yield* storage
+          .head({ key })
+          .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.succeed(undefined)))
+        if (cached?.size === 0) return
+        if (cached && cached.size > 256 * 1024) return yield* new StorageUnavailable()
+        if (!cached && !(yield* read({ file }))) return
+        return yield* storage.signedUrl({
+          key,
+          contentType: "image/webp",
+          contentDisposition: 'inline; filename="preview.webp"',
+        })
+      })
+      return FilePreviews.of({ read, url })
     }),
   )
   static readonly layer = FilePreviews.layerNoDeps.pipe(

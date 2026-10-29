@@ -134,7 +134,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Download a chat file")
       .annotate(
         OpenApi.Description,
-        "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.",
+        "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes and remain no-store. Configured reverse proxies can stream previews with private browser caching and ETag revalidation after authorization.",
       ),
   )
 
@@ -160,7 +160,9 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/attachments/attachments"),
       )
       const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
-      const { ChatThreadInvalid, ChatThreadNotFound } = yield* Effect.promise(
+      const { Config } = yield* Effect.promise(() => import("@/lib/config/config"))
+      const config = yield* Config
+      const { ChatThreadInvalid, ChatThreadNotFound, ChatFileUnavailable } = yield* Effect.promise(
         () => import("@/lib/chat/threads/errors"),
       )
       const { authenticateRestRequest, consumeRestRateLimit } = yield* Effect.promise(
@@ -325,16 +327,21 @@ export function chatHandlers(api: typeof ApiV1) {
                 ...(preview ? { tenantUserId: access.tenantUserId } : {}),
               }
             }
-            const file = yield* files
-              .read({
+            const proxyPreview = preview && (yield* config.get("asset_delivery")) === "proxy"
+            if (proxyPreview && request.headers["x-asset-proxy"] !== "1")
+              return yield* new ChatFileUnavailable()
+            const file = yield* Effect.gen(function* () {
+              if (proxyPreview)
+                return { url: yield* files.previewUrl({ scope, fileId: query.fileId }) }
+              return yield* files.read({
                 scope,
                 fileId: query.fileId,
                 ...(preview ? { preview: true } : {}),
               })
-              .pipe(
-                Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
-              )
-            return chatArtifactResponse({
+            }).pipe(
+              Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
+            )
+            return yield* chatArtifactResponse({
               ...file,
               path: preview ? "preview.webp" : (query.filename ?? "artifact"),
               preview,
