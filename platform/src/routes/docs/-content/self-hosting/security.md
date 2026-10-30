@@ -63,13 +63,13 @@ Framing is denied everywhere, including the API paths, because the embedded widg
 
 ## Reverse proxy trust
 
-`/configure` honors `X-Forwarded-Host` and `X-Forwarded-Proto` only from a loopback peer:
+Proxy trust defaults to off, including loopback. Enable **Trust Proxy** at `/configure` with an optional comma-separated IP/CIDR allowlist, or override it with `TRUST_PROXY=false`, `TRUST_PROXY=true`, or `TRUST_PROXY=<IPs/CIDRs>`. Before first setup or an upgrade behind a TLS-terminating proxy, set the environment override as described in [Deploy](./deploy.md#5-put-it-behind-a-reverse-proxy).
 
-- Connect the reverse proxy over loopback in the application's network namespace. A host-published container port does not satisfy this.
+- Allow the proxy's actual socket-peer address. For a same-host loopback connection, use `127.0.0.1,::1`. A host-published container port may present a different peer address.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
-- Prevent any other client from reaching the application port directly. A remote caller cannot satisfy the HTTPS requirement with a forged header, but it should not be able to try either.
+- Prevent other clients from reaching the application port directly. With `TRUST_PROXY=true` or no IP restrictions in the UI, any caller can supply trusted headers, so origin access restrictions are essential.
 
-The proxy must own `X-Forwarded-For` too. When a request's peer is not loopback, the application replaces that header with the actual peer address before authentication sees it, so a client cannot spoof the address authentication rate limits are keyed on. [Deploy](./deploy.md) has a proxy configuration that satisfies all of this.
+The proxy must overwrite the configured **Client IP Headers** too. They default to `x-forwarded-for` and accept an ordered comma-separated list, such as `cf-connecting-ip,x-forwarded-for`, with a `CLIENT_IP_HEADERS` environment override. For untrusted peers, the application replaces these headers with the socket-peer address and removes forwarded host/protocol headers before authentication sees them. [Deploy](./deploy.md) has a proxy configuration that satisfies this policy.
 
 ## Bot protection
 
