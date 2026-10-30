@@ -67,6 +67,7 @@ const restTestState = vi.hoisted(() => ({
   consume: vi.fn<(options: { key: string }) => Effect.Effect<void, RateLimiter.RateLimiterError>>(),
   agent: vi.fn(),
   run: vi.fn(),
+  downloadFile: vi.fn(),
   readFile: vi.fn(),
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
@@ -222,6 +223,7 @@ const restTestServices = Layer.mergeAll(
   Layer.succeed(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
     read: (input) => restTestState.readFile(input) as never,
+    download: (input) => restTestState.downloadFile(input) as never,
     hydrate: ({ messages }) => Effect.succeed([...messages]),
     attach: () => Effect.succeed(0),
   }),
@@ -1240,13 +1242,29 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
     expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
+    restTestState.downloadFile.mockReturnValue(
+      Effect.succeed({ url: "https://storage.example/private" }),
+    )
+    const direct = await restRequest(`/chat/files?${new URLSearchParams(query)}&delivery=direct`, {
+      headers: { Authorization: "Bearer chat-token" },
+    })
+    expect(direct.status).toBe(204)
+    expect(direct.headers.get("location")).toBe("https://storage.example/private")
+    expect(direct.headers.get("cache-control")).toContain("no-store")
+    expect(restTestState.downloadFile).toHaveBeenCalledWith({
+      scope: { organizationId: restOrgId, tenantId: restTenantId, threadId: restOtherId },
+      fileId: restUserId,
+      contentDisposition: "attachment; filename=\"report.txt\"; filename*=UTF-8''report.txt",
+    })
     restTestState.readFile.mockClear()
+    restTestState.downloadFile.mockClear()
     restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
-    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}&delivery=direct`, {
       headers: { Authorization: "Bearer chat-token" },
     })
     expect(denied.status).toBe(404)
     expect(restTestState.readFile).not.toHaveBeenCalled()
+    expect(restTestState.downloadFile).not.toHaveBeenCalled()
     restTestState.thread.mockReturnValue(Effect.succeed(restThread))
     for (const error of [new ChatThreadInvalid(), new ChatFileUnavailable()]) {
       restTestState.readFile.mockReturnValue(Effect.fail(error))

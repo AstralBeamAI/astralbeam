@@ -204,7 +204,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       scope: { ...scope, threadId: id },
       messages: convertMessagesToModelMessages(params.messages),
     }),
-    { sandbox: agent.sandboxProviderId !== null },
+    { sandbox: agent.sandboxProviderId !== null, contentShape: "model" },
   )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()

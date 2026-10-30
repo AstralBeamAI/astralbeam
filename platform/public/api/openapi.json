@@ -4415,6 +4415,17 @@
               "type": "string"
             },
             "required": false
+          },
+          {
+            "name": "delivery",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "direct"
+              ]
+            },
+            "required": false
           }
         ],
         "security": [
@@ -4458,7 +4469,15 @@
             }
           },
           "204": {
-            "description": "<No Content>"
+            "description": "<No Content>",
+            "headers": {
+              "location": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": false
+              }
+            }
           },
           "400": {
             "description": "AstralBeamApiError",
@@ -4725,7 +4744,7 @@
             }
           }
         },
-        "description": "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.",
+        "description": "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original proxied downloads verify stored bytes. Request delivery=direct to receive 204 with a short-lived S3 URL in Location after authorization. A preview may still return 204 without Location when unavailable. Fetch storage URLs without application credentials and do not cache these capability responses.",
         "summary": "Download a chat file"
       }
     },
