@@ -7,7 +7,7 @@ import {
   SmtpSecuritySchema,
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
-import { generateSecret } from "@/lib/utils.server"
+import { generateSecret, parseClientIpHeaders, proxySettingsFromValues } from "@/lib/utils.server"
 import { allowInsecure } from "@/lib/runtime/environment.server"
 import { StorageEndpointSchema } from "@/lib/storage/schemas"
 import {
@@ -268,6 +268,43 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     required: true,
     isPublic: true,
     schema: ServerOriginSchema,
+  },
+  {
+    key: "trust_proxy",
+    group: "General",
+    label: "Trust Proxy",
+    description:
+      "Trust forwarded host, HTTPS, and client IP headers. Off by default. With no IP restrictions, restrict origin access and ensure your proxy overwrites these headers. Restart other instances after saving.",
+    kind: "text",
+    required: false,
+    defaultValue: "false",
+    schema: Schema.Union([BooleanSettingSchema, Schema.String]).pipe(
+      Schema.decode(SchemaTransformation.trim()),
+      Schema.check(
+        Schema.makeFilter(
+          (value) =>
+            Result.isSuccess(Result.try(() => proxySettingsFromValues({ trust_proxy: value }))) ||
+            "Enter valid comma-separated proxy IP addresses or CIDR ranges",
+        ),
+      ),
+    ),
+  },
+  {
+    key: "client_ip_headers",
+    group: "General",
+    label: "Client IP Headers",
+    description:
+      "Comma-separated HTTP header names, in priority order. Use headers your trusted proxy overwrites, such as x-forwarded-for or cf-connecting-ip.",
+    kind: "text",
+    required: false,
+    defaultValue: "x-forwarded-for",
+    schema: Schema.String.check(
+      Schema.makeFilter(
+        (value) =>
+          Result.isSuccess(Result.try(() => parseClientIpHeaders(value))) ||
+          "Use a comma-separated list of HTTP header names",
+      ),
+    ),
   },
   {
     key: "better_auth_secret",
