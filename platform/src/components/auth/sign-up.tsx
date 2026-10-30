@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, trim and require visible names, and show password requirements. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance.
+// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
 
 "use client"
 
@@ -326,13 +326,9 @@ export function SignUp({
                       }))
                     }}
                     aria-invalid={!!fieldErrors.password}
-                    aria-describedby={`signup-password-requirements${fieldErrors.password ? " signup-password-error" : ""}`}
+                    aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
                   />
 
-                  <FieldDescription id="signup-password-requirements">
-                    Use {emailAndPassword.minPasswordLength}–{emailAndPassword.maxPasswordLength}{" "}
-                    characters.
-                  </FieldDescription>
                   <FieldError id="signup-password-error">{fieldErrors.password}</FieldError>
 
                   <PasswordStrengthMeter password={password} />

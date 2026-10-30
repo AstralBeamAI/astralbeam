@@ -224,7 +224,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           confirmPassword: true,
           forgotPassword: true,
           maxPasswordLength: 128,
-          minPasswordLength: 12,
+          minPasswordLength: 8,
           requireEmailVerification: true,
           strengthMeter: true,
         }}

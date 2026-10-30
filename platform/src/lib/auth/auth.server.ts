@@ -215,7 +215,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
-      minPasswordLength: 12,
+      minPasswordLength: 8,
       maxPasswordLength: 128,
       autoSignIn: false,
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,

@@ -29,6 +29,8 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   userSettings,
 }) => {
   const identity = makeRunIdentity()
+  // Exercise reset, signup, and sign-in at the minimum supported password length.
+  identity.password = crypto.randomUUID().slice(0, 8)
   const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
@@ -75,6 +77,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   await test.step("a visitor signs up and verifies their email address", async () => {
     await page.waitForURL(/\/auth\/sign-in/)
     await auth.open("sign-up")
+    await expect(page.locator("#signup-password-requirements")).toHaveCount(0)
+    await auth.signUp({ ...identity, password: identity.password.slice(0, 7) })
+    await expect(page.locator("#signup-password-error")).toContainText("8")
     await auth.signUp(identity)
     await page.waitForURL(/\/auth\/verify-email/)
     await captureMilestone(page, "02-verify-email-prompt")
