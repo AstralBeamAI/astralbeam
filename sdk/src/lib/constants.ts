@@ -26,13 +26,3 @@ export const DEFAULT_COLOR_SCHEME = "system"
  * resolve `--background` from the light block in either theme. Keep the two in sync by hand.
  */
 export const WIDGET_CONTAINER_CLASS = "astralbeam-root"
-
-// Shared by the live widget and its inline loading shell.
-export const CHAT_PANEL_CLASS_NAME =
-  "relative flex h-full w-full flex-col gap-0 overflow-clip rounded-none bg-background py-0 text-sm text-foreground ring-0 [--card-spacing:--spacing(3)]"
-export const CHAT_HEADER_CLASS_NAME =
-  "flex h-14 shrink-0 items-center gap-1 border-b px-3 py-0 [.border-b]:pb-0"
-export const CHAT_FOOTER_CLASS_NAME =
-  "flex shrink-0 flex-col items-center gap-1 rounded-none border-t-0 bg-transparent px-3 pt-1 pb-2"
-export const CHAT_INPUT_CLASS_NAME = "max-h-24 min-h-8 py-1.5 any-pointer-coarse:text-base"
-export const CHAT_COMPOSER_SHORTCUT = "Enter to send, Shift+Enter for a new line."

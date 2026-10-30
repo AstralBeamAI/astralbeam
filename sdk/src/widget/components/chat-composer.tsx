@@ -5,7 +5,6 @@ import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/widget/compon
 import { attachmentAcceptAttribute } from "../lib/attachments.ts"
 import type { DraftAttachment, ResolvedAttachmentOptions } from "../lib/types.ts"
 import { cn } from "cn"
-import { CHAT_INPUT_CLASS_NAME, CHAT_COMPOSER_SHORTCUT } from "../../lib/constants.ts"
 import { describeError } from "../lib/utils.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 import { ComposerAttachments } from "./composer-attachments.tsx"
@@ -189,7 +188,7 @@ export function ChatComposer({
         <InputGroupTextarea
           aria-label="Message"
           aria-describedby={shortcutId}
-          className={CHAT_INPUT_CLASS_NAME}
+          className="max-h-24 min-h-8 py-1.5 any-pointer-coarse:text-base"
           placeholder={
             authPending
               ? "Verifying your session…"
@@ -267,7 +266,8 @@ export function ChatComposer({
         </InputGroupAddon>
       </InputGroup>
       <p className="mt-1 text-center text-xs text-muted-foreground">
-        <span id={shortcutId}>{CHAT_COMPOSER_SHORTCUT}</span> AI can make mistakes.
+        <span id={shortcutId}>Enter to send, Shift+Enter for a new line.</span> AI can make
+        mistakes.
       </p>
     </form>
   )

@@ -47,7 +47,11 @@ export function OrganizationOnboarding({
         </p>
       </div>
 
-      <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
+      <UserInvitations
+        hideEmpty
+        className="[&_h2]:font-sans"
+        onInvitationAction={onInvitationAction}
+      />
 
       <Card>
         <CardContent className="flex flex-col items-stretch gap-4 sm:items-start">
