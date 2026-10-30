@@ -86,12 +86,12 @@ For unexpected failures, use `--debug` to log HTTP methods, URLs, status, durati
 
 ## Coding agents
 
-The CLI ships an [Agent Skill](skills/astralbeam/SKILL.md) that teaches an agent its commands, JSON output, and safety rules. Let's install it for Claude Code in the current project:
+The CLI ships an [Agent Skill](../skills/astralbeam/SKILL.md) for app integration and CLI usage. Let's install it in the current project's `.agents/skills` directory:
 
 ```sh
 astralbeam skill install
 ```
 
-Pass `--dir ~/.claude/skills` to install it for every project, or `--dir .agents/skills` for agents that read that directory. Then give the agent credentials by logging in from the project directory or through `ASTRALBEAM_API_KEY`, never in the prompt.
+Commit `.agents/skills/astralbeam/SKILL.md` to share it with the team and make it available in fresh checkouts. For Claude Code, pass `--dir .claude/skills`. Use `--dir <path>` for another project or a user-level directory. Then give the agent credentials by logging in from the project directory or through `ASTRALBEAM_API_KEY`, never in the prompt.
 
 The full guide is at [astralbeam.ai/docs/cli/getting-started](https://astralbeam.ai/docs/cli/getting-started).

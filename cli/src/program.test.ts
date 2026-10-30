@@ -35,6 +35,19 @@ const cli = (...args: string[]) => run(["node", "astralbeam", ...args])
 const respondWith = (body: unknown, status = 200) =>
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(body, { status })))
 
+test("skill installation defaults to the project and honors --dir", async () => {
+  const project = await mkdtemp(join(tmpdir(), "astralbeam-cli-skill-"))
+  const content = await readFile(
+    new URL("../../skills/astralbeam/SKILL.md", import.meta.url),
+    "utf8",
+  )
+  process.chdir(project)
+  expect(await cli("--json", "skill", "install")).toBe(0)
+  expect(await readFile(join(project, ".agents/skills/astralbeam/SKILL.md"), "utf8")).toBe(content)
+  expect(await cli("--json", "skill", "install", "--dir", join(project, "custom-skills"))).toBe(0)
+  expect(await readFile(join(project, "custom-skills/astralbeam/SKILL.md"), "utf8")).toBe(content)
+})
+
 test("--all follows page_after with the API key and prints one merged page", async () => {
   const fetch = vi.fn((input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input))
@@ -113,7 +126,7 @@ test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
   ).toMatch(/60 to 600/)
 })
 
-test("the nearest bound directory supplies the key, and unbound directories fail", async () => {
+test("directory bindings and environment credentials resolve and verify the Organization", async () => {
   vi.stubEnv("ASTRALBEAM_API_KEY", undefined)
   const root = await realpath(await mkdtemp(join(tmpdir(), "astralbeam-cli-dirs-")))
   const nested = join(root, "acme", "app", "src")
@@ -143,6 +156,28 @@ test("the nearest bound directory supplies the key, and unbound directories fail
   expect(await cli("--json", "tenants", "list")).toBe(1)
   expect(stderr).toMatch(/No AstralBeam login covers/)
   expect(fetch).toHaveBeenCalledTimes(1)
+
+  process.chdir(nested)
+  const environmentOrganization = { ...organization, id: "01990a5d-0000-7000-8000-000000000012" }
+  vi.stubEnv("ASTRALBEAM_API_KEY", API_KEY.replace(ORGANIZATION_ID, environmentOrganization.id))
+  respondWith(environmentOrganization)
+  stderr = ""
+  stdout = ""
+  expect(await cli("--json", "auth", "status")).toBe(0)
+  expect(JSON.parse(stdout)).toMatchObject({
+    organization: environmentOrganization,
+    source: "ASTRALBEAM_API_KEY",
+  })
+  expect(JSON.parse(stderr)).toEqual({
+    context: { organization: environmentOrganization, bound_directory: null },
+  })
+
+  respondWith(organization)
+  stderr = ""
+  expect(await cli("--json", "auth", "status")).toBe(1)
+  expect(JSON.parse(stderr)).toMatchObject({
+    error: { detail: "The API returned a different organization." },
+  })
 })
 
 test("errors name unserved endpoints and unreachable servers", async () => {
