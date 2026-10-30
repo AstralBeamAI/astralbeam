@@ -92,6 +92,10 @@ export function mountAstralBeamChat(
       font: 14px/1.5 var(--font-sans, system-ui, sans-serif);
     }
     .dark [data-slot="chat-loading"] { color-scheme: dark; }
+    [data-slot="chat-loading-title"] {
+      position: absolute; inset-block-start: 0; inset-inline: 12px 64px; line-height: 56px;
+      font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     [data-slot="chat-loading-close"] {
       position: absolute; inset-block-start: 14px; inset-inline-end: 12px;
       width: 28px; height: 28px; padding: 0; font: 20px/1 var(--font-sans, system-ui, sans-serif);
@@ -130,6 +134,10 @@ export function mountAstralBeamChat(
       [data-slot="chat-loading-status"][data-loading]::before { animation: none; }
     }
   `
+  const loadingTitle = document.createElement("span")
+  loadingTitle.dataset.slot = "chat-loading-title"
+  loadingTitle.textContent = live.title ?? DEFAULT_TITLE
+  loadingTitle.hidden = live.showHeader === false
   const close = document.createElement("button")
   close.dataset.slot = "chat-loading-close"
   close.type = "button"
@@ -141,7 +149,7 @@ export function mountAstralBeamChat(
   status.dataset.loading = ""
   status.setAttribute("role", "status")
   status.textContent = "Loading chat…"
-  loading.append(style, close, status)
+  loading.append(style, loadingTitle, close, status)
   close.onclick = (event) => {
     if (event.detail < 2) live.onClose?.()
   }
@@ -188,6 +196,8 @@ export function mountAstralBeamChat(
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
       applyTheme()
+      loadingTitle.textContent = live.title ?? DEFAULT_TITLE
+      loadingTitle.hidden = live.showHeader === false
       close.hidden = !live.onClose
       chat?.update(live)
     },

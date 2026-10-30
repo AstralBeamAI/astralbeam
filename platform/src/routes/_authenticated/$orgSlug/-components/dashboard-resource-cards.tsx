@@ -11,7 +11,7 @@ export type DashboardResourceCardsProps = {
   counts: OrganizationResourceCounts
 }
 
-const CARD_CLASS_NAME = "h-full min-h-28 transition-colors hover:border-primary/40"
+const CARD_CLASS_NAME = "h-full min-h-24 transition-colors hover:border-primary/40"
 
 function ResourceCardBody({
   count,
