@@ -606,6 +606,7 @@ test.each<
       "~standard": {
         version: 1 as const,
         vendor: "delayed-validator",
+        jsonSchema: { input: () => ({ type: "object" }) },
         validate: vi.fn((input: unknown) =>
           pendingValidation.promise.then((result) => result ?? { value: input }),
         ),
@@ -889,7 +890,12 @@ test.each<
           source_part_id: "application-part",
           response_target_id: "target",
           outcome: throwsAfterCommit ? "unknown" : "succeeded",
-          output: throwsAfterCommit ? { error: "Response lost after mutation" } : { changed: true },
+          output: throwsAfterCommit
+            ? { error: "Response lost after mutation" }
+            : {
+                content: [{ type: "text", text: '{"changed":true}' }],
+                structuredContent: { changed: true },
+              },
         },
       ],
     })
@@ -1040,12 +1046,12 @@ test("a browser tool and widget can continue through consecutive committed turns
   const executed = vi.fn(() => ({ done: true }))
   const rendered = vi.fn()
   const outputs: unknown[] = []
-  const input = { widget: "card", props: {} }
+  const input = {}
   const call = (index: number) => ({
     id: `part-${index}`,
     type: "tool-call",
     toolCallId: "reused-call",
-    name: index === 1 ? "change_data" : "render_widget",
+    name: index === 1 ? "change_data" : "show_card",
     arguments: JSON.stringify(index === 1 ? {} : input),
     input: index === 1 ? {} : input,
     state: "input-complete",
@@ -1173,14 +1179,20 @@ test("a browser tool and widget can continue through consecutive committed turns
   expect(outputs).toEqual([
     expect.objectContaining({
       results: [
-        expect.objectContaining({ source_message_id: "assistant-1", output: { done: true } }),
+        expect.objectContaining({
+          source_message_id: "assistant-1",
+          output: {
+            content: [{ type: "text", text: '{"done":true}' }],
+            structuredContent: { done: true },
+          },
+        }),
       ],
     }),
     expect.objectContaining({
       results: [
         expect.objectContaining({
           source_message_id: "assistant-2",
-          output: { widget: "card", rendered: true },
+          output: { content: [{ type: "text", text: "Displayed card" }] },
         }),
       ],
     }),
@@ -2074,4 +2086,123 @@ test("a send waiting on token renewal never reaches the account the renewal reso
   await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
   expect(JSON.stringify(chat.getState().messages)).not.toContain("Private to the first account")
   expect(sends).not.toHaveBeenCalled()
+})
+
+test("captured tool metadata follows delayed continuations and conversation selection", async () => {
+  let selected = thread
+  let admitted = false
+  let continued = false
+  let body:
+    | {
+        tools: { name: string }[]
+        forwardedProps: { toolMetadata: Record<string, unknown> }
+      }
+    | undefined
+  stubSessionFetch((input: string | URL, init?: RequestInit) => {
+    const path = new URL(input).pathname
+    if (path.endsWith("/messages"))
+      return sessionResponse({
+        ...page(
+          admitted && !continued
+            ? [
+                savedAssistantMessage({
+                  id: "question-part",
+                  toolCallId: "question",
+                  name: "ask_questionnaire",
+                  input: { items: [] },
+                }),
+              ]
+            : [],
+        ),
+        thread: selected,
+        pending_interactions:
+          admitted && !continued
+            ? [
+                {
+                  source_message_id: "assistant",
+                  source_part_id: "question-part",
+                  response_target_id: "target",
+                  tool_call_id: "question",
+                  target_tenant_user_id: "user",
+                  target_client_id: null,
+                  execution_location: "browser",
+                },
+              ]
+            : [],
+      })
+    if (!path.endsWith("/tool-results") && !path.endsWith("/chat"))
+      return sessionResponse({ capabilities: { attachments: true } })
+    if (path.endsWith("/chat")) {
+      body = JSON.parse(init!.body as string) as typeof body
+      admitted = true
+      return Promise.resolve(acceptedStream("initial"))
+    }
+    continued = true
+    const run = { threadId: selected.id, runId: "run" }
+    const events = [
+      { type: "RUN_STARTED", ...run },
+      {
+        type: "TOOL_CALL_START",
+        parentMessageId: "assistant",
+        toolCallId: "call",
+        toolCallName: "old_tool",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "call", delta: "{}" },
+      { type: "TOOL_CALL_END", toolCallId: "call" },
+      { type: "RUN_FINISHED", ...run, metadata: { tanstack: { finishReason: "stop" } } },
+    ]
+    return Promise.resolve(
+      new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    )
+  })
+  const chat = createTestSession({
+    threadId: thread.id,
+    tools: { old_tool: { description: "Old", widget: "card", execute: () => ({}) } },
+    widgets: { card: { description: "Card" } },
+    streamCallbacks: {
+      onResponse: () =>
+        chat.updateOptions({
+          tools: { new_tool: { description: "New", execute: () => ({}) } },
+        }),
+    },
+  })
+  let streamedPart: unknown
+  const unsubscribe = chat.subscribe(() => {
+    const part = chat
+      .getState()
+      .messages.flatMap((message) => message.parts)
+      .find((part) => part.type === "tool-call" && part.name === "old_tool")
+    if (part) streamedPart = { ...part }
+  })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  await chat.sendMessage("Check snapshot")
+  await chat.refreshThread()
+  await chat.addToolResult({
+    tool: "ask_questionnaire",
+    toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+    output: { answers: [] },
+    state: "output-available",
+  })
+  expect(body!.tools.map((tool) => tool.name)).toContain("old_tool")
+  expect(body!.forwardedProps.toolMetadata).toHaveProperty("old_tool")
+  expect(body!.forwardedProps.toolMetadata).not.toHaveProperty("new_tool")
+  expect(streamedPart).toMatchObject({ name: "old_tool", widget: "card" })
+  for (const destination of ["00000000-0000-4000-8000-000000000002", thread.id]) {
+    selected = { ...thread, id: destination }
+    admitted = true
+    continued = false
+    await chat.openThread(destination)
+    streamedPart = undefined
+    await chat.addToolResult({
+      tool: "ask_questionnaire",
+      toolCallId: chat.getState().pendingInteractions[0]!.toolCallId,
+      output: { answers: [] },
+      state: "output-available",
+    })
+    expect(streamedPart).toMatchObject({ name: "old_tool" })
+    expect((streamedPart as { widget?: string }).widget).toBeUndefined()
+  }
+  unsubscribe()
 })

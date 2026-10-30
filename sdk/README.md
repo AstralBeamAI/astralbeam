@@ -125,8 +125,9 @@ widgets: {
 }
 ```
 
-- Schemas are plain JSON Schema, or any [Standard Schema](https://standardschema.dev) validator (Zod, Valibot, ArkType).
-- Only a Standard Schema validates input in the browser. With plain JSON Schema, treat input as untrusted.
+- Object `parameters` validate input through JSON Schema or a [Standard Schema](https://standardschema.dev) validator with JSON Schema export. Optional helpers infer callback types.
+- Return JSON data directly. The SDK constructs the result envelope. Use `toolResult(...)` for custom content, model-safe `structuredContent`, widget-only `uiData`, or known errors.
+- Set a tool's `widget` to a widget ID to present its result. Standalone widgets expose `show_<id>` tools. Render receives input, then invocation context.
 - Return plain JSON values from tools, with no `undefined` fields. If a result cannot be sent, the action may still have happened.
 
 ## MCP connections

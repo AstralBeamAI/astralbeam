@@ -35,6 +35,8 @@ export type ChatToolCallPart = Extract<UIMessage["parts"][number], { type: "tool
   applicationPartId?: string
   sourceMessageId?: string
   responseTargetId?: string
+  widget?: string | undefined
+  resultVersion?: 1 | undefined
   widgetRenderId?: string
   savedToolTitle?: string
   resultOutcome?: "succeeded" | "failed" | "skipped" | "unknown"
@@ -174,16 +176,17 @@ export function projectThreadMessages(
             .map((pending) => pending.responseTargetId)
       return (targets.length ? targets : [undefined]).map((responseTargetId) => {
         const savedId = savedToolCallId(message.id, String(part.id), responseTargetId)
+        const declaration =
+          part.declaration &&
+          typeof part.declaration === "object" &&
+          !Array.isArray(part.declaration)
+            ? (part.declaration as Record<string, unknown>)
+            : undefined
         const call = {
           ...part,
-          savedToolTitle:
-            part.declaration &&
-            typeof part.declaration === "object" &&
-            !Array.isArray(part.declaration) &&
-            "title" in part.declaration &&
-            typeof part.declaration.title === "string"
-              ? part.declaration.title
-              : undefined,
+          widget: declaration?.widget,
+          resultVersion: declaration?.resultVersion,
+          savedToolTitle: typeof declaration?.title === "string" ? declaration.title : undefined,
           id: liveToolMessageIds.get(toolCallId) === message.id ? toolCallId : savedId,
           upstreamToolCallId: toolCallId,
           applicationPartId: part.id,

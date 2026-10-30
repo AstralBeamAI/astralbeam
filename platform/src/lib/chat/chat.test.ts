@@ -17,7 +17,7 @@ const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
     messages: unknown[]
     systemPrompts: string[]
-    tools: Array<{ name: string }>
+    tools: Array<{ name: string; metadata?: Record<string, unknown> }>
     adapter: { model: string }
     abortController: AbortController
     reasoning?: unknown
@@ -208,14 +208,26 @@ describe("Chat.run", () => {
     "suppresses tools only for this turn's unknown outcome: %s",
     (ownTurn) =>
       Effect.gen(function* () {
-        const events = yield* runChat({
+        const metadata = { astralbeam: { resultVersion: 1, widget: "card" } }
+        const params = yield* chatTestParams({
           tools: [{ name: "change", description: "Changes data", parameters: { type: "object" } }],
+        })
+        const chat = yield* Chat
+        const events = yield* chat.run({
+          params: { ...params, tools: params.tools.map((tool) => ({ ...tool, metadata })) },
+          principal,
+          managed: chatTestExecution,
         })
         yield* Stream.runCollect(Stream.take(events, 1))
         assert.strictEqual(
           chatRunTest.options[0]!.tools.some((tool) => tool.name === "change"),
           !ownTurn,
         )
+        if (!ownTurn)
+          assert.deepStrictEqual(
+            chatRunTest.options[0]!.tools.find((tool) => tool.name === "change")?.metadata,
+            metadata,
+          )
         assert.strictEqual(
           chatRunTest.options[0]!.systemPrompts.some((prompt) =>
             prompt.includes("unknown outcome"),

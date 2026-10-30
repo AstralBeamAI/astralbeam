@@ -56,7 +56,20 @@ describe("stored conversation model projection", () => {
       ...projectionRecord(
         `result-${id}`,
         {
-          parts: [{ id: "result", type: "tool-result", toolCallId: `provider-${id}`, output: id }],
+          parts: [
+            {
+              id: "result",
+              type: "tool-result",
+              toolCallId: `provider-${id}`,
+              resultVersion: 1,
+              output: {
+                content: [{ type: "text", text: id }],
+                uiData: { secret: "UI_ONLY_SENTINEL" },
+              },
+            },
+          ],
+          provenance: projectionTarget,
+          modelMessages: [{ role: "tool", content: "UI_ONLY_SENTINEL" }],
         },
         "tool",
       ),
@@ -77,7 +90,19 @@ describe("stored conversation model projection", () => {
       "provider-a",
       "provider-b",
     ])
+    for (const target of [undefined, projectionTarget])
+      for (const history of [records, records.slice(0, -1)]) {
+        const context = JSON.stringify(projectChatModelHistory(history, target))
+        expect(context).not.toContain("UI_ONLY_SENTINEL")
+        expect(context).toContain('\\"text\\":\\"a\\"')
+      }
     expect(records).toEqual(before)
+    const legacy = structuredClone(records)
+    for (const record of legacy)
+      for (const part of record.payload.parts) Reflect.deleteProperty(part, "resultVersion")
+    expect(JSON.stringify(projectChatModelHistory(legacy, projectionTarget))).toContain(
+      "UI_ONLY_SENTINEL",
+    )
     expect(
       projectChatPublicHistory([{ ...input, authorTenantUserId: "another-user" }])[0]!.metadata,
     ).toMatchObject({ astralbeam: { state: "complete", authorTenantUserId: "another-user" } })
@@ -101,7 +126,17 @@ describe("stored conversation model projection", () => {
         `result-${id}`,
         {
           parts: [
-            { id, type: "tool-result", toolCallId: "provider", outcome: "succeeded", output: id },
+            {
+              id,
+              type: "tool-result",
+              toolCallId: "provider",
+              outcome: "succeeded",
+              resultVersion: 1,
+              output: {
+                content: [{ type: "text", text: id }],
+                uiData: { secret: "UI_ONLY_SENTINEL" },
+              },
+            },
           ],
         },
         "tool",
@@ -113,6 +148,11 @@ describe("stored conversation model projection", () => {
     const projected = projectChatModelHistory([decision, ...responses])
     expect(projected.map((message) => message.role)).toEqual(["assistant", "tool"])
     expect(projected[1]!.toolCallId).toBe("provider")
+    for (const history of [responses, responses.slice(0, -1)]) {
+      const context = JSON.stringify(projectChatModelHistory([decision, ...history]))
+      expect(context).not.toContain("UI_ONLY_SENTINEL")
+      expect(context).toContain('\\"text\\":\\"b\\"')
+    }
     expect(
       (JSON.parse(projected[1]!.content as string) as { responseTargetId: string }[]).map(
         (item) => item.responseTargetId,
