@@ -1,4 +1,3 @@
-import { useSession } from "@better-auth-ui/react"
 import { Link, useLocation } from "@tanstack/react-router"
 import { createContext, type ReactNode, useContext } from "react"
 
@@ -6,7 +5,6 @@ import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { buttonVariants } from "@/components/ui/button"
 import { WebsiteLink } from "@/components/website-link"
-import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import {
   APP_LOGO_DARK_SVG_URL,
@@ -18,7 +16,6 @@ import {
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import { cn } from "cn"
-import { useIsSignedIn } from "@website/lib/use-is-signed-in"
 
 const navLinkClassName = buttonVariants({ variant: "ghost", size: "sm" })
 const UnderNavbarContext = createContext(false)
@@ -113,6 +110,7 @@ function DashboardLink({ reloadDocument = false }: { reloadDocument?: boolean })
   return (
     <Link
       to="/"
+      data-session="signed-in"
       reloadDocument={reloadDocument}
       className={cn(buttonVariants({ size: "sm" }), "ms-2.5")}
     >
@@ -131,6 +129,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
     <>
       <Link
         to="/auth/$path"
+        data-session="signed-out"
         params={{ path: "sign-in" }}
         search={{ redirectTo }}
         reloadDocument={reloadDocument}
@@ -140,6 +139,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
       </Link>
       <Link
         to="/auth/$path"
+        data-session="signed-out"
         params={{ path: "sign-up" }}
         search={{ redirectTo }}
         reloadDocument={reloadDocument}
@@ -156,7 +156,6 @@ export function DocsNavbar({
 }: {
   section?: { slug: string; title: string; href?: string } | undefined
 }) {
-  const signedIn = useIsSignedIn()
   // Scalar replaces router history state, so leave its document on navigation.
   // https://github.com/scalar/scalar/blob/545bab57b0b18d8811504389396953f60a354443/packages/api-reference/src/components/ApiReference.vue#L1701
   const reloadDocument = Boolean(section?.href)
@@ -193,17 +192,13 @@ export function DocsNavbar({
         </div>
       }
     >
-      <WebsiteLink className={navLinkClassName}>Website</WebsiteLink>
-      {signedIn ? <DashboardLink reloadDocument /> : <AuthLinks reloadDocument />}
+      <WebsiteLink className={navLinkClassName}>
+        <span>Website</span>
+      </WebsiteLink>
+      <DashboardLink reloadDocument />
+      <AuthLinks reloadDocument />
     </Navbar>
   )
-}
-
-function SessionLinks() {
-  const session = useSession(authClient)
-  if (session.isPending) return null
-  if (!session.data) return <AuthLinks />
-  return <DashboardLink />
 }
 
 /** The navbar of pages outside the dashboard, which offers a signed-in visitor a way back home. */
@@ -218,7 +213,8 @@ export function PublicNavbar() {
   return (
     <Navbar wordmark reloadDocument={hasWebsite}>
       <NavbarDocsLink />
-      <SessionLinks />
+      <DashboardLink />
+      <AuthLinks />
     </Navbar>
   )
 }

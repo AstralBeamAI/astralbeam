@@ -45,6 +45,7 @@ import {
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import "@/styles.css"
+import { SessionIndicator } from "@website/components/session-indicator"
 
 import { getPublicConfig } from "./-functions/get-public-config"
 
@@ -266,6 +267,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         ]}
         Link={({ href, ...props }) => <Link {...props} to={href} />}
       >
+        <AnalyticsIdentity />
         {children}
       </AuthProvider>
     </PublicConfigProvider>
@@ -276,13 +278,13 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <SessionIndicator />
         <HeadContent />
       </head>
       <body className="min-h-svh antialiased">
         <ThemeProvider storageKey="theme">
           <NavigationProgress />
           <Toaster>
-            <AnalyticsIdentity />
             <AppProviders>{children}</AppProviders>
           </Toaster>
           <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
