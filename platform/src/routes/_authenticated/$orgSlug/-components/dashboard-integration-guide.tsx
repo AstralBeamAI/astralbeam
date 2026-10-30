@@ -5,7 +5,7 @@ import { cn } from "cn"
 
 import { DocsLink } from "@/components/docs-link"
 import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
 
 export function DashboardIntegrationGuide({
@@ -85,7 +85,9 @@ export function DashboardIntegrationGuide({
   const nextStep = setupKnown ? steps.findIndex((step) => !step.complete && step.visible) : -1
   const [expanded, setExpanded] = useState<number | null>(null)
   const completed = steps.filter((step) => step.complete).length
-  const activeStep = expanded ?? (completed === steps.length ? -1 : Math.max(nextStep, 0))
+  if (completed === steps.length) return null
+
+  const activeStep = expanded ?? Math.max(nextStep, 0)
   const configured = steps.slice(0, -1).every((step) => step.complete)
   const introduction = (() => {
     if (!setupKnown)
@@ -108,15 +110,15 @@ export function DashboardIntegrationGuide({
   })()
 
   return (
-    <Card aria-labelledby={titleId} className="max-w-4xl sm:[--card-spacing:--spacing(6)]">
+    <Card aria-labelledby={titleId} className="max-w-4xl text-sm sm:[--card-spacing:--spacing(6)]">
       <CardHeader className="gap-3">
-        <CardTitle>
-          <h2 id={titleId}>{introduction.title}</h2>
-        </CardTitle>
+        <h2 id={titleId} className="font-sans text-sm font-medium">
+          {introduction.title}
+        </h2>
         <CardDescription className="text-sm">{introduction.description}</CardDescription>
         {setupKnown && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-muted-foreground">
               {completed} of {steps.length} setup steps complete
             </p>
             <progress
@@ -131,17 +133,20 @@ export function DashboardIntegrationGuide({
       <CardContent>
         <ol className="divide-y">
           {steps.map((step, index) => {
-            const actionClassName = buttonVariants({
-              variant: index === nextStep ? "default" : "outline",
-              size: "sm",
-            })
+            const actionClassName = cn(
+              buttonVariants({
+                variant: index === nextStep ? "default" : "outline",
+                size: "sm",
+              }),
+              "text-sm",
+            )
             return (
               <li
                 key={step.title}
                 aria-current={index === nextStep ? "step" : undefined}
                 className="py-4 first:pt-0 last:pb-0"
               >
-                <h3>
+                <h3 className="font-sans">
                   <button
                     type="button"
                     aria-expanded={activeStep === index}
@@ -151,7 +156,7 @@ export function DashboardIntegrationGuide({
                   >
                     <span
                       className={cn(
-                        "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs",
+                        "flex size-7 shrink-0 items-center justify-center rounded-full border",
                         (step.complete || index === nextStep) &&
                           "border-primary bg-primary text-primary-foreground",
                       )}
@@ -161,11 +166,9 @@ export function DashboardIntegrationGuide({
                     </span>
                     <span className="flex-1">{step.title}</span>
                     {step.complete && (
-                      <span className="text-xs font-normal text-muted-foreground">Configured</span>
+                      <span className="font-normal text-muted-foreground">Configured</span>
                     )}
-                    {index === nextStep && (
-                      <span className="text-xs font-medium text-primary">Next</span>
-                    )}
+                    {index === nextStep && <span className="text-primary">Next</span>}
                     <CaretDownIcon
                       aria-hidden="true"
                       className={cn(
