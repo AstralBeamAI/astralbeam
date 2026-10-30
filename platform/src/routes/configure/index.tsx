@@ -1,5 +1,6 @@
 import { WarningCircleIcon } from "@phosphor-icons/react"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { cn } from "cn"
 
 import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -30,7 +31,17 @@ function ConfigurePage() {
   const refresh = () => void router.invalidate()
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
+    <main
+      className={cn(
+        "mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6",
+        "[&_input[data-slot]]:min-h-10 [&_input[data-slot]]:px-3 [&_input[data-slot]]:text-sm",
+        "[&_label]:flex-wrap [&_label]:text-sm [&_label]:leading-5 [&_label]:font-medium [&_[data-slot=field]]:gap-2.5",
+        "[&_[data-slot=input-group]]:min-h-10 [&_[data-slot=input-group]:has(:disabled)]:opacity-100 [&_[data-slot=input-group-addon]]:py-0 [&_[data-slot=input-group]_button]:min-h-8 [&_[data-slot=input-group]_button]:min-w-8",
+        "[&_[data-slot=select-trigger]]:min-h-10 [&_[data-slot=select-trigger]]:px-3 [&_[data-slot=select-trigger]]:text-sm",
+        "[@media(any-pointer:coarse)]:[&_input[data-slot]]:min-h-12 [@media(any-pointer:coarse)]:[&_[data-slot=input-group]]:min-h-12 [@media(any-pointer:coarse)]:[&_[data-slot=select-trigger]]:min-h-12",
+        "[@media(any-pointer:coarse)]:[&_[data-slot=input-group]_button]:min-h-11 [@media(any-pointer:coarse)]:[&_[data-slot=input-group]_button]:min-w-11",
+      )}
+    >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">

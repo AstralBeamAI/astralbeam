@@ -54,7 +54,12 @@ export function ConfigFieldInput({
 
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldLabel htmlFor={`config-${field.key}`}>
+      <FieldLabel
+        htmlFor={`config-${field.key}`}
+        className={
+          field.key === "trust_proxy" ? "min-h-10 [@media(any-pointer:coarse)]:min-h-11" : undefined
+        }
+      >
         {field.key === "trust_proxy" && (
           <Checkbox
             id={`config-${field.key}`}
@@ -105,7 +110,11 @@ export function ConfigFieldInput({
           </SelectTrigger>
           <SelectContent>
             {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
+              <SelectItem
+                key={item.value}
+                value={item.value}
+                className="min-h-10 ps-3 text-sm [@media(any-pointer:coarse)]:min-h-12 [&>span]:min-w-0 [&>span]:whitespace-normal"
+              >
                 {item.label}
               </SelectItem>
             ))}
