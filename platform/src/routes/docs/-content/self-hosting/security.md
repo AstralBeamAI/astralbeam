@@ -71,6 +71,8 @@ Proxy trust defaults to off, including loopback. Enabling **Trust Proxy** at `/c
 
 The proxy must overwrite the configured **Client IP Headers** too. They default to `x-forwarded-for` and accept an ordered comma-separated list, such as `cf-connecting-ip,x-forwarded-for`, with a `CLIENT_IP_HEADERS` environment override. For untrusted peers, the application replaces these headers with the socket-peer address and removes forwarded host/protocol headers before authentication sees them. [Deploy](./deploy.md) has a proxy configuration that satisfies this policy.
 
+With an IP/CIDR allowlist, authentication resolves forwarded IP chains from right to left through trusted hops. With unrestricted trust, it uses the leftmost client address and validates it through Better Auth.
+
 ## Bot protection
 
 The Cloudflare Turnstile site key and secret key are both required settings, listed with the rest in [Configuration](./configuration.md), so no deployment runs without a CAPTCHA. They protect sign-in, sign-up, and password reset. The site key is served to browsers, and the secret key stays server side and is used to validate each token with Cloudflare.

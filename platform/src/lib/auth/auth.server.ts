@@ -196,6 +196,15 @@ function withTrustedProxyHeaders(
   peerAddress: string | undefined,
   proxy: ReturnType<typeof proxySettingsFromValues>,
 ): Request {
+  if (proxy.trustProxy === "true") {
+    const headers = new Headers(request.headers)
+    // Better Auth needs a single client address when no proxy ranges are configured.
+    for (const header of proxy.clientIpHeaders) {
+      const clientIp = headers.get(header)?.split(",")[0]
+      if (clientIp !== undefined) headers.set(header, clientIp.trim())
+    }
+    return new Request(request, { headers })
+  }
   if (isTrustedProxyAddress(peerAddress, proxy)) return request
   const headers = new Headers(request.headers)
   for (const header of proxy.clientIpHeaders) {
