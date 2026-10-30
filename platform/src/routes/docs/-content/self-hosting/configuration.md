@@ -23,7 +23,7 @@ Fields supplied by an environment variable show an **Environment** badge and are
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `app_base_url` | Yes | none | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
-| `trust_proxy` | No | `false` | Enable Trust Proxy to reveal a loopback-prefilled IP/CIDR list and Client IP Headers. Only the listed peers are trusted. An empty list trusts all proxies. Disabling clears the saved proxy list. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
+| `trust_proxy` | No | `false` | Loopback is always trusted for forwarded host/protocol. Enable Trust Proxy to use Client IP Headers and reveal an optional list of additional proxy IPs/CIDRs. An empty list trusts all proxies. Disabling clears additional proxies and ignores client IP headers. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `client_ip_headers` | No | `x-forwarded-for` | Ordered comma-separated header names. Visible only with Trust Proxy enabled. Disabling trust preserves the saved value |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |

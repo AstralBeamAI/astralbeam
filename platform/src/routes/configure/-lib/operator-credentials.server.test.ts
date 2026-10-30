@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { captureServerRequest, ServerRequest } from "@/lib/runtime/server-request.server"
-import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.server"
+import { isTrustedProxyAddress } from "@/lib/utils.server"
 import { checkConfigureRequest, isSameOriginConfigureRequest } from "./configure-request.server"
 import { clearOperatorSessionCookie, setOperatorSessionCookie } from "./operator-session.server"
 
@@ -30,14 +30,13 @@ function serveConfigureBoundary(
 afterEach(() => vi.unstubAllEnvs())
 
 describe("operator request boundary", () => {
-  test("trusts only explicitly configured peers to forward host and protocol", () => {
-    const proxy = proxySettingsFromValues({ trust_proxy: "127.0.0.1,::1" })
-    expect(isTrustedProxyAddress("127.0.0.1", proxy)).toBe(true)
-    expect(isTrustedProxyAddress("::1", proxy)).toBe(true)
-    expect(isTrustedProxyAddress("::ffff:127.0.0.1", proxy)).toBe(true)
-    expect(isTrustedProxyAddress("203.0.113.7", proxy)).toBe(false)
-    expect(isTrustedProxyAddress("127.0.0.1.example", proxy)).toBe(false)
-    expect(isTrustedProxyAddress(undefined, proxy)).toBe(false)
+  test("trusts only loopback peers by default to forward host and protocol", () => {
+    expect(isTrustedProxyAddress("127.0.0.1")).toBe(true)
+    expect(isTrustedProxyAddress("::1")).toBe(true)
+    expect(isTrustedProxyAddress("::ffff:127.0.0.1")).toBe(true)
+    expect(isTrustedProxyAddress("203.0.113.7")).toBe(false)
+    expect(isTrustedProxyAddress("127.0.0.1.example")).toBe(false)
+    expect(isTrustedProxyAddress(undefined)).toBe(false)
   })
 
   test.each<[string, HeadersInit, boolean]>([

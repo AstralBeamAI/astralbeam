@@ -274,7 +274,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Trust Proxy",
     description:
-      "Trust forwarded host, HTTPS, and client IP headers. Off by default. Enabling prefills loopback IPs. An empty list trusts all proxies, so restrict origin access and ensure your proxy overwrites these headers. Unchecking clears the proxy list on save. Restart other instances after saving.",
+      "Loopback is always trusted for forwarded host and HTTPS. Enable to trust configured client IP headers and additional proxies. An empty list trusts all proxies, so restrict origin access and ensure your proxy overwrites these headers. Unchecking clears additional proxies on save and ignores client IP headers. Restart other instances after saving.",
     kind: "text",
     required: false,
     defaultValue: "false",

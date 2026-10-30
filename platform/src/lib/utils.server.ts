@@ -34,7 +34,8 @@ export function proxySettingsFromValues(values: ConfigValues) {
     throw new Error("Use true, false, or a comma-separated list of proxy IPs/CIDRs")
   }
 
-  const addresses = trustedProxies.map((proxy) => {
+  const ranges = ["127.0.0.1", "::1", ...trustedProxies]
+  const addresses = ranges.map((proxy) => {
     const parsed = IpInterface.fromStringUnsafe(proxy)
     if (NetAddress.isIpv6Address(parsed.address) && NetAddress.isIpv4Mapped(parsed.address)) {
       if (proxy.includes("/")) {
@@ -46,19 +47,19 @@ export function proxySettingsFromValues(values: ConfigValues) {
   })
   return {
     trustProxy,
-    trustedProxies,
+    trustedProxies: trustedProxies.length > 0 ? ranges : [],
     addresses,
     clientIpHeaders: parseClientIpHeaders(values.client_ip_headers ?? "x-forwarded-for"),
   }
 }
 
-/** Unrestricted ingress trust is opt-in. Otherwise verify the socket peer against the allowlist. */
+/** Loopback is always trusted. Additional peers follow the configured proxy policy. */
 export function isTrustedProxyAddress(
   address: string | undefined,
   settings = proxySettingsFromValues({}),
 ): boolean {
   if (settings.trustProxy === "true") return true
-  if (settings.trustProxy === "false" || address === undefined) return false
+  if (address === undefined) return false
   const parsed = NetAddress.ipFromString(address)
   if (Result.isFailure(parsed)) return false
   const ip = NetAddress.toCanonical(parsed.success)

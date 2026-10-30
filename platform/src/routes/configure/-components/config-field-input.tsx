@@ -61,7 +61,7 @@ export function ConfigFieldInput({
             checked={trustProxy}
             disabled={disabled || field.source === "environment"}
             onCheckedChange={(checked) =>
-              onDraftChange({ kind: "set", value: checked ? "127.0.0.1,::1" : "false" })
+              onDraftChange({ kind: "set", value: checked ? "true" : "false" })
             }
           />
         )}
@@ -74,7 +74,7 @@ export function ConfigFieldInput({
         trustProxy && (
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor="config-trust-proxy-addresses">
-              Trusted proxy IPs/CIDRs (optional)
+              Additional proxy IPs/CIDRs (optional)
             </FieldLabel>
             <Input
               id="config-trust-proxy-addresses"

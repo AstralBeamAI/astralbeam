@@ -189,7 +189,7 @@ const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function*
   )
 })
 
-// Better Auth cannot verify the sender. Replace untrusted IP headers with the socket peer.
+// Better Auth cannot verify the sender. Ignore client IP headers unless proxy trust allows them.
 // https://better-auth.com/docs/concepts/rate-limit#connecting-ip-address
 function withTrustedProxyHeaders(
   request: Request,
@@ -205,14 +205,17 @@ function withTrustedProxyHeaders(
     }
     return new Request(request, { headers })
   }
-  if (isTrustedProxyAddress(peerAddress, proxy)) return request
+  const trustedPeer = isTrustedProxyAddress(peerAddress, proxy)
+  if (proxy.trustProxy !== "false" && trustedPeer) return request
   const headers = new Headers(request.headers)
   for (const header of proxy.clientIpHeaders) {
     if (peerAddress === undefined) headers.delete(header)
     else headers.set(header, peerAddress)
   }
-  headers.delete("x-forwarded-host")
-  headers.delete("x-forwarded-proto")
+  if (!trustedPeer) {
+    headers.delete("x-forwarded-host")
+    headers.delete("x-forwarded-proto")
+  }
   return new Request(request, { headers })
 }
 
@@ -371,7 +374,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     // backgroundTasks stays unset, because a handler would defer each send past the response and
     // swallow its rejection behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
-      trustedProxyHeaders: config.proxy.trustProxy !== "false",
+      trustedProxyHeaders: true,
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,

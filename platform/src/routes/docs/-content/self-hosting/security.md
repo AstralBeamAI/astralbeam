@@ -63,13 +63,13 @@ Framing is denied everywhere, including the API paths, because the embedded widg
 
 ## Reverse proxy trust
 
-Proxy trust defaults to off, including loopback. Enabling **Trust Proxy** at `/configure` reveals an IP/CIDR list prefilled with `127.0.0.1,::1` and **Client IP Headers**. Edit the list to choose exactly which socket peers to trust. Clearing it while enabled trusts all proxies. Unchecking and saving disables proxy trust and removes the saved proxy list, while preserving the saved client IP headers. The environment override accepts `TRUST_PROXY=false`, `TRUST_PROXY=true`, or `TRUST_PROXY=<IPs/CIDRs>`. Before first setup or an upgrade behind a TLS-terminating proxy, set the environment override as described in [Deploy](./deploy.md#5-put-it-behind-a-reverse-proxy).
+Loopback peers (`127.0.0.1` and `::1`) are always trusted for forwarded host/protocol. **Trust Proxy** defaults to unchecked, which ignores client IP headers and trusts no additional proxies. Enabling it at `/configure` reveals a blank optional IP/CIDR list and **Client IP Headers**. The list adds trusted socket peers alongside loopback. Leaving it empty while enabled trusts all proxies. Unchecking and saving removes the additional proxy list and ignores client IP headers, while preserving their saved value. The environment override accepts `TRUST_PROXY=false`, `TRUST_PROXY=true`, or `TRUST_PROXY=<IPs/CIDRs>`.
 
-- Allow the proxy's actual socket-peer address. For a same-host loopback connection, use `127.0.0.1,::1`. A host-published container port may present a different peer address.
+- Allow the proxy's actual socket-peer address. Same-host loopback connections are already trusted for host/protocol. A host-published container port may present a different peer address.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
 - Prevent other clients from reaching the application port directly. With `TRUST_PROXY=true` or an empty list while **Trust Proxy** is enabled, any caller can supply trusted headers, so origin access restrictions are essential.
 
-The proxy must overwrite the configured **Client IP Headers** too. They default to `x-forwarded-for` and accept an ordered comma-separated list, such as `cf-connecting-ip,x-forwarded-for`, with a `CLIENT_IP_HEADERS` environment override. For untrusted peers, the application replaces these headers with the socket-peer address and removes forwarded host/protocol headers before authentication sees them. [Deploy](./deploy.md) has a proxy configuration that satisfies this policy.
+The proxy must overwrite the configured **Client IP Headers** too. They default to `x-forwarded-for` and accept an ordered comma-separated list, such as `cf-connecting-ip,x-forwarded-for`, with a `CLIENT_IP_HEADERS` environment override. When Trust Proxy is unchecked or the peer is untrusted, authentication uses the socket-peer address instead of client IP headers. Forwarded host/protocol headers are removed only for untrusted peers. [Deploy](./deploy.md) has a proxy configuration that satisfies this policy.
 
 With an IP/CIDR allowlist, authentication resolves forwarded IP chains from right to left through trusted hops. With unrestricted trust, it uses the leftmost client address and validates it through Better Auth.
 
