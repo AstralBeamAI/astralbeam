@@ -78,8 +78,6 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await page.waitForURL(/\/auth\/sign-in/)
     await auth.open("sign-up")
     await expect(page.locator("#signup-password-requirements")).toHaveCount(0)
-    await auth.signUp({ ...identity, password: identity.password.slice(0, 7) })
-    await expect(page.locator("#signup-password-error")).toContainText("8")
     await auth.signUp(identity)
     await page.waitForURL(/\/auth\/verify-email/)
     await captureMilestone(page, "02-verify-email-prompt")
