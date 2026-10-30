@@ -11,7 +11,7 @@ export type DashboardResourceCardsProps = {
   counts: OrganizationResourceCounts
 }
 
-const CARD_CLASS_NAME = "transition-colors hover:border-primary/40"
+const CARD_CLASS_NAME = "h-full min-h-28 transition-colors hover:border-primary/40"
 
 function ResourceCardBody({
   count,
@@ -40,7 +40,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
   const params = { orgSlug: organizationSlug }
 
   return (
-    <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
+    <div className="grid max-w-4xl auto-rows-fr gap-4 sm:grid-cols-2">
       {counts.agents !== null && (
         <Link to="/$orgSlug/agents" params={params}>
           <Card className={CARD_CLASS_NAME}>
