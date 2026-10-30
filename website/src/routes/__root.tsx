@@ -5,6 +5,7 @@ import astralbeamDarkLogoUrl from "@/assets/astralbeam-logo-dark.svg?url&no-inli
 import astralbeamLightLogoUrl from "@/assets/astralbeam-logo-light.svg?url&no-inline"
 import { palette } from "@/brand/palette"
 import { SignalLost } from "@/components/signal-lost"
+import { SessionIndicator } from "@/components/session-indicator"
 import { siteMetadata, siteUrl } from "@/lib/site"
 import appCss from "@/styles/index.css?url"
 
@@ -69,6 +70,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html className="dark" lang="en">
       <head>
+        <SessionIndicator />
         <HeadContent />
       </head>
       <body>

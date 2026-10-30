@@ -9,6 +9,7 @@ import {
   createEmailVerificationToken,
   isAPIError,
 } from "better-auth/api"
+import { parseSetCookieHeader } from "better-auth/cookies"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
@@ -24,7 +25,7 @@ import {
 } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
-import { APP_NAME } from "@/lib/constants"
+import { APP_HANDLE, APP_NAME } from "@/lib/constants"
 import { Mailer } from "@/lib/email/email.server"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
 import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
@@ -435,6 +436,25 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         assertAuthEmailDelivered(context.request)
         const signedIn = context.context.newSession?.user
         if (signedIn) await enqueueOAuthProfileImage(signedIn.id)
+        const { sessionToken, dontRememberToken } = context.context.authCookies
+        const cookie = parseSetCookieHeader(
+          context.context.responseHeaders?.get("set-cookie") ?? "",
+        ).get(sessionToken.name)
+        const session = context.context.session?.session
+        if (cookie || (context.path === "/get-session" && !isAPIError(context.context.returned))) {
+          const loggedIn = cookie ? Boolean(cookie.value) : Boolean(session)
+          const attributes = { ...sessionToken.attributes, httpOnly: false }
+          delete attributes.maxAge
+          if (cookie?.["max-age"] !== undefined) attributes.maxAge = cookie["max-age"]
+          else if (!loggedIn) attributes.maxAge = 0
+          else if (
+            session &&
+            !(await context.getSignedCookie(dontRememberToken.name, context.context.secret))
+          ) {
+            attributes.expires = session.expiresAt
+          }
+          context.setCookie(`${APP_HANDLE}_signed_in`, loggedIn ? "1" : "", attributes)
+        }
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(mailer, user)
