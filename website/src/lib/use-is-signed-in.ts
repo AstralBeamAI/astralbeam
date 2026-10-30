@@ -1,10 +1,22 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 
-/** Checks the session after page load, keeping public HTML independent of the visitor. */
+// Keep the name in step with `SIGNED_IN_COOKIE` in platform/src/lib/auth/auth.server.ts.
+const signedInCookie = "astralbeam_signed_in"
+
+const subscribe = () => () => {}
+const hasSignedInHint = () =>
+  document.cookie.split("; ").some((cookie) => cookie === `${signedInCookie}=1`)
+
+/**
+ * Trusts the platform's readable sign-in hint after hydration, then confirms the session after
+ * page load. Public HTML stays independent of the visitor.
+ */
 export function useIsSignedIn(): boolean {
-  const [signedIn, setSignedIn] = useState(false)
+  const hint = useSyncExternalStore(subscribe, hasSignedInHint, () => false)
+  const [rejected, setRejected] = useState(false)
 
   useEffect(() => {
+    if (!hint) return
     const controller = new AbortController()
     async function checkSession() {
       try {
@@ -13,11 +25,14 @@ export function useIsSignedIn(): boolean {
           cache: "no-store",
           signal: controller.signal,
         })
-        if (!response.ok) return
+        if (!response.ok || controller.signal.aborted) return
         const session = (await response.json()) as { user?: { id?: string } } | null
-        if (!controller.signal.aborted) setSignedIn(Boolean(session?.user?.id))
+        if (session?.user?.id) return
+        // An expired session leaves the hint behind, so drop it and show the sign-up link again.
+        document.cookie = `${signedInCookie}=; Max-Age=0; Path=/`
+        setRejected(true)
       } catch {
-        // Keep sign-in links usable when the platform is unavailable or the request is cancelled.
+        // Keep the hint's state when the platform is unavailable or the request is cancelled.
       }
     }
     const onLoad = () => void checkSession()
@@ -27,7 +42,7 @@ export function useIsSignedIn(): boolean {
       window.removeEventListener("load", onLoad)
       controller.abort()
     }
-  }, [])
+  }, [hint])
 
-  return signedIn
+  return hint && !rejected
 }
