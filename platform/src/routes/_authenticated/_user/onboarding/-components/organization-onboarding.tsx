@@ -36,7 +36,7 @@ export function OrganizationOnboarding({
       <div className="space-y-2">
         <h1
           id="organization-onboarding-title"
-          className="text-2xl font-semibold tracking-tight sm:text-3xl"
+          className="font-sans text-xl font-semibold tracking-tight"
         >
           {hasInvitations ? "Join your team" : "Create your organization"}
         </h1>
@@ -47,19 +47,28 @@ export function OrganizationOnboarding({
         </p>
       </div>
 
-      <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
+      <UserInvitations
+        hideEmpty
+        className="[&_h2]:font-sans"
+        onInvitationAction={onInvitationAction}
+      />
 
       <Card>
         <CardContent className="flex flex-col items-stretch gap-4 sm:items-start">
           <div className="space-y-2">
             {hasInvitations && (
-              <h2 className="text-sm font-semibold">Create your own organization</h2>
+              <h2 className="font-sans text-sm font-semibold">Create your own organization</h2>
             )}
             <p className="text-sm text-muted-foreground">
               We’ll create your first agent. Connect a model, then add the agent to your app.
             </p>
           </div>
-          <Button type="button" disabled={!hydrated} onClick={() => setCreateOpen(true)}>
+          <Button
+            className="text-sm"
+            type="button"
+            disabled={!hydrated}
+            onClick={() => setCreateOpen(true)}
+          >
             Create organization
           </Button>
           <p className="text-sm text-muted-foreground">

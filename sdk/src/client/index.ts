@@ -81,21 +81,72 @@ export function mountAstralBeamChat(
   container.style.height = "100%"
   shadowRoot.append(container)
   const loading = document.createElement("div")
-  loading.style.cssText =
-    "display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;font:14px system-ui"
-  const status = document.createElement("span")
-  status.setAttribute("role", "status")
-  status.textContent = "Loading chat…"
-  const close = document.createElement("button")
-  close.type = "button"
-  close.textContent = "Close chat"
-  close.style.cssText = "min-width:44px;min-height:44px;padding:8px;font:inherit;cursor:pointer"
-  close.hidden = !live.onClose
+  loading.dataset.slot = "chat-loading"
+  loading.innerHTML = `
+    <style>
+      [data-slot="chat-loading"] {
+        position: relative; display: flex; flex-direction: column; height: 100%; color-scheme: light;
+        background: var(--background, light-dark(#fff, #171717));
+        color: var(--foreground, light-dark(#171717, #fafafa));
+        font: 14px/1.5 var(--font-sans, system-ui, sans-serif);
+      }
+      .dark [data-slot="chat-loading"] { color-scheme: dark; }
+      [data-slot="chat-loading"] header {
+        box-sizing: border-box; height: 56px; flex-shrink: 0; padding-inline: 12px 64px;
+        border-bottom: 1px solid var(--border, color-mix(in srgb, currentColor 14%, transparent));
+        font: 500 16px/56px var(--font-heading, var(--font-sans, system-ui, sans-serif));
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      [data-slot="chat-loading"] button {
+        position: absolute; inset-block-start: 14px; inset-inline-end: 12px;
+        width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm, 4px);
+        background: transparent; color: inherit; cursor: pointer; font: 20px/1 system-ui, sans-serif;
+      }
+      [data-slot="chat-loading"] button:hover { background: var(--accent, color-mix(in srgb, currentColor 8%, transparent)); }
+      [data-slot="chat-loading"] button:focus-visible { outline: 2px solid var(--ring, currentColor); outline-offset: 2px; }
+      [data-slot="chat-loading"] button::after {
+        content: attr(aria-label); display: none; position: absolute;
+        inset-block-start: calc(100% + 6px); inset-inline-end: 0; padding: 4px 8px;
+        background: var(--foreground, light-dark(#171717, #fafafa));
+        color: var(--background, light-dark(#fff, #171717));
+        font: 12px/1.5 var(--font-sans, system-ui, sans-serif); white-space: nowrap; pointer-events: none;
+      }
+      [data-slot="chat-loading"] button:is(:hover, :focus-visible)::after { display: block; }
+      [data-slot="chat-loading-status"] {
+        display: flex; flex: 1; align-items: center; justify-content: center; gap: 8px; padding: 24px;
+        color: var(--muted-foreground, inherit);
+      }
+      [data-slot="chat-loading-status"][data-loading]::before {
+        content: ""; box-sizing: border-box; width: 16px; height: 16px; flex-shrink: 0;
+        border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+        animation: astralbeam-loading-spin 0.8s linear infinite;
+      }
+      @keyframes astralbeam-loading-spin { to { transform: rotate(360deg); } }
+      @media (any-pointer: coarse) {
+        [data-slot="chat-loading"] button { inset-block-start: 6px; width: 44px; height: 44px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        [data-slot="chat-loading-status"][data-loading]::before { animation: none; }
+      }
+    </style>
+    <header><span data-slot="chat-loading-title"></span></header>
+    <button type="button" aria-label="Close chat">×</button>
+    <div data-slot="chat-loading-status" role="status" data-loading>Loading chat…</div>
+  `
+  container.append(loading)
+  const header = loading.querySelector("header")!
+  const loadingTitle = loading.querySelector<HTMLElement>('[data-slot="chat-loading-title"]')!
+  const close = loading.querySelector("button")!
+  const status = loading.querySelector<HTMLElement>('[role="status"]')!
+  const updateLoading = () => {
+    loadingTitle.textContent = live.title ?? DEFAULT_TITLE
+    header.hidden = live.showHeader === false
+    close.hidden = !live.onClose
+  }
+  updateLoading()
   close.onclick = (event) => {
     if (event.detail < 2) live.onClose?.()
   }
-  loading.append(status, close)
-  container.append(loading)
 
   const systemDark = matchMedia("(prefers-color-scheme: dark)")
   // Inline custom properties on the container override the sheet's `:host`/`.dark` blocks by
@@ -125,7 +176,10 @@ export function mountAstralBeamChat(
       if (!unmounted) chat = renderChat(shadowRoot, container, live)
     })
     .catch(() => {
-      if (!unmounted) status.textContent = "Could not load chat. Reload this page to try again."
+      if (!unmounted) {
+        delete status.dataset.loading
+        status.textContent = "Could not load chat. Reload this page to try again."
+      }
     })
   return {
     update: (next) => {
@@ -135,7 +189,7 @@ export function mountAstralBeamChat(
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
       applyTheme()
-      close.hidden = !live.onClose
+      updateLoading()
       chat?.update(live)
     },
     // No-ops until the lazy chunk resolves: with no chat there is nothing to reset or stop.
