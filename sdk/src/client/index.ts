@@ -49,6 +49,21 @@ export type {
   MountAstralBeamTenantUserListOptions,
 } from "./listings.ts"
 
+function validateChatOptions(options: MountAstralBeamChatOptions) {
+  if (!options.chat) return
+  for (const key of [
+    "agentId",
+    "threadId",
+    "placementKey",
+    "apiUrl",
+    "fetchAstralBeamToken",
+    "tools",
+    "debug",
+  ] as const) {
+    if (options[key] !== undefined) throw new Error(`Configure ${key} on the supplied chat session`)
+  }
+}
+
 // Mounts the AstralBeam chat widget into `target`, inside a shadow root that isolates
 // its styles. The React chat loads lazily, keeping this entry a tiny loader.
 export function mountAstralBeamChat(
@@ -57,6 +72,7 @@ export function mountAstralBeamChat(
 ): AstralBeamChatHandle {
   // The loader owns the live options, so an update that lands before the lazy chunk resolves is
   // already part of the options the widget first renders with.
+  validateChatOptions(options)
   let live: MountAstralBeamChatOptions = { ...options }
   let debug = createDebugLogger(live.debug)
   debug?.("mount", "mounting chat widget", {
@@ -185,16 +201,17 @@ export function mountAstralBeamChat(
     update: (next) => {
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.
-      live = { ...live, ...next }
+      const updated = { ...live, ...next }
+      validateChatOptions(updated)
+      if (!!updated.chat !== !!live.chat)
+        throw new Error("Remount chat to change session ownership")
+      live = updated
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
       applyTheme()
       updateLoading()
       chat?.update(live)
     },
-    // No-ops until the lazy chunk resolves: with no chat there is nothing to reset or stop.
-    reset: () => chat?.reset(),
-    stop: () => chat?.stop(),
     unmount: () => {
       debug?.("mount", "unmounting chat widget")
       unmounted = true
