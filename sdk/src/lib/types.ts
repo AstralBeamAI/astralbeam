@@ -155,7 +155,7 @@ export interface MountAstralBeamChatOptions {
   agentId?: string | undefined
   /** Defaults to `"auto"`, restoring this tab's selection. Use `"new"` for a fresh chat, or a saved thread UUID. */
   threadId?: string | undefined
-  /** Local conversation and draft namespace. Defaults to `agentId`, then `"default"`. Use distinct keys for independent chats with the same agent. */
+  /** Local persistence key for this chat placement. Defaults to `agentId`, then `"default"`. */
   placementKey?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined

@@ -211,11 +211,10 @@ export function projectThreadMessages(
   return messages
 }
 
-export function chatPlacementKey({
-  placementKey,
-  agentId,
-}: Pick<MountAstralBeamChatOptions, "placementKey" | "agentId">): string {
-  return placementKey ?? agentId ?? "default"
+export function chatPlacementKey(
+  options: Pick<MountAstralBeamChatOptions, "placementKey" | "agentId">,
+): string {
+  return options.placementKey ?? options.agentId ?? "default"
 }
 
 /** Cache selection within this tab. Stored IDs are reauthorized before loading history. */

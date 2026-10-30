@@ -95,17 +95,13 @@ Pass options as React props or apply a subset with `handle.update(options)`. Pre
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 
-For a main-panel chat, give its parent a definite height and use `defaultWidth="100%"` with `resizable={false}`. Saved widths still take precedence, so give the panel a dedicated mount `id`. Omit `onClose` to keep it inline on mobile.
-
-Multiple widgets have independent foreground sessions. Their remembered conversations and drafts use `placementKey ?? agentId ?? "default"`, scoped to the verified account and API. For independent chats using the same agent, pass distinct, stable `placementKey` values. Changing the effective key selects its remembered conversation and draft. JavaScript mounts and the headless core accept `placementKey` too. Keys do not grant access or filter history, and mounts opening the same saved thread do not receive each other's live stream.
-
 Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 
 Download an attachment with `chat.core.getThreadAttachment({ threadId, fileId })`, which returns a `Blob`. Organization and participant tenant scope come from your credentials. Administrative downloads also pass `tenantId`. Use `{ preview: true }` as the second argument for a thumbnail. Only previews of your unsent uploads may omit `threadId`.
 
-By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
+By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account, API, and `placementKey ?? agentId ?? "default"`. Use distinct placement keys for independent chats with the same agent. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per placement, account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
 ## Tools and widgets
 

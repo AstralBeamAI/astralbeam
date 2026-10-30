@@ -43,29 +43,6 @@ Chat resizes horizontally and fills its parent's height. Give the parent a defin
 - Storage combines the mount element's `id` (React's `id` prop) and `agentId` when provided. Without either, chats share one width preference on the same origin.
 - Narrow containers temporarily clamp your preferred width. With `onClose`, mobile chat fills the viewport while keeping the desktop preference. Existing tabs keep their current layout.
 
-## Main-panel and multiple chats
-
-Chat already follows its host's width and fills its height. For a main-panel chat, give the parent a definite height and use the existing sizing options:
-
-```tsx
-<main style={{ height: "calc(100dvh - 56px)" }}>
-  <AstralBeamChat id="onboarding-chat" defaultWidth="100%" resizable={false} />
-</main>
-```
-
-Saved width overrides still take precedence, so use a dedicated mount `id` for this panel. Omit `onClose` for inline chat to avoid its mobile viewport takeover. The host decides whether to hide its usual sidebar on onboarding pages.
-
-Each mount has its own foreground request, tools, and transcript. Local restoration and drafts use `placementKey ?? agentId ?? "default"`, within the verified account and API scope. Different agents are isolated automatically. For independent panes using the same agent, supply distinct, stable `placementKey` values. Changing the effective key selects its remembered conversation and draft, while an explicit `threadId` keeps that conversation selected. Use separate mount IDs for independent width preferences.
-
-```tsx
-<AstralBeamChat id="setup-chat" placementKey="setup" agentId={agentId} />
-<AstralBeamChat id="help-chat" placementKey="help" agentId={agentId} />
-```
-
-JavaScript mounts and the headless core accept `placementKey` too. Keys do not grant access or filter history. Two mounts can open the same saved `threadId`, but replies do not stream between them. Refresh or reopen to load the other's saved changes.
-
-**NOTE**: Earlier SDK versions used shared browser storage. Those local selections and unsent drafts are not automatically assigned to a session key. Saved server conversations remain available through history.
-
 ## Chrome slots
 
 Replace header, welcome, or composer content with components styled by your application. React uses props. JavaScript mounts use `slots` renderers.
@@ -118,6 +95,7 @@ chatRef.current?.stop() // stops the in-flight generation
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
 - To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting stops the foreground response. History remains saved.
 - The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
+- Changing `placementKey` selects that placement's remembered conversation and draft. An explicit `threadId` takes precedence. Placement keys do not restrict access to saved history.
 
 ## Saved conversations
 
@@ -136,6 +114,8 @@ Conversations save automatically and start private. Authenticated users can reop
 ```
 
 Duplicating a tab or opening one through an opener can copy its initial session storage, including the pending draft before a conversation is saved. The tabs maintain independent selections afterwards.
+
+**NOTE**: Existing shared browser selections and unsent drafts are not migrated to placement keys. Saved server conversations remain available through history.
 
 ## MCP server management
 
