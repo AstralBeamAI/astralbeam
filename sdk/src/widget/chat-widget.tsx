@@ -28,7 +28,13 @@ import {
   readAttachmentData,
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
-import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
+import {
+  CHAT_PANEL_CLASS_NAME,
+  CHAT_HEADER_CLASS_NAME,
+  CHAT_FOOTER_CLASS_NAME,
+  DEFAULT_API_URL,
+  DEFAULT_TITLE,
+} from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
@@ -352,15 +358,10 @@ export function ChatWidget({
   const content = (
     // Painted with `bg-background` over the card's raised `bg-card`, so the widget reads as the
     // host page's own surface. The fixed-height header replaces the card's top padding.
-    <Card
-      id={panelId}
-      data-slot="chat"
-      data-closable={closable}
-      className="relative h-full w-full gap-0 overflow-clip rounded-none bg-background pt-0 text-foreground ring-0 [--card-spacing:--spacing(3)]"
-    >
+    <Card id={panelId} data-slot="chat" data-closable={closable} className={CHAT_PANEL_CLASS_NAME}>
       <ChatResizeHandle sizing={sizing} panelId={panelId} />
       {showHeader && (
-        <CardHeader className="flex h-14 shrink-0 items-center gap-1 border-b py-0 [.border-b]:pb-0">
+        <CardHeader className={CHAT_HEADER_CLASS_NAME}>
           <div className="min-w-0 flex-1">
             {hostSlots.has("header") ? (
               // The host's own title content, projected in the host page's style.
@@ -450,7 +451,7 @@ export function ChatWidget({
       </CardContent>
       {/* No border, bg-muted band, or full top padding on the composer: the scroller already
           fades messages at the edge, so the footer needs no separation of its own. */}
-      <CardFooter className="flex-col gap-1 rounded-none border-t-0 bg-transparent pt-1 pb-2">
+      <CardFooter className={CHAT_FOOTER_CLASS_NAME}>
         {history === "loading" ? (
           <span role="status" className="w-full text-xs text-muted-foreground">
             Loading conversation…

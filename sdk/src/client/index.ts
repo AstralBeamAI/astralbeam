@@ -1,5 +1,11 @@
+import { chatStyles, chatIcons } from "../widget/styles.generated.ts"
 import { applyWidgetTheme } from "../lib/theme.ts"
 import {
+  CHAT_PANEL_CLASS_NAME,
+  CHAT_HEADER_CLASS_NAME,
+  CHAT_FOOTER_CLASS_NAME,
+  CHAT_COMPOSER_SHORTCUT,
+  CHAT_INPUT_CLASS_NAME,
   DEFAULT_API_URL,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_EMPTY_DESCRIPTION,
@@ -80,119 +86,41 @@ export function mountAstralBeamChat(
   container.className = WIDGET_CONTAINER_CLASS
   container.style.height = "100%"
   shadowRoot.append(container)
-  // This feedback must paint before the lazy widget and its stylesheet arrive.
+  const style = document.createElement("style")
+  style.textContent = chatStyles + (live.customCss ?? "")
+  shadowRoot.append(style)
   const loading = document.createElement("div")
   loading.dataset.slot = "chat-loading"
-  const style = document.createElement("style")
-  style.textContent = `
-    [data-slot="chat-loading"] {
-      position: relative; display: flex; flex-direction: column; height: 100%; color-scheme: light;
-      background: var(--background, light-dark(#fff, #171717));
-      color: var(--foreground, light-dark(#171717, #fafafa));
-      font: 14px/1.5 var(--font-sans, system-ui, sans-serif);
-    }
-    .dark [data-slot="chat-loading"] { color-scheme: dark; }
-    [data-slot="chat-loading-title"] {
-      box-sizing: border-box; height: 56px; flex-shrink: 0; padding-inline: 12px 64px;
-      border-bottom: 1px solid var(--border, color-mix(in srgb, currentColor 14%, transparent));
-      font: 500 16px/56px var(--font-heading, var(--font-sans, system-ui, sans-serif));
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    [data-slot="chat-loading-close"] {
-      position: absolute; inset-block-start: 14px; inset-inline-end: 12px;
-      width: 28px; height: 28px; padding: 0; font: 20px/1 var(--font-sans, system-ui, sans-serif);
-      border: 0; border-radius: var(--radius-sm, 4px); background: transparent;
-      color: inherit; cursor: pointer;
-    }
-    [data-slot="chat-loading-close"]:hover {
-      background: var(--accent, color-mix(in srgb, currentColor 8%, transparent));
-    }
-    [data-slot="chat-loading-close"]:focus-visible {
-      outline: 2px solid var(--ring, currentColor); outline-offset: 2px;
-    }
-    [data-slot="chat-loading-close"]::after {
-      content: attr(aria-label); display: none; position: absolute;
-      inset-block-start: calc(100% + 6px); inset-inline-end: 0; padding: 4px 8px;
-      background: var(--foreground, light-dark(#171717, #fafafa));
-      color: var(--background, light-dark(#fff, #171717));
-      font: 12px/1.5 var(--font-sans, system-ui, sans-serif); white-space: nowrap; pointer-events: none;
-    }
-    [data-slot="chat-loading-close"]:is(:hover, :focus-visible)::after { display: block; }
-    [data-slot="chat-loading-status"] {
-      display: flex; flex: 1; align-items: center; justify-content: center; gap: 8px; padding: 24px;
-      color: var(--muted-foreground, inherit);
-    }
-    [data-slot="chat-loading-status"][data-loading]::before {
-      content: "";
-      box-sizing: border-box; width: 16px; height: 16px; flex-shrink: 0;
-      border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
-      animation: astralbeam-loading-spin 0.8s linear infinite;
-    }
-    [data-slot="chat-loading-footer"] { flex-shrink: 0; padding: 4px 12px 8px; }
-    [data-slot="chat-loading-composer"] {
-      border: 1px solid var(--input, color-mix(in srgb, currentColor 14%, transparent));
-      border-radius: var(--radius, 10px); opacity: 0.5;
-      background: color-mix(in srgb, var(--input, light-dark(#e5e5e5, #ffffff26)) 50%, transparent);
-    }
-    [data-slot="chat-loading-composer"] textarea {
-      display: block; box-sizing: border-box; width: 100%; min-height: 32px; resize: none;
-      border: 0; padding: 6px 10px; background: transparent; color: inherit; font: inherit; line-height: 20px;
-    }
-    [data-slot="chat-loading-composer"] textarea::placeholder { color: var(--muted-foreground, inherit); }
-    [data-slot="chat-loading-actions"] { display: flex; padding: 0 10px 4px; }
-    [data-slot="chat-loading-actions"] button {
-      display: grid; place-items: center; width: 32px; height: 32px; padding: 0; opacity: 0.5;
-      border: 0; border-radius: var(--radius, 10px); background: transparent; color: inherit;
-    }
-    [data-slot="chat-loading-actions"] button:last-child {
-      margin-inline-start: auto; background: var(--primary, light-dark(#262626, #ebebeb));
-      color: var(--primary-foreground, light-dark(#fafafa, #171717));
-    }
-    [data-slot="chat-loading-footer"] p {
-      margin: 4px 0 0; text-align: center; font-size: 12px; line-height: 16px;
-      color: var(--muted-foreground, inherit);
-    }
-    [data-slot="chat-loading"] [hidden] { display: none; }
-    @keyframes astralbeam-loading-spin { to { transform: rotate(360deg); } }
-    @media (any-pointer: coarse) {
-      [data-slot="chat-loading-close"] { inset-block-start: 6px; width: 44px; height: 44px; }
-      [data-slot="chat-loading-composer"] textarea { font-size: 16px; line-height: 24px; }
-      [data-slot="chat-loading-actions"] button { width: 44px; height: 44px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      [data-slot="chat-loading-status"][data-loading]::before { animation: none; }
-    }
-  `
-  const loadingTitle = document.createElement("span")
-  loadingTitle.dataset.slot = "chat-loading-title"
-  const close = document.createElement("button")
-  close.dataset.slot = "chat-loading-close"
-  close.type = "button"
-  close.setAttribute("aria-label", "Close chat")
-  close.textContent = "×"
-  const status = document.createElement("div")
-  status.dataset.slot = "chat-loading-status"
-  status.dataset.loading = ""
-  status.setAttribute("role", "status")
-  status.textContent = "Loading chat…"
-  const footer = document.createElement("div")
-  footer.dataset.slot = "chat-loading-footer"
-  // Static markup and Phosphor icons without pulling React into the loader.
-  footer.innerHTML = `
-    <div data-slot="chat-loading-composer">
-      <textarea aria-label="Message" rows="1" disabled></textarea>
-      <div data-slot="chat-loading-actions">
-        <button type="button" aria-label="Attach files" disabled><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,35.73a40,40,0,1,1,56.61,56.55L105,193A24,24,0,1,1,71,159L154.3,74.38A8,8,0,1,1,165.7,85.6L82.39,170.31a8,8,0,1,0,11.27,11.36L192.93,81A24,24,0,1,0,159,47L59.76,147.68a40,40,0,1,0,56.53,56.62l82.06-82A8,8,0,0,1,209.66,122.34Z"/></svg></button>
-        <button type="button" aria-label="Send" disabled><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"/></svg></button>
+  loading.className = CHAT_PANEL_CLASS_NAME
+  loading.innerHTML = `
+    <div data-slot="card-header" class="${CHAT_HEADER_CLASS_NAME}">
+      <span data-slot="chat-loading-title" class="min-w-0 truncate pe-12 font-heading text-base font-medium"></span>
+    </div>
+    <button data-slot="chat-loading-close" type="button" aria-label="Close chat" class="absolute end-3 top-3.5 inline-flex size-7 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring any-pointer-coarse:top-1.5 any-pointer-coarse:size-11">${chatIcons.close}</button>
+    <div data-slot="chat-loading-status" role="status" data-loading class="flex flex-1 items-center justify-center gap-2 p-6 text-muted-foreground"><span class="animate-spin motion-reduce:animate-none">${chatIcons.loading}</span>Loading chat…</div>
+    <div class="${CHAT_FOOTER_CLASS_NAME}">
+      <div class="w-full">
+        <div data-slot="chat-loading-composer" class="flex flex-col rounded-lg border border-input bg-input/50 opacity-50 dark:bg-input/80">
+          <textarea aria-label="Message" rows="1" disabled class="w-full resize-none border-0 bg-transparent px-2.5 text-sm text-foreground placeholder:text-muted-foreground ${CHAT_INPUT_CLASS_NAME}"></textarea>
+          <div class="flex px-2.5 pb-1">
+            <button type="button" aria-label="Attach files" disabled class="inline-flex size-8 items-center justify-center rounded-lg opacity-50 any-pointer-coarse:size-11">${chatIcons.attach}</button>
+            <button type="button" aria-label="Send" disabled class="ms-auto inline-flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground opacity-50 any-pointer-coarse:size-11">${chatIcons.send}</button>
+          </div>
+        </div>
+        <p class="mt-1 text-center text-xs text-muted-foreground">${CHAT_COMPOSER_SHORTCUT} AI can make mistakes.</p>
       </div>
     </div>
-    <p>Enter to send, Shift+Enter for a new line. AI can make mistakes.</p>
   `
-  const input = footer.querySelector("textarea")!
-  const attach = footer.querySelector("button")!
+  container.append(loading)
+  const header = loading.querySelector<HTMLElement>('[data-slot="card-header"]')!
+  const loadingTitle = loading.querySelector<HTMLElement>('[data-slot="chat-loading-title"]')!
+  const close = loading.querySelector<HTMLButtonElement>('[data-slot="chat-loading-close"]')!
+  const status = loading.querySelector<HTMLElement>('[role="status"]')!
+  const input = loading.querySelector("textarea")!
+  const attach = loading.querySelector<HTMLButtonElement>('[aria-label="Attach files"]')!
   const updateLoading = () => {
     loadingTitle.textContent = live.title ?? DEFAULT_TITLE
-    loadingTitle.hidden = live.showHeader === false
+    header.hidden = live.showHeader === false
     input.placeholder = `Message ${live.title ?? DEFAULT_TITLE}…`
     attach.hidden =
       live.attachments === false ||
@@ -200,11 +128,9 @@ export function mountAstralBeamChat(
     close.hidden = !live.onClose
   }
   updateLoading()
-  loading.append(style, loadingTitle, close, status, footer)
   close.onclick = (event) => {
     if (event.detail < 2) live.onClose?.()
   }
-  container.append(loading)
 
   const systemDark = matchMedia("(prefers-color-scheme: dark)")
   // Inline custom properties on the container override the sheet's `:host`/`.dark` blocks by
@@ -243,6 +169,9 @@ export function mountAstralBeamChat(
     update: (next) => {
       // A fresh object rather than a mutation, so the widget's memoized derivations compare the
       // new option values by identity instead of seeing the same object twice.
+      if ("customCss" in next && next.customCss !== live.customCss) {
+        style.textContent = chatStyles + (next.customCss ?? "")
+      }
       live = { ...live, ...next }
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
@@ -260,6 +189,7 @@ export function mountAstralBeamChat(
       chat?.dispose()
       chat = undefined
       container.remove()
+      style.remove()
     },
   }
 }

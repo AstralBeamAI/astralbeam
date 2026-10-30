@@ -5,7 +5,6 @@ import { createDebugLogger } from "../lib/debug.ts"
 import { ChatWidget } from "./chat-widget.tsx"
 import { TooltipProvider } from "./components/ui/tooltip"
 import { bridgeHostStyle } from "./host-style.ts"
-import { chatStyles } from "./styles.generated.ts"
 
 export interface ChatHandle {
   update: (options: MountAstralBeamChatOptions) => void
@@ -28,9 +27,6 @@ export function renderChat(
   // returned handle.
   options: MountAstralBeamChatOptions,
 ): ChatHandle {
-  const style = document.createElement("style")
-  style.textContent = chatStyles + (options.customCss ?? "")
-  shadowRoot.append(style)
   // Tracks the options the widget last rendered with, so the style bridge's logger follows a
   // `debug` update the same way the widget's own does.
   let live = options
@@ -39,9 +35,6 @@ export function renderChat(
   const controller = createRef<ChatController>()
   // The mount target (an HTMLElement per mountAstralBeamChat) hosts the slotted widget renders.
   const render = (nextOptions: MountAstralBeamChatOptions) => {
-    if (live.customCss !== nextOptions.customCss) {
-      style.textContent = chatStyles + (nextOptions.customCss ?? "")
-    }
     live = nextOptions
     root.render(
       <TooltipProvider delay={400}>
@@ -63,7 +56,6 @@ export function renderChat(
     dispose: () => {
       root.unmount()
       disposeHostStyle()
-      style.remove()
     },
   }
 }
