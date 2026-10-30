@@ -93,10 +93,6 @@ export function ConfigFieldGroups({
   storageSettings: StorageConnection | undefined
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
-  const trustProxy =
-    drafts.trust_proxy?.kind === "set"
-      ? drafts.trust_proxy.value
-      : fields.find((field) => field.key === "trust_proxy")?.value
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
   const storagePresetsLocked = fields.some(
     (field) =>
@@ -124,13 +120,14 @@ export function ConfigFieldGroups({
           fieldErrors[field.key] ||
           field.storageStatus,
       )
-      const visibleFields = groupFields.filter((field) =>
-        field.key === "client_ip_headers"
-          ? Boolean(trustProxy && trustProxy !== "false")
-          : group !== "Email Delivery" ||
-            ["email_provider", "email_from_address"].includes(field.key) ||
-            providerKeys.has(field.key),
-      )
+      const visibleFields =
+        group === "Email Delivery"
+          ? groupFields.filter(
+              (field) =>
+                ["email_provider", "email_from_address"].includes(field.key) ||
+                providerKeys.has(field.key),
+            )
+          : groupFields
       return (
         <ConfigSection
           key={group}

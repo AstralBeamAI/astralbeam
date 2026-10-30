@@ -272,19 +272,19 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
   {
     key: "trust_proxy",
     group: "General",
-    label: "Trust Proxy",
+    label: "Trust all proxies",
     description:
-      "Trust forwarded host, HTTPS, and client IP headers. Off by default. With no IP restrictions, restrict origin access and ensure your proxy overwrites these headers. Restart other instances after saving.",
+      "Loopback (127.0.0.1 and ::1) is always trusted. Add other proxy IPs/CIDRs, or trust all proxies only when origin access is restricted and forwarded headers are overwritten. Restart other instances after saving.",
     kind: "text",
     required: false,
-    defaultValue: "false",
+    defaultValue: "",
     schema: Schema.Union([BooleanSettingSchema, Schema.String]).pipe(
       Schema.decode(SchemaTransformation.trim()),
       Schema.check(
         Schema.makeFilter(
           (value) =>
             Result.isSuccess(Result.try(() => proxySettingsFromValues({ trust_proxy: value }))) ||
-            "Enter valid comma-separated proxy IP addresses or CIDR ranges",
+            "Enter true or valid comma-separated proxy IP addresses or CIDR ranges",
         ),
       ),
     ),

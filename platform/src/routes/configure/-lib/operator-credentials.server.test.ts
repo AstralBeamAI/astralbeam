@@ -30,8 +30,8 @@ function serveConfigureBoundary(
 afterEach(() => vi.unstubAllEnvs())
 
 describe("operator request boundary", () => {
-  test("trusts only explicitly configured peers to forward host and protocol", () => {
-    const proxy = proxySettingsFromValues({ trust_proxy: "127.0.0.1,::1" })
+  test("trusts loopback peers by default to forward host and protocol", () => {
+    const proxy = proxySettingsFromValues({})
     expect(isTrustedProxyAddress("127.0.0.1", proxy)).toBe(true)
     expect(isTrustedProxyAddress("::1", proxy)).toBe(true)
     expect(isTrustedProxyAddress("::ffff:127.0.0.1", proxy)).toBe(true)
