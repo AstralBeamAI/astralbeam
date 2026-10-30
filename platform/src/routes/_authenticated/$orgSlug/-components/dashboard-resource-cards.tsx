@@ -26,12 +26,12 @@ function ResourceCardBody({
 }): ReactNode {
   return (
     <CardHeader>
-      <CardTitle className="flex items-center gap-2">
+      <CardTitle className="flex items-center gap-2 font-sans">
         <ResourceIcon aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
       </CardTitle>
-      <CardDescription>{description}</CardDescription>
+      <CardDescription className="text-sm">{description}</CardDescription>
     </CardHeader>
   )
 }

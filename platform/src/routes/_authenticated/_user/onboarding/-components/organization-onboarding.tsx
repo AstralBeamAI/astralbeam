@@ -33,7 +33,7 @@ export function OrganizationOnboarding({
       <div className="space-y-2">
         <h1
           id="organization-onboarding-title"
-          className="text-2xl font-semibold tracking-tight sm:text-3xl"
+          className="font-sans text-xl font-semibold tracking-tight"
         >
           Join or create an organization
         </h1>
@@ -46,12 +46,17 @@ export function OrganizationOnboarding({
 
       <div className="flex flex-col items-stretch gap-4 border bg-card p-4 sm:items-start sm:p-6">
         <div className="space-y-2">
-          <h2 className="text-base font-semibold">Start with your own organization</h2>
+          <h2 className="font-sans text-sm font-semibold">Start with your own organization</h2>
           <p className="text-sm text-muted-foreground">
             We’ll create a starter agent. Next, connect a model and set up your app.
           </p>
         </div>
-        <Button type="button" disabled={!hydrated} onClick={() => setCreateOpen(true)}>
+        <Button
+          className="text-sm"
+          type="button"
+          disabled={!hydrated}
+          onClick={() => setCreateOpen(true)}
+        >
           {hydrated ? "Create a new organization" : "Loading organization setup…"}
         </Button>
         <p className="text-sm text-muted-foreground">
@@ -60,7 +65,7 @@ export function OrganizationOnboarding({
       </div>
 
       <div className="space-y-2 px-4 sm:px-6">
-        <h2 className="text-base font-semibold">Joining your team?</h2>
+        <h2 className="font-sans text-sm font-semibold">Joining your team?</h2>
         <p className="text-sm text-muted-foreground">
           Ask an owner to invite you using this email. Pending invitations will appear here.
         </p>
