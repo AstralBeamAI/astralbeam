@@ -1,3 +1,5 @@
+import type { AstralBeamChatCore } from "../core/session.ts"
+
 // Public types of the client entry, re-exported by src/client.ts. Type-only, so the
 // chat chunk may import them freely without pulling runtime code across the boundary.
 
@@ -147,14 +149,18 @@ export interface AstralBeamChatTheme {
  * a host with `exactOptionalPropertyTypes` can pass a value it does not have yet.
  */
 export interface MountAstralBeamChatOptions {
+  /** Reuses a session owned by the host. Configure authentication and tools on that session. */
+  chat?: AstralBeamChatCore | undefined
   /**
    * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
-   * which the dashboard's agents page selects. Saved conversations keep their agent,
-   * and an update applies to new threads.
+   * which the dashboard's agents page selects. Saved conversations keep their agent.
+   * Changing this also switches the local session unless `placementKey` is explicit.
    */
   agentId?: string | undefined
   /** Defaults to `"auto"`, restoring this tab's selection. Use `"new"` for a fresh chat, or a saved thread UUID. */
   threadId?: string | undefined
+  /** Local persistence key for this chat placement. Defaults to `agentId`, then `"default"`. */
+  placementKey?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
   /**
@@ -227,8 +233,4 @@ export interface AstralBeamChatHandle {
   /** Applies supplied options in place. Presentation changes preserve chat.
    * Changing apiUrl clears the previous session, while threadId selects a conversation. */
   update: (options: AstralBeamChatUpdate) => void
-  /** Starts a fresh conversation and clears its draft, preserving saved conversations and their drafts. */
-  reset: () => void
-  /** Stops the in-flight generation, if any; the transcript keeps what already streamed. */
-  stop: () => void
 }

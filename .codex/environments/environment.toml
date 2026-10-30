@@ -4,7 +4,7 @@ version = 1
 name = "AstralBeam"
 
 [setup]
-script = "bun install --frozen-lockfile && bash scripts/copy-worktree-env.sh && bash scripts/setup.sh"
+script = "bash scripts/setup.sh --worktree"
 
 [[actions]]
 name = "Product application"

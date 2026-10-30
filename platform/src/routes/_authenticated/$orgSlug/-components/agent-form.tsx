@@ -44,8 +44,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { createAgent } from "../-functions/create-agent"
-import { updateAgent } from "../-functions/update-agent"
+import { createAgent } from "../agents/-functions/create-agent"
+import { updateAgent } from "../agents/-functions/update-agent"
 import { AgentModelFields } from "./agent-model-fields"
 
 /** Stands in for a null provider, which the Select cannot represent with an empty value. */

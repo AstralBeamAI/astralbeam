@@ -11,7 +11,7 @@ export type DashboardResourceCardsProps = {
   counts: OrganizationResourceCounts
 }
 
-const CARD_CLASS_NAME = "transition-colors hover:border-primary/40"
+const CARD_CLASS_NAME = "h-full min-h-24 transition-colors hover:border-primary/40"
 
 function ResourceCardBody({
   count,
@@ -26,12 +26,12 @@ function ResourceCardBody({
 }): ReactNode {
   return (
     <CardHeader>
-      <CardTitle className="flex items-center gap-2">
+      <CardTitle className="flex items-center gap-2 font-sans">
         <ResourceIcon aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
       </CardTitle>
-      <CardDescription>{description}</CardDescription>
+      <CardDescription className="text-sm">{description}</CardDescription>
     </CardHeader>
   )
 }
@@ -40,7 +40,7 @@ export function DashboardResourceCards({ organizationSlug, counts }: DashboardRe
   const params = { orgSlug: organizationSlug }
 
   return (
-    <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
+    <div className="grid max-w-4xl auto-rows-fr gap-4 sm:grid-cols-2">
       {counts.agents !== null && (
         <Link to="/$orgSlug/agents" params={params}>
           <Card className={CARD_CLASS_NAME}>

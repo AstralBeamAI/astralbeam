@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/")({
 
 function DashboardPage() {
   const { orgSlug } = Route.useParams()
+  const { organization } = Route.useRouteContext()
   const { data, permissions } = Route.useLoaderData()
   const configured =
     data.modelSetup !== null &&
@@ -28,9 +29,7 @@ function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {data.organizationName}
-        </h1>
+        <h1 className="font-sans text-xl font-semibold tracking-tight">{data.organizationName}</h1>
         <p className="text-sm text-muted-foreground">
           {permissions.updateConfiguration
             ? "Build and manage the AI agents in your app."
@@ -39,6 +38,8 @@ function DashboardPage() {
       </div>
       {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
       <DashboardIntegrationGuide
+        key={orgSlug}
+        organizationId={organization.organizationId}
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}

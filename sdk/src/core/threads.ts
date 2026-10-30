@@ -1,5 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import type { JwtOptions } from "../api/api.ts"
+import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { listChatMessages, type ChatHistoryPageEncodedMessagesItem } from "../api/generated/api.ts"
 
 /** A saved conversation visible to the signed-in tenant user. */
@@ -208,6 +209,12 @@ export function projectThreadMessages(
     })
   }
   return messages
+}
+
+export function chatPlacementKey(
+  options: Pick<MountAstralBeamChatOptions, "placementKey" | "agentId">,
+): string {
+  return options.placementKey ?? options.agentId ?? "default"
 }
 
 /** Cache selection within this tab. Stored IDs are reauthorized before loading history. */

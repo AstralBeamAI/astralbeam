@@ -2,20 +2,15 @@
 
 # Keep this setup script idempotent
 
-set -exuo pipefail
+set -euo pipefail
 
 SETUP_SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-platform_name=$(uname -s)
 
-case "$platform_name" in
-  Darwin | Linux) ;;
-  *)
-    echo "Unsupported operating system: $platform_name" >&2
-    exit 1
-    ;;
+case "$*" in
+  "" | --worktree) ;;
+  *) echo "Usage: $0 [--worktree]" >&2; exit 1 ;;
 esac
 
-# GitHub-hosted Ubuntu runners use sudo for system packages; container builds already run as root. https://docs.github.com/en/actions/how-tos/manage-runners/github-hosted-runners/customize-runners#installing-software-on-ubuntu-runners
 run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then
     "$@"
@@ -24,51 +19,42 @@ run_as_root() {
   fi
 }
 
-if [ -z "${WORKSPACE_PATH:-}" ]; then
-  WORKSPACE_PATH=$(git rev-parse --show-toplevel 2>/dev/null || true)
-  WORKSPACE_PATH=${WORKSPACE_PATH:-/workspaces/astralbeam}
-fi
+WORKSPACE_PATH=${WORKSPACE_PATH:-$(git rev-parse --show-toplevel 2>/dev/null || echo /workspaces/astralbeam)}
 export WORKSPACE_PATH
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-install_ubuntu_packages() {
-  [ "$platform_name" = Linux ] || return 0
+install_linux_packages() {
+  . /etc/os-release
+  case "${ID:-}:${VERSION_ID:-}" in
+    ubuntu:24.04 | debian:13) ;;
+    *) echo "System package installation supports Ubuntu 24.04 and Debian 13 only." >&2; exit 1 ;;
+  esac
 
-  run_as_root env DEBIAN_FRONTEND=noninteractive /bin/bash -euxo pipefail <<'EOF'
-if ! command -v gh >/dev/null 2>&1 || ! dpkg-query -W build-essential libatomic1 ca-certificates locales lsb-release tzdata curl wget file unzip git zsh vim nano iputils-ping net-tools procps openssh-client fontconfig pkg-config python3 python3-yaml xdg-utils liburing-dev postgresql-common libsystemd0 libssl3t64 >/dev/null 2>&1; then
-apt-get update -yq
-apt-get install -y --no-install-recommends \
-  build-essential libatomic1 ca-certificates locales lsb-release tzdata \
-  curl wget file unzip \
-  git \
-  zsh \
-  vim nano \
-  iputils-ping net-tools procps openssh-client \
-  fontconfig pkg-config python3 python3-yaml \
-  xdg-utils \
-  liburing-dev postgresql-common libsystemd0 libssl3t64
+  export DEBIAN_FRONTEND=noninteractive
 
-# Install GitHub CLI from its supported signed Debian repository: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian
-mkdir -p -m 755 /etc/apt/keyrings /etc/apt/sources.list.d; curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null; chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-apt-get update -yq; apt-get install -y --no-install-recommends gh
-fi
-
-# Host-mounted workspaces often have a different UID than the container user.
-if ! git config --system --get-all safe.directory | grep -qxF '*'; then
-  git config --system --add safe.directory '*'
-fi
-EOF
+  local packages=(
+    build-essential libatomic1 ca-certificates locales lsb-release tzdata
+    curl wget file unzip git gh zsh vim nano
+    iputils-ping net-tools procps openssh-client postgresql-client
+    fontconfig pkg-config python3 python3-yaml xdg-utils
+    liburing-dev libsystemd0 libssl3t64
+  )
+  if ! dpkg-query -W -f='${db:Status-Status}\n' "${packages[@]}" 2>/dev/null | awk '$1 != "installed" { exit 1 }'; then
+    run_as_root apt-get update -yq
+    run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+  fi
 }
 
 install_bun() {
-  local bun_version installer
+  local bun_version installer installed_version
   if [ -f "$WORKSPACE_PATH/.bun-version" ]; then
     bun_version=$(cat "$WORKSPACE_PATH/.bun-version")
   else
     bun_version=$(cat "$SETUP_SCRIPT_DIR/.bun-version")
   fi
-  if [ "$(bun --version 2>/dev/null || true)" != "$bun_version" ]; then
+  if command -v bun >/dev/null 2>&1; then installed_version=$(bun --version); fi
+  if [ "${installed_version:-}" != "$bun_version" ]; then
     installer=$(mktemp)
     curl -fsSL https://bun.sh/install -o "$installer"
     bash "$installer" "bun-v$bun_version"
@@ -77,148 +63,127 @@ install_bun() {
   bun --version
 }
 
-install_workspace_packages() {
-  [ -f "$WORKSPACE_PATH/package.json" ] || return 0
-  bun install --cwd "$WORKSPACE_PATH" --frozen-lockfile
-}
-
-configure_workspace_git() {
-  [ -e "$WORKSPACE_PATH/.git" ] || return 0
-  git -C "$WORKSPACE_PATH" remote get-url origin >/dev/null 2>&1 || git -C "$WORKSPACE_PATH" remote add origin https://github.com/AstralBeamAI/astralbeam
-  git -C "$WORKSPACE_PATH" config push.default current
-}
-
 run_install_extras() {
-  [ "$platform_name" = Linux ] || return 0
-  [ -n "${INSTALL_EXTRA:-}" ] || return 0
-  local install_extra install_extra_script
+  [ "$(uname -s)" = Linux ] || return 0
+  local install_extra
   local install_extras=()
-  read -r -a install_extras <<<"$INSTALL_EXTRA"
+  read -r -a install_extras <<<"${INSTALL_EXTRA:-}"
   for install_extra in "${install_extras[@]}"; do
-    if [[ ! "$install_extra" =~ ^[[:alnum:]_-]+$ ]]; then
-      echo "Invalid INSTALL_EXTRA script name: $install_extra" >&2
-      exit 1
-    fi
-    install_extra_script="$SETUP_SCRIPT_DIR/$install_extra.sh"
-    if [ ! -r "$install_extra_script" ]; then
-      echo "Could not find INSTALL_EXTRA script: $install_extra_script" >&2
-      exit 1
-    fi
-    /bin/bash "$install_extra_script"
+    case "$install_extra" in
+      linux-tools) (install_linux_packages) ;;
+      *) /bin/bash "$SETUP_SCRIPT_DIR/$install_extra.sh" ;;
+    esac
   done
 }
 
-docker_compose_available() {
-  docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1
+install_postgres() {
+  if dpkg-query -W -f='${db:Status-Status}' postgresql-18 2>/dev/null | grep -qx installed; then return 0; fi
+  run_as_root apt-get update -yq
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-common
+  grep -Rqs apt.postgresql.org /etc/apt/sources.list.d || run_as_root /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-18
 }
 
-databases_are_external() {
-  case "${POSTGRES_HOST:-}" in
-    "" | 127.0.0.1 | localhost | ::1) return 1 ;;
-  esac
-  case "${VALKEY_HOST:-}" in
-    "" | 127.0.0.1 | localhost | ::1) return 1 ;;
-  esac
-  return 0
+install_valkey() {
+  command -v valkey-server >/dev/null 2>&1 && return 0
+  local repository="https://download.valkey.io/packaging/valkey-9.1/deb/$ID${VERSION_ID//./}"
+  curl -fsSL https://download.valkey.io/packaging/GPG-KEY-valkey.asc | run_as_root tee /usr/share/keyrings/valkey.asc >/dev/null
+  printf 'deb [signed-by=/usr/share/keyrings/valkey.asc] %s %s/\n' "$repository" "$(dpkg --print-architecture)" | run_as_root tee /etc/apt/sources.list.d/valkey.list >/dev/null
+  run_as_root apt-get update -yq
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valkey-server
 }
 
-# Starts an installed native RustFS with Compose's ports and credentials, so macOS file storage
-# needs no container. https://docs.rustfs.com/en/installation/macos
-start_native_storage() {
-  command -v rustfs >/dev/null 2>&1 || return 0
-  local port="${RUSTFS_HOST_PORT:-9000}" log="$HOME/.local/share/rustfs/rustfs.log"
-  # RustFS refuses a data directory holding other files, so its log sits beside it.
-  local data_dir="${RUSTFS_DATA_DIR:-$HOME/.local/share/rustfs/data}"
-  if endpoint_is_reachable "http://127.0.0.1:$port"; then return 0; fi
-  mkdir -p "$data_dir" "${log%/*}"
-  # Like Compose, the console is enabled through the environment. The `--console-enable` flag
-  # takes no value, so a following argument would be read as the data directory.
-  set +x
+install_rustfs() (
+  command -v rustfs >/dev/null 2>&1 && return 0
+  local download_dir
+  download_dir=$(mktemp -d)
+  trap 'rm -rf "$download_dir"' EXIT
+  curl -fsSLo "$download_dir/rustfs.zip" "https://github.com/rustfs/rustfs/releases/latest/download/rustfs-linux-$(uname -m)-gnu-latest.zip"
+  unzip -q "$download_dir/rustfs.zip" rustfs -d "$download_dir"
+  run_as_root install -m 0755 "$download_dir/rustfs" /usr/local/bin/rustfs
+)
+
+configure_postgres() {
+  if ! run_as_root service postgresql status >/dev/null 2>&1; then run_as_root service postgresql start; fi
+  run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN CREATEDB PASSWORD %L', :'user', :'password') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'user') \gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'user') WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \gexec
+SQL
+  PGPASSWORD="$POSTGRES_PASSWORD" psql --host=127.0.0.1 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --set=ON_ERROR_STOP=1 --command='SELECT 1' >/dev/null
+}
+
+start_valkey() {
+  if start-stop-daemon --status --exec "$(command -v valkey-server)" >/dev/null 2>&1; then
+    valkey-cli -e ping
+    return
+  fi
+  local data_dir=${XDG_DATA_HOME:-$HOME/.local/share}/valkey
+  mkdir -p "$data_dir"
+  valkey-server --daemonize yes --bind 127.0.0.1 --dir "$data_dir" --logfile "$data_dir/valkey.log"
+  for _ in {1..30}; do
+    if valkey-cli -e ping >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  valkey-cli -e ping
+}
+
+start_rustfs() {
+  local port="${RUSTFS_HOST_PORT:-9000}"
+  if start-stop-daemon --status --exec "$rustfs_binary" >/dev/null 2>&1; then
+    curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:$port/health/ready" >/dev/null
+    return
+  fi
+  mkdir -p "$rustfs_data_dir"
+  local log="${rustfs_data_dir%/*}/rustfs.log"
   RUSTFS_ACCESS_KEY="${RUSTFS_ACCESS_KEY:-development}" \
     RUSTFS_SECRET_KEY="${RUSTFS_SECRET_KEY:-development-only-storage-key}" \
     RUSTFS_CONSOLE_ENABLE=true RUSTFS_CONSOLE_ADDRESS="127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}" \
-    nohup rustfs server --address "127.0.0.1:$port" "$data_dir" >"$log" 2>&1 &
-  set -x
-  for _ in $(seq 30); do
-    if endpoint_is_reachable "http://127.0.0.1:$port"; then return 0; fi
+    start-stop-daemon --start --background --output "$log" --exec "$rustfs_binary" -- \
+    server --address "127.0.0.1:$port" "$rustfs_data_dir"
+  for _ in {1..30}; do
+    if curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:$port/health/ready" >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
-  echo "RustFS did not start. See $log." >&2
+  echo "RustFS did not become ready. See $log." >&2
   return 1
 }
 
-start_databases() {
-  [ -f "$WORKSPACE_PATH/docker-compose.yml" ] || return 0
-  # macOS development runs the native checkout against a database the developer already runs, so
-  # this script never starts Compose there. See AGENTS.md's macOS rule.
-  if [ "$platform_name" = Darwin ]; then
-    start_native_storage
-    echo "Skipped Docker Compose: start the macOS infrastructure as described in SETUP.md." >&2
-    return 0
-  fi
-  if databases_are_external; then return; fi
-  if [ "${SKIP_DOCKER_COMPOSE:-false}" = true ]; then return; fi
-  if docker_compose_available; then
-    (cd "$WORKSPACE_PATH" && docker compose up --detach --wait)
-  fi
+setup_native_services() (
+  install_linux_packages
+  rustfs_data_dir=$(realpath -m "${RUSTFS_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data}")
+
+  : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
+  install_postgres
+  install_valkey
+  install_rustfs
+  rustfs_binary=$(command -v rustfs)
+  configure_postgres
+  start_valkey
+  start_rustfs
+)
+
+setup_services() {
+  case "${SERVICES:-}" in
+    native)
+      if [ "$(uname -s)" = Linux ]; then setup_native_services; fi
+      ;;
+    docker)
+      (cd "$WORKSPACE_PATH" && docker compose up --detach --wait --no-recreate)
+      ;;
+    "") ;;
+    *) echo "Invalid SERVICES: $SERVICES. Choose docker or native, or leave it unset." >&2; return 1 ;;
+  esac
 }
 
-# Vite loads `platform/.env.development[.local]`, and a shell value always wins, so this reads the
-# same order the platform does. https://vite.dev/guide/env-and-mode
-platform_database_url() {
-  local env_file url
-  if [ -n "${DATABASE_URL:-}" ]; then
-    printf '%s\n' "$DATABASE_URL"
-    return 0
-  fi
-  for env_file in "$WORKSPACE_PATH/platform/.env.development.local" "$WORKSPACE_PATH/platform/.env.development"; do
-    [ -f "$env_file" ] || continue
-    url=$(sed -n 's/^DATABASE_URL=//p' "$env_file" | tail -n 1)
-    if [ -n "$url" ]; then
-      printf '%s\n' "$url"
-      return 0
-    fi
-  done
-  return 1
-}
+setup_workspace() (
+  [ -f "$WORKSPACE_PATH/package.json" ] || return 0
+  cd "$WORKSPACE_PATH"
+  bun install --frozen-lockfile
+  cd platform
+  bun run --no-env-file scripts/bootstrap-worktree.ts "$@"
+)
 
-# Probe connectivity without platform-specific nc flags. https://nodejs.org/api/net.html
-endpoint_is_reachable() {
-  ENDPOINT_PROBE_URL="$1" bun --no-env-file -e \
-    'import { createConnection } from "node:net"; const { hostname, port } = new URL(process.env.ENDPOINT_PROBE_URL); createConnection({ host: hostname, port: Number(port) || 5432 }).once("connect", function () { this.end() }).once("error", () => { process.exitCode = 1 })' \
-    >/dev/null 2>&1
-}
-
-# The schema and the sample data before the SDK bundle, because the seed writes the API key and
-# agent ID that `examples/todos` reads and the example loads the SDK's built `dist`.
-bootstrap_workspace() {
-  [ -d "$WORKSPACE_PATH/platform" ] || return 0
-  local url
-  # `DATABASE_URL` can carry a real password and this script runs under `set -x`, so the value is
-  # resolved and probed with tracing off, and only its credential-free tail is ever printed.
-  set +x
-  if ! url=$(platform_database_url); then
-    echo "Skipped the migrate, seed, and SDK build steps: no DATABASE_URL in the environment or in platform/.env.development[.local]." >&2
-    set -x
-    return 0
-  fi
-  # Checked on every platform: a caller can reach here before its database is up — Cursor Cloud
-  # installs before it starts Compose — and a named skip is more use than a `set -e` failure.
-  if ! endpoint_is_reachable "$url"; then
-    echo "Skipped the migrate, seed, and SDK build steps: nothing is listening at ${url##*@}. Start PostgreSQL, then rerun './scripts/setup.sh' to migrate, seed, and build the SDK." >&2
-    set -x
-    return 0
-  fi
-  set -x
-  (cd "$WORKSPACE_PATH/platform" && bun run db migrate)
-  (cd "$WORKSPACE_PATH/platform" && bun run db-seed)
-  (cd "$WORKSPACE_PATH/sdk" && bun run build)
-}
-
-install_ubuntu_packages
-configure_workspace_git
-install_bun
-install_workspace_packages
 run_install_extras
-start_databases
-bootstrap_workspace
+setup_services
+install_bun
+setup_workspace "$@"

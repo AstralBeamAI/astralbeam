@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { UuidV7Schema } from "@/lib/schemas"
 import { ModelProviderActions } from "./-components/model-provider-actions"
-import { ModelProviderForm } from "../-components/model-provider-form"
+import { ModelProviderForm } from "../../-components/model-provider-form"
 import { getModelProviderPageData } from "../-functions/get-model-provider-page-data"
 
 const isModelProviderId = Schema.is(UuidV7Schema)

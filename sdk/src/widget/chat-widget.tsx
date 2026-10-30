@@ -1,14 +1,5 @@
 import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useId,
-  useImperativeHandle,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react"
 import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
@@ -32,77 +23,37 @@ import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
 import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
-import { createDebugCallbacks } from "./lib/stream-debug.ts"
-import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
+import type { AstralBeamChatCore } from "../core/session.ts"
 import { authenticationIdentity } from "../core/auth.ts"
-import { newUuid } from "../core/threads.ts"
+import { chatPlacementKey, newUuid } from "../core/threads.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
-import type { ChatController } from "./index.tsx"
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useComposerDraft } from "./use-composer-draft.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
-// Shared fallback so `widgets` keeps its identity across renders when the host registers none;
-// a fresh `{}` would rebuild the memoized session options (and push them through the session).
+// Keep an absent widget catalog stable across view updates.
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
 
 export function ChatWidget({
+  chat,
   options,
   host,
-  controller,
 }: {
+  chat: AstralBeamChatCore
   options: MountAstralBeamChatOptions
   host: HTMLElement
-  controller: RefObject<ChatController | null>
 }) {
   const panelId = useId()
-  const sizing = useChatWidth(options, host)
+  const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
+  const session = chat.getOptions()
+  const sizing = useChatWidth({ ...options, agentId: session.agentId }, host)
   const closable = !!options.onClose
   const widgets = options.widgets ?? NO_WIDGETS
-  const debug = useMemo(() => createDebugLogger(options.debug), [options.debug])
+  const debug = useMemo(() => createDebugLogger(session.debug), [session.debug])
   const { activeSlots, renderWidget } = useWidgetRenders(widgets, host, debug)
   const hostSlots = useHostSlots(options.slots, host, debug)
-  const streamCallbacks = useMemo(() => createDebugCallbacks(debug), [debug])
-  // Everything the headless session owns: authentication, transport, the tool protocol, and
-  // transcript state. Memoized because the update effect below keys off it.
-  const sessionOptions = useMemo<AstralBeamChatCoreOptions>(
-    () => ({
-      agentId: options.agentId,
-      threadId: options.threadId,
-      apiUrl: options.apiUrl,
-      fetchAstralBeamToken: options.fetchAstralBeamToken,
-      tools: options.tools,
-      widgets,
-      onRenderWidget: renderWidget,
-      streamCallbacks,
-      debug: options.debug,
-    }),
-    [
-      options.agentId,
-      options.threadId,
-      options.apiUrl,
-      options.fetchAstralBeamToken,
-      options.tools,
-      options.debug,
-      widgets,
-      renderWidget,
-      streamCallbacks,
-    ],
-  )
-  // One session per committed mount, retuned in place, though Strict Mode's render probe can
-  // still build a discarded second.
-  const [chat] = useState(() => createAstralBeamChat(sessionOptions, true))
-  // Re-applies the initial values harmlessly; afterwards, every option change retunes the session.
-  useEffect(() => {
-    chat.updateOptions(sessionOptions)
-  }, [chat, sessionOptions])
-  useEffect(() => {
-    chat.start()
-    return () => chat.dispose()
-  }, [chat])
-  const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState)
   const files = useMemo(
     () => ({ getThreadAttachment: chat.getThreadAttachment, threadId: chatState.thread?.id }),
     [chat, chatState.thread?.id],
@@ -160,7 +111,7 @@ export function ChatWidget({
       widgets: Object.keys(widgets),
     })
   }, [debug, toolNames, widgets])
-  const apiUrl = options.apiUrl ?? DEFAULT_API_URL
+  const apiUrl = session.apiUrl ?? DEFAULT_API_URL
   const sandboxHasWork = sandbox.files.length > 0 || sandbox.commands.length > 0
   useEffect(() => {
     debug?.("status", `chat status is "${status}"`)
@@ -168,7 +119,9 @@ export function ChatWidget({
   const composer = useComposerDraft({
     apiUrl,
     verifiedIdentity:
-      auth.status === "ready" ? authenticationIdentity(auth.currentUser) : undefined,
+      auth.status === "ready"
+        ? JSON.stringify([authenticationIdentity(auth.currentUser), chatPlacementKey(session)])
+        : undefined,
     threadId: chatState.thread?.id ?? "",
     canLoad: auth.status === "ready" && (history === "idle" || history === "failed"),
     debug,
@@ -320,18 +273,39 @@ export function ChatWidget({
     [chat, debug],
   )
 
-  const resetThread = () => {
-    // The session's reset is the client's own: it aborts an active stream, drops queued sends,
-    // resets resume state, and disposes the live widget renders.
-    chat.reset()
-    composer.reset()
+  const binding = useRef<ReturnType<typeof chat.attachView> | undefined>(undefined)
+  const viewOptions = {
+    widgets,
+    onRenderWidget: renderWidget,
+    onReset: () => {
+      const auth = chat.getState().auth
+      if (
+        auth.status === "ready" &&
+        composer.identity ===
+          JSON.stringify([
+            authenticationIdentity(auth.currentUser),
+            chatPlacementKey(chat.getOptions()),
+          ])
+      )
+        composer.reset()
+    },
   }
+  const viewRef = useRef(viewOptions)
+  useEffect(() => {
+    viewRef.current = viewOptions
+    binding.current?.update(viewOptions)
+  })
+  useEffect(() => {
+    const attached = chat.attachView(viewRef.current)
+    binding.current = attached
+    return () => {
+      binding.current = undefined
+      attached.dispose()
+    }
+  }, [chat])
 
   const focusComposer = () =>
     requestAnimationFrame(() => host.shadowRoot?.querySelector("textarea")?.focus())
-
-  // Re-registered every render so the loader's handle always calls the latest closures.
-  useImperativeHandle(controller, () => ({ reset: resetThread, stop: chat.stop }))
 
   // Closable chat fills the mobile viewport without changing its preferred desktop width.
   const showHeader = options.showHeader !== false
@@ -388,7 +362,7 @@ export function ChatWidget({
             disabled={!chatState.thread && messages.length === 0}
             onClick={(event) => {
               if (event.detail > 1) return
-              resetThread()
+              chat.reset()
               focusComposer()
             }}
           >
