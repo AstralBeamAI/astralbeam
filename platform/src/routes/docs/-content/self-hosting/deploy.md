@@ -88,7 +88,7 @@ bun run --cwd sdk build
 bun run --cwd platform build
 ```
 
-**NOTE**: Do not run `scripts/setup.sh` on a deployment host. It is the contributor setup, and it migrates any database `DATABASE_URL` reaches and seeds it with fixed development credentials.
+**NOTE**: Do not run `scripts/setup.sh` on a deployment host. It installs contributor dependencies, applies migrations, and seeds uninitialized loopback databases with fixed development credentials.
 
 The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 

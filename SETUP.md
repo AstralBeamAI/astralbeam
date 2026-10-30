@@ -2,89 +2,53 @@
 
 ## One-time macOS setup
 
-Run application code [natively on macOS](#local-development) with Bun. Use Docker Compose or Podman Compose for local supporting services.
-
-### Install a container runtime
-
-Use Docker Desktop with Docker Compose, or set up Podman below.
-
-#### Podman
-
-- Install Podman Desktop:
-
-  ```bash
-  brew install --cask podman-desktop
-  ```
-
-- Start Podman Desktop, create a Podman machine, and enable Docker compatibility.
-
-- Do not install the Compose extension from Podman Desktop. Its provider installs a `docker-compose` wrapper that breaks BuildKit functionality.
-
-- Install `podman-compose`:
-
-  ```bash
-  brew install podman-compose
-  brew uninstall --ignore-dependencies podman # Podman Desktop already provides the Podman CLI
-  ```
+For Docker services, install and start <a href="https://docs.docker.com/desktop/setup/install/mac-install/" target="_blank" rel="noopener noreferrer">Docker Desktop</a>. Run application code natively with Bun, which setup installs.
 
 ## Local development
 
-### 1. Start the services
+### 1. Initialize the workspace
 
-From the repository root, start PostgreSQL, PgBouncer, Valkey, and Mailpit with Docker:
-
-```sh
-docker compose up --detach --wait postgres pgbouncer valkey mailpit
-```
-
-Or use Podman and wait for healthy services:
+From the repository root, opt into Docker services and initialize the workspace:
 
 ```sh
-podman compose up --detach postgres pgbouncer valkey mailpit
-podman compose ps
+SERVICES=docker ./scripts/setup.sh
 ```
 
-With Podman, wait for the services to become healthy before setup. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
+It starts supporting services without recreating existing containers, installs the pinned Bun version and frozen workspace dependencies, applies pending migrations, seeds an uninitialized database, and builds the SDK. Open a new terminal afterward to pick up Bun on `PATH`.
 
-### 2. Install local file storage
+Choose how setup handles supporting services with `SERVICES`:
 
-On macOS, run RustFS natively. It serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Install this pinned Apple Silicon binary once and add `$HOME/.local/bin` to your `PATH`:
+| Value    | Behavior                                                                   |
+| -------- | -------------------------------------------------------------------------- |
+| Unset    | Default. Use existing services without installing or starting them.        |
+| `docker` | Start Compose and wait for healthy services without recreating containers. |
+| `native` | Install and start services on Ubuntu 24.04 or Debian 13.                   |
 
-```sh
-(
-  set -eu
-  rustfs_tmp=$(mktemp -d)
-  trap 'rm -rf "$rustfs_tmp"' EXIT
-  curl -fL -o "$rustfs_tmp/rustfs.zip" https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-macos-aarch64-v1.0.1.zip
-  unzip -p "$rustfs_tmp/rustfs.zip" rustfs > "$rustfs_tmp/rustfs"
-  test -s "$rustfs_tmp/rustfs"
-  mkdir -p "$HOME/.local/bin"
-  install -m 755 "$rustfs_tmp/rustfs" "$HOME/.local/bin/rustfs"
-)
-export PATH="$HOME/.local/bin:$PATH"
-```
+For services you manage yourself, run `./scripts/setup.sh` with `SERVICES` unset. See [development without Docker](#development-without-docker) for native installation. Setup never resets existing databases. Automatic seeding happens only when the application schema is absent before migration. Use the explicit [database commands](platform/src/db/README.md#database-commands) to reset or seed an already migrated database.
 
-When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs/data` (or `RUSTFS_DATA_DIR`) and its log in `~/.local/share/rustfs/rustfs.log`. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
+By default, unset and Docker modes do not install system packages or require sudo. Install Git and, when Bun is not already installed, curl and unzip through your operating system's package manager. Native installation on Linux requires root or sudo.
 
-Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files and configured storage settings. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
-
-Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Manage later changes in **File storage** at `/configure` or through deployment overrides.
-
-### 3. Initialize the workspace
-
-Run setup after the services are healthy. It installs the pinned Bun version and frozen workspace dependencies, starts native RustFS, migrates, seeds, and builds the SDK:
-
-```sh
-./scripts/setup.sh
-```
-
-Setup does not install host database services or start Compose on macOS. If the database is unavailable, it skips migration, seed, and SDK build with an explanation. Start the services and rerun setup. Open a new terminal afterward to pick up Bun on `PATH`.
+Linux images opt into optional helpers through `INSTALL_EXTRA`, a space-separated list such as `linux-tools profiled` or `linux-tools cursor-dnd`. `linux-tools` installs development tools, including the `psql` client, without database servers. Native service installation requires `SERVICES=native` on Linux.
 
 The [seed](platform/src/db/README.md#seed-sample-data) prints local accounts and credentials and writes the Todos examples' `.env` files only when absent. Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value from [`platform/.env.development`](platform/.env.development) or your override.
 
-For chat, configure providers under **Models**, enable models, and assign them to agents. To seed a **Development OpenAI** connection, put your `OPENAI_API_KEY` in the ignored `platform/.env.local` before setup. Seeds preserve existing providers and model choices.
+For chat, configure providers under **Models**, enable models, and assign them to agents. To seed a **Development OpenAI** connection, put your `OPENAI_API_KEY` in the ignored `platform/.env.local` before the first setup. For an initialized workspace, rerun the seed explicitly. Seeds preserve existing providers and model choices.
 
-### 4. Run the applications
+### Local services
+
+Compose runs PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
+
+For intentional Compose configuration changes, run `docker compose up --detach --wait` directly.
+
+When switching from native RustFS, stop the native process before starting Compose. Its data is not copied into the Compose volume, so retain the native data directory and migrate any files you need.
+
+The Compose RustFS service serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`, keeping objects in the `rustfs-data` Compose volume.
+
+Initial seeding creates a private bucket for the worktree's database using its effective storage settings. Existing files and configured storage settings are preserved. External storage is never provisioned by setup.
+
+Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Manage later changes in **File storage** at `/configure` or through deployment overrides.
+
+### 2. Run the applications
 
 Start all four applications and the SDK watcher from the repository root:
 
@@ -103,13 +67,27 @@ The [Rails example](examples/todos-rails/README.md) runs separately with `bin/se
 
 For one project, use `bun run --cwd <project> <task>`. Root aliases include `bun run dev:platform` and `bun run build:sdk`. Run `bun run` to list them. `bun install --frozen-lockfile` installs all workspace dependencies, and `bun run build` builds every Bun project with the SDK first. See [contribution validation](CONTRIBUTING.md#validate-your-change) before opening a PR.
 
-Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
+Stop services with `docker compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
 
 The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/lib/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring.
 
+## Development without Docker
+
+On Ubuntu 24.04 or Debian 13, opt into the same native service setup used by Codex Cloud:
+
+```sh
+SERVICES=native ./scripts/setup.sh
+```
+
+This installs and starts PostgreSQL 18, Valkey 9, and the latest RustFS on amd64 or arm64 without Docker. RustFS binds its API and console to loopback and keeps objects in `${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data` (or `RUSTFS_DATA_DIR`) with `rustfs.log` beside the data directory. The same RustFS port and credential overrides apply. Rerun the command after restarting the machine to start services and initialize the workspace. Configure email separately using the [email instructions](#authentication-and-transactional-email).
+
+Native setup keeps installed services and existing credentials. Healthy services stay running. Upgrade binaries or repair configuration manually when needed.
+
+On macOS without Docker, install and start PostgreSQL, Valkey, and <a href="https://docs.rustfs.com/en/installation/macos" target="_blank" rel="noopener noreferrer">RustFS</a> yourself, then run `./scripts/setup.sh` with `SERVICES` unset. Use the local storage credentials above or set matching overrides before setup.
+
 ## Cloud agent setup
 
-Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
+Codex Cloud uses the native setup command above for both setup and maintenance.
 
 See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).
 

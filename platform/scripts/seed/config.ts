@@ -72,7 +72,6 @@ function localStorageEndpoint(value: string) {
 }
 
 export async function initializeStorage(database: SeedDatabase): Promise<void> {
-  if (process.env.SKIP_DOCKER_COMPOSE === "true") return
   const rows = await database.select().from(configTable).where(like(configTable.key, "s3_%"))
   const value = (key: string) => {
     const schema =
