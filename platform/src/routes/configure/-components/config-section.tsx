@@ -55,7 +55,7 @@ export function ConfigSection({
         <CollapsibleTrigger
           aria-label={title}
           aria-describedby={`${id}-status${open ? "" : ` ${id}-summary`}`}
-          className="group flex min-h-16 w-full items-start gap-3 p-5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:p-6"
+          className="group flex min-h-16 w-full items-start gap-3 p-5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         >
           <Icon
             aria-hidden="true"
@@ -87,7 +87,7 @@ export function ConfigSection({
         </CollapsibleTrigger>
       </h2>
       <CollapsibleContent keepMounted>
-        <div className="space-y-6 border-t p-5 sm:p-6">
+        <div className="space-y-5 border-t p-5">
           <p className="text-sm text-muted-foreground">
             <DocsLink href={documentationHref}>{title} setup guide</DocsLink>
           </p>

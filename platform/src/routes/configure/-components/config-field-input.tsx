@@ -54,12 +54,7 @@ export function ConfigFieldInput({
 
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldLabel
-        htmlFor={`config-${field.key}`}
-        className={
-          field.key === "trust_proxy" ? "min-h-10 [@media(any-pointer:coarse)]:min-h-11" : undefined
-        }
-      >
+      <FieldLabel htmlFor={`config-${field.key}`}>
         {field.key === "trust_proxy" && (
           <Checkbox
             id={`config-${field.key}`}
@@ -77,7 +72,7 @@ export function ConfigFieldInput({
       </FieldLabel>
       {field.key === "trust_proxy" ? (
         trustProxy && (
-          <div className="flex flex-col gap-2">
+          <div className="mt-2 flex flex-col gap-2">
             <FieldLabel htmlFor="config-trust-proxy-addresses">
               Additional proxy IPs/CIDRs (optional)
             </FieldLabel>
@@ -110,11 +105,7 @@ export function ConfigFieldInput({
           </SelectTrigger>
           <SelectContent>
             {items.map((item) => (
-              <SelectItem
-                key={item.value}
-                value={item.value}
-                className="min-h-10 ps-3 text-sm [@media(any-pointer:coarse)]:min-h-12 [&>span]:min-w-0 [&>span]:whitespace-normal"
-              >
+              <SelectItem key={item.value} value={item.value}>
                 {item.label}
               </SelectItem>
             ))}
