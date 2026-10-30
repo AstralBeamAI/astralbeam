@@ -75,6 +75,24 @@ test("API failures exit 1 with the problem body, and usage errors exit 2", async
   expect(await cli("tenants", "create", "--metadata", "[1]", "--external-id", "acme")).toBe(2)
 })
 
+test("a refused chat send exits 1 instead of printing a successful transcript", async () => {
+  respondWith(
+    {
+      type: "about:blank",
+      title: "Too Many Requests",
+      status: 429,
+      detail: "Request limit exceeded.",
+    },
+    429,
+  )
+  expect(await cli("--json", "chat", "--tenant", "customer", "--user", "user", "Hello")).toBe(1)
+  expect(stdout).toBe("")
+  expect(JSON.parse(stderr)).toMatchObject({
+    error: { detail: "Request limit exceeded." },
+    context,
+  })
+})
+
 test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
   const usageError = async (...args: string[]) => {
     stderr = ""
