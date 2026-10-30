@@ -1726,11 +1726,13 @@ export function createAstralBeamChat(
       if (!params.threadId && !options?.preview)
         throw new Error("A conversation ID is required to download files.")
       return (
-        await getThreadAttachment(params, {
-          ...(await requestOptions(!!params.threadId || !options?.preview)),
-          cache: "default",
-          headers: options?.preview ? { "X-File-Preview": "true" } : {},
-        })
+        await getThreadAttachment(
+          { ...params, delivery: "direct" },
+          {
+            ...(await requestOptions(!!params.threadId || !options?.preview)),
+            headers: options?.preview ? { "X-File-Preview": "true" } : {},
+          },
+        )
       ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),

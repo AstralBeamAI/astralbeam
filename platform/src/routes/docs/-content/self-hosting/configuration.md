@@ -124,7 +124,9 @@ The test confirms object operations. Bucket privacy and browser CORS are separat
 
 For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
 
-You can change the endpoint, region, bucket, and addressing mode at any time. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, let's stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, save the new settings, and restart every server instance. Credential rotation remains supported.
+You can change the endpoint, region, bucket, and addressing mode at any time. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, let's stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, verify their sizes and checksums, save the new settings, and restart every server instance. Credential rotation remains supported.
+
+The chat SDK requests direct S3 downloads and cached previews after conversation/file authorization. Configure the bucket's CORS policy to allow GET from your embedding origins, and expose `Content-Disposition` if consumers read that header. Keep the bucket private. Preview generation and model-side reads still run on AstralBeam. Signed chat URLs expire after one minute and must not be persisted. Existing HTTP clients can omit `delivery=direct` to retain proxied chat responses.
 
 The bucket also stores avatars, logos, and published sandbox files. Its endpoint must be reachable from users' browsers. Signed download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
 

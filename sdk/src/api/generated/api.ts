@@ -809,7 +809,15 @@ export type GetThreadAttachmentParams = {
   tenantId?: string
   fileId: string
   filename?: string
+  delivery?: GetThreadAttachmentDelivery
 }
+
+export type GetThreadAttachmentDelivery =
+  (typeof GetThreadAttachmentDelivery)[keyof typeof GetThreadAttachmentDelivery]
+
+export const GetThreadAttachmentDelivery = {
+  direct: "direct",
+} as const
 
 export type GetChatConfigParams = {
   agentId?: string
@@ -1386,7 +1394,7 @@ export const getGetThreadAttachmentUrl = (params: GetThreadAttachmentParams) => 
 }
 
 /**
- * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.
+ * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original proxied downloads verify stored bytes. Request delivery=direct to receive 204 with a short-lived S3 URL in Location after authorization. A preview may still return 204 without Location when unavailable. Fetch storage URLs without application credentials and do not cache these capability responses.
  * @summary Download a chat file
  */
 export const getThreadAttachment = (

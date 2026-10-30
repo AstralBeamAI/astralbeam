@@ -1,5 +1,9 @@
 import { APP_HANDLE } from "@/lib/constants"
-import type { ChatMiddlewareContext, StreamChunk } from "@tanstack/ai"
+import {
+  convertMessagesToModelMessages,
+  type ChatMiddlewareContext,
+  type StreamChunk,
+} from "@tanstack/ai"
 import { expect, test } from "vitest"
 
 import {
@@ -31,13 +35,11 @@ const withSandbox = { sandbox: true } as const
 // The whole point of the delivery: a file's bytes never become prompt text, so nothing a file
 // contains can be read as something the user asked for, and nothing is silently truncated.
 test("a text file leaves the conversation as a name, with its contents behind a handle", () => {
-  const { messages, attachments, files } = normalizeChatAttachments(
-    userMessage([
-      documentEntry("notes.md", "text/markdown", btoa("hello from a file")),
-      { type: "text", text: "what does this say?" },
-    ]),
-    withSandbox,
-  )
+  const input = userMessage([
+    documentEntry("notes.md", "text/markdown", btoa("hello from a file")),
+    { type: "text", text: "what does this say?" },
+  ])
+  const { messages, attachments, files } = normalizeChatAttachments(input, withSandbox)
   const entries = contentOf(messages)
   expect(entries).toEqual([
     { type: "text", text: "[Attached: notes.md]" },
@@ -55,6 +57,14 @@ test("a text file leaves the conversation as a name, with its contents behind a 
       result: "text",
       handle: "notes.md",
     },
+  ])
+  const model = normalizeChatAttachments(convertMessagesToModelMessages(input), {
+    sandbox: false,
+    contentShape: "model",
+  })
+  expect(convertMessagesToModelMessages(model.messages)[0]?.content).toEqual([
+    { type: "text", content: "[Attached: notes.md]" },
+    { type: "text", content: "what does this say?" },
   ])
 })
 

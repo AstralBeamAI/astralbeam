@@ -123,7 +123,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     return content.length ? [{ ...message, content }] : []
   })
   const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(projected, { sandbox, contentShape: "model" })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
