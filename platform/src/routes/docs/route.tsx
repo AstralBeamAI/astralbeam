@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router"
 import { DocsNavbar, UnderNavbar } from "@/components/navbar"
 import { findDocsSection } from "./-lib/content"
-import { docsHighlightCss } from "./-lib/highlight"
+import { docsHighlightCss } from "@/components/docs/highlight"
 
 export const Route = createFileRoute("/docs")({
   component: DocsLayout,

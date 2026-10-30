@@ -2,7 +2,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 
 import { APP_NAME } from "@/lib/constants"
-import { ModelProviderForm } from "../-components/model-provider-form"
+import { ModelProviderForm } from "../../-components/model-provider-form"
 import { getModelProviderPageData } from "../-functions/get-model-provider-page-data"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/models/new/")({
