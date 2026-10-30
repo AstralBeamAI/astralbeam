@@ -11,26 +11,24 @@ import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
 import { Context, Effect, identity, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
-import { ChatThreads, type MessageRecord } from "./threads/threads"
-import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
-import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
+import { ChatThreads } from "./threads/threads"
+import type { ChatThreadError } from "./threads/errors"
+import { projectChatPublicHistory } from "./threads/projection"
 import {
   managedChatDelivery,
   managedChatMiddleware,
   type ManagedChatExecution,
 } from "./threads/stream"
-import {
-  ModelProviders,
-  type ChatModelConfiguration,
-} from "@/lib/model-providers/model-providers.server"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
 import { chatWebTools, chatWebState } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
+import { prepareChatProviderHistory } from "./attachments/provider-history"
+import type { ChatAttachmentFile } from "./attachments/types"
 import {
   createChatAttachmentSnapshotMiddleware,
   ChatFiles,
-  normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments/attachments"
 import {
@@ -89,46 +87,6 @@ function chatEventStream(start: (abortController: AbortController) => AsyncItera
     }),
   )
 }
-
-const prepareChatHistory = Effect.fnUntraced(function* ({
-  history,
-  model,
-  sandbox,
-  scope,
-  files,
-  webAccessEnabled,
-}: {
-  readonly history: readonly MessageRecord[]
-  readonly model: ChatModelConfiguration
-  readonly files: typeof ChatFiles.Service
-  readonly sandbox: boolean
-  readonly webAccessEnabled: boolean
-  readonly scope: { organizationId: string; tenantId: string; threadId: string }
-}) {
-  const stored = yield* Effect.try({
-    try: () =>
-      projectChatModelHistory(history, {
-        providerId: model.providerId,
-        protocol: model.api,
-        modelId: model.modelId,
-        webAccessEnabled,
-      }),
-    catch: () => new ChatThreadInvalid(),
-  })
-  const executable = stored.flatMap((message) => {
-    if (message.role === "user" || !Array.isArray(message.content)) return [message]
-    const content = message.content.filter(
-      (part) => !["image", "document", "audio", "video"].includes(part.type),
-    )
-    return content.length ? [{ ...message, content }] : []
-  })
-  const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
-  if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
-    return yield* new ChatThreadInvalid()
-  // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
-  return { projected, ...normalized }
-})
 
 export class Chat extends Context.Service<
   Chat,
@@ -206,12 +164,7 @@ export class Chat extends Context.Service<
           id: input.managed.claim.threadId,
           messageId: input.managed.claim.assistantMessageId,
         })
-        const {
-          projected: inputMessages,
-          messages,
-          attachments,
-          files,
-        } = yield* prepareChatHistory({
+        let prepared = yield* prepareChatProviderHistory({
           history,
           files: storedFiles,
           model,
@@ -219,6 +172,7 @@ export class Chat extends Context.Service<
           webAccessEnabled: agent.webAccessEnabled,
           scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
+        const { projected: inputMessages, messages, attachments, files } = prepared
         const unknownOutcome = history.some(
           (message) =>
             message.role === "tool" &&
@@ -299,19 +253,42 @@ export class Chat extends Context.Service<
             if (log && sandboxTools.length > 0) {
               yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
             }
-            const tools = unknownOutcome
-              ? webTools
-              : [
-                  ...mergeAgentTools(
-                    [
-                      ...webTools,
-                      ...mcp.tools,
-                      ...sandboxTools,
-                      ...createChatAttachmentTools(files),
-                    ],
-                    params.tools,
+            const resolveTools = () =>
+              mergeAgentTools(
+                [
+                  ...webTools,
+                  ...mcp.tools.filter(
+                    (tool) => !["read_attachment", "list_attachments"].includes(tool.name),
                   ),
-                ]
+                  ...sandboxTools,
+                  ...createChatAttachmentTools(files, {
+                    catalogue: prepared.catalogue,
+                    remainingBytes: prepared.remainingBytes,
+                    read: (fileId) =>
+                      Effect.runPromiseWith(services)(
+                        storedFiles.read({
+                          scope: {
+                            ...input.managed.claim.scope,
+                            threadId: input.managed.claim.threadId,
+                          },
+                          fileId,
+                        }),
+                      ),
+                    media: prepared.media,
+                    ...(session
+                      ? {
+                          prepare: (file: ChatAttachmentFile) => {
+                            if (!files.some((existing) => existing.handle === file.handle))
+                              files.push(file)
+                            return Effect.runPromiseWith(services)(session.prepareUploads(files))
+                          },
+                        }
+                      : {}),
+                  }),
+                ],
+                params.tools,
+              )
+            const tools = unknownOutcome ? webTools : [...resolveTools()]
             const managed = managedChatMiddleware({
               managed: input.managed,
               threads,
@@ -320,13 +297,7 @@ export class Chat extends Context.Service<
               model,
               pricing,
               web,
-              publicHistory:
-                web ||
-                history.some((record) =>
-                  record.payload.parts.some((part) => part.executionLocation === "provider"),
-                )
-                  ? projectChatPublicHistory(history)
-                  : undefined,
+              publicHistory: projectChatPublicHistory(history),
               agentId: `agent_${input.principal.organization.id}_${agent.id}`,
               execute: Effect.runPromiseWith(services),
               refreshContext: (claim) =>
@@ -336,7 +307,7 @@ export class Chat extends Context.Service<
                       scope: claim.scope,
                       id: claim.threadId,
                     })
-                    const normalized = yield* prepareChatHistory({
+                    prepared = yield* prepareChatProviderHistory({
                       history: saved,
                       files: storedFiles,
                       scope: { ...claim.scope, threadId: claim.threadId },
@@ -344,36 +315,15 @@ export class Chat extends Context.Service<
                       sandbox: agent.sandboxProviderId !== null,
                       webAccessEnabled: agent.webAccessEnabled,
                     })
-                    files.splice(0, files.length, ...normalized.files)
-                    inputMessages.splice(0, inputMessages.length, ...normalized.projected)
+                    files.splice(0, files.length, ...prepared.files)
+                    inputMessages.splice(0, inputMessages.length, ...prepared.projected)
                     if (session) yield* session.prepareUploads(files)
-                    if (!unknownOutcome)
-                      tools.splice(
-                        0,
-                        tools.length,
-                        ...mergeAgentTools(
-                          [
-                            ...chatWebTools(model, agent.webAccessEnabled, params.tools),
-                            ...mcp.tools,
-                            ...sandboxTools,
-                            ...createChatAttachmentTools(files),
-                          ],
-                          params.tools,
-                        ),
-                      )
+                    if (!unknownOutcome) tools.splice(0, tools.length, ...resolveTools())
                     if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
                       systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                     return {
-                      providerMessages: convertMessagesToModelMessages(normalized.messages),
-                      publicHistory:
-                        web ||
-                        saved.some((record) =>
-                          record.payload.parts.some(
-                            (part) => part.executionLocation === "provider",
-                          ),
-                        )
-                          ? projectChatPublicHistory(saved)
-                          : undefined,
+                      providerMessages: convertMessagesToModelMessages(prepared.messages),
+                      publicHistory: projectChatPublicHistory(saved),
                       tools,
                       systemPrompts,
                     }

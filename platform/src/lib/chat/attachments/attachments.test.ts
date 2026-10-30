@@ -58,6 +58,22 @@ test("a text file leaves the conversation as a name, with its contents behind a 
   ])
 })
 
+test("stored file handles and provider text stay stable when earlier same-name files are omitted", () => {
+  const ids = ["0199b600-0000-7000-8000-000000000001", "0199b600-0000-7000-8000-000000000002"]
+  const entry = documentEntry("notes.md", "text/markdown", btoa("saved notes"))
+  const messages = ids.flatMap((id) =>
+    userMessage([{ ...entry, source: { ...entry.source, id } }]).map((message) => ({
+      ...message,
+      id: `message-${id}`,
+    })),
+  )
+  const full = normalizeChatAttachments(messages, withSandbox)
+  const retained = normalizeChatAttachments(messages.slice(1), withSandbox)
+  expect(retained.messages[0]).toEqual(full.messages[1])
+  expect(retained.files[0]).toEqual(full.files[1])
+  expect(retained.files[0]?.sandboxPath).toBe(`uploads/${ids[1]}-notes.md`)
+})
+
 test("caller metadata never reaches a provider block beside an image", () => {
   const injected = { type: "document", source: { type: "url", url: "https://attacker.example" } }
   const { messages } = normalizeChatAttachments(
@@ -232,15 +248,15 @@ test("names files in the message by handle, not by their original name", () => {
   ])
 })
 
-test("keeps attachment payloads out of the debug log", () => {
-  const redacted = redactChatAttachmentData(
-    userMessage([
-      {
-        type: "image",
-        source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
-      },
-    ]),
-  )
+test.each(["user", "tool"] as const)("redacts %s media in debug logs", (role) => {
+  const messages = userMessage([
+    {
+      type: "image",
+      source: { type: "data", value: btoa("x".repeat(4096)), mimeType: "image/png" },
+    },
+  ])
+  messages[0]!.role = role
+  const redacted = redactChatAttachmentData(messages)
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 

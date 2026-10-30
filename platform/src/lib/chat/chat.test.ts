@@ -4,6 +4,7 @@ import { assert, describe, it } from "@effect/vitest"
 import {
   chatParamsFromRequestBody,
   EventType,
+  type AnyServerTool,
   type ChatMiddleware,
   type DebugOption,
 } from "@tanstack/ai"
@@ -70,6 +71,7 @@ import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
 
+const CHAT_TEST_FILE_ID = "01990a5d-ac96-774b-b942-6b13c85384ce"
 const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
 const chatTestExecution = {
   claim: {
@@ -125,10 +127,38 @@ function chatTestLayer(options: {
     Layer.provide([
       Layer.succeed(ChatFiles, {
         store: ({ payload }) => Effect.succeed(payload),
-        read: () => Effect.die("unused"),
+        read: ({ scope, fileId }) => {
+          assert.deepStrictEqual(scope, {
+            ...chatTestExecution.claim.scope,
+            threadId: chatTestExecution.claim.threadId,
+          })
+          assert.strictEqual(fileId, CHAT_TEST_FILE_ID)
+          return Effect.succeed({ bytes: Buffer.from("hello"), mimeType: "text/plain" })
+        },
         hydrate: ({ messages }) => {
           chatRunTest.hydrated = messages
-          return Effect.succeed([...messages])
+          return Effect.succeed(
+            messages.map((message) => ({
+              ...message,
+              content: Array.isArray(message.content)
+                ? message.content.map((part) => {
+                    return part.type === "document" &&
+                      "id" in part.source &&
+                      part.source.id === CHAT_TEST_FILE_ID
+                      ? {
+                          ...part,
+                          source: {
+                            type: "data" as const,
+                            id: CHAT_TEST_FILE_ID,
+                            value: btoa("hello"),
+                            mimeType: "text/plain",
+                          },
+                        }
+                      : part
+                  })
+                : message.content,
+            })),
+          )
         },
         attach: () => Effect.succeed(0),
       }),
@@ -476,7 +506,10 @@ describe("Chat.run", () => {
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
       assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
-      assert.include(JSON.stringify(options.messages), "[Attached: notes.txt]")
+      assert.include(
+        JSON.stringify(options.messages),
+        `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt, other.txt]`,
+      )
       const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
       const refreshed = yield* Effect.promise(async () =>
         gate.onConfig!(
@@ -484,13 +517,33 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes.txt]")
+      assert.include(
+        JSON.stringify(refreshed?.providerMessages),
+        `[Attached: ${CHAT_TEST_FILE_ID}-notes.txt, other.txt]`,
+      )
       assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
+      assert.isTrue(refreshed.tools.some((tool) => tool.name === "list_attachments"))
+      const read = refreshed.tools.find((tool) => tool.name === "read_attachment") as AnyServerTool
+      const result: unknown = yield* Effect.promise(() =>
+        Promise.resolve<unknown>(read.execute!({ fileId: CHAT_TEST_FILE_ID })),
+      )
+      assert.deepInclude(result, { content: "hello", fileId: CHAT_TEST_FILE_ID })
     }).pipe(
       Effect.provide(
         chatTestLayer({
           agent: sandboxedAgent,
           model: CHAT_TEST_MODEL,
+          sandboxSession: () =>
+            Effect.succeed({
+              acquire: () => Effect.die("unused"),
+              prepareUploads: (files) =>
+                Effect.sync(() =>
+                  assert.sameMembers(
+                    files.map((file) => file.filename),
+                    ["notes.txt", "other.txt"],
+                  ),
+                ),
+            }),
           history: [
             {
               id: chatTestExecution.claim.inputMessageId,
@@ -502,8 +555,19 @@ describe("Chat.run", () => {
                   {
                     id: "document",
                     type: "document",
-                    source: { type: "data", value: btoa("hello"), mimeType: "text/plain" },
+                    source: {
+                      type: APP_HANDLE,
+                      id: CHAT_TEST_FILE_ID,
+                      byteSize: 5,
+                      mimeType: "text/plain",
+                    },
                     metadata: { filename: "notes.txt" },
+                  },
+                  {
+                    id: "other",
+                    type: "document",
+                    source: { type: "data", value: btoa("another file"), mimeType: "text/plain" },
+                    metadata: { filename: "other.txt" },
                   },
                 ],
               },

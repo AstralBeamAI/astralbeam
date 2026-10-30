@@ -2,6 +2,7 @@ import {
   chat,
   EventType,
   toolDefinition,
+  type AnyServerTool,
   type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
@@ -10,6 +11,7 @@ import {
 import { Effect, Schema } from "effect"
 import { describe, expect, test } from "vitest"
 
+import { createChatAttachmentTools } from "../attachments/tools"
 import { createChatAdapter } from "../adapter"
 import { chatToolInputSchema } from "../tool-schema"
 import { chatFailedUsageMiddleware } from "../usage-limits"
@@ -29,7 +31,7 @@ const managedStreamClaim: ChatWriterClaim = {
   invocationId: crypto.randomUUID(),
 }
 
-function managedProviderResponse(tool: boolean) {
+function managedProviderResponse(tool: boolean, name = "change") {
   const delta = tool
     ? {
         role: "assistant",
@@ -38,7 +40,10 @@ function managedProviderResponse(tool: boolean) {
             index: 0,
             id: "call_1",
             type: "function",
-            function: { name: "change", arguments: "{}" },
+            function: {
+              name,
+              arguments: name === "read_attachment" ? '{"file":"notes.txt"}' : "{}",
+            },
           },
         ],
       }
@@ -59,6 +64,7 @@ function managedProviderResponse(tool: boolean) {
 }
 
 async function exerciseManagedStream(options: {
+  attachmentTool?: AnyServerTool
   browser?: boolean
   failDecision?: boolean
   failFinal?: boolean
@@ -94,7 +100,7 @@ async function exerciseManagedStream(options: {
       if (typeof init?.body !== "string") throw new Error("Expected provider JSON request")
       prompts.push(JSON.parse(init.body))
       requests += 1
-      return Promise.resolve(managedProviderResponse(requests === 1))
+      return Promise.resolve(managedProviderResponse(requests === 1, options.attachmentTool?.name))
     },
   }
   const definition = toolDefinition({
@@ -105,14 +111,16 @@ async function exerciseManagedStream(options: {
         ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
         : { type: "object", properties: {} },
   })
-  const tool = options.browser
-    ? definition.client()
-    : definition.server(() => {
-        order.push("execute")
-        executed += 1
-        if (options.failTool) throw new Error("Synthetic external outcome uncertainty")
-        return Promise.resolve({ updated: true })
-      })
+  const tool =
+    options.attachmentTool ??
+    (options.browser
+      ? definition.client()
+      : definition.server(() => {
+          order.push("execute")
+          executed += 1
+          if (options.failTool) throw new Error("Synthetic external outcome uncertainty")
+          return Promise.resolve({ updated: true })
+        }))
   const threads = {
     checkpoint: ({ payload, state }: { payload: ChatMessagePayload; state: string }) =>
       Effect.sync(() => {
@@ -310,6 +318,28 @@ describe("managed TanStack persistence boundaries", () => {
       expect(result.saved.at(-1)?.provenance?.usage).toMatchObject({ costUsd: "0.000105" })
     },
   )
+
+  test("commits the server attachment provenance needed for recovery", async () => {
+    const [attachmentTool] = createChatAttachmentTools([
+      {
+        handle: "notes.txt",
+        filename: "notes.txt",
+        mimeType: "text/plain",
+        bytes: Buffer.from("hello"),
+        text: "hello",
+      },
+    ])
+    const result = await exerciseManagedStream({ attachmentTool: attachmentTool! })
+    expect(result.failed).toBe(false)
+    expect(
+      result.saved.flatMap((payload) => payload.parts).find((part) => part.type === "tool-call"),
+    ).toMatchObject({
+      name: "read_attachment",
+      executionLocation: "server_api",
+      declaration: { source: "chat-attachment" },
+    })
+    expect(result.results[0]?.payload.parts[0]?.output).toMatchObject({ content: "hello" })
+  })
 
   test("refreshes provider context between phases without replacing canonical saved history", async () => {
     const result = await exerciseManagedStream({ refresh: true })
