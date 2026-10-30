@@ -43,7 +43,7 @@ describe("production website build", () => {
   })
 
   test("publishes the CLI skill with a digest of the exact served bytes", async () => {
-    const source = await readFile(new URL("../../cli/skills/astralbeam/SKILL.md", import.meta.url))
+    const source = await readFile(new URL("../../skills/astralbeam/SKILL.md", import.meta.url))
     const payload = await readFile(new URL("agent-skills/astralbeam/SKILL.md", distUrl))
     const index: unknown = JSON.parse(await readText(".well-known/agent-skills/index.json"))
     expect(payload).toEqual(source)

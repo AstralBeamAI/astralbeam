@@ -25,7 +25,7 @@ Production caching follows `public/_headers`: hashed build assets stay fresh for
 
 The Website links in docs and the platform's profile menu always open `https://astralbeam.ai/home` directly, including on self-hosted deployments without `website_url`.
 
-The build publishes the [CLI skill](../cli/skills/astralbeam/SKILL.md) and its discovery index from this single source.
+The build publishes the [AstralBeam skill](../skills/astralbeam/SKILL.md) and its discovery index from this single source.
 
 Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
 

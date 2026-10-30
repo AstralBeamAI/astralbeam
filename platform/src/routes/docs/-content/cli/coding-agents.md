@@ -1,20 +1,22 @@
 # Coding agents
 
-Give a coding agent access to AstralBeam through the CLI's bundled Agent Skill and JSON output. [Install the CLI](./getting-started.md#1-install-the-cli) first.
+For app integration, give your coding agent the [AstralBeam skill](/agent-skills/astralbeam/SKILL.md). The CLI is not required.
+
+To manage Tenants and TenantUsers or test chat from the terminal, use the CLI's bundled copy of the same skill and JSON output. [Install the CLI](./getting-started.md#1-install-the-cli) first.
 
 ## 1. Install the skill
 
-The CLI ships an [Agent Skill](https://agentskills.io) that describes its commands, JSON output, exit codes, and safety rules. Run this command in your project to install it for Claude Code:
+The CLI ships an [Agent Skill](https://agentskills.io) for app integration and CLI usage. Run this command from your repository root to install it for agents that read `.agents/skills`, including Codex:
 
 ```sh
 astralbeam skill install
 ```
 
-It writes `.claude/skills/astralbeam/SKILL.md`, so commit it if your whole team should get it. Pass `--dir ~/.claude/skills` to install it for every project, or `--dir .agents/skills` for agents that read that directory. Run `astralbeam skill` to print the skill without installing it.
+It writes `.agents/skills/astralbeam/SKILL.md` in the current directory. Commit this file so it is present in your team's checkouts and cloud workspaces. For Claude Code, pass `--dir .claude/skills`. Use `--dir <path>` for another project or a user-level directory. Run `astralbeam skill` to print the skill without installing it.
 
 Restart the agent session so it loads the skill. Then ask it to use the CLI, for example "create a tenant for customer-42" or "ask our agent what it can do, as user-7".
 
-Skill installers supporting [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) can use [astralbeam.ai](https://astralbeam.ai) as the source.
+Skill installers supporting [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) can use [astralbeam.ai](https://astralbeam.ai) as the source. Repository-based installers can use the [skill directory](https://github.com/AstralBeamAI/astralbeam/tree/main/skills/astralbeam).
 
 ## 2. Give the agent credentials
 
