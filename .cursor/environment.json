@@ -4,8 +4,8 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "install": "./scripts/setup.sh",
-  "start": "service docker start && docker compose up -d --wait && ./scripts/setup.sh",
+  "install": "bun install --frozen-lockfile",
+  "start": "service docker start && SERVICES=docker ./scripts/setup.sh",
   "ports": [
     {
       "name": "Product application",
