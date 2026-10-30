@@ -229,6 +229,21 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: BooleanSettingSchema,
   },
   {
+    key: "asset_delivery",
+    group: "File storage",
+    label: "Asset delivery",
+    description:
+      "Reverse proxy delivery covers avatars, logos and chat previews. Original chat downloads retain application integrity checks. Configure the proxy before enabling.",
+    kind: "enum",
+    required: false,
+    defaultValue: "s3",
+    options: [
+      { value: "s3", label: "Default delivery" },
+      { value: "proxy", label: "Reverse proxy" },
+    ],
+    schema: Schema.Literals(["s3", "proxy"]),
+  },
+  {
     key: "dogfood_organization_id",
     group: "General",
     label: "Owner onboarding",

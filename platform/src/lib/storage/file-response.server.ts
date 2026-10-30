@@ -4,12 +4,15 @@ import { Effect } from "effect"
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { fileObject } from "@/db/schema/files"
+import { Config } from "@/lib/config/config"
 import { StorageObjectMissing, type StorageUnavailable } from "./errors"
+import { assetProxyResponse } from "./asset-proxy.server"
 import type { SignInRequired } from "@/lib/organizations/errors"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { ObjectStorage } from "./object-storage.server"
 
-// Controllers authorize access before issuing a URL. The URL is valid for one minute.
+// Controllers authorize the current file reference before either delivery strategy signs it.
 export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
   organizationId,
   fileId,
@@ -30,14 +33,28 @@ export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
     )
     .pipe(mapDatabaseErrors())
   if (!file) return yield* new StorageObjectMissing()
-  return yield* (yield* ObjectStorage).signedUrl(file)
+  const { request } = yield* ServerRequest
+  return yield* (yield* ObjectStorage).signedUrl({
+    ...file,
+    method: request.method === "HEAD" ? "HEAD" : "GET",
+  })
 })
 
 export function fileResponse<R>(
   url: Effect.Effect<string, SignInRequired | StorageObjectMissing | StorageUnavailable, R>,
-): Effect.Effect<Response, never, R> {
-  return url.pipe(
-    Effect.map((location) => new Response(null, { status: 302, headers: { location } })),
+): Effect.Effect<Response, never, R | ServerRequest | Config> {
+  return Effect.gen(function* () {
+    const { values } = yield* (yield* Config).snapshot
+    if (values.asset_delivery === "proxy") {
+      const { request } = yield* ServerRequest
+      // This detects a missing proxy handler. File access still requires the controller's session.
+      if (request.headers.get("x-asset-proxy") !== "1") return new Response(null, { status: 503 })
+    }
+    const location = yield* url
+    if (values.asset_delivery !== "proxy")
+      return new Response(null, { status: 302, headers: { location } })
+    return yield* assetProxyResponse(location)
+  }).pipe(
     Effect.catchTag("SignInRequired", () => Effect.succeed(new Response(null, { status: 401 }))),
     Effect.catchTag("StorageObjectMissing", () =>
       Effect.succeed(new Response(null, { status: 404 })),

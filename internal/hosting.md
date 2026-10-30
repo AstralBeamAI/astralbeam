@@ -289,6 +289,61 @@ curl --head --connect-timeout 10 --tlsv1.2 --tls-max 1.2 https://astralbeam.ai/
 
 When disabling HSTS, set its max age to zero while HTTPS remains available. Keep HTTPS working until previously issued policies expire, including older policies cached by browsers that have not received the replacement header.
 
+## Optional image and preview delivery through Caddy
+
+Default delivery keeps profile images on direct S3 redirects and chat files on application delivery. For our production deployment, Caddy can stream avatars, logos and chat previews from private storage while AstralBeam only authorizes requests and creates one-minute presigned URLs. Browser URLs remain stable, with `private, no-cache` and S3 ETags for revalidation. Original chat downloads keep their existing application byte verification and `private, no-store`.
+
+1. Use an HTTPS S3 endpoint reachable from Caddy. Keep Platform's port private to the reverse proxy, such as a loopback listener. Leave **Asset delivery** on **Default delivery** until the proxy is ready.
+2. Add the following matcher and handler inside the existing `astralbeam.ai` site, alongside its normal `reverse_proxy localhost:3100`. This uses standard Caddy features, validated with Caddy 2.11.7, without another module, shared credential or filesystem mount:
+
+```caddyfile
+@proxied_assets path /api/files/organizations/*/avatars/* /api/files/organizations/*/logos/* /api/v1/chat/files /api/v1/chat/files/ /api/chat/files /api/chat/files/
+handle @proxied_assets {
+	header ?Cache-Control "private, no-store"
+	reverse_proxy localhost:3100 {
+		header_up X-Asset-Proxy 1
+		header_down -X-Asset-*
+		header_down -X-Accel-*
+		@asset {
+			status 200
+			header X-Accel-Redirect *
+		}
+		handle_response @asset {
+			copy_response_headers {
+				exclude Cache-Control Content-Length Content-Type Content-Disposition Date X-Asset-Upstream X-Asset-Host X-Accel-Redirect
+			}
+			rewrite {rp.header.X-Accel-Redirect}
+			reverse_proxy {rp.header.X-Asset-Upstream} {
+				transport http {
+					tls
+				}
+				header_up -*
+				header_up Host {rp.header.X-Asset-Host}
+				header_up If-None-Match {http.request.header.If-None-Match}
+				header_up If-Modified-Since {http.request.header.If-Modified-Since}
+				@success status 200 304
+				handle_response @success {
+					header >Cache-Control "private, no-cache"
+					copy_response
+				}
+				handle_response {
+					respond "" {rp.status_code}
+				}
+			}
+		}
+	}
+}
+```
+
+3. Follow [Validate and activate Caddy](#validate-and-activate-caddy). Keep debug logging disabled because upstream URLs contain temporary credentials.
+4. At `/configure`, select **Reverse proxy** under **Asset delivery**, then save. Restart other Platform replicas because configuration is cached per process. Each serving Caddy needs the same handler.
+
+The handler preserves application security and CORS headers. It intercepts the application's `X-Accel-Redirect` response and fetches the internally presigned path from S3. It forwards only the storage host and browser validators, excluding application cookies and authorization headers. The `X-Asset-Proxy` request header detects a missing proxy handler, and does not authorize file access. Every request reaches application authorization before S3 can return `304`. Storage error bodies and internal handoff headers are not sent to the browser. This follows <a href="https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#examples" target="_blank" rel="noopener noreferrer">Caddy's response-interception pattern</a> with an S3 upstream.
+
+Verify in browser developer tools that avatars, logos and chat previews return `200` at their application URLs, then `304` on reload with unchanged ETags. A signed-out request must return `401`, even with `If-None-Match`. Chat previews must preserve CORS and sandbox headers and return `204` when unavailable. Original downloads must still return verified bytes with `no-store`. A missing proxy header or an HTTP storage endpoint returns `503` in proxy mode. To roll back, select **Default delivery** and restart other Platform replicas. The handler can remain installed and will pass through the existing S3 redirects.
+
+`no-cache` permits private browser storage while requiring revalidation before reuse. It does not guarantee deletion of cached bytes after a fixed period. Avatar, logo and cached-preview bytes stream through Caddy. Original download verification and preview generation still read source bytes in AstralBeam.
+
 ## Caddy maintenance
 
 ### Rotate the Cloudflare token

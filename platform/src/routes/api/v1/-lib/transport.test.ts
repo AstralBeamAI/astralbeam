@@ -68,6 +68,8 @@ const restTestState = vi.hoisted(() => ({
   agent: vi.fn(),
   run: vi.fn(),
   readFile: vi.fn(),
+  previewUrl: vi.fn(),
+  assetDelivery: "s3",
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
   directoryGet: vi.fn(),
@@ -222,6 +224,7 @@ const restTestServices = Layer.mergeAll(
   Layer.succeed(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
     read: (input) => restTestState.readFile(input) as never,
+    previewUrl: (input) => restTestState.previewUrl(input) as never,
     hydrate: ({ messages }) => Effect.succeed([...messages]),
     attach: () => Effect.succeed(0),
   }),
@@ -277,6 +280,7 @@ const restTestServices = Layer.mergeAll(
       Layer.succeed(Config, {
         setupState: Effect.suspend(() => restTestState.setupState()),
         readStoredValue: () => Effect.succeed(null),
+        get: () => Effect.sync(() => restTestState.assetDelivery),
       } as unknown as Context.Service.Shape<typeof Config>),
     ),
   ),
@@ -413,6 +417,7 @@ function restLastPredicate() {
 afterAll(() => restWebHandler.dispose())
 
 beforeEach(() => {
+  restTestState.assetDelivery = "s3"
   vi.resetAllMocks()
   restTestState.readFile.mockImplementation(
     ({ fileId, preview }: { fileId: string; preview?: boolean }) =>
@@ -812,8 +817,8 @@ describe("REST API through the Effect Fetch handler", () => {
     })
     expect(download.status).toBe(200)
     expect(download.headers.get("content-type")).toBe("image/png")
-    expect(download.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate")
-    expect(download.headers.get("vary")).toBe("Authorization, X-API-Key, X-File-Preview")
+    expect(download.headers.get("cache-control")).toBe("private, no-store")
+    expect(download.headers.get("vary")).toBe("X-File-Preview")
     expect(await download.text()).toBe("saved image")
     expect(restTestState.readFile).toHaveBeenCalledWith({
       scope: { organizationId: restOrgId, tenantId: restTenantId, threadId: restOtherId },
@@ -1214,6 +1219,7 @@ describe("REST API through the Effect Fetch handler", () => {
 
   test("stored artifacts require current conversation access and retain safe download headers", async () => {
     const query = { threadId: restOtherId, fileId: restUserId, filename: "report.txt" }
+    const savedPath = `/chat/files?${new URLSearchParams(query)}`
     const path = `/chat/files?fileId=${restUserId}`
     const unsent = await restRequest(path, {
       headers: { Authorization: "Bearer chat-token", "X-File-Preview": "true" },
@@ -1230,6 +1236,7 @@ describe("REST API through the Effect Fetch handler", () => {
         mimeType: "text/plain",
       }),
     )
+    restTestState.assetDelivery = "proxy"
     const response = await sdkGetThreadAttachment(query, {
       apiUrl: "http://localhost/api",
       astralBeamToken: "chat-token",
@@ -1240,17 +1247,42 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
     expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
+    const previewHeaders = {
+      Authorization: "Bearer chat-token",
+      "X-File-Preview": "true",
+      "X-Asset-Proxy": "1",
+    }
+    restTestState.previewUrl.mockReturnValue(
+      Effect.succeed("https://storage.example/preview.webp?signature=private"),
+    )
+    const preview = await restRequest(savedPath, {
+      headers: previewHeaders,
+    })
+    expect(preview.status).toBe(200)
+    expect(preview.headers.get("x-accel-redirect")).toBe("/preview.webp?signature=private")
+    expect(preview.headers.get("cache-control")).toBe("private, no-store")
+    expect(preview.headers.get("vary")).toBe("X-File-Preview")
+    expect(preview.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
+    expect(await preview.text()).toBe("")
+    restTestState.previewUrl.mockReturnValue(Effect.succeed(undefined))
+    expect((await restRequest(path, { headers: previewHeaders })).status).toBe(204)
     restTestState.readFile.mockClear()
+    restTestState.previewUrl.mockClear()
     restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
-    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+    const denied = await restRequest(savedPath, {
       headers: { Authorization: "Bearer chat-token" },
     })
     expect(denied.status).toBe(404)
     expect(restTestState.readFile).not.toHaveBeenCalled()
+    const deniedPreview = await restRequest(savedPath, {
+      headers: previewHeaders,
+    })
+    expect(deniedPreview.status).toBe(404)
+    expect(restTestState.previewUrl).not.toHaveBeenCalled()
     restTestState.thread.mockReturnValue(Effect.succeed(restThread))
     for (const error of [new ChatThreadInvalid(), new ChatFileUnavailable()]) {
       restTestState.readFile.mockReturnValue(Effect.fail(error))
-      const unavailable = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+      const unavailable = await restRequest(savedPath, {
         headers: { Authorization: "Bearer chat-token" },
       })
       expect(unavailable.status).toBe(error._tag === "ChatThreadInvalid" ? 404 : 503)

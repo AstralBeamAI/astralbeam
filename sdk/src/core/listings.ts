@@ -275,6 +275,7 @@ export function loadDirectoryThreadFile(
     try {
       const response = await getThreadAttachment(params, {
         ...auth,
+        cache: options?.preview ? "default" : "no-store",
         headers: options?.preview ? { "X-File-Preview": "true" } : {},
       })
       return await response.blob()

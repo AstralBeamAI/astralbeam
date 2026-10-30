@@ -1675,7 +1675,7 @@ export function createAstralBeamChat(
       return (
         await getThreadAttachment(params, {
           ...(await requestOptions(!!params.threadId || !options?.preview)),
-          cache: "default",
+          cache: options?.preview ? "default" : "no-store",
           headers: options?.preview ? { "X-File-Preview": "true" } : {},
         })
       ).blob()

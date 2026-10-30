@@ -1386,7 +1386,7 @@ export const getGetThreadAttachmentUrl = (params: GetThreadAttachmentParams) => 
 }
 
 /**
- * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.
+ * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes and remain no-store. Configured reverse proxies can stream previews with private browser caching and ETag revalidation after authorization.
  * @summary Download a chat file
  */
 export const getThreadAttachment = (

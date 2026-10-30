@@ -662,6 +662,10 @@ export class ChatFiles extends Context.Service<
       fileId: string
       preview?: boolean
     }) => Effect.Effect<{ bytes: Uint8Array; mimeType: string }, FileError>
+    readonly previewUrl: (input: {
+      scope: Omit<ChatFileScope, "threadId"> & { threadId?: string }
+      fileId: string
+    }) => Effect.Effect<string | undefined, FileError>
     readonly hydrate: (input: {
       scope: ChatFileScope
       messages: readonly ModelMessage[]
@@ -802,12 +806,11 @@ export class ChatFiles extends Context.Service<
           ),
         )
       }
-      const read = Effect.fnUntraced(function* ({
+      const resolveFile = Effect.fnUntraced(function* ({
         scope,
         fileId,
         preview = false,
-        maxBytes = CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-      }: Parameters<typeof ChatFiles.Service.read>[0] & { maxBytes?: number }) {
+      }: Parameters<typeof ChatFiles.Service.read>[0]) {
         if (!preview && !scope.threadId) return yield* new ChatThreadInvalid()
         // Admission reads uploader-private files. Saved downloads use conversation ownership.
         const ownership = scope.tenantUserId
@@ -818,7 +821,15 @@ export class ChatFiles extends Context.Service<
         if (!ownership) return yield* new ChatThreadInvalid()
         const [saved] = yield* queryFile(fileId, ownership)
         if (!saved) return yield* new ChatThreadInvalid()
-        const file = saved.file
+        return saved.file
+      })
+      const read = Effect.fnUntraced(function* ({
+        scope,
+        fileId,
+        preview = false,
+        maxBytes = CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
+      }: Parameters<typeof ChatFiles.Service.read>[0] & { maxBytes?: number }) {
+        const file = yield* resolveFile({ scope, fileId, preview })
         if (preview)
           return yield* previews.read({ file }).pipe(
             Effect.map((result) => result ?? { bytes: new Uint8Array(), mimeType: "image/webp" }),
@@ -829,6 +840,12 @@ export class ChatFiles extends Context.Service<
           .read({ file })
           .pipe(Effect.mapError(() => new ChatFileUnavailable()))
         return { bytes, mimeType: file.contentType }
+      })
+      const previewUrl = Effect.fnUntraced(function* (
+        input: Parameters<typeof ChatFiles.Service.previewUrl>[0],
+      ) {
+        const file = yield* resolveFile({ ...input, preview: true })
+        return yield* previews.url({ file }).pipe(Effect.mapError(() => new ChatFileUnavailable()))
       })
       const hydrate = ({ scope, messages }: Parameters<typeof ChatFiles.Service.hydrate>[0]) => {
         let totalBytes = 0
@@ -923,6 +940,7 @@ export class ChatFiles extends Context.Service<
       return ChatFiles.of({
         store: (input) => store(input).pipe(mapDatabaseErrors()),
         read: (input) => read(input).pipe(mapDatabaseErrors()),
+        previewUrl: (input) => previewUrl(input).pipe(mapDatabaseErrors()),
         hydrate: (input) => hydrate(input).pipe(mapDatabaseErrors()),
         attach: (input) => attach(input).pipe(mapDatabaseErrors()),
       })

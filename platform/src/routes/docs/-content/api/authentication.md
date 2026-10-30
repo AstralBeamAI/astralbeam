@@ -73,4 +73,4 @@ These tokens cannot authenticate chat, create dashboard sessions, or manage dash
 
 ## Browser transport
 
-The API permits credential-free CORS for GET, POST, PUT, PATCH, DELETE, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. Responses use `Cache-Control: no-store` except successful chat images and previews, which may use a private browser cache for 60 seconds and vary by authorization and preview headers.
+The API permits credential-free CORS for GET, POST, PUT, PATCH, DELETE, and OPTIONS. Browser callers must use scoped JWTs, not organization keys. Preflight needs no authentication. Responses use `Cache-Control: no-store`. Configured reverse proxies may deliver chat previews with `private, no-cache` and ETag revalidation after authorization. Original downloads remain `no-store`.

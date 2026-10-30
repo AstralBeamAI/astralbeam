@@ -112,6 +112,7 @@ File storage uses one private S3-compatible bucket per deployment. Let's configu
 | `s3_access_key_id` | Yes | none | Storage access-key ID, independent of SES credentials |
 | `s3_secret_access_key` | Yes | none | Storage secret access key |
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
+| `asset_delivery` | No | `s3` | Profile images and chat previews: default delivery, or `proxy` with the asset handoff below |
 
 1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
@@ -124,7 +125,7 @@ For versioned buckets, configure your provider's lifecycle rules to expire tempo
 
 You can change the endpoint, region, bucket, and addressing mode at any time. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, let's stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, save the new settings, and restart every server instance. Credential rotation remains supported.
 
-The bucket also stores avatars, logos, and published sandbox files. Its endpoint must be reachable from users' browsers. Signed download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
+The bucket also stores avatars, logos, and published sandbox files. For default profile-image delivery, its endpoint must be reachable from users' browsers. Signed download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
 
 Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
@@ -133,6 +134,22 @@ To rotate credentials, create a key with the same bucket permissions, enter it a
 Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
 Storage failures are logged without file content or credentials. Repair settings at `/configure` and test the connection so durable purges can retry.
+
+### Optional reverse proxy delivery
+
+Keep **Asset delivery** on **Default delivery** unless your reverse proxy implements this handoff. For stable application URLs with browser revalidation, configure the proxy first, then select **Reverse proxy** and save. Keep Platform's backend private to the proxy. Restart other Platform replicas after changing the setting.
+
+The proxy sets `X-Asset-Proxy: 1` on avatar, logo and chat-preview requests. AstralBeam authorizes current file access before returning an empty `200` with these internal response headers:
+
+| Header             | Meaning                                               |
+| ------------------ | ----------------------------------------------------- |
+| `X-Asset-Upstream` | Storage host and port to connect to over HTTPS        |
+| `X-Asset-Host`     | Exact storage `Host` header required by the signature |
+| `X-Accel-Redirect` | Presigned object path and query, preserved exactly    |
+
+For avatars, logos and chat previews, the proxy streams the object, forwards `If-None-Match` and `If-Modified-Since`, and returns storage validators with `private, no-cache` on `200` and `304`. Profile images also support HEAD. Missing previews are generated from verified source bytes before handoff, or return `204` when unavailable. Original chat downloads keep their existing application byte verification and `no-store`. The proxy must strip the internal handoff headers and exclude application cookies and authorization from storage requests. Preserve the application's security headers, and keep errors `no-store`.
+
+Caddy is our production example. Nginx or another proxy needs equivalent response interception and storage routing. Enabling this setting alone does not configure the proxy. Nginx's <a href="https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ignore_headers" target="_blank" rel="noopener noreferrer">`X-Accel-Redirect` support</a> provides internal redirection, but the storage handoff still needs explicit configuration.
 
 ## Model providers
 

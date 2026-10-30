@@ -112,11 +112,19 @@ describe.skipIf(!databaseUrl)("stored file lifecycle", () => {
     const [source] = await rows()
     const key = `${source!.objectKey}.preview.webp`
     const read = Effect.flatMap(FilePreviews, (service) => service.read({ file: source! }))
+    const url = Effect.flatMap(FilePreviews, (service) => service.url({ file: source! }))
+    storedFileFixture.corruptRead = true
+    await expect(runtime.runPromise(url)).rejects.toMatchObject({ _tag: "StorageUnavailable" })
+    storedFileFixture.corruptRead = false
+    expect(await runtime.runPromise(url)).toBe(`https://storage.example/${key}`)
     const preview = await runtime.runPromise(read)
     expect(preview?.bytes).toBeInstanceOf(Uint8Array)
     expect(storedFileFixture.objects.get(key)).toEqual(preview!.bytes)
     storedFileFixture.objects.delete(source!.objectKey)
     expect(await runtime.runPromise(read)).toEqual(preview)
+    storedFileFixture.failRead = true
+    expect(await runtime.runPromise(url)).toBe(`https://storage.example/${key}`)
+    storedFileFixture.failRead = false
     expect(await rows()).toHaveLength(1)
     storedFileFixture.objects.set(source!.objectKey, content)
     storedFileFixture.objects.delete(key)
