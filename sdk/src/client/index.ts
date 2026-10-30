@@ -86,15 +86,17 @@ export function mountAstralBeamChat(
   const style = document.createElement("style")
   style.textContent = `
     [data-slot="chat-loading"] {
-      position: relative; display: grid; place-items: center; height: 100%; color-scheme: light;
+      position: relative; display: flex; flex-direction: column; height: 100%; color-scheme: light;
       background: var(--background, light-dark(#fff, #171717));
       color: var(--foreground, light-dark(#171717, #fafafa));
       font: 14px/1.5 var(--font-sans, system-ui, sans-serif);
     }
     .dark [data-slot="chat-loading"] { color-scheme: dark; }
     [data-slot="chat-loading-title"] {
-      position: absolute; inset-block-start: 0; inset-inline: 12px 64px; line-height: 56px;
-      font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      box-sizing: border-box; height: 56px; flex-shrink: 0; padding-inline: 12px 64px;
+      border-bottom: 1px solid var(--border, color-mix(in srgb, currentColor 14%, transparent));
+      font: 500 16px/56px var(--font-heading, var(--font-sans, system-ui, sans-serif));
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     [data-slot="chat-loading-close"] {
       position: absolute; inset-block-start: 14px; inset-inline-end: 12px;
@@ -117,7 +119,7 @@ export function mountAstralBeamChat(
     }
     [data-slot="chat-loading-close"]:is(:hover, :focus-visible)::after { display: block; }
     [data-slot="chat-loading-status"] {
-      display: flex; align-items: center; gap: 8px; padding: 24px;
+      display: flex; flex: 1; align-items: center; justify-content: center; gap: 8px; padding: 24px;
       color: var(--muted-foreground, inherit);
     }
     [data-slot="chat-loading-status"][data-loading]::before {
@@ -126,9 +128,36 @@ export function mountAstralBeamChat(
       border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
       animation: astralbeam-loading-spin 0.8s linear infinite;
     }
+    [data-slot="chat-loading-footer"] { flex-shrink: 0; padding: 4px 12px 8px; }
+    [data-slot="chat-loading-composer"] {
+      border: 1px solid var(--input, color-mix(in srgb, currentColor 14%, transparent));
+      border-radius: var(--radius, 10px); opacity: 0.5;
+      background: color-mix(in srgb, var(--input, light-dark(#e5e5e5, #ffffff26)) 50%, transparent);
+    }
+    [data-slot="chat-loading-composer"] textarea {
+      display: block; box-sizing: border-box; width: 100%; min-height: 32px; resize: none;
+      border: 0; padding: 6px 10px; background: transparent; color: inherit; font: inherit; line-height: 20px;
+    }
+    [data-slot="chat-loading-composer"] textarea::placeholder { color: var(--muted-foreground, inherit); }
+    [data-slot="chat-loading-actions"] { display: flex; padding: 0 10px 4px; }
+    [data-slot="chat-loading-actions"] button {
+      display: grid; place-items: center; width: 32px; height: 32px; padding: 0; opacity: 0.5;
+      border: 0; border-radius: var(--radius, 10px); background: transparent; color: inherit;
+    }
+    [data-slot="chat-loading-actions"] button:last-child {
+      margin-inline-start: auto; background: var(--primary, light-dark(#262626, #ebebeb));
+      color: var(--primary-foreground, light-dark(#fafafa, #171717));
+    }
+    [data-slot="chat-loading-footer"] p {
+      margin: 4px 0 0; text-align: center; font-size: 12px; line-height: 16px;
+      color: var(--muted-foreground, inherit);
+    }
+    [data-slot="chat-loading"] [hidden] { display: none; }
     @keyframes astralbeam-loading-spin { to { transform: rotate(360deg); } }
     @media (any-pointer: coarse) {
       [data-slot="chat-loading-close"] { inset-block-start: 6px; width: 44px; height: 44px; }
+      [data-slot="chat-loading-composer"] textarea { font-size: 16px; line-height: 24px; }
+      [data-slot="chat-loading-actions"] button { width: 44px; height: 44px; }
     }
     @media (prefers-reduced-motion: reduce) {
       [data-slot="chat-loading-status"][data-loading]::before { animation: none; }
@@ -136,20 +165,42 @@ export function mountAstralBeamChat(
   `
   const loadingTitle = document.createElement("span")
   loadingTitle.dataset.slot = "chat-loading-title"
-  loadingTitle.textContent = live.title ?? DEFAULT_TITLE
-  loadingTitle.hidden = live.showHeader === false
   const close = document.createElement("button")
   close.dataset.slot = "chat-loading-close"
   close.type = "button"
   close.setAttribute("aria-label", "Close chat")
   close.textContent = "×"
-  close.hidden = !live.onClose
   const status = document.createElement("div")
   status.dataset.slot = "chat-loading-status"
   status.dataset.loading = ""
   status.setAttribute("role", "status")
   status.textContent = "Loading chat…"
-  loading.append(style, loadingTitle, close, status)
+  const footer = document.createElement("div")
+  footer.dataset.slot = "chat-loading-footer"
+  // Static markup and Phosphor icons without pulling React into the loader.
+  footer.innerHTML = `
+    <div data-slot="chat-loading-composer">
+      <textarea aria-label="Message" rows="1" disabled></textarea>
+      <div data-slot="chat-loading-actions">
+        <button type="button" aria-label="Attach files" disabled><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,35.73a40,40,0,1,1,56.61,56.55L105,193A24,24,0,1,1,71,159L154.3,74.38A8,8,0,1,1,165.7,85.6L82.39,170.31a8,8,0,1,0,11.27,11.36L192.93,81A24,24,0,1,0,159,47L59.76,147.68a40,40,0,1,0,56.53,56.62l82.06-82A8,8,0,0,1,209.66,122.34Z"/></svg></button>
+        <button type="button" aria-label="Send" disabled><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"/></svg></button>
+      </div>
+    </div>
+    <p>Enter to send, Shift+Enter for a new line. AI can make mistakes.</p>
+  `
+  const input = footer.querySelector("textarea")!
+  const attach = footer.querySelector("button")!
+  const updateLoading = () => {
+    loadingTitle.textContent = live.title ?? DEFAULT_TITLE
+    loadingTitle.hidden = live.showHeader === false
+    input.placeholder = `Message ${live.title ?? DEFAULT_TITLE}…`
+    attach.hidden =
+      live.attachments === false ||
+      (typeof live.attachments === "object" && live.attachments.enabled === false)
+    close.hidden = !live.onClose
+  }
+  updateLoading()
+  loading.append(style, loadingTitle, close, status, footer)
   close.onclick = (event) => {
     if (event.detail < 2) live.onClose?.()
   }
@@ -196,9 +247,7 @@ export function mountAstralBeamChat(
       debug = createDebugLogger(live.debug)
       debug?.("mount", "options updated", { changed: Object.keys(next) })
       applyTheme()
-      loadingTitle.textContent = live.title ?? DEFAULT_TITLE
-      loadingTitle.hidden = live.showHeader === false
-      close.hidden = !live.onClose
+      updateLoading()
       chat?.update(live)
     },
     // No-ops until the lazy chunk resolves: with no chat there is nothing to reset or stop.
