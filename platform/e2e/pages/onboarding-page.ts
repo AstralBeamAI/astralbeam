@@ -8,7 +8,10 @@ export function onboardingPage(page: Page) {
     async expectVisible(): Promise<void> {
       await page.waitForURL(/\/onboarding/)
       await expect(
-        page.getByRole("heading", { name: "Join or create an organization" }),
+        page.getByRole("heading", {
+          level: 1,
+          name: /^(Create your organization|Join your team)$/,
+        }),
       ).toBeVisible()
     },
 
@@ -17,7 +20,7 @@ export function onboardingPage(page: Page) {
     },
 
     async openCreateOrganization(): Promise<void> {
-      const button = page.getByRole("button", { name: "Create a new organization" })
+      const button = page.getByRole("button", { name: "Create organization", exact: true })
       await waitForHydration(button)
       await button.click()
     },
