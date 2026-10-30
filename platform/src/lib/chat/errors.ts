@@ -70,3 +70,12 @@ export class ChatAttachmentsDisabled extends Schema.TaggedError<ChatAttachmentsD
 ) {
   override readonly message = "This agent does not accept file attachments."
 }
+
+export class ChatAttachmentSandboxRequired extends Schema.TaggedError<ChatAttachmentSandboxRequired>()(
+  "ChatAttachmentSandboxRequired",
+  {},
+  { httpApiStatus: 400 },
+) {
+  override readonly message =
+    "CSV, TSV, Office, Parquet, and SQLite attachments require an agent with a sandbox."
+}

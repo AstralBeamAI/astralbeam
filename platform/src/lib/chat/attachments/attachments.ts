@@ -18,46 +18,23 @@ import type { MessageRecord } from "../threads/threads.ts"
 
 import { APP_HANDLE } from "@/lib/constants"
 
-import { profileDelimitedText } from "./profile"
-import { extractOfficeDocument, isOfficeMimeType } from "./office"
 import {
-  CHAT_ATTACHMENT_DELIMITED_MIME_TYPES,
+  CHAT_ATTACHMENT_DATA_MIME_TYPES,
   CHAT_ATTACHMENT_IMAGE_MIME_TYPES,
   CHAT_ATTACHMENT_MAGIC_BYTES,
   CHAT_ATTACHMENT_MAX_BYTES_BY_KIND,
   CHAT_ATTACHMENT_MAX_COUNT,
   CHAT_ATTACHMENT_MAX_FILENAME_LENGTH,
-  CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS,
   CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
   CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION,
-  CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES,
+  CHAT_ATTACHMENT_OFFICE_MIME_TYPES,
   CHAT_ATTACHMENT_PDF_MIME_TYPE,
   CHAT_ATTACHMENT_TEXT_MIME_TYPES,
-  CHAT_ATTACHMENT_UPLOAD_DIRECTORY,
 } from "./constants"
-import type {
-  ChatAttachmentContent,
-  ChatAttachmentFile,
-  ChatAttachmentKind,
-  ChatAttachmentOutcome,
-} from "./types"
+import type { ChatAttachmentFile, ChatAttachmentKind, ChatAttachmentOutcome } from "./types"
 import type { ChatMessages } from "../types"
 
-/**
- * Rewrites a run's user messages into what the model actually receives.
- *
- * Images and PDFs pass through as provider file inputs. Other uploads become files the agent
- * reads through `read_attachment` or code in its sandbox, rather than quoted user instructions.
- * Paging keeps long files readable, and spreadsheets can be analyzed rather than transcribed.
- *
- * Filenames, sheet names, and column names are caller-controlled. They travel only as user
- * messages and tool results, never in a system prompt whose authority they could borrow.
- */
-
-// The AG-UI wire carries a user message's attachments in its `content` array, where a text entry
-// is `{ type: "text", text }`; a caller that posts UIMessages instead carries them in `parts`,
-// where the same entry is `{ type: "text", content }`. Both are normalized, so neither shape can
-// slip an unconverted document past this pass.
+// Normalize both AG-UI `content` and UIMessage `parts` so neither can bypass attachment checks.
 type ContentShape = "agui" | "ui"
 
 interface MediaEntry {
@@ -100,9 +77,7 @@ function isTextualMimeType(mimeType: string): boolean {
   )
 }
 
-// The filename is client-supplied and lands in the prompt, in the provider request, and in a
-// sandbox path, so control characters (which could forge line structure) are replaced and the
-// length is bounded.
+// Filenames reach prompts and provider requests. Bound them and prevent forged line structure.
 export function sanitizeAttachmentFilename(value: unknown, fallback: string): string {
   if (!Predicate.isString(value)) return fallback
   const cleaned = value.replace(/\p{C}/gu, " ").trim()
@@ -117,30 +92,21 @@ function fileExtension(filename: string): string {
   return dot > 0 ? filename.slice(dot + 1).toLowerCase() : ""
 }
 
-/**
- * The declared type, repaired from the extension where a browser labels a data or office file
- * badly: Chrome reports no type at all for `.parquet` and `application/octet-stream` for a `.csv`
- * saved by some tools, and the delivery a file gets depends on getting this right.
- */
+// Browsers can label Office/data files as application/octet-stream or omit their MIME type.
 function resolveMimeType(declared: string, filename: string): string {
   const byExtension = CHAT_ATTACHMENT_MIME_TYPE_BY_EXTENSION[fileExtension(filename)]
   if (byExtension === undefined) return declared
   const trusted =
-    isOfficeMimeType(declared) ||
-    CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(declared) ||
-    CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(declared)
+    CHAT_ATTACHMENT_OFFICE_MIME_TYPES.includes(declared) ||
+    CHAT_ATTACHMENT_DATA_MIME_TYPES.includes(declared)
   return trusted ? declared : byExtension
 }
 
 function attachmentKind(mimeType: string): ChatAttachmentKind | undefined {
   if (CHAT_ATTACHMENT_IMAGE_MIME_TYPES.includes(mimeType)) return "image"
   if (mimeType === CHAT_ATTACHMENT_PDF_MIME_TYPE) return "pdf"
-  if (isOfficeMimeType(mimeType)) return "office"
-  if (
-    CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType) ||
-    CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)
-  )
-    return "data"
+  if (CHAT_ATTACHMENT_OFFICE_MIME_TYPES.includes(mimeType)) return "office"
+  if (CHAT_ATTACHMENT_DATA_MIME_TYPES.includes(mimeType)) return "data"
   if (isTextualMimeType(mimeType)) return "text"
   return undefined
 }
@@ -158,13 +124,7 @@ export function base64ByteLength(value: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding)
 }
 
-/**
- * Decodes a payload into bytes, filling a preallocated array rather than mapping the string.
- * `Uint8Array.from(binary, callback)` runs a JS callback per byte: 513 ms for a 10 MB attachment
- * against 18 ms for this loop, and it is synchronous, so it blocked the event loop for every
- * concurrent request on the replica. `Uint8Array.fromBase64` would be faster still, but it is a
- * Stage 3 proposal that this TypeScript's lib does not declare.
- */
+// A preallocated loop avoids a callback per byte on the shared request thread.
 export function decodeAttachmentBytes(value: string): Uint8Array | undefined {
   const binary = Result.try(() => atob(base64Payload(value).replace(/\s/g, "")))
   if (Result.isFailure(binary)) return undefined
@@ -175,11 +135,7 @@ export function decodeAttachmentBytes(value: string): Uint8Array | undefined {
   return bytes
 }
 
-/**
- * Checks the head of a payload against its declared type. Only the first few bytes are decoded, so
- * a renamed 20 MB file costs nothing to refuse. A type with no known signature (and an undecodable
- * head) passes, leaving the decode or the unpack as the judge.
- */
+// Reject mismatched signatures before decoding the whole payload.
 function hasDeclaredFileSignature(value: string, mimeType: string): boolean {
   const signatures = CHAT_ATTACHMENT_MAGIC_BYTES[mimeType]
   if (!signatures) return true
@@ -208,45 +164,13 @@ function decodeUtf8(bytes: Uint8Array): string | undefined {
   )?.replace(/^\ufeff/, "")
 }
 
-/**
- * Reads a file into its text view and its shape. Delimited text is profiled as the table it is;
- * an office file is unpacked; a Parquet file or a database has no text view at all and is left to
- * the sandbox. Returns the reason instead when the bytes are not the format they claim to be.
- *
- * Dispatches on the MIME type rather than the kind, which is derived from it: `office` and the
- * opaque data types each answer the question directly, so passing the kind in as well would be one
- * more argument to keep consistent with the first.
- */
-function readAttachmentContent(
-  bytes: Uint8Array,
-  mimeType: string,
-): ChatAttachmentContent | { reason: string } {
-  if (isOfficeMimeType(mimeType)) return extractOfficeDocument(bytes, mimeType)
-  if (CHAT_ATTACHMENT_OPAQUE_DATA_MIME_TYPES.includes(mimeType)) return {}
-  const decoded = decodeUtf8(bytes)
-  if (decoded === undefined) return { reason: "it is not valid UTF-8 text." }
-  return {
-    ...(decoded.length > CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS
-      ? { text: decoded.slice(0, CHAT_ATTACHMENT_MAX_TEXT_CHARACTERS), truncated: true }
-      : { text: decoded }),
-    // The whole text is profiled, not the clamped view, so the row count is the file's own.
-    ...(CHAT_ATTACHMENT_DELIMITED_MIME_TYPES.includes(mimeType)
-      ? { tables: [profileDelimitedText(decoded)] }
-      : {}),
-  }
-}
-
 function refusalText(filename: string, mimeType: string, reason: string): string {
   return `The user attached the file "${filename}"${
     mimeType ? ` (${mimeType})` : ""
   }, which could not be included: ${reason} Tell the user if it matters to their request.`
 }
 
-/**
- * A filesystem-safe name that still reads like the original, made unique across the run so two
- * files called `data.csv` are separately addressable. The handle is what the agent passes to
- * `read_attachment` and the basename of the sandbox path, so it is one name for both.
- */
+// A unique, filesystem-safe basename shared by read_attachment and sandbox uploads.
 function attachmentHandle(filename: string, taken: Set<string>): string {
   const cleaned =
     filename
@@ -262,10 +186,7 @@ function attachmentHandle(filename: string, taken: Set<string>): string {
   return handle
 }
 
-export function normalizeChatAttachments(
-  messages: ChatMessages,
-  options: { readonly sandbox: boolean },
-): {
+export function normalizeChatAttachments(messages: ChatMessages): {
   messages: ChatMessages
   attachments: ChatAttachmentOutcome[]
   files: ChatAttachmentFile[]
@@ -275,11 +196,7 @@ export function normalizeChatAttachments(
   const handles = new Set<string>()
   let totalBytes = 0
 
-  /**
-   * One media entry: the provider part it becomes, a refusal, or an attached file. `position` is
-   * the entry's 1-based place among its own message's media entries, which is what the count cap
-   * is about.
-   */
+  // `position` counts media within this message. The byte budget covers the entire run.
   const convert = (
     entry: MediaEntry,
     shape: ContentShape,
@@ -295,9 +212,7 @@ export function normalizeChatAttachments(
           : "attachment",
     )
     const mimeType = resolveMimeType(declared, filename)
-    // The kind follows the MIME type rather than the part type, so a PNG labeled as a document
-    // (or a PDF labeled as an image) is repaired here instead of reaching the provider adapter
-    // as a part it refuses. Audio and video have no kind at all.
+    // Repair image/document part labels from MIME type. Audio and video remain unsupported.
     const kind =
       entry.type === "image" || entry.type === "document" ? attachmentKind(mimeType) : undefined
     const refuse = (reason: string) => {
@@ -351,11 +266,8 @@ export function normalizeChatAttachments(
         },
       }
     }
-    const content = readAttachmentContent(bytes, mimeType)
-    if ("reason" in content) return refuse(content.reason)
-    if (content.text === undefined && !options.sandbox) {
-      return refuse("this agent has no sandbox to open a file of that type in.")
-    }
+    const text = kind === "text" ? decodeUtf8(bytes) : undefined
+    if (kind === "text" && text === undefined) return refuse("it is not valid UTF-8 text.")
     totalBytes += size
     const handle = attachmentHandle(filename, handles)
     const file: ChatAttachmentFile = {
@@ -363,22 +275,14 @@ export function normalizeChatAttachments(
       filename,
       mimeType,
       bytes,
-      ...content,
-      ...(options.sandbox ? { sandboxPath: `${CHAT_ATTACHMENT_UPLOAD_DIRECTORY}/${handle}` } : {}),
+      ...(text === undefined ? {} : { text }),
     }
     files.push(file)
     attachments.push({ filename, mimeType, bytes: size, result: kind, handle })
     return { file }
   }
 
-  /**
-   * Rewrites one user message: media parts become provider parts, refusals, or one line naming
-   * the files that arrived with it. The user's own text is kept, without its metadata.
-   *
-   * That line is all a file leaves in the conversation, and it ties the file to its turn. A
-   * transcript that echoes this message therefore reads as the user attaching a file rather than
-   * as a wall of quoted bytes.
-   */
+  // Keep file contents in tool results. The user message carries only their handles.
   const normalizeUserEntries = (entries: unknown[], shape: ContentShape): unknown[] => {
     const next: unknown[] = []
     const attached: string[] = []
@@ -410,11 +314,7 @@ export function normalizeChatAttachments(
     return next
   }
 
-  // A file is something a user attaches to their own message. Every other role reaches the
-  // provider through the same multimodal path — `convertMessagesToModelMessages` dispatches on
-  // the presence of `parts` before it looks at the role, and the provider adapter maps anything
-  // that is neither `tool` nor `assistant` as a user turn — so a media part smuggled onto a
-  // `developer`, `reasoning`, `activity`, or `tool` message would skip every check above it.
+  // Adapters also convert non-user media parts. Strip them so they cannot bypass user checks.
   const stripMedia = (entries: unknown[]) =>
     entries.filter((entry) => {
       if (!isMediaEntry(entry)) return true

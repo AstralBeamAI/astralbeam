@@ -26,6 +26,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
@@ -625,15 +626,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const run = (input: typeof request) =>
       runtime.runPromise(
         prepareManagedChat(input).pipe(
+          Effect.provide(SandboxProviders.layer),
           Effect.provideService(Agents, {
             resolveForChat: () =>
               Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
           } as unknown as typeof Agents.Service),
         ),
       )
-    for (const [value, mimeType] of [
-      ["/w==", "text/plain"],
-      ["UEFSMQ==", "application/vnd.apache.parquet"],
+    for (const [value, mimeType, errorTag] of [
+      ["/w==", "text/plain", "ChatThreadInvalid"],
+      ["UEFSMQ==", "application/vnd.apache.parquet", "ChatAttachmentSandboxRequired"],
     ] as const) {
       const invalid = await runtime.runPromise(
         files.store({
@@ -672,7 +674,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             ],
           },
         }),
-      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+      ).rejects.toMatchObject({ _tag: errorTag })
       expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(0)
     }
     const first = await run(request)
