@@ -95,6 +95,10 @@ Pass options as React props or apply a subset with `handle.update(options)`. Pre
 
 A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
 
+For a main-panel chat, give its parent a definite height and use `defaultWidth="100%"` with `resizable={false}`. Saved widths still take precedence, so give the panel a dedicated mount `id`. Omit `onClose` to keep it inline on mobile.
+
+Multiple widgets have independent foreground sessions. Their remembered conversations and drafts use `placementKey ?? agentId ?? "default"`, scoped to the verified account and API. For independent chats using the same agent, pass distinct, stable `placementKey` values. Changing the effective key selects its remembered conversation and draft. JavaScript mounts and the headless core accept `placementKey` too. Keys do not grant access or filter history, and mounts opening the same saved thread do not receive each other's live stream.
+
 Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.

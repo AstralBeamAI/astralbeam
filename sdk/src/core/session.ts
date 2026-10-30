@@ -66,6 +66,7 @@ import {
   type ChatThread,
   type ChatPendingInteraction,
   type ChatToolCallPart,
+  chatPlacementKey,
   threadFromRecord,
   newUuid,
   loadThreadMessages,
@@ -113,7 +114,7 @@ export interface ChatSubmissionCallbacks {
  */
 export interface AstralBeamChatCoreOptions extends Pick<
   MountAstralBeamChatOptions,
-  "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug" | "threadId"
+  "agentId" | "apiUrl" | "fetchAstralBeamToken" | "tools" | "debug" | "threadId" | "placementKey"
 > {
   /** Widgets declared to the agent, without a `render`; `onRenderWidget` is asked to draw them. */
   widgets?: Record<string, WidgetDeclaration> | undefined
@@ -128,6 +129,7 @@ export interface AstralBeamChatCoreOptions extends Pick<
 export const CORE_OPTION_KEYS = Object.keys({
   agentId: true,
   threadId: true,
+  placementKey: true,
   apiUrl: true,
   fetchAstralBeamToken: true,
   tools: true,
@@ -1295,8 +1297,10 @@ export function createAstralBeamChat(
       if (!threadKey) return
       selected = selectedThread(threadKey)
     }
-    if (selected && selected !== "new") void openThread(selected, restoring)
-    else if (!restoring) newThread()
+    if (selected && selected !== "new") {
+      if (selected === state.thread?.id && threadKey) selectedThread(threadKey, selected)
+      else void openThread(selected, restoring)
+    } else if (!restoring) newThread()
   }
 
   // A cancelled send's thread is never published, so it cannot capture a later send.
@@ -1526,7 +1530,8 @@ export function createAstralBeamChat(
         toolResults.clear()
       }
       identity = nextIdentity
-      const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}`
+      const scope = JSON.stringify(chatPlacementKey(live))
+      const nextThreadKey = `astralbeam:thread:${live.apiUrl ?? DEFAULT_API_URL}:${nextIdentity}:session:${scope}`
       if (threadKey !== nextThreadKey) {
         // The first identity has nothing to clear, so a send made before it resolves continues.
         if (threadKey !== undefined) changeSelection()
@@ -1572,8 +1577,10 @@ export function createAstralBeamChat(
       const agent = live.agentId
       const apiUrl = live.apiUrl
       const selectedId = live.threadId
+      const placementKey = chatPlacementKey(live)
       const { widgets, onRenderWidget } = live
       live = { ...live, ...next }
+      const placementChanged = chatPlacementKey(live) !== placementKey
       debug = createDebugLogger(live.debug)
       updateAuthentication(authentication, {
         apiUrl: live.apiUrl,
@@ -1589,12 +1596,18 @@ export function createAstralBeamChat(
         changeSelection()
         threadKey = undefined
         observeAuthentication()
+      } else if (placementChanged) {
+        startWithNewThread = false
+        if (!state.thread || live.threadId !== state.thread.id) changeSelection()
+        threadKey = undefined
+        observeAuthentication()
       } else if (live.threadId !== selectedId) {
         selectConfiguredThread()
       }
       if (widgets !== live.widgets || onRenderWidget !== live.onRenderWidget)
         restoreCompletedWidgets(state.messages)
-      if (started && (live.agentId !== agent || live.apiUrl !== apiUrl)) void resolveCapabilities()
+      if (started && (live.agentId !== agent || live.apiUrl !== apiUrl || placementChanged))
+        void resolveCapabilities()
     },
     sendMessage,
     retry,

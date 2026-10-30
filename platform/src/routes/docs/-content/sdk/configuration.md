@@ -7,6 +7,7 @@ Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
+| `placementKey` | `agentId`, then `"default"` | Local namespace for the remembered conversation and drafts. Use distinct keys for independent chats with the same agent |
 | `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Endpoint as `{ url, ...RequestInit }`, or a callback retrieving a server-minted token |
@@ -29,7 +30,7 @@ Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
 - The SDK appends API paths to `apiUrl`. Updating it clears the previous deployment's local session.
 - Token-source changes apply to the next acquisition. See [Authentication](./authentication.md) for endpoint and callback forms.
-- Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
+- Saved conversations retain their selected agent. Updating `agentId` switches the default local session. With an explicit `placementKey`, it keeps the selected conversation and applies to new threads.
 
 ## Chat width
 
@@ -41,6 +42,29 @@ Chat resizes horizontally and fills its parent's height. Give the parent a defin
 - Only widths that differ from the default are saved in `localStorage` across reloads and new tabs. Returning to the default clears the override.
 - Storage combines the mount element's `id` (React's `id` prop) and `agentId` when provided. Without either, chats share one width preference on the same origin.
 - Narrow containers temporarily clamp your preferred width. With `onClose`, mobile chat fills the viewport while keeping the desktop preference. Existing tabs keep their current layout.
+
+## Main-panel and multiple chats
+
+Chat already follows its host's width and fills its height. For a main-panel chat, give the parent a definite height and use the existing sizing options:
+
+```tsx
+<main style={{ height: "calc(100dvh - 56px)" }}>
+  <AstralBeamChat id="onboarding-chat" defaultWidth="100%" resizable={false} />
+</main>
+```
+
+Saved width overrides still take precedence, so use a dedicated mount `id` for this panel. Omit `onClose` for inline chat to avoid its mobile viewport takeover. The host decides whether to hide its usual sidebar on onboarding pages.
+
+Each mount has its own foreground request, tools, and transcript. Local restoration and drafts use `placementKey ?? agentId ?? "default"`, within the verified account and API scope. Different agents are isolated automatically. For independent panes using the same agent, supply distinct, stable `placementKey` values. Changing the effective key selects its remembered conversation and draft, while an explicit `threadId` keeps that conversation selected. Use separate mount IDs for independent width preferences.
+
+```tsx
+<AstralBeamChat id="setup-chat" placementKey="setup" agentId={agentId} />
+<AstralBeamChat id="help-chat" placementKey="help" agentId={agentId} />
+```
+
+JavaScript mounts and the headless core accept `placementKey` too. Keys do not grant access or filter history. Two mounts can open the same saved `threadId`, but replies do not stream between them. Refresh or reopen to load the other's saved changes.
+
+**NOTE**: Earlier SDK versions used shared browser storage. Those local selections and unsent drafts are not automatically assigned to a session key. Saved server conversations remain available through history.
 
 ## Chrome slots
 

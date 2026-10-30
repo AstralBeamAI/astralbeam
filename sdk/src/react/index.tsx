@@ -177,6 +177,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       id,
       agentId,
       threadId,
+      placementKey,
       title,
       showHeader,
       resizable,
@@ -302,6 +303,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       () => ({
         agentId,
         threadId,
+        placementKey,
         apiUrl,
         fetchAstralBeamToken,
         title,
@@ -326,6 +328,7 @@ export const AstralBeamChat = forwardRef<AstralBeamChatRef, AstralBeamChatProps>
       [
         agentId,
         threadId,
+        placementKey,
         apiUrl,
         fetchAstralBeamToken,
         title,
