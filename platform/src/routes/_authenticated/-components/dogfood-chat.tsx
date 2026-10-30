@@ -429,6 +429,8 @@ function IntegrationChecklistWidget() {
   const { data: page, permissions } = query.data
   return (
     <DashboardIntegrationGuide
+      key={organizationId}
+      organizationId={organizationId}
       organizationSlug={organizationSlug}
       modelSetup={page.modelSetup}
       usableApiKeyCount={page.counts.usableApiKeys}
