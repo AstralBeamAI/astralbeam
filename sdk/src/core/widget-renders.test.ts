@@ -180,6 +180,27 @@ function savedWidget(widget: string, id: string) {
   ]
 }
 
+test("a view can detach and reattach without owning the conversation", async () => {
+  savedMessages = savedWidget("card", "retained")
+  const chat = createTestSession({ threadId: thread.id })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(thread.id))
+  const cleanup = vi.fn()
+  const onRenderWidget = vi.fn((_request: WidgetRenderRequest) => cleanup)
+  const onReset = vi.fn()
+  const options = { widgets: { card: { description: "A card" } }, onRenderWidget, onReset }
+  const attached = chat.attachView(options)
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledOnce())
+  expect(() => chat.attachView(options)).toThrow("already has a view")
+  attached.dispose()
+  expect(cleanup).toHaveBeenCalledOnce()
+  expect(chat.getState().thread?.id).toBe(thread.id)
+
+  const replacement = chat.attachView(options)
+  await vi.waitFor(() => expect(onRenderWidget).toHaveBeenCalledTimes(2))
+  replacement.dispose()
+  expect(cleanup).toHaveBeenCalledTimes(2)
+})
+
 test("hydration restores distinct widget calls and skips missing or incompatible definitions", async () => {
   savedMessages = ["card", "card", "incompatible", "removed"].flatMap((widget, index) =>
     savedWidget(widget, String(index)),

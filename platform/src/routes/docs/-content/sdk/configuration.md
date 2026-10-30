@@ -1,11 +1,12 @@
 # Configuration
 
-Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call `chat.update(options)` to change them in place. Start with the [Quickstart](/docs/start/quickstart) if you have not connected authentication yet.
+Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call the JavaScript mount handle's `update(options)` to change them in place. Start with the [Quickstart](/docs/start/quickstart) if you have not connected authentication yet.
 
 ## Options
 
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `chat` | none | An optional session returned by the React hook or vanilla factory. Omit to manage it internally. Configure authentication and tools on its owner, see [Shared session](#shared-session) |
 | `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
 | `placementKey` | `agentId`, then `"default"` | Local namespace for the remembered conversation and drafts. Use distinct keys for independent chats with the same agent |
 | `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
@@ -74,26 +75,35 @@ chat.update({
 - `empty` replaces the empty-transcript state. `composerActions` adds controls next to send.
 - JavaScript slot renderers receive a container and can return a cleanup function.
 
-## Imperative control
+## Shared session
 
-Use a React ref for imperative actions. JavaScript mount handles expose the same methods.
+Most embeds use `<AstralBeamChat {...options} />`, which manages its session internally. Lift `useAstralBeamChat(options)` when application controls need to send messages, select history, reset chat, or move its view between layouts. Configure authentication and tools on the hook, with widgets and appearance on the view.
 
 ```tsx
-import { useRef } from "react"
-import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
+import { AstralBeamChat, useAstralBeamChat } from "@astralbeam/sdk/react"
 
-const chatRef = useRef<AstralBeamChatRef>(null)
-// After mounting <AstralBeamChat ref={chatRef} />:
-chatRef.current?.reset() // starts another thread and preserves saved history
-chatRef.current?.stop() // stops the in-flight generation
+function Assistant() {
+  const chat = useAstralBeamChat({ placementKey: "assistant" })
+  return <AstralBeamChat chat={chat} />
+}
 ```
+
+From a user action, call `await chat.sendMessage("Help me finish setup")`. This sends its argument without reading or clearing the composer draft. Use `chat.retry()` for a `failed` outcome, whose delivery is uncertain, and let users edit or retry `refused` input. Avoid sending automatically from a mount Effect, since remounts can repeat the request.
+
+Call `chat.reset()` to start another conversation and clear its new-conversation draft, or `chat.stop()` to stop generation. Saved history and saved-conversation drafts remain. Use `chat.openThread(id)` to select saved history.
+
+Keep the hook above conditional layouts and mount one interactive view at a time. Detaching the view preserves the response and draft. Unmounting the owner stops the session. A drop-in `<AstralBeamChat {...options} />` owns its session and disposes it when removed.
+
+Outside React, create `chat` with `createAstralBeamChat(options)` from `@astralbeam/sdk/core` and pass it to `mountAstralBeamChat(target, { chat, ...appearance })`. Use `chat.updateOptions()` for session changes and `handle.update()` for presentation. `handle.unmount()` detaches the view. `chat.dispose()` ends the session. Remount to change session ownership.
+
+**NOTE**: This replaces `AstralBeamChatRef` and the mount handle's `reset()`/`stop()`. Use `chat` for actions and `chat.getState()` for state, replacing `.core` and snapshot fields. Directory handles are unchanged.
 
 ## Behavior notes
 
 - Assistant replies render as Markdown. Raw HTML is escaped and executable link protocols are dropped.
 - Turning attachments off hides selected files and prevents sending them. Ready files remain in that conversation's local draft and return when attachments are enabled again.
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
-- To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting stops the foreground response. History remains saved.
+- To defer the chat chunk, render the component only on first open. A supplied session can keep running without its view. Hide with CSS to preserve rendered host component state. History remains saved.
 - The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
 - Changing `placementKey` selects that placement's remembered conversation and draft. An explicit `threadId` takes precedence. Placement keys do not restrict access to saved history.
 

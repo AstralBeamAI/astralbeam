@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { MultimodalContent } from "@tanstack/ai-client"
 import type { DebugLogger } from "../lib/debug.ts"
-import { storedThreadAttachments, storedThreadDraft } from "./lib/drafts.ts"
+import { storedThreadAttachments, storedThreadDraft } from "../lib/drafts.ts"
 import type { DraftAttachment } from "./lib/types.ts"
 
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
@@ -170,13 +170,13 @@ export function useComposerDraft({
     }
   }, [drafts, edit])
 
-  const clear = (key: string, keep?: ThreadDraft) => {
+  const clear = (key: string) => {
     storedThreadDraft(apiUrl, identity, key, "")
     storedThreadDraft(apiUrl, identity, key, "", "sent")
     void storedThreadAttachments({ apiUrl, identity, threadId: key, update: () => [] }).catch(
       (error: unknown) => debug?.("error", "Draft files could not be cleared", error),
     )
-    edit(key, () => keep)
+    edit(key, () => undefined)
   }
 
   // The session keeps these callbacks with its submission, so a Retry settles the same one.
@@ -304,8 +304,8 @@ export function useComposerDraft({
       })
       return follow(files, threadId)
     },
-    /** Empties the new-conversation draft, as starting a new chat does. */
-    reset: () => clear("", { ...EMPTY_DRAFT, attachmentsLoaded: true }),
+    /** Clears local composer state after the session clears the persisted new-conversation draft. */
+    reset: () => edit("", () => ({ ...EMPTY_DRAFT, attachmentsLoaded: true })),
     /** Drops a deleted conversation's draft. */
     forget: (id: string) => clear(id),
   }

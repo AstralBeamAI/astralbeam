@@ -93,13 +93,15 @@ After acquiring a token, components call `POST /api/v1/me` and renew before expi
 
 Pass options as React props or apply a subset with `handle.update(options)`. Presentation changes preserve chat. Changing `threadId` selects a conversation, and changing `apiUrl` clears the previous deployment's state. See [Configuration](https://astralbeam.ai/docs/sdk/configuration) for all options, defaults, layout, and chrome slots.
 
-A `ref` on `<AstralBeamChat>` (and the vanilla handle) exposes `reset()` and `stop()` for hosts that draw their own controls.
+Most embeds let `<AstralBeamChat {...options} />` manage the session. For external controls, create `chat` with `useAstralBeamChat(options)` and render `<AstralBeamChat chat={chat} />`. Configure authentication and tools on the hook, with widgets and appearance on the view. Call actions directly on `chat` and read state through `chat.getState()`.
+
+**Migration:** replace chat refs and mount-handle commands with session actions. Use `chat` instead of `chat.core`, and `chat.getState()` instead of snapshot fields. Directory handles are unchanged. See Configuration for ownership and JavaScript usage.
 
 Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 
-The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat.core`, for example `chat.core.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
+The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat`, for example `chat.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.
 
-Download an attachment with `chat.core.getThreadAttachment({ threadId, fileId })`, which returns a `Blob`. Organization and participant tenant scope come from your credentials. Administrative downloads also pass `tenantId`. Use `{ preview: true }` as the second argument for a thumbnail. Only previews of your unsent uploads may omit `threadId`.
+Download an attachment with `chat.getThreadAttachment({ threadId, fileId })`, which returns a `Blob`. Organization and participant tenant scope come from your credentials. Administrative downloads also pass `tenantId`. Use `{ preview: true }` as the second argument for a thumbnail. Only previews of your unsent uploads may omit `threadId`.
 
 By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account, API, and `placementKey ?? agentId ?? "default"`. Use distinct placement keys for independent chats with the same agent. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per placement, account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
