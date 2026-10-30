@@ -40,6 +40,7 @@ import { CHAT_SANDBOX_MAX_ARTIFACT_BYTES } from "../sandbox/constants"
 import { fileObject } from "@/db/schema/files"
 import { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } from "../attachments/constants"
 import { parseAgentId } from "@/lib/agents/schemas"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
 import { tenantUserEmail } from "@/lib/tenants/schemas"
 import type { TenantScope } from "@/lib/tenants/tenants"
 import { tenantSearchPattern } from "@/lib/tenants/tenants"
@@ -1015,6 +1016,10 @@ export class ChatThreads extends Context.Service<
     readonly assertActive: (input: {
       claim: ChatWriterClaim
     }) => Effect.Effect<void, ChatThreadError>
+    readonly recordRequest: (input: {
+      claim: ChatWriterClaim
+      request: ModelRequestSnapshot
+    }) => Effect.Effect<void, ChatThreadError>
     readonly publishArtifact: (input: {
       claim: ChatWriterClaim
       bytes: Uint8Array
@@ -1696,6 +1701,52 @@ export class ChatThreads extends Context.Service<
           .pipe(mapDatabaseErrors())
       })
 
+      const recordRequest = Effect.fn("ChatThreads.recordRequest")(
+        (input: { claim: ChatWriterClaim; request: ModelRequestSnapshot }) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const { message } = yield* checkClaim(tx, input.claim)
+                if (message.state !== "draft") return yield* new ChatThreadConflict()
+                const requests = message.requestAccounting?.requests ?? []
+                const existing = requests.find((request) => request.id === input.request.id)
+                if (existing) {
+                  const { usage: _usage, costUsd: _cost, ...snapshot } = existing
+                  const { usage: _nextUsage, costUsd: _nextCost, ...nextSnapshot } = input.request
+                  if (!isDeepStrictEqual(snapshot, nextSnapshot))
+                    return yield* new ChatThreadConflict()
+                  if (
+                    input.request.usage === undefined ||
+                    isDeepStrictEqual(existing, input.request)
+                  )
+                    return
+                }
+                yield* tx
+                  .update(chatMessage)
+                  .set({
+                    firstRequestAt: sql`least(${chatMessage.firstRequestAt}, ${input.request.startedAt}::timestamptz)`,
+                    lastRequestAt: sql`greatest(${chatMessage.lastRequestAt}, ${input.request.startedAt}::timestamptz)`,
+                    requestAccounting: {
+                      version: 2,
+                      requests: existing
+                        ? requests.map((request) =>
+                            request.id === input.request.id ? input.request : request,
+                          )
+                        : [...requests, input.request],
+                    },
+                  })
+                  .where(
+                    and(
+                      messageWhere(input.claim.scope, input.claim.threadId),
+                      eq(chatMessage.id, input.claim.assistantMessageId),
+                      eq(chatMessage.state, "draft"),
+                    ),
+                  )
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
+      )
+
       const assertActive = Effect.fn("ChatThreads.assertActive")(
         ({ claim }: { claim: ChatWriterClaim }) =>
           db
@@ -1904,6 +1955,7 @@ export class ChatThreads extends Context.Service<
         removeParticipant,
         admit,
         checkpoint,
+        recordRequest,
         assertActive,
         publishArtifact,
         nextDraft,

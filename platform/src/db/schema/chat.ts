@@ -14,11 +14,13 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { ModelRequestSnapshotSchema } from "@/lib/model-providers/schemas.ts"
 import {
   deferrableForeignKey,
   schemaJsonb,
   lockVersion,
   timestamps,
+  timestampWithTimeZone,
   uuidV7,
 } from "../lib/columns.ts"
 import { fileObject } from "./files.ts"
@@ -224,6 +226,14 @@ export const chatMessage = snakeCase.table(
     // Versioned, validated provenance, provider continuation, and input tool declarations. The current invocation ID fences producer writes.
     // Credentials are excluded. Visible content belongs in message parts, and provider context is derived separately.
     metadata: schemaJsonb(ChatMessageMetadataSchema).notNull(),
+    requestAccounting: schemaJsonb(
+      Schema.Struct({
+        version: Schema.Literals([1, 2]),
+        requests: Schema.Array(ModelRequestSnapshotSchema),
+      }).check(boundedChatJson),
+    ),
+    firstRequestAt: timestampWithTimeZone(),
+    lastRequestAt: timestampWithTimeZone(),
     // Lifecycle on the initiating user message. Its accepted content remains complete throughout execution.
     turnState: chatMessageTurnStateEnum(),
     ...timestamps(),
@@ -253,6 +263,15 @@ export const chatMessage = snakeCase.table(
         table.tenantId,
         sql`(${table.metadata}->'provenance'->>'initiatorTenantUserId')`,
         table.createdAt,
+      )
+      .where(sql`${table.role} = 'assistant'`),
+    index("chat_message_user_request_usage_idx")
+      .on(
+        table.organizationId,
+        table.tenantId,
+        sql`(${table.metadata}->'provenance'->>'initiatorTenantUserId')`,
+        table.lastRequestAt,
+        table.firstRequestAt,
       )
       .where(sql`${table.role} = 'assistant'`),
     deferrableForeignKey({

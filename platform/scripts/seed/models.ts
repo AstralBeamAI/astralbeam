@@ -60,6 +60,13 @@ export async function seedModelProviders(
         modelProviderId,
         modelId: SEED_MODEL_PROVIDER.modelId,
         name: SEED_MODEL_PROVIDER.modelName,
+        pricingHistory: [
+          {
+            id: crypto.randomUUID(),
+            effectiveFrom: new Date().toISOString(),
+            policy: { kind: "catalog" },
+          },
+        ],
       })
       .returning({ id: providerModel.id })
     const assigned = await transaction

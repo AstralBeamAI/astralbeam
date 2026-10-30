@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "54f8935b-b07d-4dec-bc6c-e044ae7cabe7",
+  "prevIds": [
+    "0183fddd-426f-44fa-9670-3fc9cd3249cc"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "chat_message",
+        "request_accounting"
+      ],
+      "writes": [
+        "s|col|public.chat_message.request_accounting",
+        "n|col|public.chat_message.request_accounting",
+        "e|col|public.chat_message.request_accounting"
+      ],
+      "reads": [
+        "n|tbl|public.chat_message",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "provider_model",
+        "pricing_history"
+      ],
+      "writes": [
+        "s|col|public.provider_model.pricing_history",
+        "n|col|public.provider_model.pricing_history",
+        "e|col|public.provider_model.pricing_history"
+      ],
+      "reads": [
+        "n|tbl|public.provider_model",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chat_message",
+        "name": "request_accounting",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "provider_model",
+        "name": "pricing_history",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

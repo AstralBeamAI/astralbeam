@@ -7,7 +7,7 @@ import { Effect } from "effect"
 
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import {
-  effectiveModelConfiguration,
+  catalogModelConfiguration,
   readModelPriceCatalog,
 } from "@/lib/model-providers/pricing-catalog.server"
 import type { ModelProviderType } from "@/lib/model-providers/schemas"
@@ -89,12 +89,10 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           ].map((model) => ({
             modelId: model.modelId,
             name: model.name,
-            configuration: effectiveModelConfiguration({
+            configuration: catalogModelConfiguration({
               catalog: pricing,
               providerType,
               modelId: model.modelId,
-              configured:
-                model.configuration?.pricingSource.kind === "catalog" ? model.configuration : null,
             }),
           }))
         const catalog = {

@@ -55,7 +55,6 @@ const restTestState = vi.hoisted(() => ({
   writes: [] as unknown[],
   order: [] as SQL[],
   limits: [] as number[],
-  usageReplies: [] as unknown[],
   usageTotals: [] as unknown[],
   usagePredicates: [] as SQL[],
   keyRows: [] as { id: string; name?: string; slug?: string }[],
@@ -167,8 +166,6 @@ function restTestDatabase(): EffectDatabase {
       return Effect.succeed(restTestState.usageTotals)
     },
     limit(limit: number) {
-      if (this.table === chatMessage)
-        return Effect.succeed(restTestState.usageReplies.splice(0, limit))
       if (this.table === organization) return Effect.succeed(restTestState.keyRows)
       restTestState.limits.push(limit)
       return result()
@@ -344,6 +341,9 @@ const restSavedMessage: MessageRecord = {
   turnMessageId: null,
   turnState: "completed",
   metadata: { version: 1 },
+  requestAccounting: null,
+  firstRequestAt: null,
+  lastRequestAt: null,
   payload: { version: 1, parts: [{ id: "part", type: "text", content: "Saved history" }] },
   sourceAssistantMessageId: null,
   sourceToolPartId: null,
@@ -430,7 +430,6 @@ beforeEach(() => {
     writes: [],
     order: [],
     limits: [],
-    usageReplies: [],
     usageTotals: [],
     usagePredicates: [],
     logs: [],
@@ -1459,47 +1458,10 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(restTestState.usagePredicates).toHaveLength(0)
   })
 
-  test("usage batches legacy pricing and treats missing costs as zero", async () => {
-    const pricedReply = {
-      tenantUserId: restUserId,
-      id: restUserId,
-      threadId: restTenantId,
-      createdAt: "2024-02-29 07:04:56.123456+00",
-      usage: { promptTokens: 1000, completionTokens: 0 },
-      providerId: restOrgId,
-      providerType: "openai",
-      modelId: "custom",
-      configuration: {
-        currency: "USD",
-        pricingSource: { kind: "manual" },
-        prices: { inputPerMillion: "3", outputPerMillion: "15" },
-        contextTiers: [],
-        maxInputTokens: 100_000,
-        contextWindowTokens: null,
-        maxOutputTokens: 4000,
-        outputCap: 1000,
-      },
-    }
-    restTestState.usageReplies = [
-      { ...pricedReply, usage: null },
-      ...Array.from({ length: 5000 }, () => ({
-        ...pricedReply,
-        usage: { promptTokens: 1, completionTokens: 0 },
-      })),
-      {
-        ...pricedReply,
-        providerId: restOtherId,
-        configuration: {
-          ...pricedReply.configuration,
-          prices: { inputPerMillion: "7", outputPerMillion: "15" },
-        },
-      },
-      { ...pricedReply, tenantUserId: restOtherId, usage: null },
-      { ...pricedReply, tenantUserId: restOtherId },
-    ]
+  test("usage returns recorded totals and zero for users without costs", async () => {
     restTestState.usageTotals = [
-      { tenantUserId: restUserId, cost: "1.484567", needsPricing: true },
-      { tenantUserId: restOtherId, cost: "0", needsPricing: true },
+      { tenantUserId: restUserId, cost: "1.484567" },
+      { tenantUserId: restOtherId, cost: "0" },
     ]
     const ids = [restUserId, restOtherId, restTenantId]
     restTestState.rows.push(
@@ -1519,7 +1481,7 @@ describe("REST API through the Effect Fetch handler", () => {
       end: "2024-06-01T07:04:56.123Z",
       items: ids.map((id, index) => ({
         tenant_user_id: id,
-        cost_usd: ["1.506567", "0.003", "0"][index],
+        cost_usd: ["1.484567", "0", "0"][index],
       })),
     })
     expect(restLastPredicate().params).toEqual([restOrgId, restTenantId, ...ids, restOrgId])
@@ -1529,15 +1491,13 @@ describe("REST API through the Effect Fetch handler", () => {
       restTenantId,
       "assistant",
       "draft",
+      ...ids,
       "2024-02-29T07:04:56.123Z",
       "2024-06-01T07:04:56.123Z",
-      ...ids,
+      "2024-02-29T07:04:56.123Z",
+      "2024-06-01T07:04:56.123Z",
     ])
-    expect(savedReplies.sql).toContain('"chat_message"."created_at" >=')
-    expect(savedReplies.sql).toContain('"chat_message"."created_at" <')
-    expect(new PgDialect().sqlToQuery(restTestState.usagePredicates[2]!).params).toContain(
-      pricedReply.createdAt,
-    )
+    expect(restTestState.usagePredicates).toHaveLength(1)
     restTestState.rows.push(
       [restTenantRow],
       ids.map((id) => ({ id })),

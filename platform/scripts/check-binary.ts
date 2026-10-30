@@ -17,6 +17,8 @@ import packageJson from "../package.json" with { type: "json" }
 
 const BINARY_CHECK_START_TIMEOUT_MS = 20_000
 const BINARY_CHECK_FETCH_TIMEOUT_MS = 2_000
+// Shutdown has separate five-second HTTP drain and resource cleanup budgets.
+const BINARY_CHECK_SHUTDOWN_TIMEOUT_MS = 11_000
 const runBinaryCheckCommand = promisify(execFile)
 
 async function reserveBinaryCheckPort() {
@@ -157,7 +159,10 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
   const processId = binaryProcess.pid
   if (processId === undefined) throw new Error("Binary process did not start")
   process.kill(processId, "SIGTERM")
-  const stopped = await Promise.race([status.then(() => true), delay(5_000, false)])
+  const stopped = await Promise.race([
+    status.then(() => true),
+    delay(BINARY_CHECK_SHUTDOWN_TIMEOUT_MS, false),
+  ])
   if (stopped) {
     if (binaryProcess.exitCode !== 0) {
       throw new Error("Binary did not exit cleanly after SIGTERM")
@@ -166,7 +171,7 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
   }
   process.kill(processId, "SIGKILL")
   await status
-  throw new Error("Binary did not exit within 5 seconds of SIGTERM")
+  throw new Error("Binary did not exit within 11 seconds of SIGTERM")
 }
 
 async function runBinaryCheck() {

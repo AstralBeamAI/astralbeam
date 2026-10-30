@@ -10,6 +10,8 @@ import {
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { TestConsole } from "effect/testing"
 import { beforeEach, vi } from "vitest"
+import type { createChatAdapter } from "./adapter"
+import type { ModelRequestSnapshot } from "@/lib/model-providers/schemas"
 
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
@@ -18,7 +20,7 @@ const chatRunTest = vi.hoisted(() => ({
     messages: unknown[]
     systemPrompts: string[]
     tools: Array<{ name: string }>
-    adapter: { model: string }
+    adapter: ReturnType<typeof createChatAdapter>
     abortController: AbortController
     reasoning?: unknown
     toolExecution?: string
@@ -112,6 +114,8 @@ function chatTestLayer(options: {
   readonly history?: MessageRecord[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
+  readonly pricing?: typeof ModelProviders.Service.pricing
+  readonly recordRequest?: typeof ChatThreads.Service.recordRequest
 }) {
   const agents = {
     resolveForChat: () =>
@@ -140,7 +144,7 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(null),
+        pricing: options.pricing ?? (() => Effect.succeed(null)),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -153,6 +157,7 @@ function chatTestLayer(options: {
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
         assertActive: () => Effect.void,
+        recordRequest: options.recordRequest ?? (() => Effect.void),
         interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
     ]),
@@ -202,6 +207,94 @@ describe("Chat.run", () => {
           assert.isTrue(typeof native === "object" && typeof native.logger?.debug === "function")
         } else assert.strictEqual(native, false)
       }).pipe(Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }))),
+  )
+
+  it.effect.each(["failed", "cancelled", "charged"])(
+    "requires a durable request snapshot before dispatch: %s",
+    (outcome) => {
+      let recorded = false
+      let charged: ModelRequestSnapshot | undefined
+      let dispatched = 0
+      const abortController = new AbortController()
+      return Effect.gen(function* () {
+        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+        const adapter = chatRunTest.options[0]!.adapter
+        yield* Effect.promise(async () => {
+          const { chat } = await vi.importActual<typeof import("@tanstack/ai")>("@tanstack/ai")
+          for await (const _chunk of chat({
+            threadId: "request-snapshot-test",
+            adapter,
+            abortController,
+            messages: [{ role: "user", content: "Hello" }],
+          })) {
+            // Drain the native adapter against the synthetic HTTP boundary.
+          }
+        })
+        assert.strictEqual(dispatched, outcome === "charged" ? 1 : 0)
+        if (outcome === "charged") {
+          assert.strictEqual(charged?.costUsd, "0.000036")
+          assert.strictEqual(charged?.usage?.promptTokens, 10)
+          assert.strictEqual(charged?.usage?.completionTokens, 2)
+        }
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, sandboxProviderId: null },
+            model: {
+              ...CHAT_TEST_MODEL,
+              fetch: () => {
+                assert.strictEqual(recorded, true)
+                dispatched += 1
+                return Promise.resolve(
+                  new Response(
+                    [
+                      {
+                        type: "response.created",
+                        response: { id: "response", model: "test-model", output: [] },
+                      },
+                      {
+                        type: "response.completed",
+                        response: {
+                          id: "response",
+                          model: "test-model",
+                          status: "completed",
+                          output: [],
+                          usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+                        },
+                      },
+                    ]
+                      .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+                      .join(""),
+                    { headers: { "Content-Type": "text/event-stream" } },
+                  ),
+                )
+              },
+            },
+            pricing: () =>
+              Effect.succeed({
+                currency: "USD",
+                pricingSource: { kind: "manual" },
+                prices: { inputPerMillion: "2", outputPerMillion: "8" },
+                contextTiers: [],
+              }),
+            recordRequest: ({ claim, request }) => {
+              if (request.usage) charged = request
+              assert.deepStrictEqual(claim, chatTestExecution.claim)
+              assert.strictEqual(request.providerId, CHAT_TEST_MODEL.providerId)
+              assert.strictEqual(request.modelId, CHAT_TEST_MODEL.modelId)
+              assert.strictEqual(JSON.stringify(request).includes(CHAT_TEST_MODEL.apiKey), false)
+              return outcome !== "failed"
+                ? Effect.promise(async () => {
+                    if (outcome === "cancelled") abortController.abort()
+                    await Promise.resolve()
+                    recorded = true
+                  })
+                : Effect.die("Snapshot unavailable")
+            },
+          }),
+        ),
+      )
+    },
   )
 
   it.effect.each([true, false])(

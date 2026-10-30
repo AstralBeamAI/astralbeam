@@ -1,0 +1,156 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "737891a8-ca6c-41f1-a4a9-5ecf792954d6",
+  "prevIds": [
+    "ec41487a-0de3-4c96-8338-defe74462cac"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "chat_message",
+        "first_request_at"
+      ],
+      "writes": [
+        "s|col|public.chat_message.first_request_at",
+        "n|col|public.chat_message.first_request_at",
+        "e|col|public.chat_message.first_request_at"
+      ],
+      "reads": [
+        "n|tbl|public.chat_message",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "chat_message",
+        "last_request_at"
+      ],
+      "writes": [
+        "s|col|public.chat_message.last_request_at",
+        "n|col|public.chat_message.last_request_at",
+        "e|col|public.chat_message.last_request_at"
+      ],
+      "reads": [
+        "n|tbl|public.chat_message",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "chat_message",
+        "chat_message_user_request_usage_idx"
+      ],
+      "writes": [
+        "s|idx|public.chat_message_user_request_usage_idx",
+        "n|idx|public.chat_message_user_request_usage_idx",
+        "e|idx|public.chat_message_user_request_usage_idx",
+        "n|rel|public.chat_message_user_request_usage_idx"
+      ],
+      "reads": [
+        "n|tbl|public.chat_message",
+        "n|sch|public",
+        "n|col|public.chat_message.organization_id",
+        "n|col|public.chat_message.tenant_id",
+        "n|col|public.chat_message.last_request_at",
+        "n|col|public.chat_message.first_request_at"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chat_message",
+        "name": "first_request_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chat_message",
+        "name": "last_request_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "chat_message",
+        "name": "chat_message_user_request_usage_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "organization_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "tenant_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "(\"metadata\"->'provenance'->>'initiatorTenantUserId')",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "last_request_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "first_request_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"role\" = 'assistant'",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

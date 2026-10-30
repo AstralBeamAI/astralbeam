@@ -20,6 +20,17 @@ const catalogMatchSchema: Schema.Codec<CatalogMatch> = Schema.suspend(() =>
   ]),
 )
 const catalogRateSchema = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0))
+const catalogDateSchema = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/),
+  Schema.makeFilter((value) => {
+    const date = new Date(`${value}T00:00:00Z`)
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.getUTCFullYear() > 0 &&
+      date.toISOString().startsWith(value)
+    )
+  }),
+)
 const catalogPricesSchema = Schema.Record(
   Schema.String,
   Schema.Union([
@@ -53,7 +64,7 @@ const catalogProviderSchema = Schema.Struct({
                   type: Schema.Literal("start_date").pipe(
                     Schema.withDecodingDefaultKey(Effect.succeed("start_date")),
                   ),
-                  start_date: Schema.String,
+                  start_date: catalogDateSchema,
                 }),
                 Schema.Struct({
                   type: Schema.Literal("time_of_date").pipe(
