@@ -1,5 +1,5 @@
 {
   "setup-worktree-unix": [
-    "bash scripts/copy-worktree-env.sh"
+    "bash scripts/setup.sh --worktree"
   ]
 }
