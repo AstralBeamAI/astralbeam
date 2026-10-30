@@ -101,7 +101,7 @@ The headless session exposes conversation navigation, search, and pagination. Wi
 
 Download an attachment with `chat.core.getThreadAttachment({ threadId, fileId })`, which returns a `Blob`. Organization and participant tenant scope come from your credentials. Administrative downloads also pass `tenantId`. Use `{ preview: true }` as the second argument for a thumbnail. Only previews of your unsent uploads may omit `threadId`.
 
-By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account and API. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
+By default, `threadId: "auto"` restores this tab's selection after reload using session storage, scoped to the current account, API, and `placementKey ?? agentId ?? "default"`. Use distinct placement keys for independent chats with the same agent. A fresh, independently opened tab starts a new chat. Use `threadId: "new"` to bypass restoration, or pass a saved thread UUID. The widget keeps unsent text and uploaded file references in local storage per placement, account, API, and conversation. Reopening restores the draft without sending it automatically. The host owns sidebar visibility and can persist it separately in session storage.
 
 ## Tools and widgets
 

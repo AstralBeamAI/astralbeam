@@ -35,7 +35,7 @@ import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import { createDebugCallbacks } from "./lib/stream-debug.ts"
 import { type AstralBeamChatCoreOptions, createAstralBeamChat } from "../core/session.ts"
 import { authenticationIdentity } from "../core/auth.ts"
-import { newUuid } from "../core/threads.ts"
+import { chatPlacementKey, newUuid } from "../core/threads.ts"
 import type { DraftAttachment, QuestionnaireAnswer } from "./lib/types.ts"
 import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib/utils.ts"
 import type { ChatController } from "./index.tsx"
@@ -71,6 +71,7 @@ export function ChatWidget({
     () => ({
       agentId: options.agentId,
       threadId: options.threadId,
+      placementKey: options.placementKey,
       apiUrl: options.apiUrl,
       fetchAstralBeamToken: options.fetchAstralBeamToken,
       tools: options.tools,
@@ -82,6 +83,7 @@ export function ChatWidget({
     [
       options.agentId,
       options.threadId,
+      options.placementKey,
       options.apiUrl,
       options.fetchAstralBeamToken,
       options.tools,
@@ -168,7 +170,9 @@ export function ChatWidget({
   const composer = useComposerDraft({
     apiUrl,
     verifiedIdentity:
-      auth.status === "ready" ? authenticationIdentity(auth.currentUser) : undefined,
+      auth.status === "ready"
+        ? JSON.stringify([authenticationIdentity(auth.currentUser), chatPlacementKey(options)])
+        : undefined,
     threadId: chatState.thread?.id ?? "",
     canLoad: auth.status === "ready" && (history === "idle" || history === "failed"),
     debug,

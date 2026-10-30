@@ -149,12 +149,14 @@ export interface AstralBeamChatTheme {
 export interface MountAstralBeamChatOptions {
   /**
    * Public ID of the organization-owned agent. Omit it to use the organization's default agent,
-   * which the dashboard's agents page selects. Saved conversations keep their agent,
-   * and an update applies to new threads.
+   * which the dashboard's agents page selects. Saved conversations keep their agent.
+   * Changing this also switches the local session unless `placementKey` is explicit.
    */
   agentId?: string | undefined
   /** Defaults to `"auto"`, restoring this tab's selection. Use `"new"` for a fresh chat, or a saved thread UUID. */
   threadId?: string | undefined
+  /** Local persistence key for this chat placement. Defaults to `agentId`, then `"default"`. */
+  placementKey?: string | undefined
   /** Name shown in the widget's header. Default `"AstralBeam"`. */
   title?: string | undefined
   /**

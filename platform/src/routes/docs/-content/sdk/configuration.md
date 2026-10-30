@@ -7,6 +7,7 @@ Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `threadId` | `"auto"` | Restore this tab's selection, use `"new"` for a fresh chat, or pass a saved thread UUID |
+| `placementKey` | `agentId`, then `"default"` | Local namespace for the remembered conversation and drafts. Use distinct keys for independent chats with the same agent |
 | `agentId` | organization's default agent | `agent_<orgId>_<id>`, copied from the dashboard |
 | `apiUrl` | `https://astralbeam.ai/api` | Base URL of the AstralBeam API, the widget streams from `/v1/chat` |
 | `fetchAstralBeamToken` | `{ url: "/api/astralbeam/token" }` | Endpoint as `{ url, ...RequestInit }`, or a callback retrieving a server-minted token |
@@ -29,7 +30,7 @@ Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call
 - For self-hosting, set `apiUrl` to your deployment’s `/api` base. Send tokens only to the deployment that issued the API key.
 - The SDK appends API paths to `apiUrl`. Updating it clears the previous deployment's local session.
 - Token-source changes apply to the next acquisition. See [Authentication](./authentication.md) for endpoint and callback forms.
-- Saved conversations retain their selected agent. Updating `agentId` applies to new threads.
+- Saved conversations retain their selected agent. Updating `agentId` switches the default local session. With an explicit `placementKey`, it keeps the selected conversation and applies to new threads.
 
 ## Chat width
 
@@ -94,6 +95,7 @@ chatRef.current?.stop() // stops the in-flight generation
 - Dropping a widget from `widgets` disposes any render of it still in the transcript.
 - To defer the chat chunk, render the component only on first open. Hide with CSS afterwards, since unmounting stops the foreground response. History remains saved.
 - The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
+- Changing `placementKey` selects that placement's remembered conversation and draft. An explicit `threadId` takes precedence. Placement keys do not restrict access to saved history.
 
 ## Saved conversations
 
@@ -112,6 +114,8 @@ Conversations save automatically and start private. Authenticated users can reop
 ```
 
 Duplicating a tab or opening one through an opener can copy its initial session storage, including the pending draft before a conversation is saved. The tabs maintain independent selections afterwards.
+
+**NOTE**: Existing shared browser selections and unsent drafts are not migrated to placement keys. Saved server conversations remain available through history.
 
 ## MCP server management
 
