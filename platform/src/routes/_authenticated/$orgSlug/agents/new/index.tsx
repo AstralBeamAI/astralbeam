@@ -3,7 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
-import { AgentForm } from "../-components/agent-form"
+import { AgentForm } from "../../-components/agent-form"
 import { getNewAgentPageData } from "./-functions/get-new-agent-page-data"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/agents/new/")({

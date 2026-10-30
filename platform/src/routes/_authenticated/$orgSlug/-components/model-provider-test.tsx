@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select"
 import type { OrganizationModelProvider } from "@/lib/model-providers/model-providers.server"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { testModelProvider } from "../-functions/test-model-provider"
+import { testModelProvider } from "../models/-functions/test-model-provider"
 
 export function ModelProviderTest({
   organizationSlug,

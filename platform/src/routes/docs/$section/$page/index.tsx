@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-route
 import { parseMarkdown } from "@tanstack/markdown"
 import { docsMarkdownExtensions } from "@tanstack/markdown/extensions/docs"
 import { APP_NAME } from "@/lib/constants"
-import { DocsMarkdown } from "../../-components/docs-markdown"
+import { DocsMarkdown } from "@/components/docs/docs-markdown"
 import {
   DOCS_SECTIONS,
   findDocsArticleNeighbors,
