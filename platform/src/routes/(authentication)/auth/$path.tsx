@@ -1,4 +1,4 @@
-import { parseAuthResult, viewPaths } from "@better-auth-ui/core"
+import { authQueryKeys, parseAuthResult, viewPaths } from "@better-auth-ui/core"
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 
 import { Auth } from "@/components/auth/auth"
@@ -37,6 +37,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
       })
     }
 
+    await context.queryClient.invalidateQueries({ queryKey: authQueryKeys.session })
     const access = await getRouteSessionAccessDecision(context.queryClient)
     if (access.status === "signed-out") {
       if (params.path === "accept-invitation") {
