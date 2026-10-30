@@ -23,14 +23,16 @@ export function parseClientIpHeaders(value: string): string[] {
 }
 
 export function proxySettingsFromValues(values: ConfigValues) {
-  const trustProxy = values.trust_proxy?.trim() ?? ""
-  const trustedProxies = [
-    "127.0.0.1",
-    "::1",
-    ...(trustProxy === "true" ? [] : trustProxy.split(",")),
-  ]
-    .map((address) => address.trim())
-    .filter(Boolean)
+  const trustProxy = values.trust_proxy?.trim() || "false"
+  const trustedProxies = ["true", "false"].includes(trustProxy)
+    ? []
+    : trustProxy
+        .split(",")
+        .map((address) => address.trim())
+        .filter(Boolean)
+  if (!["true", "false"].includes(trustProxy) && trustedProxies.length === 0) {
+    throw new Error("Use true, false, or a comma-separated list of proxy IPs/CIDRs")
+  }
 
   const addresses = trustedProxies.map((proxy) => {
     const parsed = IpInterface.fromStringUnsafe(proxy)
@@ -56,7 +58,7 @@ export function isTrustedProxyAddress(
   settings = proxySettingsFromValues({}),
 ): boolean {
   if (settings.trustProxy === "true") return true
-  if (address === undefined) return false
+  if (settings.trustProxy === "false" || address === undefined) return false
   const parsed = NetAddress.ipFromString(address)
   if (Result.isFailure(parsed)) return false
   const ip = NetAddress.toCanonical(parsed.success)

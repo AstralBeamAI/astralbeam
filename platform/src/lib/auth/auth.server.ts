@@ -362,7 +362,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     // backgroundTasks stays unset, because a handler would defer each send past the response and
     // swallow its rejection behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
-      trustedProxyHeaders: true,
+      trustedProxyHeaders: config.proxy.trustProxy !== "false",
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,

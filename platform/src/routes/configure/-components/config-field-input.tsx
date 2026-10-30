@@ -50,7 +50,7 @@ export function ConfigFieldInput({
 }) {
   const currentValue = draft.kind === "set" ? draft.value : (field.value ?? "")
   const items = enumItems(field.options)
-  const trustAllProxies = currentValue === "true"
+  const trustProxy = currentValue !== "" && currentValue !== "false"
 
   return (
     <Field data-invalid={error ? true : undefined}>
@@ -58,10 +58,10 @@ export function ConfigFieldInput({
         {field.key === "trust_proxy" && (
           <Checkbox
             id={`config-${field.key}`}
-            checked={trustAllProxies}
+            checked={trustProxy}
             disabled={disabled || field.source === "environment"}
             onCheckedChange={(checked) =>
-              onDraftChange({ kind: "set", value: checked ? "true" : "" })
+              onDraftChange({ kind: "set", value: checked ? "127.0.0.1,::1" : "false" })
             }
           />
         )}
@@ -71,17 +71,19 @@ export function ConfigFieldInput({
         {field.source === "environment" && <Badge variant="secondary">Environment</Badge>}
       </FieldLabel>
       {field.key === "trust_proxy" ? (
-        !trustAllProxies && (
+        trustProxy && (
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor="config-trust-proxy-addresses">
-              Additional trusted proxy IPs/CIDRs (optional)
+              Trusted proxy IPs/CIDRs (optional)
             </FieldLabel>
             <Input
               id="config-trust-proxy-addresses"
-              value={currentValue}
-              placeholder="Leave empty to trust loopback only"
+              value={currentValue === "true" ? "" : currentValue}
+              placeholder="Leave empty to trust all proxies"
               disabled={disabled || field.source === "environment"}
-              onChange={(event) => onDraftChange({ kind: "set", value: event.target.value })}
+              onChange={(event) =>
+                onDraftChange({ kind: "set", value: event.target.value.trim() || "true" })
+              }
             />
           </div>
         )
