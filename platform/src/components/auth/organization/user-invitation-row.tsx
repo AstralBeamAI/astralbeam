@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, notify onboarding after an invitation action, and render dates after hydration.
+// Local changes: render Better Auth's comma-joined static roles as separate labels, add an icon-action hover title, notify onboarding after an invitation action, and label dates rendered after hydration.
 
 "use client"
 
@@ -55,12 +55,12 @@ export function UserInvitationRow({ invitation, onInvitationAction }: UserInvita
         <Clock />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>
+        <ItemTitle className="text-sm">
           {invitation.organizationName}
           <Badge variant="secondary">{memberRoleLabels(invitation.role, roles).join(", ")}</Badge>
         </ItemTitle>
         <ItemDescription>
-          <LocalDateTime value={invitation.createdAt} dateStyle="medium" />
+          Invited <LocalDateTime value={invitation.createdAt} dateStyle="medium" />
         </ItemDescription>
       </ItemContent>
       <ItemActions>

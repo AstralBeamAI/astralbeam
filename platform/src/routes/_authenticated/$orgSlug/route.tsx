@@ -1,4 +1,7 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
+import { authQueryKeys } from "@better-auth-ui/core"
+import { organizationQueryKeys } from "@better-auth-ui/core/plugins/organization"
+import { useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 
 import { PublicNavbar } from "@/components/navbar"
@@ -9,10 +12,19 @@ import { getOrganizationRouteContext } from "../-functions/get-organization-rout
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug")({
-  beforeLoad: async ({ params }) => {
-    const organization = await getOrganizationRouteContext({
-      data: { organizationSlug: params.orgSlug },
-    }).catch((error: unknown) => throwOrganizationRouteError(error, params.orgSlug))
+  beforeLoad: async ({ context: { access, queryClient }, params }) => {
+    const organization = await queryClient
+      .fetchQuery({
+        // Role mutations invalidate fullDetails. Session and membership updates select fresh data.
+        queryKey: [
+          ...organizationQueryKeys.fullDetails(access.userId),
+          params.orgSlug,
+          queryClient.getQueryState(authQueryKeys.session)?.dataUpdatedAt,
+          queryClient.getQueryState(organizationQueryKeys.list(access.userId))?.dataUpdatedAt,
+        ],
+        queryFn: () => getOrganizationRouteContext({ data: { organizationSlug: params.orgSlug } }),
+      })
+      .catch((error: unknown) => throwOrganizationRouteError(error, params.orgSlug))
     return { organization }
   },
   component: OrganizationLayout,
@@ -25,13 +37,19 @@ export const Route = createFileRoute("/_authenticated/$orgSlug")({
 function OrganizationLayout() {
   const { access, organization } = Route.useRouteContext()
   const landingOrganizationId = access.status === "ready" ? access.organizationId : null
+  const queryClient = useQueryClient()
 
   // Reading never moves the session's active organization, so a rendered page does, and `/` and
   // the user settings pages then follow the organization last shown.
   useEffect(() => {
     if (landingOrganizationId === organization.organizationId) return
-    void authClient.organization.setActive({ organizationId: organization.organizationId })
-  }, [landingOrganizationId, organization.organizationId])
+    void authClient.organization.setActive({
+      organizationId: organization.organizationId,
+      fetchOptions: {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKeys.session }),
+      },
+    })
+  }, [landingOrganizationId, organization.organizationId, queryClient])
 
   return (
     <AppShell organization={organization}>

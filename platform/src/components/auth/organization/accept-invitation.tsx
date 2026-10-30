@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Distinguish unavailable invitations, account mismatches, and load failures with recovery actions.
+// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading. Use TanStack hydration readiness. Identify the joining account without repeating organization details. Distinguish unavailable invitations, account mismatches, and load failures with recovery actions.
 
 import { getSafeRedirectTo } from "@better-auth-ui/core"
 import {
@@ -20,7 +20,6 @@ import {
   XIcon as X,
 } from "@phosphor-icons/react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldDescription } from "@/components/ui/field"
@@ -174,16 +173,13 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
           </div>
         ) : isAvailable ? (
           <>
-            <FieldDescription className="wrap-anywhere">
-              {localization.acceptInvitationDescription
-                .replace("{{organization}}", organizationName)
-                .replace("{{role}}", role)}
-            </FieldDescription>
-
-            <div className="flex items-center gap-3 rounded-md bg-muted p-3">
-              <div className="min-w-0 flex-1 truncate text-sm font-medium">{organizationName}</div>
-              <Badge variant="secondary">{role}</Badge>
-            </div>
+            <p className="text-sm text-muted-foreground wrap-anywhere">
+              You’ll join with <span className="font-medium text-foreground">{role}</span> access.
+            </p>
+            <p className="text-sm text-muted-foreground wrap-anywhere">
+              You’re signed in as{" "}
+              <span className="font-medium text-foreground">{session.data?.user.email}</span>.
+            </p>
           </>
         ) : (
           <FieldDescription className="wrap-anywhere">{recovery.description}</FieldDescription>

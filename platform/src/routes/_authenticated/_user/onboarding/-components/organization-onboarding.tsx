@@ -7,10 +7,12 @@ import { CreateOrganizationDialog } from "@/components/auth/organization/create-
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
 import { useHydrated } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
 export type OrganizationOnboardingProps = {
   email: string
+  hasInvitations: boolean
   /** Refreshes organization access after an invitation is accepted or rejected. */
   onInvitationAction: () => unknown
   onOrganizationCreated: (organization: Organization) => unknown
@@ -18,6 +20,7 @@ export type OrganizationOnboardingProps = {
 
 export function OrganizationOnboarding({
   email,
+  hasInvitations,
   onInvitationAction,
   onOrganizationCreated,
 }: OrganizationOnboardingProps) {
@@ -35,42 +38,47 @@ export function OrganizationOnboarding({
           id="organization-onboarding-title"
           className="font-sans text-xl font-semibold tracking-tight"
         >
-          Join or create an organization
+          {hasInvitations ? "Join your team" : "Create your organization"}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Bring your agents, models, and team together in one organization.
+          {hasInvitations
+            ? "Accept an invitation below, or create an organization of your own."
+            : "Bring your agents, models, and team together in one place."}
         </p>
       </div>
 
       <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
 
-      <div className="flex flex-col items-stretch gap-4 border bg-card p-4 sm:items-start sm:p-6">
-        <div className="space-y-2">
-          <h2 className="font-sans text-sm font-semibold">Start with your own organization</h2>
+      <Card>
+        <CardContent className="flex flex-col items-stretch gap-4 sm:items-start">
+          <div className="space-y-2">
+            {hasInvitations && (
+              <h2 className="font-sans text-sm font-semibold">Create your own organization</h2>
+            )}
+            <p className="text-sm text-muted-foreground">
+              We’ll create your first agent. Connect a model, then add the agent to your app.
+            </p>
+          </div>
+          <Button
+            className="text-sm"
+            type="button"
+            disabled={!hydrated}
+            onClick={() => setCreateOpen(true)}
+          >
+            Create organization
+          </Button>
           <p className="text-sm text-muted-foreground">
-            We’ll create a starter agent. Next, connect a model and set up your app.
+            You’ll be the owner and can invite teammates anytime.
           </p>
-        </div>
-        <Button
-          className="text-sm"
-          type="button"
-          disabled={!hydrated}
-          onClick={() => setCreateOpen(true)}
-        >
-          {hydrated ? "Create a new organization" : "Loading organization setup…"}
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          You’ll be the owner. Invite teammates whenever you’re ready.
-        </p>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-2 px-4 sm:px-6">
-        <h2 className="font-sans text-sm font-semibold">Joining your team?</h2>
-        <p className="text-sm text-muted-foreground">
-          Ask an owner to invite you using this email. Pending invitations will appear here.
+      {!hasInvitations && (
+        <p className="text-sm text-muted-foreground wrap-anywhere">
+          Joining an existing team? Ask an owner to invite{" "}
+          <span className="font-medium text-foreground">{email}</span>.
         </p>
-        <p className="break-all text-sm font-medium">{email}</p>
-      </div>
+      )}
 
       <CreateOrganizationDialog
         open={createOpen}
