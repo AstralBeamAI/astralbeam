@@ -412,7 +412,8 @@ function IntegrationChecklistWidget() {
   const { refetch } = query
   useEffect(() => router.subscribe("onResolved", () => void refetch()), [router, refetch])
   if (query.isPending) return <p role="status">Loading…</p>
-  if (query.isError)
+  // A background refresh failure must not unmount an open one-time key dialog.
+  if (!query.data)
     return (
       <div role="status">
         <p>Could not load the integration checklist.</p>

@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; promptly evict the one-time secret from the mutation cache.
+// Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; promptly evict the one-time secret from the mutation cache; close the flow after key dismissal.
 
 "use client"
 
@@ -99,9 +99,7 @@ export function CreateApiKeyDialog({
     setIsNewKeyDialogOpen(nextOpen)
 
     if (!nextOpen) {
-      setKeyName(null)
-      setNameError(undefined)
-      setNewApiKey(null)
+      handleOpenChange(false)
     }
   }
 
@@ -132,7 +130,7 @@ export function CreateApiKeyDialog({
 
     createApiKey(payload, {
       onSuccess: (result) => {
-        handleOpenChange(false)
+        resetCreateApiKey()
         setKeyName(normalizedName)
         setNewApiKey(`key_${result.referenceId}_${result.id}_${result.key}`)
         setIsNewKeyDialogOpen(true)
@@ -155,7 +153,7 @@ export function CreateApiKeyDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open && !isNewKeyDialogOpen} onOpenChange={handleOpenChange}>
         <DialogContent>
           {needsFreshSession && (
             <>
