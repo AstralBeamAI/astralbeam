@@ -87,7 +87,10 @@ export function ConfigEditor({
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
 
   const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
-    const draft = drafts[field.key] ?? { kind: "unchanged" }
+    const draft: FieldDraft =
+      field.key === "client_ip_headers" && currentValue("trust_proxy", "false") === "false"
+        ? { kind: "unchanged" }
+        : (drafts[field.key] ?? { kind: "unchanged" })
     const stored = storedValue(field)
     if (field.source === "environment") return []
     if (draft.kind === "unchanged") {
@@ -120,7 +123,7 @@ export function ConfigEditor({
     setDrafts((current) => ({ ...current, [key]: unchanged ? { kind: "unchanged" } : draft }))
   }
 
-  const currentValue = (key: ConfigKey, clearedValue = "") => {
+  function currentValue(key: ConfigKey, clearedValue = "") {
     const field = fields.find((candidate) => candidate.key === key)
     const draft = drafts[key] ?? { kind: "unchanged" }
     if (draft.kind === "set") return draft.value || clearedValue

@@ -79,7 +79,7 @@ const environmentConfig = EffectConfig.all(
 )
 
 /** Environment values, decoded like stored ones. An invalid value fails every load until fixed. */
-const readEnvironmentConfig = Effect.fnUntraced(function* () {
+export const readEnvironmentConfig = Effect.fnUntraced(function* () {
   const raw = yield* environmentConfig.pipe(
     // Each load rereads the process environment, as it rereads the stored values it overrides.
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),

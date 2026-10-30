@@ -42,7 +42,7 @@ The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18
      --env-file ./astralbeam.env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
-3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over trusted loopback:
+3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over loopback, which is always trusted for forwarded host/protocol:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
@@ -118,6 +118,7 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `PORT` | No | TCP port to listen on |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
+| `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Keep unset for TLS. See [Security](./security.md#https-and-response-headers) |
 | `CLUSTER_RUNNER_HOST` | No | Private hostname or IP advertised to peer runners. Defaults to `127.0.0.1` |
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
@@ -202,7 +203,7 @@ sudo systemctl enable --now astralbeam-platform
 
 ## 5. Put it behind a reverse proxy
 
-Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto` only when the request peer is a loopback address, so the proxy must run on the same host as the application, must overwrite both headers, and must not be bypassable.
+Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. Loopback is always trusted for forwarded host/protocol, so HTTPS `/configure` works without a proxy setting. To use forwarded client IPs, enable Trust Proxy and enter `127.0.0.1,::1` to limit trust to the same-host proxy. For remote proxies, add their socket-peer IPs/CIDRs and retain a `TRUST_PROXY` environment override for operator recovery when database settings are unavailable. See [Reverse proxy trust](./security.md#reverse-proxy-trust).
 
 Add this location block to the server that terminates TLS:
 
@@ -216,7 +217,7 @@ location / {
 }
 ```
 
-The application replaces `X-Forwarded-For` with the real peer address whenever the peer is not loopback, so a client cannot spoof the address authentication rate limits are keyed on.
+The application replaces configured client IP headers with the real peer address whenever the peer is untrusted, so a direct client cannot spoof the address authentication rate limits are keyed on.
 
 The encryption key grants access to every encrypted value in the database, so `/configure` deserves more protection than the application's own throttle. Restrict who can reach it at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and rate-limit it there during first setup. See [Security](./security.md).
 
@@ -250,6 +251,8 @@ Run each of these against the public origin:
 Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 
 The service account needs a writable, executable temporary directory. Set `TMPDIR` if the system default is restricted. Existing environment and bootstrap settings remain in use after an upgrade.
+
+Before upgrading an existing deployment behind a remote TLS-terminating proxy, set `TRUST_PROXY` to its socket-peer IPs/CIDRs in the service environment. Same-host loopback proxies need no setting for HTTPS `/configure` access. Without an allowlist for a remote proxy, HTTPS `/configure` requests redirect back to HTTPS and mutations are rejected.
 
 1. Run this command to replace the installed binary with the latest release for this host's target:
 

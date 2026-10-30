@@ -15,6 +15,8 @@ export type ConfigKey =
   | "dogfood_api_key"
   | "dogfood_pending_setup"
   | "app_base_url"
+  | "trust_proxy"
+  | "client_ip_headers"
   | "better_auth_secret"
   | "google_client_id"
   | "google_client_secret"
