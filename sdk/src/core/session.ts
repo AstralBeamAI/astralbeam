@@ -1528,6 +1528,8 @@ export function createAstralBeamChat(
         submissions.clear()
         threadToolResults.clear()
         toolResults.clear()
+        changeSelection()
+        threadKey = undefined
       }
       identity = nextIdentity
       const scope = JSON.stringify(chatPlacementKey(live))
