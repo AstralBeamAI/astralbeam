@@ -79,6 +79,8 @@ Set `email_provider` to `smtp` (the default).
 
 The defaults target a local mail sink. Configure the host, port, and TLS mode for production.
 
+SMTP prefills are available for Local, Resend, Cloudflare, and SES US East (`us-east-1`). Resend and Cloudflare use an API token as the password. For SES, generate [regional SMTP credentials](https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html) in the AWS console. Selecting a prefill clears the previous SMTP credentials.
+
 ### Resend
 
 Set `email_provider` to `resend`.

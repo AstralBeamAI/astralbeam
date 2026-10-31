@@ -100,7 +100,12 @@ export function ConfigEditor({
         ? [{ key: field.key, value: stored }]
         : []
     }
-    if (draft.value === (stored ?? "") && field.storageStatus !== "unreadable") return []
+    if (
+      draft.value === (stored ?? "") &&
+      (stored !== null || !field.isSet) &&
+      field.storageStatus !== "unreadable"
+    )
+      return []
     if (!field.required && draft.value === "") {
       return [{ key: field.key, value: null }]
     }
@@ -116,10 +121,12 @@ export function ConfigEditor({
       return updated
     })
     const field = fields.find((candidate) => candidate.key === key)
+    const stored = field && storedValue(field)
     const unchanged =
       draft.kind === "set" &&
       field?.storageStatus !== "unreadable" &&
-      draft.value === ((field && storedValue(field)) ?? "")
+      !(field?.kind === "secret" && field.isSet && stored === null) &&
+      draft.value === (stored ?? "")
     setDrafts((current) => ({ ...current, [key]: unchanged ? { kind: "unchanged" } : draft }))
   }
 
