@@ -2,30 +2,24 @@ name: astralbeam-self-hosted
 
 services:
   platform:
-    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.23.7}
+    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:?Choose an image tag with filesystem storage support}
     restart: unless-stopped
     stop_grace_period: 15s
-    # Signed downloads need the same localhost endpoint in Platform and the browser.
-    # https://docs.docker.com/reference/compose-file/services/#network_mode
-    network_mode: service:rustfs
+    ports:
+      - "127.0.0.1:${PORT:-4510}:${PORT:-4510}"
     depends_on:
       postgres:
         condition: service_healthy
-      rustfs:
-        condition: service_healthy
-        restart: true
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-astralbeam}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-astralbeam}
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
       PORT: ${PORT:-4510}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${PORT:-4510}}
       ALLOW_INSECURE:
-      S3_ENDPOINT: http://localhost:${STORAGE_PORT:-9010}
-      S3_REGION: us-east-1
-      S3_BUCKET: astralbeam
-      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
-      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
-      S3_PATH_STYLE: "true"
+      STORAGE_PROVIDER: filesystem
+      STORAGE_DIRECTORY: /var/lib/astralbeam/storage
+    volumes:
+      - file-storage:/var/lib/astralbeam/storage
 
   postgres:
     image: postgres:18
@@ -40,26 +34,6 @@ services:
       start_period: 60s
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
-  rustfs:
-    image: rustfs/rustfs:latest
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${PORT:-4510}:${PORT:-4510}"
-      - "127.0.0.1:${STORAGE_PORT:-9010}:${STORAGE_PORT:-9010}"
-    environment:
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?}
-      RUSTFS_CORS_ALLOWED_ORIGINS: ${RUSTFS_CORS_ALLOWED_ORIGINS:-${APP_BASE_URL:-http://localhost:${PORT:-4510}}}
-      RUSTFS_ADDRESS: :${STORAGE_PORT:-9010}
-    post_start:
-      - command: >-
-          sh -ec 'curl -fsS --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60 --aws-sigv4 aws:amz:us-east-1:s3 -u "$${RUSTFS_ACCESS_KEY}:$${RUSTFS_SECRET_KEY}" -X PUT "http://127.0.0.1$${RUSTFS_ADDRESS}/astralbeam"'
-    volumes:
-      - rustfs-data:/data
-    healthcheck:
-      start_period: 60s
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:${STORAGE_PORT:-9010}/health/ready"]
-
 volumes:
   postgres-data:
-  rustfs-data:
+  file-storage:

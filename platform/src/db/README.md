@@ -40,7 +40,7 @@ JSONB columns use `schemaJsonb(schema)` from `lib/columns.ts`. Its synchronous E
 
 ## Local services
 
-Follow [local setup](../../../SETUP.md#local-development) for native Bun on macOS and Compose-managed supporting services, including RustFS. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
+Follow [local setup](../../../SETUP.md#local-development) for native Bun on macOS and Compose-managed supporting services. `STORAGE_PROVIDER=s3` seeds new databases with RustFS storage. Without an explicit provider or existing S3 settings, setup defaults to File System. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
 
 Worktree setup creates missing environment files using the primary checkout's defaults and a `DATABASE_URL` for that worktree. Existing files are left alone. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative. The worktree hook creates a missing loopback database and refuses URLs targeting a different database name. Setup seeds only when the application schema was absent before migration and never resets or reseeds existing data.
 

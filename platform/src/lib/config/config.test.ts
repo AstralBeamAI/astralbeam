@@ -283,6 +283,8 @@ describe("Config", () => {
       APP_BASE_URL: JSON.stringify("https://environment.example"),
       BETTER_AUTH_SECRET: JSON.stringify("b".repeat(64)),
       SMTP_PORT: "587",
+      STORAGE_PROVIDER: "filesystem",
+      STORAGE_DIRECTORY: "/mounted/storage",
       DOGFOOD_API_KEY: "attacker-value",
     })
     return Effect.gen(function* () {
@@ -294,6 +296,8 @@ describe("Config", () => {
         smtp_host: "127.0.0.1",
         smtp_port: "587",
         smtp_security: "none",
+        storage_provider: "filesystem",
+        storage_directory: "/mounted/storage",
         // System-managed values stay database-only.
         dogfood_api_key: COMPLETE_VALUES.dogfood_api_key,
       })

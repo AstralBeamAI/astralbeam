@@ -23,6 +23,7 @@ services:
       - linearity-node-modules:/workspaces/astralbeam/examples/linearity-react/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - bun-cache:/root/.bun/install/cache
+      - file-storage:/root/.local/share/astralbeam/storage
       # Persist Cursor/VS Code server + extensions across rebuilds
       - ./tmp/.cursor-server:/root/.cursor-server:cached
       - ./tmp/.vscode-server:/root/.vscode-server:cached
@@ -51,3 +52,4 @@ volumes:
   linearity-node-modules:
   todos-node-modules:
   bun-cache:
+  file-storage:

@@ -228,8 +228,12 @@ export class Config extends Context.Service<
           return yield* new ConfigUpdateInvalid({ issues: generated.issues })
         }
         // Generated defaults are inserted only if no value was saved by an operator.
-        generated.values.push({ key: "storage_provider", value: provider })
-        if (isStorageSettingActive("storage_directory", provider))
+        if (!current.environmentKeys.has("storage_provider"))
+          generated.values.push({ key: "storage_provider", value: provider })
+        if (
+          isStorageSettingActive("storage_directory", provider) &&
+          !current.environmentKeys.has("storage_directory")
+        )
           generated.values.push({
             key: "storage_directory",
             value: DEFAULT_CONFIG_VALUES.storage_directory!,

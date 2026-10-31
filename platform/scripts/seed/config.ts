@@ -31,10 +31,12 @@ export async function resolveSeedStorageProvider(
     .select()
     .from(configTable)
     .where(or(like(configTable.key, "s3_%"), eq(configTable.key, "storage_provider")))
-  const provider = rows.find((row) => row.key === "storage_provider")
-  if (provider)
+  const provider = process.env.STORAGE_PROVIDER
+    ? parseEnvironmentConfigValue(process.env.STORAGE_PROVIDER)
+    : rows.find((row) => row.key === "storage_provider")?.value.value
+  if (provider !== undefined)
     return Schema.decodeUnknownSync(Schema.Literals(["filesystem", "s3"]), { reportInput: false })(
-      provider.value.value,
+      provider,
     )
   if (
     rows.length ||
@@ -43,15 +45,7 @@ export async function resolveSeedStorageProvider(
     )
   )
     return "s3"
-  try {
-    const response = await fetch(`${seedStorageEndpoint()}/health/ready`, {
-      signal: AbortSignal.timeout(1_000),
-      redirect: "error",
-    })
-    return response.ok ? "s3" : "filesystem"
-  } catch {
-    return "filesystem"
-  }
+  return "filesystem"
 }
 
 /**
@@ -84,7 +78,7 @@ export async function seedConfig(
   }
   for (const [key, value] of Object.entries(values)) {
     if (!isStorageSettingActive(key, storageProvider)) continue
-    if (!key.startsWith("storage_") && process.env[key.toUpperCase()]) {
+    if (process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue
     }
