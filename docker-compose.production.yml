@@ -2,7 +2,7 @@ name: astralbeam-self-hosted
 
 services:
   platform:
-    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:-0.23.7}
+    image: ghcr.io/astralbeamai/astralbeam-platform:${ASTRALBEAM_VERSION:?Choose an image tag with filesystem storage support}
     restart: unless-stopped
     stop_grace_period: 15s
     ports:

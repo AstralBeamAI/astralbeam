@@ -6,6 +6,15 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 ### Docker Compose
 
+**NOTE**: This stack creates a new filesystem deployment. Existing S3 deployments should keep their current Compose file and storage settings.
+
+Set `ASTRALBEAM_VERSION` to an image tag that supports `STORAGE_PROVIDER` and `STORAGE_DIRECTORY`. The `0.23.7` image predates filesystem storage. To evaluate an unreleased checkout, build its image from the repository root and select the local tag:
+
+```sh
+docker build -f platform/Dockerfile -t ghcr.io/astralbeamai/astralbeam-platform:local .
+export ASTRALBEAM_VERSION=local
+```
+
 Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
@@ -14,8 +23,8 @@ curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docke
 (
   umask 077
   set -C
-  printf 'POSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\n' \
-    "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+  printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\n' \
+    "${ASTRALBEAM_VERSION:?Choose a filesystem-capable image tag}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 ```
