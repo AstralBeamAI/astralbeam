@@ -823,7 +823,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         )
         expect(result.result).toEqual({ fieldErrors: [] })
         // This process only has the active key, so a read proves the fallback can be retired.
-        expect((await getDatabaseConfig()).values).toEqual(configured)
+        expect((await getDatabaseConfig()).values).toMatchObject(configured)
       } finally {
         server.kill("SIGTERM")
         await exited

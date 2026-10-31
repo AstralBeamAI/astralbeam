@@ -855,13 +855,12 @@ export class ChatFiles extends Context.Service<
           if (!cached && !(yield* previews.read({ file })))
             return { bytes: new Uint8Array(), mimeType: "image/webp" }
         }
-        return {
-          url: yield* storage.signedUrl({
-            key,
-            contentType: input.preview ? "image/webp" : file.contentType,
-            contentDisposition: input.contentDisposition,
-          }),
-        }
+        const url = yield* storage.signedUrl({
+          key,
+          contentType: input.preview ? "image/webp" : file.contentType,
+          contentDisposition: input.contentDisposition,
+        })
+        return url ? { url } : yield* read(input)
       })
       const hydrate = ({ scope, messages }: Parameters<typeof ChatFiles.Service.hydrate>[0]) => {
         let totalBytes = 0

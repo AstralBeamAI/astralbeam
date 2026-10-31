@@ -39,7 +39,7 @@ bun run --cwd platform db migrate
 
 ## Backups and restore
 
-Because file state spans PostgreSQL and the configured S3 bucket, let's stop all application replicas before taking the database dump and bucket backup.
+Because file state spans PostgreSQL and the configured filesystem directory or S3 bucket, stop all application replicas before backing up the database and files.
 
 Run this command to take that dump:
 
@@ -47,7 +47,7 @@ Run this command to take that dump:
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 ```
 
-Keep the replicas stopped and use your storage provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode from **File storage** alongside the backup.
+Keep the replicas stopped. For File System, back up the entire configured directory, preserving relative paths and private permissions, and record its absolute path from **File storage**. For S3, use the provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode alongside the backup.
 
 Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. Use the same PostgreSQL major version or newer, with `citext` available. See [Security](./security.md).
 
@@ -59,7 +59,7 @@ Run this command against an empty database to restore:
 pg_restore --dbname="$DATABASE_URL" astralbeam.dump
 ```
 
-Restore the bucket objects to the destination recorded in the restored configuration, keeping their object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
+Restore files to the directory or bucket recorded in the restored configuration, keeping their relative paths or object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
 
 Then start the application with that `DATABASE_URL` and the encryption keyring that was in effect when the dump was taken. If the restored data predates the running version, the setup gate closes until you approve the missing migrations. Test a restore before you need one, and confirm afterwards that `/configure` can read the stored secrets rather than reporting them unreadable.
 

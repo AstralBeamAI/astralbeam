@@ -9,7 +9,8 @@ import {
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret, parseClientIpHeaders, proxySettingsFromValues } from "@/lib/utils.server"
 import { allowInsecure } from "@/lib/runtime/environment.server"
-import { StorageEndpointSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas"
+import { defaultStorageDirectory, StorageDirectorySchema } from "@/lib/storage/filesystem.server"
 import {
   EmailAddressSchema,
   NonEmptyStringSchema,
@@ -166,6 +167,31 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
         Schema.decodeTo(BooleanSettingSchema),
       ),
     ]),
+  },
+  {
+    key: "storage_provider",
+    group: "File storage",
+    label: "Storage provider",
+    description: "File System stores files on this host. Existing S3 configurations remain in use.",
+    kind: "enum",
+    required: true,
+    environment: false,
+    options: [
+      { value: "filesystem", label: "File System" },
+      { value: "s3", label: "S3-compatible" },
+    ],
+    schema: Schema.Literals(["filesystem", "s3"]),
+  },
+  {
+    key: "storage_directory",
+    group: "File storage",
+    label: "Storage directory",
+    description: "Absolute directory on this host. Back it up together with PostgreSQL.",
+    kind: "text",
+    required: false,
+    environment: false,
+    defaultValue: defaultStorageDirectory(),
+    schema: StorageDirectorySchema,
   },
   {
     key: "s3_endpoint",
@@ -574,10 +600,24 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   ),
 ) as ConfigValues
 
-/** System-managed values stay database-only, so no environment variable can replace them. */
+/** System-managed and page-only settings cannot be replaced through the environment. */
 export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
-  (definition) => !definition.systemManaged,
+  (definition) => !definition.systemManaged && definition.environment !== false,
 )
+
+export function storageProviderFromConfig(
+  values: ConfigValues,
+  configuredKeys: readonly string[] = [],
+): "filesystem" | "s3" {
+  if (values.storage_provider === "filesystem" || values.storage_provider === "s3")
+    return values.storage_provider
+  return configuredKeys.some((key) => key.startsWith("s3_")) ||
+    Object.entries(values).some(
+      ([key, value]) => key.startsWith("s3_") && key !== "s3_path_style" && Boolean(value),
+    )
+    ? "s3"
+    : "filesystem"
+}
 
 /** `environmentKeys` names the keys an environment variable supplies. */
 export function validateConfigCompleteness(
@@ -595,7 +635,10 @@ export function validateConfigCompleteness(
       message: "Embedded assistant credential ownership is invalid",
     })
   }
+  const storageProvider = storageProviderFromConfig(values)
   for (const definition of CONFIG_DEFINITIONS) {
+    if (definition.key === "storage_provider") continue
+    if (!isStorageSettingActive(definition.key, storageProvider)) continue
     if (definition.required && !values[definition.key]) {
       issues.push({ key: definition.key, message: `${definition.label} is required` })
     }

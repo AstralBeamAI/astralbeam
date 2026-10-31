@@ -106,7 +106,17 @@ Use **Test connection** before saving. It checks the current form without sendin
 
 ## File storage
 
-File storage uses one private S3-compatible bucket per deployment. Let's configure it before completing setup.
+Choose **File System** or **S3-compatible** under **File storage** at `/configure`. New installations default to File System. Existing S3 settings, including the RustFS Docker Compose stack, keep using S3. The provider and filesystem directory are stored through this page and have no environment overrides.
+
+File System stores bytes directly on the application host and serves them through authenticated routes. The default directory is `~/.local/share/astralbeam/storage` on Linux, `~/Library/Application Support/AstralBeam/storage` on macOS, and `%LOCALAPPDATA%\AstralBeam\storage` on Windows. An absolute `XDG_DATA_HOME` overrides the Unix data location with `$XDG_DATA_HOME/astralbeam/storage`. Set an absolute **Storage directory** to choose another location, or clear it to restore the default. The server creates missing directories.
+
+Keep this directory outside any web server's public root. Downloads authorize access and verify original file sizes and checksums. Writes are atomic and create missing directories. A missing storage root makes reads and deletions fail, so purges retain metadata for retry. The host and local processes are trusted.
+
+For a system service, choose a persistent directory writable by its service account, such as `/var/lib/astralbeam/storage`. For a container using File System, mount persistent storage at the selected directory and make it writable by UID/GID `10001:10001`. The image's home is `/tmp`, so its home-based default does not survive container replacement. File System is intended for a single host. All processes and maintenance runners must use the same directory. Use S3 for replicas on different hosts.
+
+Filesystem responses hold a complete file in memory. Use normal ingress connection limits and timeouts for slow clients, and monitor storage capacity. Chat downloads retain their existing API limits.
+
+Selecting S3-compatible shows the following settings, all of which retain their existing uppercase environment overrides:
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
@@ -126,11 +136,11 @@ The test confirms object operations. Bucket privacy and browser CORS are separat
 
 For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
 
-You can change the endpoint, region, bucket, and addressing mode at any time. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, let's stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, verify their sizes and checksums, save the new settings, and restart every server instance. Credential rotation remains supported.
+You can change the provider, filesystem directory, endpoint, region, bucket, and addressing mode. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, verify their sizes and checksums, save the new settings, and restart every server instance. Export RustFS objects through its S3 API rather than copying its internal data directory. Credential rotation remains supported.
 
-The chat SDK requests direct S3 downloads and cached previews after conversation/file authorization. Configure the bucket's CORS policy to allow GET from your embedding origins, and expose `Content-Disposition` if consumers read that header. Keep the bucket private. Preview generation and model-side reads still run on AstralBeam. Signed chat URLs expire after one minute and must not be persisted. Existing HTTP clients can omit `delivery=direct` to retain proxied chat responses.
+The chat SDK requests direct S3 downloads and cached previews after conversation/file authorization. Configure the bucket's CORS policy to allow GET from your embedding origins, and expose `Content-Disposition` if consumers read that header. Keep the bucket private. Preview generation and model-side reads still run on AstralBeam, and File System downloads remain proxied. Signed chat URLs expire after one minute and must not be persisted. Existing HTTP clients can omit `delivery=direct` to retain proxied chat responses.
 
-The bucket also stores avatars, logos, and published sandbox files. Its endpoint must be reachable from users' browsers. Signed download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
+Both providers store avatars, logos, and published sandbox files. An S3 endpoint must be reachable from users' browsers. Signed S3 download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
 
 Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 

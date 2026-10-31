@@ -22,7 +22,7 @@ import {
 } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { StorageConnectionSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageConnectionSchema } from "@/lib/storage/schemas"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -86,7 +86,10 @@ export function ConfigEditor({
 
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
 
-  const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
+  const storageProvider = currentValue("storage_provider")
+  const activeFields = fields.filter((field) => isStorageSettingActive(field.key, storageProvider))
+
+  const pendingUpdates = activeFields.flatMap<{ key: string; value: string | null }>((field) => {
     const draft: FieldDraft =
       field.key === "client_ip_headers" && currentValue("trust_proxy", "false") === "false"
         ? { kind: "unchanged" }
@@ -283,7 +286,7 @@ export function ConfigEditor({
       {actions}
 
       <ConfigFieldGroups
-        fields={fields}
+        fields={activeFields}
         issues={issues}
         changedKeys={new Set(pendingUpdates.map((update) => update.key))}
         drafts={drafts}

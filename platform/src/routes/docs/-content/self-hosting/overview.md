@@ -1,6 +1,6 @@
 # Overview
 
-Run AstralBeam with PostgreSQL 18, private S3-compatible storage, and email delivery. Choose a [container or Linux binary deployment](./deploy.md), then complete configuration in the browser.
+Run AstralBeam with PostgreSQL 18 and email delivery. File storage defaults to the local filesystem for new installations. Choose a [container or Linux binary deployment](./deploy.md), then complete configuration in the browser.
 
 ## What you run
 
@@ -11,7 +11,7 @@ Source builds produce both the server bundle and `platform/.output/astralbeam-pl
 ## What you need alongside it
 
 - PostgreSQL 18 or newer with the `citext` extension. PgBouncer is optional. See [Connection pooling](./operations.md#connection-pooling).
-- A private S3-compatible bucket and credentials. Configure and test them in **File storage** at `/configure`.
+- A persistent directory writable by the application, or a private S3-compatible bucket and credentials. Choose the provider in **File storage** at `/configure`. Existing S3 installations and the RustFS Docker Compose stack keep their current storage.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS, unless explicitly opting into HTTP with `ALLOW_INSECURE=true`.
 - A model provider for each organization. Owners or developers add connections in **Models**, enable models, and assign them to agents. Each connection stores its own credentials and API URL.
@@ -22,7 +22,7 @@ For local contributor services, follow [repository setup](https://github.com/Ast
 
 ## Where state lives
 
-PostgreSQL stores accounts, configuration, conversation history, and workflow state. A private S3-compatible bucket stores file bytes. Back them up together, with the full encryption keyring kept separately. Follow [Backups and restore](./operations.md#backups-and-restore).
+PostgreSQL stores accounts, configuration, conversation history, and workflow state. The selected filesystem directory or private S3-compatible bucket stores file bytes. Back them up together, with the full encryption keyring kept separately. Follow [Backups and restore](./operations.md#backups-and-restore).
 
 Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYPTION_KEY`. See [encryption and rotation](./security.md#encryption-at-rest).
 
@@ -30,7 +30,7 @@ Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYP
 
 Set `DATABASE_URL` for PostgreSQL and `DATABASE_ENCRYPTION_KEY` for encrypted settings and operator sign-in. These are the only required environment settings.
 
-Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
+Edit other deployment settings at `/configure`. Where supported, uppercase environment overrides take precedence over stored values. The file storage provider and filesystem directory are configured only through `/configure`. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
 
 ## First boot
 

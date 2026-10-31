@@ -49,6 +49,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await configure.openSection("File storage")
+    await configure.field("storage_provider").click()
+    await page.getByRole("option", { name: "S3-compatible", exact: true }).click()
     await configure.setValue("s3_endpoint", "http://127.0.0.1:9000")
     await configure.setValue("s3_region", "us-east-1")
     await configure.setValue("s3_bucket", "e2e-files")

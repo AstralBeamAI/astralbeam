@@ -32,7 +32,7 @@ Set `PORT` to another free port if 4510 is occupied. The stack binds to localhos
 
 ### Existing services
 
-The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
+The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database) and email delivery separately. File storage can use a private S3-compatible bucket or a persistent directory selected at `/configure`. The image runs as UID/GID `10001:10001`, which needs write access to that directory. Its home is `/tmp`, so mount persistent storage and choose its path before uploading files.
 
 1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:4510` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:

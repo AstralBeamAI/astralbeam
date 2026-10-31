@@ -40,6 +40,8 @@ export type ConfigKey =
   | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
+  | "storage_provider"
+  | "storage_directory"
   | "s3_endpoint"
   | "s3_region"
   | "s3_bucket"
@@ -54,6 +56,8 @@ export type ConfigKey =
   | "otel_resource_attributes"
 
 export interface ConfigDefinition {
+  /** Operator-editable settings that are configured only through `/configure`. */
+  environment?: false
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
   key: ConfigKey
