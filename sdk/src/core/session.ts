@@ -31,6 +31,7 @@ import {
   type JwtOptions,
 } from "../api/api.ts"
 import { createDebugLogger } from "../lib/debug.ts"
+import { storedThreadAttachments, storedThreadDraft } from "../lib/drafts.ts"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { buildAgentTools, HOST_TOOL_NOT_EXECUTED, type WidgetDeclaration } from "./agent-tools.ts"
 import {
@@ -124,6 +125,12 @@ export interface AstralBeamChatCoreOptions extends Pick<
   streamCallbacks?: ChatStreamCallbacks | undefined
 }
 
+interface ChatView {
+  widgets: AstralBeamChatCoreOptions["widgets"]
+  onRenderWidget: NonNullable<AstralBeamChatCoreOptions["onRenderWidget"]>
+  onReset: () => void
+}
+
 // Every option this session reads per request, so a consumer that watches option changes (the
 // React hook) cannot forget one: a missing or unknown key fails the typecheck below.
 export const CORE_OPTION_KEYS = Object.keys({
@@ -201,6 +208,10 @@ export interface AstralBeamChatCore {
   /** Start browser side effects after a React commit. Vanilla sessions start automatically. */
   start: () => void
   getState: () => AstralBeamChatState
+  /** @internal Configuration read by adapters for persistence and sizing. */
+  getOptions: () => Readonly<AstralBeamChatCoreOptions>
+  /** @internal Binds one interactive view without transferring session ownership. */
+  attachView: (view: ChatView) => { update: (view: ChatView) => void; dispose: () => void }
   /** Notifies on every state change; returns the unsubscribe. */
   subscribe: (listener: () => void) => () => void
   /**
@@ -271,6 +282,8 @@ export function createAstralBeamChat(
   let live: AstralBeamChatCoreOptions = { ...options }
   let debug = createDebugLogger(live.debug)
   const listeners = new Set<() => void>()
+  let view: { options: ChatView } | undefined
+  const widgetOptions = () => view?.options ?? live
   let state: AstralBeamChatState = {
     messages: [],
     status: "ready",
@@ -511,7 +524,9 @@ export function createAstralBeamChat(
   const renderCleanups = new Map<string, () => void>()
   const restoredWidgets = new Set<string>()
   const restoringWidgets = new Set<string>()
+  let renderGeneration = 0
   const disposeRenders = () => {
+    renderGeneration++
     for (const cleanup of renderCleanups.values()) cleanup()
     renderCleanups.clear()
     restoredWidgets.clear()
@@ -521,20 +536,27 @@ export function createAstralBeamChat(
     input: RenderWidgetInput,
     toolCallId: string,
   ): Promise<{ widget: string; rendered: boolean }> => {
+    if (!widgetOptions().onRenderWidget) return { widget: input.widget, rendered: false }
     const generation = selectionGeneration
-    const widgets = live.widgets ?? {}
+    const rendering = renderGeneration
+    const widgets = widgetOptions().widgets ?? {}
     if (!Object.hasOwn(widgets, input.widget)) {
       throw new Error(`Unknown widget "${input.widget}"`)
     }
     const declaration = widgets[input.widget]
     const validated = await validateParameters(declaration?.parameters, input.props ?? {})
-    if (generation !== selectionGeneration || state.thread?.role === "viewer")
+    if (
+      generation !== selectionGeneration ||
+      rendering !== renderGeneration ||
+      state.thread?.role === "viewer"
+    )
       return { widget: input.widget, rendered: false }
-    if (declaration !== live.widgets?.[input.widget]) return renderWidget(input, toolCallId)
+    if (declaration !== widgetOptions().widgets?.[input.widget])
+      return renderWidget(input, toolCallId)
     if (validated == null) {
       throw new Error(`Props for widget "${input.widget}" failed validation`)
     }
-    const onRenderWidget = live.onRenderWidget
+    const onRenderWidget = widgetOptions().onRenderWidget
     if (!onRenderWidget) return { widget: input.widget, rendered: false }
     renderCleanups.get(toolCallId)?.()
     renderCleanups.delete(toolCallId)
@@ -627,13 +649,17 @@ export function createAstralBeamChat(
         if (restoredWidgets.has(renderId) || restoringWidgets.has(renderId)) continue
         restoringWidgets.add(renderId)
         const generation = selectionGeneration
-        const { widgets, onRenderWidget } = live
+        const rendering = renderGeneration
+        const { widgets, onRenderWidget } = widgetOptions()
         void renderWidget(part.input as RenderWidgetInput, renderId)
           .catch((error: unknown) => debug?.("error", "Saved widget could not be rendered", error))
           .finally(() => {
-            if (generation !== selectionGeneration) return
+            if (generation !== selectionGeneration || rendering !== renderGeneration) return
             restoringWidgets.delete(renderId)
-            if (widgets !== live.widgets || onRenderWidget !== live.onRenderWidget)
+            if (
+              widgets !== widgetOptions().widgets ||
+              onRenderWidget !== widgetOptions().onRenderWidget
+            )
               restoreCompletedWidgets(state.messages)
           })
       }
@@ -643,7 +669,7 @@ export function createAstralBeamChat(
   const buildTools = () => {
     const selection = selectionGeneration
     return buildAgentTools(
-      live.widgets ?? {},
+      widgetOptions().widgets ?? {},
       live.tools ?? {},
       renderWidget,
       debug,
@@ -1571,6 +1597,33 @@ export function createAstralBeamChat(
   return {
     start,
     getState: () => state,
+    getOptions: () => live,
+    attachView: (options) => {
+      if (view) throw new Error("This chat session already has a view attached")
+      const binding = { options }
+      const refresh = () => {
+        client.updateOptions({ tools: declareTools() })
+        restoreCompletedWidgets(state.messages)
+      }
+      disposeRenders()
+      view = binding
+      refresh()
+      return {
+        update: (next) => {
+          if (view !== binding) return
+          const previous = binding.options
+          binding.options = next
+          if (previous.widgets !== next.widgets || previous.onRenderWidget !== next.onRenderWidget)
+            refresh()
+        },
+        dispose: () => {
+          if (view !== binding) return
+          disposeRenders()
+          view = undefined
+          refresh()
+        },
+      }
+    },
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -1673,11 +1726,13 @@ export function createAstralBeamChat(
       if (!params.threadId && !options?.preview)
         throw new Error("A conversation ID is required to download files.")
       return (
-        await getThreadAttachment(params, {
-          ...(await requestOptions(!!params.threadId || !options?.preview)),
-          cache: "default",
-          headers: options?.preview ? { "X-File-Preview": "true" } : {},
-        })
+        await getThreadAttachment(
+          { ...params, delivery: "direct" },
+          {
+            ...(await requestOptions(!!params.threadId || !options?.preview)),
+            headers: options?.preview ? { "X-File-Preview": "true" } : {},
+          },
+        )
       ).blob()
     },
     getMcpCatalog: async () => personalMcpGetCatalog(await requestOptions(false)),
@@ -1695,6 +1750,19 @@ export function createAstralBeamChat(
     reset: () => {
       debug?.("status", "conversation reset")
       newThread()
+      if (state.auth.status === "ready") {
+        const draftIdentity = JSON.stringify([identity, chatPlacementKey(live)])
+        const apiUrl = live.apiUrl ?? DEFAULT_API_URL
+        storedThreadDraft(apiUrl, draftIdentity, "", "")
+        storedThreadDraft(apiUrl, draftIdentity, "", "", "sent")
+        void storedThreadAttachments({
+          apiUrl,
+          identity: draftIdentity,
+          threadId: "",
+          update: () => [],
+        }).catch((error: unknown) => debug?.("error", "Draft could not be cleared", error))
+      }
+      view?.options.onReset()
     },
     dispose: () => {
       releaseSubmission("The chat closed before this was sent.")

@@ -124,6 +124,7 @@ function chatTestLayer(options: {
   return Chat.layerNoDeps.pipe(
     Layer.provide([
       Layer.succeed(ChatFiles, {
+        download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => {

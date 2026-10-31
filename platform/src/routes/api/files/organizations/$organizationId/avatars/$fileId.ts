@@ -10,7 +10,7 @@ import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 import { UuidV7Schema } from "@/lib/schemas"
 import { StorageObjectMissing } from "@/lib/storage/errors"
-import { fileDownloadUrl, fileResponse } from "@/lib/storage/file-response.server"
+import { fileDownloadResponse, fileResponse } from "@/lib/storage/file-response.server"
 
 const avatarDownloadUrl = Effect.fn("avatarDownloadUrl")(function* ({
   organizationId,
@@ -36,7 +36,7 @@ const avatarDownloadUrl = Effect.fn("avatarDownloadUrl")(function* ({
     )
     .pipe(mapDatabaseErrors())
   if (!access) return yield* new StorageObjectMissing()
-  return yield* fileDownloadUrl({ organizationId, fileId })
+  return yield* fileDownloadResponse({ organizationId, fileId })
 })
 
 export const Route = createFileRoute("/api/files/organizations/$organizationId/avatars/$fileId")({

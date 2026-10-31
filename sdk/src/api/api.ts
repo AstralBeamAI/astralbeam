@@ -98,8 +98,21 @@ export function astralBeamJwtFetch<T>(path: string, options: JwtOptions): Promis
   return astralBeamApiFetch<T>(path, options)
 }
 
-export function astralBeamResourceFetch<_T>(path: string, options: ApiOptions): Promise<Response> {
-  return apiResponse(path, options)
+export async function astralBeamResourceFetch<_T>(
+  path: string,
+  options: ApiOptions,
+): Promise<Response> {
+  const response = await apiResponse(path, options)
+  const location = response.status === 204 ? response.headers.get("location") : null
+  if (!location) return response
+  const download = await globalThis.fetch(location, {
+    credentials: "omit",
+    redirect: "error",
+    referrerPolicy: "no-referrer",
+    signal: options.signal ?? null,
+  })
+  if (!download.ok) throw new Error("The file could not be downloaded. Please try again.")
+  return download
 }
 
 export function astralBeamChatFetch<_T>(path: string, options: JwtOptions): Promise<Response> {

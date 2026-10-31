@@ -35,7 +35,8 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
       required: definition.required,
       canGenerate: definition.generate !== undefined,
       isPublic: definition.isPublic === true,
-      environmentVariable: configEnvironmentVariable(definition.key),
+      environmentVariable:
+        definition.environment === false ? "" : configEnvironmentVariable(definition.key),
       source,
       ...(definition.options ? { options: definition.options } : {}),
       isSet:

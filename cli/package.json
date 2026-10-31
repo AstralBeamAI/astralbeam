@@ -14,8 +14,7 @@
     "astralbeam": "dist/astralbeam.js"
   },
   "files": [
-    "dist",
-    "skills"
+    "dist"
   ],
   "type": "module",
   "imports": {
@@ -31,7 +30,7 @@
     "check": "bun run generate:api && bun run format:check && bun run lint && bun run typecheck && bun run knip",
     "check:fix": "bun run generate:api && bun run lint:fix && bun run format && bun run knip:fix",
     "count-lines": "bun run ../scripts/count-lines.ts",
-    "compile": "bun run build && bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig --asset skills --outfile .output/astralbeam dist/astralbeam.js",
+    "compile": "bun run build && bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig --asset dist/skills --outfile .output/astralbeam dist/astralbeam.js",
     "dev": "bun run generate:api && bun run src/main.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

@@ -41,7 +41,7 @@ import {
   isOAuthImageRequest,
   captureOAuthImage,
 } from "@/lib/auth/profile-images.server"
-import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
+import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.server"
 import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
@@ -75,6 +75,7 @@ const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 const AUTH_BASE_PATH = "/api/auth"
 
 interface AuthConfig {
+  proxy: ReturnType<typeof proxySettingsFromValues>
   appBaseUrl: string
   betterAuthSecret: string
   google: { clientId: string; clientSecret: string } | null
@@ -87,6 +88,7 @@ function authConfigFromValues(values: ConfigValues): AuthConfig | null {
   const { app_base_url: appBaseUrl, better_auth_secret: betterAuthSecret } = values
   if (!appBaseUrl || !betterAuthSecret || !values.turnstile_secret_key) return null
   return {
+    proxy: proxySettingsFromValues(values),
     appBaseUrl,
     betterAuthSecret,
     google:
@@ -186,6 +188,36 @@ const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function*
     }),
   )
 })
+
+// Better Auth cannot verify the sender. Ignore client IP headers unless proxy trust allows them.
+// https://better-auth.com/docs/concepts/rate-limit#connecting-ip-address
+function withTrustedProxyHeaders(
+  request: Request,
+  peerAddress: string | undefined,
+  proxy: ReturnType<typeof proxySettingsFromValues>,
+): Request {
+  if (proxy.trustProxy === "true") {
+    const headers = new Headers(request.headers)
+    // Better Auth needs a single client address when no proxy ranges are configured.
+    for (const header of proxy.clientIpHeaders) {
+      const clientIp = headers.get(header)?.split(",")[0]
+      if (clientIp !== undefined) headers.set(header, clientIp.trim())
+    }
+    return new Request(request, { headers })
+  }
+  const trustedPeer = isTrustedProxyAddress(peerAddress, proxy)
+  if (proxy.trustProxy !== "false" && trustedPeer) return request
+  const headers = new Headers(request.headers)
+  for (const header of proxy.clientIpHeaders) {
+    if (peerAddress === undefined) headers.delete(header)
+    else headers.set(header, peerAddress)
+  }
+  if (!trustedPeer) {
+    headers.delete("x-forwarded-host")
+    headers.delete("x-forwarded-proto")
+  }
+  return new Request(request, { headers })
+}
 
 function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
@@ -342,15 +374,17 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     // backgroundTasks stays unset, because a handler would defer each send past the response and
     // swallow its rejection behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
+      trustedProxyHeaders: true,
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
       },
-      // Better Auth walks a forwarded chain to the first hop it does not own, and `/api/auth/$`
+      // Better Auth walks a forwarded chain to the first hop it does not own, and `Auth.handler`
       // verifies the sender. https://better-auth.com/docs/concepts/rate-limit
       ipAddress: {
-        trustedProxies: [...LOOPBACK_PROXY_ADDRESSES],
+        ipAddressHeaders: config.proxy.clientIpHeaders,
+        trustedProxies: config.proxy.trustedProxies,
       },
     },
     hooks: {
@@ -573,7 +607,7 @@ export class Auth extends Context.Service<
     readonly requireSession: (input: {
       readonly headers: Headers
     }) => Effect.Effect<AuthSession, SignInRequired>
-    readonly handler: (request: Request) => Effect.Effect<Response>
+    readonly handler: (request: Request, peerAddress: string | undefined) => Effect.Effect<Response>
     /** Better Auth owns the organization table and rechecks the caller's permission itself. */
     readonly updateOrganization: (input: {
       readonly headers: Headers
@@ -593,19 +627,25 @@ export class Auth extends Context.Service<
     Effect.gen(function* () {
       const config = yield* Config
       const mailer = yield* Mailer
-      const built = yield* Ref.make<{ generation: number; auth: AppAuth } | null>(null)
+      const built = yield* Ref.make<{
+        generation: number
+        auth: AppAuth
+        proxy: ReturnType<typeof proxySettingsFromValues>
+      } | null>(null)
       const sessions = new WeakMap<Headers, Effect.Effect<AuthSession | null>>()
 
-      const instance = Effect.gen(function* () {
+      const configured = Effect.gen(function* () {
         const snapshot = yield* config.snapshot
         const current = yield* Ref.get(built)
-        if (current?.generation === snapshot.generation) return current.auth
+        if (current?.generation === snapshot.generation) return current
         const authConfig = authConfigFromValues(snapshot.values)
         if (!authConfig) return yield* Effect.die("Authentication configuration is incomplete")
         const auth = buildAuth(authConfig, mailer)
-        yield* Ref.set(built, { generation: snapshot.generation, auth })
-        return auth
+        const result = { generation: snapshot.generation, auth, proxy: authConfig.proxy }
+        yield* Ref.set(built, result)
+        return result
       })
+      const instance = Effect.map(configured, ({ auth }) => auth)
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
         Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
@@ -647,9 +687,14 @@ export class Auth extends Context.Service<
           session ? Effect.succeed(session) : Effect.fail(new SignInRequired()),
         )
 
-      const handler = Effect.fn("Auth.handler")(function* (request: Request) {
-        const auth = yield* instance
-        return yield* tryPromiseInServerRequest(() => auth.handler(request)).pipe(Effect.orDie)
+      const handler = Effect.fn("Auth.handler")(function* (
+        request: Request,
+        peerAddress: string | undefined,
+      ) {
+        const { auth, proxy } = yield* configured
+        return yield* tryPromiseInServerRequest(() =>
+          auth.handler(withTrustedProxyHeaders(request, peerAddress, proxy)),
+        ).pipe(Effect.orDie)
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {

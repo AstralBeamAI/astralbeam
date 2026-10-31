@@ -56,11 +56,7 @@ export async function run(argv: readonly string[]): Promise<number> {
       "Mint short-lived JWTs offline with the organization API key",
       registerTokenCommands,
     )
-    .command(
-      "skill",
-      "Print or install the Agent Skill that teaches coding agents this CLI",
-      registerSkillCommands,
-    )
+    .command("skill", "Print or install the AstralBeam integration skill", registerSkillCommands)
   registerChatCommand(program)
   Object.assign(runState, { json, context: undefined, failedRequest: undefined })
   const originalFetch = globalThis.fetch

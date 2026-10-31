@@ -87,7 +87,7 @@ The CLI implements no host tools or widgets. A tool the agent calls on the clien
 | Command | Does |
 | --- | --- |
 | `skill` | Print the bundled Agent Skill, as `{ "content" }` with `--json` |
-| `skill install [--dir <path>]` | Write it to `<path>/astralbeam/SKILL.md`, `.claude/skills` by default |
+| `skill install [--dir <path>]` | Write it to `<path>/astralbeam/SKILL.md`, `.agents/skills` in the current project by default |
 
 See [Coding agents](./coding-agents.md).
 

@@ -11,7 +11,7 @@ import { ScrollArea } from "@base-ui/react/scroll-area"
 import { TabsContent } from "@/components/ui/tabs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-import { docsHighlightMarkdownCode } from "../-lib/highlight"
+import { docsHighlightCss, docsHighlightMarkdownCode } from "./highlight"
 import { DocsCodeBlock } from "./docs-code-block"
 import { DocsCodeTabs } from "./docs-code-tabs"
 
@@ -133,6 +133,7 @@ export function DocsMarkdown({
   return (
     <TooltipProvider>
       <div className="docs-markdown leading-7">
+        <style>{docsHighlightCss}</style>
         <Markdown components={components} highlighter={docsHighlightMarkdownCode}>
           {markdown}
         </Markdown>

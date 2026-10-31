@@ -10,10 +10,21 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Context, Effect, Layer, RcMap, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
+import type { ConfigValues } from "@/lib/config/types"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
-import type { StorageConnection } from "./schemas"
+import {
+  getFileSystemObject,
+  headFileSystemObject,
+  putFileSystemObject,
+  removeFileSystemObject,
+} from "./filesystem.server"
+import { isStorageSettingActive, type StorageConnection } from "./schemas"
 
 type StorageFailure = StorageObjectMissing | StorageUnavailable
+
+const storageObjectMissing = (error: unknown) =>
+  error instanceof Error &&
+  (["NoSuchKey", "NotFound"].includes(error.name) || ("code" in error && error.code === "ENOENT"))
 
 const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   Effect.tryPromise({
@@ -22,7 +33,7 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   }).pipe(
     Effect.timeout("30 seconds"),
     Effect.tapError((error) =>
-      error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
+      storageObjectMissing(error)
         ? Effect.void
         : Effect.logWarning("Object storage request failed", {
             errorType: error instanceof Error ? error.name : "Unknown",
@@ -36,9 +47,7 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
           }),
     ),
     Effect.mapError((error) =>
-      error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)
-        ? new StorageObjectMissing()
-        : new StorageUnavailable(),
+      storageObjectMissing(error) ? new StorageObjectMissing() : new StorageUnavailable(),
     ),
   )
 
@@ -80,7 +89,11 @@ export class ObjectStorage extends Context.Service<
       key: string
     }) => Effect.Effect<{ size: number; contentType: string }, StorageFailure>
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
-    readonly signedUrl: (input: { key: string }) => Effect.Effect<string, StorageFailure>
+    readonly signedUrl: (input: {
+      key: string
+      contentType?: string
+      contentDisposition?: string
+    }) => Effect.Effect<string | undefined, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
 >()("astralbeam/storage/ObjectStorage") {
@@ -90,29 +103,43 @@ export class ObjectStorage extends Context.Service<
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
+      // Snapshot values keep the client cache key stable across requests.
       const clients = yield* RcMap.make({
-        lookup: acquireStorageClient,
+        lookup: (values: ConfigValues) =>
+          acquireStorageClient({
+            endpoint: values.s3_endpoint!,
+            region: values.s3_region!,
+            bucket: values.s3_bucket!,
+            accessKeyId: values.s3_access_key_id!,
+            secretAccessKey: values.s3_secret_access_key!,
+            pathStyle: values.s3_path_style === "true",
+          }),
         idleTimeToLive: "1 minute",
       })
       const settings = Effect.flatMap(config.snapshot, ({ values, issues }) =>
-        issues.some((issue) => issue.key.startsWith("s3_"))
+        issues.some(
+          ({ key }) =>
+            (key.startsWith("storage_") || key.startsWith("s3_")) &&
+            isStorageSettingActive(key, values.storage_provider),
+        )
           ? Effect.fail(new StorageUnavailable())
-          : Effect.succeed<StorageConnection>({
-              endpoint: values.s3_endpoint!,
-              region: values.s3_region!,
-              bucket: values.s3_bucket!,
-              accessKeyId: values.s3_access_key_id!,
-              secretAccessKey: values.s3_secret_access_key!,
-              pathStyle: values.s3_path_style === "true",
-            }),
+          : Effect.succeed(values),
       )
 
-      const withClient = <A>(
-        run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,
+      const withStorage = <A>(
+        run: (
+          client: S3Client,
+          connection: Pick<StorageConnection, "bucket">,
+        ) => Effect.Effect<A, StorageFailure>,
+        local: (directory: string, signal: AbortSignal) => PromiseLike<A>,
       ) =>
         Effect.scoped(
-          Effect.flatMap(settings, (connection) =>
-            Effect.flatMap(RcMap.get(clients, connection), (client) => run(client, connection)),
+          Effect.flatMap(settings, (values) =>
+            values.storage_provider === "filesystem"
+              ? storageRequest((signal) => local(values.storage_directory!, signal))
+              : Effect.flatMap(RcMap.get(clients, values), (client) =>
+                  run(client, { bucket: values.s3_bucket! }),
+                ),
           ),
         )
 
@@ -139,7 +166,8 @@ export class ObjectStorage extends Context.Service<
               if (size > maxBytes) throw new StorageUnavailable()
               chunks.push(chunk.value)
             }
-            return new Uint8Array(Buffer.concat(chunks, size))
+            const bytes = Buffer.concat(chunks, size)
+            return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
           } finally {
             abortSignal.removeEventListener("abort", cancelRead)
             await reader.cancel()
@@ -155,57 +183,70 @@ export class ObjectStorage extends Context.Service<
 
       return ObjectStorage.of({
         put: Effect.fn("ObjectStorage.put")((input) =>
-          withClient((client, connection) =>
-            storageRequest((abortSignal) =>
-              client.send(
-                new PutObjectCommand({
-                  Bucket: connection.bucket,
-                  Key: input.key,
-                  Body: input.bytes,
-                  ContentType: input.contentType,
-                }),
-                { abortSignal },
-              ),
-            ).pipe(Effect.asVoid),
+          withStorage(
+            (client, connection) =>
+              storageRequest((abortSignal) =>
+                client.send(
+                  new PutObjectCommand({
+                    Bucket: connection.bucket,
+                    Key: input.key,
+                    Body: input.bytes,
+                    ContentType: input.contentType,
+                  }),
+                  { abortSignal },
+                ),
+              ).pipe(Effect.asVoid),
+            (directory, signal) => putFileSystemObject({ ...input, directory, signal }),
           ),
         ),
         get: Effect.fn("ObjectStorage.get")((input) =>
-          withClient((client, connection) =>
-            readObjectBytes(client, connection.bucket, input.key, input.maxBytes),
+          withStorage(
+            (client, connection) =>
+              readObjectBytes(client, connection.bucket, input.key, input.maxBytes),
+            (directory, signal) => getFileSystemObject({ ...input, directory, signal }),
           ),
         ),
         head: Effect.fn("ObjectStorage.head")((input) =>
-          withClient((client, connection) =>
-            storageRequest(async (abortSignal) => {
-              const object = await client.send(
-                new HeadObjectCommand({ Bucket: connection.bucket, Key: input.key }),
-                { abortSignal },
-              )
-              return {
-                size: Schema.decodeUnknownSync(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))(
-                  object.ContentLength,
-                ),
-                contentType: object.ContentType ?? "application/octet-stream",
-              }
-            }),
+          withStorage(
+            (client, connection) =>
+              storageRequest(async (abortSignal) => {
+                const object = await client.send(
+                  new HeadObjectCommand({ Bucket: connection.bucket, Key: input.key }),
+                  { abortSignal },
+                )
+                return {
+                  size: Schema.decodeUnknownSync(
+                    Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+                  )(object.ContentLength),
+                  contentType: object.ContentType ?? "application/octet-stream",
+                }
+              }),
+            (directory) => headFileSystemObject({ ...input, directory }),
           ),
         ),
         remove: Effect.fn("ObjectStorage.remove")((input) =>
-          withClient((client, connection) => removeObject(client, connection.bucket, input.key)),
+          withStorage(
+            (client, connection) => removeObject(client, connection.bucket, input.key),
+            (directory) => removeFileSystemObject({ ...input, directory }),
+          ),
         ),
         signedUrl: Effect.fn("ObjectStorage.signedUrl")((input) =>
-          withClient((client, connection) =>
-            storageRequest(() =>
-              getSignedUrl(
-                client,
-                new GetObjectCommand({
-                  Bucket: connection.bucket,
-                  Key: input.key,
-                  ResponseCacheControl: "private, no-store",
-                }),
-                { expiresIn: 60 },
+          withStorage<string | undefined>(
+            (client, connection) =>
+              storageRequest(() =>
+                getSignedUrl(
+                  client,
+                  new GetObjectCommand({
+                    Bucket: connection.bucket,
+                    Key: input.key,
+                    ResponseCacheControl: "private, no-store",
+                    ResponseContentType: input.contentType,
+                    ResponseContentDisposition: input.contentDisposition,
+                  }),
+                  { expiresIn: 60 },
+                ),
               ),
-            ),
+            () => Promise.resolve(undefined),
           ),
         ),
         testConnection: Effect.fn("ObjectStorage.testConnection")((connection) =>

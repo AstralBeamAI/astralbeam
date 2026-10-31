@@ -41,7 +41,8 @@ async function sendChatMessage(chat: AstralBeamChatCore, content: string, json: 
   })
   try {
     const submission = await chat.sendMessage(content)
-    if (submission.error) throw submission.error
+    if (submission.phase !== "accepted")
+      throw submission.error ?? new Error("The chat message was not accepted.")
   } finally {
     unsubscribe()
   }

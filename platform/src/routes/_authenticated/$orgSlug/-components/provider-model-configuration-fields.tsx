@@ -7,7 +7,7 @@ import {
   type ModelConfiguration,
   type ProviderModelFields,
 } from "@/lib/model-providers/schemas"
-import { ProviderField } from "../../-components/provider-field"
+import { ProviderField } from "./provider-field"
 
 const modelPricingFields = [
   ["inputPerMillion", "Input price"],

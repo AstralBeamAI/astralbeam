@@ -1,11 +1,12 @@
 "use client"
 
 import { GlobeIcon, WarningIcon } from "@phosphor-icons/react"
+import { Fragment } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { EMAIL_PROVIDER_SETTING_KEYS } from "@/lib/email/schemas"
+import { EMAIL_PROVIDER_SETTING_KEYS, SMTP_DEFAULTS } from "@/lib/email/schemas"
 import type { EmailProvider } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
@@ -21,6 +22,30 @@ const configGroupOrder = [
   "File storage",
   "Observability",
 ] as const
+
+const smtpConnectionPresets = [
+  {
+    label: "Local",
+    ...SMTP_DEFAULTS,
+    port: String(SMTP_DEFAULTS.port),
+    username: "",
+  },
+  { label: "Resend", host: "smtp.resend.com", port: "465", security: "tls", username: "resend" },
+  {
+    label: "Cloudflare",
+    host: "smtp.mx.cloudflare.net",
+    port: "465",
+    security: "tls",
+    username: "api_token",
+  },
+  {
+    label: "SES US East (N. Virginia)",
+    host: "email-smtp.us-east-1.amazonaws.com",
+    port: "465",
+    security: "tls",
+    username: "",
+  },
+]
 
 const storageConnectionPresets = [
   {
@@ -93,21 +118,30 @@ export function ConfigFieldGroups({
   storageSettings: StorageConnection | undefined
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
+  const hasS3Settings = fields.some((field) => field.key.startsWith("s3_"))
+  const trustProxy =
+    drafts.trust_proxy?.kind === "set"
+      ? drafts.trust_proxy.value
+      : fields.find((field) => field.key === "trust_proxy")?.value
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
+  const smtpPresetsLocked = fields.some(
+    (field) =>
+      field.source === "environment" &&
+      EMAIL_PROVIDER_SETTING_KEYS.smtp.some((key) => key === field.key),
+  )
   const storagePresetsLocked = fields.some(
     (field) =>
       field.source === "environment" &&
       ["s3_endpoint", "s3_region", "s3_path_style"].includes(field.key),
   )
-  const storageDestinationFields = fields.filter((field) =>
-    ["s3_endpoint", "s3_region", "s3_bucket", "s3_path_style"].includes(field.key),
-  )
-  const changingStorageDestination =
-    storageDestinationFields.every((field) => field.value !== null) &&
-    storageDestinationFields.some((field) => {
-      const draft = drafts[field.key]
-      return draft?.kind === "set" && draft.value !== field.value
-    })
+  const changingStorageDestination = [
+    "storage_provider",
+    "storage_directory",
+    "s3_endpoint",
+    "s3_region",
+    "s3_bucket",
+    "s3_path_style",
+  ].some((key) => changedKeys.has(key))
 
   return [...fieldsByGroup]
     .toSorted(
@@ -120,14 +154,13 @@ export function ConfigFieldGroups({
           fieldErrors[field.key] ||
           field.storageStatus,
       )
-      const visibleFields =
-        group === "Email Delivery"
-          ? groupFields.filter(
-              (field) =>
-                ["email_provider", "email_from_address"].includes(field.key) ||
-                providerKeys.has(field.key),
-            )
-          : groupFields
+      const visibleFields = groupFields.filter((field) =>
+        field.key === "client_ip_headers"
+          ? Boolean(trustProxy && trustProxy !== "false")
+          : group !== "Email Delivery" ||
+            ["email_provider", "email_from_address"].includes(field.key) ||
+            providerKeys.has(field.key),
+      )
       return (
         <ConfigSection
           key={group}
@@ -178,7 +211,7 @@ export function ConfigFieldGroups({
               </div>
             </div>
           )}
-          {group === "File storage" && (
+          {group === "File storage" && hasS3Settings && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {storageConnectionPresets.map((preset) => (
@@ -206,49 +239,82 @@ export function ConfigFieldGroups({
                   ? "Connection presets are unavailable while these settings come from the environment."
                   : "Prefill connection settings, then adjust the endpoint and region for your provider. Bucket and credentials stay unchanged. For R2, replace <account-id> with your account ID."}
               </p>
-              {changingStorageDestination && (
-                <Alert>
-                  <WarningIcon aria-hidden="true" className="text-warning" />
-                  <AlertTitle>Existing files must be migrated manually</AlertTitle>
-                  <AlertDescription>
-                    Saving these settings does not move existing attachments, avatars, or logos.
-                    Migrate the objects to the new destination with their object keys unchanged to
-                    keep them accessible, then restart other server instances after saving.
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
           )}
+          {group === "File storage" && changingStorageDestination && (
+            <Alert>
+              <WarningIcon aria-hidden="true" className="text-warning" />
+              <AlertTitle>Existing files must be migrated manually</AlertTitle>
+              <AlertDescription>
+                Saving these settings does not move existing attachments, avatars, or logos. Migrate
+                the objects to the new destination with their object keys unchanged to keep them
+                accessible, then restart other server instances after saving.
+              </AlertDescription>
+            </Alert>
+          )}
           {visibleFields.map((field) => (
-            <ConfigFieldInput
-              key={field.key}
-              field={field}
-              draft={drafts[field.key] ?? { kind: "unchanged" }}
-              revealedValue={revealedValues[field.key]}
-              error={fieldErrors[field.key]}
-              disabled={disabled}
-              onDraftChange={(draft) => onDraftChange(field.key, draft)}
-              onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
-              onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
-              footer={
-                field.source === "database" && field.key === "app_base_url" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="self-start"
-                    disabled={disabled}
-                    // Reading location in the handler keeps it out of the server render.
-                    onClick={() =>
-                      onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })
-                    }
-                  >
-                    <GlobeIcon aria-hidden="true" />
-                    Use current origin
-                  </Button>
-                ) : undefined
-              }
-            />
+            <Fragment key={field.key}>
+              <ConfigFieldInput
+                field={field}
+                draft={drafts[field.key] ?? { kind: "unchanged" }}
+                revealedValue={revealedValues[field.key]}
+                error={fieldErrors[field.key]}
+                disabled={disabled}
+                onDraftChange={(draft) => onDraftChange(field.key, draft)}
+                onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
+                onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
+                footer={
+                  field.source === "database" && field.key === "app_base_url" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      disabled={disabled}
+                      // Reading location in the handler keeps it out of the server render.
+                      onClick={() =>
+                        onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })
+                      }
+                    >
+                      <GlobeIcon aria-hidden="true" />
+                      Use current origin
+                    </Button>
+                  ) : undefined
+                }
+              />
+              {field.key === "email_provider" && emailProvider === "smtp" && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {smtpConnectionPresets.map((preset) => (
+                      <Button
+                        key={preset.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || smtpPresetsLocked}
+                        onClick={() => {
+                          for (const [key, value] of Object.entries({
+                            smtp_host: preset.host,
+                            smtp_port: preset.port,
+                            smtp_security: preset.security,
+                            smtp_username: preset.username,
+                            smtp_password: "",
+                          }))
+                            onDraftChange(key, { kind: "set", value })
+                        }}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {smtpPresetsLocked
+                      ? "Connection presets are unavailable while SMTP settings come from the environment."
+                      : "Presets fill SMTP settings and clear credentials. For Resend or Cloudflare, enter the API token as the password. For SES, enter SMTP credentials created in us-east-1. Set a verified sender address for hosted services."}
+                  </p>
+                </div>
+              )}
+            </Fragment>
           ))}
           {group === "Email Delivery" && (
             <div className="flex flex-col items-start gap-3 rounded-md border p-3">
@@ -285,7 +351,7 @@ export function ConfigFieldGroups({
               )}
             </div>
           )}
-          {group === "File storage" && (
+          {group === "File storage" && hasS3Settings && (
             <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
         </ConfigSection>
@@ -314,7 +380,10 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
         : provider === "ses" && value("aws_region"),
       value("email_from_address") || (provider === "smtp" && "Default sender"),
     ],
-    "File storage": [value("s3_bucket"), value("s3_region")],
+    "File storage":
+      value("storage_provider") === "filesystem"
+        ? ["File System", value("storage_directory")]
+        : ["S3-compatible", value("s3_bucket"), value("s3_region")],
     Observability: [
       value("otel_sdk_disabled") === "true"
         ? "Disabled"

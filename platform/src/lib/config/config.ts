@@ -15,6 +15,7 @@ import {
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { isInDatabaseTransaction } from "@/db/lib/transaction-guard"
+import { isStorageSettingActive } from "@/lib/storage/schemas"
 import {
   DatabaseMigrations,
   type DatabaseMigrationState,
@@ -32,6 +33,7 @@ import {
   DEFAULT_CONFIG_VALUES,
   ENVIRONMENT_CONFIG_DEFINITIONS,
   findConfigDefinition,
+  storageProviderFromConfig,
   validateConfigCompleteness,
 } from "./registry.ts"
 import { parseEnvironmentConfigValue } from "./schemas.ts"
@@ -79,7 +81,7 @@ const environmentConfig = EffectConfig.all(
 )
 
 /** Environment values, decoded like stored ones. An invalid value fails every load until fixed. */
-const readEnvironmentConfig = Effect.fnUntraced(function* () {
+export const readEnvironmentConfig = Effect.fnUntraced(function* () {
   const raw = yield* environmentConfig.pipe(
     // Each load rereads the process environment, as it rereads the stored values it overrides.
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
@@ -159,7 +161,21 @@ export class Config extends Context.Service<
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
+        values.storage_provider = storageProviderFromConfig(values, [
+          ...(stored.rows ?? []).map((row) => row.key),
+          ...environmentKeys,
+        ])
         const issues = validateConfigCompleteness(values, environmentKeys)
+        for (const key of ["storage_provider", "storage_directory"] as const) {
+          if (
+            isStorageSettingActive(key, values.storage_provider) &&
+            stored.rows?.some((row) => row.key === key && row.storageStatus === "unreadable")
+          )
+            issues.push({
+              key,
+              message: `${findConfigDefinition(key)!.label} is unreadable. Replace it to use storage.`,
+            })
+        }
         return {
           generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,
@@ -197,6 +213,9 @@ export class Config extends Context.Service<
 
       const update = Effect.fn("Config.update")(function* (updates: readonly ConfigUpdate[]) {
         const current = yield* snapshot
+        const provider =
+          updates.find((update) => update.key === "storage_provider")?.value ??
+          current.values.storage_provider!
         const decoded = validateConfigUpdates(updates, current.environmentKeys)
         if (decoded.issues.length > 0) {
           return yield* new ConfigUpdateInvalid({ issues: decoded.issues })
@@ -208,6 +227,13 @@ export class Config extends Context.Service<
         if (generated.issues.length > 0) {
           return yield* new ConfigUpdateInvalid({ issues: generated.issues })
         }
+        // Generated defaults are inserted only if no value was saved by an operator.
+        generated.values.push({ key: "storage_provider", value: provider })
+        if (isStorageSettingActive("storage_directory", provider))
+          generated.values.push({
+            key: "storage_directory",
+            value: DEFAULT_CONFIG_VALUES.storage_directory!,
+          })
         // Hidden system-managed values must rotate on saves without being sent to the browser.
         if (getDatabaseEncryptionKeyring().length > 1) {
           const stored = yield* readDatabaseConfig(db)

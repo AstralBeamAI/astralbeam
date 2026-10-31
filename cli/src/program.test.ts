@@ -37,6 +37,19 @@ const cli = (...args: string[]) => run(["node", "astralbeam", ...args])
 const respondWith = (body: unknown, status = 200) =>
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(body, { status })))
 
+test("skill installation defaults to the project and honors --dir", async () => {
+  const project = await mkdtemp(join(tmpdir(), "astralbeam-cli-skill-"))
+  const content = await readFile(
+    new URL("../../skills/astralbeam/SKILL.md", import.meta.url),
+    "utf8",
+  )
+  process.chdir(project)
+  expect(await cli("--json", "skill", "install")).toBe(0)
+  expect(await readFile(join(project, ".agents/skills/astralbeam/SKILL.md"), "utf8")).toBe(content)
+  expect(await cli("--json", "skill", "install", "--dir", join(project, "custom-skills"))).toBe(0)
+  expect(await readFile(join(project, "custom-skills/astralbeam/SKILL.md"), "utf8")).toBe(content)
+})
+
 test.each(["-q", "--search"])(
   "%s preserves search and exact filters with table output",
   async (search) => {
@@ -71,9 +84,24 @@ test("API failures exit 1 with structured errors", async () => {
   expect(stderr).toBe(
     `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409 from POST ${API_URL}/v1/tenants)\n`,
   )
-  stderr = ""
-  expect(await cli("chat", "Hello", "--tenant", "t", "--user", "u", "--json")).toBe(1)
-  expect(JSON.parse(stderr)).toEqual({ error: problem, context })
+})
+
+test("a refused chat send exits 1 instead of printing a successful transcript", async () => {
+  respondWith(
+    {
+      type: "about:blank",
+      title: "Too Many Requests",
+      status: 429,
+      detail: "Request limit exceeded.",
+    },
+    429,
+  )
+  expect(await cli("--json", "chat", "--tenant", "customer", "--user", "user", "Hello")).toBe(1)
+  expect(stdout).toBe("")
+  expect(JSON.parse(stderr)).toMatchObject({
+    error: { detail: "Request limit exceeded." },
+    context,
+  })
 })
 
 test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
@@ -89,7 +117,7 @@ test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
   ).toMatch(/60 to 600/)
 })
 
-test("environment URLs override the nearest binding without changing saved configuration", async () => {
+test("directory bindings and environment credentials resolve and verify the Organization", async () => {
   vi.stubEnv("ASTRALBEAM_API_KEY", undefined)
   const root = await realpath(await mkdtemp(join(tmpdir(), "astralbeam-cli-dirs-")))
   const nested = join(root, "acme", "app", "src")
@@ -126,6 +154,28 @@ test("environment URLs override the nearest binding without changing saved confi
   expect(await cli("--json", "tenants", "list")).toBe(1)
   expect(stderr).toMatch(/No AstralBeam login covers/)
   expect(fetch).toHaveBeenCalledTimes(2)
+
+  process.chdir(nested)
+  const environmentOrganization = { ...organization, id: "01990a5d-0000-7000-8000-000000000012" }
+  vi.stubEnv("ASTRALBEAM_API_KEY", API_KEY.replace(ORGANIZATION_ID, environmentOrganization.id))
+  respondWith(environmentOrganization)
+  stderr = ""
+  stdout = ""
+  expect(await cli("--json", "auth", "status")).toBe(0)
+  expect(JSON.parse(stdout)).toMatchObject({
+    organization: environmentOrganization,
+    source: "ASTRALBEAM_API_KEY",
+  })
+  expect(JSON.parse(stderr)).toEqual({
+    context: { organization: environmentOrganization, bound_directory: null },
+  })
+
+  respondWith(organization)
+  stderr = ""
+  expect(await cli("--json", "auth", "status")).toBe(1)
+  expect(JSON.parse(stderr)).toMatchObject({
+    error: { detail: "The API returned a different organization." },
+  })
 })
 
 test("errors name unserved endpoints and unreachable servers", async () => {

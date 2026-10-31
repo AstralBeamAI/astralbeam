@@ -6,10 +6,10 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 ### Docker Compose
 
-Use Docker Compose 2.30 or later. Download the Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+Use Docker Compose 2.30 or later. Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.23.7/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docker-compose.production.yml
 
 (
   umask 077
@@ -26,27 +26,27 @@ Compose rejects missing or empty PostgreSQL and RustFS credentials before starti
 ALLOW_INSECURE=true docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
-The private `astralbeam` bucket is created automatically. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
+The private `astralbeam` bucket is created automatically. Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). Storage is already configured at `http://localhost:9010`. Configure your email provider before inviting the owner.
 
-The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
+Set `PORT` to another free port if 4510 is occupied. The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
 
 ### Existing services
 
-The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
+The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database) and email delivery separately. File storage can use a private S3-compatible bucket or a persistent directory selected at `/configure`. The image runs as UID/GID `10001:10001`, which needs write access to that directory. Its home is `/tmp`, so mount persistent storage and choose its path before uploading files.
 
-1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
+1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:4510` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env -e PORT=4510 -p 127.0.0.1:4510:4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
-3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over trusted loopback:
+3. For local setup, open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over loopback, which is always trusted for forwarded host/protocol:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 --env PORT=4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
    Configure the [host Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
@@ -88,7 +88,7 @@ bun run --cwd sdk build
 bun run --cwd platform build
 ```
 
-**NOTE**: Do not run `scripts/setup.sh` on a deployment host. It is the contributor setup, and it migrates any database `DATABASE_URL` reaches and seeds it with fixed development credentials.
+**NOTE**: Do not run `scripts/setup.sh` on a deployment host. It installs contributor dependencies, applies migrations, and seeds uninitialized loopback databases with fixed development credentials.
 
 The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
@@ -115,17 +115,17 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
 | `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `PORT` | No | TCP port to listen on |
+| `PORT` | No | TCP port to listen on. Defaults to `4510` |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
+| `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Keep unset for TLS. See [Security](./security.md#https-and-response-headers) |
-| `CLUSTER_RUNNER_HOST` | No | Private hostname or IP advertised to peer runners. Defaults to `127.0.0.1` |
+| `CLUSTER_RUNNER_HOST` | No | Address used to bind and advertise this runner. Defaults to `auto`: discover private IPv6, then private IPv4, falling back to loopback. Override with a reachable private hostname or IP if discovery selects the wrong interface |
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
-| `CLUSTER_RUNNER_LISTEN_HOST` | No | Bind interface for the private runner listener. Defaults to `CLUSTER_RUNNER_HOST` |
 
-For replicas on different hosts or isolated networks, set a directly reachable private runner host and port for each process. A wildcard bind address still needs a reachable advertised address. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
+Replicas sharing a database discover each other through Effect's SQL runner storage, without seed addresses. The discovered private addresses and assigned ports must be reachable between replicas. Override the host or port when network routing or firewall rules require it. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
 
-Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
+Keep runner ports on a trusted private network because they expose internal cluster RPCs. Replicas authenticate using a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`, so use the same encryption keyring across replicas. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
 The binary loads [Bun's standard environment files](https://bun.com/docs/runtime/environment-variables) from the current working directory according to `NODE_ENV`. Existing environment variables take precedence.
 
@@ -179,7 +179,7 @@ After=network-online.target
 [Service]
 User=astralbeam
 WorkingDirectory=/etc/astralbeam
-Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3000
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=4510
 ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
 
@@ -196,19 +196,19 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now astralbeam-platform
 ```
 
-`systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
+`systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:4510/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
 
-**NOTE**: The development server runs on port 4500. A production process listens on whatever `PORT` says.
+**NOTE**: Development uses port 4500. Production defaults to port 4510. Set `PORT` to override either listener.
 
 ## 5. Put it behind a reverse proxy
 
-Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. `/configure` trusts `X-Forwarded-Host` and `X-Forwarded-Proto` only when the request peer is a loopback address, so the proxy must run on the same host as the application, must overwrite both headers, and must not be bypassable.
+Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. Loopback is always trusted for forwarded host/protocol, so HTTPS `/configure` works without a proxy setting. To use forwarded client IPs, enable Trust Proxy and enter `127.0.0.1,::1` to limit trust to the same-host proxy. For remote proxies, add their socket-peer IPs/CIDRs and retain a `TRUST_PROXY` environment override for operator recovery when database settings are unavailable. See [Reverse proxy trust](./security.md#reverse-proxy-trust).
 
 Add this location block to the server that terminates TLS:
 
 ```nginx
 location / {
-  proxy_pass http://127.0.0.1:3000;
+  proxy_pass http://127.0.0.1:4510;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;
@@ -216,7 +216,7 @@ location / {
 }
 ```
 
-The application replaces `X-Forwarded-For` with the real peer address whenever the peer is not loopback, so a client cannot spoof the address authentication rate limits are keyed on.
+The application replaces configured client IP headers with the real peer address whenever the peer is untrusted, so a direct client cannot spoof the address authentication rate limits are keyed on.
 
 The encryption key grants access to every encrypted value in the database, so `/configure` deserves more protection than the application's own throttle. Restrict who can reach it at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and rate-limit it there during first setup. See [Security](./security.md).
 
@@ -250,6 +250,8 @@ Run each of these against the public origin:
 Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
 
 The service account needs a writable, executable temporary directory. Set `TMPDIR` if the system default is restricted. Existing environment and bootstrap settings remain in use after an upgrade.
+
+Before upgrading an existing deployment behind a remote TLS-terminating proxy, set `TRUST_PROXY` to its socket-peer IPs/CIDRs in the service environment. Same-host loopback proxies need no setting for HTTPS `/configure` access. Without an allowlist for a remote proxy, HTTPS `/configure` requests redirect back to HTTPS and mutations are rejected.
 
 1. Run this command to replace the installed binary with the latest release for this host's target:
 

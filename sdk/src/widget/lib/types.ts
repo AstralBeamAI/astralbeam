@@ -1,3 +1,5 @@
+export type { AttachmentKind, DraftAttachment } from "../../lib/drafts.ts"
+
 // Chat-chunk-internal types; the client entry's public types live in src/lib/types.ts and the
 // protocol data shapes in src/core/types.ts.
 
@@ -24,13 +26,6 @@ export interface QuestionnaireAnswer {
   answers: string[]
 }
 
-/**
- * What an attachment is. An `image` or a `pdf` the agent's model reads directly; a `text`, `data`,
- * or `office` file is described to the agent, which then reads or analyzes it as a file. The kind
- * also picks the size cap and the icon, which is why the office formats are not simply `data`.
- */
-export type AttachmentKind = "image" | "pdf" | "text" | "data" | "office"
-
 /** Mount attachment options with every default filled in, as the composer reads them. */
 export interface ResolvedAttachmentOptions {
   enabled: boolean
@@ -39,22 +34,4 @@ export interface ResolvedAttachmentOptions {
   maxTotalBytes: number
   /** MIME types or `type/*` patterns the host allows; empty means everything supported. */
   accept: readonly string[]
-}
-
-/**
- * One file the user picked, before it is sent. A rejected file is kept as a `status: "error"`
- * entry so the composer can say why instead of dropping it silently, and carries no `kind`.
- */
-export interface DraftAttachment {
-  id: string
-  name: string
-  /** Size in bytes as reported by the file, used for the label and the caps. */
-  size: number
-  mimeType: string
-  kind?: AttachmentKind
-  status: "reading" | "ready" | "error"
-  /** Uploaded object ID. Only this reference and file metadata are persisted locally. */
-  fileId?: string
-  /** Why the file was rejected or could not be read; present when the status is `"error"`. */
-  error?: string
 }

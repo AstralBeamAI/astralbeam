@@ -22,7 +22,7 @@ import {
 } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { StorageConnectionSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageConnectionSchema } from "@/lib/storage/schemas"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -86,8 +86,14 @@ export function ConfigEditor({
 
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
 
-  const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
-    const draft = drafts[field.key] ?? { kind: "unchanged" }
+  const storageProvider = currentValue("storage_provider")
+  const activeFields = fields.filter((field) => isStorageSettingActive(field.key, storageProvider))
+
+  const pendingUpdates = activeFields.flatMap<{ key: string; value: string | null }>((field) => {
+    const draft: FieldDraft =
+      field.key === "client_ip_headers" && currentValue("trust_proxy", "false") === "false"
+        ? { kind: "unchanged" }
+        : (drafts[field.key] ?? { kind: "unchanged" })
     const stored = storedValue(field)
     if (field.source === "environment") return []
     if (draft.kind === "unchanged") {
@@ -97,7 +103,12 @@ export function ConfigEditor({
         ? [{ key: field.key, value: stored }]
         : []
     }
-    if (draft.value === (stored ?? "") && field.storageStatus !== "unreadable") return []
+    if (
+      draft.value === (stored ?? "") &&
+      (stored !== null || !field.isSet) &&
+      field.storageStatus !== "unreadable"
+    )
+      return []
     if (!field.required && draft.value === "") {
       return [{ key: field.key, value: null }]
     }
@@ -113,14 +124,16 @@ export function ConfigEditor({
       return updated
     })
     const field = fields.find((candidate) => candidate.key === key)
+    const stored = field && storedValue(field)
     const unchanged =
       draft.kind === "set" &&
       field?.storageStatus !== "unreadable" &&
-      draft.value === ((field && storedValue(field)) ?? "")
+      !(field?.kind === "secret" && field.isSet && stored === null) &&
+      draft.value === (stored ?? "")
     setDrafts((current) => ({ ...current, [key]: unchanged ? { kind: "unchanged" } : draft }))
   }
 
-  const currentValue = (key: ConfigKey, clearedValue = "") => {
+  function currentValue(key: ConfigKey, clearedValue = "") {
     const field = fields.find((candidate) => candidate.key === key)
     const draft = drafts[key] ?? { kind: "unchanged" }
     if (draft.kind === "set") return draft.value || clearedValue
@@ -273,7 +286,7 @@ export function ConfigEditor({
       {actions}
 
       <ConfigFieldGroups
-        fields={fields}
+        fields={activeFields}
         issues={issues}
         changedKeys={new Set(pendingUpdates.map((update) => update.key))}
         drafts={drafts}

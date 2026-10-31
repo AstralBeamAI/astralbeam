@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { authenticationIdentity } from "./auth.ts"
+import { DEFAULT_API_URL } from "../lib/constants.ts"
+import { storedThreadDraft, storedThreadAttachments } from "../lib/drafts.ts"
 import { createTestSession, disposeTestSessions } from "./session-fixtures.ts"
 
 const threadA = "00000000-0000-4000-8000-000000000001"
@@ -276,4 +279,48 @@ test("an upload keeps its picked agent while its file is read across conversatio
   finish(btoa("note"))
   await uploading
   expect(upload).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ agentId: threadA }))
+})
+
+test("reset without a view clears only this placement's new draft", async () => {
+  const storage = new Map<string, string>()
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key),
+  })
+  vi.stubGlobal("fetch", () => Promise.resolve(Response.json(currentUser)))
+  const chat = createTestSession({ placementKey: "setup", threadId: "new" })
+  await vi.waitFor(() => expect(chat.getState().auth.status).toBe("ready"))
+  const auth = chat.getState().auth
+  if (auth.status !== "ready") throw new Error("Expected a verified account")
+  const account = authenticationIdentity(auth.currentUser)
+  const identity = JSON.stringify([account, "setup"])
+  const other = JSON.stringify([account, "sidebar"])
+  storedThreadDraft(DEFAULT_API_URL, identity, "", "Unsent setup")
+  storedThreadDraft(DEFAULT_API_URL, identity, "", "Unconfirmed setup", "sent")
+  storedThreadDraft(DEFAULT_API_URL, identity, threadA, "Saved conversation draft")
+  storedThreadDraft(DEFAULT_API_URL, other, "", "Sidebar draft")
+  await storedThreadAttachments({
+    apiUrl: DEFAULT_API_URL,
+    identity,
+    threadId: "",
+    update: () => [
+      {
+        id: "file",
+        fileId: "uploaded",
+        name: "note.txt",
+        mimeType: "text/plain",
+        size: 1,
+        status: "ready",
+      },
+    ],
+  })
+  chat.reset()
+  expect(storedThreadDraft(DEFAULT_API_URL, identity, "")).toBe("")
+  expect(storedThreadDraft(DEFAULT_API_URL, identity, "", undefined, "sent")).toBe("")
+  expect(storedThreadDraft(DEFAULT_API_URL, identity, threadA)).toBe("Saved conversation draft")
+  expect(storedThreadDraft(DEFAULT_API_URL, other, "")).toBe("Sidebar draft")
+  expect(
+    await storedThreadAttachments({ apiUrl: DEFAULT_API_URL, identity, threadId: "" }),
+  ).toEqual([])
 })

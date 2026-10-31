@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/")({
 
 function DashboardPage() {
   const { orgSlug } = Route.useParams()
+  const { organization } = Route.useRouteContext()
   const { data, permissions } = Route.useLoaderData()
   const configured =
     data.modelSetup !== null &&
@@ -37,6 +38,8 @@ function DashboardPage() {
       </div>
       {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
       <DashboardIntegrationGuide
+        key={orgSlug}
+        organizationId={organization.organizationId}
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}

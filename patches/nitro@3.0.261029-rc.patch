@@ -1,0 +1,55 @@
+diff --git a/dist/runtime/internal/static.mjs b/dist/runtime/internal/static.mjs
+index 50182be73..070943974 100644
+--- a/dist/runtime/internal/static.mjs
++++ b/dist/runtime/internal/static.mjs
+@@ -17 +17,3 @@ var static_default = defineHandler((event) => {
+-	const encodings = [...(event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
++	// Remove when Nitro handles identity, wildcard exclusions and the first matching encoding.
++	// https://github.com/nitrojs/nitro/issues/4457
++	const weights = new Map((event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
+@@ -20,12 +22,18 @@ var static_default = defineHandler((event) => {
+-		const weight = quality === void 0 ? 1 : Number.parseFloat(quality);
+-		return {
+-			ext: EncodingMap[name.trim().toLowerCase()],
+-			weight: Number.isNaN(weight) ? 1 : weight
+-		};
+-	}).filter((entry) => entry.ext && entry.weight > 0).sort((a, b) => b.weight - a.weight || (a.ext < b.ext ? -1 : a.ext > b.ext ? 1 : 0)).map((entry) => entry.ext), ""];
+-	for (const encoding of encodings) for (const _id of [id + encoding, joinURL(id, "index.html" + encoding)]) {
+-		const _asset = getAsset(_id);
+-		if (_asset) {
+-			asset = _asset;
+-			id = _id;
+-			break;
++		const weight = quality === undefined ? 1 : Number.parseFloat(quality);
++		return [name.trim().toLowerCase(), Number.isNaN(weight) ? 1 : weight];
++	}));
++	const encodings = Object.entries({ ...EncodingMap, identity: "" })
++		.map(([name, ext]) => ({ ext, weight: weights.get(name) ?? (name === "identity" ? 0 : weights.get("*") ?? 0) }))
++		.filter((entry) => entry.weight > 0)
++		.sort((a, b) => b.weight - a.weight || (a.ext < b.ext ? -1 : a.ext > b.ext ? 1 : 0))
++		.map((entry) => entry.ext);
++	// An implicit identity is the fallback unless excluded. https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3
++	if (!weights.has("identity") && weights.get("*") !== 0) encodings.push("");
++	for (const encoding of encodings) {
++		for (const _id of [id + encoding, joinURL(id, "index.html" + encoding)]) {
++			const _asset = getAsset(_id);
++			if (_asset) {
++				asset = _asset;
++				id = _id;
++				break;
++			}
+@@ -32,0 +41 @@ var static_default = defineHandler((event) => {
++		if (asset) break;
+@@ -34,0 +44,3 @@ var static_default = defineHandler((event) => {
++		if (hasAsset(id) || hasAsset(joinURL(id, "index.html"))) {
++			throw new HTTPError({ status: 406, headers: noCacheHeaders });
++		}
+diff --git a/dist/presets/bun/runtime/bun.mjs b/dist/presets/bun/runtime/bun.mjs
+index 818e53692..becb4b843 100644
+--- a/dist/presets/bun/runtime/bun.mjs
++++ b/dist/presets/bun/runtime/bun.mjs
+@@ -19 +19,3 @@ const server = serve(resolveServeOptions({
+-	...import.meta._websocket ? { bun: { websocket: ws.websocket } } : {}
++	// Keep quiet model and tool requests alive until configured through a server entry.
++	// https://github.com/nitrojs/nitro/pull/4620
++	bun: { idleTimeout: 0, websocket: import.meta._websocket ? ws.websocket : undefined }

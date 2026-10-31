@@ -24,6 +24,10 @@ export const readRequestJson = Effect.fn("readRequestJson")(function* (
           Stream.fail(new RequestTooLarge()),
         ),
         Stream.mkUint8Array,
+        Effect.timeoutOrElse({
+          duration: "30 seconds",
+          orElse: () => Effect.fail(new RequestBodyInvalid()),
+        }),
       )
     : new Uint8Array()
   return yield* Effect.try({

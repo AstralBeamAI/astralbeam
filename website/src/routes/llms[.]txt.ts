@@ -37,6 +37,7 @@ AstralBeam is for developers and product teams building SaaS and multi-tenant ap
 - [Pricing](${siteUrl("/home#pricing")}): Cloud, managed hosting, and self-hosting rates.
 - [Hosted app](${siteUrl(logIn)}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${siteUrl(docs)}): Guides and reference for the SDK and the platform.
+- [Agent Skill](${siteUrl("/agent-skills/astralbeam/SKILL.md")}): Instructions for integrating AstralBeam and verifying replies and application tools.
 - [CLI and coding agents](${siteUrl("/docs/cli/coding-agents")}): Install the CLI skill and configure agent access.
 - [Blog](${siteUrl("/blog")}): Notes on building agents and their interfaces.
 ${blogPosts.map((post) => `- [${post.title}](${siteUrl(post.path)}): ${post.description}`).join("\n")}

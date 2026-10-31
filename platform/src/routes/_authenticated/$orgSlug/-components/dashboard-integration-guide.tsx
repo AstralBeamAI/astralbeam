@@ -1,20 +1,26 @@
-import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react"
-import { Link, linkOptions } from "@tanstack/react-router"
+import { CaretDownIcon, CheckIcon, CopyIcon } from "@phosphor-icons/react"
+import { Link, linkOptions, useRouter } from "@tanstack/react-router"
 import { useId, useState } from "react"
 import { cn } from "cn"
+import { agentSetupPrompt } from "@website/lib/agent-setup-prompt"
 
+import { CreateApiKeyDialog } from "@/components/auth/api-key/create-api-key-dialog"
 import { DocsLink } from "@/components/docs-link"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/toast"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
 
 export function DashboardIntegrationGuide({
+  organizationId,
   organizationSlug,
   modelSetup,
   usableApiKeyCount,
   hasConversations,
   permissions,
 }: {
+  organizationId: string
   organizationSlug: string
   modelSetup: {
     providerCount: number
@@ -29,8 +35,11 @@ export function DashboardIntegrationGuide({
     "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
   >
 }) {
+  const router = useRouter()
   const titleId = useId()
+  const [createApiKeyOpen, setCreateApiKeyOpen] = useState(false)
   const addProvider = modelSetup?.providerCount === 0 && permissions.updateConfiguration
+  const showCreateApiKey = usableApiKeyCount === 0 && permissions.createApiKey
   const steps = [
     {
       title: "Connect a model provider",
@@ -67,15 +76,15 @@ export function DashboardIntegrationGuide({
         ? "Create an API key, or use one already saved in your app’s secrets. Keep it on your server, never in browser code."
         : "Ask an owner or developer to prepare an API key for your application server.",
       link: linkOptions({ to: "/$orgSlug/api-keys", params: { orgSlug: organizationSlug } }),
-      action:
-        usableApiKeyCount === 0 && permissions.createApiKey ? "Create API key" : "Manage API keys",
+      action: showCreateApiKey ? "Create API key" : "Manage API keys",
+      onClick: showCreateApiKey ? () => setCreateApiKeyOpen(true) : undefined,
       visible: permissions.readApiKey,
     },
     {
       title: "Embed and verify in your app",
       complete: hasConversations === true,
       description:
-        "Follow the quickstart to authenticate your app’s users and mount the widget. Verify a reply, then connect a tool and try an app action.",
+        "Copy the prompt into your coding agent, or follow the quickstart to authenticate your app’s users and mount the widget.",
       link: { href: "/docs/start/quickstart" },
       action: "Follow the quickstart",
       visible: true,
@@ -84,11 +93,20 @@ export function DashboardIntegrationGuide({
   const setupKnown = modelSetup !== null && usableApiKeyCount !== null
   const nextStep = setupKnown ? steps.findIndex((step) => !step.complete && step.visible) : -1
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [promptCopyFailed, setPromptCopyFailed] = useState(false)
   const completed = steps.filter((step) => step.complete).length
-  if (completed === steps.length) return null
 
   const activeStep = expanded ?? Math.max(nextStep, 0)
   const configured = steps.slice(0, -1).every((step) => step.complete)
+  async function copySetupPrompt() {
+    try {
+      await navigator.clipboard.writeText(agentSetupPrompt)
+      setPromptCopyFailed(false)
+      toast.add({ title: "Prompt copied. Paste it into your coding agent.", type: "success" })
+    } catch {
+      setPromptCopyFailed(true)
+    }
+  }
   const introduction = (() => {
     if (!setupKnown)
       return {
@@ -109,7 +127,7 @@ export function DashboardIntegrationGuide({
     }
   })()
 
-  return (
+  const guide = (
     <Card aria-labelledby={titleId} className="max-w-4xl text-sm sm:[--card-spacing:--spacing(6)]">
       <CardHeader className="gap-3">
         <h2 id={titleId} className="font-sans text-sm font-medium">
@@ -133,6 +151,7 @@ export function DashboardIntegrationGuide({
       <CardContent>
         <ol className="divide-y">
           {steps.map((step, index) => {
+            const isIntegrationStep = index === steps.length - 1
             const actionClassName = cn(
               buttonVariants({
                 variant: index === nextStep ? "default" : "outline",
@@ -184,21 +203,51 @@ export function DashboardIntegrationGuide({
                   className="space-y-3 pt-3 ps-10"
                 >
                   <p className="max-w-prose text-sm text-muted-foreground">{step.description}</p>
-                  {step.visible &&
-                    ("href" in step.link ? (
-                      <DocsLink
-                        {...step.link}
-                        target="_self"
-                        preload="intent"
-                        className={cn(actionClassName, "no-underline")}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isIntegrationStep && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-sm"
+                        onClick={() => void copySetupPrompt()}
                       >
-                        {step.action}
-                      </DocsLink>
-                    ) : (
-                      <Link {...step.link} className={actionClassName}>
-                        {step.action}
-                      </Link>
-                    ))}
+                        <CopyIcon aria-hidden="true" />
+                        Copy prompt
+                      </Button>
+                    )}
+                    {step.visible &&
+                      (step.onClick ? (
+                        <Button type="button" className={actionClassName} onClick={step.onClick}>
+                          {step.action}
+                        </Button>
+                      ) : "href" in step.link ? (
+                        <DocsLink
+                          {...step.link}
+                          target="_self"
+                          preload="intent"
+                          className={cn(actionClassName, "no-underline")}
+                        >
+                          {step.action}
+                        </DocsLink>
+                      ) : (
+                        <Link {...step.link} className={actionClassName}>
+                          {step.action}
+                        </Link>
+                      ))}
+                  </div>
+                  {isIntegrationStep && promptCopyFailed && (
+                    <div className="space-y-2">
+                      <p role="status" className="text-muted-foreground">
+                        Clipboard access is unavailable. Copy the prompt below.
+                      </p>
+                      <Textarea
+                        aria-label="Integration prompt"
+                        readOnly
+                        value={agentSetupPrompt}
+                        onFocus={(event) => event.currentTarget.select()}
+                      />
+                    </div>
+                  )}
                 </div>
               </li>
             )
@@ -206,5 +255,22 @@ export function DashboardIntegrationGuide({
         </ol>
       </CardContent>
     </Card>
+  )
+
+  return (
+    <>
+      {completed < steps.length && guide}
+      {/* Keep the one-time key dialog mounted when creation completes the checklist. */}
+      {permissions.readApiKey && permissions.createApiKey && (
+        <CreateApiKeyDialog
+          organizationId={organizationId}
+          open={createApiKeyOpen}
+          onOpenChange={(open) => {
+            setCreateApiKeyOpen(open)
+            if (!open) void router.invalidate()
+          }}
+        />
+      )}
+    </>
   )
 }

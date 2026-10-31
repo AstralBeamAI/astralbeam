@@ -2,151 +2,110 @@
 
 ## One-time macOS setup
 
-Run application code [natively on macOS](#local-development) with Bun. Use Docker Compose or Podman Compose for local supporting services.
-
-### Install a container runtime
-
-Use Docker Desktop with Docker Compose, or set up Podman below.
-
-#### Podman
-
-- Install Podman Desktop:
-
-  ```bash
-  brew install --cask podman-desktop
-  ```
-
-- Start Podman Desktop, create a Podman machine, and enable Docker compatibility.
-
-- Do not install the Compose extension from Podman Desktop. Its provider installs a `docker-compose` wrapper that breaks BuildKit functionality.
-
-- Install `podman-compose`:
-
-  ```bash
-  brew install podman-compose
-  brew uninstall --ignore-dependencies podman # Podman Desktop already provides the Podman CLI
-  ```
+Install Git and, if Bun is missing, curl and unzip. Setup installs the pinned Bun version. For Docker services, install and start [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/). Run application code natively.
 
 ## Local development
 
-### 1. Start the services
+### 1. Initialize the workspace
 
-From the repository root, start PostgreSQL, PgBouncer, Valkey, and Mailpit with Docker:
-
-```sh
-docker compose up --detach --wait postgres pgbouncer valkey mailpit
-```
-
-Or use Podman and wait for healthy services:
+From the repository root:
 
 ```sh
-podman compose up --detach postgres pgbouncer valkey mailpit
-podman compose ps
+SERVICES=docker ./scripts/setup.sh
 ```
 
-With Podman, wait for the services to become healthy before setup. PgBouncer publishes the only database port. Change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together if 5432 is occupied. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend.
+Setup installs frozen dependencies, applies migrations, seeds an uninitialized database, and builds the SDK. Existing containers, credentials, and data are preserved. Open a new terminal afterward to pick up Bun on `PATH`.
 
-### 2. Install local file storage
+| `SERVICES` | Behavior |
+| --- | --- |
+| Unset | Use existing services without installing or starting them. Run `./scripts/setup.sh`. |
+| `docker` | Start Compose and wait for healthy services without recreating containers. |
+| `native` | [Install and start services](#development-without-docker) on Ubuntu 24.04 or Debian 13. Requires root or sudo. |
 
-On macOS, run RustFS natively. It serves the S3 API at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`. Install this pinned Apple Silicon binary once and add `$HOME/.local/bin` to your `PATH`:
+Optional Linux helpers use `INSTALL_EXTRA`, such as `linux-tools profiled`. `linux-tools` installs development tools and the `psql` client, without database servers. System-package installation requires root or sudo.
 
-```sh
-(
-  set -eu
-  rustfs_tmp=$(mktemp -d)
-  trap 'rm -rf "$rustfs_tmp"' EXIT
-  curl -fL -o "$rustfs_tmp/rustfs.zip" https://github.com/rustfs/rustfs/releases/download/1.0.1/rustfs-macos-aarch64-v1.0.1.zip
-  unzip -p "$rustfs_tmp/rustfs.zip" rustfs > "$rustfs_tmp/rustfs"
-  test -s "$rustfs_tmp/rustfs"
-  mkdir -p "$HOME/.local/bin"
-  install -m 755 "$rustfs_tmp/rustfs" "$HOME/.local/bin/rustfs"
-)
-export PATH="$HOME/.local/bin:$PATH"
-```
+The [seed](platform/src/db/README.md#seed-sample-data) prints local credentials and creates missing Todos example `.env` files. To seed a Development OpenAI connection, put `OPENAI_API_KEY` in ignored `platform/.env.local` before setup. Existing providers and model choices are preserved. For an initialized database, rerun the seed explicitly. Manage connections under **Models**, enable models, and assign them to agents.
 
-When `rustfs` is on your `PATH` and nothing answers on its port, `scripts/setup.sh` starts it in the background with the Compose ports and credentials below, keeping objects in `~/.local/share/rustfs/data` (or `RUSTFS_DATA_DIR`) and its log in `~/.local/share/rustfs/rustfs.log`. Run setup without `SKIP_DOCKER_COMPOSE=true` so the seed creates the worktree's bucket. See [Install RustFS on macOS](https://docs.rustfs.com/en/installation/macos) for Intel Macs.
+### Local services
 
-Once RustFS is healthy, setup's `db-seed` step creates and prints a private bucket named `astralbeam-<readable-name>-<hash>` for the worktree's database. Its bounded lowercase prefix and hash keep names distinct and within [S3 naming limits](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). Reruns preserve existing files and configured storage settings. Bucket creation uses effective settings, including `platform` environment files, and skips external storage or `SKIP_DOCKER_COMPOSE=true`.
+Compose runs PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-Local defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Set `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` in the shell before Compose and initial setup to override them. Manage later changes in **File storage** at `/configure` or through deployment overrides.
+RustFS exposes S3 at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`, with data in the `rustfs-data` volume. For a new database, seeding uses local RustFS when its readiness endpoint answers within one second, otherwise File System with a separate directory for that database. Existing storage and explicit S3 settings take precedence. Local S3 seeding creates a private bucket. Defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Override `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` before Compose and initial setup. Later changes belong under **File storage** at `/configure`.
 
-### 3. Initialize the workspace
+When switching from native RustFS, stop it first and retain its data directory until needed files have been migrated. Setup preserves existing files and storage settings and never provisions external storage.
 
-Run setup after the services are healthy. It installs the pinned Bun version and frozen workspace dependencies, starts native RustFS, migrates, seeds, and builds the SDK:
+Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
 
-```sh
-./scripts/setup.sh
-```
+### 2. Run the applications
 
-Setup does not install host database services or start Compose on macOS. If the database is unavailable, it skips migration, seed, and SDK build with an explanation. Start the services and rerun setup. Open a new terminal afterward to pick up Bun on `PATH`.
-
-The [seed](platform/src/db/README.md#seed-sample-data) prints local accounts and credentials and writes the Todos examples' `.env` files only when absent. Manage runtime settings at `/configure` using the first `DATABASE_ENCRYPTION_KEY` value from [`platform/.env.development`](platform/.env.development) or your override.
-
-For chat, configure providers under **Models**, enable models, and assign them to agents. To seed a **Development OpenAI** connection, put your `OPENAI_API_KEY` in the ignored `platform/.env.local` before setup. Seeds preserve existing providers and model choices.
-
-### 4. Run the applications
-
-Start all four applications and the SDK watcher from the repository root:
+From the repository root, start the applications and SDK watcher:
 
 ```sh
 bun run dev
 ```
 
-| Application | Local URL | Setup |
+| Application | Local URL | Guide |
 | --- | --- | --- |
 | Platform | `http://localhost:4500` | [Authentication and email](#authentication-and-transactional-email) |
-| Website | `http://localhost:4600` | [Website guide](website/README.md) |
-| Todos | `http://localhost:4700` | [Example guide](examples/todos/README.md) |
+| Website | `http://localhost:4600` | [Website](website/README.md) |
+| Todos | `http://localhost:4700` | [Todos](examples/todos/README.md) |
 | Linearity | `http://localhost:4900` | [Set Basic Auth and Astro credentials first](examples/linearity-react/README.md) |
 
-The [Rails example](examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 3000. Reload example pages after SDK changes: the watcher rebuilds the `sdk/dist` output they import.
+The [Rails example](examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 4800. Reload examples after SDK changes so they use the rebuilt output.
 
-For one project, use `bun run --cwd <project> <task>`. Root aliases include `bun run dev:platform` and `bun run build:sdk`. Run `bun run` to list them. `bun install --frozen-lockfile` installs all workspace dependencies, and `bun run build` builds every Bun project with the SDK first. See [contribution validation](CONTRIBUTING.md#validate-your-change) before opening a PR.
+For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](CONTRIBUTING.md#validate-your-change) before opening a PR.
 
-Stop services with `docker compose down` or `podman compose down`. [Reset only the current worktree database](platform/src/db/README.md#database-commands), never shared Compose volumes. Use `docker compose exec postgres` only for explicit direct administration.
+#### Port allocation
 
-The platform starts one embedded Effect Cluster runner with automatic PostgreSQL storage initialization and an OS-assigned loopback port. No separate worker command is needed. See the [cluster guide](platform/src/lib/cluster/README.md) for database privileges, replica addresses and recovery, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring.
+Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510`, website preview to `4620`, and production Compose S3 to `9010`. Existing deployments keep their explicit ports. See [deployment](platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
+
+Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned loopback port, and needs no separate worker command. See the [cluster](platform/src/lib/cluster/README.md) and [workflow](platform/src/lib/workflows/README.md) guides for runtime details.
+
+## Development without Docker
+
+On Ubuntu 24.04 or Debian 13:
+
+```sh
+SERVICES=native ./scripts/setup.sh
+```
+
+This installs and starts PostgreSQL 18, Valkey 9, and RustFS on amd64 or arm64. Rerun it after restarting the machine. Existing binaries, credentials, and healthy services are preserved. Upgrades and repairs are manual. RustFS stores data in `${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data` or `RUSTFS_DATA_DIR`, with `rustfs.log` beside it. The same port and credential overrides apply. Configure email separately below.
+
+On macOS without Docker, install and start PostgreSQL and Valkey yourself, then run `./scripts/setup.sh`. <a href="https://docs.rustfs.com/en/installation/macos" target="_blank" rel="noopener noreferrer">RustFS</a> is optional. When using it, use the local storage credentials above or set matching overrides before setup.
 
 ## Cloud agent setup
 
-Codex Cloud runs on Ubuntu and uses `INSTALL_EXTRA=codex-db SKIP_DOCKER_COMPOSE=true` so the explicit setup extra installs and starts host PostgreSQL and Valkey without starting Docker Compose.
-
-See the setup guides for [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md).
+See the [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md) guides. Codex Cloud uses the native command above for setup and maintenance.
 
 ## Authentication and transactional email
 
-AstralBeam uses Better Auth for email/password, Google, and GitHub authentication. Signup requires legal acceptance when a privacy policy or terms URL is configured. Email/password signup also requires email verification, and OAuth providers must return a verified email. New OAuth identities must start from signup rather than being created implicitly from sign-in.
-
-Passwords are 8–128 characters and are screened for known compromise outside tests. Verification and reset links expire after one hour, verification signs the user in, password reset revokes other sessions, password changes send a notification, and organization invitations expire after 48 hours. Username, passwordless, OTP, magic-link, change-email, and account-deletion flows are disabled. See Better Auth's [email/password](https://better-auth.com/docs/authentication/email-password), [email](https://better-auth.com/docs/concepts/email), and [organization invitation](https://better-auth.com/docs/plugins/organization#invitations) documentation.
-
 ### Configure the environment
 
-`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `platform/.env.development` supplies local defaults and is loaded automatically. An existing shell, CI, or deployment value always wins, and `platform/.env.development.local` holds ignored local overrides. See the [Vite](https://vite.dev/guide/env-and-mode) environment guide.
+`DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` are the required bootstrap variables. `platform/.env.development` supplies local defaults and is loaded automatically. Use ignored `platform/.env.development.local` for overrides. Shell, CI, and deployment values take precedence. See [Vite environment loading](https://vite.dev/guide/env-and-mode).
 
-Set `DATABASE_ENCRYPTION_KEY` to one or more comma-separated raw secrets, with the active encryption secret first and older decryption-only secrets after it. Every trimmed entry must be unique and contain 32–1024 characters, and a secret cannot contain a comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values with OpenSSL and keep them in the deployment's secret manager:
+#### Database encryption key
+
+`DATABASE_ENCRYPTION_KEY` protects stored runtime settings, model and sandbox credentials, and MCP authorization data. It does not encrypt the whole database. The active key also grants operator access to `/configure`, so keep it private and back it up securely with the database. Never reuse the development default in production.
+
+Set it to one or more comma-separated raw secrets. The first entry encrypts new writes and is the operator sign-in credential. Later entries only decrypt older values. Each trimmed entry must be unique, contain 32–1024 characters, and contain no comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values and keep them in your secret manager:
 
 ```sh
 openssl rand -base64 32
 ```
 
-To rotate an encryption secret, restart with `DATABASE_ENCRYPTION_KEY=new,old` and follow the [key-rotation procedure](platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) for settings, providers, and MCP credentials. Remove `old` only after every dependent encrypted value has been rewritten or replaced. Unchanged sandbox credentials are not rewritten on save. Unknown key IDs, malformed JWE, and invalid payloads make values unreadable, but `/configure` permits blind replacement. Environment changes require a restart, and changing the active key invalidates operator sessions.
+To rotate a key:
 
-Sign in to `/configure` with the first active value in `DATABASE_ENCRYPTION_KEY`. On a new database, apply pending migrations there. Login throttling starts afterward. Database credentials are never used for configuration access. Sessions expire after 15 minutes and are signed with a key derived from the active encryption key.
+1. Restart every server instance with `DATABASE_ENCRYPTION_KEY=new,old`, placing the new secret first. Changing the active key invalidates operator sessions. Sign in again with the new value.
+2. Follow the [key-rotation procedure](platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) to rewrite or replace all dependent settings, provider and sandbox credentials, and MCP authorization data. Saving unchanged sandbox credentials does not rewrite them. There is no automatic whole-database re-encryption command.
+3. Remove the old entry only after every dependent encrypted value has been rewritten or replaced, then restart every instance. Removing it too early makes those values unreadable. An empty fallback warning list on `/configure` does not prove rotation is complete.
 
-The encryption key grants access to every encrypted database value, so require HTTPS and restrict `/configure` with an ingress allowlist, VPN, or identity-aware proxy. It trusts forwarded host and protocol only from a loopback peer. That proxy must overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` and prevent direct origin access. Rate-limit at the ingress during setup. Afterward, its login limit is shared.
+Sign in to `/configure` with the first raw secret, never database credentials or a fallback entry. Operator sessions last 15 minutes. Apply pending migrations there on a new database. Missing keys or damaged ciphertext make stored values unreadable, but `/configure` permits replacement without revealing the old value.
 
-Other runtime settings live in the database `config` table and are managed at `/configure`. Every stored value uses authenticated encryption, while an uppercase environment variable for any registry key takes precedence and makes that field read-only. Sign in to view or edit values. The editor masks them until explicitly revealed. The base URL must be a pathless HTTP(S) origin, production must use HTTPS, and `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings.
+Protect `/configure` with HTTPS and restricted ingress in production. Its credential can decrypt the deployment's stored secrets. See the [security guide](platform/src/routes/docs/-content/self-hosting/security.md) for proxy and access requirements.
 
-`EMAIL_PROVIDER` defaults to `smtp`, with `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, and `SMTP_SECURITY=none`. Select Resend API or Amazon SES API only when using those native integrations. Never reuse local Better Auth secrets, OAuth clients, or email credentials in production.
+#### Runtime settings
 
-OAuth callbacks are always derived from the configured application base URL:
-
-```text
-<app-base-url>/api/auth/callback/google
-<app-base-url>/api/auth/callback/github
-```
-
-Separate local and production OAuth applications keep localhost callbacks, branding, access, logs, revocation, and credential rotation isolated.
+Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
 
 ### Configure Cloudflare Turnstile
 
@@ -215,13 +174,7 @@ Choose one email provider per environment and do not configure credentials or pe
 
 ### Run locally
 
-After configuration, run from `platform`:
-
-```sh
-bun run dev
-```
-
-Open `http://localhost:4500/auth/sign-up`. When legal URLs are configured, confirm signup controls remain disabled until acceptance. Confirm email/password signup requires verification, new social identities cannot be created from sign-in, and invitation acceptance requires the matching verified email.
+Open `http://localhost:4500/auth/sign-up`. Verify required legal acceptance and email verification. New OAuth identities start from signup, not sign-in. Invitations require the matching verified email. Use Mailpit to inspect verification, reset, and invitation links.
 
 ### Test email safety
 

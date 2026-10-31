@@ -1,0 +1,2 @@
+export const agentSetupPrompt =
+  "Add an AstralBeam AI chat sidebar or screen to this app so users can ask questions, take actions, and work with their files. Install @astralbeam/sdk, add a server endpoint that mints chat tokens for the signed-in user and their tenant, and mount the chat using the app's framework and layout. Keep ASTRALBEAM_API_KEY on the server and never expose it to browser code. Read and follow the integration skill at https://astralbeam.ai/agent-skills/astralbeam/SKILL.md."
