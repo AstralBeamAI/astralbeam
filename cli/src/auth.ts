@@ -1,5 +1,5 @@
 import { getOrganization } from "@astralbeam/sdk/api"
-import type { Command } from "commander"
+import type { Cli } from "./options.ts"
 import { env, stderr, stdin } from "node:process"
 import { text } from "node:stream/consumers"
 import {
@@ -7,7 +7,6 @@ import {
   DEFAULT_API_URL,
   displayPath,
   findBinding,
-  globalOptions,
   type Organization,
   reportOrganization,
   organizationIdFromApiKey,
@@ -68,19 +67,16 @@ function maskApiKey(apiKey: string): string {
   return `${apiKey.slice(0, apiKey.indexOf("_abo_") + 5)}…${apiKey.slice(-4)}`
 }
 
-export function registerAuthCommands(program: Command): void {
-  const auth = program
-    .command("auth")
-    .description("Bind organization API keys to directories, and check them")
-
-  auth
-    .command("login")
-    .description(
-      "Verify an API key, read from a hidden prompt or stdin, and bind it to this directory and everything below it",
-    )
-    .option("--api-url <url>", `API base URL, ending in /api (default ${DEFAULT_API_URL})`)
-    .action(async (options: { apiUrl?: string }, command: Command) => {
-      const { json } = globalOptions(command)
+export function registerAuthCommands(auth: Cli): Cli {
+  auth.command(
+    "login",
+    "Verify an API key, read from a hidden prompt or stdin, and bind it to this directory and everything below it",
+    (y) =>
+      y.option("api-url", {
+        type: "string",
+        description: `API base URL, ending in /api (default ${DEFAULT_API_URL})`,
+      }),
+    async (options) => {
       const apiUrl = validatedApiUrl(options.apiUrl ?? env["ASTRALBEAM_API_URL"] ?? DEFAULT_API_URL)
       const apiKey = await readApiKey()
       const organization = await fetchOrganization(apiKey, apiUrl)
@@ -89,26 +85,28 @@ export function registerAuthCommands(program: Command): void {
       config.bindings[directory] = { api_url: apiUrl, api_key: apiKey, organization }
       await writeConfig(config)
       reportOrganization({ apiKey, apiUrl, organization, directory })
-      printResult({ directory, organization, api_url: apiUrl }, json)
-    })
+      printResult({ directory, organization, api_url: apiUrl }, runState.json)
+    },
+  )
 
-  auth
-    .command("logout")
-    .description("Remove the binding that covers this directory")
-    .action(async (_options: object, command: Command) => {
+  auth.command({
+    command: "logout",
+    describe: "Remove the binding that covers this directory",
+    handler: async () => {
       const config = await readConfig()
       const found = findBinding(config, await currentDirectory())
       if (!found) throw new Error("No AstralBeam login covers this directory.")
       delete config.bindings[found.directory]
       await writeConfig(config)
       const { organization } = found.binding
-      printResult({ directory: found.directory, organization }, globalOptions(command).json)
-    })
+      printResult({ directory: found.directory, organization }, runState.json)
+    },
+  })
 
-  auth
-    .command("status")
-    .description("Show which organization commands here use, and verify the key against the API")
-    .action(async (_options: object, command: Command) => {
+  auth.command({
+    command: "status",
+    describe: "Show which organization commands here use, and verify the key against the API",
+    handler: async () => {
       const { apiKey, apiUrl, directory } = await resolveCredentials()
       const organization = await fetchOrganization(apiKey, apiUrl)
       if (runState.context) runState.context.organization = organization
@@ -122,23 +120,21 @@ export function registerAuthCommands(program: Command): void {
         }
       }
       const status = { organization, api_url: apiUrl, api_key: maskApiKey(apiKey) }
-      printResult(
-        { ...status, source: directory ?? "ASTRALBEAM_API_KEY" },
-        globalOptions(command).json,
-      )
-    })
+      printResult({ ...status, source: directory ?? "ASTRALBEAM_API_KEY" }, runState.json)
+    },
+  })
 
-  auth
-    .command("list")
-    .description("List every directory binding")
-    .action(async (_options: object, command: Command) => {
+  auth.command({
+    command: "list",
+    describe: "List every directory binding",
+    handler: async () => {
       const { bindings } = await readConfig()
       const rows = Object.entries(bindings).map(([directory, binding]) => ({
         directory,
         organization: binding.organization,
         api_url: binding.api_url,
       }))
-      if (globalOptions(command).json) return printJson({ items: rows })
+      if (runState.json) return printJson({ items: rows })
       if (rows.length === 0) return void stderr.write("No bindings.\n")
       printTable(
         rows.map(({ directory, organization, api_url }) => ({
@@ -150,5 +146,7 @@ export function registerAuthCommands(program: Command): void {
         })),
         ["directory", "name", "slug", "organization_id", "api_url"],
       )
-    })
+    },
+  })
+  return auth.demandCommand(1)
 }

@@ -33,7 +33,7 @@ astralbeam auth status --json
 astralbeam tenants list --external-id customer-42 --json
 # Only if the Tenant does not exist:
 astralbeam tenants create --external-id customer-42 --name "Acme Logistics" --json
-astralbeam tenant-users list <tenant-id> --external-id user-7 --json
+astralbeam tenant-users list --tenant-id <tenant-id> --external-id user-7 --json
 # Only if the TenantUser does not exist:
 astralbeam tenant-users create <tenant-id> --external-id user-7 --json
 astralbeam chat --tenant customer-42 --user user-7 "Summarize my open orders" --json

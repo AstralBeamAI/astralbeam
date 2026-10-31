@@ -4,30 +4,36 @@ import {
   type Tenant,
   type TenantUser,
 } from "@astralbeam/sdk/server"
-import type { Command } from "commander"
 import { stdout } from "node:process"
-import { globalOptions, organizationIdFromApiKey, resolveCredentials } from "./config.ts"
-import { lifetimeSeconds } from "./options.ts"
+import { runState, organizationIdFromApiKey, resolveCredentials } from "./config.ts"
+import { lifetimeSeconds, type Cli } from "./options.ts"
 import { printJson } from "./output.ts"
 
-export interface IdentityOptions {
+interface IdentityOptions {
   tenant: string
   user: string
-  tenantName?: string
-  userName?: string
-  admin?: boolean
-  expiresIn?: number
+  tenantName?: string | undefined
+  userName?: string | undefined
+  admin?: boolean | undefined
+  expiresIn?: number | undefined
 }
 
 /** Adds the flags naming the Tenant and TenantUser a chat token signs for. */
-export function addIdentityOptions(command: Command): Command {
+export function addIdentityOptions(command: Cli) {
   return command
-    .requiredOption("--tenant <external-id>", "Tenant external ID, signed as tenant.id")
-    .requiredOption("--user <external-id>", "TenantUser external ID, signed as user.id")
-    .option("--tenant-name <name>", "Tenant display name")
-    .option("--user-name <name>", "TenantUser display name")
-    .option("--admin", "sign user.admin: true, granting Tenant admin API access")
-    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", lifetimeSeconds)
+    .string(["tenant", "user", "tenant-name", "user-name"])
+    .demandOption(["tenant", "user"])
+    .boolean("admin")
+    .number("expires-in")
+    .coerce("expires-in", lifetimeSeconds)
+    .describe({
+      tenant: "Tenant external ID, signed as tenant.id",
+      user: "TenantUser external ID, signed as user.id",
+      "tenant-name": "Tenant display name",
+      "user-name": "TenantUser display name",
+      admin: "sign user.admin: true, granting Tenant admin API access",
+      "expires-in": "token lifetime, 60-600 (default 300)",
+    })
 }
 
 export function chatIdentity(options: IdentityOptions): { tenant: Tenant; user: TenantUser } {
@@ -50,28 +56,37 @@ function printToken(token: string, expiresInSeconds: number, json: boolean) {
   else stdout.write(`${token}\n`)
 }
 
-export function registerTokenCommands(program: Command): void {
-  const token = program
-    .command("token")
-    .description("Mint short-lived JWTs offline with the organization API key")
+export function registerTokenCommands(token: Cli): Cli {
+  token.command(
+    "chat",
+    "Mint a chat JWT for a Tenant's user, as a token endpoint would",
+    addIdentityOptions,
+    async (options) => {
+      const { apiKey } = await resolveCredentials()
+      const expiresInSeconds = options.expiresIn ?? 300
+      const jwt = await createAstralBeamToken({
+        apiKey,
+        expiresInSeconds,
+        ...chatIdentity(options),
+      })
+      printToken(jwt, expiresInSeconds, runState.json)
+    },
+  )
 
-  addIdentityOptions(
-    token
-      .command("chat")
-      .description("Mint a chat JWT for a Tenant's user, as a token endpoint would"),
-  ).action(async (options: IdentityOptions, command: Command) => {
-    const { apiKey } = await resolveCredentials()
-    const expiresInSeconds = options.expiresIn ?? 300
-    const jwt = await createAstralBeamToken({ apiKey, expiresInSeconds, ...chatIdentity(options) })
-    printToken(jwt, expiresInSeconds, globalOptions(command).json)
-  })
-
-  token
-    .command("organization")
-    .description("Mint an organization-management JWT delegating a member's current role")
-    .requiredOption("--email <email>", "email of an existing member of the organization")
-    .option("--expires-in <seconds>", "token lifetime, 60-600 (default 300)", lifetimeSeconds)
-    .action(async (options: { email: string; expiresIn?: number }, command: Command) => {
+  token.command(
+    "organization",
+    "Mint an organization-management JWT delegating a member's current role",
+    (y) =>
+      y
+        .string("email")
+        .demandOption("email")
+        .number("expires-in")
+        .coerce("expires-in", lifetimeSeconds)
+        .describe({
+          email: "email of an existing member of the organization",
+          "expires-in": "token lifetime, 60-600 (default 300)",
+        }),
+    async (options) => {
       const { apiKey } = await resolveCredentials()
       const expiresInSeconds = options.expiresIn ?? 300
       const jwt = await createAstralBeamOrganizationToken({
@@ -80,6 +95,8 @@ export function registerTokenCommands(program: Command): void {
         organizationId: organizationIdFromApiKey(apiKey),
         expiresInSeconds,
       })
-      printToken(jwt, expiresInSeconds, globalOptions(command).json)
-    })
+      printToken(jwt, expiresInSeconds, runState.json)
+    },
+  )
+  return token.demandCommand(1)
 }

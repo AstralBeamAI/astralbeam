@@ -1,6 +1,6 @@
 ---
 name: astralbeam
-description: Integrate AstralBeam AI chat into web applications using its SDK. Use when adding an AstralBeam sidebar or chat screen, connecting application authentication, tools or widgets, or verifying an integration. Also use for AstralBeam CLI tasks involving Tenants, TenantUsers, JWTs, chat, or organization credentials.
+description: Integrate AstralBeam AI chat into web applications using its SDK. Use when adding an AstralBeam sidebar or chat screen, connecting application authentication, tools or widgets, or verifying an integration. Also use for AstralBeam CLI tasks involving Tenants, TenantUsers, JWTs, chat, saved conversations, usage, or organization credentials.
 license: MIT
 ---
 
@@ -23,7 +23,7 @@ To embed chat, follow **Integrate a web application**. The CLI is not required. 
 
 ## If the CLI is installed
 
-Read [CLI commands](https://astralbeam.ai/docs/cli/commands.md) when managing Tenants or TenantUsers, minting tokens, or testing chat. It documents flags, pagination, JSON output, and exit codes. Use `astralbeam <command> --help` for the installed version, or [CLI setup](https://astralbeam.ai/docs/cli/getting-started.md) if it is unavailable. Providers, models, agents, and API keys still require the dashboard.
+Read [CLI commands](https://astralbeam.ai/docs/cli/commands.md) when managing Tenants or TenantUsers, minting tokens, testing chat, reading saved conversations, or inspecting organization details and user usage. It documents flags, pagination, JSON output, and exit codes. Use `astralbeam --help` to discover generated commands and `astralbeam <command> --help` for their flags, or [CLI setup](https://astralbeam.ai/docs/cli/getting-started.md) if it is unavailable. Providers, models, agents, and API keys still require the dashboard.
 
 Run from the intended project directory and check `organization.id` and `api_url` before mutations, token signing, or chat:
 
@@ -33,7 +33,7 @@ astralbeam tenants list --external-id <tenant-external-id> --json
 astralbeam chat --tenant <tenant-external-id> --user <user-external-id> "Say hello in one sentence." --json
 ```
 
-- Use `--json` for machine-readable results. Exit codes are 0 for success, 1 for API/runtime failure, and 2 for invalid usage.
-- `ASTRALBEAM_API_KEY` overrides directory bindings. Stop on an unintended Organization UUID, deployment, or rejected credentials. Never pass keys as flags or echo them. Interactive `auth login` belongs to the operator. Use existing environment credentials directly, or accept a user-supplied key through stdin.
+- Use `--json` for machine-readable results. Exit codes are 0 for success, 1 for API/generated-input/runtime failure, and 2 for parser usage errors.
+- `ASTRALBEAM_API_KEY` overrides directory bindings. `ASTRALBEAM_API_URL` overrides the saved API URL. Stop on an unintended Organization UUID, deployment, or rejected credentials. Never pass keys as flags or echo them. Interactive `auth login` belongs to the operator. Use existing environment credentials directly, or accept a user-supplied key through stdin.
 - Management paths use returned internal UUIDs. Token and chat identities use your application's external IDs. Creates are not idempotent: a timed-out create may still commit. Reconcile the exact external ID and returned fields before retrying a timeout or conflict. Do not change IDs to bypass conflicts. `--metadata` replaces the whole object.
 - CLI chat synchronizes identities, makes a new submission on each run, and can incur model usage. It cannot execute browser tools/widgets or replace the in-app setup check. CLI-minted tokens are diagnostics, not application session authentication.
