@@ -1,0 +1,54 @@
+diff --git a/dist/runtime/internal/static.mjs b/dist/runtime/internal/static.mjs
+index 50182be738426fd1eb6760e713ea4c0ee6f5d3a6..0709439745b713c0efda5a95e5759f55ec0a8f50 100644
+--- a/dist/runtime/internal/static.mjs
++++ b/dist/runtime/internal/static.mjs
+@@ -14,24 +14,36 @@ var static_default = defineHandler((event) => {
+ 	let id = path.includes("%") ? decodePath(path) : path;
+ 	if (!hasAsset(id) && !hasAsset(joinURL(id, "index.html")) && !isPublicAssetURL(id)) return;
+ 	let asset;
+-	const encodings = [...(event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
++	// Remove when Nitro handles identity, wildcard exclusions and the first matching encoding.
++	// https://github.com/nitrojs/nitro/issues/4457
++	const weights = new Map((event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
+ 		const [name, ...parameters] = entry.split(";");
+ 		const quality = parameters.map((parameter) => parameter.trim().split("=")).find(([key]) => key.toLowerCase() === "q")?.[1];
+-		const weight = quality === void 0 ? 1 : Number.parseFloat(quality);
+-		return {
+-			ext: EncodingMap[name.trim().toLowerCase()],
+-			weight: Number.isNaN(weight) ? 1 : weight
+-		};
+-	}).filter((entry) => entry.ext && entry.weight > 0).sort((a, b) => b.weight - a.weight || (a.ext < b.ext ? -1 : a.ext > b.ext ? 1 : 0)).map((entry) => entry.ext), ""];
+-	for (const encoding of encodings) for (const _id of [id + encoding, joinURL(id, "index.html" + encoding)]) {
+-		const _asset = getAsset(_id);
+-		if (_asset) {
+-			asset = _asset;
+-			id = _id;
+-			break;
++		const weight = quality === undefined ? 1 : Number.parseFloat(quality);
++		return [name.trim().toLowerCase(), Number.isNaN(weight) ? 1 : weight];
++	}));
++	const encodings = Object.entries({ ...EncodingMap, identity: "" })
++		.map(([name, ext]) => ({ ext, weight: weights.get(name) ?? (name === "identity" ? 0 : weights.get("*") ?? 0) }))
++		.filter((entry) => entry.weight > 0)
++		.sort((a, b) => b.weight - a.weight || (a.ext < b.ext ? -1 : a.ext > b.ext ? 1 : 0))
++		.map((entry) => entry.ext);
++	// An implicit identity is the fallback unless excluded. https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3
++	if (!weights.has("identity") && weights.get("*") !== 0) encodings.push("");
++	for (const encoding of encodings) {
++		for (const _id of [id + encoding, joinURL(id, "index.html" + encoding)]) {
++			const _asset = getAsset(_id);
++			if (_asset) {
++				asset = _asset;
++				id = _id;
++				break;
++			}
+ 		}
++		if (asset) break;
+ 	}
+ 	if (!asset) {
++		if (hasAsset(id) || hasAsset(joinURL(id, "index.html"))) {
++			throw new HTTPError({ status: 406, headers: noCacheHeaders });
++		}
+ 		if (isPublicAssetURL(id)) throw new HTTPError({
+ 			status: 404,
+ 			headers: noCacheHeaders

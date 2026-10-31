@@ -120,11 +120,10 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Keep unset for TLS. See [Security](./security.md#https-and-response-headers) |
-| `CLUSTER_RUNNER_HOST` | No | Private hostname or IP advertised to peer runners. Defaults to `127.0.0.1` |
+| `CLUSTER_RUNNER_HOST` | No | Address used to bind and advertise this runner. Defaults to `auto`: discover private IPv6, then private IPv4, falling back to loopback. Override with a reachable private hostname or IP if discovery selects the wrong interface |
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
-| `CLUSTER_RUNNER_LISTEN_HOST` | No | Bind interface for the private runner listener. Defaults to `CLUSTER_RUNNER_HOST` |
 
-For replicas on different hosts or isolated networks, set a directly reachable private runner host and port for each process. A wildcard bind address still needs a reachable advertised address. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
+Replicas sharing a database discover each other through Effect's SQL runner storage, without seed addresses. The discovered private addresses and assigned ports must be reachable between replicas. Override the host or port when network routing or firewall rules require it. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
 
 Keep runner ports on a trusted private network because they expose internal cluster RPCs. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 

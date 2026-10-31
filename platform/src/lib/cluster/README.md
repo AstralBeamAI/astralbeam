@@ -32,7 +32,7 @@ The runtime role needs database CONNECT, schema USAGE/CREATE, table read/write a
 
 Preserve the journal and `effect_cluster_migrations` during upgrades. Keep Effect packages aligned, review upstream storage changes, and back up before deployment. With no application version or bookkeeping gate, a new replica can immediately apply DDL. Assess migration locking and rolling-version compatibility before rollout.
 
-Local processes default to loopback and distinct OS-assigned ports. Multiple machines must advertise individually reachable private addresses through `CLUSTER_RUNNER_HOST`, `CLUSTER_RUNNER_PORT`, and optionally `CLUSTER_RUNNER_LISTEN_HOST`. See the [runtime configuration](../../../AGENTS.md#cluster-runtime) and [local setup](../../../../SETUP.md). Keep runner listeners on a trusted private network and out of the public reverse proxy.
+Processes automatically bind to and advertise private IPv6, then private IPv4, falling back to loopback, with distinct OS-assigned ports. Override the address through `CLUSTER_RUNNER_HOST` and `CLUSTER_RUNNER_PORT` when peers need a different reachable address. See the [runtime configuration](../../../AGENTS.md#cluster-runtime) and [local setup](../../../../SETUP.md). Keep runner listeners on a trusted private network and out of the public reverse proxy.
 
 PgBouncer uses transaction pooling, so the runner sets `shardLockDisableAdvisory: true` and uses SQL row leases. Effect's default shard, lease, and health timings remain unchanged. Recovery depends on persisted messages and lease expiry, not graceful shutdown.
 
