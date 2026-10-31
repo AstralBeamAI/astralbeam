@@ -132,8 +132,8 @@ export class Mailer extends Context.Service<
               cc: message.cc ? [message.cc] : [],
               bcc: message.bcc ? [message.bcc] : [],
               from: delivery.from,
-              // Replies to a copied email reach the support team instead of the sender.
-              replyTo: message.cc ?? message.bcc ?? delivery.from,
+              replyTo:
+                message.cc ?? message.bcc ?? delivery.context.supportEmailAddress ?? delivery.from,
               subject: message.subject,
               html,
               text,
