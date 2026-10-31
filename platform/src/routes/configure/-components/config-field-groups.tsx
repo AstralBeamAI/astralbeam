@@ -1,11 +1,12 @@
 "use client"
 
 import { GlobeIcon, WarningIcon } from "@phosphor-icons/react"
+import { Fragment } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { EMAIL_PROVIDER_SETTING_KEYS } from "@/lib/email/schemas"
+import { EMAIL_PROVIDER_SETTING_KEYS, SMTP_DEFAULTS } from "@/lib/email/schemas"
 import type { EmailProvider } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import type { ConfigureField, FieldDraft } from "../-lib/types"
@@ -21,6 +22,30 @@ const configGroupOrder = [
   "File storage",
   "Observability",
 ] as const
+
+const smtpConnectionPresets = [
+  {
+    label: "Local",
+    ...SMTP_DEFAULTS,
+    port: String(SMTP_DEFAULTS.port),
+    username: "",
+  },
+  { label: "Resend", host: "smtp.resend.com", port: "465", security: "tls", username: "resend" },
+  {
+    label: "Cloudflare",
+    host: "smtp.mx.cloudflare.net",
+    port: "465",
+    security: "tls",
+    username: "api_token",
+  },
+  {
+    label: "SES US East (N. Virginia)",
+    host: "email-smtp.us-east-1.amazonaws.com",
+    port: "465",
+    security: "tls",
+    username: "",
+  },
+]
 
 const storageConnectionPresets = [
   {
@@ -98,6 +123,11 @@ export function ConfigFieldGroups({
       ? drafts.trust_proxy.value
       : fields.find((field) => field.key === "trust_proxy")?.value
   const providerKeys = new Set<string>(EMAIL_PROVIDER_SETTING_KEYS[emailProvider])
+  const smtpPresetsLocked = fields.some(
+    (field) =>
+      field.source === "environment" &&
+      EMAIL_PROVIDER_SETTING_KEYS.smtp.some((key) => key === field.key),
+  )
   const storagePresetsLocked = fields.some(
     (field) =>
       field.source === "environment" &&
@@ -223,35 +253,68 @@ export function ConfigFieldGroups({
             </div>
           )}
           {visibleFields.map((field) => (
-            <ConfigFieldInput
-              key={field.key}
-              field={field}
-              draft={drafts[field.key] ?? { kind: "unchanged" }}
-              revealedValue={revealedValues[field.key]}
-              error={fieldErrors[field.key]}
-              disabled={disabled}
-              onDraftChange={(draft) => onDraftChange(field.key, draft)}
-              onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
-              onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
-              footer={
-                field.source === "database" && field.key === "app_base_url" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="self-start"
-                    disabled={disabled}
-                    // Reading location in the handler keeps it out of the server render.
-                    onClick={() =>
-                      onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })
-                    }
-                  >
-                    <GlobeIcon aria-hidden="true" />
-                    Use current origin
-                  </Button>
-                ) : undefined
-              }
-            />
+            <Fragment key={field.key}>
+              <ConfigFieldInput
+                field={field}
+                draft={drafts[field.key] ?? { kind: "unchanged" }}
+                revealedValue={revealedValues[field.key]}
+                error={fieldErrors[field.key]}
+                disabled={disabled}
+                onDraftChange={(draft) => onDraftChange(field.key, draft)}
+                onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}
+                onReveal={field.kind === "secret" ? () => onReveal(field.key) : undefined}
+                footer={
+                  field.source === "database" && field.key === "app_base_url" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      disabled={disabled}
+                      // Reading location in the handler keeps it out of the server render.
+                      onClick={() =>
+                        onDraftChange(field.key, { kind: "set", value: globalThis.location.origin })
+                      }
+                    >
+                      <GlobeIcon aria-hidden="true" />
+                      Use current origin
+                    </Button>
+                  ) : undefined
+                }
+              />
+              {field.key === "email_provider" && emailProvider === "smtp" && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {smtpConnectionPresets.map((preset) => (
+                      <Button
+                        key={preset.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || smtpPresetsLocked}
+                        onClick={() => {
+                          for (const [key, value] of Object.entries({
+                            smtp_host: preset.host,
+                            smtp_port: preset.port,
+                            smtp_security: preset.security,
+                            smtp_username: preset.username,
+                            smtp_password: "",
+                          }))
+                            onDraftChange(key, { kind: "set", value })
+                        }}
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {smtpPresetsLocked
+                      ? "Connection presets are unavailable while SMTP settings come from the environment."
+                      : "Presets fill SMTP settings and clear credentials. For Resend or Cloudflare, enter the API token as the password. For SES, enter SMTP credentials created in us-east-1. Set a verified sender address for hosted services."}
+                  </p>
+                </div>
+              )}
+            </Fragment>
           ))}
           {group === "Email Delivery" && (
             <div className="flex flex-col items-start gap-3 rounded-md border p-3">

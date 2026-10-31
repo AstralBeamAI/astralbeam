@@ -56,7 +56,7 @@ export function ConfigValueInput({
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const value = draft.kind === "set" ? draft.value : (revealedValue ?? field.value ?? "")
   const readOnly = field.source === "environment"
-  const needsReveal = field.kind === "secret" && field.isSet && !revealed
+  const needsReveal = field.kind === "secret" && field.isSet && !hasLocalValue
   const valueVisible = field.kind !== "secret" || visible
 
   const revealValue = async () => {
@@ -87,7 +87,11 @@ export function ConfigValueInput({
           autoComplete={field.kind === "secret" ? "new-password" : "off"}
           value={value}
           placeholder={
-            needsReveal && !readOnly ? "Reveal to edit" : field.isSet ? "Configured" : "Not set"
+            needsReveal && !readOnly
+              ? "Reveal to edit"
+              : field.isSet && draft.kind !== "set"
+                ? "Configured"
+                : "Not set"
           }
           disabled={disabled || readOnly}
           readOnly={needsReveal}
