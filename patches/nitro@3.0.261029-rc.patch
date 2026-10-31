@@ -1,17 +1,13 @@
 diff --git a/dist/runtime/internal/static.mjs b/dist/runtime/internal/static.mjs
-index 50182be738426fd1eb6760e713ea4c0ee6f5d3a6..0709439745b713c0efda5a95e5759f55ec0a8f50 100644
+index 50182be73..070943974 100644
 --- a/dist/runtime/internal/static.mjs
 +++ b/dist/runtime/internal/static.mjs
-@@ -14,24 +14,36 @@ var static_default = defineHandler((event) => {
- 	let id = path.includes("%") ? decodePath(path) : path;
- 	if (!hasAsset(id) && !hasAsset(joinURL(id, "index.html")) && !isPublicAssetURL(id)) return;
- 	let asset;
+@@ -17 +17,3 @@ var static_default = defineHandler((event) => {
 -	const encodings = [...(event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
 +	// Remove when Nitro handles identity, wildcard exclusions and the first matching encoding.
 +	// https://github.com/nitrojs/nitro/issues/4457
 +	const weights = new Map((event.req.headers.get("accept-encoding") || "").split(",").map((entry) => {
- 		const [name, ...parameters] = entry.split(";");
- 		const quality = parameters.map((parameter) => parameter.trim().split("=")).find(([key]) => key.toLowerCase() === "q")?.[1];
+@@ -20,12 +22,18 @@ var static_default = defineHandler((event) => {
 -		const weight = quality === void 0 ? 1 : Number.parseFloat(quality);
 -		return {
 -			ext: EncodingMap[name.trim().toLowerCase()],
@@ -42,13 +38,9 @@ index 50182be738426fd1eb6760e713ea4c0ee6f5d3a6..0709439745b713c0efda5a95e5759f55
 +				id = _id;
 +				break;
 +			}
- 		}
+@@ -32,0 +41 @@ var static_default = defineHandler((event) => {
 +		if (asset) break;
- 	}
- 	if (!asset) {
+@@ -34,0 +44,3 @@ var static_default = defineHandler((event) => {
 +		if (hasAsset(id) || hasAsset(joinURL(id, "index.html"))) {
 +			throw new HTTPError({ status: 406, headers: noCacheHeaders });
 +		}
- 		if (isPublicAssetURL(id)) throw new HTTPError({
- 			status: 404,
- 			headers: noCacheHeaders
