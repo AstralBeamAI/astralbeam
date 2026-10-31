@@ -284,7 +284,7 @@ The host application exposes a server token endpoint that authenticates its user
 import { createAstralBeamChat } from "@astralbeam/sdk/core"
 
 const chat = createAstralBeamChat({
-  apiUrl: "http://localhost:3000/api",
+  apiUrl: "http://localhost:4500/api",
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
 
@@ -357,7 +357,7 @@ Paginated endpoints accept `page_size` and one of `page_after` or `page_before`.
 The following browser example assumes the host token endpoint returns `{ token }`. It buffers raw SSE for inspection, so use the SDK or TanStack connection integration for incremental UI rendering.
 
 ```ts
-const api = "http://localhost:3000/api/v1"
+const api = "http://localhost:4500/api/v1"
 const { token } = await fetch("/api/astralbeam/token").then((r) => r.json())
 const authorization = { Authorization: `Bearer ${token}` }
 
@@ -484,7 +484,7 @@ For writes, `prepareManagedChat` validates admission and platform idempotency, t
 
 ## Files, deletion, and failure behavior
 
-Accepted uploads and published sandbox artifacts live in private S3 storage, referenced by message parts. Downloads authorize current conversation access and verify stored bytes without reconnecting to a sandbox. Provider handles and workspace paths alone are not durable storage, and reopening history never reruns a tool to recreate a missing file.
+Accepted uploads and published sandbox artifacts live in private S3 storage, referenced by message parts. Downloads authorize current conversation access without reconnecting to a sandbox. Proxied downloads and model hydration verify stored bytes. Direct S3 delivery issues one-minute bearer URLs for previously verified originals or generated WebP previews. Cached S3 previews use metadata inspection instead of downloading their bytes through AstralBeam. Provider handles and workspace paths alone are not durable storage, and reopening history never reruns a tool to recreate a missing file.
 
 A manager deletion locks the thread, clears its leaf, invalidates turns, deletes its database content, and purges thread-scoped idempotency records before acknowledgment. Participants, messages, parts, and response rows are removed with the thread. A later producer write fails rather than recreating the resource. Organization deletion delegates to Tenant deletion, which cascades chat rows and TenantUsers together, then purges the Tenant-scoped admission receipts in the same transaction. Agent deletion clears live agent references while preserving historical provenance.
 

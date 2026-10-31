@@ -9,20 +9,23 @@ export const chatFileSuccess = [
     "Content-Disposition": Schema.String,
     "Content-Length": Schema.String,
   }),
-  HttpApiSchema.NoContent,
+  HttpApiSchema.WithHeaders(HttpApiSchema.NoContent, {
+    Location: Schema.optionalKey(Schema.String),
+  }),
 ] as const
 
-export function chatArtifactResponse({
-  bytes,
-  mimeType,
-  path,
-  preview = false,
-}: {
-  bytes: Uint8Array
-  mimeType: string
-  path: string
-  preview?: boolean
-}) {
+export function chatArtifactResponse(
+  input: ({ bytes: Uint8Array; mimeType: string } | { url: string }) & {
+    path: string
+    preview?: boolean
+  },
+) {
+  if ("url" in input)
+    return HttpServerResponse.empty({
+      status: 204,
+      headers: { Location: input.url, "Cache-Control": "private, no-store" },
+    })
+  const { bytes, mimeType, path, preview = false } = input
   if (preview && bytes.length === 0) return HttpServerResponse.empty({ status: 204 })
   return HttpServerResponse.fromWeb(
     new Response(bytes as BodyInit, {

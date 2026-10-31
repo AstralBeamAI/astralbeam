@@ -138,7 +138,7 @@ jobs:
             bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
             bun-windows-x64:windows-x86_64.exe; do
             bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
-              --asset skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+              --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
           done
           binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
           test "$("$binary" --version)" = "$RELEASE_VERSION"

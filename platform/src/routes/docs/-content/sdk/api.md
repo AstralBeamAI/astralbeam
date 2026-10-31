@@ -111,12 +111,14 @@ const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
 // New runs stream SSE. An accepted idempotent retry returns a JSON receipt.
 
 const file = await getThreadAttachment(
-  { threadId, fileId, filename: "report.csv" },
+  { threadId, fileId, filename: "report.csv", delivery: "direct" },
   { astralBeamToken: token },
 )
 const filename = file.headers.get("Content-Disposition")
 const bytes = await file.arrayBuffer()
 ```
+
+With `delivery: "direct"`, S3 downloads return a short-lived storage URL after authorization and the SDK fetches it without application credentials. The headless chat SDK requests direct delivery automatically. Raw HTTP callers receive `204` with the URL in `Location`, then make a separate credential-free GET. A preview unavailable for rendering returns `204` without `Location`. Omit `delivery` to retain the proxied byte response. Configure storage CORS to allow GET from the embedding page's origin, exposing `Content-Disposition` if your code reads that header. Signed URLs are bearer credentials valid for one minute, so do not persist or share them.
 
 `agUiRequest` must follow `ChatRunInput`: use a saved conversation UUID, one new user message, and `forwardedProps.clientId`. The headless SDK handles this setup and the SSE or admission-receipt response automatically.
 

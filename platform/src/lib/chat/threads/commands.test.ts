@@ -78,6 +78,7 @@ describe("managed conversation commands", () => {
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
       Layer.succeed(ChatFiles, {
+        download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),

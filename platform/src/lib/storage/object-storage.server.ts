@@ -10,6 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Context, Effect, Layer, RcMap, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
+import type { ConfigValues } from "@/lib/config/types"
 import { StorageObjectMissing, StorageUnavailable } from "./errors"
 import type { StorageConnection } from "./schemas"
 
@@ -80,7 +81,11 @@ export class ObjectStorage extends Context.Service<
       key: string
     }) => Effect.Effect<{ size: number; contentType: string }, StorageFailure>
     readonly remove: (input: { key: string }) => Effect.Effect<void, StorageFailure>
-    readonly signedUrl: (input: { key: string }) => Effect.Effect<string, StorageFailure>
+    readonly signedUrl: (input: {
+      key: string
+      contentType?: string
+      contentDisposition?: string
+    }) => Effect.Effect<string, StorageFailure>
     readonly testConnection: (settings: StorageConnection) => Effect.Effect<void, StorageFailure>
   }
 >()("astralbeam/storage/ObjectStorage") {
@@ -90,29 +95,36 @@ export class ObjectStorage extends Context.Service<
     ObjectStorage,
     Effect.gen(function* () {
       const config = yield* Config
+      // Snapshot values keep the client cache key stable across requests.
       const clients = yield* RcMap.make({
-        lookup: acquireStorageClient,
+        lookup: (values: ConfigValues) =>
+          acquireStorageClient({
+            endpoint: values.s3_endpoint!,
+            region: values.s3_region!,
+            bucket: values.s3_bucket!,
+            accessKeyId: values.s3_access_key_id!,
+            secretAccessKey: values.s3_secret_access_key!,
+            pathStyle: values.s3_path_style === "true",
+          }),
         idleTimeToLive: "1 minute",
       })
       const settings = Effect.flatMap(config.snapshot, ({ values, issues }) =>
         issues.some((issue) => issue.key.startsWith("s3_"))
           ? Effect.fail(new StorageUnavailable())
-          : Effect.succeed<StorageConnection>({
-              endpoint: values.s3_endpoint!,
-              region: values.s3_region!,
-              bucket: values.s3_bucket!,
-              accessKeyId: values.s3_access_key_id!,
-              secretAccessKey: values.s3_secret_access_key!,
-              pathStyle: values.s3_path_style === "true",
-            }),
+          : Effect.succeed(values),
       )
 
       const withClient = <A>(
-        run: (client: S3Client, connection: StorageConnection) => Effect.Effect<A, StorageFailure>,
+        run: (
+          client: S3Client,
+          connection: Pick<StorageConnection, "bucket">,
+        ) => Effect.Effect<A, StorageFailure>,
       ) =>
         Effect.scoped(
-          Effect.flatMap(settings, (connection) =>
-            Effect.flatMap(RcMap.get(clients, connection), (client) => run(client, connection)),
+          Effect.flatMap(settings, (values) =>
+            Effect.flatMap(RcMap.get(clients, values), (client) =>
+              run(client, { bucket: values.s3_bucket! }),
+            ),
           ),
         )
 
@@ -139,7 +151,8 @@ export class ObjectStorage extends Context.Service<
               if (size > maxBytes) throw new StorageUnavailable()
               chunks.push(chunk.value)
             }
-            return new Uint8Array(Buffer.concat(chunks, size))
+            const bytes = Buffer.concat(chunks, size)
+            return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
           } finally {
             abortSignal.removeEventListener("abort", cancelRead)
             await reader.cancel()
@@ -202,6 +215,8 @@ export class ObjectStorage extends Context.Service<
                   Bucket: connection.bucket,
                   Key: input.key,
                   ResponseCacheControl: "private, no-store",
+                  ResponseContentType: input.contentType,
+                  ResponseContentDisposition: input.contentDisposition,
                 }),
                 { expiresIn: 60 },
               ),

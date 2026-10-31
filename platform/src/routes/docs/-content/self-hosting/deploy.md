@@ -6,10 +6,10 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 ### Docker Compose
 
-Use Docker Compose 2.30 or later. Download the Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+Use Docker Compose 2.30 or later. Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.23.7/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docker-compose.production.yml
 
 (
   umask 077
@@ -26,27 +26,27 @@ Compose rejects missing or empty PostgreSQL and RustFS credentials before starti
 ALLOW_INSECURE=true docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
-The private `astralbeam` bucket is created automatically. Open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). Storage is already configured. Configure your email provider before inviting the owner.
+The private `astralbeam` bucket is created automatically. Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). Storage is already configured at `http://localhost:9010`. Configure your email provider before inviting the owner.
 
-The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
+Set `PORT` to another free port if 4510 is occupied. The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
 
 ### Existing services
 
 The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database), private S3-compatible storage, and email delivery separately.
 
-1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:3000` and `ALLOW_INSECURE=true`.
+1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:4510` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env -p 127.0.0.1:3000:3000 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env -e PORT=4510 -p 127.0.0.1:4510:4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
-3. For local setup, open http://localhost:3000/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over loopback, which is always trusted for forwarded host/protocol:
+3. For local setup, open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over loopback, which is always trusted for forwarded host/protocol:
 
    ```sh
    docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 --env PORT=4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
    ```
 
    Configure the [host Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
@@ -115,7 +115,7 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
 | `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `PORT` | No | TCP port to listen on |
+| `PORT` | No | TCP port to listen on. Defaults to `4510` |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
@@ -179,7 +179,7 @@ After=network-online.target
 [Service]
 User=astralbeam
 WorkingDirectory=/etc/astralbeam
-Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3000
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=4510
 ExecStart=/usr/local/bin/astralbeam-platform
 Restart=on-failure
 
@@ -196,9 +196,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now astralbeam-platform
 ```
 
-`systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:3000/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
+`systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:4510/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
 
-**NOTE**: The development server runs on port 4500. A production process listens on whatever `PORT` says.
+**NOTE**: Development uses port 4500. Production defaults to port 4510. Set `PORT` to override either listener.
 
 ## 5. Put it behind a reverse proxy
 
@@ -208,7 +208,7 @@ Add this location block to the server that terminates TLS:
 
 ```nginx
 location / {
-  proxy_pass http://127.0.0.1:3000;
+  proxy_pass http://127.0.0.1:4510;
   proxy_set_header Host $host;
   proxy_set_header X-Forwarded-Host $host;
   proxy_set_header X-Forwarded-Proto $scheme;

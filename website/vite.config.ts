@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => ({
   resolve: { tsconfigPaths: true },
   // The licenses route imports repository-level files. https://vite.dev/config/server-options.html#server-fs-allow
   server: { host: true, port: 4600, strictPort: true, fs: { allow: [workspaceDirectory] } },
-  preview: { host: true, port: 4001, strictPort: true },
+  preview: { port: 4620 },
   // The platform proxies this prefix when it serves the website under its own origin.
   build: {
     target: "es2025",
@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
         // https://github.com/nitrojs/nitro/blob/v3/src/vite.ts
         preset: "bun",
         publicAssets: [
-          { dir: "../cli/skills", baseURL: "/agent-skills" },
+          { dir: "../skills", baseURL: "/agent-skills" },
           { dir: "src/content/blog", baseURL: "/blog", fallthrough: true },
         ],
         prerender: {
@@ -70,7 +70,7 @@ export default defineConfig(({ mode }) => ({
         hooks: {
           compiled(nitro) {
             const output = nitro.options.output.publicDir
-            const skill = readFileSync(join(workspaceDirectory, "cli/skills/astralbeam/SKILL.md"))
+            const skill = readFileSync(join(workspaceDirectory, "skills/astralbeam/SKILL.md"))
             const { attributes } = frontMatter<{ name: string; description: string }>(
               skill.toString(),
             )

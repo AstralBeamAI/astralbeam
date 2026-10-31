@@ -80,7 +80,7 @@ const storage = globalThis.process.env.S3_BUCKET
         Effect.sync(() => {
           objects.delete(key)
         }),
-      signedUrl: () => Effect.die("unused"),
+      signedUrl: ({ key }) => Effect.succeed(`https://storage.example/${key}`),
       testConnection: () => Effect.die("unused"),
     })
 const filesLayer = ChatFiles.layerNoDeps.pipe(
@@ -294,12 +294,21 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       files.read({ scope, fileId: pending!.fileObjectId, preview: true }),
     )
     expect(preview?.mimeType).toBe("image/webp")
-    for (const deniedScope of [other, foreign])
+    const download = { fileId: pending!.fileObjectId, preview: true, contentDisposition: "inline" }
+    expect(await runtime.runPromise(files.download({ ...download, scope }))).toHaveProperty(
+      "url",
+      expect.stringContaining(".preview.webp"),
+    )
+    for (const deniedScope of [other, foreign]) {
       await expect(
         runtime.runPromise(
           files.read({ scope: deniedScope, fileId: pending!.fileObjectId, preview: true }),
         ),
       ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+      await expect(
+        runtime.runPromise(files.download({ ...download, scope: deniedScope })),
+      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    }
     await runtime.runPromise(service.admit({ scope, id: thread.id, payload: referenced }))
     const input = {
       scope: { organizationId: scope.organizationId },
