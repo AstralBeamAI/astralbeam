@@ -20,7 +20,7 @@ The Nitro plugin starts without waiting for a request and skips builds, prerende
 
 A separate runner scope keeps startup failures independent of ordinary database operations and `/configure`. The supervisor logs readiness transitions and SQLSTATE when available, without logging raw errors or credentials. Retries use backoff capped at 30 seconds. Readiness means the local engine was acquired, not that every shard is owned or every workflow is progressing. Effect handles lease-health failures and recovery without restarting the engine for shared-pool contention. Lease expiry and peer health checks also determine recovery time. `/api/status` checks application SQL independently.
 
-The private HTTP listener binds before advertising its actual address. Peers use RPC and ping health checks. PostgreSQL journals and shard leases let another runner recover persisted executions after a crash, independently of the submitting process.
+The private HTTP listener binds before advertising its actual address. Peers use authenticated RPC and ping health checks, with a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`. Keep encryption keyrings consistent across replicas, including during key rotation. All runners must use an authentication-compatible version. PostgreSQL journals and shard leases let another runner recover persisted executions after a crash, independently of the submitting process.
 
 ## Storage and deployment
 

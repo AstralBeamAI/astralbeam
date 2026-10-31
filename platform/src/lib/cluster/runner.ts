@@ -1,9 +1,11 @@
+import { Buffer } from "node:buffer"
+import { createHmac, timingSafeEqual } from "node:crypto"
 import { networkInterfaces } from "node:os"
 
 import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
-import { Config, Effect, Layer, Option, Result, Schema } from "effect"
+import { Array, Config, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
 import {
   ClusterWorkflowEngine,
   HttpRunner,
@@ -14,10 +16,18 @@ import {
   SqlMessageStorage,
   SqlRunnerStorage,
 } from "effect/cluster"
-import { HttpServer } from "effect/http"
+import { HttpApiBuilder, HttpApiSecurity } from "effect/http-api"
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpRouter,
+  HttpServer,
+  HttpServerResponse,
+} from "effect/http"
 import { NetAddress } from "effect/net"
 import { RpcSerialization } from "effect/rpc"
 
+import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.ts"
 import { ClusterRunnerSettingsInvalid } from "./errors.ts"
 
 function getAutoRunnerHost(): string {
@@ -64,11 +74,31 @@ export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunner
         runnerAddress: Option.some(RunnerAddress.make(settings.host, server.address.port)),
         shardLockDisableAdvisory: true,
       })
+      // Domain separation keeps peer credentials distinct from encryption and operator credentials.
+      const peerKeys = Array.map(getDatabaseEncryptionKeyring(), ({ root }) =>
+        createHmac("sha256", root).update("astralbeam/cluster").digest(),
+      )
+      const peerAuth = HttpRouter.middleware((httpEffect) =>
+        Effect.gen(function* () {
+          const bearer = yield* HttpApiBuilder.securityDecode(HttpApiSecurity.bearer)
+          const token = Buffer.from(Redacted.value(bearer), "base64url")
+          return peerKeys.some((key) => token.length === key.length && timingSafeEqual(token, key))
+            ? yield* httpEffect
+            : HttpServerResponse.empty({ status: 401, headers: { "www-authenticate": "Bearer" } })
+        }),
+      ).layer
       const transport = HttpRunner.layerHttp.pipe(
+        Layer.provide(peerAuth),
         Layer.provide(
           RunnerHealth.layerPing.pipe(
             Layer.provide(Runners.layerRpc),
             Layer.provide(HttpRunner.layerClientProtocolHttpDefault),
+          ),
+        ),
+        Layer.updateService(
+          HttpClient.HttpClient,
+          HttpClient.mapRequest(
+            HttpClientRequest.bearerToken(Redacted.make(peerKeys[0].toString("base64url"))),
           ),
         ),
         Layer.provide([
