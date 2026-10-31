@@ -4,7 +4,7 @@ import { LegalPage } from "@/components/legal-page"
 import { pageHead } from "@/lib/page-head"
 import { siteMetadata } from "@/lib/site"
 
-const effectiveDate = "October 17, 2026"
+const effectiveDate = "October 31, 2026"
 
 export const Route = createFileRoute("/privacy")({
   head: () =>
@@ -204,11 +204,15 @@ function PrivacyPage() {
           On astralbeam.ai, we use PostHog for page views, interaction analytics, and session replay
           across the website, blog, documentation, and dashboard. For signed-in users, we link
           activity to their account ID, name, email address, organization ID, and organization name.
-          Replay masks text, form inputs, and element attributes. Event and replay URLs include
-          query strings, fragments, organization slugs, resource IDs, and any authentication tokens
-          in those URLs. We also capture referrers and campaign parameters for attribution. Browser
-          console logs may be recorded for debugging. We exclude network request bodies and headers.
-          This integration does not run on self-hosted installations or local development sites.
+          Replay captures ordinary page text, conversations, and UI attributes while masking
+          passwords, credentials, and content explicitly marked as sensitive. Event and replay URLs
+          include query strings, fragments, organization slugs, and resource IDs, with credentials,
+          authentication tokens, OAuth codes, and signed URL credentials redacted. We also capture
+          referrers and campaign parameters for attribution. Browser console logs may be recorded
+          for debugging. Ordinary form values are visible, while credential fields remain masked.
+          Network request bodies and headers may be recorded when enabled, using built-in PostHog
+          filtering and additional credential redaction. This integration does not run on
+          self-hosted installations or local development sites.
         </p>
       </section>
 

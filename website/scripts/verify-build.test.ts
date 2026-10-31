@@ -179,7 +179,7 @@ describe("production website build", () => {
     expect(licenses).toContain(mitLicense.trimEnd())
     expect(licenses).toContain(oflLicense.trimEnd())
     expect(sitemap).toContain(`<loc>${homeUrl}</loc>`)
-    expect(sitemap).toContain(`<loc>${origin}/privacy</loc><lastmod>2026-10-17</lastmod>`)
+    expect(sitemap).toContain(`<loc>${origin}/privacy</loc><lastmod>2026-10-31</lastmod>`)
     expect(sitemap).toContain(`<loc>${origin}/terms</loc><lastmod>2026-09-21</lastmod>`)
     expect(sitemap).not.toContain("/404")
     expect(manifest).toMatchObject({

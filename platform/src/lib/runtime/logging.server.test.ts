@@ -7,6 +7,7 @@ import { otlpLoggerLayer, serverLoggerLayer } from "./logging.server.ts"
 
 it.effect("redacts console paths, causes, provider messages and nested metadata", () =>
   Effect.gen(function* () {
+    const platformSecret = "aB".repeat(32)
     yield* Effect.logError(
       "Database connection failed",
       Cause.die(new Error("connect postgres://user:database-password@db/app")),
@@ -18,6 +19,9 @@ it.effect("redacts console paths, causes, provider messages and nested metadata"
       nested: { apiKey: "opaque-api-key", password: "opaque-password" },
       url: "https://api.example/run?api_key=opaque-query-key",
       credentials: "opaque-credentials",
+      callback: "https://astralbeam.ai/auth/callback?code=opaque-oauth-code&utm_source=blog",
+      fullPlatformKey: `key_01990a5d-ac96-774b-b942-6b13c85384ca_01990a5d-ac96-774b-b942-6b13c85384c9_abo_${platformSecret}`,
+      inlineCredentials: `password="opaque double-quoted password"; secret='opaque single-quoted secret'; note=ordinary`,
     })
     const lines = yield* TestConsole.logLines
     const output = lines.map(String).join("\n")
@@ -36,11 +40,17 @@ it.effect("redacts console paths, causes, provider messages and nested metadata"
       "opaque-query-key",
       "ghp_examplegithubcredential",
       "opaque-credentials",
+      "opaque-oauth-code",
+      platformSecret,
+      "double-quoted password",
+      "single-quoted secret",
     ])
       assert.notInclude(output, secret)
     assert.include(output, "postgres://user:[REDACTED]@db/app")
     assert.include(output, "Incorrect API key provided:")
     assert.include(output, "Database connection failed")
+    assert.include(output, "utm_source=blog")
+    assert.include(output, "note=ordinary")
   }).pipe(
     Effect.annotateLogs({ path: "/api/auth/reset-password/opaque-reset-token" }),
     Effect.provide(serverLoggerLayer),

@@ -7,7 +7,7 @@ import { landingUpdated, siteUrl } from "@/lib/site"
 const indexablePages = [
   { path: "/", lastmod: landingUpdated },
   { path: "/terms", lastmod: "2026-09-21" },
-  { path: "/privacy", lastmod: "2026-10-17" },
+  { path: "/privacy", lastmod: "2026-10-31" },
   { path: "/blog", lastmod: blogPosts[0]!.date },
   ...blogPosts.map((post) => ({ path: post.path, lastmod: post.date })),
 ]

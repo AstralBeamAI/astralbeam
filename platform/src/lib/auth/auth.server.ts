@@ -237,6 +237,17 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
   if (config.github) enabledOAuthProviders.add("github")
 
   return betterAuth({
+    logger: {
+      log: (level, message, ...args: unknown[]) => {
+        const log = {
+          debug: Effect.logDebug,
+          info: Effect.logInfo,
+          warn: Effect.logWarning,
+          error: Effect.logError,
+        }[level]
+        void runAppEffect(log(message, ...args)).catch(() => {})
+      },
+    },
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
