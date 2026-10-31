@@ -284,7 +284,7 @@ The host application exposes a server token endpoint that authenticates its user
 import { createAstralBeamChat } from "@astralbeam/sdk/core"
 
 const chat = createAstralBeamChat({
-  apiUrl: "http://localhost:3000/api",
+  apiUrl: "http://localhost:4500/api",
   fetchAstralBeamToken: { url: "/api/astralbeam/token" },
 })
 
@@ -357,7 +357,7 @@ Paginated endpoints accept `page_size` and one of `page_after` or `page_before`.
 The following browser example assumes the host token endpoint returns `{ token }`. It buffers raw SSE for inspection, so use the SDK or TanStack connection integration for incremental UI rendering.
 
 ```ts
-const api = "http://localhost:3000/api/v1"
+const api = "http://localhost:4500/api/v1"
 const { token } = await fetch("/api/astralbeam/token").then((r) => r.json())
 const authorization = { Authorization: `Bearer ${token}` }
 

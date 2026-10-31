@@ -27,7 +27,7 @@ Environment:
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
   NODE_ENV                 set to production for production deployments
   ALLOW_INSECURE           set to true to allow HTTP and non-Secure operator cookies
-  PORT                     port the server listens on (default 3000)
+  PORT                     port the server listens on (default 4510)
 
 Environment files load from the current working directory.
 Existing environment variables win.
@@ -108,6 +108,7 @@ program
   .action(async () => {
     loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
     getDatabaseEncryptionKeyring()
+    process.env.PORT ||= "4510"
     // Keep server initialization lazy so version and migration commands need no running server.
     let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
     if (Bun.isStandaloneExecutable) {
