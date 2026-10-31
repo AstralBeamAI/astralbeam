@@ -424,7 +424,7 @@ test("later stream snapshots preserve attachment IDs and a live widget without r
     if (!first)
       renderedPartDuringSend = chat
         .getState()
-        .messages.find((message) => message.id === "assistant-live")?.parts[0]
+        .messages.find((message) => message.id === "provider-assistant")?.parts[0]
     savedMessages = [attachment, ...savedWidget("card", "live")]
     const run = { threadId: thread.id, runId: `run-${sends}` }
     const chunks = [
@@ -524,11 +524,29 @@ test("later stream snapshots preserve attachment IDs and a live widget without r
     if (part?.type === "tool-call")
       renderIds.push("widgetRenderId" in part ? part.widgetRenderId : undefined)
   })
+  // Tool-only provider messages can use a client ID distinct from their persisted parent.
+  native.setMessagesManually([
+    {
+      id: "provider-assistant",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-call",
+          id: "reused-provider-id",
+          name: RENDER_WIDGET_TOOL,
+          arguments: '{"widget":"card","props":{}}',
+          input: { widget: "card", props: {} },
+          state: "complete",
+          output: { widget: "card", rendered: true },
+        },
+      ],
+    },
+  ])
   await chat.sendMessage("Continue")
   unsubscribe()
   expect(chat.getState().error).toBeUndefined()
   expect(renderedPartDuringSend).toMatchObject({
-    id: "saved:assistant-live:part-live",
+    id: "saved:provider-assistant:reused-provider-id",
     widgetRenderId: "reused-provider-id",
   })
   expect(
