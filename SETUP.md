@@ -1,8 +1,10 @@
 # Setup
 
-## One-time macOS setup
+## Host prerequisites
 
-Install Git and, if Bun is missing, curl and unzip. Setup installs the pinned Bun version. For Docker services, install and start [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/). Run application code natively.
+Install Git and, if Bun is missing, curl and unzip. Setup installs the pinned Bun version. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
+
+Set `DATABASE_URL` in ignored `platform/.env.local` to a local database owned by your application role. That role also needs `CREATEDB` for worktree setup to create separate databases.
 
 ## Local development
 
@@ -11,10 +13,10 @@ Install Git and, if Bun is missing, curl and unzip. Setup installs the pinned Bu
 From the repository root:
 
 ```sh
-SERVICES=docker ./scripts/setup.sh
+./scripts/setup.sh
 ```
 
-Setup installs frozen dependencies, applies migrations, seeds an uninitialized database, and builds the SDK. Existing containers, credentials, and data are preserved. Open a new terminal afterward to pick up Bun on `PATH`.
+Setup installs frozen dependencies, applies migrations, seeds an uninitialized database, and builds the SDK. Worktree setup copies missing environment files from the primary checkout before loading configuration. Existing environment values take precedence over files. Existing services, credentials, and data are preserved. Open a new terminal afterward to pick up Bun on `PATH`.
 
 | `SERVICES` | Behavior |
 | --- | --- |
@@ -28,13 +30,15 @@ The [seed](platform/src/db/README.md#seed-sample-data) prints local credentials 
 
 ### Local services
 
-Compose runs PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
+New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the platform's [default storage directory](platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
 
-RustFS exposes S3 at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`, with data in the `rustfs-data` volume. For a new database, seeding uses local RustFS when its readiness endpoint answers within one second, otherwise File System with a separate directory for that database. Existing storage and explicit S3 settings take precedence. Local S3 seeding creates a private bucket. Defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Override `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` before Compose and initial setup. Later changes belong under **File storage** at `/configure`.
+To use containers for supporting services, install and start Docker, then run `SERVICES=docker ./scripts/setup.sh`. Compose provides PostgreSQL through PgBouncer and Mailpit for email testing. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-When switching from native RustFS, stop it first and retain its data directory until needed files have been migrated. Setup preserves existing files and storage settings and never provisions external storage.
+Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at `/var/lib/astralbeam/storage` for persistent File System storage.
 
 Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
+
+Before changing storage destinations, follow the [storage migration procedure](platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified.
 
 ### 2. Run the applications
 
@@ -57,7 +61,7 @@ For one project, use `bun run --cwd <project> <task>` or a root alias such as `b
 
 #### Port allocation
 
-Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510`, website preview to `4620`, and production Compose S3 to `9010`. Existing deployments keep their explicit ports. See [deployment](platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
+Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510` and website preview to `4620`. Existing deployments keep their explicit ports. See [deployment](platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
 
 Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned loopback port, and needs no separate worker command. See the [cluster](platform/src/lib/cluster/README.md) and [workflow](platform/src/lib/workflows/README.md) guides for runtime details.
 
@@ -69,9 +73,7 @@ On Ubuntu 24.04 or Debian 13:
 SERVICES=native ./scripts/setup.sh
 ```
 
-This installs and starts PostgreSQL 18, Valkey 9, and RustFS on amd64 or arm64. Rerun it after restarting the machine. Existing binaries, credentials, and healthy services are preserved. Upgrades and repairs are manual. RustFS stores data in `${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data` or `RUSTFS_DATA_DIR`, with `rustfs.log` beside it. The same port and credential overrides apply. Configure email separately below.
-
-On macOS without Docker, install and start PostgreSQL and Valkey yourself, then run `./scripts/setup.sh`. <a href="https://docs.rustfs.com/en/installation/macos" target="_blank" rel="noopener noreferrer">RustFS</a> is optional. When using it, use the local storage credentials above or set matching overrides before setup.
+This installs and starts PostgreSQL 18 and Valkey 9. Rerun it after restarting the machine. Existing binaries, credentials, and healthy services are preserved. Upgrades and repairs are manual. File System storage needs no separate service. Configure email separately below.
 
 ## Cloud agent setup
 

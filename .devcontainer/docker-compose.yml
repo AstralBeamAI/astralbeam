@@ -8,6 +8,8 @@ services:
     environment:
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-development}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-development-only-storage-key}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-s3}
+      STORAGE_DIRECTORY: /var/lib/astralbeam/storage
     # Paths are relative to the first Compose file in devcontainer.json
     build:
       context: .
@@ -23,6 +25,7 @@ services:
       - linearity-node-modules:/workspaces/astralbeam/examples/linearity-react/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - bun-cache:/root/.bun/install/cache
+      - file-storage:/var/lib/astralbeam/storage
       # Persist Cursor/VS Code server + extensions across rebuilds
       - ./tmp/.cursor-server:/root/.cursor-server:cached
       - ./tmp/.vscode-server:/root/.vscode-server:cached
@@ -51,3 +54,4 @@ volumes:
   linearity-node-modules:
   todos-node-modules:
   bun-cache:
+  file-storage:

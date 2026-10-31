@@ -175,7 +175,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "File System stores files on this host. Existing S3 configurations remain in use.",
     kind: "enum",
     required: true,
-    environment: false,
     options: [
       { value: "filesystem", label: "File System" },
       { value: "s3", label: "S3-compatible" },
@@ -189,7 +188,6 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     description: "Absolute directory on this host. Back it up together with PostgreSQL.",
     kind: "text",
     required: false,
-    environment: false,
     defaultValue: defaultStorageDirectory(),
     schema: StorageDirectorySchema,
   },
@@ -600,9 +598,9 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   ),
 ) as ConfigValues
 
-/** System-managed and page-only settings cannot be replaced through the environment. */
+/** System-managed settings cannot be replaced through the environment. */
 export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
-  (definition) => !definition.systemManaged && definition.environment !== false,
+  (definition) => !definition.systemManaged,
 )
 
 export function storageProviderFromConfig(

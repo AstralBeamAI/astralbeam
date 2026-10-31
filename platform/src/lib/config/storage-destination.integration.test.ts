@@ -40,6 +40,7 @@ const destinationUpdates = [
 describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   beforeEach(async () => {
     for (const { key } of destinationUpdates) vi.stubEnv(key.toUpperCase(), "")
+    vi.stubEnv("STORAGE_DIRECTORY", "")
     await getAuthDatabase()
       .delete(configTable)
       .where(or(like(configTable.key, "s3_%"), like(configTable.key, "storage_%")))
@@ -63,7 +64,6 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
       expect(seeded.values).toMatchObject({
         s3_endpoint: "http://127.0.0.1:19000",
-        s3_bucket: "astralbeam-worktree-a-87a94f0b35f63660202c7253320e5053",
         s3_access_key_id: "override-key",
         s3_secret_access_key: "override-secret",
       })

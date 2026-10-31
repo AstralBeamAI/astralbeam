@@ -93,16 +93,6 @@ install_valkey() {
   run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends valkey-server
 }
 
-install_rustfs() (
-  command -v rustfs >/dev/null 2>&1 && return 0
-  local download_dir
-  download_dir=$(mktemp -d)
-  trap 'rm -rf "$download_dir"' EXIT
-  curl -fsSLo "$download_dir/rustfs.zip" "https://github.com/rustfs/rustfs/releases/latest/download/rustfs-linux-$(uname -m)-gnu-latest.zip"
-  unzip -q "$download_dir/rustfs.zip" rustfs -d "$download_dir"
-  run_as_root install -m 0755 "$download_dir/rustfs" /usr/local/bin/rustfs
-)
-
 configure_postgres() {
   if ! run_as_root service postgresql status >/dev/null 2>&1; then run_as_root service postgresql start; fi
   run_as_root runuser -u postgres -- psql --dbname=postgres --set=ON_ERROR_STOP=1 --set=user="$POSTGRES_USER" --set=password="$POSTGRES_PASSWORD" --set=database="$POSTGRES_DB" <<'SQL'
@@ -127,39 +117,14 @@ start_valkey() {
   valkey-cli -e ping
 }
 
-start_rustfs() {
-  local port="${RUSTFS_HOST_PORT:-9000}"
-  if start-stop-daemon --status --exec "$rustfs_binary" >/dev/null 2>&1; then
-    curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:$port/health/ready" >/dev/null
-    return
-  fi
-  mkdir -p "$rustfs_data_dir"
-  local log="${rustfs_data_dir%/*}/rustfs.log"
-  RUSTFS_ACCESS_KEY="${RUSTFS_ACCESS_KEY:-development}" \
-    RUSTFS_SECRET_KEY="${RUSTFS_SECRET_KEY:-development-only-storage-key}" \
-    RUSTFS_CONSOLE_ENABLE=true RUSTFS_CONSOLE_ADDRESS="127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}" \
-    start-stop-daemon --start --background --output "$log" --exec "$rustfs_binary" -- \
-    server --address "127.0.0.1:$port" "$rustfs_data_dir"
-  for _ in {1..30}; do
-    if curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:$port/health/ready" >/dev/null 2>&1; then return 0; fi
-    sleep 1
-  done
-  echo "RustFS did not become ready. See $log." >&2
-  return 1
-}
-
 setup_native_services() (
   install_linux_packages
-  rustfs_data_dir=$(realpath -m "${RUSTFS_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data}")
 
   : "${POSTGRES_USER:=astralbeam}" "${POSTGRES_PASSWORD:=astralbeam123}" "${POSTGRES_DB:=astralbeam}"
   install_postgres
   install_valkey
-  install_rustfs
-  rustfs_binary=$(command -v rustfs)
   configure_postgres
   start_valkey
-  start_rustfs
 )
 
 setup_services() {

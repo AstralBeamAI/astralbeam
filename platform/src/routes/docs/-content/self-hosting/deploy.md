@@ -6,7 +6,7 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 ### Docker Compose
 
-Use Docker Compose 2.30 or later. Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docker-compose.production.yml
@@ -14,25 +14,25 @@ curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/docke
 (
   umask 077
   set -C
-  printf 'POSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nRUSTFS_ACCESS_KEY=astralbeam\nRUSTFS_SECRET_KEY=%s\n' \
-    "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+  printf 'POSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\n' \
+    "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 ```
 
-Compose rejects missing or empty PostgreSQL and RustFS credentials before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. Start the stack with an explicit HTTP opt-in for this local setup:
+Compose rejects a missing or empty PostgreSQL password before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. Start the stack with an explicit HTTP opt-in for this local setup:
 
 ```sh
 ALLOW_INSECURE=true docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
-The private `astralbeam` bucket is created automatically. Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). Storage is already configured at `http://localhost:9010`. Configure your email provider before inviting the owner.
+Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). File System storage is already configured at `/var/lib/astralbeam/storage`, backed by the persistent `file-storage` volume. No storage credentials, bucket, or separate storage service are needed. Configure your email provider before inviting the owner.
 
-Set `PORT` to another free port if 4510 is occupied. The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. The RustFS admin console is available only inside the container network. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Using the same flags, `down` preserves data, while `down --volumes` deletes it.
+Set `PORT` to another free port if 4510 is occupied. The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Rebuilds and container replacements preserve uploads. Using the same flags, `down` preserves data, while `down --volumes` deletes the database and files.
 
 ### Existing services
 
-The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database) and email delivery separately. File storage can use a private S3-compatible bucket or a persistent directory selected at `/configure`. The image runs as UID/GID `10001:10001`, which needs write access to that directory. Its home is `/tmp`, so mount persistent storage and choose its path before uploading files.
+The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database) and email delivery separately. File storage can use a private S3-compatible bucket or a persistent directory selected at `/configure` or through `STORAGE_PROVIDER` and `STORAGE_DIRECTORY`. The image runs as UID/GID `10001:10001`, which needs write access to that directory. Its home is `/tmp`, so mount persistent storage and choose its path before uploading files. For File System, set `STORAGE_PROVIDER=filesystem` and `STORAGE_DIRECTORY=/var/lib/astralbeam/storage` in your environment file and add `--mount source=astralbeam-files,target=/var/lib/astralbeam/storage` to the commands below. Docker creates the named volume with the directory permissions from the image.
 
 1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:4510` and `ALLOW_INSECURE=true`.
 2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:

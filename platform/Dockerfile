@@ -22,7 +22,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 astralbeam \
-    && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam
+    && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam \
+    && install -d -o 10001 -g 10001 -m 700 /var/lib/astralbeam/storage
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
       org.opencontainers.image.licenses="AGPL-3.0-only"

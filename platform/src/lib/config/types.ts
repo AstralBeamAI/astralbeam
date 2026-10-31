@@ -56,8 +56,6 @@ export type ConfigKey =
   | "otel_resource_attributes"
 
 export interface ConfigDefinition {
-  /** Operator-editable settings that are configured only through `/configure`. */
-  environment?: false
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
   key: ConfigKey
