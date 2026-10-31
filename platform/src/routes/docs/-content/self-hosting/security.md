@@ -12,9 +12,9 @@ Better Auth separately encrypts the OAuth tokens it retains. Everything else, in
 
 ## Rotating the encryption key
 
-`DATABASE_ENCRYPTION_KEY` is a comma-separated keyring, not a single value. The first entry is active: it encrypts every new write and it is the operator sign-in credential. Later entries only decrypt.
+`DATABASE_ENCRYPTION_KEY` is a comma-separated keyring, not a single value. The first entry is active: it encrypts every new write and it is the operator sign-in credential. Cluster peers send a credential derived from the active entry. Later entries decrypt older values and verify peer credentials.
 
-1. Restart every replica with the new entry first and the old one behind it, as `DATABASE_ENCRYPTION_KEY=new,old`.
+1. First restart every replica with `DATABASE_ENCRYPTION_KEY=old,new` to add the new key without changing the active entry. Once that rollout completes, restart them with `DATABASE_ENCRYPTION_KEY=new,old`.
 2. Open `/configure`. It confirms "Encryption key rotation in progress" and shows how many fallback entries are available.
 3. Re-save each value that still uses the old entry. A field encrypted under a fallback key says `Encrypted with a fallback key; replace and save it to use the active key.`. Non-secret fields move across on a plain save, while a secret must be revealed or replaced first, because the page never holds a copy of a stored secret.
 4. Save each model provider under **Models**. Under **Sandboxes**, test and save a replacement credential: saving an unchanged credential does not rewrite it. MCP server definitions with stored OAuth clients must be recreated, and users must reconnect their private connections. The model catalog re-encrypts on its next successful refresh. These values do not report fallback keys on `/configure`.

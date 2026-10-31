@@ -54,7 +54,7 @@
     "eslint-plugin-react-web-api": "^5.26.5",
     "eslint-plugin-regexp": "^3.3.1",
     "knip": "^6.41.0",
-    "nitro": "3.0.260903-beta",
+    "nitro": "3.0.261029-rc",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",

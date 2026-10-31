@@ -6,6 +6,7 @@ logs
 node_modules
 dist
 dist-ssr
+*.bun-build
 *.local
 
 # Editor directories and files

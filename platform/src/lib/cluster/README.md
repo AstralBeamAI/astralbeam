@@ -20,7 +20,7 @@ The Nitro plugin starts without waiting for a request and skips builds, prerende
 
 A separate runner scope keeps startup failures independent of ordinary database operations and `/configure`. The supervisor logs readiness transitions and SQLSTATE when available, without logging raw errors or credentials. Retries use backoff capped at 30 seconds. Readiness means the local engine was acquired, not that every shard is owned or every workflow is progressing. Effect handles lease-health failures and recovery without restarting the engine for shared-pool contention. Lease expiry and peer health checks also determine recovery time. `/api/status` checks application SQL independently.
 
-The private HTTP listener binds before advertising its actual address. Peers use RPC and ping health checks. PostgreSQL journals and shard leases let another runner recover persisted executions after a crash, independently of the submitting process.
+The private HTTP listener binds before advertising its actual address. Peers use authenticated RPC and ping health checks, with a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`. Keep encryption keyrings consistent across replicas, including during key rotation. All runners must use an authentication-compatible version. PostgreSQL journals and shard leases let another runner recover persisted executions after a crash, independently of the submitting process.
 
 ## Storage and deployment
 
@@ -32,7 +32,7 @@ The runtime role needs database CONNECT, schema USAGE/CREATE, table read/write a
 
 Preserve the journal and `effect_cluster_migrations` during upgrades. Keep Effect packages aligned, review upstream storage changes, and back up before deployment. With no application version or bookkeeping gate, a new replica can immediately apply DDL. Assess migration locking and rolling-version compatibility before rollout.
 
-Local processes default to loopback and distinct OS-assigned ports. Multiple machines must advertise individually reachable private addresses through `CLUSTER_RUNNER_HOST`, `CLUSTER_RUNNER_PORT`, and optionally `CLUSTER_RUNNER_LISTEN_HOST`. See the [runtime configuration](../../../AGENTS.md#cluster-runtime) and [local setup](../../../../SETUP.md). Keep runner listeners on a trusted private network and out of the public reverse proxy.
+Processes automatically bind to and advertise private IPv6, then private IPv4, falling back to loopback, with distinct OS-assigned ports. Override the address through `CLUSTER_RUNNER_HOST` and `CLUSTER_RUNNER_PORT` when peers need a different reachable address. See the [runtime configuration](../../../AGENTS.md#cluster-runtime) and [local setup](../../../../SETUP.md). Keep runner listeners on a trusted private network and out of the public reverse proxy.
 
 PgBouncer uses transaction pooling, so the runner sets `shardLockDisableAdvisory: true` and uses SQL row leases. Effect's default shard, lease, and health timings remain unchanged. Recovery depends on persisted messages and lease expiry, not graceful shutdown.
 

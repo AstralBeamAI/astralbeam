@@ -1,0 +1,177 @@
+{
+  "_comment": "Unpublished hosted-template snapshot, not automatically imported by Railway. Keep secrets as expressions. Update the pinned image after proxy trust and automatic cluster addressing are released.",
+  "code": "outQJB",
+  "name": "AstralBeam",
+  "description": "Self-host AstralBeam with PostgreSQL 18 and private object storage.",
+  "image": "https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/platform/public/astralbeam-logo-dark.png",
+  "category": "AI/ML",
+  "serializedConfig": {
+    "buckets": {
+      "Files": {
+        "name": "Files"
+      }
+    },
+    "services": {
+      "Platform": {
+        "name": "Platform",
+        "icon": "https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/platform/public/astralbeam-logo-dark.png",
+        "source": {
+          "image": "ghcr.io/astralbeamai/astralbeam-platform:0.23.7"
+        },
+        "deploy": {
+          "healthcheckPath": "/api/status",
+          "preDeployCommand": [
+            "/usr/local/bin/astralbeam-platform migrate"
+          ]
+        },
+        "variables": {
+          "HOST": {
+            "description": "HTTP bind address used by the container. Leave as 0.0.0.0.",
+            "defaultValue": "0.0.0.0"
+          },
+          "PORT": {
+            "description": "HTTP port used by Platform, the public domain, and Railway healthchecks. Leave as 3000.",
+            "defaultValue": "3000"
+          },
+          "TRUST_PROXY": {
+            "defaultValue": "true",
+            "description": "Trust Railway's HTTPS edge headers for initial setup. Keep origin access restricted to trusted Railway services.",
+            "isOptional": false
+          },
+          "CLIENT_IP_HEADERS": {
+            "defaultValue": "x-real-ip",
+            "description": "Client IP header supplied by Railway's HTTP edge. Leave as x-real-ip.",
+            "isOptional": false
+          },
+          "S3_BUCKET": {
+            "description": "Private S3 bucket name supplied by Files. Leave this reference unchanged.",
+            "defaultValue": "${{Files.BUCKET}}"
+          },
+          "S3_REGION": {
+            "description": "S3 signing region supplied by Files. Leave this reference unchanged.",
+            "defaultValue": "${{Files.REGION}}"
+          },
+          "S3_ENDPOINT": {
+            "description": "HTTPS S3 endpoint supplied by Files. Used by the server and signed browser downloads.",
+            "defaultValue": "${{Files.ENDPOINT}}"
+          },
+          "APP_BASE_URL": {
+            "description": "Public HTTPS origin supplied by Railway. Update this if you attach a custom domain.",
+            "defaultValue": "https://${{RAILWAY_PUBLIC_DOMAIN}}"
+          },
+          "DATABASE_URL": {
+            "description": "Private PostgreSQL connection supplied by the Postgres service. Leave this reference unchanged.",
+            "defaultValue": "${{Postgres.DATABASE_URL}}"
+          },
+          "S3_PATH_STYLE": {
+            "description": "Use virtual-hosted addressing for newly created Railway buckets. Leave as false.",
+            "defaultValue": "false"
+          },
+          "S3_ACCESS_KEY_ID": {
+            "description": "S3 access key supplied by Files. Independent of any email or model credentials.",
+            "defaultValue": "${{Files.ACCESS_KEY_ID}}"
+          },
+          "S3_SECRET_ACCESS_KEY": {
+            "description": "S3 secret supplied by Files. Leave this reference unchanged.",
+            "defaultValue": "${{Files.SECRET_ACCESS_KEY}}"
+          },
+          "DATABASE_ENCRYPTION_KEY": {
+            "description": "Generated when this template is first deployed. Used for encryption and operator sign-in at /configure. Preserve and back up this key.",
+            "defaultValue": "${{secret(64, \"abcdef0123456789\")}}"
+          },
+          "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
+            "description": "Allow 15 seconds for HTTP draining and workflow cleanup after SIGTERM.",
+            "defaultValue": "15"
+          }
+        },
+        "networking": {
+          "serviceDomains": {
+            "<hasDomain>:3000": {
+              "port": 3000
+            }
+          }
+        }
+      },
+      "Postgres": {
+        "name": "Postgres",
+        "icon": "https://devicons.railway.app/i/postgresql.svg",
+        "source": {
+          "image": "ghcr.io/railwayapp-templates/postgres-ssl:18"
+        },
+        "deploy": {
+          "requiredMountPath": "/var/lib/postgresql/data"
+        },
+        "variables": {
+          "PGDATA": {
+            "isOptional": false,
+            "description": "Location where the database will be initialized",
+            "defaultValue": "/var/lib/postgresql/data/pgdata"
+          },
+          "PGHOST": {
+            "isOptional": false,
+            "description": "Railway Private Domain Name.",
+            "defaultValue": "${{RAILWAY_PRIVATE_DOMAIN}}"
+          },
+          "PGPORT": {
+            "isOptional": false,
+            "description": "Port to connect to Postgres.",
+            "defaultValue": "5432"
+          },
+          "PGUSER": {
+            "isOptional": false,
+            "description": "Required variable for Data panel",
+            "defaultValue": "${{ POSTGRES_USER }}"
+          },
+          "PGDATABASE": {
+            "isOptional": false,
+            "description": "Required variable for the data panel.",
+            "defaultValue": "${{POSTGRES_DB}}"
+          },
+          "PGPASSWORD": {
+            "isOptional": false,
+            "description": "Required variable for Data panel",
+            "defaultValue": "${{POSTGRES_PASSWORD}}"
+          },
+          "POSTGRES_DB": {
+            "isOptional": false,
+            "description": "Default database created when image is started.",
+            "defaultValue": "railway"
+          },
+          "DATABASE_URL": {
+            "isOptional": false,
+            "description": "URL to connect to Postgres database.",
+            "defaultValue": "postgresql://${{PGUSER}}:${{POSTGRES_PASSWORD}}@${{RAILWAY_PRIVATE_DOMAIN}}:5432/${{PGDATABASE}}"
+          },
+          "POSTGRES_USER": {
+            "isOptional": false,
+            "description": "User to connect to Postgres DB",
+            "defaultValue": "postgres"
+          },
+          "SSL_CERT_DAYS": {
+            "isOptional": true,
+            "description": "SSL certificate expiry in days.",
+            "defaultValue": "820"
+          },
+          "POSTGRES_PASSWORD": {
+            "isOptional": false,
+            "description": "Password to connect to DB",
+            "defaultValue": "${{ secret(32, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\") }}"
+          },
+          "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
+            "isOptional": false,
+            "description": "Allow Postgres to cleanly shut down",
+            "defaultValue": "60"
+          }
+        },
+        "volumeMounts": {
+          "/var/lib/postgresql/data": {
+            "mountPath": "/var/lib/postgresql/data",
+            "backupSchedules": [
+              "DAILY"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
