@@ -7,7 +7,7 @@ Run common commands from the repository root:
 ```sh
 bun run --cwd website dev      # development server on 4600
 bun run --cwd website build    # static output in .output/public/
-bun run --cwd website preview  # production preview on 4001
+bun run --cwd website preview  # production preview on 4620
 bun run --cwd website generate:blog-images # refresh optimized PNGs from blog SVGs
 bun run --cwd website ready    # check, build, then test
 bun run --cwd website deploy   # ready, then deploy to Cloudflare

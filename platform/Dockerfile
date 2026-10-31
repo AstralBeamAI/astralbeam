@@ -31,10 +31,10 @@ COPY --from=build --chmod=755 /app/platform/.output/astralbeam-platform /usr/loc
 # Other notices are embedded. Preserve the SDK's separate notice: https://opensource.org/license/mit
 COPY --from=build /app/LICENSE-MIT /usr/share/doc/astralbeam/
 
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+ENV NODE_ENV=production HOST=0.0.0.0
 # Run without root. The binary unpacks assets and native libraries into writable, executable /tmp.
 USER 10001:10001
 WORKDIR /tmp
-EXPOSE 3000
+EXPOSE 4510
 ENTRYPOINT ["/usr/local/bin/astralbeam-platform"]
 CMD ["start"]
