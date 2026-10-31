@@ -98,6 +98,7 @@ export function ConfigFieldGroups({
   emailProviderTesting,
   emailProviderTestResult,
   storageSettings,
+  storageProvider,
 }: {
   fields: ConfigureField[]
   issues: ConfigIssue[]
@@ -116,6 +117,7 @@ export function ConfigFieldGroups({
   emailProviderTesting: boolean
   emailProviderTestResult: { ok: boolean; message: string } | undefined
   storageSettings: StorageConnection | undefined
+  storageProvider: string
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
   const trustProxy =
@@ -133,33 +135,35 @@ export function ConfigFieldGroups({
       field.source === "environment" &&
       ["s3_endpoint", "s3_region", "s3_path_style"].includes(field.key),
   )
-  const storageDestinationFields = fields.filter((field) =>
-    ["s3_endpoint", "s3_region", "s3_bucket", "s3_path_style"].includes(field.key),
-  )
-  const changingStorageDestination =
-    storageDestinationFields.every((field) => field.value !== null) &&
-    storageDestinationFields.some((field) => {
-      const draft = drafts[field.key]
-      return draft?.kind === "set" && draft.value !== field.value
-    })
+  const changingStorageDestination = [
+    "storage_provider",
+    "storage_directory",
+    "s3_endpoint",
+    "s3_region",
+    "s3_bucket",
+    "s3_path_style",
+  ].some((key) => changedKeys.has(key))
 
   return [...fieldsByGroup]
     .toSorted(
       ([first], [second]) => configGroupOrder.indexOf(first) - configGroupOrder.indexOf(second),
     )
     .map(([group, groupFields]) => {
-      const configured = !groupFields.some(
+      const visibleFields = groupFields.filter((field) => {
+        if (field.key === "client_ip_headers") return Boolean(trustProxy && trustProxy !== "false")
+        if (field.key.startsWith("s3_")) return storageProvider === "s3"
+        if (field.key === "storage_directory") return storageProvider === "filesystem"
+        return (
+          group !== "Email Delivery" ||
+          ["email_provider", "email_from_address"].includes(field.key) ||
+          providerKeys.has(field.key)
+        )
+      })
+      const configured = !visibleFields.some(
         (field) =>
           issues.some((issue) => issue.key === field.key) ||
           fieldErrors[field.key] ||
           field.storageStatus,
-      )
-      const visibleFields = groupFields.filter((field) =>
-        field.key === "client_ip_headers"
-          ? Boolean(trustProxy && trustProxy !== "false")
-          : group !== "Email Delivery" ||
-            ["email_provider", "email_from_address"].includes(field.key) ||
-            providerKeys.has(field.key),
       )
       return (
         <ConfigSection
@@ -211,7 +215,7 @@ export function ConfigFieldGroups({
               </div>
             </div>
           )}
-          {group === "File storage" && (
+          {group === "File storage" && storageProvider === "s3" && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {storageConnectionPresets.map((preset) => (
@@ -239,18 +243,18 @@ export function ConfigFieldGroups({
                   ? "Connection presets are unavailable while these settings come from the environment."
                   : "Prefill connection settings, then adjust the endpoint and region for your provider. Bucket and credentials stay unchanged. For R2, replace <account-id> with your account ID."}
               </p>
-              {changingStorageDestination && (
-                <Alert>
-                  <WarningIcon aria-hidden="true" className="text-warning" />
-                  <AlertTitle>Existing files must be migrated manually</AlertTitle>
-                  <AlertDescription>
-                    Saving these settings does not move existing attachments, avatars, or logos.
-                    Migrate the objects to the new destination with their object keys unchanged to
-                    keep them accessible, then restart other server instances after saving.
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
+          )}
+          {group === "File storage" && changingStorageDestination && (
+            <Alert>
+              <WarningIcon aria-hidden="true" className="text-warning" />
+              <AlertTitle>Existing files must be migrated manually</AlertTitle>
+              <AlertDescription>
+                Saving these settings does not move existing attachments, avatars, or logos. Migrate
+                the objects to the new destination with their object keys unchanged to keep them
+                accessible, then restart other server instances after saving.
+              </AlertDescription>
+            </Alert>
           )}
           {visibleFields.map((field) => (
             <Fragment key={field.key}>
@@ -351,7 +355,7 @@ export function ConfigFieldGroups({
               )}
             </div>
           )}
-          {group === "File storage" && (
+          {group === "File storage" && storageProvider === "s3" && (
             <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
         </ConfigSection>
@@ -380,7 +384,10 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
         : provider === "ses" && value("aws_region"),
       value("email_from_address") || (provider === "smtp" && "Default sender"),
     ],
-    "File storage": [value("s3_bucket"), value("s3_region")],
+    "File storage":
+      value("storage_provider") === "filesystem"
+        ? ["File System", value("storage_directory")]
+        : ["S3-compatible", value("s3_bucket"), value("s3_region")],
     Observability: [
       value("otel_sdk_disabled") === "true"
         ? "Disabled"

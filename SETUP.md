@@ -30,7 +30,7 @@ The [seed](platform/src/db/README.md#seed-sample-data) prints local credentials 
 
 Compose runs PostgreSQL, PgBouncer, Valkey, Mailpit, and RustFS. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-RustFS exposes S3 at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`, with data in the `rustfs-data` volume. Seeding creates a private bucket for the worktree's database. Defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Override `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` before Compose and initial setup. Later changes belong under **File storage** at `/configure`.
+RustFS exposes S3 at `http://127.0.0.1:9000` and its console at `http://127.0.0.1:9001`, with data in the `rustfs-data` volume. For a new database, seeding uses local RustFS when its readiness endpoint answers within one second, otherwise File System with a separate directory for that database. Existing storage and explicit S3 settings take precedence. Local S3 seeding creates a private bucket. Defaults are region `us-east-1`, path-style addressing, access key `development`, and secret `development-only-storage-key`. Override `RUSTFS_HOST_PORT`, `RUSTFS_CONSOLE_HOST_PORT`, `RUSTFS_ACCESS_KEY`, or `RUSTFS_SECRET_KEY` before Compose and initial setup. Later changes belong under **File storage** at `/configure`.
 
 When switching from native RustFS, stop it first and retain its data directory until needed files have been migrated. Setup preserves existing files and storage settings and never provisions external storage.
 
@@ -71,7 +71,7 @@ SERVICES=native ./scripts/setup.sh
 
 This installs and starts PostgreSQL 18, Valkey 9, and RustFS on amd64 or arm64. Rerun it after restarting the machine. Existing binaries, credentials, and healthy services are preserved. Upgrades and repairs are manual. RustFS stores data in `${XDG_DATA_HOME:-$HOME/.local/share}/rustfs/data` or `RUSTFS_DATA_DIR`, with `rustfs.log` beside it. The same port and credential overrides apply. Configure email separately below.
 
-On macOS without Docker, install and start PostgreSQL, Valkey, and [RustFS](https://docs.rustfs.com/en/installation/macos) yourself, then run `./scripts/setup.sh`. Use the local storage credentials above or set matching overrides before setup.
+On macOS without Docker, install and start PostgreSQL and Valkey yourself, then run `./scripts/setup.sh`. <a href="https://docs.rustfs.com/en/installation/macos" target="_blank" rel="noopener noreferrer">RustFS</a> is optional. When using it, use the local storage credentials above or set matching overrides before setup.
 
 ## Cloud agent setup
 

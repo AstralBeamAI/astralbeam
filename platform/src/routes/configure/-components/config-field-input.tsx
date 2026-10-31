@@ -49,7 +49,7 @@ export function ConfigFieldInput({
   disabled: boolean
 }) {
   const currentValue = draft.kind === "set" ? draft.value : (field.value ?? "")
-  const items = enumItems(field.options)
+  const items = field.key === "storage_provider" ? (field.options ?? []) : enumItems(field.options)
   const trustProxy = currentValue !== "" && currentValue !== "false"
 
   return (
@@ -125,15 +125,16 @@ export function ConfigFieldInput({
       )}
       <FieldDescription>
         {field.description}{" "}
-        {field.source === "environment" ? (
-          <>
-            Read-only value from <code>{field.environmentVariable}</code>.
-          </>
-        ) : (
-          <>
-            Override with <code>{field.environmentVariable}</code>.
-          </>
-        )}
+        {field.environmentVariable &&
+          (field.source === "environment" ? (
+            <>
+              Read-only value from <code>{field.environmentVariable}</code>.
+            </>
+          ) : (
+            <>
+              Override with <code>{field.environmentVariable}</code>.
+            </>
+          ))}
       </FieldDescription>
       {error && <FieldError>{error}</FieldError>}
     </Field>

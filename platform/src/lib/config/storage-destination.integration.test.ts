@@ -1,4 +1,4 @@
-import { like } from "drizzle-orm"
+import { like, or } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -28,6 +28,7 @@ const destinationSettings = {
   pathStyle: true,
 }
 const destinationUpdates = [
+  { key: "storage_provider", value: "s3" },
   { key: "s3_endpoint", value: destinationSettings.endpoint },
   { key: "s3_region", value: destinationSettings.region },
   { key: "s3_bucket", value: destinationSettings.bucket },
@@ -39,20 +40,26 @@ const destinationUpdates = [
 describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   beforeEach(async () => {
     for (const { key } of destinationUpdates) vi.stubEnv(key.toUpperCase(), "")
-    await getAuthDatabase().delete(configTable).where(like(configTable.key, "s3_%"))
+    await getAuthDatabase()
+      .delete(configTable)
+      .where(or(like(configTable.key, "s3_%"), like(configTable.key, "storage_%")))
   })
   afterEach(async () => {
-    await getAuthDatabase().delete(configTable).where(like(configTable.key, "s3_%"))
+    await getAuthDatabase()
+      .delete(configTable)
+      .where(or(like(configTable.key, "s3_%"), like(configTable.key, "storage_%")))
     vi.unstubAllEnvs()
   })
 
-  test("seeds distinct worktree buckets and preserves configured storage on reruns", async () => {
+  test("preserves storage through reseeding and provider changes", async () => {
     const runtime = ManagedRuntime.make(Config.layer)
     try {
       vi.stubEnv("RUSTFS_HOST_PORT", "19000")
       vi.stubEnv("RUSTFS_ACCESS_KEY", "override-key")
       vi.stubEnv("RUSTFS_SECRET_KEY", "override-secret")
-      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_a"))
+      await getAuthDatabase().transaction((transaction) =>
+        seedConfig(transaction, "worktree_a", "s3"),
+      )
       const seeded = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))
       expect(seeded.values).toMatchObject({
         s3_endpoint: "http://127.0.0.1:19000",
@@ -63,7 +70,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const buckets = new Set<string>()
       for (const name of ["worktree_a", "worktree-a", "Worktree_a", "x".repeat(63)]) {
         await getAuthDatabase().delete(configTable).where(like(configTable.key, "s3_%"))
-        await getAuthDatabase().transaction((transaction) => seedConfig(transaction, name))
+        await getAuthDatabase().transaction((transaction) => seedConfig(transaction, name, "s3"))
         await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
         const { values } = await runtime.runPromise(
           Effect.flatMap(Config, (config) => config.snapshot),
@@ -77,10 +84,16 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       )
       await runtime.runPromise(
         Effect.flatMap(Config, (config) =>
-          config.update([{ key: "s3_secret_access_key", value: "rotated-secret" }]),
+          config.update([
+            { key: "s3_secret_access_key", value: "rotated-secret" },
+            { key: "storage_provider", value: "filesystem" },
+            { key: "storage_directory", value: "/storage-test-files" },
+          ]),
         ),
       )
-      await getAuthDatabase().transaction((transaction) => seedConfig(transaction, "worktree_b"))
+      await getAuthDatabase().transaction((transaction) =>
+        seedConfig(transaction, "worktree_b", "filesystem"),
+      )
     } finally {
       await runtime.dispose()
     }
@@ -91,6 +104,8 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
           Effect.map((snapshot) => snapshot.values),
         ),
       )
+      expect(values.storage_provider).toBe("filesystem")
+      expect(values.storage_directory).toBe("/storage-test-files")
       expect(values.s3_endpoint).toBe(destinationSettings.endpoint)
       expect(values.s3_access_key_id).toBe("first-key")
       expect(values.s3_secret_access_key).toBe("rotated-secret")
@@ -122,7 +137,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const initialUrl = await runtime.runPromise(
         Effect.flatMap(ObjectStorage, (storage) => storage.signedUrl({ key: "existing-file" })),
       )
-      expect(new URL(initialUrl).pathname).toBe("/storage/v1/s3/test-files/existing-file")
+      expect(new URL(initialUrl!).pathname).toBe("/storage/v1/s3/test-files/existing-file")
       await runtime.runPromise(
         Effect.flatMap(Config, (config) =>
           config.update([
@@ -136,7 +151,7 @@ describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
       const changedUrl = await runtime.runPromise(
         Effect.flatMap(ObjectStorage, (storage) => storage.signedUrl({ key: "existing-file" })),
       )
-      expect(new URL(changedUrl).origin).toBe("https://other-bucket.s3.us-west-2.amazonaws.com")
+      expect(new URL(changedUrl!).origin).toBe("https://other-bucket.s3.us-west-2.amazonaws.com")
       vi.stubEnv("S3_BUCKET", "environment-bucket")
       await runtime.runPromise(Effect.flatMap(Config, (config) => config.invalidate))
       const snapshot = await runtime.runPromise(Effect.flatMap(Config, (config) => config.snapshot))

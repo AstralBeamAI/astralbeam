@@ -208,6 +208,27 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
+  it.effect("defaults to File System without replacing legacy or unreadable settings", () => {
+    const state = { rows: [] as StoredRow[], reads: 0 }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      assert.strictEqual((yield* config.snapshot).values.storage_provider, "filesystem")
+      state.rows = [{ key: "s3_secret_access_key", storedValue: "unreadable-existing-secret" }]
+      yield* config.invalidate
+      const legacy = yield* config.snapshot
+      assert.strictEqual(legacy.values.storage_provider, "s3")
+      assert.isTrue(legacy.issues.some((issue) => issue.key === "s3_secret_access_key"))
+      state.rows.push(...encryptedRows({ storage_provider: "filesystem" }), {
+        key: "storage_directory",
+        storedValue: "unreadable-storage-path",
+      })
+      yield* config.invalidate
+      const selected = yield* config.snapshot
+      assert.strictEqual(selected.values.storage_provider, "filesystem")
+      assert.isTrue(selected.issues.some((issue) => issue.key === "storage_directory"))
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
   it.effect("reads transaction-local config without replacing the committed cache", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
     const transactionService = Context.Service<
