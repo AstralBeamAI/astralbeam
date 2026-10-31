@@ -9,7 +9,7 @@ Mount the widget into an HTML element:
 ```html
 <div id="astralbeam-chat" style="height: 100vh"></div>
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.23.7/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.24.0/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("astralbeam-chat"), {
     title: "Acme Assistant",
@@ -33,7 +33,7 @@ For a Rails 8 app using import maps:
 
    ```ruby
    pin "assistant"
-   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.23.7/dist/client.js"
+   pin "@astralbeam/sdk/client", to: "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.24.0/dist/client.js"
    ```
 
 2. Mount the widget from that module in `app/javascript/assistant.js`:

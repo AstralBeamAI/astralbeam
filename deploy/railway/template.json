@@ -16,7 +16,7 @@
         "name": "Platform",
         "icon": "https://raw.githubusercontent.com/AstralBeamAI/astralbeam/main/platform/public/astralbeam-logo-dark.png",
         "source": {
-          "image": "ghcr.io/astralbeamai/astralbeam-platform:0.23.7"
+          "image": "ghcr.io/astralbeamai/astralbeam-platform:0.24.0"
         },
         "deploy": {
           "healthcheckPath": "/api/status",
