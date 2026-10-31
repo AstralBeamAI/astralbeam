@@ -1,4 +1,3 @@
-import type { Command } from "commander"
 import { mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { isIPv4 } from "node:net"
 import { homedir } from "node:os"
@@ -189,20 +188,6 @@ function organizationContext(credentials: Credentials): string {
   return `▸ ${name}org ${organization.id} · ${source}\n`
 }
 
-interface GlobalOptions {
-  json: boolean
-}
-
-export function globalOptions(command: Command): GlobalOptions {
-  return { json: command.optsWithGlobals<{ json?: boolean }>().json === true }
-}
-
-/** The SDK API client options for the current directory's credentials. */
-export async function apiOptions(): Promise<{ apiKey: string; apiUrl: string }> {
-  const { apiKey, apiUrl } = await resolveCredentials()
-  return { apiKey, apiUrl }
-}
-
 /**
  * `ASTRALBEAM_API_KEY` wins, then the binding of the nearest bound directory. Reports the
  * organization on stderr so stdout stays parseable.
@@ -227,7 +212,7 @@ export async function resolveCredentials(): Promise<Credentials> {
     const { binding } = found
     credentials = {
       apiKey: binding.api_key,
-      apiUrl: validatedApiUrl(binding.api_url),
+      apiUrl: validatedApiUrl(env["ASTRALBEAM_API_URL"] ?? binding.api_url),
       organization: binding.organization,
       directory: found.directory,
     }

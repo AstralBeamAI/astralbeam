@@ -10,7 +10,7 @@ Look up commands, output formats, and exit codes here. For flags supported by yo
 | `--debug`   | Log each HTTP request and a failure's stack trace to stderr    |
 | `--version` | Print the CLI version                                          |
 
-`ASTRALBEAM_API_KEY` overrides directory bindings, using `ASTRALBEAM_API_URL` or `https://astralbeam.ai/api`. Otherwise the nearest bound directory supplies both the key and URL. Keyed commands report the organization on stderr, or in JSON `context`. HTTPS is required except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`). `ASTRALBEAM_CONFIG_DIR` selects the directory holding `config.json`.
+`ASTRALBEAM_API_KEY` overrides directory bindings, using `ASTRALBEAM_API_URL` or `https://astralbeam.ai/api`. Otherwise the nearest bound directory supplies both the key and URL. `ASTRALBEAM_API_URL` also overrides a bound directory's saved URL. Keyed commands report the organization on stderr, or in JSON `context`. HTTPS is required except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`). `ASTRALBEAM_CONFIG_DIR` selects the directory holding `config.json`.
 
 ## auth
 
@@ -32,16 +32,16 @@ The CLI never takes a key as a flag, so it cannot leak into shell history or pro
 | `tenants list` | List Tenants in internal ID order |
 | `tenants get <id>` | Show one Tenant |
 | `tenants create --external-id <id> [--name <name>] [--metadata <json>]` | Create a Tenant |
-| `tenants update <id> [--name <name> \| --clear-name] [--metadata <json>]` | Update a Tenant |
+| `tenants update <id> [--name <name>] [--metadata <json>]` | Update a Tenant |
 
 ## tenant-users
 
 | Command | Does |
 | --- | --- |
-| `tenant-users list <tenant-id> [--admin \| --no-admin]` | List a Tenant's users, optionally by stored admin flag |
-| `tenant-users get <tenant-id> <id>` | Show one TenantUser |
+| `tenant-users list --tenant-id <tenant-id> [--admin true\|false]` | List a Tenant's users, optionally by stored admin flag |
+| `tenant-users get <id> --tenant-id <tenant-id>` | Show one TenantUser |
 | `tenant-users create <tenant-id> --external-id <id> [--name <name>] [--admin] [--metadata <json>]` | Create a TenantUser |
-| `tenant-users update <tenant-id> <id> [--name <name> \| --clear-name] [--admin \| --no-admin] [--metadata <json>]` | Update a TenantUser |
+| `tenant-users update <id> --tenant-id <tenant-id> [--name <name>] [--admin \| --no-admin] [--metadata <json>]` | Update a TenantUser |
 
 Updates change only supplied fields. `--metadata` replaces the entire stored JSON object. The stored admin flag is data and grants no API authority. See [Authentication](/docs/api#description/authentication).
 
@@ -56,9 +56,12 @@ Both `list` commands take the same options, which map onto the API's [pagination
 | `--page-size <count>`    | Items per page, 20 by default and capped at 100            |
 | `--page-after <cursor>`  | Continue after a previous page's `page_after`              |
 | `--page-before <cursor>` | Go back from a previous page's `page_before`               |
-| `--all`                  | Follow `page_after` to the last page and return every item |
 
-In table mode, the CLI prints the next `--page-after` value on stderr when more results remain. `--all` merges pages from the chosen starting cursor, using 100 items per request unless `--page-size` is set. It cannot be combined with `--page-before` and spends one request per page against the key's limit of 100 requests per 5 minutes.
+In table mode, the CLI prints the next `--page-after` value on stderr when more results remain. Each call returns one page.
+
+Both create and update accept `--body '<json>'` or `--body @file.json` instead of individual body flags. Clear a name with `--body '{"name":null}'`.
+
+Forge's `--dry-run` prints a local JSON request preview without sending HTTP or validating with the server. It reads configuration and supplied `@file` contents.
 
 ## token
 
@@ -90,7 +93,7 @@ See [Coding agents](./coding-agents.md).
 
 ## Output and exit codes
 
-Without `--json`, lists print as tables, records as `key value` lines, tokens as plain JWTs, and chat replies as streamed text. With `--json`, records and pages retain the API format, with `--all` merging pages into one. Tokens print `{ "token", "expires_at" }` and chat prints `{ "messages": [...] }` for the turn. JSON chat requires a message argument or piped stdin.
+Without `--json`, lists print as tables, records as `key value` lines, tokens as plain JWTs, and chat replies as streamed text. With `--json`, records and pages retain the API format. Tokens print `{ "token", "expires_at" }` and chat prints `{ "messages": [...] }` for the turn. JSON chat requires a message argument or piped stdin.
 
 With `--json`, non-interactive operations write one stderr object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API errors retain their problem details. Runtime and usage errors provide `error.detail`. Help and version output remain plain text. `--debug` adds HTTP logs and stack traces, so omit it when parsing stderr as JSON.
 
@@ -99,5 +102,5 @@ Context contains `organization` and `bound_directory`, or is null before credent
 | Exit code | Meaning                                                            |
 | --------- | ------------------------------------------------------------------ |
 | `0`       | Success                                                            |
-| `1`       | The API rejected the request, or the network or credentials failed |
-| `2`       | Invalid usage, such as a missing flag or malformed JSON            |
+| `1`       | The API, generated input handling, network, or credentials failed  |
+| `2`       | Parser usage errors, such as an unknown flag or missing positional |

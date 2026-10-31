@@ -12,14 +12,15 @@ If `astralbeam` is not on the PATH, run it as `bunx --bun @astralbeam/cli` or `n
 ## Rules
 
 - Pass `--json` on operations whose output you will read. Records and pages go to stdout. Without `--debug` or an interactive login prompt, stderr holds one object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API errors retain their problem details. Runtime and usage errors provide `error.detail`. Context contains `organization` and `bound_directory`, or is null before credentials resolve. Environment credentials report only `organization.id`, except in `auth status`, which also retrieves the name and slug.
-- Exit code 0 means success, 1 means the API or runtime failed, and 2 means the command line was invalid. Read `astralbeam <command> --help` before guessing flags. To diagnose an unexpected failure, check the outcome of any write before rerunning it without `--json` and with `--debug`, which logs each HTTP request and the stack trace to stderr.
+- Exit code 0 means success, 1 means the API or runtime failed, and 2 means the parser rejected the command line. Generated body-input errors exit 1. Read `astralbeam <command> --help` before guessing flags. To diagnose an unexpected failure, check the outcome of any write before rerunning it without `--json` and with `--debug`, which logs each HTTP request and the stack trace to stderr.
 - Never print, log, or echo an API key. Never pass a key as a command-line argument. Credentials come from `ASTRALBEAM_API_KEY`, or from the nearest directory at or above the working directory where someone ran `astralbeam auth login`. Run commands from the project directory the user means, because a different directory can select a different organization.
 - Before any write, run `astralbeam auth status --json` from the same directory and confirm `organization` is the one the user means. Stop if it is not. Without `--json`, keyed commands print the organization first on stderr as `▸ Acme (acme) · org <id> · bound at ~/work/acme`.
 - Never run `astralbeam auth login` yourself unless the user supplies the key through stdin. It prompts for a secret. Use `ASTRALBEAM_API_KEY` directly for environment credentials without login.
+- `ASTRALBEAM_API_URL` overrides the saved API URL. Include `/api`. `ASTRALBEAM_CONFIG_DIR` selects the directory containing `config.json`.
 - Path IDs are internal UUIDs returned by the API. External IDs are the organization's own identifiers and are passed with `--external-id`, `--tenant`, or `--user`.
 - Creates are not idempotent. A duplicate external ID returns HTTP 409. After a timeout or a 409, look the record up with `list --external-id <id>` before retrying.
 - `--metadata` replaces the whole stored object and must be a JSON object.
-- The management API allows 100 requests per 5 minutes per key. Prefer `--external-id` lookups over `--all` listings, and back off on HTTP 429.
+- The management API allows 100 requests per 5 minutes per key. Prefer exact `--external-id` lookups over unfiltered listings, and back off on HTTP 429.
 
 ## Check credentials
 
@@ -32,21 +33,21 @@ This prints the organization, API URL, masked key, and `source` (the bound direc
 ## Tenants
 
 ```sh
-astralbeam tenants list --json [--search <text>] [--external-id <id>] [--page-size <n>] [--page-after <cursor>] [--all]
+astralbeam tenants list --json [--search <text>] [--external-id <id>] [--page-size <n>] [--page-after <cursor>]
 astralbeam tenants get <tenant-id> --json
 astralbeam tenants create --external-id <id> [--name <name>] [--metadata '<json>'] --json
-astralbeam tenants update <tenant-id> [--name <name> | --clear-name] [--metadata '<json>'] --json
+astralbeam tenants update <tenant-id> [--name <name>] [--metadata '<json>'] --json
 ```
 
-A list returns `{"items": [...], "page_after": <cursor|null>, "page_before": <cursor|null>}`. Follow `page_after` with `--page-after` until null, or use `--all` to merge the remaining pages. `--all` cannot be combined with `--page-before`.
+A list returns `{"items": [...], "page_after": <cursor|null>, "page_before": <cursor|null>}`. Follow `page_after` with `--page-after` until null, keeping the same filters. Writes accept `--body '<json>'` or `--body @file.json`. Clear a name with `--body '{"name":null}'`. Forge's `--dry-run` previews locally without HTTP or server validation.
 
 ## TenantUsers
 
 ```sh
-astralbeam tenant-users list <tenant-id> --json [--external-id <id>] [--admin | --no-admin] [--all]
-astralbeam tenant-users get <tenant-id> <user-id> --json
+astralbeam tenant-users list --tenant-id <tenant-id> --json [--external-id <id>] [--admin true|false]
+astralbeam tenant-users get <user-id> --tenant-id <tenant-id> --json
 astralbeam tenant-users create <tenant-id> --external-id <id> [--name <name>] [--admin] [--metadata '<json>'] --json
-astralbeam tenant-users update <tenant-id> <user-id> [--name <name> | --clear-name] [--admin | --no-admin] [--metadata '<json>'] --json
+astralbeam tenant-users update <user-id> --tenant-id <tenant-id> [--name <name>] [--admin | --no-admin] [--metadata '<json>'] --json
 ```
 
 To find a user from external IDs, resolve the Tenant first with `tenants list --external-id <tenant-external-id> --json`, then list its users with `--external-id <user-external-id>`. The stored `admin` flag is data and grants no API authority.

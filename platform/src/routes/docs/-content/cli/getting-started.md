@@ -47,7 +47,7 @@ astralbeam auth login --api-url https://beam.example.com/api
 
 Commands use the nearest bound directory and print the organization before their output. For another organization, log in from a separate directory. Unbound directories fail instead of selecting another organization.
 
-**TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. The key overrides any directory binding, and nothing is written to disk.
+**TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. The key overrides any directory binding, and nothing is written to disk. The URL also overrides a bound key's saved URL.
 
 Confirm the active organization:
 
@@ -65,7 +65,7 @@ A Tenant is one of your customers, identified by your own stable external ID. Le
 astralbeam tenants create --external-id customer-42 --name "Acme Logistics" --metadata '{"plan":"pro"}'
 ```
 
-The output shows the new record, including its internal `id`. Copy that value, because TenantUser commands take it as their first argument:
+The output shows the new record, including its internal `id`. Copy that value, because the TenantUser create command takes it as its first argument:
 
 ```sh
 astralbeam tenant-users create <tenant-id> --external-id user-7 --name "Alex Morgan"

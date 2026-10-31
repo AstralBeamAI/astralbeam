@@ -18,33 +18,38 @@
     "skills"
   ],
   "type": "module",
+  "imports": {
+    "#api": "./src/generated/_runtime/path.ts",
+    "#lib/*.js": "./src/forge-runtime.ts"
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "binary:check": "bun run compile && bun dist/astralbeam.js --version && .output/astralbeam --version && .output/astralbeam skill > /dev/null",
-    "build": "tsdown && bun pm pack --dry-run --quiet",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
-    "check:fix": "bun run lint:fix && bun run format && bun run knip:fix",
+    "build": "bun run generate:api && tsdown && bun pm pack --dry-run --quiet",
+    "check": "bun run generate:api && bun run format:check && bun run lint && bun run typecheck && bun run knip",
+    "check:fix": "bun run generate:api && bun run lint:fix && bun run format && bun run knip:fix",
     "count-lines": "bun run ../scripts/count-lines.ts",
     "compile": "bun run build && bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig --asset skills --outfile .output/astralbeam dist/astralbeam.js",
-    "dev": "bun run src/main.ts",
+    "dev": "bun run generate:api && bun run src/main.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "knip": "knip",
-    "knip:fix": "knip --fix --allow-remove-files && knip --fix --allow-remove-files && bun install --frozen-lockfile",
+    "knip": "knip --no-gitignore",
+    "knip:fix": "knip --no-gitignore --fix --allow-remove-files && knip --no-gitignore --fix --allow-remove-files && bun install --frozen-lockfile",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "ready": "bun run ../scripts/ready.ts check test build count-lines",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "bun run generate:api && vitest run",
+    "typecheck": "tsc --noEmit",
+    "generate:api": "bun run scripts/forge/generate.ts"
   },
   "devDependencies": {
     "@astralbeam/sdk": "workspace:*",
     "@types/bun": "1.4.4",
     "@types/node": "^26.2.0",
+    "@types/yargs": "17.0.35",
     "@vitest/eslint-plugin": "^1.6.27",
-    "commander": "^15.0.0",
     "eslint-plugin-regexp": "^3.3.1",
     "knip": "^6.32.2",
     "oxfmt": "^0.70.0",
@@ -52,7 +57,8 @@
     "oxlint-tsgolint": "^7.0.2002",
     "tsdown": "^0.23.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "yargs": "17.7.3"
   },
   "engines": {
     "node": ">=22.12"

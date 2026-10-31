@@ -1,12 +1,12 @@
 import { type AstralBeamChatCore, createAstralBeamChat } from "@astralbeam/sdk/core"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
-import type { Command } from "commander"
+import { UsageError, type Cli } from "./options.ts"
 import { stderr, stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { text } from "node:stream/consumers"
-import { globalOptions, resolveCredentials } from "./config.ts"
+import { resolveCredentials } from "./config.ts"
 import { printJson, terminalSafe } from "./output.ts"
-import { addIdentityOptions, chatIdentity, type IdentityOptions } from "./token.ts"
+import { addIdentityOptions, chatIdentity } from "./token.ts"
 
 type Message = ReturnType<AstralBeamChatCore["getState"]>["messages"][number]
 
@@ -40,7 +40,8 @@ async function sendChatMessage(chat: AstralBeamChatCore, content: string, json: 
     }
   })
   try {
-    await chat.sendMessage(content)
+    const submission = await chat.sendMessage(content)
+    if (submission.error) throw submission.error
   } finally {
     unsubscribe()
   }
@@ -64,23 +65,22 @@ async function chatInteractively(chat: AstralBeamChatCore) {
   }
 }
 
-export function registerChatCommand(program: Command): void {
-  addIdentityOptions(
-    program
-      .command("chat")
-      .description("Chat with an agent as one of a Tenant's users, like the embedded widget")
-      .argument(
-        "[message]",
-        "message to send (default: stdin when piped, else an interactive prompt)",
-      )
-      .option("--agent <id>", "public agent ID (default: the organization's default agent)"),
-  ).action(
-    async (
-      message: string | undefined,
-      options: IdentityOptions & { agent?: string },
-      command: Command,
-    ) => {
-      const { json } = globalOptions(command)
+export function registerChatCommand(program: Cli): void {
+  program.command(
+    "chat [message]",
+    "Chat with an agent as one of a Tenant's users, like the embedded widget",
+    (y) =>
+      addIdentityOptions(y)
+        .positional("message", {
+          type: "string",
+          description: "message to send (default: stdin when piped, else an interactive prompt)",
+        })
+        .option("agent", {
+          type: "string",
+          description: "public agent ID (default: the organization's default agent)",
+        }),
+    async (options) => {
+      const { json, message } = options
       const { apiKey, apiUrl } = await resolveCredentials()
       const expiresInSeconds = options.expiresIn ?? 300
       const identity = chatIdentity(options)
@@ -94,7 +94,7 @@ export function registerChatCommand(program: Command): void {
       try {
         if (message !== undefined) await sendChatMessage(chat, message, json)
         else if (!stdin.isTTY) await sendChatMessage(chat, (await text(stdin)).trim(), json)
-        else if (json) command.error("Pass a message or pipe one on stdin with --json.")
+        else if (json) throw new UsageError("Pass a message or pipe one on stdin with --json.")
         else await chatInteractively(chat)
       } finally {
         chat.dispose()

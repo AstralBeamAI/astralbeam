@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process"
+import { promisify } from "node:util"
 import { mkdir, mkdtemp, readFile, realpath, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -35,32 +37,30 @@ const cli = (...args: string[]) => run(["node", "astralbeam", ...args])
 const respondWith = (body: unknown, status = 200) =>
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(body, { status })))
 
-test("--all follows page_after with the API key and prints one merged page", async () => {
-  const fetch = vi.fn((input: string | URL, init?: RequestInit) => {
-    const url = new URL(String(input))
-    expect(new Headers(init?.headers).get("x-api-key")).toBe(API_KEY)
-    const after = url.searchParams.get("page_after")
-    const page = { items: [{ id: after ?? "first" }], page_after: after ? null : "cursor" }
-    return Promise.resolve(Response.json({ ...page, page_before: null }))
-  })
-  vi.stubGlobal("fetch", fetch)
+test.each(["-q", "--search"])(
+  "%s preserves search and exact filters with table output",
+  async (search) => {
+    vi.stubEnv("ASTRALBEAM_TOKEN", "fixture.jwt.secret")
+    const fetch = vi.fn((input: string | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(
+        `${API_URL}/v1/tenants?q=customer&filter%5Bexternal_id%5D=customer-42`,
+      )
+      expect(new Headers(init?.headers).get("x-api-key")).toBe(API_KEY)
+      expect(new Headers(init?.headers).has("authorization")).toBe(false)
+      expect(init?.redirect).toBe("error")
+      return Promise.resolve(Response.json({ items: [{ id: "first" }], page_after: "cursor" }))
+    })
+    vi.stubGlobal("fetch", fetch)
+    expect(await cli("tenants", "list", search, "customer", "--external-id", "customer-42")).toBe(0)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(stdout).toBe("ID\nfirst\n")
+    expect(stderr).toContain("More results: --page-after cursor")
+    expect(stderr).toContain(`org ${ORGANIZATION_ID}`)
+    expect(stdout + stderr).not.toContain(API_KEY)
+  },
+)
 
-  expect(await cli("--json", "tenants", "list", "--all", "--external-id", "acme")).toBe(0)
-
-  expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
-    `${API_URL}/v1/tenants?filter%5Bexternal_id%5D=acme&page_size=100`,
-    `${API_URL}/v1/tenants?filter%5Bexternal_id%5D=acme&page_size=100&page_after=cursor`,
-  ])
-  expect(JSON.parse(stdout)).toEqual({
-    items: [{ id: "first" }, { id: "cursor" }],
-    page_after: null,
-    page_before: null,
-  })
-  // JSON mode keeps stderr one JSON object, carrying the organization context.
-  expect(JSON.parse(stderr)).toEqual({ context })
-})
-
-test("API failures exit 1 with the problem body, and usage errors exit 2", async () => {
+test("API failures exit 1 with structured errors", async () => {
   const problem = { type: "about:blank", title: "Conflict", status: 409, detail: "Taken." }
   respondWith(problem, 409)
 
@@ -71,8 +71,9 @@ test("API failures exit 1 with the problem body, and usage errors exit 2", async
   expect(stderr).toBe(
     `▸ org ${ORGANIZATION_ID} · from ASTRALBEAM_API_KEY\nError: Taken. (HTTP 409 from POST ${API_URL}/v1/tenants)\n`,
   )
-
-  expect(await cli("tenants", "create", "--metadata", "[1]", "--external-id", "acme")).toBe(2)
+  stderr = ""
+  expect(await cli("chat", "Hello", "--tenant", "t", "--user", "u", "--json")).toBe(1)
+  expect(JSON.parse(stderr)).toEqual({ error: problem, context })
 })
 
 test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
@@ -82,29 +83,23 @@ test("usage errors in JSON mode are JSON on stderr and exit 2", async () => {
     return (JSON.parse(stderr) as { error: { detail: string } }).error.detail
   }
 
-  // Commands that need no credentials still end with one object, with a null context.
-  expect(await cli("--json", "skill")).toBe(0)
-  expect(JSON.parse(stderr)).toEqual({ context: null })
-
-  expect(await usageError("tenants", "create")).toMatch(/--external-id/)
-  expect(await usageError("tenants", "update", "id", "--metadata", "nope")).toMatch(/JSON object/)
-  // Following page_after from a page_before request would send both cursors.
-  expect(await usageError("tenants", "list", "--all", "--page-before", "c")).toMatch(/--all/)
+  expect(await usageError("tenant-users", "get", "user")).toMatch(/tenant-id/)
   expect(
     await usageError("token", "chat", "--tenant", "t", "--user", "u", "--expires-in", "59"),
   ).toMatch(/60 to 600/)
 })
 
-test("the nearest bound directory supplies the key, and unbound directories fail", async () => {
+test("environment URLs override the nearest binding without changing saved configuration", async () => {
   vi.stubEnv("ASTRALBEAM_API_KEY", undefined)
   const root = await realpath(await mkdtemp(join(tmpdir(), "astralbeam-cli-dirs-")))
   const nested = join(root, "acme", "app", "src")
   await mkdir(nested, { recursive: true })
   const organization = { id: ORGANIZATION_ID, name: "Acme", slug: "acme" }
+  const savedApiUrl = "https://saved.test/api"
   await writeConfig({
     bindings: {
       [root]: { api_url: API_URL, api_key: "outer", organization: { ...organization, id: "x" } },
-      [join(root, "acme")]: { api_url: API_URL, api_key: API_KEY, organization },
+      [join(root, "acme")]: { api_url: savedApiUrl, api_key: API_KEY, organization },
     },
   })
   const fetch = vi.fn((_input: string | URL, init?: RequestInit) => {
@@ -120,11 +115,17 @@ test("the nearest bound directory supplies the key, and unbound directories fail
   )
   expect((await stat(configPath())).mode & 0o777).toBe(0o600)
 
+  expect(String(fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/v1/tenants`)
+  expect((await readConfig()).bindings[join(root, "acme")]?.api_url).toBe(savedApiUrl)
+  vi.stubEnv("ASTRALBEAM_API_URL", undefined)
+  expect(await cli("tenants", "list")).toBe(0)
+  expect(String(fetch.mock.calls.at(-1)?.[0])).toBe(`${savedApiUrl}/v1/tenants`)
+
   process.chdir(tmpdir())
   stderr = ""
   expect(await cli("--json", "tenants", "list")).toBe(1)
   expect(stderr).toMatch(/No AstralBeam login covers/)
-  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(fetch).toHaveBeenCalledTimes(2)
 })
 
 test("errors name unserved endpoints and unreachable servers", async () => {
@@ -192,4 +193,16 @@ test.each([
   })
   expect(stderr).not.toContain("private-key")
   expect(await readFile(configPath(), "utf8")).toBe(source)
+})
+
+test("the entry point keeps JSON stderr valid when color settings conflict", async () => {
+  const result = await promisify(execFile)(
+    "bun",
+    ["run", join(import.meta.dirname, "main.ts"), "--json", "tenants", "list", "--help"],
+    {
+      cwd: tmpdir(),
+      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "1" },
+    },
+  )
+  expect(JSON.parse(result.stderr)).toEqual({ context: null })
 })
