@@ -34,7 +34,7 @@ New databases use File System storage unless another provider is explicitly conf
 
 To use containers for supporting services, install and start Docker, then run `SERVICES=docker ./scripts/setup.sh`. Compose provides PostgreSQL through PgBouncer and Mailpit for email testing. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at `/var/lib/astralbeam/storage` for persistent File System storage.
+Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at the default Linux storage directory, `/root/.local/share/astralbeam/storage`, for persistent File System storage.
 
 Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
 
