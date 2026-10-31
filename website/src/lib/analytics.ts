@@ -2,14 +2,6 @@ import { redactSensitiveValue } from "@platform/lib/redaction"
 import posthog, { type CaptureResult } from "posthog-js"
 
 function redactAnalyticsValue(key: string, value: unknown): unknown {
-  if ((key === "requestBody" || key === "responseBody") && typeof value === "string") {
-    try {
-      return JSON.stringify(JSON.parse(value, redactSensitiveValue))
-    } catch {
-      // Unstructured bodies cannot be safely split into fields. Suppress one if a secret is found.
-      return redactSensitiveValue("", value) === value ? value : "[REDACTED]"
-    }
-  }
   const redacted = redactSensitiveValue(key, value)
   if (Array.isArray(redacted)) return redacted.map((entry) => redactAnalyticsValue(key, entry))
   if (redacted !== null && typeof redacted === "object" && !(redacted instanceof Date))
@@ -40,6 +32,8 @@ if (window.location.origin === "https://astralbeam.ai") {
     },
     session_recording: {
       maskAllInputs: false,
+      // Configure login and secret-reveal bodies contain opaque credentials under generic keys or as raw strings.
+      recordBody: false,
       // "*" sends all replay text through the selective redactor, which keeps ordinary content.
       // Replay DOM is compressed before before_send, so text and attributes need capture-time hooks.
       maskTextSelector: "*",
@@ -53,7 +47,7 @@ if (window.location.origin === "https://astralbeam.ai") {
           name === "value" ? (element?.getAttribute("name") ?? name) : name,
           value,
         ),
-      // Leave network capture to project settings and retain the SDK's header/body scrubber.
+      // Leave header capture to project settings and retain the SDK's native network scrubber.
       // A maskCapturedNetworkRequestFn would replace it: https://posthog.com/docs/session-replay/network-recording
     },
   })

@@ -9,6 +9,7 @@ test("preserves replay styling and ingestion metadata while redacting secrets", 
   try {
     await import("./analytics")
     const config = init.mock.calls[0]![1]!
+    expect(config.session_recording!.recordBody).toBe(false)
     const maskAttribute = config.session_recording!.maskAttributeFn!
     const style = "display: grid; --th-token: #24292f"
     expect(maskAttribute("style", style)).toBe(style)
@@ -65,8 +66,6 @@ test("preserves replay styling and ingestion metadata while redacting secrets", 
                   requests: [
                     {
                       name: "https://storage.example/file?X-Amz-Signature=private-signature&code=example",
-                      requestBody: '{"newPassword":"private password with spaces","name":"Alice"}',
-                      responseBody: '{"apiKey":"private key with spaces","ok":true}',
                     },
                   ],
                 },
@@ -85,8 +84,6 @@ test("preserves replay styling and ingestion metadata while redacting secrets", 
                 requests: [
                   {
                     name: "https://storage.example/file?X-Amz-Signature=[REDACTED]&code=example",
-                    requestBody: '{"newPassword":"[REDACTED]","name":"Alice"}',
-                    responseBody: '{"apiKey":"[REDACTED]","ok":true}',
                   },
                 ],
               },
@@ -95,13 +92,6 @@ test("preserves replay styling and ingestion metadata while redacting secrets", 
         ],
       },
     })
-    expect(
-      beforeSend({
-        event: "$snapshot",
-        uuid: "non-json-network-event",
-        properties: { requestBody: "clientSecret=private%20secret&name=Alice", responseBody: "OK" },
-      }),
-    ).toMatchObject({ properties: { requestBody: "[REDACTED]", responseBody: "OK" } })
   } finally {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()

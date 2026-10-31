@@ -210,9 +210,9 @@ function PrivacyPage() {
           authentication tokens, OAuth codes, and signed URL credentials redacted. We also capture
           referrers and campaign parameters for attribution. Browser console logs may be recorded
           for debugging. Ordinary form values are visible, while credential fields remain masked.
-          Network request bodies and headers may be recorded when enabled, using built-in PostHog
-          filtering and additional credential redaction. This integration does not run on
-          self-hosted installations or local development sites.
+          Network request and response bodies are excluded. Network headers may be recorded when
+          enabled, using built-in PostHog filtering and additional credential redaction. This
+          integration does not run on self-hosted installations or local development sites.
         </p>
       </section>
 
