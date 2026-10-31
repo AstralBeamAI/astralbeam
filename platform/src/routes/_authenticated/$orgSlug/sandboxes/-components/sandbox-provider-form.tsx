@@ -231,6 +231,7 @@ export function SandboxProviderForm({
                   }
                   type={secretVisible ? "text" : "password"}
                   autoComplete="new-password"
+                  className="ph-no-capture"
                   maxLength={16_384}
                   value={secret}
                   disabled={disabled}

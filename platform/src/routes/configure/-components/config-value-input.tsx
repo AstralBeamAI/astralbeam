@@ -85,6 +85,7 @@ export function ConfigValueInput({
           id={`config-${field.key}`}
           type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
           autoComplete={field.kind === "secret" ? "new-password" : "off"}
+          className={field.kind === "secret" ? "ph-no-capture" : undefined}
           value={value}
           placeholder={
             needsReveal && !readOnly

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@better-auth-ui/react"
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
+import { cn } from "cn"
 import { type ComponentProps, useState } from "react"
 
 import {
@@ -18,7 +19,11 @@ export function PasswordInput(props: Omit<ComponentProps<typeof InputGroupInput>
 
   return (
     <InputGroup>
-      <InputGroupInput {...props} type={visible ? "text" : "password"} />
+      <InputGroupInput
+        {...props}
+        className={cn("ph-no-capture", props.className)}
+        type={visible ? "text" : "password"}
+      />
       <InputGroupAddon align="inline-end">
         <InputGroupButton
           size="icon-xs"

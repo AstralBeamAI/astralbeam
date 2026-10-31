@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Use Phosphor icons, show one key with manual copy recovery and explicit dismissal, and link server integration guidance.
+// Local changes: Use Phosphor icons, mask key capture, show one key with manual copy recovery and explicit dismissal, and link server integration guidance.
 
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
 import { CheckIcon, CopyIcon, KeyIcon } from "@phosphor-icons/react"
@@ -97,7 +97,7 @@ export function NewApiKeyDialog({ open, onOpenChange, name, apiKey }: NewApiKeyD
                 value={apiKey ?? ""}
                 readOnly
                 aria-describedby={copyStatus === "failed" ? "new-api-key-copy-help" : undefined}
-                className="font-mono text-xs"
+                className="ph-no-capture font-mono text-xs"
               />
               <InputGroupAddon align="inline-end">
                 <InputGroupButton

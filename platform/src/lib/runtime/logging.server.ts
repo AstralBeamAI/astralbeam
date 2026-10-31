@@ -11,19 +11,12 @@ import {
   Formatter,
   Layer,
   Logger,
-  Predicate,
   References,
   Tracer,
 } from "effect"
 import { OtlpExporter, OtlpLogger, OtlpSerialization } from "effect/observability"
 
-const SECRET_LOG_FIELDS =
-  "authorization|cookie|set-cookie|password|passwd|secret|credentials?|api[_-]?key|(?:access|refresh)[_-]?token|client[_-]?secret|secret(?:[_-]?access)?[_-]?key|token"
-const SECRET_LOG_FIELD = new RegExp(`^(?:${SECRET_LOG_FIELDS})$`, "iu")
-const SECRET_LOG_ASSIGNMENT = new RegExp(
-  `(\\b(?:${SECRET_LOG_FIELDS})["']?\\s*[:=]\\s*["']?)[^"'&,\\s<>]+`,
-  "giu",
-)
+import { redactSensitiveValue } from "@/lib/redaction"
 
 // Nitro and SSR load separate module copies. Forward their synchronous logs to one scoped exporter.
 const otlpLoggersKey = Symbol.for("platform.otlpLoggers")
@@ -63,32 +56,8 @@ const ecsLogger = Logger.formatStructured.pipe(
   Logger.withConsoleLog,
 )
 
-function redactLogValue(key: string, value: unknown): unknown {
-  if (SECRET_LOG_FIELD.test(key)) return "[REDACTED]"
-  // OTLP represents named fields as KeyValue objects rather than JSON property names.
-  if (
-    Predicate.hasProperty(value, "key") &&
-    typeof value.key === "string" &&
-    Predicate.hasProperty(value, "value") &&
-    SECRET_LOG_FIELD.test(value.key)
-  ) {
-    return { ...value, value: { stringValue: "[REDACTED]" } }
-  }
-  if (typeof value !== "string") return value
-  // Better Auth puts password-reset credentials in the path, unlike its query-based tokens.
-  return value
-    .replace(/(\/api\/auth\/reset-password\/)[^/?#\s"']+/gu, "$1[REDACTED]")
-    .replace(/(\b[a-z][a-z\d+.-]*:\/\/[^/\s:@]+:)[^/\s@]*@/giu, "$1[REDACTED]@")
-    .replace(/\b(Bearer|Basic)\s+[\w.~+/*-]+=*/giu, "$1 [REDACTED]")
-    .replace(
-      /\b(?:sk-[\w*-]+|(?:gh[pousr]_|github_pat_)\w+|xox[baprs]-[\w-]+|AIza[\w-]{35}|(?:AKIA|ASIA)[A-Z\d]{16}|eyJ[\w-]+\.[\w-]+\.[\w-]+)/gu,
-      "[REDACTED]",
-    )
-    .replace(SECRET_LOG_ASSIGNMENT, "$1[REDACTED]")
-}
-
 function redactLogRecord<A>(record: A): A {
-  return JSON.parse(Formatter.formatJson(record), redactLogValue) as A
+  return JSON.parse(Formatter.formatJson(record), redactSensitiveValue) as A
 }
 
 /** Native OTLP batching and finalization, with the same redaction as console output. */
