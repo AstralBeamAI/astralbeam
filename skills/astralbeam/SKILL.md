@@ -1,6 +1,6 @@
 ---
 name: astralbeam
-description: Integrate AstralBeam AI chat into web applications using its SDK. Use when adding an AstralBeam sidebar or chat screen, connecting application authentication, tools or widgets, or verifying an integration. Also use for AstralBeam CLI tasks involving Tenants, TenantUsers, JWTs, chat, or organization credentials.
+description: Integrate AstralBeam AI chat into web applications using its SDK. Use when adding an AstralBeam sidebar or chat screen, connecting application authentication, tools or widgets, or verifying an integration. Also use for AstralBeam CLI tasks involving Tenants, TenantUsers, JWTs, chat, saved conversations, usage, or organization credentials.
 license: MIT
 ---
 
@@ -23,7 +23,7 @@ To embed chat, follow **Integrate a web application**. The CLI is not required. 
 
 ## If the CLI is installed
 
-Read [CLI commands](https://astralbeam.ai/docs/cli/commands.md) when managing Tenants or TenantUsers, minting tokens, or testing chat. It documents flags, pagination, JSON output, and exit codes. Use `astralbeam <command> --help` for the installed version, or [CLI setup](https://astralbeam.ai/docs/cli/getting-started.md) if it is unavailable. Providers, models, agents, and API keys still require the dashboard.
+Read [CLI commands](https://astralbeam.ai/docs/cli/commands.md) when managing Tenants or TenantUsers, minting tokens, testing chat, reading saved conversations, or inspecting organization details and user usage. It documents flags, pagination, JSON output, and exit codes. Use `astralbeam --help` to discover generated commands and `astralbeam <command> --help` for their flags, or [CLI setup](https://astralbeam.ai/docs/cli/getting-started.md) if it is unavailable. Providers, models, agents, and API keys still require the dashboard.
 
 Run from the intended project directory and check `organization.id` and `api_url` before mutations, token signing, or chat:
 

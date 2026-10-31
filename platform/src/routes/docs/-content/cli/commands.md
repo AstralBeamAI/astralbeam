@@ -47,21 +47,34 @@ Updates change only supplied fields. `--metadata` replaces the entire stored JSO
 
 ## Listing options
 
-Both `list` commands take the same options, which map onto the API's [pagination](/docs/api#description/pagination):
+Tenant and TenantUser `list` commands take the same options, which map onto the API's [pagination](/docs/api#description/pagination):
 
-| Option                   | Effect                                                     |
-| ------------------------ | ---------------------------------------------------------- |
-| `-q, --search <text>`    | Case-insensitive substring of the name or external ID      |
-| `--external-id <id>`     | Exact external ID, returning zero or one item              |
-| `--page-size <count>`    | Items per page, 20 by default and capped at 100            |
-| `--page-after <cursor>`  | Continue after a previous page's `page_after`              |
-| `--page-before <cursor>` | Go back from a previous page's `page_before`               |
+| Option                   | Effect                                                |
+| ------------------------ | ----------------------------------------------------- |
+| `-q, --search <text>`    | Case-insensitive substring of the name or external ID |
+| `--external-id <id>`     | Exact external ID, returning zero or one item         |
+| `--page-size <count>`    | Items per page, 20 by default and capped at 100       |
+| `--page-after <cursor>`  | Continue after a previous page's `page_after`         |
+| `--page-before <cursor>` | Go back from a previous page's `page_before`          |
 
 In table mode, the CLI prints the next `--page-after` value on stderr when more results remain. Each call returns one page.
 
 Both create and update accept `--body '<json>'` or `--body @file.json` instead of individual body flags. Clear a name with `--body '{"name":null}'`.
 
 Forge's `--dry-run` prints a local JSON request preview without sending HTTP or validating with the server. It reads configuration and supplied `@file` contents.
+
+## Organization, conversations, and usage
+
+Read organization details, saved conversations, and TenantUser usage through commands generated from the API:
+
+| Command | Does |
+| --- | --- |
+| `organization get` | Show the authenticated organization's ID, name, and slug |
+| `threads list [--tenant-id <id>] [--search <text>]` | List saved conversations, optionally filtered by Tenant or title |
+| `tenants threads messages list --tenant-id <id> --id <thread-id>` | Read a saved conversation's messages |
+| `tenant-users usage get <tenant-id> --user-ids <ids> --start <time> --end <time>` | Read users' usage in USD over a time range |
+
+These commands use internal UUIDs returned by the API. Conversation lists and message history accept `--page-size`, `--page-after`, and `--page-before`. Reading history does not make you a conversation participant. Usage accepts 1 to 100 comma-separated user UUIDs and ISO 8601 timestamps with a timezone, over a positive range no longer than 93 days. The start is inclusive and the end exclusive.
 
 ## token
 

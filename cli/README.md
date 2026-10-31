@@ -64,7 +64,9 @@ astralbeam auth list
 | `auth login`, `auth logout`, `auth status`, `auth list` | Bind, unbind, verify, and list directory logins |
 | `tenants list`, `get`, `create`, `update` | Manage Tenants |
 | `tenant-users list`, `get`, `create`, `update` | Manage a Tenant's users |
+| `tenant-users usage get` | Read users' usage in USD over a time range |
 | `threads`, `organization` | Read thread directory data and organization details |
+| `tenants threads messages list` | Read a saved conversation's messages |
 | `token chat` | Mint a chat JWT for a Tenant's user, as your token endpoint would |
 | `token organization` | Mint an organization-management JWT for a member |
 | `chat` | Chat with an agent as a Tenant's user |
