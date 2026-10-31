@@ -7,7 +7,7 @@ import { eq, like, or, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "@/db/schema.ts"
-import { StorageEndpointSchema } from "@/lib/storage/schemas.ts"
+import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas.ts"
 import { BooleanSettingSchema, parseEnvironmentConfigValue } from "@/lib/config/schemas.ts"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 import { defaultStorageDirectory } from "@/lib/storage/filesystem.server.ts"
@@ -83,11 +83,7 @@ export async function seedConfig(
     storage_directory: join(defaultStorageDirectory(), bucket),
   }
   for (const [key, value] of Object.entries(values)) {
-    if (
-      (storageProvider === "filesystem" && key.startsWith("s3_")) ||
-      (storageProvider === "s3" && key === "storage_directory")
-    )
-      continue
+    if (!isStorageSettingActive(key, storageProvider)) continue
     if (!key.startsWith("storage_") && process.env[key.toUpperCase()]) {
       fromEnvironment.push(key)
       continue

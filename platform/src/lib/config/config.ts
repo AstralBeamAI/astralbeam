@@ -15,6 +15,7 @@ import {
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { isInDatabaseTransaction } from "@/db/lib/transaction-guard"
+import { isStorageSettingActive } from "@/lib/storage/schemas"
 import {
   DatabaseMigrations,
   type DatabaseMigrationState,
@@ -167,7 +168,7 @@ export class Config extends Context.Service<
         const issues = validateConfigCompleteness(values, environmentKeys)
         for (const key of ["storage_provider", "storage_directory"] as const) {
           if (
-            (key === "storage_provider" || values.storage_provider === "filesystem") &&
+            isStorageSettingActive(key, values.storage_provider) &&
             stored.rows?.some((row) => row.key === key && row.storageStatus === "unreadable")
           )
             issues.push({
@@ -228,7 +229,7 @@ export class Config extends Context.Service<
         }
         // Generated defaults are inserted only if no value was saved by an operator.
         generated.values.push({ key: "storage_provider", value: provider })
-        if (provider === "filesystem")
+        if (isStorageSettingActive("storage_directory", provider))
           generated.values.push({
             key: "storage_directory",
             value: DEFAULT_CONFIG_VALUES.storage_directory!,

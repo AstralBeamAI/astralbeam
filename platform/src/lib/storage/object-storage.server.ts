@@ -18,7 +18,7 @@ import {
   putFileSystemObject,
   removeFileSystemObject,
 } from "./filesystem.server"
-import type { StorageConnection } from "./schemas"
+import { isStorageSettingActive, type StorageConnection } from "./schemas"
 
 type StorageFailure = StorageObjectMissing | StorageUnavailable
 
@@ -119,8 +119,8 @@ export class ObjectStorage extends Context.Service<
       const settings = Effect.flatMap(config.snapshot, ({ values, issues }) =>
         issues.some(
           ({ key }) =>
-            key.startsWith("storage_") ||
-            (values.storage_provider !== "filesystem" && key.startsWith("s3_")),
+            (key.startsWith("storage_") || key.startsWith("s3_")) &&
+            isStorageSettingActive(key, values.storage_provider),
         )
           ? Effect.fail(new StorageUnavailable())
           : Effect.succeed(values),

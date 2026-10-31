@@ -9,7 +9,7 @@ import {
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret, parseClientIpHeaders, proxySettingsFromValues } from "@/lib/utils.server"
 import { allowInsecure } from "@/lib/runtime/environment.server"
-import { StorageEndpointSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas"
 import { defaultStorageDirectory, StorageDirectorySchema } from "@/lib/storage/filesystem.server"
 import {
   EmailAddressSchema,
@@ -635,9 +635,10 @@ export function validateConfigCompleteness(
       message: "Embedded assistant credential ownership is invalid",
     })
   }
+  const storageProvider = storageProviderFromConfig(values)
   for (const definition of CONFIG_DEFINITIONS) {
     if (definition.key === "storage_provider") continue
-    if (definition.key.startsWith("s3_") && storageProviderFromConfig(values) !== "s3") continue
+    if (!isStorageSettingActive(definition.key, storageProvider)) continue
     if (definition.required && !values[definition.key]) {
       issues.push({ key: definition.key, message: `${definition.label} is required` })
     }

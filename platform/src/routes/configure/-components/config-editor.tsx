@@ -22,7 +22,7 @@ import {
 } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { StorageConnectionSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageConnectionSchema } from "@/lib/storage/schemas"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -87,19 +87,15 @@ export function ConfigEditor({
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
 
   const storageProvider = currentValue("storage_provider")
+  const activeFields = fields.filter((field) => isStorageSettingActive(field.key, storageProvider))
 
-  const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
+  const pendingUpdates = activeFields.flatMap<{ key: string; value: string | null }>((field) => {
     const draft: FieldDraft =
       field.key === "client_ip_headers" && currentValue("trust_proxy", "false") === "false"
         ? { kind: "unchanged" }
         : (drafts[field.key] ?? { kind: "unchanged" })
     const stored = storedValue(field)
-    if (
-      field.source === "environment" ||
-      (field.key.startsWith("s3_") && storageProvider !== "s3") ||
-      (field.key === "storage_directory" && storageProvider !== "filesystem")
-    )
-      return []
+    if (field.source === "environment") return []
     if (draft.kind === "unchanged") {
       // Re-saving a value stored under a fallback key re-encrypts it with the active one. A
       // secret has to be revealed or replaced first, which is what its field message asks for.
@@ -290,7 +286,7 @@ export function ConfigEditor({
       {actions}
 
       <ConfigFieldGroups
-        fields={fields}
+        fields={activeFields}
         issues={issues}
         changedKeys={new Set(pendingUpdates.map((update) => update.key))}
         drafts={drafts}
@@ -307,7 +303,6 @@ export function ConfigEditor({
         emailProviderTesting={emailProviderTesting}
         emailProviderTestResult={emailProviderTestResult}
         storageSettings={Option.getOrUndefined(storageSettings)}
-        storageProvider={storageProvider}
       />
 
       {onboarding && owner && (

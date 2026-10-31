@@ -98,7 +98,6 @@ export function ConfigFieldGroups({
   emailProviderTesting,
   emailProviderTestResult,
   storageSettings,
-  storageProvider,
 }: {
   fields: ConfigureField[]
   issues: ConfigIssue[]
@@ -117,9 +116,9 @@ export function ConfigFieldGroups({
   emailProviderTesting: boolean
   emailProviderTestResult: { ok: boolean; message: string } | undefined
   storageSettings: StorageConnection | undefined
-  storageProvider: string
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
+  const hasS3Settings = fields.some((field) => field.key.startsWith("s3_"))
   const trustProxy =
     drafts.trust_proxy?.kind === "set"
       ? drafts.trust_proxy.value
@@ -149,21 +148,18 @@ export function ConfigFieldGroups({
       ([first], [second]) => configGroupOrder.indexOf(first) - configGroupOrder.indexOf(second),
     )
     .map(([group, groupFields]) => {
-      const visibleFields = groupFields.filter((field) => {
-        if (field.key === "client_ip_headers") return Boolean(trustProxy && trustProxy !== "false")
-        if (field.key.startsWith("s3_")) return storageProvider === "s3"
-        if (field.key === "storage_directory") return storageProvider === "filesystem"
-        return (
-          group !== "Email Delivery" ||
-          ["email_provider", "email_from_address"].includes(field.key) ||
-          providerKeys.has(field.key)
-        )
-      })
-      const configured = !visibleFields.some(
+      const configured = !groupFields.some(
         (field) =>
           issues.some((issue) => issue.key === field.key) ||
           fieldErrors[field.key] ||
           field.storageStatus,
+      )
+      const visibleFields = groupFields.filter((field) =>
+        field.key === "client_ip_headers"
+          ? Boolean(trustProxy && trustProxy !== "false")
+          : group !== "Email Delivery" ||
+            ["email_provider", "email_from_address"].includes(field.key) ||
+            providerKeys.has(field.key),
       )
       return (
         <ConfigSection
@@ -215,7 +211,7 @@ export function ConfigFieldGroups({
               </div>
             </div>
           )}
-          {group === "File storage" && storageProvider === "s3" && (
+          {group === "File storage" && hasS3Settings && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {storageConnectionPresets.map((preset) => (
@@ -355,7 +351,7 @@ export function ConfigFieldGroups({
               )}
             </div>
           )}
-          {group === "File storage" && storageProvider === "s3" && (
+          {group === "File storage" && hasS3Settings && (
             <StorageConnectionTest settings={storageSettings} disabled={disabled} />
           )}
         </ConfigSection>
