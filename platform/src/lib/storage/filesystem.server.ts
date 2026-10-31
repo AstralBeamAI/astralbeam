@@ -39,8 +39,7 @@ async function fileSystemObjectPath(input: FileSystemObject, create = false): Pr
   Schema.decodeUnknownSync(StorageDirectorySchema)(input.directory)
   Schema.decodeUnknownSync(fileSystemKeySchema)(input.key)
   const path = join(input.directory, input.key)
-  if (create) await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-  else if (!(await stat(input.directory).catch(() => undefined))?.isDirectory())
+  if (!create && !(await stat(input.directory).catch(() => undefined))?.isDirectory())
     throw new StorageUnavailable()
   return path
 }
@@ -49,6 +48,8 @@ export async function putFileSystemObject(
   input: FileSystemObject & { bytes: Uint8Array; signal: AbortSignal },
 ): Promise<void> {
   const path = await fileSystemObjectPath(input, true)
+  const created = await mkdir(dirname(path), { recursive: true, mode: 0o700 })
+  const syncUntil = created ? dirname(created) : dirname(path)
   const temporary = join(dirname(path), `.${crypto.randomUUID()}.tmp`)
   try {
     {
@@ -62,7 +63,7 @@ export async function putFileSystemObject(
     // https://man7.org/linux/man-pages/man2/fsync.2.html
     for (let directory = dirname(path); ; directory = dirname(directory)) {
       await syncFileSystemDirectory(directory)
-      if (directory === dirname(directory)) break
+      if (directory === syncUntil) break
     }
   } finally {
     await rm(temporary, { force: true })
