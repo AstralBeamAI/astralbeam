@@ -3,7 +3,7 @@ import { Cause, Effect, Layer, References } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 import { TestConsole } from "effect/testing"
 
-import { otlpLoggerLayer, serverLoggerLayer } from "./logging.server.ts"
+import { telemetryLoggerLayer, serverLoggerLayer } from "./logging.server.ts"
 
 it.effect("redacts console paths, causes, provider messages and nested metadata", () =>
   Effect.gen(function* () {
@@ -66,7 +66,7 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
       batches.push(new TextDecoder().decode(request.body.body))
       return Effect.succeed(HttpClientResponse.fromWeb(request, new Response("{}")))
     })
-    const exporter = otlpLoggerLayer({
+    const exporter = telemetryLoggerLayer({
       url: "http://localhost:4318/v1/logs",
       resource: { serviceName: "logging-test" },
     }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, client)))
@@ -81,6 +81,7 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
           Effect.provide(serverLoggerLayer),
         ),
       )
+      yield* Effect.logError("Nested failure", Cause.die("Nested")).pipe(Effect.provide(exporter))
       yield* Effect.logError(
         "Provider failed",
         Cause.die(new Error("Bearer opaque-bearer; password=opaque-inline-password")),
@@ -99,7 +100,10 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
       }),
       Effect.provide(exporter),
     )
+    yield* Effect.logError("After shutdown", Cause.die("Closed"))
     const output = batches.join("")
+    assert.strictEqual(output.split("Nested failure").length - 1, 1)
+    assert.notInclude(output, "After shutdown")
     assert.notInclude(output, "opaque-")
     assert.notInclude(output, "secret-tail")
     for (const expected of [
