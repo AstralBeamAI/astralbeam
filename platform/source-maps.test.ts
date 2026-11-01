@@ -11,7 +11,9 @@ import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
 it("chains SSR maps, registers bootstrap failures, and keeps distinct revisions reproducible", async () => {
   const directory = mkdtempSync(join(tmpdir(), "astralbeam-source-maps-"))
   onTestFinished(() => rmSync(directory, { recursive: true, force: true }))
-  onTestFinished(() => vi.unstubAllEnvs())
+  onTestFinished(() => {
+    vi.unstubAllEnvs()
+  })
   const intermediate = join(directory, ".nitro/vite/services/ssr")
   const publicDir = join(directory, ".output/public")
   const ids: string[] = []
