@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import { Clock, Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import { TestClock } from "effect/testing"
 import type { SqlClient, SqlConnection } from "effect/sql"
 import { afterEach, beforeAll, beforeEach, vi } from "vitest"
 
@@ -208,6 +209,19 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
+  it.effect("refreshes peer writes without rebuilding unchanged snapshots", () => {
+    const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      const initial = yield* config.snapshot
+      yield* TestClock.adjust("5 seconds")
+      assert.strictEqual(yield* config.snapshot, initial)
+      state.rows = encryptedRows({ ...COMPLETE_VALUES, support_email_address: "peer@example.com" })
+      yield* TestClock.adjust("5 seconds")
+      assert.strictEqual(yield* config.get("support_email_address"), "peer@example.com")
+    }).pipe(Effect.provide(configLayer(state)))
+  })
+
   it.effect("defaults to File System without replacing legacy or unreadable settings", () => {
     const state = { rows: [] as StoredRow[], reads: 0 }
     return Effect.gen(function* () {
@@ -261,8 +275,11 @@ describe("Config", () => {
     return Effect.gen(function* () {
       const config = yield* Config
       const committed = yield* config.snapshot
+      const clock = yield* Clock.Clock
       const read = Effect.promise(() =>
-        runGuardedPromiseTransaction({}, () => Effect.runPromise(config.snapshot)),
+        runGuardedPromiseTransaction({}, () =>
+          Effect.runPromise(config.snapshot.pipe(Effect.provideService(Clock.Clock, clock))),
+        ),
       )
       assert.strictEqual(yield* read, committed)
       assert.strictEqual(state.reads, 1)

@@ -1,5 +1,4 @@
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
-import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import {
@@ -14,8 +13,6 @@ import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
 
-import { getAuthDatabase } from "@/db/database"
-import { tables } from "@/db/schema"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import {
   ORGANIZATION_API_KEY_PREFIX,
@@ -50,6 +47,7 @@ import {
 import type { AuthEmailNotDelivered } from "./errors.ts"
 import { acceptedAtForUserCreation, assertLegalAcceptance, recordValue } from "./legal.server.ts"
 import { createSyntheticUser } from "./synthetic-user.server.ts"
+import { authDatabaseAdapter } from "./database-adapter.server.ts"
 
 const storedFileIdField = {
   type: "string",
@@ -251,11 +249,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
-    database: drizzleAdapter(getAuthDatabase(), {
-      provider: "pg",
-      schema: tables,
-      transaction: true,
-    }),
+    database: authDatabaseAdapter(),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,

@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util"
+
 import {
   Cache,
   Config as EffectConfig,
@@ -55,7 +57,7 @@ import type {
 
 /** One load of the effective configuration: defaults, then stored values, then the environment. */
 export interface ConfigSnapshot {
-  /** Increments with every load, so values derived from a snapshot know when to rebuild. */
+  /** Identifies the snapshot so services derived from it know when to rebuild. */
   readonly generation: number
   readonly rows: readonly ConfigStorageEntry[] | null
   readonly values: ConfigValues
@@ -124,7 +126,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
 export class Config extends Context.Service<
   Config,
   {
-    /** Cached per process outside Effect transactions, until a same-process write invalidates it. */
+    /** Cached for up to five seconds outside transactions, invalidated immediately by local writes. */
     readonly snapshot: Effect.Effect<ConfigSnapshot>
     readonly get: <Key extends ConfigKey>(key: Key) => Effect.Effect<ConfigValues[Key]>
     readonly invalidate: Effect.Effect<void>
@@ -185,9 +187,19 @@ export class Config extends Context.Service<
         } satisfies ConfigSnapshot
       }).pipe(Effect.withSpan("Config.load"))
 
-      const cache = yield* Cache.makeWith(() => load, {
+      const committedSnapshot = yield* Ref.make<ConfigSnapshot | undefined>(undefined)
+      const loadCommitted = Effect.gen(function* () {
+        const next = yield* load
+        const previous = yield* Ref.get(committedSnapshot)
+        // Keep derived services stable when a peer refresh finds no configuration changes.
+        if (previous && isDeepStrictEqual({ ...next, generation: previous.generation }, previous))
+          return previous
+        yield* Ref.set(committedSnapshot, next)
+        return next
+      })
+      const cache = yield* Cache.makeWith(() => loadCommitted, {
         capacity: 1,
-        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(5) : Duration.zero),
       })
       // Transaction-local values must neither escape the connection nor populate the process cache.
       const snapshot = Effect.gen(function* () {

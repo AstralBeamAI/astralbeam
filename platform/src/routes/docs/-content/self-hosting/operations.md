@@ -10,13 +10,13 @@ Application migrations ship with each release. When migrations are pending, page
 
 1. Back up the database and bucket before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
-3. Apply the reviewed set. After success, restart other replicas to refresh their migration state.
+3. Apply the reviewed set. Other replicas refresh migration state within five seconds of their next read.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
 Migrations are serialized and each runs in a transaction. If another operator is applying migrations, wait and reload. If the pending set changes, review it again before applying.
 
-On failure, earlier migrations remain applied, the failed migration rolls back, and later ones do not run. Fix the reported cause and retry. Restart replicas after a CLI migration or history repair so they reload migration state.
+On failure, earlier migrations remain applied, the failed migration rolls back, and later ones do not run. Fix the reported cause and retry. Migration state refreshes after CLI migrations and history repairs too.
 
 **NOTE**: Failed transactions roll back automatically. There is no command to undo a committed migration. Reverse an applied change with a new forward migration.
 
