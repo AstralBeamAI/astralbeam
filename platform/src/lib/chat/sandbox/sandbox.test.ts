@@ -19,6 +19,13 @@ import { ChatSandboxes, type ChatSandboxStatus } from "./sandbox.ts"
 function freshChatSandboxTestState() {
   return {
     created: 0,
+    providerIds: [] as string[],
+    configuration: {
+      name: "Local",
+      provider: "daytona" as const,
+      options: { target: "us" as const, snapshot: "first" },
+      credentials: { apiKey: "first-key" },
+    },
     createFails: false,
     destroyFails: false,
     destroyed: [] as string[],
@@ -54,7 +61,8 @@ function fakeSandboxHandle(id: string): SandboxHandle {
 const fakeSandboxProvider = {
   name: "fake",
   capabilities: () => ({ snapshots: false }),
-  create: async () => {
+  create: async ({ id: providerId }: { id: string }) => {
+    sandboxTest.providerIds.push(providerId)
     const id = `sandbox-${++sandboxTest.created}`
     if (sandboxTest.createStarted) Deferred.doneUnsafe(sandboxTest.createStarted, Effect.void)
     if (sandboxTest.createFails) throw new Error("vendor detail: token sk-secret")
@@ -74,8 +82,7 @@ const fakeSandboxProvider = {
 const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
   Layer.provide([
     Layer.succeed(SandboxProviders, {
-      resolveConfiguration: () =>
-        Effect.succeed({ name: "Local", provider: "docker", options: {}, credentials: {} }),
+      resolveConfiguration: () => Effect.succeed(sandboxTest.configuration),
     } as unknown as SandboxProviders["Service"]),
     Layer.succeed(SandboxProviderFactory, { create: () => Effect.succeed(fakeSandboxProvider) }),
   ]),
@@ -320,13 +327,17 @@ describe("ChatSandboxes", () => {
   )
 
   it.effect(
-    "reuses one identity while isolating provider configurations and every principal key",
+    "reuses one identity while isolating lease owners, provider configurations and principal keys",
     () =>
       Effect.gen(function* () {
         const sandboxes = yield* ChatSandboxes
         const acquire = (input: Parameters<typeof sessionFor>[1] = {}) =>
           acquireFor(sandboxes, input).pipe(Effect.scoped)
         assert.strictEqual((yield* acquire()).id, (yield* acquire()).id)
+        yield* Effect.flatMap(ChatSandboxes, (otherOwner) => acquireFor(otherOwner)).pipe(
+          Effect.provide(Layer.fresh(sandboxesLayer)),
+        )
+        assert.notStrictEqual(sandboxTest.providerIds[0], sandboxTest.providerIds[1])
         for (const input of [
           { sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384dd" },
           {
@@ -346,7 +357,11 @@ describe("ChatSandboxes", () => {
         ]) {
           assert.notStrictEqual((yield* acquire(input)).id, "sandbox-1")
         }
-        assert.strictEqual(sandboxTest.created, 5)
+        assert.strictEqual(sandboxTest.created, 6)
+        sandboxTest.configuration.options.snapshot = "second"
+        assert.strictEqual((yield* acquire()).id, "sandbox-7")
+        sandboxTest.configuration.credentials.apiKey = "second-key"
+        assert.strictEqual((yield* acquire()).id, "sandbox-8")
       }).pipe(Effect.provide(sandboxesLayer)),
   )
 })

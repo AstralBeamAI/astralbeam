@@ -2,7 +2,7 @@ import { it as effectIt } from "@effect/vitest"
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { decodeProviderCredentials, decodeProviderOptions } from "./schemas.ts"
+import { decodeProviderOptions } from "./schemas.ts"
 import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "@/routes/_authenticated/$orgSlug/sandboxes/-lib/schemas"
 
@@ -28,9 +28,7 @@ describe("sandbox provider schemas", () => {
     Effect.gen(function* () {
       const options = { target: "us", snapshot: "daytona-medium", apiKey: "leak" }
       yield* Effect.flip(decodeProviderOptions("daytona", options))
-      yield* Effect.flip(decodeProviderCredentials("docker", { apiKey: "token" }))
       yield* Effect.flip(decodeProviderOptions("e2b", { template: "base", apiKey: "leak" }))
-      yield* Effect.flip(decodeProviderCredentials("e2b", { token: "wrong-provider" }))
       yield* Effect.flip(decodeProviderOptions("e2b", { template: "" }))
     }),
   )

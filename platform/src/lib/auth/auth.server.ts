@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util"
+
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import type { BetterAuthPlugin } from "better-auth"
@@ -611,20 +613,17 @@ export class Auth extends Context.Service<
       const config = yield* Config
       const mailer = yield* Mailer
       const built = yield* Ref.make<{
-        generation: number
+        config: AuthConfig
         auth: AppAuth
-        proxy: ReturnType<typeof proxySettingsFromValues>
       } | null>(null)
       const sessions = new WeakMap<Headers, Effect.Effect<AuthSession | null>>()
 
       const configured = Effect.gen(function* () {
-        const snapshot = yield* config.snapshot
-        const current = yield* Ref.get(built)
-        if (current?.generation === snapshot.generation) return current
-        const authConfig = authConfigFromValues(snapshot.values)
+        const authConfig = authConfigFromValues((yield* config.snapshot).values)
         if (!authConfig) return yield* Effect.die("Authentication configuration is incomplete")
-        const auth = buildAuth(authConfig, mailer)
-        const result = { generation: snapshot.generation, auth, proxy: authConfig.proxy }
+        const current = yield* Ref.get(built)
+        if (current && isDeepStrictEqual(current.config, authConfig)) return current
+        const result = { config: authConfig, auth: buildAuth(authConfig, mailer) }
         yield* Ref.set(built, result)
         return result
       })
@@ -674,9 +673,9 @@ export class Auth extends Context.Service<
         request: Request,
         peerAddress: string | undefined,
       ) {
-        const { auth, proxy } = yield* configured
+        const { auth, config } = yield* configured
         return yield* tryPromiseInServerRequest(() =>
-          auth.handler(withTrustedProxyHeaders(request, peerAddress, proxy)),
+          auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
         ).pipe(Effect.orDie)
       })
 

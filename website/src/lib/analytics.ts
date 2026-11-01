@@ -1,3 +1,4 @@
+import { setupReactErrorHandler } from "@posthog/react"
 import { redactSensitiveValue } from "@platform/lib/redaction"
 import posthog, { type CaptureResult } from "posthog-js"
 
@@ -18,11 +19,28 @@ function redactAnalyticsValue(key: string, value: unknown): unknown {
   return redacted
 }
 
-if (window.location.origin === "https://astralbeam.ai") {
+const isHostedAnalyticsOrigin = window.location.origin === "https://astralbeam.ai"
+const posthogReactErrorHandler = setupReactErrorHandler(posthog)
+
+function captureReactError(error: unknown, errorInfo: { componentStack?: string | undefined }) {
+  posthogReactErrorHandler(error, { componentStack: errorInfo.componentStack ?? null })
+}
+
+export const reactErrorHandlers = isHostedAnalyticsOrigin
+  ? {
+      onCaughtError: captureReactError,
+      onUncaughtError: captureReactError,
+      onRecoverableError: captureReactError,
+    }
+  : undefined
+
+if (isHostedAnalyticsOrigin) {
   posthog.init("phc_CxMzFhGR4Xv4pZnTdrgxnUsCTt93wMaPNdPdUadBpwrn", {
     api_host: "https://e.astralbeam.ai",
     ui_host: "https://us.posthog.com",
     defaults: "2026-05-30",
+    capture_exceptions: true,
+    tracing_headers: ["astralbeam.ai"],
     // Extend PostHog's network scrubber with application credentials. Network and page URLs stay uncompressed.
     // https://posthog.com/docs/libraries/js/usage#redacting-information-in-events
     before_send: (event) => {

@@ -11,6 +11,7 @@ import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
 import { Context, Effect, identity, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
+import { redactSensitiveValue } from "@/lib/redaction"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
@@ -386,7 +387,8 @@ export class Chat extends Context.Service<
               ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
                 otelMiddleware({
                   tracer,
-                  captureContent: false,
+                  captureContent: true,
+                  redact: (text) => redactSensitiveValue("", text),
                   attributeEnricher: () => ({
                     "gen_ai.conversation.id": params.threadId,
                     "gen_ai.agent.id": agent.id,

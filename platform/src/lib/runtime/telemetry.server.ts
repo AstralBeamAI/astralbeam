@@ -2,37 +2,71 @@ import process from "node:process"
 
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
+import { SpanStatusCode, type Attributes } from "@opentelemetry/api"
 import { getBooleanFromEnv, parseKeyPairsIntoRecord } from "@opentelemetry/core"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto"
 import {
   BatchSpanProcessor,
+  type ReadableSpan,
   type SpanExporter,
   type SpanProcessor,
 } from "@opentelemetry/sdk-trace-base"
-import { ConfigProvider, Effect, Layer } from "effect"
+import { ConfigProvider, Effect, identity, Layer } from "effect"
 
 import { Config } from "@/lib/config/config"
-import { otlpLoggerLayer } from "./logging.server.ts"
-import { requestTracingLayer } from "./tracing-context.server.ts"
+import { redactValue } from "@/lib/redaction"
+import { telemetryLoggerLayer } from "./logging.server.ts"
+import { getRequestTelemetryAttributes, requestTracingLayer } from "./tracing-context.server.ts"
+import {
+  mapPostHogAttributes,
+  posthogAiExporter,
+  posthogClientLayer,
+  posthogErrorLogger,
+  posthogOptionsFromValues,
+  withPostHogContext,
+} from "./posthog.server.ts"
 
-/** Content capture off does not prevent SDKs from attaching raw errors or SQL statements. */
+/** Preserve redacted exception details without SQL or credential-bearing URLs. */
 // https://github.com/Effect-TS/effect/blob/main/packages/opentelemetry/src/OtelTracer.ts
-export function makeTracingProcessor(exporter: SpanExporter): SpanProcessor {
+export function makeTracingProcessor(
+  exporter: SpanExporter,
+  mapAttributes: (attributes: Readonly<Attributes>) => Attributes = identity,
+): SpanProcessor {
   const batch = new BatchSpanProcessor(exporter)
   return {
-    onStart: () => {},
+    onStart(span, parentContext) {
+      span.setAttributes({
+        ...getRequestTelemetryAttributes(parentContext),
+        ...(span as ReadableSpan).attributes,
+      })
+    },
     onEnd(span) {
-      for (const event of span.events) {
-        const type = event.name === "exception" ? event.attributes?.["exception.type"] : undefined
-        if (typeof type === "string") span.attributes["error.type"] = type
+      const attributes = { ...span.attributes }
+      const events = span.events.filter((event) => event.name === "exception")
+      const exception = events.at(-1)?.attributes
+      delete attributes["db.query.text"]
+      delete attributes["url.full"]
+      delete attributes["url.path"]
+      delete attributes["url.query"]
+      const status = { ...span.status }
+      // Effect marks a caught operation successful on exit. An explicitly reported error still failed.
+      if (typeof span.attributes["error.type"] === "string") {
+        status.code = SpanStatusCode.ERROR
+        const message = exception?.["exception.message"]
+        if (typeof message === "string") status.message ??= message
       }
-      delete span.attributes["db.query.text"]
-      delete span.attributes["url.full"]
-      delete span.attributes["url.path"]
-      delete span.attributes["url.query"]
-      span.events.length = 0
-      delete span.status.message
-      batch.onEnd(span)
+      if (status.code === SpanStatusCode.ERROR) {
+        attributes["error.type"] = exception?.["exception.type"] ?? attributes["error.type"]
+        attributes["error.message"] ??= exception?.["exception.message"]
+        attributes["error.stack"] ??= exception?.["exception.stacktrace"]
+      }
+      const redacted = redactValue({
+        attributes: mapAttributes(attributes),
+        events,
+        status,
+      })
+      // Processors share spans. Keep sanitization local to this exporter.
+      batch.onEnd(Object.assign(Object.create(span) as ReadableSpan, redacted))
     },
     forceFlush: () => batch.forceFlush(),
     shutdown: () => batch.shutdown(),
@@ -57,13 +91,14 @@ export const telemetryLayer = Layer.unwrap(
     const { values } = snapshot
     const endpoint = values.otel_exporter_otlp_endpoint
     if (values.otel_sdk_disabled === "true" || !endpoint) return NodeSdk.layerEmpty
+    const posthogOptions = posthogOptionsFromValues(values)
     const headers = parseKeyPairsIntoRecord(values.otel_exporter_otlp_headers ?? "")
     const baseUrl = `${endpoint}${endpoint.endsWith("/") ? "" : "/"}v1/`
     return Layer.mergeAll(
-      requestTracingLayer.pipe(
+      requestTracingLayer(posthogOptions ? withPostHogContext : undefined).pipe(
         Layer.provideMerge(
           NodeSdk.layer(() => ({
-            spanProcessor: makeTracingProcessor(
+            spanProcessor: [
               new OTLPTraceExporter({
                 // The constructor takes a full signal URL, while base endpoints append the signal path.
                 // https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp
@@ -73,16 +108,21 @@ export const telemetryLayer = Layer.unwrap(
                   ...parseKeyPairsIntoRecord(values.otel_exporter_otlp_traces_headers ?? ""),
                 },
               }),
+              ...(posthogOptions ? [posthogAiExporter(posthogOptions)] : []),
+            ].map((exporter) =>
+              makeTracingProcessor(exporter, posthogOptions ? mapPostHogAttributes : undefined),
             ),
           })),
         ),
       ),
-      values.otel_logs_exporter === "otlp"
-        ? otlpLoggerLayer({ url: `${baseUrl}logs`, headers }).pipe(
-            Layer.provide(BunHttpClient.layer),
-          )
+      values.otel_logs_exporter === "otlp" || posthogOptions
+        ? telemetryLoggerLayer(
+            values.otel_logs_exporter === "otlp" ? { url: `${baseUrl}logs`, headers } : undefined,
+            posthogOptions ? posthogErrorLogger : undefined,
+          ).pipe(Layer.provide(BunHttpClient.layer))
         : Layer.empty,
     ).pipe(
+      Layer.provide(posthogOptions ? posthogClientLayer(posthogOptions) : Layer.empty),
       Layer.provide(
         ConfigProvider.layer(
           ConfigProvider.fromEnvRecord({

@@ -49,7 +49,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 | `github_client_id` | No | none | Set with `github_client_secret` or not at all |
 | `github_client_secret` | No | none | Paired with `github_client_id` |
 
-Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation immediately signs out every dashboard user.
+Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation signs out dashboard users as replicas refresh configuration, within five seconds.
 
 Both Turnstile keys are mandatory, so setup cannot complete without them. Bootstrap supplies test keys for initial testing. For public hosting, create a widget in the Cloudflare dashboard, restrict it to the deployment's hostnames, and replace both keys. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
@@ -130,7 +130,7 @@ Selecting S3-compatible shows the following settings, all of which retain their 
 1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
-4. Save the configuration and restart other running server instances.
+4. Save the configuration.
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
 
@@ -144,7 +144,7 @@ Both providers store avatars, logos, and published sandbox files. An S3 endpoint
 
 Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
-To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. Restart other replicas and verify uploads and downloads before revoking the old key. Keep destination fields unchanged.
+To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. After the five-second configuration cache expires, verify uploads and downloads on every replica before revoking the old key. Keep destination fields unchanged.
 
 Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
@@ -166,7 +166,7 @@ Edit the fields you need and press **Save**. A successful save briefly reports "
 
 The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
 
-A save takes effect immediately on the process that handled it, except observability, whose exporters are created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when observability changes.
+A save takes effect immediately on the process that handled it. Other replicas refresh their snapshot on the next read after its five-second cache expires. Observability exporters are created once at startup, so restart every server instance after changing observability settings. Environment changes also require a restart.
 
 While required settings are missing, the page lists each one and the application stays gated.
 
@@ -228,8 +228,24 @@ For a hosted receiver, use its official endpoint and authentication headers. Che
 
 The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
 
-Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts, prompts, responses, tool arguments and results. Failed operations retain exception types, messages, cause-chain stacks and status descriptions with credential patterns redacted. SQL text and credential-bearing URL fields are excluded.
 
 Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger). Console and shipped logs share credential redaction. Shipped logs include messages, full causes, request metadata, and active trace/span IDs. Request and error logs outside the application runtime use the exporter after it initializes. Earlier logs remain console-only. Log export uses generic OTLP headers, not traces-specific headers.
 
+Native issue grouping depends on the receiver. Failed spans include `error.type`, `error.message`, and `error.stack` alongside exception events for receivers such as Datadog. Sentry's direct OTLP ingestion does not replace its native exception capture.
+
+Browser correlation uses the standard `user.id` and `session.id` attributes on spans and shipped logs for every OTLP receiver. Provider-specific aliases are added only to that provider's exports.
+
 Set `deployment.environment.name` and `service.instance.id` through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES` to filter spans and logs by environment and process. Restart after changing them. An environment override replaces stored labels, allowing replicas sharing a database to identify themselves separately.
+
+### PostHog errors and AI observability
+
+The US or EU PostHog OTLP receiver also enables backend errors and AI observability using its configured bearer token. Switching receivers or disabling telemetry disables backend PostHog capture. Hosted browser analytics remain independent.
+
+### Source maps for custom builds
+
+Platform and website production builds generate hidden source maps and deterministic debug IDs without upload credentials. IDs include the Git revision and source positions, so older deployments retain their matching maps and release. Set `SOURCE_VERSION` to the commit SHA when building without Git metadata, including custom Docker builds with `--build-arg SOURCE_VERSION=<sha>`. Each build collects its matching JavaScript and maps under `.output/sourcemaps`, outside served assets and compiled binaries. Use that directory with any compatible uploader.
+
+For PostHog, run `bun run sourcemaps:posthog --directory .output/sourcemaps` from the project directory after building. The command binds maps to the CLI's Git release. When uploading outside the original checkout, pass `--release-version <sha>` matching `SOURCE_VERSION`. Set `POSTHOG_CLI_API_KEY` to a personal API key with error tracking write and organization read scopes, and `POSTHOG_CLI_PROJECT_ID` to the project ID. `POSTHOG_CLI_HOST` optionally selects another region or instance. Keep these credentials in the CI upload step. Uploads leave the generated files unchanged, so the same artifact can be sent to multiple destinations.
+
+For GitHub releases, add the `POSTHOG_API_KEY` repository secret and `POSTHOG_PROJECT_ID` repository variable, plus `POSTHOG_HOST` if needed. CI uploads the regular release build's source maps directly to PostHog. Docker builds remain independent of PostHog and reuse those maps when their emitted debug IDs match. A different set of Docker bundles requires uploading its matching maps separately.

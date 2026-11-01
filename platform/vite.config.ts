@@ -11,6 +11,8 @@ import { nitro } from "nitro/vite"
 import { defineConfig, searchForWorkspaceRoot } from "vite"
 import { configDefaults } from "vitest/config"
 
+import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
+
 const licensesDirectory = new URL("../docs/legal/LICENSES/", import.meta.url)
 const legalAssets = [
   {
@@ -72,6 +74,10 @@ const viteConfig = defineConfig(({ mode }) => {
       ssr: { build: { rolldownOptions: { checks: { ineffectiveDynamicImport: false } } } },
     },
     plugins: [
+      {
+        ...sourceMapDebugIds,
+        applyToEnvironment: (environment) => environment.name !== "ssr",
+      },
       {
         name: "legal-assets",
         apply: "build",
@@ -138,6 +144,8 @@ const viteConfig = defineConfig(({ mode }) => {
         : nitro({
             preset: "bun",
             compressPublicAssets: true,
+            sourcemap: true,
+            experimental: { sourcemapMinify: false },
             // Trace Daytona's dynamic busboy import and every installed native Sharp package.
             // https://nitro.build/config#tracedeps
             traceDeps: ["busboy", "@img", "@img/sharp-win32-x64*"],
@@ -159,6 +167,12 @@ const viteConfig = defineConfig(({ mode }) => {
               failOnError: true,
             },
             hooks: {
+              "vite:compile:before": (nitro) => {
+                collectSourceMaps(nitro.options.output.publicDir)
+              },
+              compiled: (nitro) => {
+                collectSourceMaps(nitro.options.output.serverDir)
+              },
               // A bare /docs/<section> URL redirects to the section's first page, and Nitro writes an
               // extensionless response body over the directory holding that section's own pages.
               "prerender:generate": (route) => {

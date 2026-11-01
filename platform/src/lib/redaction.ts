@@ -1,3 +1,5 @@
+import { formatJson } from "effect/Formatter"
+
 const secretFields =
   "authorization|cookie|set-cookie|(?:(?:current|new|confirm)[_-]?)?password|passwd|secret|credentials?|api[_-]?key|(?:access|refresh|auth|id|csrf)[_-]?token|client[_-]?secret|secret(?:[_-]?access)?[_-]?key|token|cf-turnstile-response"
 const secretField = new RegExp(`^(?:data-)?(?:${secretFields})$`, "iu")
@@ -44,4 +46,9 @@ export function redactSensitiveValue(key: string, value: unknown): unknown {
   )
     return { ...value, value: { stringValue: "[REDACTED]" } }
   return typeof value === "string" ? redactSensitiveText(key, value) : value
+}
+
+/** Normalize runtime values before redacting nested credentials and credential-bearing text. */
+export function redactValue<A>(value: A): A {
+  return JSON.parse(formatJson(value), redactSensitiveValue) as A
 }

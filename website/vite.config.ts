@@ -8,6 +8,7 @@ import frontMatter from "front-matter"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
+import { collectSourceMaps, sourceMapDebugIds } from "../platform/source-maps.ts"
 import { siteUrl } from "./src/lib/site.ts"
 
 const workspaceDirectory = join(import.meta.dirname, "..")
@@ -49,6 +50,10 @@ export default defineConfig(({ mode }) => ({
     assetsInlineLimit: (filePath) => (/\.woff2?$/u.test(filePath) ? false : undefined),
   },
   plugins: [
+    {
+      ...sourceMapDebugIds,
+      applyToEnvironment: (environment) => environment.name === "client",
+    },
     // The suite reads the built output, so it has no server or prerenderer to start.
     mode !== "test" &&
       nitro({
@@ -68,6 +73,9 @@ export default defineConfig(({ mode }) => ({
           failOnError: true,
         },
         hooks: {
+          "vite:compile:before": (nitro) => {
+            collectSourceMaps(nitro.options.output.publicDir)
+          },
           compiled(nitro) {
             const output = nitro.options.output.publicDir
             const skill = readFileSync(join(workspaceDirectory, "skills/astralbeam/SKILL.md"))
