@@ -29,6 +29,7 @@ import {
 import { currentUserHandlers } from "./current-user.server"
 import { personalMcpHandlers } from "./mcp.server"
 import { organizationHandlers } from "./organization.server"
+import { documentationHandlers } from "./documentation.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { chatThreadHandlers } from "../chat/-lib/threads.server"
 import { authenticateRestRequest } from "./auth.server"
@@ -191,6 +192,7 @@ const RestRouterBoundary = Layer.unwrap(
 export const ApiV1Routes = Layer.mergeAll(
   HttpApiBuilder.layer(ApiV1).pipe(
     Layer.provide([
+      documentationHandlers(ApiV1),
       tenantHandlers(ApiV1),
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),

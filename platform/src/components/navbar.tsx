@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useContext } from "react"
 
 import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { DocsSearch } from "@/components/docs/docs-search"
 import { buttonVariants } from "@/components/ui/button"
 import { WebsiteLink } from "@/components/website-link"
 import { normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
@@ -192,6 +193,7 @@ export function DocsNavbar({
         </div>
       }
     >
+      <DocsSearch />
       <WebsiteLink className={navLinkClassName}>
         <span>Website</span>
       </WebsiteLink>

@@ -644,6 +644,26 @@ export interface TenantPage {
   page_before: string | null
 }
 
+export type DocumentationSearchResultsItem = {
+  path: string
+  url: string
+  page: string
+  heading: string
+  text: string
+}
+
+export interface DocumentationSearch {
+  results: DocumentationSearchResultsItem[]
+}
+
+export type SearchDocumentationParams = {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  q: string
+}
+
 export type ListTenantsParams = {
   /**
    * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
@@ -967,6 +987,36 @@ export type PersonalMcpBindBrowserBody = {
 
 export type PersonalMcpCompleteAuthorizationBody = {
   attempt_id: string
+}
+
+export const getSearchDocumentationUrl = (params: SearchDocumentationParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/docs/search?${stringifiedParams}`
+    : `/api/v1/docs/search`
+}
+
+/**
+ * Search the published guides and API reference. Returns up to five matching pages with relative URLs and the best matching section. Accepts the same credentials as the resource APIs.
+ * @summary Search documentation
+ */
+export const searchDocumentation = (
+  params: SearchDocumentationParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<DocumentationSearch>(getSearchDocumentationUrl(params), {
+    ...options,
+    method: "GET",
+  })
 }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {

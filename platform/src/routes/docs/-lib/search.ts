@@ -1,4 +1,6 @@
 import MiniSearch from "minisearch"
+import { parseMarkdown, type BlockNode, type InlineNode } from "@tanstack/markdown"
+import { docsMarkdownExtensions } from "@tanstack/markdown/extensions/docs"
 
 import { findDocsPage, findDocsSection } from "./content"
 
@@ -9,7 +11,7 @@ const docsMarkdownByPath = import.meta.glob<string>("/src/routes/docs/-content/*
   import: "default",
 })
 
-interface DocsChunk {
+export interface DocsChunk {
   path: string
   url: string
   page: string
@@ -22,26 +24,65 @@ const docsPages = Object.entries(docsMarkdownByPath).flatMap(([file, load]) => {
   const section = findDocsSection(sectionSlug)
   if (!section || !(findDocsPage(section, pageSlug) || section.anchors?.[pageSlug])) return []
   const path = `${sectionSlug}/${pageSlug}`
-  return [{ path, url: `/docs/${path}`, load }]
+  const url = section.href ? `${section.href}#${section.anchors![pageSlug]}` : `/docs/${path}`
+  return [{ path, url, load, anchors: !section.href }]
 })
 
-/** Splits a page at its `##` headings, outside code fences, into searchable chunks. */
-function docsChunks(page: (typeof docsPages)[number], markdown: string) {
-  const title = /^# (.+)$/m.exec(markdown)?.[1] ?? page.path
-  const sections = [{ heading: title, lines: [] as string[] }]
-  let fenced = false
-  for (const line of markdown.split("\n")) {
-    if (line.startsWith("```")) fenced = !fenced
-    if (!fenced && line.startsWith("## ")) sections.push({ heading: line.slice(3), lines: [] })
-    else sections.at(-1)!.lines.push(line)
+function docsNodeText(node: BlockNode | InlineNode): string {
+  if (node.type === "html" || node.type === "inlineHtml") return ""
+  if ("value" in node) return node.value
+  if ("children" in node) return node.children.map(docsNodeText).join(" ")
+  if ("items" in node) {
+    return node.items.flatMap((item) => item.children.map(docsNodeText)).join(" ")
   }
-  return sections.map(({ heading, lines }) => ({
-    path: page.path,
-    url: page.url,
-    page: title,
-    heading,
-    text: lines.join("\n").trim(),
-  }))
+  if (node.type === "table") {
+    return [...node.header, ...node.rows.flat()]
+      .flatMap((cell) => cell.children.map(docsNodeText))
+      .join(" ")
+  }
+  return node.type === "image" ? node.alt : ""
+}
+
+function docsChunks(page: (typeof docsPages)[number], markdown: string): DocsChunk[] {
+  const document = parseMarkdown(markdown, { extensions: docsMarkdownExtensions() })
+  const title = document.headings?.[0]?.text ?? page.path
+  const chunks: DocsChunk[] = []
+  let chunk: DocsChunk = { path: page.path, url: page.url, page: title, heading: title, text: "" }
+  for (const node of document.children) {
+    if (node.type === "heading") {
+      if (chunk.text) chunks.push(chunk)
+      chunk = {
+        path: page.path,
+        url: page.anchors && node.depth > 1 && node.id ? `${page.url}#${node.id}` : page.url,
+        page: title,
+        heading: docsNodeText(node),
+        text: "",
+      }
+    } else {
+      chunk.text = `${chunk.text} ${docsNodeText(node)}`.replace(/\s+/g, " ").trim()
+    }
+  }
+  if (chunk.text) chunks.push(chunk)
+  return chunks
+}
+
+const docsSearchStopWords = new Set(
+  "a an and are as at be by can do does for from how i in is it of on or our that the this to use was we what when where which why will with you your".split(
+    " ",
+  ),
+)
+
+function tokenizeDocsSearch(raw: string): string[] {
+  return (raw.match(/[\p{L}\p{N}_]+/gu) ?? []).flatMap((token) => {
+    const parts = token
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
+      .split(/[\s_]+/u)
+    // Retain complete identifiers alongside their camelCase and underscore words.
+    return (parts.length > 1 ? [token, ...parts] : [token])
+      .map((word) => word.normalize("NFKC").toLowerCase())
+      .filter((word) => !docsSearchStopWords.has(word))
+  })
 }
 
 let docsIndex: Promise<{ search: MiniSearch; chunks: DocsChunk[] }> | undefined
@@ -54,7 +95,13 @@ function loadDocsIndex() {
       const chunks: DocsChunk[] = pages.flat()
       const search = new MiniSearch({
         fields: ["page", "heading", "text"],
-        searchOptions: { boost: { heading: 3, page: 2 }, prefix: true, fuzzy: 0.2 },
+        tokenize: tokenizeDocsSearch,
+        searchOptions: {
+          boost: { page: 2, heading: 3 },
+          prefix: true,
+          fuzzy: 0.3,
+          maxFuzzy: 2,
+        },
       })
       search.addAll(chunks.map((chunk, id) => ({ id, ...chunk })))
       return { search, chunks }
@@ -69,13 +116,17 @@ function loadDocsIndex() {
 }
 
 export async function searchDocs(query: string) {
+  const term = query.trim().slice(0, 255)
+  if (!term) return { results: [] as DocsChunk[] }
   const { search, chunks } = await loadDocsIndex()
-  return {
-    results: search
-      .search(query)
-      .slice(0, 5)
-      .map((result) => chunks[result.id as number]!),
+  const results: DocsChunk[] = []
+  for (const result of search.search(term)) {
+    const chunk = chunks[result.id as number]!
+    if (results.some((each) => each.path === chunk.path)) continue
+    results.push(chunk)
+    if (results.length === 5) break
   }
+  return { results }
 }
 
 export async function readDocsPage(path: string) {
