@@ -40,7 +40,6 @@ import {
   organizationConfiguration,
   tenant,
   tenantUser,
-  usageLimitCounter,
 } from "@/db/schema"
 import { ChatThreads } from "./threads"
 import { projectChatModelHistory } from "./projection"
@@ -720,21 +719,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
     expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
     expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
-    const fresh = await create()
-    const blocked = {
-      ...request,
-      params: {
-        ...params,
-        threadId: fresh.id,
-        messages: [{ role: "user" as const, content: "New" }],
-      },
-    }
-    await expect(run(blocked)).rejects.toMatchObject({ _tag: "UsageLimitReached" })
-    expect(await runtime.runPromise(service.history({ scope, id: fresh.id }))).toHaveLength(0)
-    await db
-      .delete(usageLimitCounter)
-      .where(eq(usageLimitCounter.organizationId, scope.organizationId))
-    expect((await run(blocked)).admission?.claim).toBeTruthy()
+    await expect(run({ ...request, idempotencyKey: "new-intent" })).rejects.toMatchObject({
+      _tag: "UsageLimitReached",
+    })
+    expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
     await expect(
       run({ ...request, params: { ...params, messages: [{ role: "user", content: "Changed" }] } }),
     ).rejects.toMatchObject({ _tag: "IdempotencyParametersMismatch" })

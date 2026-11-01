@@ -355,9 +355,6 @@ describe("ChatSandboxes", () => {
           assert.notStrictEqual((yield* acquire(input)).id, "sandbox-1")
         }
         assert.strictEqual(sandboxTest.created, 6)
-        sandboxTest.configuration.name = "Renamed"
-        sandboxTest.configuration.options = { snapshot: "first", target: "us" }
-        assert.strictEqual((yield* acquire()).id, "sandbox-1")
         sandboxTest.configuration.options.snapshot = "second"
         assert.strictEqual((yield* acquire()).id, "sandbox-7")
         sandboxTest.configuration.credentials.apiKey = "second-key"

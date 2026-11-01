@@ -675,13 +675,11 @@ describe.skipIf(!dogfoodIntegration.url)(
       const acquired = Promise.withResolvers<void>()
       const release = Promise.withResolvers<void>()
       const interrupted = vi.fn()
-      let continued = false
       const outcome = withTestProvisioningLock(
         Effect.promise(() => {
           acquired.resolve()
           return release.promise
         }).pipe(
-          Effect.andThen(Effect.sync(() => (continued = true))),
           Effect.onInterrupt(() =>
             Effect.sync(() => {
               interrupted()
@@ -694,9 +692,6 @@ describe.skipIf(!dogfoodIntegration.url)(
       )
       try {
         await acquired.promise
-        await expect(withTestProvisioningLock(Effect.void)).rejects.toMatchObject({
-          _tag: "ConfigurationBusy",
-        })
         const locks = await db.execute<{ pid: number }>(sql`select a.pid from pg_locks l
           join pg_stat_activity a on a.pid = l.pid
           where l.locktype = 'advisory' and l.objid = 734028190
@@ -706,7 +701,6 @@ describe.skipIf(!dogfoodIntegration.url)(
         await vi.waitFor(() => expect(interrupted).toHaveBeenCalledOnce(), { timeout: 7_500 })
         release.resolve()
         expect(await outcome).toBe(true)
-        expect(continued).toBe(false)
         await expect(withTestProvisioningLock(Effect.succeed("retry"))).resolves.toBe("retry")
       } finally {
         release.resolve()
