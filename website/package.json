@@ -10,6 +10,7 @@
     "generate-routes": "tsr generate",
     "generate:blog-images": "bun run scripts/generate-blog-images.ts",
     "build": "NODE_ENV=production vite build",
+    "sourcemaps:posthog": "posthog-cli sourcemap upload --release-mode symbol-set",
     "preview": "vite preview",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
     "check:fix": "bun run lint:fix && bun run format",
@@ -39,6 +40,7 @@
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
+    "@posthog/cli": "^0.18.11",
     "@tanstack/eslint-plugin-router": "^1.162.0",
     "@tanstack/eslint-plugin-start": "^0.1.0",
     "@tanstack/router-cli": "^1.167.43",

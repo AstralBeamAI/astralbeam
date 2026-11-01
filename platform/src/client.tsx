@@ -4,7 +4,7 @@ import posthog from "posthog-js"
 import { StrictMode, startTransition } from "react"
 import { hydrateRoot } from "react-dom/client"
 
-import "@website/lib/analytics"
+import { reactErrorHandlers } from "@website/lib/analytics"
 
 startTransition(() => {
   hydrateRoot(
@@ -14,5 +14,6 @@ startTransition(() => {
         <StartClient />
       </PostHogProvider>
     </StrictMode>,
+    reactErrorHandlers,
   )
 })

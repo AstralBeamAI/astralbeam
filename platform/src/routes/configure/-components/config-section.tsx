@@ -1,6 +1,7 @@
 "use client"
 
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { type ReactNode, useId, useState } from "react"
 
 import { DocsLink } from "@/components/docs-link"
@@ -11,6 +12,9 @@ export function ConfigSection({
   documentationHref,
   summary,
   configured,
+  id: sectionId,
+  configuredLabel = "Settings present",
+  defaultOpen = false,
   optional = false,
   hasChanges = false,
   errorAttempt,
@@ -20,13 +24,19 @@ export function ConfigSection({
   documentationHref: string
   summary: string
   configured: boolean
+  id: string
+  configuredLabel?: string
+  defaultOpen?: boolean
   optional?: boolean
   hasChanges?: boolean
   errorAttempt?: number | undefined
   children: ReactNode
 }) {
   const id = useId()
-  const [open, setOpen] = useState(!configured)
+  const hash = useLocation({ select: (location) => location.hash })
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(defaultOpen)
+  const expanded = open || hash === sectionId
   const [previousErrorAttempt, setPreviousErrorAttempt] = useState(errorAttempt)
   // Reveal new save errors while allowing sections to be collapsed afterward.
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
@@ -41,20 +51,24 @@ export function ConfigSection({
       ? "Needs attention"
       : optional
         ? "Optional"
-        : "Configured"
+        : configuredLabel
   const Icon = complete ? CheckCircleIcon : WarningCircleIcon
 
   return (
     <Collapsible
-      render={<section aria-labelledby={`${id}-title`} />}
-      open={open}
-      onOpenChange={setOpen}
-      className="overflow-hidden rounded-xl border bg-card text-card-foreground"
+      render={<section id={sectionId} aria-labelledby={`${id}-title`} />}
+      open={expanded}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        if (!nextOpen && hash === sectionId)
+          void navigate({ to: "/configure", hash: "", replace: true })
+      }}
+      className="scroll-mt-24 overflow-hidden rounded-xl border bg-card text-card-foreground"
     >
       <h2>
         <CollapsibleTrigger
           aria-label={title}
-          aria-describedby={`${id}-status${open ? "" : ` ${id}-summary`}`}
+          aria-describedby={`${id}-status${expanded ? "" : ` ${id}-summary`}`}
           className="group flex min-h-16 w-full items-start gap-3 p-5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         >
           <Icon
@@ -71,7 +85,7 @@ export function ConfigSection({
                 {status}
               </span>
             </span>
-            {!open && (
+            {!expanded && (
               <span
                 id={`${id}-summary`}
                 className="block text-sm font-normal break-words text-muted-foreground"

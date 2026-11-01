@@ -101,6 +101,15 @@ jobs:
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: bun run ${{ matrix.tasks }}
 
+      - name: Upload the website source maps to PostHog
+        if: matrix.project == 'website' && github.event_name == 'push' && vars.POSTHOG_PROJECT_ID != ''
+        working-directory: website
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
+        run: bun run sourcemaps:posthog --directory .output/sourcemaps
+
   todos-rails:
     name: Check examples/todos-rails
     runs-on: ubuntu-24.04

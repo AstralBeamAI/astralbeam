@@ -16,21 +16,22 @@ import {
 } from "effect"
 import { OtlpExporter, OtlpLogger, OtlpSerialization } from "effect/observability"
 
-import { redactSensitiveValue } from "@/lib/redaction"
+import { redactValue } from "@/lib/redaction"
+import { getRequestTelemetryAttributes } from "./tracing-context.server.ts"
 
 // Nitro and SSR load separate module copies. Forward their synchronous logs to one scoped exporter.
-const otlpLoggersKey = Symbol.for("platform.otlpLoggers")
-const otlpLoggers = ((
+const telemetryLoggersKey = Symbol.for("platform.telemetryLoggers")
+const telemetryLoggers = ((
   globalThis as typeof globalThis & {
-    [otlpLoggersKey]?: Set<Logger.Logger<unknown, void>>
+    [telemetryLoggersKey]?: Set<Logger.Logger<unknown, void>>
   }
-)[otlpLoggersKey] ??= new Set())
+)[telemetryLoggersKey] ??= new Set())
 
 // Keep Effect's cause rendering intact and map only the record fields to ECS.
 // https://www.elastic.co/docs/reference/ecs/logging/intro
 const ecsLogger = Logger.formatStructured.pipe(
   // Normalize with Effect, then mask credentials before message arguments become a single string.
-  Logger.map(redactLogRecord),
+  Logger.map(redactValue),
   Logger.map(({ timestamp, level, message, cause, annotations }) => {
     const { event, requestId, method, path, status, durationMs, ...attributes } = annotations
     return Formatter.formatJson({
@@ -56,25 +57,28 @@ const ecsLogger = Logger.formatStructured.pipe(
   Logger.withConsoleLog,
 )
 
-function redactLogRecord<A>(record: A): A {
-  return JSON.parse(Formatter.formatJson(record), redactSensitiveValue) as A
-}
-
-/** Native OTLP batching and finalization, with the same redaction as console output. */
-export const otlpLoggerLayer = (options: Parameters<typeof OtlpLogger.make>[0]) =>
+/** Keep one scoped forwarding pipeline available to Nitro and fallback failures. */
+export const telemetryLoggerLayer = (
+  options: Parameters<typeof OtlpLogger.make>[0] | undefined,
+  nativeLogger?: Logger.Logger<unknown, void>,
+) =>
   Layer.effectDiscard(
     Effect.gen(function* () {
-      const logger = yield* OtlpLogger.make(options)
+      const otlp = options ? yield* OtlpLogger.make(options) : undefined
+      const logger = Logger.make((options) => {
+        otlp?.log(options)
+        nativeLogger?.log(options)
+      })
       yield* Effect.acquireRelease(
-        Effect.sync(() => otlpLoggers.add(logger)),
-        () => Effect.sync(() => otlpLoggers.delete(logger)),
+        Effect.sync(() => telemetryLoggers.add(logger)),
+        () => Effect.sync(() => telemetryLoggers.delete(logger)),
       )
     }),
   ).pipe(
     Layer.provide(OtlpExporter.layerFlusher),
     Layer.updateService(OtlpSerialization.OtlpSerialization, (serialization) => ({
       ...serialization,
-      logs: (data) => serialization.logs(redactLogRecord(data)),
+      logs: (data) => serialization.logs(redactValue(data)),
     })),
     Layer.provide(OtlpSerialization.layerProtobuf),
   )
@@ -83,11 +87,14 @@ export const serverLoggerLayer = Layer.mergeAll(
   Logger.layer([
     ecsLogger,
     Logger.make((options) => {
-      const logger = otlpLoggers.values().next().value
+      const logger = telemetryLoggers.values().next().value
       if (!logger) return
       const { fiber } = options
       const context = fiber.context
-      const annotations = redactLogRecord(fiber.getRef(References.CurrentLogAnnotations))
+      const annotations = redactValue({
+        ...getRequestTelemetryAttributes(),
+        ...fiber.getRef(References.CurrentLogAnnotations),
+      })
       // Native OTLP formatting stringifies objects. Redact messages and annotations before it does.
       // Emission is synchronous, so restore the context before any other logger or Effect runs.
       fiber.setContext(Context.add(context, References.CurrentLogAnnotations, annotations))
@@ -102,7 +109,7 @@ export const serverLoggerLayer = Layer.mergeAll(
         )
       }
       try {
-        logger.log({ ...options, message: redactLogRecord(options.message) })
+        logger.log({ ...options, message: redactValue(options.message) })
       } finally {
         fiber.setContext(context)
       }

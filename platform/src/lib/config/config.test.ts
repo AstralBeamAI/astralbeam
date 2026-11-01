@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import { Clock, Context, Deferred, Effect, Exit, Fiber, Layer, Result } from "effect"
+import { TestClock } from "effect/testing"
 import type { SqlClient, SqlConnection } from "effect/sql"
 import { afterEach, beforeAll, beforeEach, vi } from "vitest"
 
@@ -7,6 +8,8 @@ import { Database, type EffectDatabase } from "@/db/database"
 import { DatabaseMigrations } from "@/db/migration-runner"
 import { runGuardedPromiseTransaction, withGuardedSqlTransaction } from "@/db/lib/transaction-guard"
 import { configTable } from "@/db/schema/config"
+import { Auth } from "@/lib/auth/auth.server"
+import { Mailer } from "@/lib/email/email.server"
 import { Config, publicConfigFromValues } from "./config.ts"
 import {
   CONFIG_DEFINITIONS,
@@ -182,6 +185,17 @@ describe("configuration registry", () => {
     )
   })
 
+  it.each([undefined, "false", "TRUE", "1", "true"])(
+    "only explicitly skips email verification for %s",
+    (flag) => {
+      vi.stubEnv("SKIP_EMAIL_VERIFICATION", flag)
+      assert.strictEqual(
+        publicConfigFromValues(COMPLETE_VALUES).requireEmailVerification,
+        flag !== "true",
+      )
+    },
+  )
+
   it("derives public configuration without any stored secret", () => {
     const serialized = JSON.stringify(
       publicConfigFromValues({
@@ -208,6 +222,26 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
+  it.effect("refreshes peer writes and rebuilds auth only when its settings change", () => {
+    const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
+    return Effect.gen(function* () {
+      const config = yield* Config
+      const auth = yield* Auth
+      const initial = yield* auth.instance
+      state.rows = encryptedRows({ ...COMPLETE_VALUES, support_email_address: "peer@example.com" })
+      yield* TestClock.adjust("5 seconds")
+      assert.strictEqual(yield* config.get("support_email_address"), "peer@example.com")
+      assert.strictEqual(yield* auth.instance, initial)
+      state.rows = encryptedRows({ ...COMPLETE_VALUES, better_auth_secret: "b".repeat(64) })
+      yield* TestClock.adjust("5 seconds")
+      assert.notStrictEqual(yield* auth.instance, initial)
+    }).pipe(
+      Effect.provide(
+        Auth.layerNoDeps.pipe(Layer.provideMerge([configLayer(state), Layer.mock(Mailer, {})])),
+      ),
+    )
+  })
+
   it.effect("defaults to File System without replacing legacy or unreadable settings", () => {
     const state = { rows: [] as StoredRow[], reads: 0 }
     return Effect.gen(function* () {
@@ -261,8 +295,11 @@ describe("Config", () => {
     return Effect.gen(function* () {
       const config = yield* Config
       const committed = yield* config.snapshot
+      const clock = yield* Clock.Clock
       const read = Effect.promise(() =>
-        runGuardedPromiseTransaction({}, () => Effect.runPromise(config.snapshot)),
+        runGuardedPromiseTransaction({}, () =>
+          Effect.runPromise(config.snapshot.pipe(Effect.provideService(Clock.Clock, clock))),
+        ),
       )
       assert.strictEqual(yield* read, committed)
       assert.strictEqual(state.reads, 1)
@@ -306,15 +343,20 @@ describe("Config", () => {
   })
 
   it.effect("keeps only features that need an unreadable value incomplete", () => {
-    const { better_auth_secret: _, ...withoutSecret } = COMPLETE_VALUES
+    const {
+      better_auth_secret: _,
+      app_base_url: _baseUrl,
+      ...withoutRequiredValues
+    } = COMPLETE_VALUES
     const unreadable = [
       { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
       { key: "resend_api_key", storedValue: "not-a-compact-jwe" },
+      { key: "app_base_url", storedValue: "not-a-compact-jwe" },
     ]
     const state = {
       rows: [
         ...encryptedRows({
-          ...withoutSecret,
+          ...withoutRequiredValues,
           email_from_address: "hello@example.com",
           email_provider: "resend",
         }),
@@ -325,7 +367,7 @@ describe("Config", () => {
     return Effect.gen(function* () {
       const config = yield* Config
       const issues = (yield* config.snapshot).issues.map((issue) => issue.key)
-      assert.includeMembers(issues, ["better_auth_secret", "resend_api_key"])
+      assert.includeMembers(issues, ["better_auth_secret", "resend_api_key", "app_base_url"])
 
       state.rows = [...encryptedRows(COMPLETE_VALUES), unreadable[1]!]
       yield* config.invalidate

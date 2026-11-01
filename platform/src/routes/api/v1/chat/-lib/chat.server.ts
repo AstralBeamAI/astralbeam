@@ -152,7 +152,6 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/threads/commands"),
       )
       const {
-        checkChatUsageLimits,
         consumeChatRateLimit,
         readChatRunParams,
         chatAdmissionResponse,
@@ -179,7 +178,6 @@ export function chatHandlers(api: typeof ApiV1) {
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof authenticateRestRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
-        | Effect.Services<ReturnType<typeof checkChatUsageLimits>>
         | Effect.Services<ReturnType<typeof prepareManagedChat>>
         | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
@@ -237,13 +235,11 @@ export function chatHandlers(api: typeof ApiV1) {
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
             const scope = yield* threads.resolveScope({ principal })
-            yield* checkChatUsageLimits({ principal, scope, threadId: params.threadId }).pipe(
-              Effect.provideContext(services),
-            )
             const { admission, receipt, clientId } = yield* prepareManagedChat({
               scope,
               params,
               idempotencyKey: native.headers.get("Idempotency-Key") ?? undefined,
+              usageLimitIds: principal.usageLimitIds,
             }).pipe(Effect.provideContext(services))
             if (!admission)
               return HttpServerResponse.jsonUnsafe(

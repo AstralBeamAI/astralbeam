@@ -12,6 +12,13 @@ const databaseIdempotencyRecordSchema = Schema.Struct({
 })
 const databaseIdempotencyKeySchema = NonEmptyStringSchema.check(Schema.isMaxCodePoints(255))
 
+// Nitro and SSR can load separate module graphs, so duplicate admission stays process-wide.
+const idempotencyExecutionsKey = Symbol.for("platform.idempotencyExecutions")
+const idempotencyProcess = globalThis as typeof globalThis & {
+  [idempotencyExecutionsKey]?: Set<string>
+}
+const idempotencyExecutions = (idempotencyProcess[idempotencyExecutionsKey] ??= new Set<string>())
+
 export class IdempotencyParametersMismatch extends Schema.TaggedError<IdempotencyParametersMismatch>()(
   "IdempotencyParametersMismatch",
   {},
@@ -27,6 +34,17 @@ export class IdempotencyInProgress extends Schema.TaggedError<IdempotencyInProgr
   { httpApiStatus: 409 },
 ) {
   override readonly message = "An operation with this idempotency key is still in progress"
+}
+
+function claimIdempotencyExecution(identity: string) {
+  return Effect.acquireRelease(
+    Effect.suspend(() => {
+      if (idempotencyExecutions.has(identity)) return new IdempotencyInProgress()
+      idempotencyExecutions.add(identity)
+      return Effect.void
+    }),
+    () => Effect.sync(() => idempotencyExecutions.delete(identity)),
+  )
 }
 
 export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(function* <
@@ -68,6 +86,7 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
     timeToLive: "24 hours",
   })
   const key = `${scope}:${createHash("sha256").update(clientKey).digest("hex")}`
+  yield* claimIdempotencyExecution(JSON.stringify([namespace, key]))
   const locked = yield* tryWithDatabaseCacheLock(
     { namespace, key },
     Effect.gen(function* () {
@@ -108,4 +127,4 @@ export const withDatabaseIdempotency = Effect.fn("withDatabaseIdempotency")(func
   // Raise a recorded failure after commit, otherwise the failure would roll back its own record.
   // https://www.postgresql.org/docs/18/tutorial-transactions.html
   return yield* Effect.fromResult(locked.value)
-})
+}, Effect.scoped)

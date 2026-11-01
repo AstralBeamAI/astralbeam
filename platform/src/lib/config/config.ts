@@ -8,13 +8,13 @@ import {
   Exit,
   Layer,
   Option,
-  Ref,
   Result,
 } from "effect"
 
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { isInDatabaseTransaction } from "@/db/lib/transaction-guard"
+import { skipEmailVerification } from "@/lib/runtime/environment.server"
 import { isStorageSettingActive } from "@/lib/storage/schemas"
 import {
   DatabaseMigrations,
@@ -55,8 +55,6 @@ import type {
 
 /** One load of the effective configuration: defaults, then stored values, then the environment. */
 export interface ConfigSnapshot {
-  /** Increments with every load, so values derived from a snapshot know when to rebuild. */
-  readonly generation: number
   readonly rows: readonly ConfigStorageEntry[] | null
   readonly values: ConfigValues
   readonly issues: readonly ConfigIssue[]
@@ -112,7 +110,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   if (values.github_client_id && values.github_client_secret) enabledSocialProviders.push("github")
   return {
     enabledSocialProviders,
-    // Setup cannot complete without the site key or the support address.
+    requireEmailVerification: !skipEmailVerification(),
     turnstileSiteKey: values.turnstile_site_key ?? "",
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
@@ -124,7 +122,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
 export class Config extends Context.Service<
   Config,
   {
-    /** Cached per process outside Effect transactions, until a same-process write invalidates it. */
+    /** Cached for up to five seconds outside transactions, invalidated immediately by local writes. */
     readonly snapshot: Effect.Effect<ConfigSnapshot>
     readonly get: <Key extends ConfigKey>(key: Key) => Effect.Effect<ConfigValues[Key]>
     readonly invalidate: Effect.Effect<void>
@@ -155,7 +153,6 @@ export class Config extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const migrations = yield* DatabaseMigrations
-      const generations = yield* Ref.make(0)
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
@@ -165,6 +162,11 @@ export class Config extends Context.Service<
           ...(stored.rows ?? []).map((row) => row.key),
           ...environmentKeys,
         ])
+        for (const row of stored.rows ?? []) {
+          const definition = findConfigDefinition(row.key)
+          if (row.storageStatus === "unreadable" && definition?.required)
+            delete values[definition.key]
+        }
         const issues = validateConfigCompleteness(values, environmentKeys)
         for (const key of ["storage_provider", "storage_directory"] as const) {
           if (
@@ -177,7 +179,6 @@ export class Config extends Context.Service<
             })
         }
         return {
-          generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,
           values,
           issues,
@@ -187,7 +188,7 @@ export class Config extends Context.Service<
 
       const cache = yield* Cache.makeWith(() => load, {
         capacity: 1,
-        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(5) : Duration.zero),
       })
       // Transaction-local values must neither escape the connection nor populate the process cache.
       const snapshot = Effect.gen(function* () {

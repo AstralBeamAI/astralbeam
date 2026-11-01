@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
@@ -77,6 +78,10 @@ describe("managed conversation commands", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
+      Layer.mock(UsageLimits, {
+        applicable: () => Effect.succeed([]),
+        check: () => Effect.void,
+      }),
       Layer.succeed(ChatFiles, {
         download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),

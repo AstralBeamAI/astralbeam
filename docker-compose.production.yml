@@ -13,9 +13,13 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-astralbeam}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-astralbeam}
       DATABASE_ENCRYPTION_KEY: ${DATABASE_ENCRYPTION_KEY}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      SKIP_EMAIL_VERIFICATION: ${SKIP_EMAIL_VERIFICATION:-false}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       PORT: ${PORT:-4510}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${PORT:-4510}}
-      ALLOW_INSECURE:
+      ALLOW_INSECURE: ${ALLOW_INSECURE:-false}
       STORAGE_PROVIDER: filesystem
       STORAGE_DIRECTORY: /var/lib/astralbeam/storage
     volumes:
