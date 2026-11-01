@@ -4,6 +4,3 @@ env = false
 [run]
 # Run package executables and their child processes with Bun.
 bun = true
-
-[install]
-linker = "isolated"

@@ -1,6 +1,5 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "printWidth": 100,
   "semi": false,
   "proseWrap": "never",
   "ignorePatterns": ["src/widget/components/ui/**", "src/widget/styles.generated.ts"]

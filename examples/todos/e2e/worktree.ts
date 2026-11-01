@@ -1,7 +1,9 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
+
+import { loadEnv } from "vite"
 
 import { pinDockerHost, worktreeHash } from "../../../platform/e2e/bootstrap.ts"
 import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
@@ -33,32 +35,7 @@ const portBase = E2E_PORT_BASE + (worktreeHash(repositoryRoot) % E2E_PORT_SLOTS)
 const platformPort = Number(process.env.E2E_PLATFORM_PORT ?? portBase)
 const todosPort = Number(process.env.E2E_TODOS_PORT ?? portBase + 1)
 
-/**
- * The platform's environment files, in Vite's precedence order, lowest first. Only plain `KEY=value`
- * lines are read, which is all these files contain and all the repository's own scripts assume.
- * https://vite.dev/guide/env-and-mode
- */
-const PLATFORM_ENV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"]
-
-function readPlatformEnvFiles(): Record<string, string> {
-  const values: Record<string, string> = {}
-  for (const fileName of PLATFORM_ENV_FILES) {
-    const path = join(platformDirectory, fileName)
-    if (!existsSync(path)) continue
-    for (const line of readFileSync(path, "utf8").split("\n")) {
-      const match = /^\s*([A-Z_]\w*)\s*=(.*)$/i.exec(line)
-      if (!match?.[1]) continue
-      values[match[1]] = (match[2] ?? "").trim().replace(/^["'](.*)["']$/, "$1")
-    }
-  }
-  return values
-}
-
-const platformEnv = readPlatformEnvFiles()
-
-function platformEnvValue(key: string): string | undefined {
-  return process.env[key] || platformEnv[key] || undefined
-}
+const platformEnv = loadEnv("development", platformDirectory, "")
 
 /** Set to reuse servers that are already running, instead of letting the suite start its own. */
 const externalPlatformUrl = process.env.E2E_PLATFORM_URL
@@ -70,7 +47,7 @@ export const todosUrl = externalTodosUrl ?? `http://localhost:${todosPort}`
 export const seedTarget = SEED_TODOS_TARGET
 
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
-export const agentSpecsEnabled = Boolean(platformEnvValue("OPENAI_API_KEY"))
+export const agentSpecsEnabled = Boolean(platformEnv.OPENAI_API_KEY)
 
 pinDockerHost()
 

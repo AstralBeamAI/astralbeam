@@ -2,7 +2,7 @@ import { $ } from "bun"
 import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import packageJson from "../../package.json" with { type: "json" }
+import packageJson from "../../../package.json" with { type: "json" }
 
 if (`bun@${Bun.version}` !== packageJson.packageManager)
   throw new Error(`Generation requires ${packageJson.packageManager}.`)
