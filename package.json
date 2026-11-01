@@ -34,10 +34,22 @@
   },
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {
-    "nitro@3.0.261029-rc": "patches/nitro@3.0.261029-rc.patch"
+    "nitro@3.0.261029-rc": "patches/nitro@3.0.261029-rc.patch",
+    "deepmerge@4.3.1": "patches/deepmerge@4.3.1.patch"
   },
   "trustedDependencies": [
     "esbuild",
     "msgpackr-extract"
-  ]
+  ],
+  "overrides": {
+    "@tanstack/ai-sandbox-daytona": {
+      "@daytona/sdk": "^0.227.0"
+    },
+    "@tanstack/ai-sandbox-docker": {
+      "dockerode": "^5.0.1"
+    },
+    "glob@^13": "^14.0.3",
+    "minimatch@^10": "^11.0.3",
+    "@opentelemetry/api": "^1.9.1 <1.10.0"
+  }
 }

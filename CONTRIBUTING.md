@@ -25,6 +25,10 @@ The repository holds six Bun projects in one workspace:
 
 Each owns its dependencies and tooling, with one shared Bun lockfile. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
 
+The root security overrides advance TanStack's Daytona and Docker adapters to patched vendor dependencies, and Glob 13 and Minimatch 10 consumers to the fixed major versions. Remove each override when the parent packages accept the fixed versions from the <a href="https://github.com/advisories/GHSA-8988-4f7v-96qf" target="_blank" rel="noopener noreferrer">OpenTelemetry Core</a>, <a href="https://github.com/advisories/GHSA-45rx-2jwx-cxfr" target="_blank" rel="noopener noreferrer">Jaeger</a>, <a href="https://github.com/advisories/GHSA-j3f2-48v5-ccww" target="_blank" rel="noopener noreferrer">Protobuf.js</a>, <a href="https://github.com/advisories/GHSA-w5hq-g745-h8pq" target="_blank" rel="noopener noreferrer">UUID</a>, <a href="https://github.com/advisories/GHSA-3g3m-2fjr-6pw4" target="_blank" rel="noopener noreferrer">Glob</a>, and <a href="https://github.com/advisories/GHSA-g3hv-75wg-m249" target="_blank" rel="noopener noreferrer">Minimatch</a> advisories. OpenTelemetry API stays below 1.10 until the Effect-compatible telemetry packages accept it in their peer ranges.
+
+The Deepmerge patch rejects `__proto__` keys in both merge inputs, including its distributed bundles. Remove it when an upstream release includes <a href="https://github.com/TehShrike/deepmerge/pull/274" target="_blank" rel="noopener noreferrer">the fix</a>. Bun's version-based audit still reports <a href="https://github.com/advisories/GHSA-gcqx-w48m-w2h4" target="_blank" rel="noopener noreferrer">the advisory</a> for patched 4.3.1.
+
 ## Validate your change
 
 Each Bun project defines `check` for static validation, `test` for Vitest, and `build` for its distributable. `ready` runs all three and formats first outside CI. Run it once for each project you touched before opening a pull request:
