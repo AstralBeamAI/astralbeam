@@ -7,6 +7,7 @@ import { eq, like, or, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "@/db/schema.ts"
+import { ENVIRONMENT_CONFIG_DEFINITIONS } from "@/lib/config/registry.ts"
 import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas.ts"
 import { BooleanSettingSchema, parseEnvironmentConfigValue } from "@/lib/config/schemas.ts"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
@@ -48,14 +49,7 @@ export async function resolveSeedStorageProvider(
   return "filesystem"
 }
 
-/**
- * Writes the configuration the application needs before it will serve anything but `/configure`.
- *
- * A key whose uppercase environment variable is already set is left alone, because
- * `src/lib/config/registry.ts` gives the environment precedence and `/configure` renders
- * those fields read-only; writing a row for one would be invisible and misleading. Values are
- * upserted through the same encrypted-column codec `src/lib/config/store.ts` uses.
- */
+/** Skip environment overrides so seeded values do not hide behind read-only configuration fields. */
 export async function seedConfig(
   transaction: SeedTransaction,
   databaseName: string,
@@ -78,7 +72,10 @@ export async function seedConfig(
   }
   for (const [key, value] of Object.entries(values)) {
     if (!isStorageSettingActive(key, storageProvider)) continue
-    if (process.env[key.toUpperCase()]) {
+    if (
+      ENVIRONMENT_CONFIG_DEFINITIONS.some((definition) => definition.key === key) &&
+      process.env[key.toUpperCase()]
+    ) {
       fromEnvironment.push(key)
       continue
     }

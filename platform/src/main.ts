@@ -25,6 +25,7 @@ const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL connection URL (required)
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (required by start)
+  ASTRALBEAM_DATA_DIR       default data directory (uploads use storage/)
   NODE_ENV                 set to production for production deployments
   ALLOW_INSECURE           set to true to allow HTTP and non-Secure operator cookies
   PORT                     port the server listens on (default 4510)

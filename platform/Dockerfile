@@ -23,7 +23,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 astralbeam \
     && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam \
-    && install -d -o 10001 -g 10001 -m 700 /var/lib/astralbeam/storage
+    && install -d -o 10001 -g 10001 -m 700 /var/lib/astralbeam
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
@@ -32,7 +32,7 @@ COPY --from=build --chmod=755 /app/platform/.output/astralbeam-platform /usr/loc
 # Other notices are embedded. Preserve the SDK's separate notice: https://opensource.org/license/mit
 COPY --from=build /app/LICENSE-MIT /usr/share/doc/astralbeam/
 
-ENV NODE_ENV=production HOST=0.0.0.0
+ENV NODE_ENV=production HOST=0.0.0.0 ASTRALBEAM_DATA_DIR=/var/lib/astralbeam
 # Run without root. The binary unpacks assets and native libraries into writable, executable /tmp.
 USER 10001:10001
 WORKDIR /tmp

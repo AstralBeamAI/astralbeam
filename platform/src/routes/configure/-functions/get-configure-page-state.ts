@@ -6,7 +6,11 @@ import {
   getDatabaseEncryptionKeyring,
 } from "@/db/lib/database-credentials"
 import { Config } from "@/lib/config/config"
-import { CONFIG_DEFINITIONS, configEnvironmentVariable } from "@/lib/config/registry"
+import {
+  CONFIG_DEFINITIONS,
+  ENVIRONMENT_CONFIG_DEFINITIONS,
+  configEnvironmentVariable,
+} from "@/lib/config/registry"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
 import { exposeError, runEffect, runRequestEffect } from "@/lib/runtime/server-fn.server"
 import { checkConfigureRequest } from "../-lib/configure-request.server"
@@ -35,7 +39,9 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
       required: definition.required,
       canGenerate: definition.generate !== undefined,
       isPublic: definition.isPublic === true,
-      environmentVariable: configEnvironmentVariable(definition.key),
+      environmentVariable: ENVIRONMENT_CONFIG_DEFINITIONS.some(({ key }) => key === definition.key)
+        ? configEnvironmentVariable(definition.key)
+        : "",
       source,
       ...(definition.options ? { options: definition.options } : {}),
       isSet:

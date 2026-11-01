@@ -30,7 +30,7 @@ Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYP
 
 Set `DATABASE_URL` for PostgreSQL and `DATABASE_ENCRYPTION_KEY` for encrypted settings and operator sign-in. These are the only required environment settings.
 
-Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values, including `STORAGE_PROVIDER` and `STORAGE_DIRECTORY` for file storage. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
+Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values, including `STORAGE_PROVIDER` for file storage. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
 
 ## First boot
 
