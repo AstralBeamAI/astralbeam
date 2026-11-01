@@ -559,11 +559,9 @@ export function createChatAttachmentSnapshotMiddleware(
 }
 
 type JsonObject = typeof Schema.JsonObject.Type
-export interface ChatFileScope {
-  organizationId: string
-  tenantId: string
+export interface ChatFileScope extends Pick<ChatThreadScope, "organizationId" | "tenantId"> {
   threadId: string
-  tenantUserId?: string
+  tenantUserId?: ChatThreadScope["tenantUserId"]
 }
 export type ChatFileCache = Map<string, typeof storedSource.Type & { byteSize: number }>
 type FileError = ChatThreadInvalid | ChatFileUnavailable | ChatThreadNotFound
@@ -675,7 +673,7 @@ export class ChatFiles extends Context.Service<
       messages: readonly ModelMessage[]
     }) => Effect.Effect<ModelMessage[], FileError>
     readonly attach: (input: {
-      scope: ChatFileScope & { tenantUserId: string }
+      scope: ChatThreadScope & { threadId: string }
       messageId: string
       value: unknown
     }) => Effect.Effect<number, ChatThreadInvalid>
@@ -903,7 +901,7 @@ export class ChatFiles extends Context.Service<
         messageId,
         value,
       }: {
-        scope: ChatFileScope & { tenantUserId: string }
+        scope: ChatThreadScope & { threadId: string }
         messageId: string
         value: unknown
       }) {

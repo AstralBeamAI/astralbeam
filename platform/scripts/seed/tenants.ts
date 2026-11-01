@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { sql } from "drizzle-orm"
 
 import { tenant, tenantUser } from "@/db/schema.ts"
@@ -16,7 +17,7 @@ import { SEED_ORGANIZATIONS } from "./fixtures.ts"
 export async function seedTenants(transaction: SeedTransaction): Promise<number> {
   let tenantUserCount = 0
   for (const seedOrganization of SEED_ORGANIZATIONS) {
-    const organizationId = seedOrganization.id
+    const organizationId = OrganizationIdSchema.make(seedOrganization.id)
 
     for (const seedTenant of seedOrganization.tenants) {
       const [insertedTenant] = await transaction

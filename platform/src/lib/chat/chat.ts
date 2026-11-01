@@ -30,6 +30,7 @@ import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
   ChatFiles,
+  type ChatFileScope,
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments/attachments"
@@ -103,7 +104,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly files: typeof ChatFiles.Service
   readonly sandbox: boolean
   readonly webAccessEnabled: boolean
-  readonly scope: { organizationId: string; tenantId: string; threadId: string }
+  readonly scope: Pick<ChatFileScope, "organizationId" | "tenantId" | "threadId">
 }) {
   const stored = yield* Effect.try({
     try: () =>

@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { messageResource } from "@/routes/api/v1/chat/-lib/threads.server"
 import { deleteTenant } from "@/lib/tenants/deletion"
 import { APP_HANDLE } from "@/lib/constants"
@@ -112,7 +113,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       .insert(organization)
       .values({ domain: "example.com", name: "Chat", slug: "chat" })
       .returning()
-    const organizationId = org!.id
+    const organizationId = OrganizationIdSchema.make(org!.id)
     const [model] = await db
       .insert(agent)
       .values({ organizationId, name: "Assistant", systemPrompt: "Help" })
@@ -349,7 +350,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
     expect(snapshot.thread).not.toHaveProperty("role")
     for (const operation of [
-      service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
+      service.directorySnapshot({
+        ...input,
+        scope: {
+          organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+        },
+      }),
       service.directorySnapshot({
         ...input,
         scope: { organizationId: scope.organizationId, tenantId: foreign.tenantId },
@@ -439,7 +445,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(
       (
         await runtime.runPromise(
-          service.directoryList({ scope: { organizationId: crypto.randomUUID() } }),
+          service.directoryList({
+            scope: {
+              organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+            },
+          }),
         )
       ).items,
     ).toEqual([])

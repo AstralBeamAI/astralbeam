@@ -5,7 +5,14 @@ import { SqlClient } from "effect/sql"
 import { Database } from "@/db/database.ts"
 import { user } from "@/db/schema/authentication.ts"
 import { cacheEntry } from "@/db/schema/cache.ts"
-import { apiKey, invitation, member, organization } from "@/db/schema/organizations.ts"
+import {
+  OrganizationIdSchema,
+  apiKey,
+  invitation,
+  member,
+  organization,
+  tenant,
+} from "@/db/schema/organizations"
 import { fileObject } from "@/db/schema/files.ts"
 import { ObjectStorage } from "../storage/object-storage.server.ts"
 import { filePreviewObjectKey } from "../storage/file-previews.server.ts"
@@ -41,12 +48,14 @@ export function readUserEmails(userIds: readonly string[]) {
 export const deleteOrganizationTenantBatch = Effect.fn("deleteOrganizationTenantBatch")(function* (
   organizationId: string,
 ) {
-  const sql = yield* SqlClient.SqlClient
-  const tenants = yield* sql<{ id: string }>`select id from tenant
-    where organization_id = ${organizationId} order by id limit 1000`
-  yield* Effect.forEach(tenants, ({ id }) => deleteTenant({ organizationId, tenantId: id }), {
-    discard: true,
-  })
+  const db = yield* Database
+  const tenants = yield* db
+    .select({ organizationId: tenant.organizationId, tenantId: tenant.id })
+    .from(tenant)
+    .where(eq(tenant.organizationId, OrganizationIdSchema.make(organizationId)))
+    .orderBy(tenant.id)
+    .limit(1000)
+  yield* Effect.forEach(tenants, deleteTenant, { discard: true })
   return tenants.length
 })
 

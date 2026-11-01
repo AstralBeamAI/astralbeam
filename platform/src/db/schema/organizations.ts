@@ -27,7 +27,7 @@ import {
   type ModelProviderType,
   type ModelProviderApi,
 } from "@/lib/model-providers/schemas.ts"
-import { UuidV7Schema } from "@/lib/schemas.ts"
+import { ApiUuidSchema, UuidV7Schema } from "@/lib/schemas.ts"
 
 import {
   caseInsensitiveText,
@@ -46,6 +46,15 @@ import {
 } from "@/lib/api-keys/schemas.ts"
 import { fileObject } from "./files.ts"
 import { user } from "./authentication.ts"
+
+export const OrganizationIdSchema = UuidV7Schema.pipe(Schema.brand("astralbeam/OrganizationId"))
+export type OrganizationId = typeof OrganizationIdSchema.Type
+
+export const TenantIdSchema = ApiUuidSchema.pipe(Schema.brand("astralbeam/TenantId"))
+export type TenantId = typeof TenantIdSchema.Type
+
+export const TenantUserIdSchema = ApiUuidSchema.pipe(Schema.brand("astralbeam/TenantUserId"))
+export type TenantUserId = typeof TenantUserIdSchema.Type
 
 export const SandboxProviderCredentialsPayloadSchema = Schema.Struct({
   sandboxProviderId: UuidV7Schema,
@@ -319,8 +328,8 @@ export const organizationConfiguration = snakeCase.table(
 export const tenant = snakeCase.table(
   "tenant",
   {
-    organizationId: uuid().notNull(),
-    id: uuidV7(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
+    id: uuidV7().$type<TenantId>(),
     externalId: text().notNull(),
     name: text(),
     metadata: schemaJsonb(Schema.JsonObject).default({}).notNull(),
@@ -345,9 +354,9 @@ export const tenant = snakeCase.table(
 export const tenantUser = snakeCase.table(
   "tenant_user",
   {
-    organizationId: uuid().notNull(),
-    tenantId: uuid().notNull(),
-    id: uuidV7(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
+    tenantId: uuid().$type<TenantId>().notNull(),
+    id: uuidV7().$type<TenantUserId>(),
     externalId: text().notNull(),
     name: text(),
     admin: boolean().default(false).notNull(),

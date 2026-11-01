@@ -16,8 +16,8 @@ import {
   RestScope,
   tenantRestKeys,
 } from "./shared.server"
+import { TenantIdSchema } from "@/db/schema/organizations"
 import {
-  ApiUuidSchema,
   TenantPatchSchema,
   TenantRecordSchema as ManagementTenantRecordSchema,
   TenantWriteSchema,
@@ -80,7 +80,9 @@ export const tenantRestPage = Schema.Struct({
       "Live keyset page. Pass either non-null continuation value as the same-named request parameter.",
   }),
 )
-export const restMemberParams = { id: ApiUuidSchema.annotate({ examples: [restExampleTenant.id] }) }
+export const restMemberParams = {
+  id: TenantIdSchema.pipe(Schema.annotateEncoded({ examples: [restExampleTenant.id] })),
+}
 
 export const tenantApi = HttpApiGroup.make("tenants", { topLevel: true })
   .annotate(OpenApi.Override, {

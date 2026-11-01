@@ -10,8 +10,9 @@ import {
 } from "effect/http-api"
 
 import { APP_HANDLE } from "@/lib/constants.ts"
-import { LockVersionSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
-import { ApiUuidSchema, tenantUserEmail } from "@/lib/tenants/schemas.ts"
+import { LockVersionSchema, NonEmptyStringSchema, ApiUuidSchema } from "@/lib/schemas.ts"
+import { TenantUserIdSchema } from "@/db/schema/organizations"
+import { tenantUserEmail } from "@/lib/tenants/schemas.ts"
 import type { ApiV1 } from "../../-lib/contract.server"
 import {
   restPageFields,
@@ -28,7 +29,7 @@ const toolExecutionLocation = Schema.Literals(["server_api", "sandbox", "browser
 const threadDate = Schema.DateFromString.pipe(Schema.annotateEncoded({ format: "date-time" }))
 const threadTitle = NonEmptyStringSchema.check(Schema.isMaxLength(200))
 const threadParams = { id: ApiUuidSchema }
-const participantParams = { ...threadParams, tenantUserId: ApiUuidSchema }
+const participantParams = { ...threadParams, tenantUserId: TenantUserIdSchema }
 const threadSearchQuery = Schema.Struct({
   ...restPaginationQuery.fields,
   q: restPageQuery.fields.q,
@@ -67,7 +68,7 @@ const ChatThreadRecordSchema = Schema.Struct({
 )
 
 const chatParticipantRecord = Schema.Struct({
-  tenantUserId: ApiUuidSchema,
+  tenantUserId: TenantUserIdSchema,
   role: threadRole,
   name: Schema.NullOr(Schema.String),
   externalId: Schema.String,
@@ -78,7 +79,7 @@ const chatParticipantRecord = Schema.Struct({
 )
 
 const chatTenantUserRecord = Schema.Struct({
-  id: ApiUuidSchema,
+  id: TenantUserIdSchema,
   name: Schema.NullOr(Schema.String),
   externalId: Schema.String,
   email: Schema.NullOr(Schema.String),

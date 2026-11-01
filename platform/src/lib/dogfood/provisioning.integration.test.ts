@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import process from "node:process"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
@@ -333,7 +334,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         ])
         .returning()
       const principal = {
-        organization: { id: first!.id },
+        organization: { id: OrganizationIdSchema.make(first!.id) },
         tenantUser: {
           id: "same-user",
           name: "Original",
@@ -392,7 +393,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
       const otherOrganization = await synchronize({
         ...principal,
-        organization: { id: second!.id },
+        organization: { id: OrganizationIdSchema.make(second!.id) },
       })
       expect(new Set([original.user.id, otherTenant.user.id, otherOrganization.user.id]).size).toBe(
         3,
