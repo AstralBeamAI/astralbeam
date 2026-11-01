@@ -17,8 +17,8 @@ import {
   restUserPageQuery,
   tenantRestKeys,
 } from "./shared.server"
+import { TenantUserIdSchema } from "@/db/schema/organizations"
 import {
-  ApiUuidSchema,
   TenantUserPatchSchema,
   TenantUserRecordSchema as ManagementTenantUserRecordSchema,
   TenantUserWriteSchema,
@@ -64,7 +64,7 @@ const tenantUserUsageTimestamp = Schema.String.check(
 const tenantUserUsageQuery = Schema.Struct({
   userIds: Schema.String.check(Schema.isMaxLength(3699)).pipe(
     Schema.decodeTo(
-      Schema.Array(ApiUuidSchema).check(
+      Schema.Array(TenantUserIdSchema).check(
         Schema.isMinLength(1),
         Schema.isMaxLength(100),
         Schema.isUnique(),
@@ -102,7 +102,7 @@ const TenantUserUsageSchema = Schema.Struct({
   end: tenantUserUsageTimestamp,
   items: Schema.Array(
     Schema.Struct({
-      tenantUserId: ApiUuidSchema,
+      tenantUserId: TenantUserIdSchema,
       costUsd: Schema.String.annotate({
         description:
           "USD total from settled saved assistant replies. Uses saved resolved or provider-reported costs when available, otherwise current configured model-token rates. Drafts and deleted conversations are excluded. Unpriceable replies contribute zero for now, and users with no settled replies return zero.",
@@ -149,7 +149,7 @@ export const tenantUserRestPage = Schema.Struct({
 )
 const restUserParams = {
   tenant_id: restMemberParams.id,
-  id: ApiUuidSchema.annotate({ examples: [restExampleUser.id] }),
+  id: TenantUserIdSchema.pipe(Schema.annotateEncoded({ examples: [restExampleUser.id] })),
 }
 
 export const tenantUserApi = HttpApiGroup.make("tenant_users", { topLevel: true })

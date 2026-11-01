@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
   chat,
   EventType,
@@ -35,7 +36,11 @@ it("stops before the next model call and announces the limit once before the run
   const guard = chatUsageLimitGuard({
     usageLimits,
     limits: [{} as UsageLimit],
-    subject: { organizationId: "org", tenantId: "tenant", tenantUserId: "user" },
+    subject: {
+      organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
+      tenantId: TenantIdSchema.make("019a0000-0000-7000-8000-000000000002"),
+      tenantUserId: TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003"),
+    },
     pricing: null,
     execute: Effect.runPromise,
   })

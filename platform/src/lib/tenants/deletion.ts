@@ -5,12 +5,13 @@ import { SqlClient } from "effect/sql"
 import { Database } from "@/db/database.ts"
 import { cacheEntry } from "@/db/schema/cache.ts"
 import { fileObject } from "@/db/schema/files.ts"
-import { tenant } from "@/db/schema/organizations.ts"
+import type { OrganizationId, TenantId } from "@/db/schema/organizations"
+import { tenant } from "@/db/schema/organizations"
 
 /** Cascades to the Tenant's users and chat rows in one transaction. */
 export const deleteTenant = Effect.fn("deleteTenant")(function* (input: {
-  organizationId: string
-  tenantId: string
+  organizationId: OrganizationId
+  tenantId: TenantId
 }) {
   const sql = yield* SqlClient.SqlClient
   const db = yield* Database

@@ -7,13 +7,14 @@ import {
   timestamps,
   uuidV7,
 } from "../lib/columns.ts"
+import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organization, tenantUser } from "./organizations.ts"
 import { McpCredentialEnvelopeSchema, McpStoredAuthConfigSchema } from "@/lib/mcp/schemas.ts"
 
 export const mcpServer = snakeCase.table(
   "mcp_server",
   {
-    organizationId: uuid().notNull(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
     id: uuidV7(),
     endpointUrl: text().notNull(),
     authConfig: schemaJsonb(McpStoredAuthConfigSchema).notNull(),
@@ -31,10 +32,10 @@ export const mcpServer = snakeCase.table(
 export const mcpConnection = snakeCase.table(
   "mcp_connection",
   {
-    organizationId: uuid().notNull(),
-    tenantId: uuid().notNull(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
+    tenantId: uuid().$type<TenantId>().notNull(),
     id: uuidV7(),
-    tenantUserId: uuid().notNull(),
+    tenantUserId: uuid().$type<TenantUserId>().notNull(),
     mcpServerId: uuid().notNull(),
     credentials: encryptedJson({ schema: McpCredentialEnvelopeSchema }),
     lockVersion: lockVersion(),

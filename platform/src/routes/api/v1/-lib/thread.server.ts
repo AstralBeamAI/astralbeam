@@ -15,7 +15,8 @@ import {
   restPaginationQuery,
   restResourceSecurity,
 } from "./shared.server"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { ApiUuidSchema } from "@/lib/schemas.ts"
+import { TenantIdSchema } from "@/db/schema/organizations"
 import { chatMessageRecord, messageResource } from "../chat/-lib/threads.server"
 import type { DirectoryThreadRecord } from "@/lib/chat/threads/threads"
 
@@ -24,7 +25,7 @@ const directoryThreadDate = Schema.DateFromString.pipe(
 )
 const directoryThreadRecord = Schema.Struct({
   id: ApiUuidSchema,
-  tenantId: ApiUuidSchema,
+  tenantId: TenantIdSchema,
   tenantName: Schema.NullOr(Schema.String),
   tenantExternalId: Schema.String,
   participants: Schema.Array(
@@ -53,11 +54,11 @@ const directoryThreadQuery = Schema.Struct({
     description:
       "Case-insensitive literal substring of the conversation title. Trimmed, blank means no search.",
   }),
-  "filter[tenant_id]": Schema.optionalKey(ApiUuidSchema),
+  "filter[tenant_id]": Schema.optionalKey(TenantIdSchema),
 }).check(
   Schema.makeFilter((query) => query.page_after === undefined || query.page_before === undefined),
 )
-const directoryThreadParams = { tenantId: ApiUuidSchema, id: ApiUuidSchema }
+const directoryThreadParams = { tenantId: TenantIdSchema, id: ApiUuidSchema }
 
 export const threadDirectoryApi = HttpApiGroup.make("threadDirectory", { topLevel: true })
   .add(

@@ -39,7 +39,12 @@ import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
-import { organization } from "@/db/schema/organizations"
+import {
+  OrganizationIdSchema,
+  TenantIdSchema,
+  TenantUserIdSchema,
+  organization,
+} from "@/db/schema/organizations"
 import { chatMessage } from "@/db/schema/chat"
 import {
   getThreadAttachment as sdkGetThreadAttachment,
@@ -293,9 +298,9 @@ function runRestEffect<A, E>(effect: Effect.Effect<A, E, Layer.Success<typeof re
   return Effect.runPromise(effect.pipe(Effect.provide(restTestServices)))
 }
 
-const restOrgId = "019a0000-0000-7000-8000-000000000001"
-const restTenantId = "019a0000-0000-7000-8000-000000000002"
-const restUserId = "019a0000-0000-7000-8000-000000000003"
+const restOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
+const restTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+const restUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
 const restSdkFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
   input,

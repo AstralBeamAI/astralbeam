@@ -1,3 +1,5 @@
+import type { OrganizationId } from "@/db/schema/organizations"
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { eq, sql } from "drizzle-orm"
 import { Effect, ManagedRuntime } from "effect"
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest"
@@ -18,14 +20,14 @@ import { updateWithOptimisticLock } from "./optimistic-locking.ts"
 describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
   const runtime = ManagedRuntime.make(Database.layer)
   let db: ReturnType<typeof getAuthDatabase>
-  let organizationId: string
+  let organizationId: OrganizationId
   beforeAll(async () => {
     db = getAuthDatabase()
     const [row] = await db
       .insert(organization)
       .values({ domain: "example.com", name: "JSONB", slug: "jsonb-test" })
       .returning()
-    organizationId = row!.id
+    organizationId = OrganizationIdSchema.make(row!.id)
   })
   afterAll(async () => {
     await db.delete(organization).where(eq(organization.id, organizationId))

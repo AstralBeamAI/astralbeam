@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
@@ -70,10 +71,14 @@ import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
 
-const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
+const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
 const chatTestExecution = {
   claim: {
-    scope: { organizationId: ORGANIZATION_ID, tenantId: "tenant", tenantUserId: "user" },
+    scope: {
+      organizationId: ORGANIZATION_ID,
+      tenantId: TenantIdSchema.make("019a0000-0000-7000-8000-000000000002"),
+      tenantUserId: TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003"),
+    },
     threadId: "conversation",
     inputMessageId: "01990a5d-ac96-774b-b942-6b13c85384cd",
     invocationId: crypto.randomUUID(),

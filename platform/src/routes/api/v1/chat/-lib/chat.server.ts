@@ -1,10 +1,10 @@
 import { Effect, Schema } from "effect"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { ChatSubmissionReceiptSchema } from "./threads.server"
 import { chatArtifactResponse, chatFileSuccess } from "./files.server"
 import { artifactContentDisposition } from "@/lib/chat/sandbox/artifacts"
-import { NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { ApiUuidSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { TenantIdSchema } from "@/db/schema/organizations"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -125,7 +125,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
     HttpApiEndpoint.get("getThreadAttachment", "/chat/files", {
       query: Schema.Struct({
         threadId: Schema.optionalKey(ApiUuidSchema),
-        tenantId: Schema.optionalKey(ApiUuidSchema),
+        tenantId: Schema.optionalKey(TenantIdSchema),
         fileId: ApiUuidSchema,
         filename: Schema.optionalKey(Schema.String),
         delivery: Schema.optionalKey(Schema.Literal("direct")),

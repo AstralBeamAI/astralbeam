@@ -2,6 +2,8 @@
 
 The Platform owns its server-only PostgreSQL client, Drizzle schema, and generated migrations in this directory.
 
+Tenant services, chat and MCP scopes, and usage-limit subjects use `OrganizationId`, `TenantId`, and `TenantUserId` brands from `@/db/schema/organizations`. Decode IDs at application boundaries and retain their types through Drizzle columns and record schemas. These brands distinguish entity kinds, while scoped queries and composite foreign keys enforce ownership. Customer-provided external IDs remain strings.
+
 ## Structure
 
 - `database.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
@@ -201,6 +203,7 @@ After authorizing the caller, supply an immutable Organization UUID as the scope
 import { Effect, Schema } from "effect"
 import { withDatabaseIdempotency } from "@/db/lib/idempotency"
 import { Tenants } from "@/lib/tenants/tenants"
+import type { OrganizationId } from "@/db/schema/organizations"
 import { TenantExternalIdTaken, TenantWriteForbidden } from "@/lib/tenants/errors"
 import { TenantRecordSchema, TenantWriteSchema } from "@/lib/tenants/schemas"
 
@@ -211,7 +214,7 @@ const tenantOperation = {
   error: Schema.Union([TenantExternalIdTaken, TenantWriteForbidden]),
 }
 
-const example = (authorizedOrganizationId: string) =>
+const example = (authorizedOrganizationId: OrganizationId) =>
   Effect.gen(function* () {
     const tenants = yield* Tenants
 

@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { assert, describe, it } from "@effect/vitest"
 import type { SandboxHandle, SandboxProvider } from "@tanstack/ai-sandbox"
 import { Context, Deferred, Effect, Exit, Fiber, Layer, Scheduler, Scope } from "effect"
@@ -88,7 +89,7 @@ const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
 )
 
 const principal = {
-  organization: { id: "01990a5d-ac96-774b-b942-6b13c85384ca" },
+  organization: { id: OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca") },
   tenantUser: { id: "user", tenant: { id: "tenant" } },
 }
 
@@ -342,7 +343,9 @@ describe("ChatSandboxes", () => {
           {
             principal: {
               ...principal,
-              organization: { id: "01990a5d-ac96-774b-b942-6b13c85384da" },
+              organization: {
+                id: OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384da"),
+              },
             },
           },
           {

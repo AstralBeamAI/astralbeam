@@ -1,3 +1,5 @@
+import type { OrganizationId, TenantId } from "@/db/schema/organizations"
+import { TenantIdSchema, OrganizationIdSchema } from "@/db/schema/organizations"
 import { and, eq, getTableName, sql } from "drizzle-orm"
 import { getTableConfig } from "drizzle-orm/pg-core"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
@@ -76,7 +78,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       .insert(organization)
       .values({ domain: "example.com", name: slug, slug })
       .returning()
-    const organizationId = created!.id
+    const organizationId = OrganizationIdSchema.make(created!.id)
     await db.insert(member).values({ organizationId, userId: owner!.id, role: "owner" })
     const [provider] = await db
       .insert(sandboxProvider)
@@ -112,7 +114,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     })
     const [owned] = await db
       .insert(tenant)
-      .values({ organizationId, id: tenantId, externalId: "t" })
+      .values({
+        organizationId,
+        id: tenantId === undefined ? undefined : TenantIdSchema.make(tenantId),
+        externalId: "t",
+      })
       .returning()
     const [ownedUser] = await db
       .insert(tenantUser)
@@ -152,8 +158,8 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
 
   async function createDeletionChat(scope: {
     id?: string
-    organizationId: string
-    tenantId: string
+    organizationId: OrganizationId
+    tenantId: TenantId
     agentId: string
   }) {
     const [author] = await db
@@ -271,7 +277,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     }
   }
 
-  function organizationDeletion(organizationId: string) {
+  function organizationDeletion(organizationId: OrganizationId) {
     return deleteOrganization
       .execute({
         organizationId,
@@ -625,10 +631,13 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
   })
 
   test.each([
-    ["Tenant", (scope: { organizationId: string; tenantId: string }) => deleteTenant(scope)],
+    [
+      "Tenant",
+      (scope: { organizationId: OrganizationId; tenantId: TenantId }) => deleteTenant(scope),
+    ],
     [
       "Organization",
-      (scope: { organizationId: string }) => deleteOrganizationFn(scope.organizationId),
+      (scope: { organizationId: OrganizationId }) => deleteOrganizationFn(scope.organizationId),
     ],
   ] as const)(
     "defers constraints for the %s purge even in an immediate transaction",

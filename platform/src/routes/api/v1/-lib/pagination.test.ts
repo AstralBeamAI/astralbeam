@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { base64url, CompactSign, decodeProtectedHeader } from "jose"
@@ -9,7 +10,7 @@ const cursorNewSecret = "new-pagination-test-key-not-production"
 const cursorOldKeyring = parseDatabaseEncryptionKeyring(cursorOldSecret)
 const cursorRotatedKeyring = parseDatabaseEncryptionKeyring(cursorNewSecret + "," + cursorOldSecret)
 const cursorScope = {
-  organizationId: "019a0000-0000-7000-8000-000000000001",
+  organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
   externalTenantId: "東".repeat(255),
   externalId: "京".repeat(255),
   tenantFilter: "019a0000-0000-7000-8000-000000000002",
@@ -70,7 +71,10 @@ describe("opaque pagination cursors", () => {
       for (const invalid of ["not-a-jws", parts.join(".")]) yield* rejected(invalid)
       yield* rejected(cursor, { collection: "tenants" })
       for (const scope of [
-        { ...cursorScope, organizationId: cursorPosition.id },
+        {
+          ...cursorScope,
+          organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+        },
         { ...cursorScope, externalTenantId: "other" },
         { organizationId: cursorScope.organizationId },
         { ...cursorScope, externalId: "added-filter" },

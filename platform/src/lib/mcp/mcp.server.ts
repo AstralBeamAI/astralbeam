@@ -38,7 +38,7 @@ export function mcpConnectionOwner(actor: McpActor) {
 }
 const mcpReadServers = Effect.fnUntraced(function* (
   db: Pick<typeof Database.Service, "select">,
-  organizationId: string,
+  organizationId: McpActor["organizationId"],
 ) {
   return yield* db
     .select({
@@ -52,11 +52,9 @@ const mcpReadServers = Effect.fnUntraced(function* (
     .orderBy(mcpServer.id)
     .pipe(Effect.orDie)
 })
-function mcpEncodeServer(row: {
-  organizationId: string
-  id: string
-  authConfig: McpAuthConfig
-}): typeof McpStoredAuthConfigSchema.Type {
+function mcpEncodeServer(
+  row: Pick<typeof mcpServer.$inferSelect, "organizationId" | "id"> & { authConfig: McpAuthConfig },
+): typeof McpStoredAuthConfigSchema.Type {
   if (row.authConfig.kind !== "oauth") return row.authConfig
   const { client, ...authConfig } = row.authConfig
   if (!client) return authConfig
@@ -129,7 +127,7 @@ export function mcpDecodeCredential(row: McpStoredConnection) {
 }
 
 function mcpServerSummary(
-  row: { organizationId: string; id: string; endpointUrl: string },
+  row: Pick<typeof mcpServer.$inferSelect, "organizationId" | "id" | "endpointUrl">,
   config: McpAuthConfig | null,
 ): McpServerSummary {
   return {
@@ -143,13 +141,15 @@ function mcpServerSummary(
 
 const makeMcpConnections = Effect.gen(function* () {
   const db = yield* Database
-  const listServers = Effect.fn("McpConnections.listServers")(function* (organizationId: string) {
+  const listServers = Effect.fn("McpConnections.listServers")(function* (
+    organizationId: McpActor["organizationId"],
+  ) {
     return (yield* mcpReadServers(db, organizationId)).map((row) =>
       mcpServerSummary(row, mcpDecodeServer(row)),
     )
   })
   const getServer = Effect.fn("McpConnections.getServer")(function* (
-    organizationId: string,
+    organizationId: McpActor["organizationId"],
     id: string,
   ) {
     const row = (yield* mcpReadServers(db, organizationId)).find((entry) => entry.id === id)
@@ -159,7 +159,7 @@ const makeMcpConnections = Effect.gen(function* () {
     return { organizationId, id, endpointUrl: row.endpointUrl, authConfig }
   })
   const createServer = Effect.fn("McpConnections.createServer")(function* (
-    organizationId: string,
+    organizationId: McpActor["organizationId"],
     fields: typeof McpServerWriteSchema.Type,
   ) {
     const endpoint = yield* Effect.try({
@@ -188,7 +188,7 @@ const makeMcpConnections = Effect.gen(function* () {
     return (yield* listServers(organizationId)).find((entry) => entry.id === id)!
   })
   const removeServer = Effect.fn("McpConnections.removeServer")(function* (
-    organizationId: string,
+    organizationId: McpActor["organizationId"],
     id: string,
   ) {
     const rows = yield* db

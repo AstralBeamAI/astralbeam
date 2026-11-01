@@ -51,3 +51,7 @@ export const UuidV7Schema = Schema.String.pipe(
 export const LockVersionSchema = Schema.Int.check(
   Schema.isGreaterThanOrEqualTo(0, { message: "Must be 0 or greater" }),
 )
+
+export const ApiUuidSchema = Schema.String.check(
+  Schema.isUUID(undefined, { toJsonSchema: () => ({ format: "uuid" }) }),
+)

@@ -3,11 +3,19 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { chatThread } from "@/db/schema/chat"
-import { agent, apiKey, member, organization, sandboxProvider } from "@/db/schema/organizations"
 import { Auth } from "@/lib/auth/auth.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import { UuidV7Schema } from "@/lib/schemas"
+import type { OrganizationId } from "@/db/schema/organizations"
+import {
+  agent,
+  apiKey,
+  member,
+  organization,
+  sandboxProvider,
+  OrganizationIdSchema,
+} from "@/db/schema/organizations"
 import { SlugSchema } from "./slug.ts"
 import {
   authorizeOrganizationRole,
@@ -20,7 +28,7 @@ import { OrganizationAccessDenied, OrganizationNotFound, SignInRequired } from "
 
 const decodeOrganizationMembership = Schema.decodeUnknownEffect(
   Schema.Struct({
-    organizationId: UuidV7Schema,
+    organizationId: OrganizationIdSchema,
     organizationSlug: SlugSchema,
     organizationName: Schema.String,
     role: Schema.String,
@@ -67,7 +75,7 @@ export class Organizations extends Context.Service<
     ) => Effect.Effect<{ readonly id: string; readonly name: string; readonly slug: string } | null>
     /** The dashboard's one read: how much of each resource the organization has configured. */
     readonly resourceCounts: (input: {
-      readonly organizationId: string
+      readonly organizationId: OrganizationId
       readonly permissions: OrganizationPermissions
     }) => Effect.Effect<OrganizationResourceCounts>
   }
@@ -153,10 +161,9 @@ export class Organizations extends Context.Service<
         return row ?? null
       }, Effect.orDie)
 
-      const resourceCounts = Effect.fn("Organizations.resourceCounts")(function* (input: {
-        organizationId: string
-        permissions: OrganizationPermissions
-      }) {
+      const resourceCounts = Effect.fn("Organizations.resourceCounts")(function* (
+        input: Parameters<typeof Organizations.Service.resourceCounts>[0],
+      ) {
         const countRows = (table: OrganizationOwnedTable, filter?: SQL) =>
           db
             .select({ value: count() })

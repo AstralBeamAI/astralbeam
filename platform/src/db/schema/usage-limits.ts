@@ -21,6 +21,7 @@ import {
   uuidV7,
 } from "../lib/columns.ts"
 import { chatThread } from "./chat.ts"
+import type { OrganizationId, TenantId, TenantUserId } from "./organizations.ts"
 import { organization, tenant, tenantUser } from "./organizations.ts"
 
 const usageLimitScopeEnum = pgEnum("usage_limit_scope", [
@@ -94,11 +95,11 @@ export const usageLimit = snakeCase.table(
 export const usageLimitCounter = snakeCase.table(
   "usage_limit_counter",
   {
-    organizationId: uuid().notNull(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
     id: uuidV7(),
     usageLimitId: uuid().notNull(),
-    tenantId: uuid(),
-    tenantUserId: uuid(),
+    tenantId: uuid().$type<TenantId>(),
+    tenantUserId: uuid().$type<TenantUserId>(),
     threadId: uuid(),
     // Recording usage at or after this end starts a new window with only the new usage.
     windowEndsAt: timestampWithTimeZone().notNull(),

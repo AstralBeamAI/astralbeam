@@ -5,7 +5,14 @@ import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { chatMessage } from "@/db/schema/chat"
-import { modelProvider, providerModel, tenant, tenantUser } from "@/db/schema/organizations"
+import type { TenantId, TenantUserId } from "@/db/schema/organizations"
+import {
+  TenantUserIdSchema,
+  modelProvider,
+  providerModel,
+  tenant,
+  tenantUser,
+} from "@/db/schema/organizations"
 import type { ChatPrincipal } from "@/lib/chat/types"
 import { Config } from "@/lib/config/config"
 import {
@@ -31,7 +38,7 @@ export type TenantUserRecord = typeof TenantUserRecordSchema.Type
 
 export interface TenantUserListInput extends DatabasePageOptions {
   readonly scope: TenantScope
-  readonly tenantId: string
+  readonly tenantId: TenantId
   readonly externalId?: string | undefined
   readonly search?: string | undefined
   readonly admin?: boolean | undefined
@@ -39,8 +46,8 @@ export interface TenantUserListInput extends DatabasePageOptions {
 
 interface TenantUserUsageInput {
   readonly scope: TenantScope
-  readonly tenantId: string
-  readonly userIds: readonly string[]
+  readonly tenantId: TenantId
+  readonly userIds: readonly TenantUserId[]
   readonly start: string
   readonly end: string
 }
@@ -56,7 +63,7 @@ const tenantUserRecordColumns = {
   updatedAt: tenantUser.updatedAt,
 }
 
-function tenantUserWhere(scope: TenantScope, tenantId: string, id?: string) {
+function tenantUserWhere(scope: TenantScope, tenantId: TenantId, id?: TenantUserId) {
   return and(
     eq(tenantUser.organizationId, scope.organizationId),
     scope.tenantId === undefined
@@ -81,7 +88,7 @@ export class TenantUsers extends Context.Service<
         readonly start: string
         readonly end: string
         readonly items: readonly {
-          readonly tenantUserId: string
+          readonly tenantUserId: TenantUserId
           readonly costUsd: string
         }[]
       },
@@ -89,18 +96,18 @@ export class TenantUsers extends Context.Service<
     >
     readonly get: (input: {
       readonly scope: TenantScope
-      readonly tenantId: string
-      readonly id: string
+      readonly tenantId: TenantId
+      readonly id: TenantUserId
     }) => Effect.Effect<TenantUserRecord, TenantUserNotFound>
     readonly create: (input: {
       readonly scope: TenantScope
-      readonly tenantId: string
+      readonly tenantId: TenantId
       readonly fields: typeof TenantUserWriteSchema.Type
     }) => Effect.Effect<TenantUserRecord, TenantNotFound | TenantExternalIdTaken>
     readonly update: (input: {
       readonly scope: TenantScope
-      readonly tenantId: string
-      readonly id: string
+      readonly tenantId: TenantId
+      readonly id: TenantUserId
       readonly patch: typeof TenantUserPatchSchema.Type
     }) => Effect.Effect<TenantUserRecord, TenantUserNotFound>
     /**
@@ -120,7 +127,7 @@ export class TenantUsers extends Context.Service<
       const config = yield* Config
 
       // A Tenant-scoped credential reaches only its own Tenant, without another query.
-      const requireTenant = (scope: TenantScope, tenantId: string) =>
+      const requireTenant = (scope: TenantScope, tenantId: TenantId) =>
         scope.tenantId === undefined
           ? tenants.get({ scope, id: tenantId }).pipe(Effect.asVoid)
           : scope.tenantId?.toLowerCase() === tenantId.toLowerCase()
@@ -145,7 +152,9 @@ export class TenantUsers extends Context.Service<
                     )
                   : undefined,
                 admin === undefined ? undefined : eq(tenantUser.admin, admin),
-                position ? (backward ? lt : gt)(tenantUser.id, position.id) : undefined,
+                position
+                  ? (backward ? lt : gt)(tenantUser.id, TenantUserIdSchema.make(position.id))
+                  : undefined,
               ),
             )
             .orderBy((backward ? desc : asc)(tenantUser.id))
@@ -164,7 +173,7 @@ export class TenantUsers extends Context.Service<
           .orderBy(asc(tenantUser.id))
           .limit(userIds.length)
         if (users.length === 0) return { start, end, items: [] }
-        const initiator = sql<string>`${chatMessage.metadata}->'provenance'->>'initiatorTenantUserId'`
+        const initiator = sql<TenantUserId>`${chatMessage.metadata}->'provenance'->>'initiatorTenantUserId'`
         const savedUsage = sql`${chatMessage.metadata}->'provenance'->'usage'`
         const savedCost = sql`case
           when ${savedUsage}->>'costUsd' ~ '^-?[0-9]+([.][0-9]+)?$'
@@ -197,7 +206,7 @@ export class TenantUsers extends Context.Service<
             ),
           )
           .groupBy(initiator)
-        const costs = new Map<string, BigDecimal.BigDecimal>(
+        const costs = new Map<TenantUserId, BigDecimal.BigDecimal>(
           users.map(({ id }) => [id, BigDecimal.fromNumberUnsafe(0)]),
         )
         for (const total of totals)
@@ -211,7 +220,7 @@ export class TenantUsers extends Context.Service<
             : undefined
         const pricingByModel = new Map<string, ReturnType<typeof effectiveModelConfiguration>>()
         let cursor:
-          | { tenantUserId: string; createdAt: string; threadId: string; id: string }
+          | { tenantUserId: TenantUserId; createdAt: string; threadId: string; id: string }
           | undefined
         while (catalog) {
           const replies = yield* db
@@ -300,11 +309,9 @@ export class TenantUsers extends Context.Service<
         }
       }, mapDatabaseErrors())
 
-      const get = Effect.fn("TenantUsers.get")(function* (input: {
-        scope: TenantScope
-        tenantId: string
-        id: string
-      }) {
+      const get = Effect.fn("TenantUsers.get")(function* (
+        input: Parameters<typeof TenantUsers.Service.get>[0],
+      ) {
         const [row] = yield* db
           .select(tenantUserRecordColumns)
           .from(tenantUser)
@@ -315,11 +322,9 @@ export class TenantUsers extends Context.Service<
         return row
       })
 
-      const create = Effect.fn("TenantUsers.create")(function* (input: {
-        scope: TenantScope
-        tenantId: string
-        fields: typeof TenantUserWriteSchema.Type
-      }) {
+      const create = Effect.fn("TenantUsers.create")(function* (
+        input: Parameters<typeof TenantUsers.Service.create>[0],
+      ) {
         yield* requireTenant(input.scope, input.tenantId)
         const [row] = yield* db
           .insert(tenantUser)
@@ -339,12 +344,9 @@ export class TenantUsers extends Context.Service<
         return row!
       })
 
-      const update = Effect.fn("TenantUsers.update")(function* (input: {
-        scope: TenantScope
-        tenantId: string
-        id: string
-        patch: typeof TenantUserPatchSchema.Type
-      }) {
+      const update = Effect.fn("TenantUsers.update")(function* (
+        input: Parameters<typeof TenantUsers.Service.update>[0],
+      ) {
         const [row] = yield* db
           .update(tenantUser)
           .set(input.patch)
@@ -355,9 +357,9 @@ export class TenantUsers extends Context.Service<
         return row
       })
 
-      const syncCurrentUser = Effect.fn("TenantUsers.syncCurrentUser")(function* (input: {
-        principal: ChatPrincipal
-      }) {
+      const syncCurrentUser = Effect.fn("TenantUsers.syncCurrentUser")(function* (
+        input: Parameters<typeof TenantUsers.Service.syncCurrentUser>[0],
+      ) {
         const identity = input.principal.tenantUser
         const organizationId = input.principal.organization.id
         return yield* db.transaction((transaction) =>
