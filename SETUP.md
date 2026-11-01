@@ -2,7 +2,7 @@
 
 ## Host prerequisites
 
-Install Git and, if Bun is missing, curl and unzip. Setup installs the pinned Bun version. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
+Install Git, curl, and unzip. Setup installs the Bun version pinned in [`.bun-version`](.bun-version), including when another version is already installed. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
 
 Set `DATABASE_URL` in ignored `platform/.env.local` to a local database owned by your application role. That role also needs `CREATEDB` for worktree setup to create separate databases.
 

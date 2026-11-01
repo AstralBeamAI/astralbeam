@@ -61,8 +61,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun run generate:styles && tsdown --platform browser && bun pm pack --dry-run --quiet",
-    "dev": "bun run generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & bun run scripts/embed-styles.ts --watch & tsdown --platform browser --watch --no-clean)",
+    "build": "bun run generate:styles && tsdown && bun pm pack --dry-run --quiet",
+    "dev": "bun run generate:styles && (tailwindcss --input src/styles.css --output .generated/styles.css --minify --watch=always & bun run scripts/embed-styles.ts --watch & tsdown --watch --no-clean)",
     "generate:styles": "tailwindcss --input src/styles.css --output .generated/styles.css --minify && bun run scripts/embed-styles.ts",
     "generate:api": "orval && oxfmt src/api/generated",
     "api:check": "bun run generate:api && git diff --exit-code -- src/api/generated",
@@ -132,6 +132,5 @@
     "react-dom": {
       "optional": true
     }
-  },
-  "packageManager": "bun@1.4.4"
+  }
 }

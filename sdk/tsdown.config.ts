@@ -4,16 +4,13 @@ import { defineConfig } from "tsdown"
 // the widget owns its copy, pass 2 leaves it external so the wrapper's hooks bind to the host's.
 const reactPackages = /^react(-dom)?(\/|$)/
 const selfPackage = /^@astralbeam\/sdk(\/|$)/
-// Mirrors the tsconfig `@/*` path shadcn-generated components import through.
-const srcAlias = { "@": new URL("src", import.meta.url).pathname }
 
 export default defineConfig([
   {
     // Pass 1: bundles React into the lazily imported widget chunk.
     entry: { client: "src/client/index.ts" },
-    platform: "neutral",
+    platform: "browser",
     dts: true,
-    alias: srcAlias,
     deps: { alwaysBundle: [reactPackages] },
     minify: true,
     // React's published files branch on process.env.NODE_ENV, which browsers do not define.
@@ -27,7 +24,7 @@ export default defineConfig([
       react: "src/react/index.tsx",
       core: "src/core/index.ts",
     },
-    platform: "neutral",
+    platform: "browser",
     dts: true,
     deps: { neverBundle: [reactPackages, selfPackage] },
     // Pass 1 already cleaned dist; cleaning again would delete its output.

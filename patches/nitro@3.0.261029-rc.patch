@@ -44,12 +44,3 @@ index 50182be73..070943974 100644
 +		if (hasAsset(id) || hasAsset(joinURL(id, "index.html"))) {
 +			throw new HTTPError({ status: 406, headers: noCacheHeaders });
 +		}
-diff --git a/dist/presets/bun/runtime/bun.mjs b/dist/presets/bun/runtime/bun.mjs
-index 818e53692..becb4b843 100644
---- a/dist/presets/bun/runtime/bun.mjs
-+++ b/dist/presets/bun/runtime/bun.mjs
-@@ -19 +19,3 @@ const server = serve(resolveServeOptions({
--	...import.meta._websocket ? { bun: { websocket: ws.websocket } } : {}
-+	// Keep quiet model and tool requests alive until configured through a server entry.
-+	// https://github.com/nitrojs/nitro/pull/4620
-+	bun: { idleTimeout: 0, websocket: import.meta._websocket ? ws.websocket : undefined }

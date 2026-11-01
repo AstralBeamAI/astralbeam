@@ -38,8 +38,7 @@ const prerenderRoutes = [
 
 export default defineConfig(({ mode }) => ({
   resolve: { tsconfigPaths: true },
-  // The licenses route imports repository-level files. https://vite.dev/config/server-options.html#server-fs-allow
-  server: { host: true, port: 4600, strictPort: true, fs: { allow: [workspaceDirectory] } },
+  server: { host: true, port: 4600, strictPort: true },
   preview: { port: 4620 },
   // The platform proxies this prefix when it serves the website under its own origin.
   build: {

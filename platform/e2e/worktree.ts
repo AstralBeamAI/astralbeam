@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
+
+import { loadEnv } from "vite"
 
 import { pinDockerHost, worktreeHash } from "./bootstrap.ts"
 
@@ -37,27 +38,10 @@ const externalPlatformUrl = seededMode ? process.env.E2E_PLATFORM_URL : undefine
 export const platformUrl = externalPlatformUrl ?? `http://localhost:${platformPort}`
 export const mailboxUrl = `http://127.0.0.1:${mailboxApiPort}`
 
-/** Vite's precedence order, lowest first. Only plain `KEY=value` lines are read. https://vite.dev/guide/env-and-mode */
-const PLATFORM_ENV_FILES = [".env", ".env.local", ".env.development", ".env.development.local"]
-
-function readPlatformEnvironmentFiles(): Record<string, string> {
-  const values: Record<string, string> = {}
-  for (const fileName of PLATFORM_ENV_FILES) {
-    const path = join(platformDirectory, fileName)
-    if (!existsSync(path)) continue
-    for (const line of readFileSync(path, "utf8").split("\n")) {
-      const match = /^\s*([a-z_]\w*)=(.*)$/i.exec(line)
-      if (!match?.[1]) continue
-      values[match[1]] = (match[2] ?? "").trim().replace(/^["'](.*)["']$/, "$1")
-    }
-  }
-  return values
-}
-
-const platformEnvironment = readPlatformEnvironmentFiles()
+const platformEnvironment = loadEnv("development", platformDirectory, "")
 
 function requirePlatformEnvironmentValue(key: string): string {
-  const value = process.env[key] || platformEnvironment[key]
+  const value = platformEnvironment[key]
   if (!value) throw new Error(`${key} is not set in the environment or in platform/.env*`)
   return value
 }

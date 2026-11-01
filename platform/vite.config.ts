@@ -8,7 +8,7 @@ import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig, searchForWorkspaceRoot } from "vite"
+import { defineConfig } from "vite"
 import { configDefaults } from "vitest/config"
 
 import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
@@ -42,9 +42,6 @@ const viteConfig = defineConfig(({ mode }) => {
     server: {
       port: Number(process.env.PORT ?? 4500),
       strictPort: true,
-      // The linked SDK sits outside this root, so Vite would refuse its lazy chunks' shared imports.
-      // https://vite.dev/config/server-options.html#server-fs-allow
-      fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../sdk/dist"] },
     },
     // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
     optimizeDeps: {

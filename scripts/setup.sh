@@ -19,7 +19,7 @@ run_as_root() {
   fi
 }
 
-WORKSPACE_PATH=${WORKSPACE_PATH:-$(git rev-parse --show-toplevel 2>/dev/null || echo /workspaces/astralbeam)}
+WORKSPACE_PATH=${WORKSPACE_PATH:-$(git -C "$SETUP_SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || echo /workspaces/astralbeam)}
 export WORKSPACE_PATH
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 export PATH="$BUN_INSTALL/bin:$PATH"
@@ -145,7 +145,7 @@ setup_workspace() (
   cd "$WORKSPACE_PATH"
   bun install --frozen-lockfile
   cd platform
-  bun run --no-env-file scripts/bootstrap-worktree.ts "$@"
+  bun run scripts/bootstrap-worktree.ts "$@"
 )
 
 run_install_extras
