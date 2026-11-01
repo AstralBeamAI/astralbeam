@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process"
 import { availableParallelism } from "node:os"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import { Deferred, Effect, Result, Schedule, Schema } from "effect"
 
@@ -13,7 +14,7 @@ export default {
   reusePort: process.platform === "linux" && process.env.ASTRALBEAM_WORKER !== undefined,
 }
 
-export function resolvePlatformWorkerCount(): number {
+function resolvePlatformWorkerCount(): number {
   const value = process.env.WORKERS ?? "auto"
   if (value === "auto") return process.platform === "linux" ? availableParallelism() : 1
   const count = Schema.decodeUnknownResult(workerCountSchema)(value)
@@ -22,6 +23,48 @@ export function resolvePlatformWorkerCount(): number {
     throw new Error("Multiple HTTP workers require Linux. Use WORKERS=1 on macOS and Windows")
   }
   return count.success
+}
+
+export async function runPlatformServer(options: {
+  readonly entryUrl: string
+  readonly start: () => Promise<void>
+}): Promise<number> {
+  const count = resolvePlatformWorkerCount()
+  const isWorker = process.env.ASTRALBEAM_WORKER !== undefined
+  if (!isWorker) console.error(`Starting ${count} server workers`)
+  if (count > 1) {
+    if (process.env.CLUSTER_RUNNER_PORT && process.env.CLUSTER_RUNNER_PORT !== "0") {
+      throw new Error("Multiple workers require CLUSTER_RUNNER_PORT=0 for distinct private ports")
+    }
+    if (
+      process.env.NITRO_UNIX_SOCKET ||
+      Number.parseInt(process.env.NITRO_PORT ?? process.env.PORT ?? "") === 0
+    ) {
+      throw new Error("Multiple workers require a fixed public TCP port")
+    }
+    const command = Bun.isStandaloneExecutable
+      ? [process.execPath, "start"]
+      : [process.execPath, fileURLToPath(options.entryUrl), "start"]
+    return Effect.runPromise(supervisePlatformWorkers({ count, command }))
+  }
+  if (isWorker && !process.connected) return 0
+  let startupSignal: NodeJS.Signals | undefined
+  const deferStartupShutdown = (signal: NodeJS.Signals) => {
+    // Once Nitro has a handler, it owns draining and cleanup for the original signal.
+    if (process.listenerCount(signal) === 1) startupSignal = signal
+  }
+  process.on("SIGTERM", deferStartupShutdown)
+  process.on("SIGINT", deferStartupShutdown)
+  // IPC disconnect also shuts down orphaned workers if the supervisor is killed.
+  if (process.connected) process.once("disconnect", () => process.kill(process.pid, "SIGTERM"))
+  try {
+    await options.start()
+  } finally {
+    process.off("SIGTERM", deferStartupShutdown)
+    process.off("SIGINT", deferStartupShutdown)
+    if (startupSignal) process.kill(process.pid, startupSignal)
+  }
+  return 0
 }
 
 function launchPlatformWorker(command: readonly string[], worker: number) {

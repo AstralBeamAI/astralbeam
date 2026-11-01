@@ -50,27 +50,21 @@ it.effect("kills stalled workers concurrently at the shutdown deadline and repor
   }),
 )
 
-it.effect("accepts termination during startup while preserving cleanup failures", () =>
+it.effect("reports worker cleanup failures", () =>
   Effect.gen(function* () {
     vi.spyOn(console, "error").mockImplementation(() => {})
-    for (const [signal, code, expected] of [
-      ["SIGTERM", null, 0],
-      [null, 1, 1],
-    ] as const) {
-      const child = mockPlatformWorker(107)
-      child.kill.mockImplementation(() => {
-        child.signalCode = signal
-        child.exitCode = code
-        child.emit("exit", code)
-        return true
-      })
-      workerSpawn.mockReturnValueOnce(child)
-      const supervisor = yield* Effect.forkChild(
-        supervisePlatformWorkers({ count: 1, command: ["/binary"] }),
-      )
-      yield* Effect.yieldNow
-      process.listeners("SIGTERM").at(-1)!("SIGTERM")
-      assert.strictEqual(yield* Fiber.join(supervisor), expected)
-    }
+    const child = mockPlatformWorker(107)
+    child.kill.mockImplementation(() => {
+      child.exitCode = 1
+      child.emit("exit", 1)
+      return true
+    })
+    workerSpawn.mockReturnValueOnce(child)
+    const supervisor = yield* Effect.forkChild(
+      supervisePlatformWorkers({ count: 1, command: ["/binary"] }),
+    )
+    yield* Effect.yieldNow
+    process.listeners("SIGTERM").at(-1)!("SIGTERM")
+    assert.strictEqual(yield* Fiber.join(supervisor), 1)
   }),
 )

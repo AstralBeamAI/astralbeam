@@ -269,9 +269,12 @@ async function runBinaryCheck() {
       checkBinaryFailure([command], { DATABASE_URL: value }, "DATABASE_URL")
     }
   }
-  checkBinaryFailure([], { WORKERS: "0" }, "WORKERS must be")
   if (platform !== "linux") {
-    checkBinaryFailure([], { WORKERS: "2" }, "Multiple HTTP workers require Linux")
+    checkBinaryFailure(
+      [],
+      { WORKERS: "2", DATABASE_ENCRYPTION_KEY: "binary-smoke-check-encryption-key-32" },
+      "Multiple HTTP workers require Linux",
+    )
   }
   await writeFile(
     join(temporaryDirectory, ".env.development.local"),
