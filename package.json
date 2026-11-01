@@ -11,6 +11,7 @@
   ],
   "type": "module",
   "scripts": {
+    "audit": "bun audit --ignore GHSA-gcqx-w48m-w2h4",
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --disable-nested-config --check",
     "dev:platform": "bun run --cwd platform dev",
@@ -31,6 +32,17 @@
   "devDependencies": {
     "@types/bun": "1.4.4",
     "oxfmt": "0.73.0"
+  },
+  "overrides": {
+    "@opentelemetry/api": "^1.9.1 <1.10.0",
+    "@tanstack/ai-sandbox-daytona": {
+      "@daytona/sdk": "^0.227.0"
+    },
+    "@tanstack/ai-sandbox-docker": {
+      "dockerode": "^5.0.1"
+    },
+    "glob@^13": "^14.0.3",
+    "minimatch@^10": "^11.0.3"
   },
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {

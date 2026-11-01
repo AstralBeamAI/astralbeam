@@ -24,6 +24,7 @@
 - Before an authorized merge, refetch the head, required checks, and reviews. Merge only with passing required checks and no actionable feedback. For stacked PRs use `gh api -X PUT repos/AstralBeamAI/astralbeam/pulls/<n>/merge-async`. After a parent squash, resolve the child's add/add conflicts with `git merge -X ours origin/main`, reapply main's fixes, and verify its intended diff is unchanged.
 - Use plain single shell commands with absolute paths or `bun run --cwd`, and scripts for multi-step logic. Keep scratch files and evidence outside the worktree in a task-unique directory, never shared paths such as `/tmp/pr-body.md`.
 - Upgrade dependencies with `bun update <package>@latest --minimum-release-age=0`, aligning exact-pinned siblings. Bump versions only when asked, update pinned SDK URLs with `git grep '@astralbeam/sdk@'`, and below 1.0 use a minor bump for breaking changes and a patch otherwise.
+- Use `bun run audit` for dependency advisories and honor [reviewed advisory assessments](SECURITY.md#dependency-advisory-assessments) only while their applicability conditions hold. Reassess changed dependency paths or trust boundaries before reporting or retaining an exception.
 
 ## Product conventions
 

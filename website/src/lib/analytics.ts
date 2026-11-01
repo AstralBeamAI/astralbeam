@@ -20,6 +20,8 @@ function redactAnalyticsValue(key: string, value: unknown): unknown {
 
 if (window.location.origin === "https://astralbeam.ai") {
   posthog.init("phc_CxMzFhGR4Xv4pZnTdrgxnUsCTt93wMaPNdPdUadBpwrn", {
+    api_host: "https://e.astralbeam.ai",
+    ui_host: "https://us.posthog.com",
     defaults: "2026-05-30",
     // Extend PostHog's network scrubber with application credentials. Network and page URLs stay uncompressed.
     // https://posthog.com/docs/libraries/js/usage#redacting-information-in-events

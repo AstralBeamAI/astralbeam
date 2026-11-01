@@ -719,13 +719,9 @@ export type GetTenantUserUsageParams = {
    * @maxLength 3699
    */
   user_ids: string
-  /**
-   * Inclusive start timestamp, with Z or a numeric timezone offset.
-   */
+  /** Inclusive start timestamp, with Z or a numeric timezone offset. */
   start: string
-  /**
-   * Exclusive end timestamp, with Z or a numeric timezone offset.
-   */
+  /** Exclusive end timestamp, with Z or a numeric timezone offset. */
   end: string
 }
 
