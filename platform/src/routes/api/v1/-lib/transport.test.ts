@@ -47,6 +47,7 @@ import {
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
+  searchDocumentation as sdkSearchDocumentation,
 } from "@sdk/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
@@ -456,6 +457,31 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
+  test("documentation search uses the shared index with API authentication and bounded queries", async () => {
+    const result = await sdkSearchDocumentation(
+      { q: "customCss" },
+      {
+        apiKey: restTestApiKey,
+        apiUrl: "http://localhost/api",
+        fetchClient: restSdkFetch,
+      },
+    )
+    expect(result.results[0]).toMatchObject({
+      path: "sdk/theming",
+      url: "/docs/sdk/theming#custom-css",
+    })
+    const unauthenticated = await restSdkFetch("http://localhost/api/v1/docs/search?q=customCss")
+    expect(unauthenticated.status).toBe(401)
+    for (const query of [
+      "",
+      "?q=",
+      `?q=${"x".repeat(256)}`,
+      "?q=theme&unexpected=yes",
+      "?q=theme&q=keys",
+    ]) {
+      expect((await restRequest(`/docs/search${query}`)).status).toBe(400)
+    }
+  })
   test("rejects personal MCP API-key impersonation", async () => {
     const response = await restRequest("/me/mcp/catalog")
     expect(response.status).toBe(401)

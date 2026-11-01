@@ -10,9 +10,13 @@ import { tenantUserApi } from "./tenant-user.server"
 import { currentUserApi } from "./current-user.server"
 import { personalMcpApi } from "./mcp.server"
 import { organizationApi } from "./organization.server"
+import { documentationApi } from "./documentation.server"
 
 export const ApiV1 = HttpApi.make("ApiV1")
   .add(
+    documentationApi
+      .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
+      .middleware(RestAuthorization),
     tenantApi
       .annotate(HttpApi.ParseOptions, { onExcessProperty: "error" })
       .middleware(RestAuthorization),
