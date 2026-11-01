@@ -47,12 +47,14 @@ export function ConfigEditor({
   fields,
   issues,
   setupComplete,
+  fallbackEncryptionKeyCount,
   onChanged,
 }: {
   onboarding: DogfoodOnboarding | null
   fields: ConfigureField[]
   issues: ConfigIssue[]
   setupComplete: boolean
+  fallbackEncryptionKeyCount: number
   onChanged: () => Promise<void>
 }) {
   const saveToastId = useId()
@@ -275,7 +277,7 @@ export function ConfigEditor({
       busy={busy}
       saving={pendingAction === "save"}
       onSave={() => void handleSave()}
-      saveDisabled={!hasUnsavedConfiguration}
+      saveDisabled={!hasUnsavedConfiguration && fallbackEncryptionKeyCount === 0}
     />
   )
 

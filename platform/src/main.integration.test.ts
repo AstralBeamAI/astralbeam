@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process"
 import { randomUUID } from "node:crypto"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
@@ -47,9 +47,14 @@ test.skipIf(!bootstrapDatabaseUrl)(
     ])
       delete env[key]
     const bootstrap = (cwd: string) => {
+      const environmentPath = join(cwd, ".env.local")
       const result = spawnSync(
         process.execPath,
-        [fileURLToPath(new URL("./main.ts", import.meta.url)), "bootstrap"],
+        [
+          ...(existsSync(environmentPath) ? [`--env-file=${environmentPath}`] : []),
+          fileURLToPath(new URL("./main.ts", import.meta.url)),
+          "bootstrap",
+        ],
         {
           cwd,
           env,
@@ -88,7 +93,7 @@ test.skipIf(!bootstrapDatabaseUrl)(
       )
     } finally {
       await database.end()
-      await admin.query(`DROP DATABASE IF EXISTS "${name}"`)
+      await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)
       await admin.end()
       rmSync(directory, { recursive: true, force: true })
       rmSync(existingDirectory, { recursive: true, force: true })
