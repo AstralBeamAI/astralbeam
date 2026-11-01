@@ -8,18 +8,18 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 **NOTE**: This stack creates a new filesystem deployment. Existing S3 deployments should keep their current Compose file and storage settings.
 
-The stack defaults to the `0.24.0` image, which supports File System storage. Set `ASTRALBEAM_VERSION` to choose another filesystem-capable release.
+The stack defaults to the `0.25.0` image, which supports File System storage. Set `ASTRALBEAM_VERSION` to choose another filesystem-capable release.
 
 Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.24.0/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.25.0/docker-compose.production.yml
 
 (
   umask 077
   set -C
   printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.24.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    "${ASTRALBEAM_VERSION:-0.25.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 ```
@@ -268,7 +268,7 @@ Before upgrading an existing deployment behind a remote TLS-terminating proxy, s
    sudo astralbeam-platform upgrade
    ```
 
-   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.24.0`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
+   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.25.0`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
