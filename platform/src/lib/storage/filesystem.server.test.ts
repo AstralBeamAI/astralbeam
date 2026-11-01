@@ -1,9 +1,10 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { expect, test } from "vitest"
+import { expect, test, vi } from "vitest"
 
 import {
+  defaultStorageDirectory,
   getFileSystemObject,
   headFileSystemObject,
   putFileSystemObject,
@@ -61,5 +62,17 @@ test("rejects keys that could escape the configured directory", async () => {
     expect(await readFile(outside, "utf8")).toBe("untouched")
   } finally {
     await rm(temporary, { recursive: true, force: true })
+  }
+})
+
+test("uses the AstralBeam data directory before OS defaults", () => {
+  const directory = join(tmpdir(), "astralbeam-custom-data")
+  vi.stubEnv("ASTRALBEAM_DATA_DIR", directory)
+  vi.stubEnv("XDG_DATA_HOME", join(tmpdir(), "ignored-xdg-data"))
+  vi.stubEnv("LOCALAPPDATA", join(tmpdir(), "ignored-local-app-data"))
+  try {
+    expect(defaultStorageDirectory()).toBe(join(directory, "storage"))
+  } finally {
+    vi.unstubAllEnvs()
   }
 })

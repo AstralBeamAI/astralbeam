@@ -21,9 +21,9 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${PORT:-4510}}
       ALLOW_INSECURE: ${ALLOW_INSECURE:-false}
       STORAGE_PROVIDER: filesystem
-      STORAGE_DIRECTORY: /var/lib/astralbeam/storage
+      ASTRALBEAM_DATA_DIR: /var/lib/astralbeam
     volumes:
-      - file-storage:/var/lib/astralbeam/storage
+      - file-storage:/var/lib/astralbeam
 
   postgres:
     image: postgres:18

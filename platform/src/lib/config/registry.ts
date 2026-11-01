@@ -599,9 +599,9 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   ),
 ) as ConfigValues
 
-/** System-managed settings cannot be replaced through the environment. */
+/** System-managed settings and the storage path have no per-setting environment override. */
 export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
-  (definition) => !definition.systemManaged,
+  (definition) => !definition.systemManaged && definition.key !== "storage_directory",
 )
 
 export function storageProviderFromConfig(

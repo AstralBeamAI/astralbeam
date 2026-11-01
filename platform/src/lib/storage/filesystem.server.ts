@@ -1,21 +1,13 @@
 import { constants } from "node:fs"
 import { mkdir, open, rename, rm, stat } from "node:fs/promises"
-import { homedir } from "node:os"
 import { dirname, isAbsolute, join } from "node:path"
 import { Schema } from "effect"
 
 import { StorageUnavailable } from "./errors"
-import { APP_HANDLE, APP_NAME } from "@/lib/constants"
+import { getDataDirectory } from "@/lib/data-directory.server"
 
 export function defaultStorageDirectory(): string {
-  const home = homedir()
-  if (process.platform === "win32")
-    return join(process.env.LOCALAPPDATA || join(home, "AppData", "Local"), APP_NAME, "storage")
-  const xdg = process.env.XDG_DATA_HOME
-  if (xdg && isAbsolute(xdg)) return join(xdg, APP_HANDLE, "storage")
-  return process.platform === "darwin"
-    ? join(home, "Library", "Application Support", APP_NAME, "storage")
-    : join(home, ".local", "share", APP_HANDLE, "storage")
+  return join(getDataDirectory(), "storage")
 }
 
 export const StorageDirectorySchema = Schema.String.check(

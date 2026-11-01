@@ -40,7 +40,6 @@ const destinationUpdates = [
 describe.skipIf(!storageDatabase.url)("storage destination persistence", () => {
   beforeEach(async () => {
     for (const { key } of destinationUpdates) vi.stubEnv(key.toUpperCase(), "")
-    vi.stubEnv("STORAGE_DIRECTORY", "")
     await getAuthDatabase()
       .delete(configTable)
       .where(or(like(configTable.key, "s3_%"), like(configTable.key, "storage_%")))
