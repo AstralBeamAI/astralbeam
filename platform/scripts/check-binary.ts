@@ -322,6 +322,12 @@ async function runBinaryCheck() {
     })
   }
   const workerStarts = () => [...output.stderr.matchAll(/Started worker (\d+) \(PID (\d+)\)/gu)]
+  const servingWorkers = () =>
+    new Set(
+      [...output.stdout.matchAll(/"message":"HTTP response ready".*?"process.pid":(\d+)/gu)].map(
+        (match) => Number(match[1]),
+      ),
+    )
   const expectedWorkers = platform === "linux" ? availableParallelism() : 1
 
   try {
@@ -390,19 +396,22 @@ async function runBinaryCheck() {
           headers: { Connection: "close" },
         })
         await response.body?.cancel()
-        return (
-          new Set(output.stdout.match(/"message":"HTTP response ready".*?"process.pid":\d+/gu))
-            .size > 1
-        )
+        return servingWorkers().size > 1
       }, "Binary did not distribute HTTP traffic across workers")
       const killed = workerStarts()[0]!
       process.kill(Number(killed[2]), "SIGKILL")
-      await waitForBinaryWorkers(
-        () => workerStarts().some((match) => match[1] === killed[1] && match[2] !== killed[2]),
-        "Supervisor did not replace the crashed worker",
-      )
-      const recovered = await fetchBinaryCheckResponse(docsUrl)
-      await recovered.body?.cancel()
+      await waitForBinaryWorkers(async () => {
+        const recovered = await fetchBinaryCheckResponse(docsUrl, {
+          headers: { Connection: "close" },
+        })
+        await recovered.body?.cancel()
+        return workerStarts().some(
+          (match) =>
+            match[1] === killed[1] &&
+            match[2] !== killed[2] &&
+            servingWorkers().has(Number(match[2])),
+        )
+      }, "Replacement worker did not serve HTTP traffic")
     }
   } finally {
     await stopBinaryCheckProcess(binaryProcess, status)

@@ -6,7 +6,7 @@ Database commands need `DATABASE_URL`. The binary also reads [environment files]
 
 ## HTTP workers
 
-`WORKERS` defaults to `auto`. On Linux it starts one server worker per available CPU, plus a lightweight supervisor. macOS and Windows run one server process. Set `WORKERS=1` to disable supervision, or use an explicit positive count on Linux, such as `WORKERS=4 astralbeam-platform start`.
+`WORKERS` defaults to `auto`. On Linux, one invocation of the Platform binary starts one server process per available CPU, plus a lightweight supervisor. macOS and Windows run one server process. Set `WORKERS=1` to disable supervision, or use an explicit positive count on Linux, such as `WORKERS=4 astralbeam-platform start`.
 
 Linux workers share the public HTTP port through Bun's `reusePort` support. Each runs its own Effect cluster runner with a distinct private port, so leave `CLUSTER_RUNNER_PORT` unset or `0`. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with exponential backoff from 250 milliseconds to 30 seconds. Workers shut down if they lose their supervisor's IPC connection.
 
@@ -18,7 +18,7 @@ Application migrations ship with each release. When migrations are pending, page
 
 1. Back up the database and bucket before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
-3. Apply the reviewed set. Other workers and replicas refresh migration state on their next read after the five-second cache expires.
+3. Apply the reviewed set. Other Platform processes refresh migration state on the next read after the five-second cache expires.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
@@ -119,7 +119,7 @@ Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The
 
 Budget up to 15 client connections per worker: 5 for authentication and 10 for the main application. For example, eight workers allow up to 120 client connections. Reduce `WORKERS` to lower this limit. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
 
-Size the pooler's own limits for the total number of workers across all replicas, and remember that the migration runner holds one additional connection for the duration of a migration run. The HTTP supervisor opens no database pools.
+Size the pooler's own limits for the total number of workers across all separately started Platform binaries, and remember that the migration runner holds one additional connection for the duration of a migration run. The HTTP supervisor opens no database pools.
 
 ## Rate limits
 

@@ -38,15 +38,15 @@ The application opens when required configuration is valid and no bundled migrat
 
 While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
 
-## Running more than one replica
+## Running multiple Platform processes
 
-Replicas cache configuration, migration state, and sandbox leases independently:
+Workers and separately started Platform binaries sharing PostgreSQL cache configuration, migration state, and sandbox leases independently:
 
-- Local saves take effect immediately. Other workers and replicas refresh configuration and migration state on the next read after their five-second caches expire. Observability changes still require a restart.
-- Migration runs are serialized with a PostgreSQL advisory lock, so two replicas cannot apply migrations at the same time.
-- A conversation routed to a different replica may get a fresh sandbox, because sandbox resume state does not cross processes.
+- Local saves take effect immediately. Other Platform processes refresh configuration and migration state on the next read after their five-second caches expire. Observability changes still require a restart.
+- Migration runs are serialized with a PostgreSQL advisory lock, so two processes cannot apply migrations at the same time.
+- A conversation routed to a different process may get a fresh sandbox, because sandbox resume state does not cross processes.
 
-**TIP**: Use sticky routing if you want a conversation to keep its sandbox.
+**TIP**: Use `WORKERS=1` with sticky routing between separately started binaries if you want a conversation to keep its sandbox.
 
 ## Versions and support
 

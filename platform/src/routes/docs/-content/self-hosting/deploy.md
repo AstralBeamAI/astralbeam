@@ -133,9 +133,9 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `CLUSTER_RUNNER_HOST` | No | Address used to bind and advertise this runner. Defaults to `auto`: discover private IPv6, then private IPv4, falling back to loopback. Override with a reachable private hostname or IP if discovery selects the wrong interface |
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding. Multiple HTTP workers require `0` |
 
-Replicas sharing a database discover each other through Effect's SQL runner storage, without seed addresses. The discovered private addresses and assigned ports must be reachable between replicas. Override the host or port when network routing or firewall rules require it. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
+Separately started Platform binaries sharing a database discover each other through Effect's SQL runner storage, without seed addresses. The discovered private addresses and assigned ports must be reachable between their processes. Override the host or port when network routing or firewall rules require it. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
 
-Keep runner ports on a trusted private network because they expose internal cluster RPCs. Replicas authenticate using a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`, so use the same encryption keyring across replicas. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
+Keep runner ports on a trusted private network because they expose internal cluster RPCs. Platform processes authenticate using a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`, so use the same encryption keyring across the processes. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
 
 The binary loads [Bun's standard environment files](https://bun.com/docs/runtime/environment-variables) from the current working directory according to `NODE_ENV`. Existing environment variables take precedence.
 
