@@ -49,7 +49,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 | `github_client_id` | No | none | Set with `github_client_secret` or not at all |
 | `github_client_secret` | No | none | Paired with `github_client_id` |
 
-Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation immediately signs out every dashboard user.
+Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation signs out dashboard users as replicas refresh configuration, within five seconds.
 
 Both Turnstile keys are mandatory, so setup cannot complete without them. Bootstrap supplies test keys for initial testing. For public hosting, create a widget in the Cloudflare dashboard, restrict it to the deployment's hostnames, and replace both keys. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
@@ -130,7 +130,7 @@ Selecting S3-compatible shows the following settings, all of which retain their 
 1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
 2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
-4. Save the configuration and restart other running server instances.
+4. Save the configuration.
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
 
@@ -144,7 +144,7 @@ Both providers store avatars, logos, and published sandbox files. An S3 endpoint
 
 Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
-To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. Restart other replicas and verify uploads and downloads before revoking the old key. Keep destination fields unchanged.
+To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. After the five-second configuration cache expires, verify uploads and downloads on every replica before revoking the old key. Keep destination fields unchanged.
 
 Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
@@ -166,7 +166,7 @@ Edit the fields you need and press **Save**. A successful save briefly reports "
 
 The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
 
-A save takes effect immediately on the process that handled it, except observability, whose exporters are created once at startup. Other replicas keep their cached snapshot until they restart. Roll a restart across the fleet after any configuration change, including the saving server when observability changes.
+A save takes effect immediately on the process that handled it. Other replicas refresh their snapshot on the next read after its five-second cache expires. Observability exporters are created once at startup, so restart every server instance after changing observability settings. Environment changes also require a restart.
 
 While required settings are missing, the page lists each one and the application stays gated.
 

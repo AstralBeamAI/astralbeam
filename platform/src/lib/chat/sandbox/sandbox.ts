@@ -1,3 +1,5 @@
+import { createHmac, randomUUID } from "node:crypto"
+
 import { defineSandbox, resolveHarnessCwd, type SandboxHandle } from "@tanstack/ai-sandbox"
 import { Context, Deferred, Effect, Exit, Layer, Option, Ref, Scope } from "effect"
 
@@ -76,6 +78,7 @@ export class ChatSandboxes extends Context.Service<
       const providers = yield* SandboxProviders
       const factory = yield* SandboxProviderFactory
       const acquireSandbox = yield* makeChatSandboxLeases
+      const ownerId = randomUUID()
 
       const session = Effect.fn("ChatSandboxes.session")(
         function* (input: ChatSandboxSessionInput) {
@@ -86,8 +89,19 @@ export class ChatSandboxes extends Context.Service<
           })
           const provider = yield* factory.create(configuration.provider, configuration)
           const scope = yield* Scope.fork(yield* Effect.scope)
+          const configurationId = createHmac("sha256", ownerId)
+            .update(
+              JSON.stringify([
+                configuration.provider,
+                [configuration.options, configuration.credentials].map((fields) =>
+                  Object.entries(fields).sort(([left], [right]) => left.localeCompare(right)),
+                ),
+              ]),
+            )
+            .digest("hex")
           const definition = defineSandbox({
-            id: `${APP_HANDLE}-chat-${input.agentId}-${input.sandboxProviderId}`,
+            // Isolate lease owners and configuration changes without exposing credentials.
+            id: `${APP_HANDLE}-chat-${configurationId}-${input.agentId}-${input.sandboxProviderId}`,
             provider,
             // No snapshot: the workspace is empty until the agent writes to it, so an after-setup
             // snapshot would cost a round trip per create and restore nothing worth restoring.

@@ -669,6 +669,39 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(user)).toHaveLength(1)
     })
 
+    test("losing the provisioning lock interrupts work and permits a retry", async () => {
+      const withTestProvisioningLock = <A, E>(operation: Effect.Effect<A, E>) =>
+        runAppEffect(Effect.flatMap(Dogfood, (dogfood) => dogfood.withProvisioningLock(operation)))
+      const acquired = Promise.withResolvers<void>()
+      const release = Promise.withResolvers<void>()
+      const interrupted = vi.fn<() => void>()
+      const outcome = withTestProvisioningLock(
+        Effect.promise(() => {
+          acquired.resolve()
+          return release.promise
+        }).pipe(Effect.onInterrupt(() => Effect.sync(interrupted))),
+      ).then(
+        () => false,
+        () => true,
+      )
+      try {
+        await acquired.promise
+        const locks = await db.execute<{ pid: number }>(sql`select a.pid from pg_locks l
+          join pg_stat_activity a on a.pid = l.pid
+          where l.locktype = 'advisory' and l.objid = 734028190
+          and a.datname = current_database()`)
+        expect(locks.rows).toHaveLength(1)
+        await db.execute(sql`select pg_terminate_backend(${locks.rows[0]!.pid})`)
+        await vi.waitFor(() => expect(interrupted).toHaveBeenCalledOnce(), { timeout: 7_500 })
+        release.resolve()
+        expect(await outcome).toBe(true)
+        await expect(withTestProvisioningLock(Effect.succeed("retry"))).resolves.toBe("retry")
+      } finally {
+        release.resolve()
+        await outcome
+      }
+    }, 10_000)
+
     test("an unrelated slug is rejected without taking ownership or trapping setup", async () => {
       const auth = await getProvisioningAuth()
       const [other] = await db
