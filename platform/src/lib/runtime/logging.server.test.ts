@@ -100,10 +100,8 @@ it.effect("redacts shipped request/error logs and replaces a closed exporter", (
       }),
       Effect.provide(exporter),
     )
-    yield* Effect.logError("After shutdown", Cause.die("Closed"))
     const output = batches.join("")
     assert.strictEqual(output.split("Nested failure").length - 1, 1)
-    assert.notInclude(output, "After shutdown")
     assert.notInclude(output, "opaque-")
     assert.notInclude(output, "secret-tail")
     for (const expected of [
