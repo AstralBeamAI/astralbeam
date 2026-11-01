@@ -719,9 +719,22 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
     expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
     expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
-    await expect(run({ ...request, idempotencyKey: "new-intent" })).rejects.toMatchObject({
-      _tag: "UsageLimitReached",
-    })
+    const storedFileCount = (await db.select().from(fileObject)).length
+    const inlineFile = {
+      type: "document",
+      source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+    } as const
+    await expect(
+      run({
+        ...request,
+        idempotencyKey: "new-intent",
+        params: {
+          ...params,
+          messages: [{ role: "user", content: [inlineFile] }],
+        },
+      }),
+    ).rejects.toMatchObject({ _tag: "UsageLimitReached" })
+    expect(await db.select().from(fileObject)).toHaveLength(storedFileCount)
     expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
     await expect(
       run({ ...request, params: { ...params, messages: [{ role: "user", content: "Changed" }] } }),

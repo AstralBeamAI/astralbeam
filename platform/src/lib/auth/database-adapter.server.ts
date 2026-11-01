@@ -106,18 +106,10 @@ export function authDatabaseAdapter(
         removingIdentity(input)
           ? guarded(input, true, (transaction) => transaction.delete(input))
           : adapter.delete(input),
-      deleteMany: (input) =>
-        removingIdentity(input)
-          ? guarded(input, true, (transaction) => transaction.deleteMany(input))
-          : adapter.deleteMany(input),
       update: (input) =>
         removingOwner(input)
           ? guarded(input, false, (transaction) => transaction.update(input))
           : adapter.update(input),
-      updateMany: (input) =>
-        removingOwner(input)
-          ? guarded(input, false, (transaction) => transaction.updateMany(input))
-          : adapter.updateMany(input),
     } satisfies Partial<DBAdapter>)
   }
 }

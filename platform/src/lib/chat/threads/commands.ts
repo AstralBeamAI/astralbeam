@@ -204,24 +204,30 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
-  const stored = yield* files.store({
-    scope: { ...scope, threadId: id },
-    payload: {
-      version: 1,
-      parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
-      tools,
-      provenance: { clientId: options.clientId },
-    },
-  })
+  // Defer preparation failures so an existing receipt can replay, without storing rejected uploads.
+  const prepared = yield* Effect.result(
+    Effect.gen(function* () {
+      const usageLimits = yield* UsageLimits
+      const limits = yield* usageLimits.applicable({
+        organizationId: scope.organizationId,
+        listedIds: input.usageLimitIds ?? [],
+      })
+      yield* usageLimits.check({ limits, subject: { ...scope, threadId: id } })
+      return yield* files.store({
+        scope: { ...scope, threadId: id },
+        payload: {
+          version: 1,
+          parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          tools,
+          provenance: { clientId: options.clientId },
+        },
+      })
+    }),
+  )
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
-    const usageLimits = yield* UsageLimits
-    const limits = yield* usageLimits.applicable({
-      organizationId: scope.organizationId,
-      listedIds: input.usageLimitIds ?? [],
-    })
-    yield* usageLimits.check({ limits, subject: { ...scope, threadId: id } })
+    const stored = yield* Effect.fromResult(prepared)
     admission = yield* threads.admit({
       scope,
       id: command.id,

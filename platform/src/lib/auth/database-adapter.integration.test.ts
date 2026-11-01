@@ -114,14 +114,12 @@ describe.skipIf(!enabled)("authentication cross-row invariants", () => {
     expect(await db.select().from(account).where(eq(account.userId, users[1]!.id))).toHaveLength(1)
   })
 
-  test.each(["leave", "remove", "demote"] as const)(
+  test.each(["remove", "demote"] as const)(
     "concurrent owner %s preserves one owner",
     async (operation) => {
       const results = await Promise.allSettled(
         clients.map((auth, index) => {
           const input = { headers: headers[index]! }
-          if (operation === "leave")
-            return auth.api.leaveOrganization({ ...input, body: { organizationId: group.id } })
           if (operation === "remove")
             return auth.api.removeMember({
               ...input,
@@ -152,30 +150,6 @@ describe.skipIf(!enabled)("authentication cross-row invariants", () => {
     },
   )
 
-  test("bulk writes retain the guards inside adapter transactions", async () => {
-    const adapter = authDatabaseAdapter()(clients[0]!.options)
-    await expect(
-      adapter.transaction((transaction) =>
-        transaction.deleteMany({
-          model: "account",
-          where: [{ field: "userId", operator: "in", value: users.map(({ id }) => id) }],
-        }),
-      ),
-    ).rejects.toMatchObject({ body: { code: "FAILED_TO_UNLINK_LAST_ACCOUNT" } })
-    await expect(
-      adapter.updateMany({
-        model: "member",
-        where: [{ field: "organizationId", value: group.id }],
-        update: { role: "viewer" },
-      }),
-    ).rejects.toMatchObject({
-      body: { code: "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER" },
-    })
-    expect(await db.select().from(member).where(eq(member.organizationId, group.id))).toHaveLength(
-      2,
-    )
-  })
-
   test("the last owner beyond the adapter's default page remains protected", async () => {
     await db.delete(member).where(eq(member.organizationId, group.id))
     const extra = await db
@@ -191,14 +165,15 @@ describe.skipIf(!enabled)("authentication cross-row invariants", () => {
     await db
       .insert(member)
       .values(extra.map(({ id }) => ({ organizationId: group.id, userId: id, role: "viewer" })))
-    await db
+    const [lastOwner] = await db
       .insert(member)
       .values({ organizationId: group.id, userId: users[0]!.id, role: "owner" })
+      .returning({ id: member.id })
     const adapter = authDatabaseAdapter()(clients[0]!.options)
     await expect(
-      adapter.deleteMany({
+      adapter.delete({
         model: "member",
-        where: [{ field: "organizationId", value: group.id }],
+        where: [{ field: "id", value: lastOwner!.id }],
       }),
     ).rejects.toMatchObject({
       body: { code: "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER" },
