@@ -28,6 +28,24 @@ test("reading an unknown page lists the readable paths", async () => {
   expect((await readDocsPage("sdk/missing")).paths).toContain("cli/commands")
 })
 
+test("identifier tokenization ranks the owning guide for option questions", async () => {
+  for (const [query, path] of [
+    ["Where do I set the colorScheme option?", "sdk/theming"],
+    ["Where should I put usageLimitIds when minting a token?", "dashboard/usage-limits"],
+  ] as const) {
+    expect((await searchDocs(query)).results[0]?.path).toBe(path)
+  }
+})
+
+test("stopwords keep natural-language questions focused on the relevant guide", async () => {
+  for (const [query, path] of [
+    ["How do I make the chat follow the operating system dark setting?", "sdk/theming"],
+    ["How do I give the assistant a tool implemented by my application?", "sdk/tools-and-widgets"],
+  ] as const) {
+    expect((await searchDocs(query)).results[0]?.path).toBe(path)
+  }
+})
+
 test("tuned search keeps natural-language answers and misspelled terms discoverable", async () => {
   for (const [query, path, maximumRank] of [
     ["how do I change the chat colors", "sdk/theming", 3],
