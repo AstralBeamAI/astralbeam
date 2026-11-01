@@ -10,7 +10,7 @@ Application migrations ship with each release. When migrations are pending, page
 
 1. Back up the database and bucket before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
-3. Apply the reviewed set. Other replicas refresh migration state within five seconds of their next read.
+3. Apply the reviewed set. Other replicas refresh migration state on their next read after the five-second cache expires.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 

@@ -1,8 +1,8 @@
 import { isDeepStrictEqual } from "node:util"
 
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
-import type { BetterAuthPlugin } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
+import type { BetterAuthPlugin } from "better-auth"
 import { betterAuth } from "better-auth/minimal"
 import {
   addOAuthServerContext,

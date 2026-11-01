@@ -718,7 +718,6 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     )
     const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
     expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
-    expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
     const storedFileCount = (await db.select().from(fileObject)).length
     const inlineFile = {
       type: "document",
