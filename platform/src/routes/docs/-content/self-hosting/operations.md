@@ -4,13 +4,21 @@ Maintain a running deployment with migrations, coordinated backups, health check
 
 Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
+## HTTP workers
+
+`WORKERS` defaults to `auto`. On Linux it starts one server worker per available CPU, plus a lightweight supervisor. macOS and Windows run one server process. Set `WORKERS=1` to disable supervision, or use an explicit positive count on Linux, such as `WORKERS=4 astralbeam-platform start`.
+
+Linux workers share the public HTTP port through Bun's `reusePort` support. Each runs its own Effect cluster runner with a distinct private port, so leave `CLUSTER_RUNNER_PORT` unset or `0`. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with exponential backoff from 250 milliseconds to 30 seconds. Workers shut down if they lose their supervisor's IPC connection.
+
+Every worker has its own memory, database pools, unpacked binary assets, and sandbox leases. Sandbox and preview concurrency limits apply per worker. Size `WORKERS` for available memory, provider capacity, and the [connection budget](#connection-pooling), particularly in containers where reported CPU availability may exceed the allocation. The startup log reports the worker count. Request logs include `process.pid` to identify which worker served a request. A disconnected stream must reconnect and does not move to another process.
+
 ## Applying migrations
 
 Application migrations ship with each release. When migrations are pending, pages redirect to `/configure`.
 
 1. Back up the database and bucket before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
-3. Apply the reviewed set. Other replicas refresh migration state on their next read after the five-second cache expires.
+3. Apply the reviewed set. Other workers and replicas refresh migration state on their next read after the five-second cache expires.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
@@ -76,7 +84,7 @@ Point a process supervisor or load balancer probe at `/api/status`. It does not 
 
 ## Shutdown
 
-SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give the process supervisor more than ten seconds before sending SIGKILL.
+SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. With multiple workers, the supervisor forwards termination to every worker, waits up to twelve seconds per worker concurrently, and kills any that have not exited. Failed cleanup exits the supervisor with status 1. Give an external supervisor at least fifteen seconds before sending SIGKILL.
 
 Long-lived streams can be disconnected. Accepted durable work remains recoverable through PostgreSQL. Reconnect to inspect the result.
 
@@ -109,9 +117,9 @@ Cluster readiness entries include the advertised private runner address. Configu
 
 Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
 
-Budget up to 15 client connections per replica: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
+Budget up to 15 client connections per worker: 5 for authentication and 10 for the main application. For example, eight workers allow up to 120 client connections. Reduce `WORKERS` to lower this limit. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
 
-Size the pooler's own limits for the number of replicas you run, and remember that the migration runner holds one connection for the duration of a migration run.
+Size the pooler's own limits for the total number of workers across all replicas, and remember that the migration runner holds one additional connection for the duration of a migration run. The HTTP supervisor opens no database pools.
 
 ## Rate limits
 

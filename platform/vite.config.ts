@@ -140,6 +140,7 @@ const viteConfig = defineConfig(({ mode }) => {
         ? []
         : nitro({
             preset: "bun",
+            serverEntry: "./src/lib/runtime/workers.server.ts",
             compressPublicAssets: true,
             sourcemap: true,
             experimental: { sourcemapMinify: false },

@@ -4,7 +4,7 @@ Run AstralBeam with PostgreSQL 18 and email delivery. File storage defaults to t
 
 ## What you run
 
-One process serves the dashboard, `/configure`, the API, and these docs. Releases provide binaries for Linux, macOS, and Windows, plus Linux AMD64 and ARM64 images at `ghcr.io/astralbeamai/astralbeam-platform`. The binary bundles the server and static assets and needs no Bun installation on the host.
+One application serves the dashboard, `/configure`, the API, and these docs, using [HTTP workers](./operations.md#http-workers) on Linux. Releases provide binaries for Linux, macOS, and Windows, plus Linux AMD64 and ARM64 images at `ghcr.io/astralbeamai/astralbeam-platform`. The binary bundles the server and static assets and needs no Bun installation on the host.
 
 Source builds produce both the server bundle and `platform/.output/astralbeam-platform`. See [Deploy](./deploy.md#1-get-a-release-binary) for download and build commands.
 
@@ -42,7 +42,7 @@ While the gate is closed, application pages redirect to `/configure` and API rou
 
 Replicas cache configuration, migration state, and sandbox leases independently:
 
-- Local saves take effect immediately. Other replicas refresh configuration and migration state on the next read after their five-second caches expire. Observability changes still require a restart.
+- Local saves take effect immediately. Other workers and replicas refresh configuration and migration state on the next read after their five-second caches expire. Observability changes still require a restart.
 - Migration runs are serialized with a PostgreSQL advisory lock, so two replicas cannot apply migrations at the same time.
 - A conversation routed to a different replica may get a fresh sandbox, because sandbox resume state does not cross processes.
 
