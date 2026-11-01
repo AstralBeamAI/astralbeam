@@ -1,4 +1,3 @@
-import { EventEmitter } from "node:events"
 import process from "node:process"
 
 import { assert, it } from "@effect/vitest"
@@ -6,39 +5,35 @@ import { Effect, Fiber } from "effect"
 import { TestClock } from "effect/testing"
 import { afterEach, vi } from "vitest"
 
-const workerSpawn = vi.hoisted(() => vi.fn<() => ReturnType<typeof mockPlatformWorker>>())
-vi.mock("node:child_process", () => ({ spawn: workerSpawn }))
-
-import { supervisePlatformWorkers } from "./workers.server.ts"
+import { supervisePlatformWorkers } from "./server.ts"
 
 afterEach(() => {
   vi.restoreAllMocks()
-  workerSpawn.mockReset()
 })
-
-function mockPlatformWorker(pid: number) {
-  return Object.assign(new EventEmitter(), {
-    pid,
-    exitCode: null as number | null,
-    signalCode: null as string | null,
-    kill: vi.fn<(signal: string) => boolean>(),
-  })
-}
 
 it.effect("reports failed cleanup and kills stalled workers concurrently", () =>
   Effect.gen(function* () {
     vi.spyOn(console, "error").mockImplementation(() => {})
+    const workerSpawn = vi.spyOn(Bun, "spawn")
     for (const stalled of [false, true]) {
-      const children = [mockPlatformWorker(105), mockPlatformWorker(106)]
+      const children = [105, 106].map((pid) => ({
+        pid,
+        exitCode: null as number | null,
+        signalCode: null,
+        ...Promise.withResolvers<number>(),
+        kill: vi.fn<(signal: string) => void>(),
+      }))
       for (const child of children) {
         child.kill.mockImplementation((signal: string) => {
           if (!stalled || signal === "SIGKILL") {
             child.exitCode = 1
-            child.emit("exit", 1)
+            child.resolve(1)
           }
-          return true
         })
-        workerSpawn.mockReturnValueOnce(child)
+        workerSpawn.mockReturnValueOnce({
+          ...child,
+          exited: child.promise,
+        } as unknown as ReturnType<typeof Bun.spawn>)
       }
       const supervisor = yield* Effect.forkChild(
         supervisePlatformWorkers({ count: 2, command: ["/binary"] }),

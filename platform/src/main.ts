@@ -9,10 +9,9 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs"
-import { homedir, tmpdir } from "node:os"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
-import { pathToFileURL } from "node:url"
 
 import { Command } from "commander"
 import { Client } from "pg"
@@ -21,7 +20,6 @@ import packageJson from "../package.json" with { type: "json" }
 import { getDatabaseEncryptionKeyring, getDatabaseUrl } from "./db/lib/database-credentials.ts"
 import { migrateDatabase } from "./db/migrate-command.ts"
 import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
-import { runPlatformServer } from "./lib/runtime/workers.server.ts"
 
 const CLI_HELP_FOOTER = `
 Environment:
@@ -115,29 +113,8 @@ program
     loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"])
     getDatabaseEncryptionKeyring()
     process.env.PORT ||= "4510"
-    process.exitCode = await runPlatformServer({
-      entryUrl: import.meta.url,
-      start: async () => {
-        // Keep server initialization lazy so version and migration commands need no running server.
-        let serverUrl = new URL("../.output/server/index.mjs", import.meta.url)
-        if (Bun.isStandaloneExecutable) {
-          // Nitro's traced packages need real paths for package exports and native libraries.
-          // https://bun.sh/docs/bundler/executables#listing-embedded-files
-          const directory = mkdtempSync(join(tmpdir(), "astralbeam-platform-"))
-          process.once("exit", () => rmSync(directory, { recursive: true, force: true }))
-          for (const file of Bun.embeddedFiles) {
-            const { name } = file as Blob & { name: string }
-            if (name.startsWith("server/") || name.startsWith("public/")) {
-              const destination = join(directory, name)
-              mkdirSync(dirname(destination), { recursive: true })
-              writeFileSync(destination, new Uint8Array(await file.arrayBuffer()))
-            }
-          }
-          serverUrl = pathToFileURL(join(directory, "server/index.mjs"))
-        }
-        await import(serverUrl.href)
-      },
-    })
+    const { startPlatformServer } = await import("../server.ts")
+    process.exitCode = await startPlatformServer()
   })
 
 program
