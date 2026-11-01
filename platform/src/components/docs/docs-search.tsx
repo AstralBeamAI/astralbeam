@@ -1,7 +1,7 @@
 import { Autocomplete } from "@base-ui/react/autocomplete"
 import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
-import { useDeferredValue, useEffect, useState } from "react"
+import { useDeferredValue, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -30,42 +30,19 @@ export function DocsSearch() {
   const pending = term !== deferredQuery || search.isFetching
   const results = pending || !term ? [] : (search.data?.results ?? [])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== "k" ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.isComposing
-      )
-        return
-      event.preventDefault()
-      setOpen((value) => !value)
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger
           render={
             <DialogTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Search documentation"
-                  aria-keyshortcuts="Meta+K Control+K"
-                />
-              }
+              render={<Button variant="ghost" size="icon-sm" aria-label="Search documentation" />}
             />
           }
         >
           <MagnifyingGlassIcon />
         </TooltipTrigger>
-        <TooltipContent>Search documentation (⌘/Ctrl+K)</TooltipContent>
+        <TooltipContent>Search documentation</TooltipContent>
       </Tooltip>
       <DialogContent className="gap-3 sm:max-w-xl">
         <DialogTitle>Search documentation</DialogTitle>

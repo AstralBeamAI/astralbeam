@@ -15,10 +15,9 @@ export function docsPage(page: Page) {
       await page.goto(path)
       await waitForHydration(trigger)
     },
-    async openSearch(shortcut?: string) {
+    async openSearch() {
       await waitForHydration(trigger)
-      if (shortcut) await page.keyboard.press(shortcut)
-      else await trigger.click()
+      await trigger.click()
       await expect(input).toBeFocused()
     },
     async search(query: string) {

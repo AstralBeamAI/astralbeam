@@ -5,22 +5,19 @@ import { docsPage } from "@e2e/pages/docs-page.ts"
 const isSearchModule = (url: string) =>
   url.includes("/-lib/search.ts") || /\/search-[^/]+\.js(?:\?|$)/.test(url)
 
-test("docs search loads lazily, stays local, and supports keyboard navigation", async ({
-  page,
-}) => {
+test("docs search opens from the navbar, loads lazily, and stays local", async ({ page }) => {
   const docs = docsPage(page)
   const requests: string[] = []
   page.on("request", (request) => requests.push(request.url()))
   await docs.open()
-  await docs.openSearch("Meta+k")
+  await docs.openSearch()
   expect(requests.filter(isSearchModule)).toHaveLength(0)
   await docs.search("theme tokens")
   await expect(docs.results.first()).toHaveAttribute("href", "/docs/sdk/theming#theme-tokens")
   expect(requests.filter(isSearchModule)).toHaveLength(1)
-  await captureMilestone(page, "docs-search-keyboard-results")
+  await captureMilestone(page, "docs-search-results")
   await page.keyboard.press("Enter")
   await expect(page.locator("#theme-tokens")).toBeVisible()
-  await docs.openSearch("Control+k")
   expect(requests.filter((url) => url.includes("/api/v1/docs/search"))).toHaveLength(0)
 })
 
