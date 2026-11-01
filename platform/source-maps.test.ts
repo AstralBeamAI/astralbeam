@@ -8,7 +8,7 @@ import { build } from "vite"
 
 import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
 
-it("registers native IDs before a bootstrap failure without changing application UUIDs or map positions", async () => {
+it("registers debug IDs before a bootstrap failure without changing application UUIDs or map positions", async () => {
   const directory = mkdtempSync(join(tmpdir(), "astralbeam-source-maps-"))
   onTestFinished(() => rmSync(directory, { recursive: true, force: true }))
   const publicDir = join(directory, ".output/public")
@@ -55,4 +55,36 @@ it("registers native IDs before a bootstrap failure without changing application
   assert("originalSource" in mapping)
   assert.include(mapping.originalSource, "probe.js")
   assert.strictEqual(mapping.originalLine, 2)
+})
+
+it("keeps older maps distinct after source-only edits and produces stable IDs on rebuild", async () => {
+  const ids: string[] = []
+  for (const source of [
+    'throw new Error("failure")',
+    '\n\nthrow new Error("failure")',
+    'throw new Error("failure")',
+  ]) {
+    const result = await build({
+      configFile: false,
+      logLevel: "silent",
+      plugins: [
+        sourceMapDebugIds,
+        { name: "probe", resolveId: () => "probe.js", load: () => source },
+      ],
+      build: { write: false, rolldownOptions: { input: "probe.js" } },
+    })
+    assert("output" in result)
+    const chunk = result.output.find((entry) => entry.type === "chunk")!
+    assert(chunk.map?.debugId)
+    assert.include(chunk.code, `//# debugId=${chunk.map.debugId}`)
+    const map = result.output.find((entry) => entry.fileName === chunk.sourcemapFileName)!
+    assert(map.type === "asset")
+    assert.strictEqual(
+      (JSON.parse(String(map.source)) as { debugId: string }).debugId,
+      chunk.map.debugId,
+    )
+    ids.push(chunk.map.debugId)
+  }
+  assert.notStrictEqual(ids[0], ids[1])
+  assert.strictEqual(ids[0], ids[2])
 })

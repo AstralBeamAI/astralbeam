@@ -244,7 +244,7 @@ The US or EU PostHog OTLP receiver also enables backend errors and AI observabil
 
 ### Source maps for custom builds
 
-Platform and website production builds generate hidden source maps and native debug IDs without upload credentials. Each build collects its matching JavaScript and maps under `.output/sourcemaps`, outside served assets and compiled binaries. Use that directory with any compatible uploader.
+Platform and website production builds generate hidden source maps and deterministic debug IDs without upload credentials. IDs distinguish source-map changes too, so builds running different revisions retain their matching source positions. Each build collects its matching JavaScript and maps under `.output/sourcemaps`, outside served assets and compiled binaries. Use that directory with any compatible uploader.
 
 For PostHog, run `bun run sourcemaps:posthog --directory .output/sourcemaps` from the project directory after building. Set `POSTHOG_CLI_API_KEY` to a personal API key with error tracking write and organization read scopes, and `POSTHOG_CLI_PROJECT_ID` to the project ID. `POSTHOG_CLI_HOST` optionally selects another region or instance. Keep these credentials in the CI upload step. Uploads leave the generated files unchanged, so the same artifact can be sent to multiple destinations.
 

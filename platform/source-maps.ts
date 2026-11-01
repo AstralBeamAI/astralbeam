@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { copyFileSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs"
 import { basename, dirname, join, relative } from "node:path"
 import type { Plugin } from "vite"
@@ -22,10 +23,16 @@ export const sourceMapDebugIds: Plugin = {
   generateBundle(_options, bundle) {
     for (const chunk of Object.values(bundle)) {
       if (chunk.type !== "chunk") continue
-      // Register native IDs for exception SDKs. Equal-length replacement keeps map positions intact.
-      const registration = chunk.map?.debugId
-        ? debugIdRegistration.replace(debugIdPlaceholder, chunk.map.debugId)
-        : ""
+      if (!chunk.map?.debugId) continue
+      // Native IDs hash only generated code. Include the map so source-only edits retain distinct maps.
+      const hash = createHash("sha256").update(chunk.map.toString()).digest("hex")
+      const debugId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`
+      chunk.code = chunk.code.replace(`//# debugId=${chunk.map.debugId}`, `//# debugId=${debugId}`)
+      chunk.map.debugId = debugId
+      const asset = bundle[chunk.sourcemapFileName!]
+      if (asset?.type === "asset") asset.source = chunk.map.toString()
+      // Equal-length replacement keeps map positions intact, including bootstrap failures.
+      const registration = debugIdRegistration.replace(debugIdPlaceholder, debugId)
       chunk.code = chunk.code.replace(debugIdRegistration, registration)
     }
   },
