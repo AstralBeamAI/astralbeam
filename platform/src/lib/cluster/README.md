@@ -1,6 +1,6 @@
 # Embedded Effect cluster
 
-Each platform HTTP worker runs one private Effect Cluster runner, backed by PostgreSQL and shared by registered durable workflows.
+Each platform process runs one private Effect Cluster runner, backed by PostgreSQL and shared by registered durable workflows.
 
 ## Architecture
 

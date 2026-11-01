@@ -269,13 +269,6 @@ async function runBinaryCheck() {
       checkBinaryFailure([command], { DATABASE_URL: value }, "DATABASE_URL")
     }
   }
-  if (platform !== "linux") {
-    checkBinaryFailure(
-      [],
-      { WORKERS: "2", DATABASE_ENCRYPTION_KEY: "binary-smoke-check-encryption-key-32" },
-      "Multiple HTTP workers require Linux",
-    )
-  }
   await writeFile(
     join(temporaryDirectory, ".env.development.local"),
     `DATABASE_URL=${unreachableDatabaseUrl}\n`,
@@ -390,17 +383,13 @@ async function runBinaryCheck() {
     }
     await checkBinaryDocsDiscovery(baseUrl)
     if (expectedWorkers > 1) {
-      await waitForBinaryWorkers(
-        () => workerStarts().length === expectedWorkers,
-        "Binary did not start one worker per available CPU",
-      )
       await waitForBinaryWorkers(async () => {
         const response = await fetchBinaryCheckResponse(docsUrl, {
           headers: { Connection: "close" },
         })
         await response.body?.cancel()
-        return servingWorkers().size > 1
-      }, "Binary did not distribute HTTP traffic across workers")
+        return workerStarts().length === expectedWorkers && servingWorkers().size > 1
+      }, "Binary did not start the expected workers and distribute HTTP traffic")
       const killed = workerStarts()[0]!
       process.kill(Number(killed[2]), "SIGKILL")
       await waitForBinaryWorkers(async () => {

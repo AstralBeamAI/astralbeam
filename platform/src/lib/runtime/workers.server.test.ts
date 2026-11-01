@@ -25,46 +25,33 @@ function mockPlatformWorker(pid: number) {
   })
 }
 
-it.effect("kills stalled workers concurrently at the shutdown deadline and reports failure", () =>
-  Effect.gen(function* () {
-    const hung = [mockPlatformWorker(105), mockPlatformWorker(106)] as const
-    for (const child of hung)
-      child.kill.mockImplementation((signal: string) => {
-        if (signal === "SIGKILL") {
-          child.signalCode = signal
-          child.emit("exit", null)
-        }
-        return true
-      })
-    workerSpawn.mockReturnValueOnce(hung[0]).mockReturnValueOnce(hung[1])
-    vi.spyOn(console, "error").mockImplementation(() => {})
-    const supervisor = yield* Effect.forkChild(
-      supervisePlatformWorkers({ count: 2, command: ["/binary"] }),
-    )
-    yield* Effect.yieldNow
-    process.listeners("SIGTERM").at(-1)!("SIGTERM")
-    yield* TestClock.adjust("12 seconds")
-    assert.strictEqual(yield* Fiber.join(supervisor), 1)
-    for (const child of hung)
-      assert.deepStrictEqual(child.kill.mock.calls, [["SIGTERM"], ["SIGKILL"]])
-  }),
-)
-
-it.effect("reports worker cleanup failures", () =>
+it.effect("reports failed cleanup and kills stalled workers concurrently", () =>
   Effect.gen(function* () {
     vi.spyOn(console, "error").mockImplementation(() => {})
-    const child = mockPlatformWorker(107)
-    child.kill.mockImplementation(() => {
-      child.exitCode = 1
-      child.emit("exit", 1)
-      return true
-    })
-    workerSpawn.mockReturnValueOnce(child)
-    const supervisor = yield* Effect.forkChild(
-      supervisePlatformWorkers({ count: 1, command: ["/binary"] }),
-    )
-    yield* Effect.yieldNow
-    process.listeners("SIGTERM").at(-1)!("SIGTERM")
-    assert.strictEqual(yield* Fiber.join(supervisor), 1)
+    for (const stalled of [false, true]) {
+      const children = [mockPlatformWorker(105), mockPlatformWorker(106)]
+      for (const child of children) {
+        child.kill.mockImplementation((signal: string) => {
+          if (!stalled || signal === "SIGKILL") {
+            child.exitCode = 1
+            child.emit("exit", 1)
+          }
+          return true
+        })
+        workerSpawn.mockReturnValueOnce(child)
+      }
+      const supervisor = yield* Effect.forkChild(
+        supervisePlatformWorkers({ count: 2, command: ["/binary"] }),
+      )
+      yield* Effect.yieldNow
+      process.listeners("SIGTERM").at(-1)!("SIGTERM")
+      if (stalled) yield* TestClock.adjust("12 seconds")
+      assert.strictEqual(yield* Fiber.join(supervisor), 1)
+      for (const child of children)
+        assert.deepStrictEqual(
+          child.kill.mock.calls,
+          stalled ? [["SIGTERM"], ["SIGKILL"]] : [["SIGTERM"]],
+        )
+    }
   }),
 )

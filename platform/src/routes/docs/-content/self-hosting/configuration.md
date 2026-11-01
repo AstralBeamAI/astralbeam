@@ -49,7 +49,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 | `github_client_id` | No | none | Set with `github_client_secret` or not at all |
 | `github_client_secret` | No | none | Paired with `github_client_id` |
 
-Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation signs out dashboard users as Platform processes refresh configuration after their five-second caches expire.
+Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation signs out dashboard users as replicas refresh configuration, within five seconds.
 
 Both Turnstile keys are mandatory, so setup cannot complete without them. Bootstrap supplies test keys for initial testing. For public hosting, create a widget in the Cloudflare dashboard, restrict it to the deployment's hostnames, and replace both keys. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
@@ -166,7 +166,7 @@ Edit the fields you need and press **Save**. A successful save briefly reports "
 
 The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
 
-A save takes effect immediately on the process that handled it. Other Platform processes refresh their snapshot on the next read after its five-second cache expires. Observability exporters are created once at startup, so restart every server instance after changing observability settings. Environment changes also require a restart.
+A save takes effect immediately on the process that handled it. Other replicas refresh their snapshot on the next read after its five-second cache expires. Observability exporters are created once at startup, so restart every server instance after changing observability settings. Environment changes also require a restart.
 
 While required settings are missing, the page lists each one and the application stays gated.
 
