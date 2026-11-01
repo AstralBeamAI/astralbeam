@@ -136,6 +136,7 @@ export function e2eWebServers() {
         AWS_ACCESS_KEY_ID: "",
         AWS_SECRET_ACCESS_KEY: "",
         // Keep operator storage fields editable regardless of development overrides.
+        STORAGE_PROVIDER: "",
         S3_ENDPOINT: "",
         S3_REGION: "",
         S3_BUCKET: "",
