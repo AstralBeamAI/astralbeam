@@ -18,7 +18,7 @@ Source builds produce both the server bundle and `platform/.output/astralbeam-pl
 
 No separate queue or cache server is required.
 
-For local contributor services, follow [repository setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md).
+For local contributor services, follow [repository setup](https://github.com/AstralBeamAI/astralbeam/blob/main/docs/SETUP.md).
 
 ## Where state lives
 

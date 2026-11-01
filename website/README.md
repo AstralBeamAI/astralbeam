@@ -1,6 +1,6 @@
 # @astralbeam/website
 
-TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting. See [repository setup](../SETUP.md) for dependencies.
+TanStack Start, React, and CSS, managed with Bun. All routes are prerendered to `.output/public/` for static hosting. See [repository setup](../docs/SETUP.md) for dependencies.
 
 Run common commands from the repository root:
 

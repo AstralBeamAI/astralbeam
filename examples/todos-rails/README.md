@@ -19,7 +19,7 @@ A Ruby on Rails 8 app that embeds the AstralBeam chat sidebar and tenant-user di
 
 ## Run
 
-You need the Ruby version in [`.ruby-version`](.ruby-version) and a local AstralBeam platform prepared through the repository [setup](../../SETUP.md).
+You need the Ruby version in [`.ruby-version`](.ruby-version) and a local AstralBeam platform prepared through the repository [setup](../../docs/SETUP.md).
 
 1. Seed the platform database with `bun run --cwd platform db-seed` from the repository root. It writes `.env` here with the seeded API key and agent ID when the file does not exist yet. To configure it by hand, copy `.env.example` to `.env` and fill it in from the dashboard.
 2. Start the platform on port 4500 with `bun run --cwd platform dev`. Chat needs a model assigned to the agent. The seed creates a **Development OpenAI** connection from `OPENAI_API_KEY` for organizations without providers. Otherwise, configure the connection and model under **Models** in the dashboard.

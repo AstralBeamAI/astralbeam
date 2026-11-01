@@ -24,13 +24,6 @@ services:
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - bun-cache:/root/.bun/install/cache
       - file-storage:/root/.local/share/astralbeam/storage
-      # Persist Cursor/VS Code server + extensions across rebuilds
-      - ./tmp/.cursor-server:/root/.cursor-server:cached
-      - ./tmp/.vscode-server:/root/.vscode-server:cached
-      - "${HOME}/.cursor:/workspaces/astralbeam/tmp/.cursor:cached"
-      - "${HOME}/.codex:/workspaces/astralbeam/tmp/.codex:cached"
-      - "${HOME}/.claude:/workspaces/astralbeam/tmp/.claude:cached"
-      - "${HOME}/.config/gh:/workspaces/astralbeam/tmp/.gh:cached"
     command: sleep infinity
     init: true
     depends_on:

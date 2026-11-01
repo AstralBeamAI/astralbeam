@@ -12,7 +12,7 @@ Use the todos agent prompt from [`platform/scripts/seed/fixtures.ts`](../../plat
 
 ## Run
 
-Complete the repository [setup](../../SETUP.md) first to install dependencies, build the SDK, and prepare the local platform. `bun run --cwd platform db-seed` creates the `acme` organization, todos agent, Docker sandbox provider, API key, and directory records. It writes `examples/todos/.env` only if that file is absent. Start the platform with `bun run --cwd platform dev` and, in another terminal, run `bun run --cwd examples/todos dev`. Open <http://localhost:4700>.
+Complete the repository [setup](../../docs/SETUP.md) first to install dependencies, build the SDK, and prepare the local platform. `bun run --cwd platform db-seed` creates the `acme` organization, todos agent, Docker sandbox provider, API key, and directory records. It writes `examples/todos/.env` only if that file is absent. Start the platform with `bun run --cwd platform dev` and, in another terminal, run `bun run --cwd examples/todos dev`. Open <http://localhost:4700>.
 
 For manual configuration:
 

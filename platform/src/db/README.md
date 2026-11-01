@@ -42,7 +42,7 @@ JSONB columns use `schemaJsonb(schema)` from `lib/columns.ts`. Its synchronous E
 
 ## Local services
 
-Follow [local setup](../../../SETUP.md#local-development) for native Bun on macOS and Compose-managed supporting services. `STORAGE_PROVIDER=s3` seeds new databases with RustFS storage. Without an explicit provider or existing S3 settings, setup defaults to File System. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
+Follow [local setup](../../../docs/SETUP.md#local-development) for native Bun on macOS and Compose-managed supporting services. `STORAGE_PROVIDER=s3` seeds new databases with RustFS storage. Without an explicit provider or existing S3 settings, setup defaults to File System. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
 
 Worktree setup creates missing environment files using the primary checkout's defaults and a `DATABASE_URL` for that worktree. Existing files are left alone. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative. The worktree hook creates a missing loopback database and refuses URLs targeting a different database name. Setup seeds only when the application schema was absent before migration and never resets or reseeds existing data.
 
@@ -87,7 +87,7 @@ The seed runs in one transaction and can be rerun to restore fixture values. It 
 
 It prints every account with its password, each agent's public ID, each API key's full value, and ready-to-paste blocks for `examples/todos/.env` and `examples/todos-rails/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
-The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments. Put the OpenAI key in `platform/.env.local`. New worktrees inherit this file, while existing copies are left alone. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
+The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments. Put the OpenAI key in `platform/.env.local`. New worktrees inherit this file, while existing copies are left alone. See [environment configuration](../../../docs/SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
 
 ## Drizzle migration workflow
 

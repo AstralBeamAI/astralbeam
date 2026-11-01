@@ -11,7 +11,7 @@ git fetch origin
 git switch -c todos-tutorial origin/examples/todos-starter
 ```
 
-Complete [contributor setup](https://github.com/AstralBeamAI/astralbeam/blob/main/SETUP.md) to install dependencies, seed development data, and build the SDK. Then run Platform and Todos in separate terminals:
+Complete [contributor setup](https://github.com/AstralBeamAI/astralbeam/blob/main/docs/SETUP.md) to install dependencies, seed development data, and build the SDK. Then run Platform and Todos in separate terminals:
 
 ```sh
 bun run --cwd platform dev

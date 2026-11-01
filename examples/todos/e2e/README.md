@@ -2,7 +2,7 @@
 
 Browser tests cover the example, SDK, and chat endpoint against a seeded platform. Deterministic specs run without a model, while agent specs use real model calls.
 
-The suite and database seed share identities from `platform/scripts/seed/fixtures.ts`. Complete the repository [setup](../../../SETUP.md) before running the suite.
+The suite and database seed share identities from `platform/scripts/seed/fixtures.ts`. Complete the repository [setup](../../../docs/SETUP.md) before running the suite.
 
 ## Run it
 

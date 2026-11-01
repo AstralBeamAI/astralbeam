@@ -21,7 +21,7 @@ In development, SDK `debug: true` sends TanStack AI's default diagnostics to the
 | [Conversation HTTP contract](../../routes/api/v1/chat/-lib/threads.server.ts) | Resource endpoints and REST encoding. |
 | [SDK session](../../../../sdk/src/core/session.ts) | Authentication, selection, hydration, drafts, transport, and interaction restoration. |
 
-The [architecture document](../../../../ARCHITECTURE.md#saved-conversations) explains the wider design and research references. [Chat instructions](AGENTS.md) define implementation invariants. The [database guide](../../db/README.md) owns migration and query conventions.
+The [architecture document](../../../../docs/ARCHITECTURE.md#saved-conversations) explains the wider design and research references. [Chat instructions](AGENTS.md) define implementation invariants. The [database guide](../../db/README.md) owns migration and query conventions.
 
 ## Scope and access
 

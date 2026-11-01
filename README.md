@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/6bb3d981-b82d-40a2-9be1-d1bb6cfe5759
 
 To add AstralBeam to your app, follow the <a href="https://astralbeam.ai/docs/start/quickstart" target="_blank" rel="noopener noreferrer">quickstart</a>.
 
-To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](ARCHITECTURE.md) for implementation boundaries.
+To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](docs/SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](docs/ARCHITECTURE.md) for implementation boundaries.
 
 ## Licensing
 
