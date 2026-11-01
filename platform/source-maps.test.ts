@@ -3,7 +3,7 @@ import { SourceMap, type SourceMapPayload } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { runInNewContext } from "node:vm"
-import { assert, it, onTestFinished } from "vitest"
+import { assert, it, onTestFinished, vi } from "vitest"
 import { build } from "vite"
 
 import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
@@ -11,14 +11,17 @@ import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
 it("chains SSR maps, registers bootstrap failures, and keeps distinct revisions reproducible", async () => {
   const directory = mkdtempSync(join(tmpdir(), "astralbeam-source-maps-"))
   onTestFinished(() => rmSync(directory, { recursive: true, force: true }))
+  onTestFinished(() => vi.unstubAllEnvs())
   const intermediate = join(directory, ".nitro/vite/services/ssr")
   const publicDir = join(directory, ".output/public")
   const ids: string[] = []
-  for (const [padding, originalLine] of [
-    ["", 2],
-    ["\n\n", 4],
-    ["", 2],
+  for (const [padding, originalLine, revision] of [
+    ["", 2, "revision-a"],
+    ["\n\n", 4, "revision-a"],
+    ["", 2, "revision-a"],
+    ["", 2, "revision-b"],
   ] as const) {
+    vi.stubEnv("SOURCE_VERSION", revision)
     await build({
       configFile: false,
       logLevel: "silent",
@@ -78,4 +81,5 @@ it("chains SSR maps, registers bootstrap failures, and keeps distinct revisions 
   }
   assert.notStrictEqual(ids[0], ids[1])
   assert.strictEqual(ids[0], ids[2])
+  assert.notStrictEqual(ids[0], ids[3])
 })

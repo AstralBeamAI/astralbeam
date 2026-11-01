@@ -237,6 +237,7 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-mode: max
+      build-args: SOURCE_VERSION=${{ github.sha }}
       meta-images: ghcr.io/astralbeamai/astralbeam-platform
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
       labels: |

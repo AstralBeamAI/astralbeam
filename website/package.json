@@ -10,7 +10,7 @@
     "generate-routes": "tsr generate",
     "generate:blog-images": "bun run scripts/generate-blog-images.ts",
     "build": "NODE_ENV=production vite build",
-    "sourcemaps:posthog": "posthog-cli sourcemap upload",
+    "sourcemaps:posthog": "posthog-cli sourcemap upload --release-mode symbol-set",
     "preview": "vite preview",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run knip",
     "check:fix": "bun run lint:fix && bun run format",

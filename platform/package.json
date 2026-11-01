@@ -8,7 +8,7 @@
     "dev": "vite dev",
     "generate:openapi": "bun run scripts/export-openapi.ts",
     "build": "bun run generate:openapi && NODE_ENV=production vite build && bun run compile",
-    "sourcemaps:posthog": "posthog-cli sourcemap upload",
+    "sourcemaps:posthog": "posthog-cli sourcemap upload --release-mode symbol-set",
     "start": "bun run src/main.ts",
     "binary:check": "bun run --env-file=.env.test scripts/check-binary.ts",
     "check": "bun run format:check && bun run generate:openapi --check && bun run lint && bun run knip",

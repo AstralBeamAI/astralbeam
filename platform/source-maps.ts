@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { execFileSync } from "node:child_process"
 import {
   copyFileSync,
   existsSync,
@@ -13,6 +14,20 @@ import type { Plugin } from "vite"
 
 const debugIdPlaceholder = "00000000-0000-0000-0000-000000000000"
 const debugIdRegistration = `try{const stack=new Error().stack;if(stack)(globalThis._debugIds??={})[stack]="${debugIdPlaceholder}"}catch{}`
+
+function sourceRevision(): string {
+  if (process.env.SOURCE_VERSION) return process.env.SOURCE_VERSION
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: import.meta.dirname,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim()
+  } catch {
+    return ""
+  }
+}
 
 export const sourceMapDebugIds: Plugin = {
   name: "source-map-debug-ids",
@@ -35,11 +50,12 @@ export const sourceMapDebugIds: Plugin = {
     }
   },
   generateBundle(_options, bundle) {
+    const revision = sourceRevision()
     for (const chunk of Object.values(bundle)) {
       if (chunk.type !== "chunk") continue
       if (!chunk.map?.debugId) continue
-      // Native IDs hash only generated code. Include the map so source-only edits retain distinct maps.
-      const hash = createHash("sha256").update(chunk.map.toString()).digest("hex")
+      // Include source positions and the revision so identical bundles retain their own release.
+      const hash = createHash("sha256").update(revision).update(chunk.map.toString()).digest("hex")
       const debugId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`
       chunk.code = chunk.code.replace(`//# debugId=${chunk.map.debugId}`, `//# debugId=${debugId}`)
       chunk.map.debugId = debugId
