@@ -144,7 +144,7 @@ Both providers store avatars, logos, and published sandbox files. An S3 endpoint
 
 Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
-To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. Restart other replicas and verify uploads and downloads before revoking the old key. Keep destination fields unchanged.
+To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. After the five-second configuration cache expires, verify uploads and downloads on every replica before revoking the old key. Keep destination fields unchanged.
 
 Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 

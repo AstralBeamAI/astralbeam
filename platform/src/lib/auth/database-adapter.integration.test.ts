@@ -26,7 +26,6 @@ function createConstraintAuth() {
     database: authDatabaseAdapter(),
     advanced: { database: { generateId: false } },
     emailAndPassword: { enabled: true },
-    account: { accountLinking: { allowUnlinkingAll: false } },
     plugins: [
       organizationPlugin({
         ac: organizationAccessControl,

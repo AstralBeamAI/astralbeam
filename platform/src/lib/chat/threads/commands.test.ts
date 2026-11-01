@@ -78,10 +78,10 @@ describe("managed conversation commands", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
-      Layer.succeed(UsageLimits, {
+      Layer.mock(UsageLimits, {
         applicable: () => Effect.succeed([]),
         check: () => Effect.void,
-      } as unknown as typeof UsageLimits.Service),
+      }),
       Layer.succeed(ChatFiles, {
         download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),

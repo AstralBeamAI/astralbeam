@@ -674,18 +674,12 @@ describe.skipIf(!dogfoodIntegration.url)(
         runAppEffect(Effect.flatMap(Dogfood, (dogfood) => dogfood.withProvisioningLock(operation)))
       const acquired = Promise.withResolvers<void>()
       const release = Promise.withResolvers<void>()
-      const interrupted = vi.fn()
+      const interrupted = vi.fn<() => void>()
       const outcome = withTestProvisioningLock(
         Effect.promise(() => {
           acquired.resolve()
           return release.promise
-        }).pipe(
-          Effect.onInterrupt(() =>
-            Effect.sync(() => {
-              interrupted()
-            }),
-          ),
-        ),
+        }).pipe(Effect.onInterrupt(() => Effect.sync(interrupted))),
       ).then(
         () => false,
         () => true,

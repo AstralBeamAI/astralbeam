@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from "node:util"
-
 import {
   Cache,
   Config as EffectConfig,
@@ -10,7 +8,6 @@ import {
   Exit,
   Layer,
   Option,
-  Ref,
   Result,
 } from "effect"
 
@@ -57,8 +54,6 @@ import type {
 
 /** One load of the effective configuration: defaults, then stored values, then the environment. */
 export interface ConfigSnapshot {
-  /** Identifies the snapshot so services derived from it know when to rebuild. */
-  readonly generation: number
   readonly rows: readonly ConfigStorageEntry[] | null
   readonly values: ConfigValues
   readonly issues: readonly ConfigIssue[]
@@ -157,7 +152,6 @@ export class Config extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const migrations = yield* DatabaseMigrations
-      const generations = yield* Ref.make(0)
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
@@ -179,7 +173,6 @@ export class Config extends Context.Service<
             })
         }
         return {
-          generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,
           values,
           issues,
@@ -187,17 +180,7 @@ export class Config extends Context.Service<
         } satisfies ConfigSnapshot
       }).pipe(Effect.withSpan("Config.load"))
 
-      const committedSnapshot = yield* Ref.make<ConfigSnapshot | undefined>(undefined)
-      const loadCommitted = Effect.gen(function* () {
-        const next = yield* load
-        const previous = yield* Ref.get(committedSnapshot)
-        // Keep derived services stable when a peer refresh finds no configuration changes.
-        if (previous && isDeepStrictEqual({ ...next, generation: previous.generation }, previous))
-          return previous
-        yield* Ref.set(committedSnapshot, next)
-        return next
-      })
-      const cache = yield* Cache.makeWith(() => loadCommitted, {
+      const cache = yield* Cache.makeWith(() => load, {
         capacity: 1,
         timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(5) : Duration.zero),
       })

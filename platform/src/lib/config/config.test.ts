@@ -8,6 +8,8 @@ import { Database, type EffectDatabase } from "@/db/database"
 import { DatabaseMigrations } from "@/db/migration-runner"
 import { runGuardedPromiseTransaction, withGuardedSqlTransaction } from "@/db/lib/transaction-guard"
 import { configTable } from "@/db/schema/config"
+import { Auth } from "@/lib/auth/auth.server"
+import { Mailer } from "@/lib/email/email.server"
 import { Config, publicConfigFromValues } from "./config.ts"
 import {
   CONFIG_DEFINITIONS,
@@ -209,17 +211,24 @@ describe("configuration registry", () => {
 })
 
 describe("Config", () => {
-  it.effect("refreshes peer writes without rebuilding unchanged snapshots", () => {
+  it.effect("refreshes peer writes and rebuilds auth only when its settings change", () => {
     const state = { rows: encryptedRows(COMPLETE_VALUES), reads: 0 }
     return Effect.gen(function* () {
       const config = yield* Config
-      const initial = yield* config.snapshot
-      yield* TestClock.adjust("5 seconds")
-      assert.strictEqual(yield* config.snapshot, initial)
+      const auth = yield* Auth
+      const initial = yield* auth.instance
       state.rows = encryptedRows({ ...COMPLETE_VALUES, support_email_address: "peer@example.com" })
       yield* TestClock.adjust("5 seconds")
       assert.strictEqual(yield* config.get("support_email_address"), "peer@example.com")
-    }).pipe(Effect.provide(configLayer(state)))
+      assert.strictEqual(yield* auth.instance, initial)
+      state.rows = encryptedRows({ ...COMPLETE_VALUES, better_auth_secret: "b".repeat(64) })
+      yield* TestClock.adjust("5 seconds")
+      assert.notStrictEqual(yield* auth.instance, initial)
+    }).pipe(
+      Effect.provide(
+        Auth.layerNoDeps.pipe(Layer.provideMerge([configLayer(state), Layer.mock(Mailer, {})])),
+      ),
+    )
   })
 
   it.effect("defaults to File System without replacing legacy or unreadable settings", () => {
