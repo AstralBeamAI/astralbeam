@@ -20,7 +20,7 @@ export const organizationApiKeyPlugin = {
       {
         matcher: (context) => context.path === "/api-key/create",
         handler: createAuthMiddleware(async (context) => {
-          await freshSessionMiddleware(context as Parameters<typeof freshSessionMiddleware>[0])
+          await freshSessionMiddleware(context)
           const body = context.body as { prefix?: unknown } | undefined
           if (body?.prefix !== undefined && body.prefix !== ORGANIZATION_API_KEY_PREFIX) {
             throw new APIError("BAD_REQUEST", {
