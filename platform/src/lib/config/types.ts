@@ -3,6 +3,7 @@ import type { Schema } from "effect"
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
   enabledSocialProviders: ("google" | "github")[]
+  requireEmailVerification: boolean
   turnstileSiteKey: string
   privacyPolicyUrl: string | undefined
   termsOfServiceUrl: string | undefined

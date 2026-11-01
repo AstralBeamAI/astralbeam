@@ -1,12 +1,14 @@
 // Added from @better-auth-ui/organization
-// Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, colocate private list states, and allow onboarding to hide empty invitations.
+// Local changes: expose an invitation-action callback so onboarding can refresh organization access, replace Lucide with Phosphor icons, colocate private list states, allow onboarding to hide empty invitations, and link unverified users to verification.
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
+import { getAuthLinkURL } from "@better-auth-ui/core"
 import { useAuth, useAuthPlugin, useSession } from "@better-auth-ui/react"
 import { useListUserInvitations } from "@better-auth-ui/react/plugins/organization"
 import { PaperPlaneTiltIcon as Send, WarningCircleIcon as MailWarning } from "@phosphor-icons/react"
 import { Fragment } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemSeparator } from "@/components/ui/item"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -89,6 +91,7 @@ function UserInvitationsEmpty({
   verificationRequired?: boolean
 }) {
   const { localization: organizationLocalization } = useAuthPlugin(organizationPlugin)
+  const { basePaths, viewPaths, Link } = useAuth()
 
   return (
     <Empty>
@@ -105,6 +108,21 @@ function UserInvitationsEmpty({
             : organizationLocalization.userInvitationsEmptyDescription}
         </EmptyDescription>
       </EmptyHeader>
+      {verificationRequired && (
+        <Button
+          variant="outline"
+          render={
+            <Link
+              href={getAuthLinkURL(
+                `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
+                "/organizations",
+              )}
+            />
+          }
+        >
+          Verify email
+        </Button>
+      )}
     </Empty>
   )
 }

@@ -5,7 +5,7 @@ Configure the deployment at `/configure`. Bootstrap credentials, the listen port
 ## Complete the initial configuration
 
 1. Sign in with the active `DATABASE_ENCRYPTION_KEY`.
-2. Set the public base URL and support address under **General**.
+2. Set the public base URL for public hosting and an optional support address under **General**.
 3. Configure **Authentication**, **Email Delivery**, and **File storage**. Test email connectivity and storage before saving.
 4. Choose **Save**, resolve any field errors, and complete the owner invitation.
 5. Choose **Go to app**. Configure organization model providers in the dashboard.
@@ -22,12 +22,12 @@ Fields supplied by an environment variable show an **Environment** badge and are
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `app_base_url` | Yes | none | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
+| `app_base_url` | Yes | `http://localhost:<port>` | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
 | `trust_proxy` | No | `false` | Loopback is always trusted for forwarded host/protocol. Enable Trust Proxy to use Client IP Headers and reveal an optional list of additional proxy IPs/CIDRs. An empty list trusts all proxies. Disabling clears additional proxies and ignores client IP headers. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `client_ip_headers` | No | `x-forwarded-for` | Ordered comma-separated header names. Visible only with Trust Proxy enabled. Disabling trust preserves the saved value |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
-| `support_email_address` | Yes | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team |
+| `support_email_address` | No | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team. Unset hides **Contact Support** |
 | `website_url` | No | none | Origin of a separately hosted website to serve under this deployment's origin |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 
@@ -41,7 +41,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `better_auth_secret` | Yes | none | At least 32 characters. Generated for you on the first save when left unset |
+| `better_auth_secret` | Yes | none | At least 32 characters. Bootstrap supplies an independent random secret. Generated on the first save when left unset |
 | `turnstile_site_key` | Yes | none | Cloudflare Turnstile public site key, sent to browsers |
 | `turnstile_secret_key` | Yes | none | Cloudflare Turnstile server-only secret |
 | `google_client_id` | No | none | Set with `google_client_secret` or not at all |
@@ -51,7 +51,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 
 Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation immediately signs out every dashboard user.
 
-Both Turnstile keys are mandatory, so setup cannot complete without them. Create a widget in the Cloudflare dashboard, restrict it to the hostnames that serve this deployment, and store both keys here. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
+Both Turnstile keys are mandatory, so setup cannot complete without them. Bootstrap supplies test keys for initial testing. For public hosting, create a widget in the Cloudflare dashboard, restrict it to the deployment's hostnames, and replace both keys. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
 Social sign-in is optional. Configure both the client ID and secret to enable a provider, and register its callback URL:
 

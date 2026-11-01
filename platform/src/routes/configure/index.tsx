@@ -9,6 +9,7 @@ import { ConfigEditor } from "./-components/config-editor"
 import { ConfigureActions } from "./-components/configure-actions"
 import { OperatorLoginForm } from "./-components/operator-login-form"
 import { OperatorSessionStatus } from "./-components/operator-session-status"
+import { SetupStatusAlert } from "./-components/setup-status-alert"
 import { PendingMigrationsCard } from "./-components/pending-migrations-card"
 import { getConfigurePageState } from "./-functions/get-configure-page-state"
 
@@ -53,6 +54,27 @@ function ConfigurePage() {
         )}
       </header>
 
+      {state.status === "ready" && (
+        <SetupStatusAlert
+          setupComplete={state.setupComplete}
+          issues={
+            state.onboarding && !state.onboarding.complete
+              ? [
+                  ...state.issues.filter(
+                    (issue) =>
+                      issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
+                  ),
+                  { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
+                ]
+              : state.issues
+          }
+          pendingMigrationCount={state.migrations.pending.length}
+          fallbackEncryptionKeyCount={state.fallbackEncryptionKeyCount}
+          testingDefaults={state.testingDefaults}
+          fields={state.fields}
+        />
+      )}
+
       {state.status === "signed-out" ? (
         <OperatorLoginForm onLoggedIn={refresh} />
       ) : state.migrations.pending.length > 0 ? (
@@ -71,7 +93,6 @@ function ConfigurePage() {
           fields={state.fields}
           issues={state.issues}
           setupComplete={state.setupComplete}
-          fallbackEncryptionKeyCount={state.fallbackEncryptionKeyCount}
           onChanged={() => router.invalidate()}
         />
       )}

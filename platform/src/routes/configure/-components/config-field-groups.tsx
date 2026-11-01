@@ -118,6 +118,7 @@ export function ConfigFieldGroups({
   storageSettings: StorageConnection | undefined
 }) {
   const fieldsByGroup = Map.groupBy(fields, (field) => field.group)
+  const issueKeys = new Set(issues.map((issue) => issue.key))
   const hasS3Settings = fields.some((field) => field.key.startsWith("s3_"))
   const trustProxy =
     drafts.trust_proxy?.kind === "set"
@@ -145,16 +146,23 @@ export function ConfigFieldGroups({
 
   return [...fieldsByGroup]
     .toSorted(
-      ([first], [second]) => configGroupOrder.indexOf(first) - configGroupOrder.indexOf(second),
+      ([first, firstFields], [second, secondFields]) =>
+        Number(secondFields.some((field) => issueKeys.has(field.key))) -
+          Number(firstFields.some((field) => issueKeys.has(field.key))) ||
+        configGroupOrder.indexOf(first) - configGroupOrder.indexOf(second),
     )
     .map(([group, groupFields]) => {
-      const configured = !groupFields.some(
-        (field) =>
-          issues.some((issue) => issue.key === field.key) ||
-          fieldErrors[field.key] ||
-          field.storageStatus,
-      )
-      const visibleFields = groupFields.filter((field) =>
+      const hasRequiredIssues = groupFields.some((field) => issueKeys.has(field.key))
+      const hasFieldErrors = groupFields.some((field) => Boolean(fieldErrors[field.key]))
+      const configured =
+        !hasRequiredIssues && !hasFieldErrors && !groupFields.some((field) => field.storageStatus)
+      const orderedFields =
+        group === "Authentication"
+          ? groupFields.toSorted(
+              (first, second) => Number(second.required) - Number(first.required),
+            )
+          : groupFields
+      const visibleFields = orderedFields.filter((field) =>
         field.key === "client_ip_headers"
           ? Boolean(trustProxy && trustProxy !== "false")
           : group !== "Email Delivery" ||
@@ -164,17 +172,20 @@ export function ConfigFieldGroups({
       return (
         <ConfigSection
           key={group}
+          id={`configure-${group.toLowerCase().replaceAll(" ", "-")}`}
           title={group}
           documentationHref={`/docs/self-hosting/configuration#${group.toLowerCase().replaceAll(" ", "-")}`}
           summary={summarizeConfigGroup(group, groupFields)}
           configured={configured}
+          configuredLabel={
+            group === "Email Delivery" && emailProviderTestResult?.ok
+              ? "Connection tested"
+              : "Settings present"
+          }
+          defaultOpen={hasRequiredIssues}
           optional={group === "Observability"}
           hasChanges={groupFields.some((field) => changedKeys.has(field.key))}
-          errorAttempt={
-            groupFields.some((field) => Boolean(fieldErrors[field.key]))
-              ? failedSaveAttempt
-              : undefined
-          }
+          errorAttempt={hasRequiredIssues || hasFieldErrors ? failedSaveAttempt : undefined}
         >
           {group === "Observability" && (
             <div className="space-y-2">
@@ -258,7 +269,12 @@ export function ConfigFieldGroups({
                 field={field}
                 draft={drafts[field.key] ?? { kind: "unchanged" }}
                 revealedValue={revealedValues[field.key]}
-                error={fieldErrors[field.key]}
+                error={
+                  fieldErrors[field.key] ??
+                  (field.storageStatus === "unreadable"
+                    ? undefined
+                    : issues.find((issue) => issue.key === field.key)?.message)
+                }
                 disabled={disabled}
                 onDraftChange={(draft) => onDraftChange(field.key, draft)}
                 onGenerate={field.canGenerate ? () => onGenerate(field.key) : undefined}

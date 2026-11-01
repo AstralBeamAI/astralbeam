@@ -107,7 +107,7 @@ Protect `/configure` with HTTPS and restricted ingress in production. Its creden
 
 #### Runtime settings
 
-Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
+Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL defaults to `http://localhost:<port>`. It must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
 
 ### Configure Cloudflare Turnstile
 
@@ -116,7 +116,7 @@ Follow Cloudflare's [Turnstile setup guide](https://developers.cloudflare.com/tu
 1. Create separate Turnstile widgets for each environment so their hostnames, analytics, and key rotation remain isolated.
 2. Restrict each non-test widget to the exact hostnames that serve that environment. Production widgets should not allow localhost domains.
 3. Store both matching keys in that deployment's `/configure` page. Setup cannot complete without them. The site key is sent to browsers, while the secret key remains server-only and is used by Better Auth to validate tokens with Cloudflare.
-4. For local and automated browser testing, use Cloudflare's [documented test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) instead of production keys.
+4. Development and bootstrap environment files supply Cloudflare's test keys for initial testing. Replace both keys for public hosting. For local and automated browser testing, use Cloudflare's [documented test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) instead of production keys.
 
 ### Configure Google OAuth
 

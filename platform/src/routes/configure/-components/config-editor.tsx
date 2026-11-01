@@ -31,7 +31,6 @@ import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldGroups } from "./config-field-groups"
 import { ConfigSection } from "./config-section"
 import { ConfigureActions } from "./configure-actions"
-import { SetupStatusAlert } from "./setup-status-alert"
 
 const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
 const decodeEmailProviderConnectionInput = Schema.decodeUnknownOption(
@@ -48,14 +47,12 @@ export function ConfigEditor({
   fields,
   issues,
   setupComplete,
-  fallbackEncryptionKeyCount,
   onChanged,
 }: {
   onboarding: DogfoodOnboarding | null
   fields: ConfigureField[]
   issues: ConfigIssue[]
   setupComplete: boolean
-  fallbackEncryptionKeyCount: number
   onChanged: () => Promise<void>
 }) {
   const saveToastId = useId()
@@ -270,6 +267,7 @@ export function ConfigEditor({
     issues.some(
       (issue) => issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
     )
+  const ownerFirst = !onboarding?.complete && !configurationRequired
 
   const actions = (
     <ConfigureActions
@@ -277,7 +275,30 @@ export function ConfigEditor({
       busy={busy}
       saving={pendingAction === "save"}
       onSave={() => void handleSave()}
-      saveDisabled={!hasUnsavedConfiguration && fallbackEncryptionKeyCount === 0}
+      saveDisabled={!hasUnsavedConfiguration}
+    />
+  )
+
+  const fieldGroups = (
+    <ConfigFieldGroups
+      key="configuration"
+      fields={activeFields}
+      issues={issues}
+      changedKeys={new Set(pendingUpdates.map((update) => update.key))}
+      drafts={drafts}
+      revealedValues={revealedValues}
+      fieldErrors={fieldErrors}
+      failedSaveAttempt={failedSaveAttempt}
+      disabled={busy}
+      onDraftChange={setDraft}
+      onGenerate={(key) => void handleGenerate(key)}
+      onReveal={handleReveal}
+      onTestEmailProvider={() => void handleTestEmailProvider()}
+      emailProvider={emailProvider}
+      canTestEmailProvider={canTestEmailProvider}
+      emailProviderTesting={emailProviderTesting}
+      emailProviderTestResult={emailProviderTestResult}
+      storageSettings={Option.getOrUndefined(storageSettings)}
     />
   )
 
@@ -285,25 +306,7 @@ export function ConfigEditor({
     <div className="flex flex-col gap-6">
       {actions}
 
-      <ConfigFieldGroups
-        fields={activeFields}
-        issues={issues}
-        changedKeys={new Set(pendingUpdates.map((update) => update.key))}
-        drafts={drafts}
-        revealedValues={revealedValues}
-        fieldErrors={fieldErrors}
-        failedSaveAttempt={failedSaveAttempt}
-        disabled={busy}
-        onDraftChange={setDraft}
-        onGenerate={(key) => void handleGenerate(key)}
-        onReveal={handleReveal}
-        onTestEmailProvider={() => void handleTestEmailProvider()}
-        emailProvider={emailProvider}
-        canTestEmailProvider={canTestEmailProvider}
-        emailProviderTesting={emailProviderTesting}
-        emailProviderTestResult={emailProviderTestResult}
-        storageSettings={Option.getOrUndefined(storageSettings)}
-      />
+      {!ownerFirst && fieldGroups}
 
       {onboarding && owner && (
         <ConfigSection
@@ -313,7 +316,10 @@ export function ConfigEditor({
             [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
             "Invite the owner to finish setup."
           }
+          id="configure-owner"
           configured={onboarding.complete}
+          configuredLabel="Invitation sent"
+          defaultOpen={!onboarding.complete}
         >
           <p className="text-sm text-muted-foreground">
             {onboarding.complete
@@ -323,6 +329,25 @@ export function ConfigEditor({
                 : "The owner receives an email to set their password."}{" "}
             This organization also hosts the dashboard assistant.
           </p>
+          {!onboarding.complete && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || !canTestEmailProvider}
+                onClick={() => void handleTestEmailProvider()}
+              >
+                {emailProviderTesting && <Spinner />}
+                Test email connection
+              </Button>
+              {emailProviderTestResult && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {emailProviderTestResult.message}
+                </p>
+              )}
+            </div>
+          )}
           {(
             [
               ["email", "Owner email", "Enter a valid email address."],
@@ -377,23 +402,9 @@ export function ConfigEditor({
         </ConfigSection>
       )}
 
-      {actions}
+      {ownerFirst && fieldGroups}
 
-      <SetupStatusAlert
-        setupComplete={setupComplete}
-        issues={
-          onboarding && !onboarding.complete
-            ? [
-                ...issues.filter(
-                  (issue) =>
-                    issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
-                ),
-                { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
-              ]
-            : issues
-        }
-        fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
-      />
+      {actions}
     </div>
   )
 }

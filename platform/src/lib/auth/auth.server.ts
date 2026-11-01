@@ -32,7 +32,7 @@ import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/error
 import { organizationImageHooks } from "@/lib/organizations/image-hooks.server"
 import { organizationApiKeyPlugin } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
-import { IS_TEST_RUNTIME } from "@/lib/runtime/environment.server"
+import { IS_TEST_RUNTIME, skipEmailVerification } from "@/lib/runtime/environment.server"
 import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import {
   assertNoGlobalAvatar,
@@ -220,6 +220,7 @@ function withTrustedProxyHeaders(
 }
 
 function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
+  const requireEmailVerification = !skipEmailVerification()
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
   const turnstileAuthPlugin = captcha({
     provider: "cloudflare-turnstile",
@@ -258,10 +259,10 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     }),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      requireEmailVerification,
       minPasswordLength: 8,
       maxPasswordLength: 128,
-      autoSignIn: false,
+      autoSignIn: !requireEmailVerification,
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
@@ -289,7 +290,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     },
     emailVerification: {
       expiresIn: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-      sendOnSignUp: true,
+      sendOnSignUp: requireEmailVerification,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
       // Better Auth returns before this callback for an already verified address.
