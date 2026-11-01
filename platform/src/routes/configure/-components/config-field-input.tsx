@@ -53,7 +53,7 @@ export function ConfigFieldInput({
   const trustProxy = currentValue !== "" && currentValue !== "false"
 
   return (
-    <Field data-invalid={error ? true : undefined}>
+    <Field data-invalid={error || field.storageStatus === "unreadable" ? true : undefined}>
       <FieldLabel htmlFor={`config-${field.key}`}>
         {field.key === "trust_proxy" && (
           <Checkbox

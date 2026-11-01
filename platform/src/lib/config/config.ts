@@ -15,6 +15,7 @@ import {
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { isInDatabaseTransaction } from "@/db/lib/transaction-guard"
+import { skipEmailVerification } from "@/lib/runtime/environment.server"
 import { isStorageSettingActive } from "@/lib/storage/schemas"
 import {
   DatabaseMigrations,
@@ -112,7 +113,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   if (values.github_client_id && values.github_client_secret) enabledSocialProviders.push("github")
   return {
     enabledSocialProviders,
-    // Setup cannot complete without the site key or the support address.
+    requireEmailVerification: !skipEmailVerification(),
     turnstileSiteKey: values.turnstile_site_key ?? "",
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
@@ -165,6 +166,11 @@ export class Config extends Context.Service<
           ...(stored.rows ?? []).map((row) => row.key),
           ...environmentKeys,
         ])
+        for (const row of stored.rows ?? []) {
+          const definition = findConfigDefinition(row.key)
+          if (row.storageStatus === "unreadable" && definition?.required)
+            delete values[definition.key]
+        }
         const issues = validateConfigCompleteness(values, environmentKeys)
         for (const key of ["storage_provider", "storage_directory"] as const) {
           if (

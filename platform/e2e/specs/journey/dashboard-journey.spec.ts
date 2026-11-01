@@ -64,7 +64,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     await expect(configure.setupStatus()).toBeHidden()
     await expect(
-      configure.section("Owner onboarding").getByText("Configured", { exact: true }),
+      configure.section("Owner onboarding").getByText("Invitation sent", { exact: true }),
     ).toBeVisible()
     await captureMilestone(page, "01-configure-complete")
     await configure.goToApp()

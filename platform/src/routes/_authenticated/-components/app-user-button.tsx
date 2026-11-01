@@ -49,10 +49,14 @@ export function AppUserButton(props: Pick<UserButtonProps, "align" | "size" | "c
             <GlobeIcon className="text-muted-foreground" />
             Website
           </DropdownMenuItem>,
-          <DropdownMenuItem key="contact-support" onClick={() => setSupportOpen(true)}>
-            <LifebuoyIcon className="text-muted-foreground" />
-            Contact Support
-          </DropdownMenuItem>,
+          ...(supportEmailAddress
+            ? [
+                <DropdownMenuItem key="contact-support" onClick={() => setSupportOpen(true)}>
+                  <LifebuoyIcon className="text-muted-foreground" />
+                  Contact Support
+                </DropdownMenuItem>,
+              ]
+            : []),
         ]}
         {...props}
       />

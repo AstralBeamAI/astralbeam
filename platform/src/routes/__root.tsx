@@ -226,7 +226,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           forgotPassword: true,
           maxPasswordLength: 128,
           minPasswordLength: 8,
-          requireEmailVerification: true,
+          requireEmailVerification: publicConfig.requireEmailVerification,
           strengthMeter: true,
         }}
         localization={{

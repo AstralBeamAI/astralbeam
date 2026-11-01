@@ -195,7 +195,9 @@ export function SignUp({
         <CardDescription className="wrap-anywhere text-sm">
           {invitation
             ? `Create an account to join ${invitation.organization}. Use ${invitation.email || "the email address that received the invitation"}.`
-            : "Verify your email to get started."}
+            : emailAndPassword?.requireEmailVerification
+              ? "Verify your email to get started."
+              : "Create your account to get started."}
         </CardDescription>
       </CardHeader>
 

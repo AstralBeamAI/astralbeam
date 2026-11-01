@@ -182,6 +182,17 @@ describe("configuration registry", () => {
     )
   })
 
+  it.each([undefined, "false", "TRUE", "1", "true"])(
+    "only explicitly skips email verification for %s",
+    (flag) => {
+      vi.stubEnv("SKIP_EMAIL_VERIFICATION", flag)
+      assert.strictEqual(
+        publicConfigFromValues(COMPLETE_VALUES).requireEmailVerification,
+        flag !== "true",
+      )
+    },
+  )
+
   it("derives public configuration without any stored secret", () => {
     const serialized = JSON.stringify(
       publicConfigFromValues({
@@ -306,15 +317,20 @@ describe("Config", () => {
   })
 
   it.effect("keeps only features that need an unreadable value incomplete", () => {
-    const { better_auth_secret: _, ...withoutSecret } = COMPLETE_VALUES
+    const {
+      better_auth_secret: _,
+      app_base_url: _baseUrl,
+      ...withoutRequiredValues
+    } = COMPLETE_VALUES
     const unreadable = [
       { key: "better_auth_secret", storedValue: "not-a-compact-jwe" },
       { key: "resend_api_key", storedValue: "not-a-compact-jwe" },
+      { key: "app_base_url", storedValue: "not-a-compact-jwe" },
     ]
     const state = {
       rows: [
         ...encryptedRows({
-          ...withoutSecret,
+          ...withoutRequiredValues,
           email_from_address: "hello@example.com",
           email_provider: "resend",
         }),
@@ -325,7 +341,7 @@ describe("Config", () => {
     return Effect.gen(function* () {
       const config = yield* Config
       const issues = (yield* config.snapshot).issues.map((issue) => issue.key)
-      assert.includeMembers(issues, ["better_auth_secret", "resend_api_key"])
+      assert.includeMembers(issues, ["better_auth_secret", "resend_api_key", "app_base_url"])
 
       state.rows = [...encryptedRows(COMPLETE_VALUES), unreadable[1]!]
       yield* config.invalidate
