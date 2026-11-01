@@ -8,7 +8,7 @@ import {
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
 import { generateSecret, parseClientIpHeaders, proxySettingsFromValues } from "@/lib/utils.server"
-import { allowInsecure } from "@/lib/runtime/environment.server"
+import { allowInsecure, IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas"
 import { defaultStorageDirectory, StorageDirectorySchema } from "@/lib/storage/filesystem.server"
 import {
@@ -287,10 +287,11 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Application Base URL",
     description:
-      "Public origin the application is served from; used for authentication callbacks and links in emails.",
+      "Public origin used for authentication callbacks and email links. Defaults to localhost on the server port. Set this for public hosting.",
     kind: "url",
     required: true,
     isPublic: true,
+    defaultValue: `http://localhost:${process.env.PORT || (IS_DEVELOPMENT_SERVER ? "4500" : "4510")}`,
     schema: ServerOriginSchema,
   },
   {
@@ -547,9 +548,9 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Support Email Address",
     description:
-      "Copied on welcome and support request emails so replies reach your team, and where Contact Support requests go.",
+      "Optional address copied on welcome emails and used by Contact Support. Leave unset to hide Contact Support.",
     kind: "text",
-    required: true,
+    required: false,
     isPublic: true,
     schema: EmailAddressSchema,
   },
@@ -648,9 +649,7 @@ export function validateConfigCompleteness(
       const missing = id ? `${provider}_client_secret` : `${provider}_client_id`
       issues.push({
         key: missing as ConfigKey,
-        message: `${
-          findConfigDefinition(missing)?.label
-        } is required to enable this sign-in provider`,
+        message: `${findConfigDefinition(missing)?.label} is required to enable this sign-in provider`,
       })
     }
   }
@@ -685,9 +684,7 @@ export function validateConfigCompleteness(
       : "aws_access_key_id"
     issues.push({
       key: missing,
-      message: `${configEnvironmentVariable(
-        missing,
-      )} is required when the paired AWS credential is supplied through the environment`,
+      message: `${configEnvironmentVariable(missing)} is required when the paired AWS credential is supplied through the environment`,
     })
   } else if (Boolean(values.aws_access_key_id) !== Boolean(values.aws_secret_access_key)) {
     const missing = values.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"

@@ -1,10 +1,15 @@
 // Added from @better-auth-ui/auth
-// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Keep verification usable when browser storage is blocked.
+// Local changes: Add configured CAPTCHA; use Base UI Toast/browser-safe globals, preserve the return path, render a semantic page heading, and show the stored recipient with a correction link once hydrated. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Keep verification usable when browser storage is blocked. Support manual verification for the signed-in recipient.
 
 "use client"
 
 import { getAuthLinkURL } from "@better-auth-ui/core"
-import { useAuth, useFetchOptions, useSendVerificationEmail } from "@better-auth-ui/react"
+import {
+  useAuth,
+  useFetchOptions,
+  useSendVerificationEmail,
+  useSession,
+} from "@better-auth-ui/react"
 import { useEffect, useState } from "react"
 import { toast } from "@/components/ui/toast"
 
@@ -27,7 +32,7 @@ const RESEND_COOLDOWN_SECONDS = 60
  * Render a card prompting the user to verify their email, with a resend button
  * that is rate-limited by a cooldown timer.
  *
- * The target email is read from `sessionStorage` (set when sign-up or sign-in
+ * The target email comes from the signed-in session or `sessionStorage` (set when signup/sign-in
  * redirects here); the OpenEmail/Resend controls are only shown when an email
  * is stored. The resend button is disabled while a cooldown is active and shows
  * the remaining seconds.
@@ -39,10 +44,11 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
   const { authClient, basePaths, baseURL, localization, plugins, redirectTo, viewPaths, Link } =
     useAuth()
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const session = useSession(authClient)
 
   const isHydrated = useHydrated()
-  let email = ""
-  if (isHydrated) {
+  let email = session.data?.user.email || ""
+  if (isHydrated && !email) {
     try {
       email = globalThis.sessionStorage.getItem("better-auth-ui.verify-email") || ""
     } catch {
@@ -50,16 +56,18 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     }
   }
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
+  const [verificationRequested, setVerificationRequested] = useState(false)
+  const initialRequest = Boolean(session.data) && !verificationRequested
 
   useEffect(() => {
-    if (cooldown <= 0 || !email) return
+    if (cooldown <= 0 || !email || initialRequest) return
 
     const interval = setInterval(() => {
       setCooldown((current) => (current > 0 ? current - 1 : 0))
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [cooldown, email])
+  }, [cooldown, email, initialRequest])
 
   const { mutate: sendVerificationEmail, isPending } = useSendVerificationEmail(authClient, {
     onError: () => {
@@ -68,11 +76,12 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
     onSuccess: () => {
       resetFetchOptions()
       toast.add({ title: localization.auth.verificationEmailSent, type: "success" })
+      setVerificationRequested(true)
       setCooldown(RESEND_COOLDOWN_SECONDS)
     },
   })
 
-  const isCoolingDown = cooldown > 0
+  const isCoolingDown = cooldown > 0 && !initialRequest
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
   const captchaReady = !captchaComponent || Boolean(fetchOptions?.headers?.["x-captcha-response"])
 
@@ -87,15 +96,19 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
       <CardContent>
         <div className="flex flex-col gap-4">
           <FieldDescription>
-            Open the verification link in your email to continue. It expires in one hour.
+            {initialRequest
+              ? "Send a verification link to your email address to continue."
+              : "Open the verification link in your email to continue. It expires in one hour."}
           </FieldDescription>
 
           {email && (
             <div className="flex flex-col gap-3">
               <p className="break-all text-sm font-medium">{email}</p>
-              <p className="text-sm text-muted-foreground">
-                No email yet? Check your spam folder, or resend the link below.
-              </p>
+              {!initialRequest && (
+                <p className="text-sm text-muted-foreground">
+                  No email yet? Check your spam folder, or resend the link below.
+                </p>
+              )}
               <OpenEmailButton email={email} />
 
               <Button
@@ -114,7 +127,9 @@ export function VerifyEmail({ className }: VerifyEmailProps) {
 
                 {isCoolingDown
                   ? localization.auth.resendIn.replace("{{seconds}}", String(cooldown))
-                  : localization.auth.resend}
+                  : initialRequest
+                    ? "Send verification email"
+                    : localization.auth.resend}
               </Button>
 
               {captchaComponent}

@@ -208,13 +208,16 @@ export function PublicNavbar() {
   const isDocs = useLocation({
     select: ({ pathname }) => pathname === "/docs" || pathname.startsWith("/docs/"),
   })
+  const isConfigure = useLocation({
+    select: ({ pathname }) => pathname === "/configure" || pathname.startsWith("/configure/"),
+  })
   if (underNavbar) return null
   if (isDocs) return <DocsNavbar />
   return (
     <Navbar wordmark reloadDocument={hasWebsite}>
       <NavbarDocsLink />
-      <DashboardLink />
-      <AuthLinks />
+      {!isConfigure && <DashboardLink />}
+      {!isConfigure && <AuthLinks />}
     </Navbar>
   )
 }

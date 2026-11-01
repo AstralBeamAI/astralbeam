@@ -42,7 +42,7 @@ While the gate is closed, application pages redirect to `/configure` and API rou
 
 Replicas cache configuration, migration state, and sandbox leases independently:
 
-- A save takes effect immediately only on the replica that handled it, so restart the others to make them reload it.
+- Local saves take effect immediately. Other replicas refresh configuration and migration state on the next read after their five-second caches expire. Observability changes still require a restart.
 - Migration runs are serialized with a PostgreSQL advisory lock, so two replicas cannot apply migrations at the same time.
 - A conversation routed to a different replica may get a fresh sandbox, because sandbox resume state does not cross processes.
 

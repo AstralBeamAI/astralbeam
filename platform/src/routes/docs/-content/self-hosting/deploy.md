@@ -18,16 +18,16 @@ curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.24.0/do
 (
   umask 077
   set -C
-  printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\n' \
-    "${ASTRALBEAM_VERSION:-0.24.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+  printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
+    "${ASTRALBEAM_VERSION:-0.24.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 ```
 
-Compose rejects a missing or empty PostgreSQL password before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. Start the stack with an explicit HTTP opt-in for this local setup:
+Compose rejects a missing or empty PostgreSQL password before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. The bootstrapped `.env` enables local HTTP and skips password email verification, with Turnstile test keys for initial testing. Start the stack:
 
 ```sh
-ALLOW_INSECURE=true docker compose -f docker-compose.production.yml up --detach --wait
+docker compose -f docker-compose.production.yml up --detach --wait
 ```
 
 Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). File System storage is already configured at `/var/lib/astralbeam/storage`, backed by the persistent `file-storage` volume. No storage credentials, bucket, or separate storage service are needed. Configure your email provider before inviting the owner.
@@ -122,11 +122,13 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
 | `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Default file storage root. Uploads use `storage/` inside it. Containers use `/var/lib/astralbeam` |
+| `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
+| `SKIP_EMAIL_VERIFICATION` | No | Set exactly `true` to skip password email verification and sign new users in immediately. Defaults to `false` when unset. Bootstrap supplies `true` for new deployments and preserves verification for existing deployments. Set `false` for public hosting |
 | `PORT` | No | TCP port to listen on. Defaults to `4510` |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
-| `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Keep unset for TLS. See [Security](./security.md#https-and-response-headers) |
+| `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Native binary bootstrap supplies `true` for new deployments. Set `false` for TLS. See [Security](./security.md#https-and-response-headers) |
 | `CLUSTER_RUNNER_HOST` | No | Address used to bind and advertise this runner. Defaults to `auto`: discover private IPv6, then private IPv4, falling back to loopback. Override with a reachable private hostname or IP if discovery selects the wrong interface |
 | `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding |
 
@@ -158,7 +160,7 @@ Run bootstrap from the same directory the service will use:
 sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform bootstrap'
 ```
 
-Bootstrap applies migrations and appends a generated encryption key to `.env.local` when none is configured. It preserves existing file content and reuses an existing key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
+Bootstrap applies migrations and appends missing defaults to `.env.local`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
 
 When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
 
@@ -233,7 +235,7 @@ Open your deployment's `/configure` page in a browser. Application pages redirec
 
 1. Sign in with the first entry of `DATABASE_ENCRYPTION_KEY`. Database credentials and fallback keyring entries are not accepted, and a wrong value reports `Invalid encryption key`.
 2. The page shows any pending migrations with their SQL. Expand and review them, then apply them. See [Operations](./operations.md).
-3. Fill in the required settings in [Configuration](./configuration.md), including private storage and both Turnstile keys. Configure and test email delivery, then choose **Save**. The authentication secret is generated on the first save if left unset. Each organization configures connections in [Models](/docs/dashboard/models) and assigns enabled models to its [agents](/docs/dashboard/agents).
+3. Review the required settings in [Configuration](./configuration.md), including private storage and both Turnstile keys. Configure and test email delivery, then choose **Save** if needed. The authentication secret is generated on the first save if left unset. Each organization configures connections in [Models](/docs/dashboard/models) and assigns enabled models to its [agents](/docs/dashboard/agents).
 4. Under **Owner onboarding**, choose **Invite owner**, then use the email to set the owner's password. If delivery fails, fix [email delivery](./configuration.md#email-delivery) and retry **Invite owner**.
 5. Once configuration and owner onboarding are complete, use **Go to app**, which ends the operator session and loads the application. Continue with [Quickstart](/docs/start/quickstart) to embed your first chat.
 

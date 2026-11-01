@@ -83,7 +83,7 @@ export class UsageLimits extends Context.Service<
       readonly fields: UsageLimitFields
     }) => Effect.Effect<string>
     readonly update: (input: {
-      readonly organizationId: string
+      readonly organizationId: UsageSubject["organizationId"]
       readonly usageLimitId: string
       readonly lockVersion: number
       readonly fields: UsageLimitFields
@@ -117,7 +117,7 @@ export class UsageLimits extends Context.Service<
     }) => Effect.Effect<void, UsageLimitReached>
     /** Subjects with usage in their live window, most used first. Pages start at 1. */
     readonly subjects: (input: {
-      readonly organizationId: string
+      readonly organizationId: UsageSubject["organizationId"]
       readonly usageLimitId: string
       readonly page: number
     }) => Effect.Effect<
@@ -149,10 +149,9 @@ export class UsageLimits extends Context.Service<
         return (yield* decodeUsageLimitRows(rows)).map(publicUsageLimit)
       }, Effect.orDie)
 
-      const get = Effect.fn("UsageLimits.get")(function* (input: {
-        organizationId: string
-        usageLimitId: string
-      }) {
+      const get = Effect.fn("UsageLimits.get")(function* (
+        input: Parameters<typeof UsageLimits.Service.get>[0],
+      ) {
         const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
         const rows = yield* db
           .select()
@@ -165,10 +164,9 @@ export class UsageLimits extends Context.Service<
         return publicUsageLimit(row)
       })
 
-      const create = Effect.fn("UsageLimits.create")(function* (input: {
-        organizationId: string
-        fields: UsageLimitFields
-      }) {
+      const create = Effect.fn("UsageLimits.create")(function* (
+        input: Parameters<typeof UsageLimits.Service.create>[0],
+      ) {
         const [created] = yield* db
           .insert(usageLimit)
           .values({ organizationId: input.organizationId, ...input.fields })
@@ -177,12 +175,7 @@ export class UsageLimits extends Context.Service<
       }, mapDatabaseErrors())
 
       const update = Effect.fn("UsageLimits.update")(
-        function* (input: {
-          organizationId: string
-          usageLimitId: string
-          lockVersion: number
-          fields: UsageLimitFields
-        }) {
+        function* (input: Parameters<typeof UsageLimits.Service.update>[0]) {
           const id = yield* ownUsageLimitId(input.organizationId, input.usageLimitId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
@@ -233,12 +226,7 @@ export class UsageLimits extends Context.Service<
       )
 
       const setEnabled = Effect.fn("UsageLimits.setEnabled")(
-        function* (input: {
-          organizationId: string
-          usageLimitId: string
-          lockVersion: number
-          enabled: boolean
-        }) {
+        function* (input: Parameters<typeof UsageLimits.Service.setEnabled>[0]) {
           yield* updateWithOptimisticLock({
             executor: db,
             table: usageLimit,
@@ -256,7 +244,7 @@ export class UsageLimits extends Context.Service<
       )
 
       const remove = Effect.fn("UsageLimits.remove")(
-        function* (input: { organizationId: string; usageLimitId: string; lockVersion: number }) {
+        function* (input: Parameters<typeof UsageLimits.Service.remove>[0]) {
           yield* deleteWithOptimisticLock({
             executor: db,
             table: usageLimit,
@@ -272,10 +260,9 @@ export class UsageLimits extends Context.Service<
         }),
       )
 
-      const applicable = Effect.fn("UsageLimits.applicable")(function* (input: {
-        organizationId: string
-        listedIds: readonly string[]
-      }) {
+      const applicable = Effect.fn("UsageLimits.applicable")(function* (
+        input: Parameters<typeof UsageLimits.Service.applicable>[0],
+      ) {
         const listed = input.listedIds.flatMap((publicId) => {
           const parsed = parseUsageLimitId(publicId)
           return parsed?.organizationId === input.organizationId ? [parsed.id] : []
@@ -296,10 +283,9 @@ export class UsageLimits extends Context.Service<
         return yield* decodeUsageLimitRows(rows)
       }, Effect.orDie)
 
-      const status = Effect.fn("UsageLimits.status")(function* (input: {
-        limits: readonly UsageLimit[]
-        subject: UsageSubject
-      }) {
+      const status = Effect.fn("UsageLimits.status")(function* (
+        input: Parameters<typeof UsageLimits.Service.status>[0],
+      ) {
         const now = DateTime.toDateUtc(yield* DateTime.now)
         const keyed = input.limits.flatMap((limit) => {
           const key = usageCounterKey(limit.scope, input.subject)
@@ -333,10 +319,9 @@ export class UsageLimits extends Context.Service<
         })
       })
 
-      const check = Effect.fn("UsageLimits.check")(function* (input: {
-        limits: readonly UsageLimit[]
-        subject: UsageSubject
-      }) {
+      const check = Effect.fn("UsageLimits.check")(function* (
+        input: Parameters<typeof UsageLimits.Service.check>[0],
+      ) {
         const reached = (yield* status(input))
           .filter(({ limit, used }) => Number(used) >= Number(limit.amount))
           .toSorted((left, right) => right.resetsAt!.getTime() - left.resetsAt!.getTime())[0]
@@ -348,11 +333,9 @@ export class UsageLimits extends Context.Service<
         })
       })
 
-      const subjects = Effect.fn("UsageLimits.subjects")(function* (input: {
-        organizationId: string
-        usageLimitId: string
-        page: number
-      }) {
+      const subjects = Effect.fn("UsageLimits.subjects")(function* (
+        input: Parameters<typeof UsageLimits.Service.subjects>[0],
+      ) {
         const limit = yield* get(input)
         const now = DateTime.toDateUtc(yield* DateTime.now)
         const live = and(
@@ -427,11 +410,9 @@ export class UsageLimits extends Context.Service<
         }
       })
 
-      const record = Effect.fn("UsageLimits.record")(function* (input: {
-        limits: readonly UsageLimit[]
-        subject: UsageSubject
-        usage: { readonly tokens: number; readonly spend: string }
-      }) {
+      const record = Effect.fn("UsageLimits.record")(function* (
+        input: Parameters<typeof UsageLimits.Service.record>[0],
+      ) {
         if (input.limits.length === 0) return
         const now = DateTime.toDateUtc(yield* DateTime.now)
         yield* db.transaction((transaction) =>

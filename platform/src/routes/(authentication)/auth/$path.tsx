@@ -17,6 +17,7 @@ const AUTHENTICATED_AUTH_VIEWS = new Set([
   "reset-link-sent",
   "reset-password",
   "sign-out",
+  "verify-email",
 ])
 
 export const Route = createFileRoute("/(authentication)/auth/$path")({

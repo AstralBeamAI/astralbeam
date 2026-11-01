@@ -12,6 +12,7 @@ COPY --exclude=.git --exclude=**/node_modules --exclude=**/.env* --exclude=**/*.
     --exclude=**/dist --exclude=**/.output --exclude=**/.generated \
     --exclude=**/.nitro --exclude=**/.tanstack . .
 ENV NODE_ENV=production
+ARG SOURCE_VERSION
 RUN bun run --cwd sdk build && bun run --cwd platform build
 
 FROM debian:bookworm

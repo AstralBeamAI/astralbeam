@@ -15,7 +15,7 @@ const organizationCountsIntegration = vi.hoisted(() => {
 
 import { getAuthDatabase } from "@/db/database"
 import { chatThread } from "@/db/schema/chat"
-import { apiKey, organization, tenant } from "@/db/schema/organizations"
+import { OrganizationIdSchema, apiKey, organization, tenant } from "@/db/schema/organizations"
 import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { deriveOrganizationPermissions } from "./access.ts"
@@ -38,7 +38,7 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
       ])
       .returning({ id: organization.id })
     organizationIds.push(...created.map((row) => row.id))
-    const organizationId = created[0]!.id
+    const organizationId = OrganizationIdSchema.make(created[0]!.id)
     const key = {
       organizationId,
       name: "Dashboard test key",
@@ -62,7 +62,12 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
       )
     const tenants = await db
       .insert(tenant)
-      .values(created.map((row) => ({ organizationId: row.id, externalId: "dashboard-test" })))
+      .values(
+        created.map((row) => ({
+          organizationId: OrganizationIdSchema.make(row.id),
+          externalId: "dashboard-test",
+        })),
+      )
       .returning()
     await db.insert(chatThread).values({
       organizationId: tenants[1]!.organizationId,

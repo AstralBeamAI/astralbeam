@@ -1,9 +1,10 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { expect, test } from "vitest"
 import { deriveOrganizationPermissions, type OrganizationAccess } from "@/lib/organizations/access"
 import { agentDestination } from "./dogfood-chat"
 
 const navigationOrganization: OrganizationAccess = {
-  organizationId: "01990a5d-0000-7000-8000-000000000011",
+  organizationId: OrganizationIdSchema.make("01990a5d-0000-7000-8000-000000000011"),
   organizationSlug: "acme",
   organizationName: "Acme",
   memberId: "01990a5d-0000-7000-8000-000000000012",

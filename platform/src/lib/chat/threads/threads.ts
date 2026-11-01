@@ -31,7 +31,14 @@ import {
   chatParticipant,
   chatFile,
 } from "@/db/schema/chat"
-import { tenant, tenantUser, agent, organizationConfiguration } from "@/db/schema/organizations"
+import type { TenantId, TenantUserId } from "@/db/schema/organizations"
+import {
+  TenantUserIdSchema,
+  tenant,
+  tenantUser,
+  agent,
+  organizationConfiguration,
+} from "@/db/schema/organizations"
 import type { ChatPrincipal } from "../types"
 import { ChatFiles, type ChatFileCache } from "../attachments/attachments"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -65,7 +72,7 @@ import {
 type ChatReadScope = Pick<ChatThreadScope, "organizationId" | "tenantId">
 export interface DirectoryThreadInput {
   readonly scope: TenantScope
-  readonly tenantId: string
+  readonly tenantId: TenantId
   readonly id: string
 }
 export type DirectoryThreadRecord = typeof chatThread.$inferSelect & {
@@ -329,7 +336,10 @@ const saveChatParts = Effect.fnUntraced(function* (
     if (part.type !== "tool-call") continue
     for (const target of toolTargets(part)) {
       const targetId = Schema.decodeUnknownSync(Schema.String.check(Schema.isUUID()))(target.id)
-      const recipient = typeof target.tenantUserId === "string" ? target.tenantUserId : null
+      const recipient =
+        typeof target.tenantUserId === "string"
+          ? TenantUserIdSchema.make(target.tenantUserId)
+          : null
       const clientId = typeof target.clientId === "string" ? target.clientId : null
       if (location === "browser") {
         if (!recipient || !clientId) return yield* new ChatThreadInvalid()
@@ -997,12 +1007,12 @@ export class ChatThreads extends Context.Service<
     readonly setParticipant: (
       input: ThreadInput & {
         lockVersion: number
-        tenantUserId: string
+        tenantUserId: TenantUserId
         role: ChatParticipantRole
       },
     ) => Effect.Effect<ParticipantRecord, ChatThreadError>
     readonly removeParticipant: (
-      input: ThreadInput & { lockVersion: number; tenantUserId: string },
+      input: ThreadInput & { lockVersion: number; tenantUserId: TenantUserId },
     ) => Effect.Effect<void, ChatThreadError>
     // Admission commits prepared references, with permissions and file ownership checked in SQL.
     readonly admit: (input: AdmitInput) => Effect.Effect<ChatAdmission, ChatThreadError>
@@ -1413,7 +1423,7 @@ export class ChatThreads extends Context.Service<
       const changeParticipant = Effect.fnUntraced(function* (
         input: ThreadInput & {
           lockVersion: number
-          tenantUserId: string
+          tenantUserId: TenantUserId
           role?: ChatParticipantRole | undefined
         },
       ) {
@@ -1539,16 +1549,11 @@ export class ChatThreads extends Context.Service<
         )
       }, mapDatabaseErrors())
       const setParticipant = Effect.fn("ChatThreads.setParticipant")(
-        (
-          input: ThreadInput & {
-            lockVersion: number
-            tenantUserId: string
-            role: ChatParticipantRole
-          },
-        ) => changeParticipant(input).pipe(Effect.map((row) => row!)),
+        (input: Parameters<typeof ChatThreads.Service.setParticipant>[0]) =>
+          changeParticipant(input).pipe(Effect.map((row) => row!)),
       )
       const removeParticipant = Effect.fn("ChatThreads.removeParticipant")(
-        (input: ThreadInput & { lockVersion: number; tenantUserId: string }) =>
+        (input: Parameters<typeof ChatThreads.Service.removeParticipant>[0]) =>
           changeParticipant(input).pipe(Effect.asVoid),
       )
 

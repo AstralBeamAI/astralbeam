@@ -6,7 +6,7 @@ import {
   ORGANIZATION_TOKEN_TYPE,
 } from "@/lib/auth/organization-token.server"
 import { Database } from "@/db/database"
-import { apiKey, organization } from "@/db/schema/organizations"
+import { OrganizationIdSchema, apiKey, organization } from "@/db/schema/organizations"
 import {
   DatabaseRateLimiter,
   hashedRateLimitKey,
@@ -120,7 +120,7 @@ const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (cr
     .limit(1)
     .pipe(Effect.orDie)
   if (!row) return yield* new RestInvalidCredentials()
-  return { organizationId: row.id } satisfies RestScope["Service"]
+  return { organizationId: OrganizationIdSchema.make(row.id) } satisfies RestScope["Service"]
 })
 
 /** Resolves the scope a REST credential may reach, rechecking membership and role each time. */

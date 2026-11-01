@@ -1,3 +1,4 @@
+import { TenantUserIdSchema, OrganizationIdSchema } from "@/db/schema/organizations"
 import { and, eq, sql } from "drizzle-orm"
 import { spawn } from "node:child_process"
 import { Effect, Layer, ManagedRuntime, Redacted, Result } from "effect"
@@ -100,13 +101,21 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
         .returning()
       const [customer] = await db
         .insert(tenant)
-        .values({ organizationId: org!.id, externalId: "tenant" })
+        .values({ organizationId: OrganizationIdSchema.make(org!.id), externalId: "tenant" })
         .returning()
       const [person] = await db
         .insert(tenantUser)
-        .values({ organizationId: org!.id, tenantId: customer!.id, externalId: "user" })
+        .values({
+          organizationId: customer!.organizationId,
+          tenantId: customer!.id,
+          externalId: "user",
+        })
         .returning()
-      actor = { organizationId: org!.id, tenantId: customer!.id, tenantUserId: person!.id }
+      actor = {
+        organizationId: customer!.organizationId,
+        tenantId: customer!.id,
+        tenantUserId: person!.id,
+      }
       fixture = await startMcpFixture()
       mcpIntegration.fetch = fixture.fetch
     })
@@ -416,7 +425,10 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
       await expect(
         authority((service) =>
           service.complete({
-            actor: { ...actor, tenantUserId: "019a0000-0000-7000-8000-000000000099" },
+            actor: {
+              ...actor,
+              tenantUserId: TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+            },
             reference: flow.started.attempt,
           }),
         ),

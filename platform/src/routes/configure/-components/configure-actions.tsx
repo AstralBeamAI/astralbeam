@@ -52,7 +52,12 @@ export function ConfigureActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {onSave && (
-        <Button type="button" onClick={onSave} disabled={disabled || saveDisabled}>
+        <Button
+          type="button"
+          variant={setupComplete && saveDisabled ? "outline" : "default"}
+          onClick={onSave}
+          disabled={disabled || saveDisabled}
+        >
           {saving ? <Spinner /> : <FloppyDiskIcon aria-hidden="true" />}
           Save
         </Button>
@@ -61,7 +66,7 @@ export function ConfigureActions({
       {setupComplete && (
         <Button
           type="button"
-          variant="outline"
+          variant={saveDisabled || !onSave ? "default" : "outline"}
           onClick={handleGoToApp}
           disabled={disabled}
           title="End this operator session and open the app"
@@ -78,7 +83,7 @@ export function ConfigureActions({
         title="End this operator session"
       >
         <SignOutIcon aria-hidden="true" />
-        Sign out
+        End operator session
       </Button>
     </div>
   )

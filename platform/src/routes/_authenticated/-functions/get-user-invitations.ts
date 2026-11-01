@@ -13,7 +13,8 @@ export const getUserInvitations = createServerFn({ method: "GET" }).handler(({ s
       yield* server.setHeaders({ "Cache-Control": "no-store" })
       const { headers } = server.request
       const auth = yield* Auth
-      yield* auth.requireSession({ headers })
+      const session = yield* auth.requireSession({ headers })
+      if (!session.user.emailVerified) return []
       return yield* auth.api((api) => api.listUserInvitations({ headers }))
     }).pipe(Effect.catchTag("SignInRequired", exposeError)),
     serverFnMeta.name,

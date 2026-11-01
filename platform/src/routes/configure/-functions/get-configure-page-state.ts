@@ -12,6 +12,7 @@ import {
   configEnvironmentVariable,
 } from "@/lib/config/registry"
 import { Dogfood } from "@/lib/dogfood/dogfood.server"
+import { allowInsecure, skipEmailVerification } from "@/lib/runtime/environment.server"
 import { exposeError, runEffect, runRequestEffect } from "@/lib/runtime/server-fn.server"
 import { checkConfigureRequest } from "../-lib/configure-request.server"
 import { readOperatorSession } from "../-lib/operator-session.server"
@@ -44,10 +45,7 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
         : "",
       source,
       ...(definition.options ? { options: definition.options } : {}),
-      isSet:
-        source === "environment"
-          ? snapshot.values[definition.key] !== undefined
-          : row !== undefined,
+      isSet: row !== undefined || snapshot.values[definition.key] !== undefined,
       ...(row?.storageStatus ? { storageStatus: row.storageStatus } : {}),
       // A secret never leaves with the page. `isSet` drives the masked state and
       // `revealConfigValue` fetches the one value an operator asks to see.
@@ -63,6 +61,13 @@ const readConfigurePageState = Effect.fnUntraced(function* () {
     onboarding,
     sessionExpiresAt: session.value.expiresAt.toISOString(),
     fallbackEncryptionKeyCount: getDatabaseEncryptionKeyring().length - 1,
+    testingDefaults: [
+      ...(snapshot.values.turnstile_site_key === "1x00000000000000000000AA"
+        ? ["Turnstile test keys"]
+        : []),
+      ...(skipEmailVerification() ? ["Email verification off"] : []),
+      ...(allowInsecure() ? ["HTTP allowed"] : []),
+    ],
     setupComplete,
     migrations: {
       pending: migrations.pending.map(({ name, sql, typescript }) => ({

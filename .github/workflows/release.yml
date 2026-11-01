@@ -106,6 +106,15 @@ jobs:
         working-directory: platform
         run: bun run build
 
+      - name: Upload the Platform source maps to PostHog
+        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
+        working-directory: platform
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
+        run: bun run sourcemaps:posthog --directory .output/sourcemaps
+
       - name: Smoke-test the Platform binary
         working-directory: platform
         run: bun run binary:check
@@ -228,6 +237,7 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-mode: max
+      build-args: SOURCE_VERSION=${{ github.sha }}
       meta-images: ghcr.io/astralbeamai/astralbeam-platform
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
       labels: |

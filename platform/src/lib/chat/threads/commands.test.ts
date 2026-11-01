@@ -1,17 +1,19 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import { ChatThreadForbidden } from "./errors"
 
-const commandOrgId = "019a0000-0000-7000-8000-000000000001"
-const commandTenantId = "019a0000-0000-7000-8000-000000000002"
-const commandUserId = "019a0000-0000-7000-8000-000000000003"
+const commandOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
+const commandTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+const commandUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const commandThreadId = "019a0000-0000-7000-8000-000000000004"
 const commandScope = {
   organizationId: commandOrgId,
@@ -77,6 +79,10 @@ describe("managed conversation commands", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
+      Layer.mock(UsageLimits, {
+        applicable: () => Effect.succeed([]),
+        check: () => Effect.void,
+      }),
       Layer.succeed(ChatFiles, {
         download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),
