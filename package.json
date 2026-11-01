@@ -11,6 +11,7 @@
   ],
   "type": "module",
   "scripts": {
+    "audit": "bun audit --ignore GHSA-gcqx-w48m-w2h4",
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --disable-nested-config --check",
     "dev:platform": "bun run --cwd platform dev",
@@ -45,8 +46,7 @@
   },
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {
-    "nitro@3.0.261029-rc": "patches/nitro@3.0.261029-rc.patch",
-    "deepmerge@4.3.1": "patches/deepmerge@4.3.1.patch"
+    "nitro@3.0.261029-rc": "patches/nitro@3.0.261029-rc.patch"
   },
   "trustedDependencies": [
     "esbuild",

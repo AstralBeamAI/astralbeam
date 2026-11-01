@@ -59,7 +59,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@posthog/react": "^1.11.3",
     "@pydantic/genai-prices": "^0.1.12",
-    "@react-email/render": "2.1.0",
+    "@react-email/render": "^2.2.0",
     "@scalar/api-reference-react": "^0.9.81",
     "@tanstack/ai": "^1.0.0",
     "@tanstack/ai-anthropic": "^1.0.0",
