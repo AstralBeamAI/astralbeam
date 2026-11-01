@@ -1,6 +1,9 @@
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
 import {
   context,
+  createContextKey,
+  type Attributes,
+  type Context,
   SpanKind,
   SpanStatusCode,
   trace,
@@ -13,43 +16,52 @@ import { Effect, Layer, Option } from "effect"
 import { getEventContext } from "nitro/h3"
 
 const tracingContextKey = Symbol.for("platform.tracingContext")
+type RequestTelemetryScope = <A>(attributes: Attributes, next: () => A) => A
 const tracingContext = ((
   globalThis as typeof globalThis & {
     [tracingContextKey]?: {
-      tracers: Set<Tracer>
+      tracers: Map<Tracer, RequestTelemetryScope | undefined>
       manager?: AsyncLocalStorageContextManager
     }
   }
-)[tracingContextKey] ??= { tracers: new Set() })
+)[tracingContextKey] ??= { tracers: new Map() })
 
 // Nitro and SSR have separate module copies, but OpenTelemetry has one process-wide context.
 // https://opentelemetry.io/docs/languages/js/context/
-export const requestTracingLayer = Layer.effectDiscard(
-  Effect.acquireRelease(
-    Effect.flatMap(Effect.serviceOption(OtelTracer.OtelTracer), (service) =>
-      Effect.sync(() => {
-        if (Option.isNone(service)) return undefined
-        const tracer = service.value
-        if (tracingContext.tracers.size === 0) {
-          const manager = new AsyncLocalStorageContextManager().enable()
-          if (context.setGlobalContextManager(manager)) tracingContext.manager = manager
-          else manager.disable()
-        }
-        tracingContext.tracers.add(tracer)
-        return tracer
-      }),
+export function requestTracingLayer(withProviderContext?: RequestTelemetryScope) {
+  return Layer.effectDiscard(
+    Effect.acquireRelease(
+      Effect.flatMap(Effect.serviceOption(OtelTracer.OtelTracer), (service) =>
+        Effect.sync(() => {
+          if (Option.isNone(service)) return undefined
+          const tracer = service.value
+          if (tracingContext.tracers.size === 0) {
+            const manager = new AsyncLocalStorageContextManager().enable()
+            if (context.setGlobalContextManager(manager)) tracingContext.manager = manager
+            else manager.disable()
+          }
+          tracingContext.tracers.set(tracer, withProviderContext)
+          return tracer
+        }),
+      ),
+      (tracer) =>
+        Effect.sync(() => {
+          if (!tracer) return
+          tracingContext.tracers.delete(tracer)
+          if (tracingContext.tracers.size === 0 && tracingContext.manager) {
+            context.disable()
+            delete tracingContext.manager
+          }
+        }),
     ),
-    (tracer) =>
-      Effect.sync(() => {
-        if (!tracer) return
-        tracingContext.tracers.delete(tracer)
-        if (tracingContext.tracers.size === 0 && tracingContext.manager) {
-          context.disable()
-          delete tracingContext.manager
-        }
-      }),
-  ),
-)
+  )
+}
+
+const requestTelemetryKey = createContextKey("platform.requestTelemetry")
+
+export function getRequestTelemetryAttributes(parent: Context = context.active()): Attributes {
+  return (parent.getValue(requestTelemetryKey) as Attributes | undefined) ?? {}
+}
 
 type HttpTracingContext = { serverSpan?: Span }
 const traceContextPropagator = new W3CTraceContextPropagator()
@@ -63,7 +75,7 @@ export function traceHttpRequest(
   request: Request,
   next: (request: Request) => Response | Promise<Response>,
 ): Response | Promise<Response> {
-  const tracer = tracingContext.tracers.values().next().value
+  const [tracer, withProviderContext] = tracingContext.tracers.entries().next().value ?? []
   if (!tracer) return next(request)
   const url = new URL(request.url)
   const parent = traceContextPropagator.extract(
@@ -71,6 +83,11 @@ export function traceHttpRequest(
     request.headers,
     traceHeaderGetter,
   )
+  // Browser identifiers are analytics context only, never authentication or authorization.
+  const attributes = {
+    "user.id": request.headers.get("X-PostHog-Distinct-Id") || undefined,
+    "session.id": request.headers.get("X-PostHog-Session-Id") || undefined,
+  }
   return tracer.startActiveSpan(
     request.method,
     {
@@ -82,11 +99,12 @@ export function traceHttpRequest(
         "server.port": Number(url.port || (url.protocol === "https:" ? 443 : 80)),
       },
     },
-    parent,
+    parent.setValue(requestTelemetryKey, attributes),
     async (span) => {
       getEventContext<HttpTracingContext>({ req: request }).serverSpan = span
       try {
-        const response = await next(request)
+        const run = () => next(request)
+        const response = await (withProviderContext ? withProviderContext(attributes, run) : run())
         span.setAttribute("http.response.status_code", response.status)
         if (response.status >= 500) {
           span.setAttribute("error.type", String(response.status))

@@ -228,8 +228,24 @@ For a hosted receiver, use its official endpoint and authentication headers. Che
 
 The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
 
-Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts and error types. Prompt, response, tool argument and result capture stays disabled. SQL text and raw exception content are excluded.
+Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts, prompts, responses, tool arguments and results. Failed operations retain exception types, messages, cause-chain stacks and status descriptions with credential patterns redacted. SQL text and credential-bearing URL fields are excluded.
 
 Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger). Console and shipped logs share credential redaction. Shipped logs include messages, full causes, request metadata, and active trace/span IDs. Request and error logs outside the application runtime use the exporter after it initializes. Earlier logs remain console-only. Log export uses generic OTLP headers, not traces-specific headers.
 
+Native issue grouping depends on the receiver. Failed spans include `error.type`, `error.message`, and `error.stack` alongside exception events for receivers such as Datadog. Sentry's direct OTLP ingestion does not replace its native exception capture.
+
+Browser correlation uses the standard `user.id` and `session.id` attributes on spans and shipped logs for every OTLP receiver. Provider-specific aliases are added only to that provider's exports.
+
 Set `deployment.environment.name` and `service.instance.id` through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES` to filter spans and logs by environment and process. Restart after changing them. An environment override replaces stored labels, allowing replicas sharing a database to identify themselves separately.
+
+### PostHog errors and AI observability
+
+The US or EU PostHog OTLP receiver also enables backend errors and AI observability using its configured bearer token. Switching receivers or disabling telemetry disables backend PostHog capture. Hosted browser analytics remain independent.
+
+### Source maps for custom builds
+
+Platform and website production builds generate hidden source maps and deterministic debug IDs without upload credentials. IDs include the Git revision and source positions, so older deployments retain their matching maps and release. Set `SOURCE_VERSION` to the commit SHA when building without Git metadata, including custom Docker builds with `--build-arg SOURCE_VERSION=<sha>`. Each build collects its matching JavaScript and maps under `.output/sourcemaps`, outside served assets and compiled binaries. Use that directory with any compatible uploader.
+
+For PostHog, run `bun run sourcemaps:posthog --directory .output/sourcemaps` from the project directory after building. The command binds maps to the CLI's Git release. When uploading outside the original checkout, pass `--release-version <sha>` matching `SOURCE_VERSION`. Set `POSTHOG_CLI_API_KEY` to a personal API key with error tracking write and organization read scopes, and `POSTHOG_CLI_PROJECT_ID` to the project ID. `POSTHOG_CLI_HOST` optionally selects another region or instance. Keep these credentials in the CI upload step. Uploads leave the generated files unchanged, so the same artifact can be sent to multiple destinations.
+
+For GitHub releases, add the `POSTHOG_API_KEY` repository secret and `POSTHOG_PROJECT_ID` repository variable, plus `POSTHOG_HOST` if needed. CI uploads the regular release build's source maps directly to PostHog. Docker builds remain independent of PostHog and reuse those maps when their emitted debug IDs match. A different set of Docker bundles requires uploading its matching maps separately.
