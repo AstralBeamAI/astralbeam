@@ -71,13 +71,7 @@ const viteConfig = defineConfig(({ mode }) => {
     // Server bundles gain nothing from code splitting. Their dynamic imports break import cycles or
     // keep the OpenAPI export's graph database-free, so only the client keeps this check.
     environments: {
-      ssr: {
-        build: {
-          // Keep intermediate maps until Nitro has chained them into its final server bundle.
-          sourcemap: true,
-          rolldownOptions: { checks: { ineffectiveDynamicImport: false } },
-        },
-      },
+      ssr: { build: { rolldownOptions: { checks: { ineffectiveDynamicImport: false } } } },
     },
     plugins: [
       {
@@ -150,6 +144,7 @@ const viteConfig = defineConfig(({ mode }) => {
         : nitro({
             preset: "bun",
             compressPublicAssets: true,
+            sourcemap: true,
             experimental: { sourcemapMinify: false },
             // Trace Daytona's dynamic busboy import and every installed native Sharp package.
             // https://nitro.build/config#tracedeps

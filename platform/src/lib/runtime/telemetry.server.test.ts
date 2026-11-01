@@ -30,32 +30,6 @@ import {
 
 afterEach(() => vi.unstubAllEnvs())
 
-it.each([
-  { endpoint: undefined, disabled: "false", enabled: false },
-  { endpoint: "https://us.i.posthog.com/i", disabled: "true", enabled: false },
-  { endpoint: "https://us.i.posthog.com/i", disabled: "false", enabled: true },
-])(
-  "selects backend capture from configuration: $endpoint, disabled=$disabled",
-  async ({ endpoint, disabled, enabled }) => {
-    vi.stubEnv("OTEL_SDK_DISABLED", "false")
-    await Effect.runPromise(
-      Effect.sync(() => assert.strictEqual(getPostHogClient() !== undefined, enabled)).pipe(
-        Effect.provide(telemetryLayer),
-        Effect.provideService(Config, {
-          snapshot: Effect.succeed({
-            values: {
-              otel_exporter_otlp_endpoint: endpoint,
-              otel_exporter_otlp_headers: "Authorization=Bearer test-project-token",
-              otel_sdk_disabled: disabled,
-            },
-          }),
-        } as Config["Service"]),
-      ),
-    )
-    assert.isUndefined(getPostHogClient())
-  },
-)
-
 it.effect("keeps the runtime available when telemetry configuration cannot be loaded", () => {
   vi.stubEnv("OTEL_SDK_DISABLED", "false")
   return Effect.gen(function* () {
@@ -68,25 +42,41 @@ it.effect("keeps the runtime available when telemetry configuration cannot be lo
   )
 })
 
-it.effect("does not override the configured service name with the application default", () => {
-  vi.stubEnv("OTEL_SDK_DISABLED", "false")
-  vi.stubEnv("OTEL_SERVICE_NAME", undefined)
-  return Effect.gen(function* () {
-    assert.strictEqual((yield* Resource.Resource).attributes["service.name"], "configured-service")
+it.each([
+  [undefined, "false", false],
+  ["https://us.i.posthog.com/i", "true", false],
+  ["https://us.i.posthog.com/i", "false", true],
+  ["http://127.0.0.1:4318", "false", false],
+] as const)(
+  "uses configured service labels and backend capture: %s, disabled=%s",
+  async (endpoint, disabled, enabled) => {
+    vi.stubEnv("OTEL_SDK_DISABLED", "false")
+    vi.stubEnv("OTEL_SERVICE_NAME", undefined)
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        assert.strictEqual(getPostHogClient() !== undefined, enabled)
+        if (endpoint && disabled === "false")
+          assert.strictEqual(
+            (yield* Resource.Resource).attributes["service.name"],
+            "configured-service",
+          )
+      }).pipe(
+        Effect.provide(telemetryLayer),
+        Effect.provideService(Config, {
+          snapshot: Effect.succeed({
+            values: {
+              otel_exporter_otlp_endpoint: endpoint,
+              otel_exporter_otlp_headers: "Authorization=Bearer test-project-token",
+              otel_sdk_disabled: disabled,
+              otel_resource_attributes: "service.name=configured-service",
+            },
+          }),
+        } as Config["Service"]),
+      ),
+    )
     assert.isUndefined(getPostHogClient())
-  }).pipe(
-    Effect.provide(telemetryLayer),
-    Effect.provideService(Config, {
-      snapshot: Effect.succeed({
-        values: {
-          otel_exporter_otlp_endpoint: "http://127.0.0.1:4318",
-          otel_exporter_otlp_headers: "Authorization=Bearer other-receiver-token",
-          otel_resource_attributes: "service.name=configured-service",
-        },
-      }),
-    } as Config["Service"]),
-  )
-})
+  },
+)
 
 it("isolates concurrent errors, redacts exports, and preserves cancellation and shutdown", async () => {
   vi.stubEnv("OTEL_SDK_DISABLED", "false")

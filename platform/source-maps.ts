@@ -1,5 +1,13 @@
 import { createHash } from "node:crypto"
-import { copyFileSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs"
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs"
 import { basename, dirname, join, relative } from "node:path"
 import type { Plugin } from "vite"
 
@@ -10,6 +18,12 @@ export const sourceMapDebugIds: Plugin = {
   name: "source-map-debug-ids",
   apply: "build",
   config: () => ({ build: { sourcemap: "hidden" } }),
+  load(id) {
+    // Carry the separately built SSR maps into Nitro's final server bundle.
+    if (/\/\.nitro\/vite\/services\/ssr\/.*\.m?js$/u.test(id) && existsSync(`${id}.map`))
+      return { code: readFileSync(id, "utf8"), map: readFileSync(`${id}.map`, "utf8") }
+    return null
+  },
   outputOptions(options) {
     const banner = options.postBanner
     return {
