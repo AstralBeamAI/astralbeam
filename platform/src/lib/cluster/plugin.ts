@@ -4,6 +4,7 @@ import { Effect } from "effect"
 import type { NitroAppPlugin } from "nitro/types"
 import type { ViteHotContext } from "vite/types/hot.d.ts"
 
+import { stopEmbeddedPostgres } from "@/db/embedded-postgres.ts"
 import { closeClusterProcess, startClusterRunner, stopClusterRunner } from "./runtime.ts"
 import { serverLoggerLayer } from "../runtime/logging.server.ts"
 
@@ -23,6 +24,7 @@ const clusterPlugin: NitroAppPlugin = (nitro) => {
     Effect.runPromise(
       closeClusterProcess.pipe(
         Effect.timeout("5 seconds"),
+        Effect.andThen(Effect.promise(stopEmbeddedPostgres)),
         Effect.matchCauseEffect({
           onSuccess: () => (hot ? Effect.void : Effect.sync(() => process.exit(0))),
           onFailure: (cause) =>

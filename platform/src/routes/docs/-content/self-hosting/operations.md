@@ -2,7 +2,7 @@
 
 Maintain a running deployment with migrations, coordinated backups, health checks, and logs. For installation, follow [Deploy](./deploy.md).
 
-Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
+The binary’s database commands use the same database selection as `start`. Stop embedded PostgreSQL before running them. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
 ## HTTP workers
 
@@ -49,7 +49,9 @@ bun run --cwd platform db migrate
 
 Because file state spans PostgreSQL and the configured filesystem directory or S3 bucket, stop all application replicas before backing up the database and files.
 
-Run this command to take that dump:
+For embedded PostgreSQL, stop the executable and copy its data directory, including `postgres/` and `embedded-postgres.json`, together with configured file storage. Preserve permissions and the active encryption keyring when restoring. PostgreSQL major-version upgrades require dump and restore.
+
+For external PostgreSQL, run this command to take the dump:
 
 ```sh
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
