@@ -2,7 +2,7 @@
 
 AstralBeam lets an Organization embed an agent in its product. Organization employees configure it in the dashboard. The Organization's server authenticates its Tenants and tenant users, then issues short-lived tokens for the embedded SDK.
 
-Implementation rules live in [AGENTS.md](AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for local development and [self-hosting](platform/src/routes/docs/-content/self-hosting/overview.md) for deployment.
+Implementation rules live in [AGENTS.md](../AGENTS.md) and its project-specific counterparts. See [Setup](SETUP.md) for local development and [self-hosting](../platform/src/routes/docs/-content/self-hosting/overview.md) for deployment.
 
 ## The projects
 
@@ -50,9 +50,9 @@ An organization API key is `key_<organizationId>_<id>_abo_<secret>`. Its IDs are
 
 The host signs chat JWTs using the SHA-256 digest of the complete `abo_<secret>` value. AstralBeam verifies them against the stored digest without receiving the raw key. Consequently, read access to `api_key.key` is enough to forge chat tokens. Treat it as signing-key access.
 
-JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](platform/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
+JWTs carry separate `user` and `tenant` claims, use the organization UUID as issuer and `astralbeam` as audience, and expire after 60–600 seconds. Trusted organization context comes from the verified key row. The [chat authentication instructions](../platform/src/lib/chat/AGENTS.md#authentication) define verification order and lifecycle checks.
 
-The management API persists Tenants and TenantUsers. Before becoming ready, SDK authentication calls JWT-only `POST /api/v1/me` to synchronize the signed Tenant and current TenantUser atomically. Organization JWTs instead return the existing member and current role. Token issuance does not write these identities. Chat resolves existing internal identities and participant grants without provisioning them. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](platform/src/routes/docs/-content/api/authentication.md).
+The management API persists Tenants and TenantUsers. Before becoming ready, SDK authentication calls JWT-only `POST /api/v1/me` to synchronize the signed Tenant and current TenantUser atomically. Organization JWTs instead return the existing member and current role. Token issuance does not write these identities. Chat resolves existing internal identities and participant grants without provisioning them. A signed `user.admin` claim grants scoped management access independently of stored TenantUser `admin` data. See [API authentication](../platform/src/routes/docs/-content/api/authentication.md).
 
 First-party organization-owned rows use `(organization_id, id)` keys. Tenant-owned rows add `tenant_id`. Composite foreign keys prevent cross-organization or cross-Tenant references at the database boundary. Better Auth tables retain adapter-compatible keys and require application-level scoping.
 
@@ -93,7 +93,7 @@ Refresh claims a timestamp inside the encrypted credential envelope against the 
 
 Deterministic fixtures cover protocol, ownership, OAuth and cross-process refresh. Live provider verification is separate. Legacy MCP revisions, stdio, protocol sessions, private networks, subscriptions, resources, prompts, sampling, elicitation and incremental scope authorization are outside this client. The SDK mirrors `x-mcp-header` parameters, while AstralBeam filters invalid declarations and rejects unsafe mirrored values before dispatch. The package ignores `structuredContent` without a declared output schema. Organizations configure required OAuth scopes before connecting. Discovery has response-size, page, time and connection bounds. All discovered tools are exposed without a separate catalog allocator, so the model provider's own limits apply to the combined tool set.
 
-To verify live providers, open **MCP connections** in the embedded sidebar, connect to a server, and choose **Test connection**. This lists tools without invoking business tools. See [MCP servers](platform/src/routes/docs/-content/dashboard/connections.md) for hosted examples.
+To verify live providers, open **MCP connections** in the embedded sidebar, connect to a server, and choose **Test connection**. This lists tools without invoking business tools. See [MCP servers](../platform/src/routes/docs/-content/dashboard/connections.md) for hosted examples.
 
 ### Conversation schema choices
 
@@ -123,9 +123,9 @@ The first encryption-key entry encrypts writes and authenticates the operator. O
 
 TanStack Start server functions and routes form the framework boundary. Public management and chat APIs share an Effect HttpApi contract. Chat retains AG-UI input and streaming, while management resources use their own schemas and authorization.
 
-All server logic is Effect programs built from services, one module per domain under `platform/src/lib`, composed into a single app layer and run through one `ManagedRuntime` at the framework boundary. Promise-based libraries such as Better Auth, the email providers, and the sandbox SDKs are wrapped once inside the service that owns them. Failures a user should see are typed errors with their own messages, and every other failure is logged once under a reference the user can quote. The [code map](platform/src/README.md) shows where each piece lives.
+All server logic is Effect programs built from services, one module per domain under `platform/src/lib`, composed into a single app layer and run through one `ManagedRuntime` at the framework boundary. Promise-based libraries such as Better Auth, the email providers, and the sandbox SDKs are wrapped once inside the service that owns them. Failures a user should see are typed errors with their own messages, and every other failure is logged once under a reference the user can quote. The [code map](../platform/src/README.md) shows where each piece lives.
 
-The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](platform/AGENTS.md#database) for the required pool lifecycle.
+The database module owns a `pg` pool for Promise and Better Auth queries and a separate native `@effect/sql-pg` pool for Effect queries. Effect cancellation may release or destroy a client, so sharing that pool previously broke unrelated Better Auth session queries. See [database instructions](../platform/AGENTS.md#database) for the required pool lifecycle.
 
 Transactions on these shared clients automatically carry their connection identity through Effect fiber context and native Promise async context. The guard throws `TransactionNetworkError` before intercepted fetch, HTTP requests and writes, TCP/TLS connection, WebSocket construction, sends and closes, or other database-client operations. Current-connection SQL and nested savepoints remain allowed. An uncaught error triggers the driver's normal rollback. Effect transaction-local configuration reads use that connection and bypass the process cache, preventing uncommitted settings from entering it. Promise transactions reuse the committed configuration cache and fail on a cache miss, requiring configuration to be loaded before entering the transaction.
 
@@ -135,7 +135,7 @@ This guard catches accidental I/O through the installed entry points in every en
 
 Each platform process embeds `ClusterWorkflowEngine` and one Effect Cluster runner using private HTTP, PostgreSQL journals and SQL row leases compatible with PgBouncer transaction pooling. The runner shares the native Effect pool but has its own scope, keeping startup failures independent of `/configure` and ordinary database operations.
 
-Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](platform/src/lib/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](platform/src/lib/workflows/README.md) for authoring and recovery.
+Effect manages its `effect_cluster_*` tables outside Drizzle. Nitro drains HTTP before closing the runner and database pools. See the [cluster guide](../platform/src/lib/cluster/README.md) for lifecycle and storage ownership, and the [workflow guide](../platform/src/lib/workflows/README.md) for authoring and recovery.
 
 ## SDK boundary
 
@@ -143,13 +143,13 @@ The vanilla entry lazily loads a widget with its own React and styles. The React
 
 Chat and directory components use the same framework-free authentication lifecycle for token acquisition, current-user synchronization, proactive renewal, and bounded retry. Each component owns and disposes its session.
 
-Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox publication copies and verifies bytes in private file storage, then attaches the file to its assistant message. Downloads check current conversation permissions. These boundaries are detailed in [SDK security](platform/src/routes/docs/-content/sdk/security.md).
+Host tools and widgets execute in the host page with agent-chosen input. Attachments stay at user/tool authority, never in system prompts. Sandbox publication copies and verifies bytes in private file storage, then attaches the file to its assistant message. Downloads check current conversation permissions. These boundaries are detailed in [SDK security](../platform/src/routes/docs/-content/sdk/security.md).
 
 ## Build and deployment
 
 The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Bun binaries. `website` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
 
-Commands and build constraints belong to each project's instructions and manifests. The [local development guide](SETUP.md#local-development) launches the applications, and the [browser-suite guide](examples/todos/e2e/README.md) explains test selection and evidence capture.
+Commands and build constraints belong to each project's instructions and manifests. The [local development guide](SETUP.md#local-development) launches the applications, and the [browser-suite guide](../examples/todos/e2e/README.md) explains test selection and evidence capture.
 
 ## Glossary
 
@@ -163,7 +163,7 @@ Commands and build constraints belong to each project's instructions and manifes
 
 ## Saved conversations
 
-Every chat uses participant-authorized saved threads. The [chat persistence guide](platform/src/lib/chat/README.md) covers the schema, execution lifecycle, SDK and HTTP workflows, and failure behavior.
+Every chat uses participant-authorized saved threads. The [chat persistence guide](../platform/src/lib/chat/README.md) covers the schema, execution lifecycle, SDK and HTTP workflows, and failure behavior.
 
 Execution remains attached to its foreground request. Process crashes can leave unfinished turns indefinitely, and `writer_active` reports saved state rather than confirmed process liveness. Unfinished turns do not block new sends. Reopening history never executes stored business calls. Stream replay and automatic execution recovery remain unavailable.
 

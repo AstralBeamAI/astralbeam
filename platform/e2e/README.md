@@ -1,6 +1,6 @@
 # Platform end-to-end suite
 
-Browser tests cover authentication, `/configure`, and dashboard flows against a real Platform server and PostgreSQL database, with email captured by a local SMTP sink. Complete [local setup](../../SETUP.md#local-development) before running them.
+Browser tests cover authentication, `/configure`, and dashboard flows against a real Platform server and PostgreSQL database, with email captured by a local SMTP sink. Complete [local setup](../../docs/SETUP.md#local-development) before running them.
 
 Default runs create and migrate a separate database, start their own server, and leave the development database and port 4500 untouched. They make no model calls and start no containers. Docker sandbox tests are opt-in, while seeded evidence runs use the worktree's development database.
 

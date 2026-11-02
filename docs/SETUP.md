@@ -2,7 +2,7 @@
 
 ## Host prerequisites
 
-Install Git, curl, and unzip. Setup installs the Bun version pinned in [`.bun-version`](.bun-version), including when another version is already installed. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
+Install Git, curl, and unzip. Setup installs the Bun version pinned in [`.bun-version`](../.bun-version), including when another version is already installed. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
 
 Set `DATABASE_URL` in ignored `platform/.env.local` to a local database owned by your application role. That role also needs `CREATEDB` for worktree setup to create separate databases.
 
@@ -24,21 +24,23 @@ Setup installs frozen dependencies, applies migrations, seeds an uninitialized d
 | `docker` | Start Compose and wait for healthy services without recreating containers. |
 | `native` | [Install and start services](#development-without-docker) on Ubuntu 24.04 or Debian 13. Requires root or sudo. |
 
-Optional Linux helpers use `INSTALL_EXTRA`, such as `linux-tools profiled`. `linux-tools` installs development tools and the `psql` client, without database servers. System-package installation requires root or sudo.
+Optional Linux helpers use `INSTALL_EXTRA`, such as `linux-tools`. `linux-tools` installs development tools and the `psql` client, without database servers. System-package installation requires root or sudo.
 
-The [seed](platform/src/db/README.md#seed-sample-data) prints local credentials and creates missing Todos example `.env` files. To seed a Development OpenAI connection, put `OPENAI_API_KEY` in ignored `platform/.env.local` before setup. Existing providers and model choices are preserved. For an initialized database, rerun the seed explicitly. Manage connections under **Models**, enable models, and assign them to agents.
+The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentials and creates missing Todos example `.env` files. To seed a Development OpenAI connection, put `OPENAI_API_KEY` in ignored `platform/.env.local` before setup. Existing providers and model choices are preserved. For an initialized database, rerun the seed explicitly. Manage connections under **Models**, enable models, and assign them to agents.
 
 ### Local services
 
-New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the platform's [default storage directory](platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
+New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the platform's [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
 
 To use containers for supporting services, install and start Docker, then run `SERVICES=docker ./scripts/setup.sh`. Compose provides PostgreSQL through PgBouncer and Mailpit for email testing. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
 Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at the default Linux storage directory, `/root/.local/share/astralbeam/storage`, for persistent File System storage.
 
-Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
+Authenticate CLI tools inside the devcontainer using their default configuration directories.
 
-Before changing storage destinations, follow the [storage migration procedure](platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified.
+Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](../platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
+
+Before changing storage destinations, follow the [storage migration procedure](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified.
 
 ### 2. Run the applications
 
@@ -51,19 +53,19 @@ bun run dev
 | Application | Local URL | Guide |
 | --- | --- | --- |
 | Platform | `http://localhost:4500` | [Authentication and email](#authentication-and-transactional-email) |
-| Website | `http://localhost:4600` | [Website](website/README.md) |
-| Todos | `http://localhost:4700` | [Todos](examples/todos/README.md) |
-| Linearity | `http://localhost:4900` | [Set Basic Auth and Astro credentials first](examples/linearity-react/README.md) |
+| Website | `http://localhost:4600` | [Website](../website/README.md) |
+| Todos | `http://localhost:4700` | [Todos](../examples/todos/README.md) |
+| Linearity | `http://localhost:4900` | [Set Basic Auth and Astro credentials first](../examples/linearity-react/README.md) |
 
-The [Rails example](examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 4800. Reload examples after SDK changes so they use the rebuilt output.
+The [Rails example](../examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 4800. Reload examples after SDK changes so they use the rebuilt output.
 
-For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](CONTRIBUTING.md#validate-your-change) before opening a PR.
+For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](../CONTRIBUTING.md#validate-your-change) before opening a PR.
 
 #### Port allocation
 
-Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510` and website preview to `4620`. Existing deployments keep their explicit ports. See [deployment](platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
+Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510` and website preview to `4620`. Existing deployments keep their explicit ports. See [deployment](../platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
 
-Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned loopback port, and needs no separate worker command. See the [cluster](platform/src/lib/cluster/README.md) and [workflow](platform/src/lib/workflows/README.md) guides for runtime details.
+Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned loopback port, and needs no separate worker command. See the [cluster](../platform/src/lib/cluster/README.md) and [workflow](../platform/src/lib/workflows/README.md) guides for runtime details.
 
 ## Development without Docker
 
@@ -77,7 +79,7 @@ This installs and starts PostgreSQL 18 and Valkey 9. Rerun it after restarting t
 
 ## Cloud agent setup
 
-See the [Codex](.codex/README.md) and [Cursor Cloud Agents](.cursor/README.md) guides. Codex Cloud uses the native command above for setup and maintenance.
+See the [Codex guide](../.codex/README.md). Codex Cloud uses the native command above for setup and maintenance.
 
 ## Authentication and transactional email
 
@@ -98,16 +100,16 @@ openssl rand -base64 32
 To rotate a key:
 
 1. Restart every server instance with `DATABASE_ENCRYPTION_KEY=new,old`, placing the new secret first. Changing the active key invalidates operator sessions. Sign in again with the new value.
-2. Follow the [key-rotation procedure](platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) to rewrite or replace all dependent settings, provider and sandbox credentials, and MCP authorization data. Saving unchanged sandbox credentials does not rewrite them. There is no automatic whole-database re-encryption command.
+2. Follow the [key-rotation procedure](../platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) to rewrite or replace all dependent settings, provider and sandbox credentials, and MCP authorization data. Saving unchanged sandbox credentials does not rewrite them. There is no automatic whole-database re-encryption command.
 3. Remove the old entry only after every dependent encrypted value has been rewritten or replaced, then restart every instance. Removing it too early makes those values unreadable. An empty fallback warning list on `/configure` does not prove rotation is complete.
 
 Sign in to `/configure` with the first raw secret, never database credentials or a fallback entry. Operator sessions last 15 minutes. Apply pending migrations there on a new database. Missing keys or damaged ciphertext make stored values unreadable, but `/configure` permits replacement without revealing the old value.
 
-Protect `/configure` with HTTPS and restricted ingress in production. Its credential can decrypt the deployment's stored secrets. See the [security guide](platform/src/routes/docs/-content/self-hosting/security.md) for proxy and access requirements.
+Protect `/configure` with HTTPS and restricted ingress in production. Its credential can decrypt the deployment's stored secrets. See the [security guide](../platform/src/routes/docs/-content/self-hosting/security.md) for proxy and access requirements.
 
 #### Runtime settings
 
-Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL defaults to `http://localhost:<port>`. It must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
+Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL defaults to `http://localhost:<port>`. It must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](../platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
 
 ### Configure Cloudflare Turnstile
 

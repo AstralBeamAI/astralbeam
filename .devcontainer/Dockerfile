@@ -13,7 +13,7 @@ ENV BUN_INSTALL=/root/.bun
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 COPY scripts/ /tmp/
 COPY .bun-version /tmp/.bun-version
-RUN INSTALL_EXTRA="linux-tools profiled" /tmp/setup.sh \
+RUN INSTALL_EXTRA="linux-tools" /tmp/setup.sh \
   && git config --system --add safe.directory '*' \
   && apt-get autoremove -yq \
   && apt-get clean -yq \
