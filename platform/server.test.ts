@@ -1,7 +1,7 @@
 import process from "node:process"
 
 import { assert, it } from "@effect/vitest"
-import { Effect, Fiber } from "effect"
+import { Cause, Effect, Exit, Fiber } from "effect"
 import { TestClock } from "effect/testing"
 import { afterEach, vi } from "vitest"
 import type { Plugin, ViteDevServer } from "vite"
@@ -42,9 +42,10 @@ it.effect("reports failed cleanup and kills stalled workers concurrently", () =>
         supervisePlatformWorkers({ count: 2, command: ["/binary"] }),
       )
       yield* Effect.yieldNow
-      process.listeners("SIGTERM").at(-1)!("SIGTERM")
+      yield* Effect.forkChild(Fiber.interrupt(supervisor))
       if (stalled) yield* TestClock.adjust("12 seconds")
-      assert.strictEqual(yield* Fiber.join(supervisor), 1)
+      const exit = yield* Fiber.await(supervisor)
+      assert.isTrue(Exit.isFailure(exit) && Cause.hasDies(exit.cause))
       for (const child of children)
         assert.deepStrictEqual(
           child.kill.mock.calls,

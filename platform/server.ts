@@ -6,7 +6,8 @@ import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { Deferred, Effect, Result, Schedule, Schema } from "effect"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { Cause, Effect, Exit, Result, Schedule, Schema } from "effect"
 import { defineServerEntry } from "nitro"
 
 const workerCountSchema = Schema.NumberFromString.pipe(
@@ -18,7 +19,8 @@ export default defineServerEntry({
   // Model and tool requests can remain quiet longer than Bun's default idle timeout.
   // https://nitro.build/docs/server-entry#server-options
   bun: { idleTimeout: 0 },
-  reusePort: process.platform === "linux" && process.env.ASTRALBEAM_WORKER !== undefined,
+  reusePort:
+    process.platform === "linux" && process.env.__ASTRALBEAM_INTERNAL_WORKER_ID !== undefined,
   gracefulShutdown: true,
 })
 
@@ -35,7 +37,7 @@ function resolvePlatformWorkerCount(): number {
 
 export async function startPlatformServer(): Promise<number> {
   const count = resolvePlatformWorkerCount()
-  const isWorker = process.env.ASTRALBEAM_WORKER !== undefined
+  const isWorker = process.env.__ASTRALBEAM_INTERNAL_WORKER_ID !== undefined
   if (!isWorker) console.error(`Starting ${count} server workers`)
   if (count > 1) {
     if (process.env.CLUSTER_RUNNER_PORT && process.env.CLUSTER_RUNNER_PORT !== "0") {
@@ -50,7 +52,11 @@ export async function startPlatformServer(): Promise<number> {
     const command = Bun.isStandaloneExecutable
       ? [process.execPath, "start"]
       : [process.execPath, fileURLToPath(new URL("./src/main.ts", import.meta.url)), "start"]
-    return Effect.runPromise(supervisePlatformWorkers({ count, command }))
+    BunRuntime.runMain(supervisePlatformWorkers({ count, command }), {
+      teardown: (exit, onExit) =>
+        onExit(Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? 1 : 0),
+    })
+    return 0
   }
   if (isWorker && !process.connected) return 0
   const stopDuringStartup = (signal: NodeJS.Signals) => {
@@ -89,7 +95,8 @@ export async function startPlatformServer(): Promise<number> {
 
 function launchPlatformWorker(command: readonly string[], worker: number) {
   const child = Bun.spawn([...command], {
-    env: { ...process.env, WORKERS: "1", ASTRALBEAM_WORKER: String(worker) },
+    // Internal supervisor marker, not an operator setting. Configure worker count with WORKERS.
+    env: { ...process.env, WORKERS: "1", __ASTRALBEAM_INTERNAL_WORKER_ID: String(worker) },
     stdin: "ignore",
     stdout: "inherit",
     stderr: "inherit",
@@ -105,59 +112,35 @@ export function supervisePlatformWorkers(options: {
   readonly count: number
   readonly command: readonly string[]
 }) {
-  return Effect.scoped(
-    Effect.gen(function* () {
-      const stopped = yield* Deferred.make<void>()
-      let shutdownFailed = false
-      const stop = () => void Deferred.doneUnsafe(stopped, Effect.void)
-      yield* Effect.acquireRelease(
-        Effect.sync(() => {
-          process.on("SIGINT", stop)
-          process.on("SIGTERM", stop)
+  const workerSlot = (worker: number) =>
+    Effect.acquireUseRelease(
+      Effect.try(() => launchPlatformWorker(options.command, worker)),
+      ({ exited }) =>
+        Effect.gen(function* () {
+          const code = yield* exited
+          console.error(`Worker ${worker} exited (${code}), restarting with backoff`)
+          return yield* Effect.fail(new Error("Worker exited"))
         }),
-        () =>
-          Effect.sync(() => {
-            process.off("SIGINT", stop)
-            process.off("SIGTERM", stop)
-          }),
-      )
-      const workerSlot = (worker: number) =>
-        Effect.acquireUseRelease(
-          Effect.try(() => launchPlatformWorker(options.command, worker)),
-          ({ exited }) =>
-            Effect.gen(function* () {
-              const code = yield* exited
-              console.error(`Worker ${worker} exited (${code}), restarting with backoff`)
-              return yield* Effect.fail(new Error("Worker exited"))
-            }),
-          ({ child, exited }) =>
-            Effect.gen(function* () {
-              if (child.exitCode !== null || child.signalCode !== null) return
-              child.kill("SIGTERM")
-              const result = yield* exited.pipe(Effect.timeoutOption("12 seconds"))
-              if (result._tag === "None") {
-                child.kill("SIGKILL")
-                yield* exited
-              }
-              // Shutdown can reach a newly spawned worker before it installs signal handlers.
-              shutdownFailed ||=
-                result._tag === "None" || (result.value !== 0 && child.signalCode !== "SIGTERM")
-            }),
-        ).pipe(
-          Effect.retry(
-            Schedule.min([Schedule.exponential("250 millis"), Schedule.spaced("30 seconds")]),
-          ),
-        )
-      yield* Effect.raceFirst(
-        Effect.all(
-          Array.from({ length: options.count }, (_, index) => workerSlot(index + 1)),
-          {
-            concurrency: "unbounded",
-          },
-        ),
-        Deferred.await(stopped),
-      )
-      return shutdownFailed ? 1 : 0
-    }),
+      ({ child, exited }) =>
+        Effect.gen(function* () {
+          if (child.exitCode !== null || child.signalCode !== null) return
+          child.kill("SIGTERM")
+          const result = yield* exited.pipe(Effect.timeoutOption("12 seconds"))
+          if (result._tag === "None") {
+            child.kill("SIGKILL")
+            yield* exited
+          }
+          // Shutdown can reach a newly spawned worker before it installs signal handlers.
+          if (result._tag === "None" || (result.value !== 0 && child.signalCode !== "SIGTERM"))
+            return yield* Effect.die("Worker shutdown failed or timed out")
+        }),
+    ).pipe(
+      Effect.retry(
+        Schedule.min([Schedule.exponential("250 millis"), Schedule.spaced("30 seconds")]),
+      ),
+    )
+  return Effect.all(
+    Array.from({ length: options.count }, (_, index) => workerSlot(index + 1)),
+    { concurrency: "unbounded" },
   )
 }
