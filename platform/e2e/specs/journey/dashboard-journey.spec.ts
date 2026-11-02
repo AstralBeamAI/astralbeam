@@ -17,6 +17,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   page,
   agents,
   apiKeys,
+  astro,
   auth,
   configure,
   members,
@@ -101,7 +102,8 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "03-onboarding")
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
-    await page.waitForURL(`**/${identity.organizationSlug}`)
+    await page.waitForURL(`**/${identity.organizationSlug}?setup=true`)
+    await astro.close.click()
     await expect(
       page.getByRole("heading", { name: "Set up your first agent", exact: true }),
     ).toBeVisible()
@@ -259,7 +261,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       identity.secondOrganizationName,
       identity.secondOrganizationSlug,
     )
-    await page.waitForURL(`**/${identity.secondOrganizationSlug}`)
+    await page.waitForURL(`**/${identity.secondOrganizationSlug}?setup=true`)
 
     await shell.switchOrganization(identity.secondOrganizationName, renamedOrganization)
     await page.waitForURL(`**/${movedSlug}`)

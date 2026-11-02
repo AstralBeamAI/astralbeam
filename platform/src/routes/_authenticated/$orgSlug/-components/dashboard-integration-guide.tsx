@@ -19,9 +19,11 @@ export function DashboardIntegrationGuide({
   usableApiKeyCount,
   hasConversations,
   permissions,
+  onSaved,
 }: {
   organizationId: string
   organizationSlug: string
+  onSaved?: (() => void) | undefined
   modelSetup: {
     providerCount: number
     enabledModelCount: number
@@ -264,6 +266,7 @@ export function DashboardIntegrationGuide({
       {permissions.readApiKey && permissions.createApiKey && (
         <CreateApiKeyDialog
           organizationId={organizationId}
+          onSaved={onSaved}
           open={createApiKeyOpen}
           onOpenChange={(open) => {
             setCreateApiKeyOpen(open)

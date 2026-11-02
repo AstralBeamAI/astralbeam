@@ -1,13 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 
+import { useDogfoodChat } from "../-components/dogfood-chat"
 import { Skeleton } from "@/components/ui/skeleton"
-import { APP_NAME } from "@/lib/constants"
+import { APP_NAME, ASSISTANT_NAME } from "@/lib/constants"
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 import { DashboardIntegrationGuide } from "./-components/dashboard-integration-guide"
 import { DashboardResourceCards } from "./-components/dashboard-resource-cards"
 import { getDashboardPageData } from "./-functions/get-dashboard-page-data"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/")({
+  validateSearch: (search: Record<string, unknown>): { setup?: boolean } =>
+    typeof search.setup === "boolean" ? { setup: search.setup } : {},
   loader: ({ params }) =>
     getDashboardPageData({ data: { organizationSlug: params.orgSlug } }).catch((error: unknown) =>
       throwOrganizationRouteError(error, params.orgSlug),
@@ -18,6 +21,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/")({
 })
 
 function DashboardPage() {
+  const chat = useDogfoodChat()
   const { orgSlug } = Route.useParams()
   const { organization } = Route.useRouteContext()
   const { data, permissions } = Route.useLoaderData()
@@ -36,11 +40,23 @@ function DashboardPage() {
             : "View your organization’s setup and customer activity."}
         </p>
       </div>
+      {permissions.updateConfiguration && (
+        <Link
+          to="/$orgSlug"
+          params={{ orgSlug }}
+          search={{ setup: true }}
+          onClick={() => chat?.setOpen(true)}
+          className="text-sm underline underline-offset-4"
+        >
+          Set up with {ASSISTANT_NAME}
+        </Link>
+      )}
       {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
       <DashboardIntegrationGuide
         key={orgSlug}
         organizationId={organization.organizationId}
         organizationSlug={orgSlug}
+        onSaved={chat?.onSetupSaved}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}
         hasConversations={data.counts.hasConversations}

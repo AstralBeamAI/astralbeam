@@ -175,7 +175,7 @@ export function AppOrganizationSwitcher({
         slug: organization.organizationSlug,
       }}
       setActive={switchOrganization}
-      onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}` })}
+      onOrganizationCreated={(created) => void navigate({ href: `/${created.slug}?setup=true` })}
       className={className}
     />
   )

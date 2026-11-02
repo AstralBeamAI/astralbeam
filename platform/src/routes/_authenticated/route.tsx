@@ -1,5 +1,5 @@
 import { useAuthenticate } from "@better-auth-ui/react"
-import { createFileRoute, notFound, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, notFound, Outlet, redirect, useMatches } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Spinner } from "@/components/ui/spinner"
@@ -8,6 +8,7 @@ import { normalizeReturnPath } from "@/lib/auth/redirect"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
 import { isValidSlug } from "@/lib/organizations/slug"
+import { AppShell } from "./-components/app-shell"
 import { DogfoodChat } from "./-components/dogfood-chat"
 import { DirectoryCacheContext } from "./-lib/directory-cache"
 
@@ -33,6 +34,12 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const session = useAuthenticate(authClient)
+  const { access } = Route.useRouteContext()
+  const organization = useMatches({
+    select: (matches) =>
+      matches.find((match) => match.routeId === "/_authenticated/$orgSlug")?.context.organization ??
+      null,
+  })
   const [directoryCacheKey] = useState(() => ({}))
 
   if (session.isPending || !session.data) {
@@ -45,13 +52,18 @@ function AuthenticatedLayout() {
 
   return (
     <DirectoryCacheContext value={directoryCacheKey}>
-      <div className="group/dogfood flex items-start">
-        <DogfoodChat>
-          <div className="min-w-0 flex-1 group-has-[[data-dogfood-chat=open]_[data-astralbeam-full-width=true]]/dogfood:hidden max-lg:group-has-[[data-dogfood-chat=open]]/dogfood:hidden">
+      {organization ? (
+        <DogfoodChat
+          key={`${access.userId}:${organization.organizationId}`}
+          organization={organization}
+        >
+          <AppShell organization={organization}>
             <Outlet />
-          </div>
+          </AppShell>
         </DogfoodChat>
-      </div>
+      ) : (
+        <Outlet />
+      )}
     </DirectoryCacheContext>
   )
 }

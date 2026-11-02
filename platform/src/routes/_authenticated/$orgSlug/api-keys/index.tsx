@@ -1,3 +1,4 @@
+import { useDogfoodChat } from "@/routes/_authenticated/-components/dogfood-chat"
 import { apiKeyQueryKeys } from "@better-auth-ui/core/plugins/api-key"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/api-keys/")({
 
 function ApiKeysPage() {
   const { data, permissions } = Route.useLoaderData()
+  const chat = useDogfoodChat()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -46,6 +48,7 @@ function ApiKeysPage() {
       <ApiKeys
         className="max-w-4xl"
         organizationId={data.organizationId}
+        onSaved={chat?.onSetupSaved}
         hideCreate={!permissions.createApiKey}
         hideUpdate={!permissions.updateApiKey}
         hideDelete={!permissions.deleteApiKey}

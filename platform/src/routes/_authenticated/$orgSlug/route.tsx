@@ -8,6 +8,7 @@ import { PublicNavbar } from "@/components/navbar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { authClient } from "@/lib/auth/client"
 import { AppShell } from "../-components/app-shell"
+import { useDogfoodChat } from "../-components/dogfood-chat"
 import { getOrganizationRouteContext } from "../-functions/get-organization-route-context"
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 
@@ -51,22 +52,19 @@ function OrganizationLayout() {
     })
   }, [landingOrganizationId, organization.organizationId, queryClient])
 
-  return (
-    <AppShell organization={organization}>
-      <Outlet key={organization.organizationId} />
-    </AppShell>
-  )
+  return <Outlet />
 }
 
 function OrganizationLayoutSkeleton() {
-  return (
-    <AppShell>
-      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8" aria-busy="true">
-        <Skeleton className="h-9 w-56" />
-        <Skeleton className="h-48 w-full max-w-4xl rounded-xl" />
-      </div>
-    </AppShell>
+  const chat = useDogfoodChat()
+  const content = (
+    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8" aria-busy="true">
+      <Skeleton className="h-9 w-56" />
+      <Skeleton className="h-48 w-full max-w-4xl rounded-xl" />
+    </div>
   )
+  // Refreshes retain the mounted shell and chat; first loads still need their own shell.
+  return chat ? content : <AppShell>{content}</AppShell>
 }
 
 // A missing organization and a non-member answer identically, so neither reveals the other.

@@ -49,7 +49,9 @@ function OnboardingRoute() {
       email={session.data.user.email}
       hasInvitations={Boolean(invitations?.length)}
       onInvitationAction={() => router.invalidate()}
-      onOrganizationCreated={(organization) => navigate({ href: `/${organization.slug}` })}
+      onOrganizationCreated={(organization) =>
+        navigate({ href: `/${organization.slug}?setup=true` })
+      }
     />
   )
 }

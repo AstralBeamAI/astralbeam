@@ -61,6 +61,7 @@ export type AgentFormProps = {
   sandboxProviders: readonly AgentSandboxProvider[]
   models: readonly ModelChoice[]
   readOnly: boolean
+  onSaved?: (() => void) | undefined
 }
 
 export function AgentForm({
@@ -69,6 +70,7 @@ export function AgentForm({
   sandboxProviders,
   models,
   readOnly,
+  onSaved,
 }: AgentFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
@@ -138,6 +140,7 @@ export function AgentForm({
         })
         toast.add({ title: "Agent saved", type: "success" })
         await router.invalidate()
+        onSaved?.()
         return
       }
       const agentId = await createAgent({ data: { organizationSlug, fields } })
