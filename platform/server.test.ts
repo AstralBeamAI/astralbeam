@@ -65,11 +65,10 @@ it("retains development signal handlers until slow cleanup completes", async () 
       "name" in plugin &&
       plugin.name === "cluster-development-close",
   ) as Plugin
+  const devServer = { shutdown: () => cleanup.promise, close: () => Promise.resolve() }
   const server = {
-    environments: { nitro: { devServer: { shutdown: () => cleanup.promise } } },
-    close: async () => {
-      await server.environments.nitro.devServer.close()
-    },
+    environments: { nitro: { devServer } },
+    close: () => devServer.close(),
   } as unknown as ViteDevServer
   const configure = plugin.configureServer as (server: ViteDevServer) => void
   configure(server)
