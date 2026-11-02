@@ -1,7 +1,7 @@
 import { Autocomplete } from "@base-ui/react/autocomplete"
 import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
-import { useDeferredValue, useState } from "react"
+import { useDeferredValue, useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { DocsChunk } from "@/routes/docs/-lib/search"
 
 export function DocsSearch() {
+  useEffect(() => {
+    void import("@/routes/docs/-lib/search")
+      .then(({ loadDocsIndex }) => loadDocsIndex())
+      // A failed background load is retried when the reader searches.
+      .catch(() => undefined)
+  }, [])
+
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const term = query.trim()
