@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states. Improve onboarding copy, layout, and form guidance.
+// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states. Improve onboarding copy, layout, and form guidance; notify callers after the secret dialog closes.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -33,6 +33,7 @@ import { ApiKey } from "./api-key"
 import { CreateApiKeyDialog } from "./create-api-key-dialog"
 
 export type ApiKeysProps = {
+  onSaved?: (() => void) | undefined
   className?: string | undefined
   /** Scope the list and create payload to an organization. */
   organizationId?: string | undefined
@@ -90,6 +91,7 @@ function ApiKeysEmpty({
 }
 
 export function ApiKeys({
+  onSaved,
   className,
   organizationId,
   isPending: isPendingProp,
@@ -238,6 +240,7 @@ export function ApiKeys({
           open={createOpen}
           onOpenChange={setCreateOpen}
           organizationId={organizationId}
+          onSaved={onSaved}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useDogfoodChat } from "@/routes/_authenticated/-components/dogfood-chat"
 import { ArrowLeftIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import { cn } from "cn"
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/models/$modelProv
 function ModelProviderPage() {
   const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
+  const chat = useDogfoodChat()
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="space-y-1">
@@ -75,6 +77,7 @@ function ModelProviderPage() {
         organizationSlug={orgSlug}
         provider={data.provider}
         catalog={data.catalog}
+        onSaved={chat?.onSetupSaved}
         readOnly={!permissions.updateConfiguration}
       />
     </div>

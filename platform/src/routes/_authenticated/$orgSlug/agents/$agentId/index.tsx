@@ -1,3 +1,4 @@
+import { useDogfoodChat } from "@/routes/_authenticated/-components/dogfood-chat"
 import { ArrowLeftIcon, CopyIcon, StarIcon } from "@phosphor-icons/react"
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/agents/$agentId/"
 function AgentPage() {
   const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
+  const chat = useDogfoodChat()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -91,6 +93,7 @@ function AgentPage() {
         agent={data.agent}
         sandboxProviders={data.sandboxProviders}
         models={data.models}
+        onSaved={chat?.onSetupSaved}
         readOnly={!permissions.updateConfiguration}
       />
     </div>

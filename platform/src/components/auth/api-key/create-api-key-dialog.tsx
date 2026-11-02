@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; promptly evict the one-time secret from the mutation cache; close the flow after key dismissal.
+// Local changes: Use Phosphor icons; assemble one-time credentials from database IDs; require a fresh session; evict secrets promptly; close the flow and notify callers after key dismissal.
 
 "use client"
 
@@ -41,12 +41,14 @@ export type CreateApiKeyDialogProps = {
   onOpenChange: (open: boolean) => void
   /** Create an organization-owned key by passing the organization id. */
   organizationId?: string | undefined
+  onSaved?: (() => void) | undefined
 }
 
 export function CreateApiKeyDialog({
   open,
   onOpenChange,
   organizationId,
+  onSaved,
 }: CreateApiKeyDialogProps) {
   const { authClient, basePaths, localization, navigate, viewPaths } = useAuth<ApiKeyAuthClient>()
   const {
@@ -100,6 +102,7 @@ export function CreateApiKeyDialog({
 
     if (!nextOpen) {
       handleOpenChange(false)
+      onSaved?.()
     }
   }
 

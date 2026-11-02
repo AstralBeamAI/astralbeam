@@ -13,7 +13,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import type { OrganizationAccess } from "@/lib/organizations/access"
 import { AppOrganizationSwitcher, AppSidebar } from "./app-sidebar"
-import { DogfoodChatTrigger } from "./dogfood-chat"
+import { DogfoodChatPanel, DogfoodChatTrigger, useDogfoodChat } from "./dogfood-chat"
 
 type AppShellProps = {
   /** Undefined while the organization layout loads. */
@@ -23,6 +23,7 @@ type AppShellProps = {
 
 /** Lays the dashboard navbar across the top, with the sidebar and the page beneath it. */
 export function AppShell({ organization, children }: AppShellProps) {
+  const chat = useDogfoodChat()
   return (
     <SidebarProvider className="flex-col" style={{ "--sidebar-width": "14rem" } as CSSProperties}>
       <AppNavbar organization={organization} />
@@ -32,9 +33,17 @@ export function AppShell({ organization, children }: AppShellProps) {
         ) : (
           <AppSidebar organization={organization} />
         )}
-        <SidebarInset>
-          <UnderNavbar>{children}</UnderNavbar>
-        </SidebarInset>
+        <div className="group/workspace flex min-w-0 flex-1">
+          <SidebarInset
+            hidden={chat?.open && chat.intro}
+            className="group-has-[[data-dogfood-chat=open]_[data-astralbeam-full-width=true]]/workspace:hidden"
+          >
+            <UnderNavbar>{children}</UnderNavbar>
+          </SidebarInset>
+          {organization && chat?.hasOpened && (
+            <DogfoodChatPanel chat={chat} organization={organization} />
+          )}
+        </div>
       </div>
     </SidebarProvider>
   )

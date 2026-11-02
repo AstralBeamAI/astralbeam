@@ -56,11 +56,13 @@ export function ModelProviderForm({
   provider: existing,
   catalog,
   readOnly,
+  onSaved,
 }: {
   organizationSlug: string
   provider: OrganizationModelProvider | null
   catalog: Record<ModelProviderType, readonly ProviderModelFields[]>
   readOnly: boolean
+  onSaved?: (() => void) | undefined
 }) {
   const navigate = useNavigate()
   const router = useRouter()
@@ -149,15 +151,14 @@ export function ModelProviderForm({
     try {
       const modelProviderId = await saveModelProvider({ data: input.success })
       toast.add({ title: "Provider saved", type: "success" })
-      if (existing) {
-        await router.invalidate()
-        return
-      }
-      await navigate({
-        to: "/$orgSlug/models/$modelProviderId",
-        params: { orgSlug: organizationSlug, modelProviderId },
-        replace: true,
-      })
+      if (existing) await router.invalidate()
+      onSaved?.()
+      if (!existing)
+        await navigate({
+          to: "/$orgSlug/models/$modelProviderId",
+          params: { orgSlug: organizationSlug, modelProviderId },
+          replace: true,
+        })
     } catch (error) {
       const failure = parseServerFnError(error)
       if (failure.tag === "ModelProviderNameTaken")
