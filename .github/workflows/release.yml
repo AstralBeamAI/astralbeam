@@ -240,9 +240,18 @@ jobs:
       build-args: SOURCE_VERSION=${{ github.sha }}
       meta-images: ghcr.io/astralbeamai/astralbeam-platform
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
-      labels: |
-        org.opencontainers.image.version=${{ needs.verify.outputs.version }}
-        org.opencontainers.image.revision=${{ github.sha }}
+      set-meta-labels: true
+      set-meta-annotations: true
+      meta-labels: |
+        org.opencontainers.image.title=AstralBeam Platform
+        org.opencontainers.image.description=Self-hosted AstralBeam Platform for building and running AI agents
+        org.opencontainers.image.url=https://astralbeam.ai
+        org.opencontainers.image.licenses=AGPL-3.0-only
+      meta-annotations: |
+        org.opencontainers.image.title=AstralBeam Platform
+        org.opencontainers.image.description=Self-hosted AstralBeam Platform for building and running AI agents
+        org.opencontainers.image.url=https://astralbeam.ai
+        org.opencontainers.image.licenses=AGPL-3.0-only
       sbom: true
     secrets:
       registry-auths: |
