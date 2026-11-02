@@ -95,6 +95,21 @@ const viteConfig = defineConfig(({ mode }) => {
           if (!environment) return
           let closing: Promise<void> | undefined
           environment.devServer.close = () => (closing ??= environment.devServer.shutdown(10_000))
+          // Vite removes its one-shot signal handler before cleanup. Keep repeated signals harmless.
+          const retainSignals = () => undefined
+          const close = server.close.bind(server)
+          let closingServer: Promise<void> | undefined
+          server.close = (...args) =>
+            (closingServer ??= (async () => {
+              process.on("SIGINT", retainSignals)
+              process.on("SIGTERM", retainSignals)
+              try {
+                await close(...args)
+              } finally {
+                process.off("SIGINT", retainSignals)
+                process.off("SIGTERM", retainSignals)
+              }
+            })())
         },
       },
       devtools(),
