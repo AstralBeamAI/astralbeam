@@ -170,12 +170,15 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
   throw new Error("Binary did not exit within 15 seconds of SIGTERM")
 }
 
-async function waitForBinaryWorkers(predicate: () => boolean | Promise<boolean>, message: string) {
+async function waitForBinaryWorkers(url: URL, predicate: () => boolean, message: string) {
   const deadline = Date.now() + BINARY_CHECK_START_TIMEOUT_MS
-  while (!(await predicate())) {
-    if (Date.now() >= deadline) throw new Error(message)
+  while (Date.now() < deadline) {
+    const response = await fetchBinaryCheckResponse(url, { headers: { Connection: "close" } })
+    await response.body?.cancel()
+    if (predicate()) return
     await delay(100)
   }
+  throw new Error(message)
 }
 
 async function runBinaryCheck() {
@@ -287,10 +290,6 @@ async function runBinaryCheck() {
     cwd: temporaryDirectory,
     env: {
       ...binaryEnvironment,
-      // Exercise production shutdown. srvx skips signal handlers when CI or TEST is set.
-      // https://github.com/h3js/srvx/blob/v1.0.5/src/_plugins.ts
-      CI: "",
-      TEST: "",
       APP_BASE_URL: baseUrl.href,
       DATABASE_URL: migrateDatabaseUrl ?? processEnvironment.DATABASE_URL,
       DATABASE_ENCRYPTION_KEY: migrateDatabaseUrl
@@ -383,27 +382,24 @@ async function runBinaryCheck() {
     }
     await checkBinaryDocsDiscovery(baseUrl)
     if (expectedWorkers > 1) {
-      await waitForBinaryWorkers(async () => {
-        const response = await fetchBinaryCheckResponse(docsUrl, {
-          headers: { Connection: "close" },
-        })
-        await response.body?.cancel()
-        return workerStarts().length === expectedWorkers && servingWorkers().size > 1
-      }, "Binary did not start the expected workers and distribute HTTP traffic")
+      await waitForBinaryWorkers(
+        docsUrl,
+        () => workerStarts().length === expectedWorkers && servingWorkers().size > 1,
+        "Binary did not start the expected workers and distribute HTTP traffic",
+      )
       const killed = workerStarts()[0]!
       process.kill(Number(killed[2]), "SIGKILL")
-      await waitForBinaryWorkers(async () => {
-        const recovered = await fetchBinaryCheckResponse(docsUrl, {
-          headers: { Connection: "close" },
-        })
-        await recovered.body?.cancel()
-        return workerStarts().some(
-          (match) =>
-            match[1] === killed[1] &&
-            match[2] !== killed[2] &&
-            servingWorkers().has(Number(match[2])),
-        )
-      }, "Replacement worker did not serve HTTP traffic")
+      await waitForBinaryWorkers(
+        docsUrl,
+        () =>
+          workerStarts().some(
+            (match) =>
+              match[1] === killed[1] &&
+              match[2] !== killed[2] &&
+              servingWorkers().has(Number(match[2])),
+          ),
+        "Replacement worker did not serve HTTP traffic",
+      )
     }
   } finally {
     await stopBinaryCheckProcess(binaryProcess, status)

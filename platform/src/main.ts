@@ -114,7 +114,7 @@ program
     getDatabaseEncryptionKeyring()
     process.env.PORT ||= "4510"
     const { startPlatformServer } = await import("../server.ts")
-    process.exitCode = await startPlatformServer()
+    await startPlatformServer()
   })
 
 program

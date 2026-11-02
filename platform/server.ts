@@ -35,7 +35,7 @@ function resolvePlatformWorkerCount(): number {
   return count.success
 }
 
-export async function startPlatformServer(): Promise<number> {
+export async function startPlatformServer(): Promise<void> {
   const count = resolvePlatformWorkerCount()
   const isWorker = process.env.__ASTRALBEAM_INTERNAL_WORKER_ID !== undefined
   if (!isWorker) console.error(`Starting ${count} server workers`)
@@ -56,9 +56,9 @@ export async function startPlatformServer(): Promise<number> {
       teardown: (exit, onExit) =>
         onExit(Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? 1 : 0),
     })
-    return 0
+    return
   }
-  if (isWorker && !process.connected) return 0
+  if (isWorker && !process.connected) return
   const stopDuringStartup = (signal: NodeJS.Signals) => {
     // Run exit cleanup before Nitro installs its own graceful shutdown handlers.
     if (process.listenerCount(signal) === 1) process.exit(0)
@@ -90,7 +90,6 @@ export async function startPlatformServer(): Promise<number> {
     process.off("SIGTERM", stopDuringStartup)
     process.off("SIGINT", stopDuringStartup)
   }
-  return 0
 }
 
 function launchPlatformWorker(command: readonly string[], worker: number) {
