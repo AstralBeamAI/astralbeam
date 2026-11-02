@@ -1,6 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { join } from "node:path"
 
 import { seedAgents } from "./seed/agents.ts"
 import { seedApiKeys } from "./seed/api-keys.ts"
@@ -25,7 +23,7 @@ import { seedDogfood } from "./seed/dogfood.ts"
 import { seedConversations } from "./seed/conversations.ts"
 
 // Resolved from this file, not the cwd, so the seed writes the same path from anywhere.
-const examplesDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "examples")
+const examplesDirectory = join(import.meta.dir, "..", "..", "examples")
 // Each example reads its browser-safe agent ID from a differently named variable.
 const exampleAgentIdVariables = {
   todos: "VITE_ASTRALBEAM_AGENT_ID",
@@ -103,10 +101,10 @@ try {
     const env = `ASTRALBEAM_API_KEY=${SEED_TODOS_TARGET.apiKey}\n${agentIdVariable}=${SEED_TODOS_TARGET.agentId}\n`
     // Both values are self-describing local-only fixtures and the file is gitignored, but an
     // existing one may hold a real key, so it is never overwritten.
-    if (existsSync(envFile)) {
+    if (await Bun.file(envFile).exists()) {
       console.log(`\nexamples/${example}/.env already exists and was left alone; it should hold:\n`)
     } else {
-      writeFileSync(envFile, env)
+      await Bun.write(envFile, env)
       console.log(`\nWrote examples/${example}/.env so the example points at this database:\n`)
     }
     for (const line of env.trimEnd().split("\n")) console.log(`  ${line}`)

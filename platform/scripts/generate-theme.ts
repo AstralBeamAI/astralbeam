@@ -1,5 +1,3 @@
-import { readFile, writeFile } from "node:fs/promises"
-
 import { brandTheme, updateThemeStylesheet } from "./theme/brand.ts"
 import { resolveThemePalette } from "./theme/theme.ts"
 
@@ -16,10 +14,10 @@ const emailPaletteProperties = [
 ] as const
 
 const stylesheetUrl = new URL("../src/styles.css", import.meta.url)
-const stylesheet = await readFile(stylesheetUrl, "utf8")
+const stylesheet = await Bun.file(stylesheetUrl).text()
 const updated = updateThemeStylesheet(stylesheet)
 
-if (updated !== stylesheet) await writeFile(stylesheetUrl, updated)
+if (updated !== stylesheet) await Bun.write(stylesheetUrl, updated)
 console.log(`${updated === stylesheet ? "Unchanged" : "Wrote"} src/styles.css`)
 
 const palette = resolveThemePalette(brandTheme, "light")
