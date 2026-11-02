@@ -5,13 +5,13 @@ import { docsPage } from "@e2e/pages/docs-page.ts"
 const isSearchModule = (url: string) =>
   url.includes("/-lib/search.ts") || /\/search-[^/]+\.js(?:\?|$)/.test(url)
 
-test("docs search opens from the navbar, loads lazily, and stays local", async ({ page }) => {
+test("docs search preloads before opening and stays local", async ({ page }) => {
   const docs = docsPage(page)
   const requests: string[] = []
   page.on("request", (request) => requests.push(request.url()))
   await docs.open()
+  await expect.poll(() => requests.filter(isSearchModule).length).toBe(1)
   await docs.openSearch()
-  expect(requests.filter(isSearchModule)).toHaveLength(0)
   await docs.search("theme tokens")
   await expect(docs.results.first()).toHaveAttribute("href", "/docs/sdk/theming#theme-tokens")
   expect(requests.filter(isSearchModule)).toHaveLength(1)

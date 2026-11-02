@@ -87,7 +87,7 @@ function tokenizeDocsSearch(raw: string): string[] {
 
 let docsIndex: Promise<{ search: MiniSearch; chunks: DocsChunk[] }> | undefined
 
-function loadDocsIndex() {
+export function loadDocsIndex() {
   docsIndex ??= Promise.all(
     docsPages.map(async (page) => docsChunks(page, await page.load())),
   ).then(
