@@ -3,7 +3,7 @@ import { once } from "node:events"
 import { rmSync } from "node:fs"
 import { mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
-import { tmpdir } from "node:os"
+import { availableParallelism, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import process, { env as processEnvironment, platform } from "node:process"
 import { setTimeout as delay } from "node:timers/promises"
@@ -154,19 +154,31 @@ async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promi
   if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
     throw new Error("Binary exited before completing its smoke check")
   }
-  const processId = binaryProcess.pid
-  if (processId === undefined) throw new Error("Binary process did not start")
-  process.kill(processId, "SIGTERM")
-  const stopped = await Promise.race([status.then(() => true), delay(5_000, false)])
+  binaryProcess.kill("SIGTERM")
+  const stopped = await Promise.race([
+    status.then(() => true),
+    delay(15_000, false, { ref: false }),
+  ])
   if (stopped) {
     if (binaryProcess.exitCode !== 0) {
       throw new Error("Binary did not exit cleanly after SIGTERM")
     }
     return
   }
-  process.kill(processId, "SIGKILL")
+  binaryProcess.kill("SIGKILL")
   await status
-  throw new Error("Binary did not exit within 5 seconds of SIGTERM")
+  throw new Error("Binary did not exit within 15 seconds of SIGTERM")
+}
+
+async function waitForBinaryWorkers(url: URL, predicate: () => boolean, message: string) {
+  const deadline = Date.now() + BINARY_CHECK_START_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const response = await fetchBinaryCheckResponse(url, { headers: { Connection: "close" } })
+    await response.body?.cancel()
+    if (predicate()) return
+    await delay(100)
+  }
+  throw new Error(message)
 }
 
 async function runBinaryCheck() {
@@ -235,6 +247,7 @@ async function runBinaryCheck() {
     NODE_ENV: "production",
     DATABASE_URL: unreachableDatabaseUrl,
     DATABASE_ENCRYPTION_KEY: undefined,
+    WORKERS: undefined,
   }
   function checkBinaryFailure(
     args: readonly string[],
@@ -277,10 +290,6 @@ async function runBinaryCheck() {
     cwd: temporaryDirectory,
     env: {
       ...binaryEnvironment,
-      // Exercise production shutdown. srvx skips signal handlers when CI or TEST is set.
-      // https://github.com/h3js/srvx/blob/v1.0.5/src/_plugins.ts
-      CI: "",
-      TEST: "",
       APP_BASE_URL: baseUrl.href,
       DATABASE_URL: migrateDatabaseUrl ?? processEnvironment.DATABASE_URL,
       DATABASE_ENCRYPTION_KEY: migrateDatabaseUrl
@@ -297,9 +306,24 @@ async function runBinaryCheck() {
   }
   const binaryProcess = spawn(binaryPath, [], {
     ...launchOptions,
-    stdio: ["ignore", "inherit", "inherit"],
+    stdio: ["ignore", "pipe", "pipe"],
   })
   const status = once(binaryProcess, "exit")
+  const output = { stdout: "", stderr: "" }
+  for (const stream of ["stdout", "stderr"] as const) {
+    binaryProcess[stream].on("data", (chunk: Buffer) => {
+      output[stream] += chunk.toString()
+      process[stream].write(chunk)
+    })
+  }
+  const workerStarts = () => [...output.stderr.matchAll(/Started worker (\d+) \(PID (\d+)\)/gu)]
+  const servingWorkers = () =>
+    new Set(
+      [...output.stdout.matchAll(/"message":"HTTP response ready".*?"process.pid":(\d+)/gu)].map(
+        (match) => Number(match[1]),
+      ),
+    )
+  const expectedWorkers = platform === "linux" ? availableParallelism() : 1
 
   try {
     for (const path of [
@@ -357,8 +381,36 @@ async function runBinaryCheck() {
       throw new Error("Binary allowed a missing asset to inherit immutable caching")
     }
     await checkBinaryDocsDiscovery(baseUrl)
+    if (expectedWorkers > 1) {
+      await waitForBinaryWorkers(
+        docsUrl,
+        () => workerStarts().length === expectedWorkers && servingWorkers().size > 1,
+        "Binary did not start the expected workers and distribute HTTP traffic",
+      )
+      const killed = workerStarts()[0]!
+      process.kill(Number(killed[2]), "SIGKILL")
+      await waitForBinaryWorkers(
+        docsUrl,
+        () =>
+          workerStarts().some(
+            (match) =>
+              match[1] === killed[1] &&
+              match[2] !== killed[2] &&
+              servingWorkers().has(Number(match[2])),
+          ),
+        "Replacement worker did not serve HTTP traffic",
+      )
+    }
   } finally {
     await stopBinaryCheckProcess(binaryProcess, status)
+  }
+  for (const worker of workerStarts()) {
+    try {
+      process.kill(Number(worker[2]), 0)
+    } catch {
+      continue
+    }
+    throw new Error("Binary left a worker running after shutdown")
   }
   console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }

@@ -8,7 +8,7 @@ import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
-import { defineConfig } from "vite"
+import { defineConfig, type DevEnvironment } from "vite"
 import { configDefaults } from "vitest/config"
 
 import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
@@ -34,7 +34,6 @@ const legalAssets = [
 ]
 
 const viteConfig = defineConfig(({ mode }) => {
-  let removeDevelopmentShutdownHandlers: (() => void) | undefined
   return {
     resolve: { tsconfigPaths: true },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
@@ -86,53 +85,31 @@ const viteConfig = defineConfig(({ mode }) => {
         name: "cluster-development-close",
         apply: "serve",
         configureServer(server) {
-          // Every server environment runs in Nitro's one worker, and closing any of them terminates
-          // it, so each awaits the cleanup requested over the nitro environment's HMR channel.
-          // https://vite.dev/guide/api-plugin.html#client-server-communication
-          const environment = server.environments.nitro
+          // Nitro environments share one runner. Use its graceful shutdown before any closes it.
+          // https://github.com/unjs/env-runner#runners
+          const environment = server.environments.nitro as
+            | (DevEnvironment & {
+                devServer: { close(): Promise<void>; shutdown(timeout: number): Promise<void> }
+              })
+            | undefined
           if (!environment) return
-          let cleanup: Promise<void> | undefined
-          const awaitClusterCleanup = () =>
-            (cleanup ??= new Promise<void>((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                environment.hot.off("astralbeam:closed", closed)
-                reject(new Error("Cluster development shutdown timed out"))
-              }, 5_000)
-              const closed = () => {
-                clearTimeout(timeout)
-                environment.hot.off("astralbeam:closed", closed)
-                resolve()
+          let closing: Promise<void> | undefined
+          environment.devServer.close = () => (closing ??= environment.devServer.shutdown(10_000))
+          // Vite removes its one-shot signal handler before cleanup. Keep repeated signals harmless.
+          const retainSignals = () => undefined
+          const close = server.close.bind(server)
+          let closingServer: Promise<void> | undefined
+          server.close = (...args) =>
+            (closingServer ??= (async () => {
+              process.on("SIGINT", retainSignals)
+              process.on("SIGTERM", retainSignals)
+              try {
+                await close(...args)
+              } finally {
+                process.off("SIGINT", retainSignals)
+                process.off("SIGTERM", retainSignals)
               }
-              environment.hot.on("astralbeam:closed", closed)
-              environment.hot.send("astralbeam:close")
-            }))
-          // Keep repeated shutdown signals handled while Vite awaits worker cleanup.
-          // Keep both handlers until teardown finishes: https://vite.dev/guide/api-plugin#closeserver
-          let interrupted: Promise<void> | undefined
-          const closeOnSignal = () =>
-            void (interrupted ??= server.close().finally(() => process.exit()))
-          process.on("SIGINT", closeOnSignal)
-          process.on("SIGTERM", closeOnSignal)
-          removeDevelopmentShutdownHandlers = () => {
-            process.off("SIGINT", closeOnSignal)
-            process.off("SIGTERM", closeOnSignal)
-          }
-          for (const serverEnvironment of Object.values(server.environments)) {
-            if (serverEnvironment.config.consumer !== "server") continue
-            const close = serverEnvironment.close.bind(serverEnvironment)
-            let closing: Promise<void> | undefined
-            serverEnvironment.close = () =>
-              (closing ??= (async () => {
-                try {
-                  await awaitClusterCleanup()
-                } finally {
-                  await close()
-                }
-              })())
-          }
-        },
-        closeServer() {
-          removeDevelopmentShutdownHandlers?.()
+            })())
         },
       },
       devtools(),

@@ -128,7 +128,7 @@ const typeAwareRules: RuleMap = {
 
 const restrictedBunProperties = {
   object: "Bun",
-  allowProperties: ["isStandaloneExecutable", "embeddedFiles"],
+  allowProperties: ["isStandaloneExecutable", "embeddedFiles", "spawn"],
 }
 
 // Additional correctness and JSX rules without an imported preset owner.

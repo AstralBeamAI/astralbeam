@@ -4,6 +4,14 @@ Maintain a running deployment with migrations, coordinated backups, health check
 
 Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
+## HTTP workers
+
+`WORKERS` defaults to `auto`: one server process per available CPU on Linux, plus a supervisor. macOS and Windows use one process. Set `WORKERS=1` to disable supervision or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
+
+Linux workers share the public HTTP port. Leave `CLUSTER_RUNNER_PORT` unset or `0` for distinct private runner ports. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with backoff capped at 30 seconds, and workers exit if their supervisor dies.
+
+Memory, extracted assets, sandbox leases, and sandbox/preview concurrency limits are per worker. Size `WORKERS` for memory, provider capacity, and the [connection budget](#connection-pooling). Request logs include `process.pid` to identify the serving worker.
+
 ## Applying migrations
 
 Application migrations ship with each release. When migrations are pending, pages redirect to `/configure`.
@@ -76,7 +84,7 @@ Point a process supervisor or load balancer probe at `/api/status`. It does not 
 
 ## Shutdown
 
-SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give the process supervisor more than ten seconds before sending SIGKILL.
+SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give an external supervisor at least fifteen seconds before sending SIGKILL so the parent can stop all workers.
 
 Long-lived streams can be disconnected. Accepted durable work remains recoverable through PostgreSQL. Reconnect to inspect the result.
 
@@ -109,9 +117,9 @@ Cluster readiness entries include the advertised private runner address. Configu
 
 Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
 
-Budget up to 15 client connections per replica: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
+Budget up to 15 client connections per worker: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
 
-Size the pooler's own limits for the number of replicas you run, and remember that the migration runner holds one connection for the duration of a migration run.
+Size the pooler's own limits for the total worker count, and remember that the migration runner holds one additional connection for the duration of a migration run.
 
 ## Rate limits
 

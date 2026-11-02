@@ -42,6 +42,7 @@ const ecsLogger = Logger.formatStructured.pipe(
         .join(" "),
       "ecs.version": "9.5.0",
       "service.name": "astralbeam-platform",
+      "process.pid": process.pid,
       "event.action": event,
       // ECS durations are integer nanoseconds.
       "event.duration":
