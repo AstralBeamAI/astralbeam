@@ -1,5 +1,4 @@
 import process from "node:process"
-import { createHash } from "node:crypto"
 import { join } from "node:path"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
@@ -60,7 +59,7 @@ export async function seedConfig(
   const bucket = `astralbeam-${databaseName
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")
-    .slice(0, 19)}-${createHash("sha256").update(databaseName).digest("hex").slice(0, 32)}`
+    .slice(0, 19)}-${Bun.CryptoHasher.hash("sha256", databaseName, "hex").slice(0, 32)}`
   const values: Record<string, string> = {
     ...SEED_CONFIG_VALUES,
     s3_endpoint: seedStorageEndpoint(),

@@ -149,6 +149,8 @@ Host tools and widgets execute in the host page with agent-chosen input. Attachm
 
 The platform compiles to a Bun binary with an out-of-tree startup, asset and shutdown check. The SDK publishes independently. The CLI bundles the SDK's API client, token minting, and headless chat session, and releases in lockstep with the SDK as an npm package and cross-compiled Bun binaries. `website` deploys as static assets. CI validates each project. The deterministic browser suites run locally after PR creation and every push to a PR. Model-driven tests require separate credentials and spend credits.
 
+The Platform release installs native dependencies for every supported target, then `platform/scripts/compile.ts` stages the Nitro server with only that target's Sharp and libvips packages before calling `Bun.build`. Bun embeds asset directories verbatim, so selecting a compile target alone does not remove other platforms' libraries from the server tree. The original build output stays available for the remaining targets. Deployment still uses the standard Bun executable without a separate launcher.
+
 Commands and build constraints belong to each project's instructions and manifests. The [local development guide](SETUP.md#local-development) launches the applications, and the [browser-suite guide](../examples/todos/e2e/README.md) explains test selection and evidence capture.
 
 ## Glossary

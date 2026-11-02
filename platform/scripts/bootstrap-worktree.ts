@@ -1,5 +1,4 @@
-import { execFileSync } from "node:child_process"
-import { appendFileSync, constants, copyFileSync, existsSync } from "node:fs"
+import { appendFileSync, constants, copyFileSync } from "node:fs"
 import { basename, dirname, join } from "node:path"
 import process from "node:process"
 
@@ -10,18 +9,13 @@ import { createSeedDatabase, loadSeedEnvironment, resolveSeedDatabaseUrl } from 
 
 async function bootstrapWorktree(): Promise<void> {
   const platformDirectory = process.cwd()
-  const commandOptions = { stdio: "inherit", env: { ...process.env } } as const
   let worktreeDatabase: string | undefined
 
   if (process.argv.includes("--worktree")) {
     const workspaceDirectory = dirname(platformDirectory)
     const sourceRoot =
       process.env.ROOT_WORKTREE_PATH ||
-      dirname(
-        execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
-          encoding: "utf8",
-        }).trim(),
-      )
+      dirname((await Bun.$`git rev-parse --path-format=absolute --git-common-dir`.text()).trim())
     if (sourceRoot === workspaceDirectory)
       throw new Error("Worktree setup requires a linked checkout")
     worktreeDatabase = basename(
@@ -31,11 +25,11 @@ async function bootstrapWorktree(): Promise<void> {
     )
 
     const databaseEnvFile = join(platformDirectory, ".env.development.local")
-    const createDatabaseEnv = !existsSync(databaseEnvFile)
+    const createDatabaseEnv = !(await Bun.file(databaseEnvFile).exists())
     for (const name of [".env.local", ".env.development.local"]) {
       const source = join(sourceRoot, "platform", name)
       const destination = join(platformDirectory, name)
-      if (existsSync(source) && !existsSync(destination))
+      if ((await Bun.file(source).exists()) && !(await Bun.file(destination).exists()))
         copyFileSync(source, destination, constants.COPYFILE_EXCL)
     }
     if (createDatabaseEnv) {
@@ -75,9 +69,9 @@ async function bootstrapWorktree(): Promise<void> {
   } finally {
     await pool.end()
   }
-  execFileSync(process.execPath, ["run", "db", "migrate"], commandOptions)
-  if (seedRequired) execFileSync(process.execPath, ["run", "db-seed"], commandOptions)
-  execFileSync(process.execPath, ["run", "--cwd", "../sdk", "build"], commandOptions)
+  await Bun.$`${process.execPath} run db migrate`.env(process.env)
+  if (seedRequired) await Bun.$`${process.execPath} run db-seed`.env(process.env)
+  await Bun.$`${process.execPath} run --cwd ../sdk build`.env(process.env)
 }
 
 await bootstrapWorktree()

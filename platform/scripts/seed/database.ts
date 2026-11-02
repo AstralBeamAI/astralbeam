@@ -1,14 +1,12 @@
-import { readdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import process from "node:process"
-import { fileURLToPath } from "node:url"
 
 import { sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import { loadEnv } from "vite"
 
-const platformDirectory = join(dirname(fileURLToPath(import.meta.url)), "..", "..")
+const platformDirectory = join(import.meta.dir, "..", "..")
 const migrationsDirectory = join(platformDirectory, "src", "db", "migrations")
 
 /**
@@ -68,9 +66,8 @@ export type SeedTransaction = Parameters<Parameters<SeedDatabase["transaction"]>
  * same way `src/db/migration-runner.ts` and drizzle-orm's own migrator do.
  */
 export async function assertSeedMigrationsApplied(database: SeedDatabase): Promise<void> {
-  const bundled = readdirSync(migrationsDirectory, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
+  const bundled = [...new Bun.Glob("*/migration.sql").scanSync(migrationsDirectory)]
+    .map(dirname)
     .toSorted()
   let applied: Set<string>
   try {

@@ -1,6 +1,5 @@
-import { spawn } from "node:child_process"
 import process from "node:process"
-import { fileURLToPath } from "node:url"
+import { join } from "node:path"
 
 import { loadEnv } from "vite"
 
@@ -19,7 +18,7 @@ if (
   if (databaseArguments.slice(1).some((argument) => argument !== "--dry-run")) {
     throw new Error("Use 'bun run db migrate [--dry-run]' with DATABASE_URL from the environment")
   }
-  const environment = loadEnv("development", fileURLToPath(new URL("../", import.meta.url)), "")
+  const environment = loadEnv("development", join(import.meta.dir, ".."), "")
   for (const [name, value] of Object.entries(environment)) {
     if (process.env[name] === undefined) process.env[name] = value
   }
@@ -37,11 +36,10 @@ if (
       `Unsupported database command '${databaseArguments[0]}'. Use 'bun run db migrate' to apply migrations. Allowed Drizzle Kit commands: ${kitCommands.join(", ")}.`,
     )
   }
-  const kit = spawn(process.execPath, ["run", "--bun", "drizzle-kit", ...databaseArguments], {
-    stdio: "inherit",
-  })
-  process.exitCode = await new Promise<number>((resolve, reject) => {
-    kit.once("error", reject)
-    kit.once("exit", (code) => resolve(code ?? 1))
-  })
+  process.exitCode = await Bun.spawn(
+    [process.execPath, "run", "--bun", "drizzle-kit", ...databaseArguments],
+    {
+      stdio: ["inherit", "inherit", "inherit"],
+    },
+  ).exited
 }

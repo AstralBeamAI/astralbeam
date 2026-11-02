@@ -142,7 +142,6 @@ const additionalRules: RuleMap = {
   "no-inner-declarations": "error",
   "no-prototype-builtins": "error",
   "no-redeclare": "error",
-  "no-restricted-properties": ["error", restrictedBunProperties],
   "typescript/adjacent-overload-signatures": "error",
   "typescript/ban-ts-comment": "error",
   "typescript/no-empty-interface": "error",
@@ -208,8 +207,6 @@ const baseRules: RuleMap = {
 }
 
 const deepImportPatterns = [
-  "bun",
-  "bun:*",
   projectPathImportPattern,
   {
     // Keep two-parent route helpers and Scalar's unexported browser entry relative.
@@ -253,6 +250,14 @@ export default defineConfig({
   rules: baseRules,
   overrides: [
     {
+      files: ["**/*.{ts,tsx}"],
+      excludeFiles: ["scripts/**"],
+      rules: {
+        "no-restricted-properties": ["error", restrictedBunProperties],
+        "no-restricted-imports": ["error", { patterns: ["bun", "bun:*", ...deepImportPatterns] }],
+      },
+    },
+    {
       files: ["e2e/**/*.{ts,tsx}"],
       rules: {
         ...recommendedRules.playwright,
@@ -260,7 +265,7 @@ export default defineConfig({
       },
     },
     {
-      files: ["src/**/*.{ts,tsx}", "e2e/**/*.{ts,tsx}", "scripts/**/*.{ts,tsx}"],
+      files: ["scripts/**/*.{ts,tsx}"],
       rules: {
         "no-restricted-imports": ["error", { patterns: deepImportPatterns }],
       },
@@ -273,6 +278,8 @@ export default defineConfig({
           "error",
           {
             patterns: [
+              "bun",
+              "bun:*",
               ...deepImportPatterns,
               {
                 regex: "^drizzle-orm/pg-core(?:/|$)",
