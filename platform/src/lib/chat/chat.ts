@@ -262,6 +262,12 @@ export class Chat extends Context.Service<
                 .pipe(Effect.timeout("5 seconds"), Effect.ignore),
             )
             const pricing = yield* modelProviders.pricing(model)
+            if (agent.compactionEnabled && !pricing)
+              return Stream.succeed<StreamChunk>({
+                type: EventType.RUN_ERROR,
+                code: "compaction_limits",
+                message: "compaction_limits",
+              })
             const usageLimitGuard = limits.length
               ? chatUsageLimitGuard({
                   usageLimits,
@@ -345,7 +351,7 @@ export class Chat extends Context.Service<
                     ? compactionState.history.findIndex((message) => message.id === anchor) + 1
                     : 0
                   const normalized = yield* prepareChatHistory({
-                    history: compactionState.history.slice(start),
+                    history: compactionState.history,
                     files: storedFiles,
                     model,
                     contextKey: chatCompactionContextKey(compactionState),
@@ -356,7 +362,11 @@ export class Chat extends Context.Service<
                       threadId: compactionState.claim.threadId,
                     },
                   })
-                  return convertMessagesToModelMessages(normalized.messages)
+                  // Normalize the full ancestry first so duplicate attachment handles keep their names.
+                  const suffix = new Set(compactionState.history.slice(start).map(({ id }) => id))
+                  return convertMessagesToModelMessages(normalized.messages).filter((message) =>
+                    suffix.has(message.id?.split(":")[0] ?? ""),
+                  )
                 }),
               )
             const adapter = createChatAdapter(
@@ -379,8 +389,6 @@ export class Chat extends Context.Service<
                   }
                 : model,
             )
-            if (agent.compactionEnabled && !pricing)
-              throw new ChatCompactionError({ code: "compaction_limits" })
             const summaryAccounting: ChatMiddleware[] = [
               {
                 name: "compaction-accounting",

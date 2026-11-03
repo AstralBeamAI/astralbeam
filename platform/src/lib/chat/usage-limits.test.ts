@@ -16,6 +16,59 @@ import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import type { UsageLimit, UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { chatUsageLimitGuard } from "./usage-limits.ts"
 
+it.each([
+  { finalFailure: false, totals: [102, expect.any(Number)] },
+  { finalFailure: true, totals: [102, 202] },
+])(
+  "accounts for both attempts when an overflow retries, final failure: $finalFailure",
+  async ({ finalFailure, totals }) => {
+    const adapter = fakeText()
+    adapter.setResponses([{ text: "Recovered" }])
+    const stream = adapter.chatStream.bind(adapter)
+    let attempts = 0
+    adapter.chatStream = async function* (options) {
+      attempts += 1
+      if (attempts === 1 || finalFailure) {
+        yield {
+          type: EventType.RUN_ERROR,
+          code: "context_overflow",
+          message: "Synthetic overflow",
+          usage: {
+            promptTokens: attempts * 100,
+            completionTokens: 2,
+            totalTokens: attempts * 100 + 2,
+          },
+        }
+      } else yield* stream(options)
+    }
+    const recorded: TokenUsage[] = []
+    const consumer: ChatMiddleware = {
+      name: "attempt-usage",
+      onUsage: (_ctx, usage) => void recorded.push(usage),
+    }
+    await Array.fromAsync(
+      chat({
+        adapter,
+        threadId: "overflow-usage",
+        messages: [{ role: "user", content: "Continue" }],
+        debug: false,
+        middleware: [
+          chatFailedUsageMiddleware([consumer]),
+          consumer,
+          {
+            name: "retry-once",
+            onModelError(ctx) {
+              if (attempts === 1) ctx.retry()
+            },
+          },
+        ],
+      }),
+    )
+    expect(attempts).toBe(2)
+    expect(recorded.map((usage) => usage.totalTokens)).toEqual(totals)
+  },
+)
+
 it("stops before the next model call and announces the limit once before the run finishes", async () => {
   const adapter = fakeText()
   adapter.setResponses([{ toolCalls: [{ name: "lookup", input: {} }] }, { text: "unreachable" }])

@@ -256,12 +256,47 @@ test("native compaction receives only the settled prefix and keeps every returne
 test.each([
   { text: "", finishReason: "stop" as const },
   { text: "Truncated summary", finishReason: "length" as const },
+  { text: "Inflated summary".repeat(1000), finishReason: "stop" as const },
 ])("an unusable summary fails before inference or publication: $finishReason", async (response) => {
   const fixture = compactionTestSetup()
   fixture.summaryAdapter.setResponses([response])
-  await expect(fixture.run()).rejects.toBeDefined()
+  await expect(fixture.run()).rejects.toMatchObject({
+    _tag: "ChatCompactionError",
+    code: "compaction_failed",
+  })
   expect(fixture.save).not.toHaveBeenCalled()
   expect(fixture.adapter.state.callCount).toBe(0)
+})
+
+test("portable provider failures become safe preparation errors without printing credentials", async () => {
+  const fixture = compactionTestSetup()
+  const log = vi.spyOn(console, "error").mockImplementation(() => {})
+  const detail = vi.spyOn(console, "dir").mockImplementation(() => {})
+  const adapter = createChatAdapter({
+    ...compactionTestModel,
+    fetch: () =>
+      Promise.resolve(
+        Response.json(
+          {
+            error: {
+              message: "Invalid API key: synthetic-secret",
+              type: "invalid_request_error",
+              code: "invalid_api_key",
+            },
+          },
+          { status: 401 },
+        ),
+      ),
+  })
+  fixture.summaryAdapter.chatStream = adapter.chatStream.bind(adapter)
+  try {
+    await expect(fixture.run()).rejects.toMatchObject({ code: "compaction_failed" })
+    expect(log).not.toHaveBeenCalled()
+    expect(detail).not.toHaveBeenCalled()
+  } finally {
+    log.mockRestore()
+    detail.mockRestore()
+  }
 })
 
 test("native failure falls back through the library to portable summarization", async () => {
