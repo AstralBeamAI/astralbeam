@@ -8,6 +8,7 @@ import { declaredHttpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
 import { INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
 import { captureServerRequest, ServerRedirect, ServerRequest } from "./server-request.server.ts"
+import { withActiveSpan } from "./tracing-context.server.ts"
 
 /** A failure a server function chose to show, carrying its original tag and user-safe message. */
 class ExposedError extends Data.TaggedError("ExposedError")<{
@@ -58,7 +59,9 @@ async function runServerFnEffect<A, E, R>(
   const request = captureServerRequest()
   const annotations = { requestId: request.request.headers.get("x-request-id"), operation }
   const exit = await runtime.runPromiseExit(
-    Effect.provideService(effect, ServerRequest, request).pipe(Effect.annotateLogs(annotations)),
+    withActiveSpan(Effect.provideService(effect, ServerRequest, request)).pipe(
+      Effect.annotateLogs(annotations),
+    ),
     { signal: request.request.signal },
   )
   if (Exit.isSuccess(exit)) return exit.value
@@ -91,7 +94,7 @@ export function runRouteEffect<A>(
 ): Promise<A> {
   const request = captureServerRequest()
   return getAppRuntime().runPromise(
-    Effect.provideService(effect, ServerRequest, request).pipe(
+    withActiveSpan(Effect.provideService(effect, ServerRequest, request)).pipe(
       Effect.annotateLogs({ requestId: request.request.headers.get("x-request-id") }),
     ),
     { signal: request.request.signal },

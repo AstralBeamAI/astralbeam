@@ -1,5 +1,5 @@
-import { assert, expect, test, vi } from "vitest"
-import { getChatConfig, listTenants } from "./index.ts"
+import { afterEach, assert, expect, test, vi } from "vitest"
+import { getChatConfig, getThreadAttachment, listTenants } from "./index.ts"
 import { astralBeamApiFetch, isAstralBeamApiError } from "./api.ts"
 
 test("typed credentials own authentication, preserving custom bases and queries", async () => {
@@ -58,4 +58,31 @@ test("204 successes do not attempt to decode an absent response body", async () 
   await expect(
     astralBeamApiFetch<void>("/resource", { method: "DELETE", apiKey: "key", fetchClient }),
   ).resolves.toBeUndefined()
+})
+
+afterEach(() => vi.unstubAllGlobals())
+
+test("direct file downloads omit application credentials and preserve cancellation and byte fallbacks", async () => {
+  const signal = new AbortController().signal
+  const location = "https://storage.example/private?signature=fixture"
+  const storageFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response("stored bytes"))
+  vi.stubGlobal("fetch", storageFetch)
+  const fetchClient = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(new Response(null, { status: 204, headers: { Location: location } }))
+  const options = { apiKey: "private-app-key", signal, fetchClient, headers: { Cookie: "private" } }
+  const params = { fileId: "file", threadId: "thread", delivery: "direct" as const }
+  expect(await (await getThreadAttachment(params, options)).text()).toBe("stored bytes")
+  expect(storageFetch).toHaveBeenCalledExactlyOnceWith(location, {
+    credentials: "omit",
+    redirect: "error",
+    referrerPolicy: "no-referrer",
+    signal,
+  })
+  fetchClient.mockResolvedValue(new Response("proxied bytes"))
+  expect(await (await getThreadAttachment(params, options)).text()).toBe("proxied bytes")
+  expect(storageFetch).toHaveBeenCalledTimes(1)
+  fetchClient.mockResolvedValue(new Response(null, { status: 204 }))
+  expect((await getThreadAttachment(params, options)).status).toBe(204)
+  expect(storageFetch).toHaveBeenCalledTimes(1)
 })

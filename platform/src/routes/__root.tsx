@@ -23,6 +23,7 @@ import { AuthProvider } from "@/components/auth/auth-provider"
 import { AnalyticsIdentity } from "@/components/analytics-identity"
 import { TurnstileCaptcha } from "@/components/auth/turnstile-captcha"
 import { PublicNavbar } from "@/components/navbar"
+import { NavigationProgress } from "@/components/navigation-progress"
 import { PublicConfigProvider } from "@/components/public-config-provider"
 import { Toaster } from "@/components/ui/toast"
 import { getDatabaseBootstrapIssues } from "@/db/lib/database-credentials"
@@ -44,6 +45,7 @@ import {
   INERT_REDIRECT_ORIGIN,
 } from "@/lib/constants"
 import "@/styles.css"
+import { SessionIndicator } from "@website/components/session-indicator"
 
 import { getPublicConfig } from "./-functions/get-public-config"
 
@@ -223,8 +225,8 @@ function AppProviders({ children }: { children: ReactNode }) {
           confirmPassword: true,
           forgotPassword: true,
           maxPasswordLength: 128,
-          minPasswordLength: 12,
-          requireEmailVerification: true,
+          minPasswordLength: 8,
+          requireEmailVerification: publicConfig.requireEmailVerification,
           strengthMeter: true,
         }}
         localization={{
@@ -258,12 +260,14 @@ function AppProviders({ children }: { children: ReactNode }) {
             keyExpiration: { defaultInterval: null },
             pageSize: ORGANIZATION_API_KEY_PAGE_SIZE,
             localization: {
-              apiKeysDescription: "Manage API keys.",
+              apiKeysDescription:
+                "Create a key so your application server can connect to this organization. Keep it in your server’s secrets, never in browser code.",
             },
           }),
         ]}
         Link={({ href, ...props }) => <Link {...props} to={href} />}
       >
+        <AnalyticsIdentity />
         {children}
       </AuthProvider>
     </PublicConfigProvider>
@@ -274,12 +278,13 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <SessionIndicator />
         <HeadContent />
       </head>
       <body className="min-h-svh antialiased">
         <ThemeProvider storageKey="theme">
+          <NavigationProgress />
           <Toaster>
-            <AnalyticsIdentity />
             <AppProviders>{children}</AppProviders>
           </Toaster>
           <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />

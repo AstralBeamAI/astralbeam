@@ -310,7 +310,7 @@ for (const storage of ["available", "full"] as const) {
   })
 }
 
-test("Enter during the history refresh after a reply sends the message", async ({ page }) => {
+test("Enter during history reconciliation preserves the draft until ready", async ({ page }) => {
   const control = await stubChat(page)
   const chat = chatWidget(page)
   await chat.openNarrowHost()
@@ -319,8 +319,12 @@ test("Enter during the history refresh after a reply sends the message", async (
   await expect.poll(() => control.release !== undefined).toBe(true)
   await chat.composer().fill("Sent during the refresh")
   await chat.composer().press("Enter")
-  await expect(chat.composer()).toHaveValue("")
+  await expect(chat.composer()).toHaveValue("Sent during the refresh")
+  expect(control.sends).toBe(1)
   control.release!()
+  await chat.waitForIdle()
+  await chat.composer().press("Enter")
+  await expect(chat.composer()).toHaveValue("")
   await chat.waitForIdle()
   await expect(
     chat.root.locator('[data-slot="message"]', { hasText: "Sent during the refresh" }),

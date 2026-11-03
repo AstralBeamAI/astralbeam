@@ -1,7 +1,11 @@
+import { Buffer } from "node:buffer"
+import { createHmac, timingSafeEqual } from "node:crypto"
+import { networkInterfaces } from "node:os"
+
 import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer"
-import { Config, Effect, Layer, Option, Result } from "effect"
+import { Array, Config, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
 import {
   ClusterWorkflowEngine,
   HttpRunner,
@@ -12,36 +16,55 @@ import {
   SqlMessageStorage,
   SqlRunnerStorage,
 } from "effect/cluster"
-import { HttpServer } from "effect/http"
+import { HttpApiBuilder, HttpApiSecurity } from "effect/http-api"
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpRouter,
+  HttpServer,
+  HttpServerResponse,
+} from "effect/http"
 import { NetAddress } from "effect/net"
 import { RpcSerialization } from "effect/rpc"
 
+import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials.ts"
 import { ClusterRunnerSettingsInvalid } from "./errors.ts"
 
-/** The runner's advertised and listening addresses, read from the environment only. */
+function getAutoRunnerHost(): string {
+  const addresses = Object.values(networkInterfaces())
+    .flatMap((addresses) => addresses ?? [])
+    .filter(({ address, internal }) => {
+      const ip = NetAddress.ipFromString(address)
+      return (
+        !internal &&
+        Result.isSuccess(ip) &&
+        (NetAddress.isIpv4Address(ip.success)
+          ? NetAddress.isPrivate(ip.success)
+          : NetAddress.isUniqueLocal(ip.success))
+      )
+    })
+  return (addresses.find(({ family }) => family === "IPv6") ?? addresses[0])?.address ?? "127.0.0.1"
+}
+
+/** Auto prefers private IPv6, then private IPv4, falling back to loopback. */
 export const clusterRunnerSettings = Effect.gen(function* () {
-  const host = yield* Config.String("CLUSTER_RUNNER_HOST").pipe(Config.withDefault("127.0.0.1"))
-  const port = yield* Config.Int("CLUSTER_RUNNER_PORT").pipe(Config.withDefault(0))
-  const listenHost = yield* Config.String("CLUSTER_RUNNER_LISTEN_HOST").pipe(
-    Config.withDefault(host),
+  const configuredHost = yield* Config.String("CLUSTER_RUNNER_HOST").pipe(
+    Config.withDefault("auto"),
   )
+  const host = configuredHost === "auto" ? getAutoRunnerHost() : configuredHost
+  const port = yield* Config.schema(Schema.Port, "CLUSTER_RUNNER_PORT").pipe(Config.withDefault(0))
   const address = NetAddress.ipFromString(host)
-  if (
-    port < 0 ||
-    port > 65535 ||
-    !host ||
-    (Result.isSuccess(address) && NetAddress.isUnspecified(address.success))
-  ) {
+  if (Result.isSuccess(address) && NetAddress.isUnspecified(address.success)) {
     return yield* new ClusterRunnerSettingsInvalid()
   }
-  return { host, port, listenHost }
+  return { host, port }
 })
 
 export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunnerSettings>) {
   return Layer.unwrap(
     Effect.gen(function* () {
       const server = yield* BunHttpServer.make({
-        hostname: settings.listenHost,
+        hostname: settings.host,
         port: settings.port,
       })
       if (server.address._tag === "UnixPathAddress") {
@@ -51,11 +74,31 @@ export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunner
         runnerAddress: Option.some(RunnerAddress.make(settings.host, server.address.port)),
         shardLockDisableAdvisory: true,
       })
+      // Domain separation keeps peer credentials distinct from encryption and operator credentials.
+      const peerKeys = Array.map(getDatabaseEncryptionKeyring(), ({ root }) =>
+        createHmac("sha256", root).update("astralbeam/cluster").digest(),
+      )
+      const peerAuth = HttpRouter.middleware((httpEffect) =>
+        Effect.gen(function* () {
+          const bearer = yield* HttpApiBuilder.securityDecode(HttpApiSecurity.bearer)
+          const token = Buffer.from(Redacted.value(bearer), "base64url")
+          return peerKeys.some((key) => token.length === key.length && timingSafeEqual(token, key))
+            ? yield* httpEffect
+            : HttpServerResponse.empty({ status: 401, headers: { "www-authenticate": "Bearer" } })
+        }),
+      ).layer
       const transport = HttpRunner.layerHttp.pipe(
+        Layer.provide(peerAuth),
         Layer.provide(
           RunnerHealth.layerPing.pipe(
             Layer.provide(Runners.layerRpc),
             Layer.provide(HttpRunner.layerClientProtocolHttpDefault),
+          ),
+        ),
+        Layer.updateService(
+          HttpClient.HttpClient,
+          HttpClient.mapRequest(
+            HttpClientRequest.bearerToken(Redacted.make(peerKeys[0].toString("base64url"))),
           ),
         ),
         Layer.provide([
@@ -65,8 +108,7 @@ export function clusterRunnerLayer(settings: Effect.Success<typeof clusterRunner
         ]),
         Layer.provideMerge(SqlMessageStorage.layerWith({ prefix: "effect_cluster" })),
         Layer.provide(SqlRunnerStorage.layerWith({ prefix: "effect_cluster" })),
-        Layer.provideMerge(config),
-        Layer.provideMerge(BunCrypto.layer),
+        Layer.provideMerge([config, BunCrypto.layer]),
       )
       return ClusterWorkflowEngine.layer.pipe(Layer.provideMerge(transport))
     }),

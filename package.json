@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": [
     "platform",
-    "www",
+    "website",
     "sdk",
     "cli",
     "examples/todos",
@@ -11,12 +11,13 @@
   ],
   "type": "module",
   "scripts": {
+    "audit": "bun audit --ignore GHSA-gcqx-w48m-w2h4",
     "format": "oxfmt --disable-nested-config",
     "format:check": "oxfmt --disable-nested-config --check",
     "dev:platform": "bun run --cwd platform dev",
     "build:platform": "bun run --cwd platform build",
-    "dev:www": "bun run --cwd www dev",
-    "build:www": "bun run --cwd www build",
+    "dev:website": "bun run --cwd website dev",
+    "build:website": "bun run --cwd website build",
     "dev:sdk": "bun run --cwd sdk dev",
     "build:sdk": "bun run --cwd sdk build",
     "build:cli": "bun run --cwd cli build",
@@ -24,17 +25,28 @@
     "build:todos": "bun run --cwd examples/todos build",
     "dev:linearity": "bun run --cwd examples/linearity-react dev",
     "build:linearity": "bun run --cwd examples/linearity-react build",
-    "dev": "bun run --parallel dev:platform dev:www dev:sdk dev:todos dev:linearity",
-    "build": "bun run build:sdk && bun run build:platform && bun run build:www && bun run build:cli && bun run build:todos && bun run build:linearity",
+    "dev": "bun run --parallel dev:platform dev:website dev:sdk dev:todos dev:linearity",
+    "build": "bun run build:sdk && bun run build:platform && bun run build:website && bun run build:cli && bun run build:todos && bun run build:linearity",
     "release": "scripts/release.sh"
   },
   "devDependencies": {
-    "@types/bun": "1.4.3",
+    "@types/bun": "1.4.4",
     "oxfmt": "0.73.0"
+  },
+  "overrides": {
+    "@opentelemetry/api": "^1.9.1 <1.10.0",
+    "@tanstack/ai-sandbox-daytona": {
+      "@daytona/sdk": "^0.227.0"
+    },
+    "@tanstack/ai-sandbox-docker": {
+      "dockerode": "^5.0.1"
+    },
+    "glob@^13": "^14.0.3",
+    "minimatch@^10": "^11.0.3"
   },
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {
-    "nitro@3.0.260903-beta": "patches/nitro@3.0.260903-beta.patch"
+    "nitro@3.0.261029-rc": "patches/nitro@3.0.261029-rc.patch"
   },
   "trustedDependencies": [
     "esbuild",

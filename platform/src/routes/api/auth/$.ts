@@ -7,19 +7,6 @@ import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
-import { isLoopbackProxyAddress } from "@/lib/utils.server"
-
-/**
- * Better Auth reads its rate-limit and session address from `x-forwarded-for` and cannot tell who
- * sent it, so an untrusted peer's header is replaced with the peer. https://github.com/better-auth/better-auth/blob/v1.7.2/packages/core/src/utils/ip.ts
- */
-function withTrustedForwardedFor(request: Request, peerAddress: string | undefined): Request {
-  if (isLoopbackProxyAddress(peerAddress)) return request
-  const headers = new Headers(request.headers)
-  if (peerAddress === undefined) headers.delete("x-forwarded-for")
-  else headers.set("x-forwarded-for", peerAddress)
-  return new Request(request, { headers })
-}
 
 const handleAuthRequest = Effect.fn("handleAuthRequest")(
   function* () {
@@ -32,7 +19,7 @@ const handleAuthRequest = Effect.fn("handleAuthRequest")(
     }
     const { request, clientAddress } = yield* ServerRequest
     const auth = yield* Auth
-    return yield* auth.handler(withTrustedForwardedFor(request, clientAddress))
+    return yield* auth.handler(request, clientAddress)
   },
   // Better Auth answers its own errors, so only an unexpected failure reaches this.
   Effect.catchCause((cause) =>

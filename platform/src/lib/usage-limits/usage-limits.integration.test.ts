@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { sql } from "drizzle-orm"
 import { Effect } from "effect"
 import { Client } from "pg"
@@ -42,8 +43,11 @@ describe.skipIf(!usageLimitIntegration.url)("usage limit counters", () => {
   })
 
   async function createSubjects() {
-    const [org] = await db.insert(organization).values({ name: "Acme", slug: "acme" }).returning()
-    const organizationId = org!.id
+    const [org] = await db
+      .insert(organization)
+      .values({ domain: "example.com", name: "Acme", slug: "acme" })
+      .returning()
+    const organizationId = OrganizationIdSchema.make(org!.id)
     const [owned] = await db
       .insert(tenant)
       .values({ organizationId, externalId: "t" })

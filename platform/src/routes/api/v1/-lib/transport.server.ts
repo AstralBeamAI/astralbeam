@@ -14,6 +14,7 @@ import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Config } from "@/lib/config/config"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { appLayer, getAppRuntime } from "@/lib/runtime/runtime.server"
+import { annotateHttpRoute } from "@/lib/runtime/tracing-context.server"
 import { Tenants } from "@/lib/tenants/tenants"
 import { ApiV1 } from "./contract.server"
 import {
@@ -28,6 +29,7 @@ import {
 import { currentUserHandlers } from "./current-user.server"
 import { personalMcpHandlers } from "./mcp.server"
 import { organizationHandlers } from "./organization.server"
+import { documentationHandlers } from "./documentation.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
 import { chatThreadHandlers } from "../chat/-lib/threads.server"
 import { authenticateRestRequest } from "./auth.server"
@@ -84,6 +86,9 @@ function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
 const ApiBoundaryLive = Layer.succeed(ApiBoundary, (httpEffect, { endpoint }) =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
+    const route = yield* HttpRouter.RouteContext
+    const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
+    annotateHttpRoute(native, route.route.path)
     if (!endpoint.query && new URL(request.url, "http://localhost").search) {
       return yield* new RestQueryNotAccepted()
     }
@@ -118,7 +123,7 @@ const REST_CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "authorization, content-type, x-api-key, x-file-preview, last-event-id, x-run-id, idempotency-key",
+    "authorization, content-type, x-api-key, x-file-preview, last-event-id, x-run-id, idempotency-key, b3, traceparent, tracestate",
   "Access-Control-Expose-Headers":
     "Location, Link, Retry-After, Content-Disposition, WWW-Authenticate, X-Request-Id",
   "Access-Control-Max-Age": "86400",
@@ -187,6 +192,7 @@ const RestRouterBoundary = Layer.unwrap(
 export const ApiV1Routes = Layer.mergeAll(
   HttpApiBuilder.layer(ApiV1).pipe(
     Layer.provide([
+      documentationHandlers(ApiV1),
       tenantHandlers(ApiV1),
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),

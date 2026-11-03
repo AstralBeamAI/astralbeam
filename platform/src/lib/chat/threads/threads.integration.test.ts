@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { messageResource } from "@/routes/api/v1/chat/-lib/threads.server"
 import { deleteTenant } from "@/lib/tenants/deletion"
 import { APP_HANDLE } from "@/lib/constants"
@@ -27,6 +28,7 @@ import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
 import {
@@ -81,7 +83,7 @@ const storage = globalThis.process.env.S3_BUCKET
         Effect.sync(() => {
           objects.delete(key)
         }),
-      signedUrl: () => Effect.die("unused"),
+      signedUrl: ({ key }) => Effect.succeed(`https://storage.example/${key}`),
       testConnection: () => Effect.die("unused"),
     })
 const filesLayer = ChatFiles.layerNoDeps.pipe(
@@ -89,7 +91,9 @@ const filesLayer = ChatFiles.layerNoDeps.pipe(
   Layer.provideMerge(StoredFiles.layerNoDeps.pipe(Layer.provideMerge(storage))),
   Layer.provideMerge(Database.layer),
 )
-const runtime = ManagedRuntime.make(ChatThreads.layerNoDeps.pipe(Layer.provideMerge(filesLayer)))
+const runtime = ManagedRuntime.make(
+  ChatThreads.layerNoDeps.pipe(Layer.provideMerge([filesLayer, UsageLimits.layer])),
+)
 
 describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -109,8 +113,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
   })
   beforeEach(async () => {
     await db.execute(sql`truncate organization cascade`)
-    const [org] = await db.insert(organization).values({ name: "Chat", slug: "chat" }).returning()
-    const organizationId = org!.id
+    const [org] = await db
+      .insert(organization)
+      .values({ domain: "example.com", name: "Chat", slug: "chat" })
+      .returning()
+    const organizationId = OrganizationIdSchema.make(org!.id)
     const [model] = await db
       .insert(agent)
       .values({ organizationId, name: "Assistant", systemPrompt: "Help" })
@@ -292,12 +299,21 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       files.read({ scope, fileId: pending!.fileObjectId, preview: true }),
     )
     expect(preview?.mimeType).toBe("image/webp")
-    for (const deniedScope of [other, foreign])
+    const download = { fileId: pending!.fileObjectId, preview: true, contentDisposition: "inline" }
+    expect(await runtime.runPromise(files.download({ ...download, scope }))).toHaveProperty(
+      "url",
+      expect.stringContaining(".preview.webp"),
+    )
+    for (const deniedScope of [other, foreign]) {
       await expect(
         runtime.runPromise(
           files.read({ scope: deniedScope, fileId: pending!.fileObjectId, preview: true }),
         ),
       ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+      await expect(
+        runtime.runPromise(files.download({ ...download, scope: deniedScope })),
+      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+    }
     await runtime.runPromise(service.admit({ scope, id: thread.id, payload: referenced }))
     const input = {
       scope: { organizationId: scope.organizationId },
@@ -338,7 +354,12 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
     expect(snapshot.thread).not.toHaveProperty("role")
     for (const operation of [
-      service.directorySnapshot({ ...input, scope: { organizationId: crypto.randomUUID() } }),
+      service.directorySnapshot({
+        ...input,
+        scope: {
+          organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+        },
+      }),
       service.directorySnapshot({
         ...input,
         scope: { organizationId: scope.organizationId, tenantId: foreign.tenantId },
@@ -428,7 +449,11 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(
       (
         await runtime.runPromise(
-          service.directoryList({ scope: { organizationId: crypto.randomUUID() } }),
+          service.directoryList({
+            scope: {
+              organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000099"),
+            },
+          }),
         )
       ).items,
     ).toEqual([])
@@ -580,8 +605,26 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     ).toEqual([])
   })
 
-  test("replays admission receipts, reauthorizes retries, and purges retained input on deletion", async () => {
+  test("replays receipts after quota exhaustion, reauthorizes retries, and purges retained input", async () => {
     const thread = await create()
+    const usageLimits = await runtime.runPromise(UsageLimits)
+    const usageLimitId = await runtime.runPromise(
+      usageLimits.create({
+        organizationId: scope.organizationId,
+        fields: {
+          name: "Chat budget",
+          enabled: true,
+          appliesByDefault: false,
+          scope: "tenant_user",
+          metric: "tokens",
+          amount: "1",
+          windowType: "rolling",
+          windowCount: 1,
+          windowUnit: "hour",
+          timeZone: null,
+        },
+      }),
+    )
     const uploaded = await runtime.runPromise(
       files.store({
         scope,
@@ -619,7 +662,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       state: undefined,
       forwardedProps: { clientId: targetA },
     }
-    const request = { scope, params, idempotencyKey: "same-intent" }
+    const request = { scope, params, idempotencyKey: "same-intent", usageLimitIds: [usageLimitId] }
     const run = (input: typeof request) =>
       runtime.runPromise(
         prepareManagedChat(input).pipe(
@@ -679,9 +722,30 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     expect(first.admission!.inputMessage.payload.parts[1]!.metadata).toEqual({
       filename: `note ${"x".repeat(CHAT_ATTACHMENT_MAX_FILENAME_LENGTH - 5)}…`,
     })
+    const limits = await runtime.runPromise(
+      usageLimits.applicable({ organizationId: scope.organizationId, listedIds: [usageLimitId] }),
+    )
+    await runtime.runPromise(
+      usageLimits.record({ limits, subject: scope, usage: { tokens: 1, spend: "0" } }),
+    )
     const retry = await run({ ...request, params: { ...params, runId: "retry-run" } })
-    expect(retry.admission).toBeUndefined()
-    expect(retry.receipt).toEqual(first.receipt)
+    expect(retry).toMatchObject({ admission: undefined, receipt: first.receipt })
+    const storedFileCount = (await db.select().from(fileObject)).length
+    const inlineFile = {
+      type: "document",
+      source: { type: "data", value: "SGVsbG8=", mimeType: "text/plain" },
+    } as const
+    await expect(
+      run({
+        ...request,
+        idempotencyKey: "new-intent",
+        params: {
+          ...params,
+          messages: [{ role: "user", content: [inlineFile] }],
+        },
+      }),
+    ).rejects.toMatchObject({ _tag: "UsageLimitReached" })
+    expect(await db.select().from(fileObject)).toHaveLength(storedFileCount)
     expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(2)
     await expect(
       run({ ...request, params: { ...params, messages: [{ role: "user", content: "Changed" }] } }),

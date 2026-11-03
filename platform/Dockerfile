@@ -12,9 +12,10 @@ COPY --exclude=.git --exclude=**/node_modules --exclude=**/.env* --exclude=**/*.
     --exclude=**/dist --exclude=**/.output --exclude=**/.generated \
     --exclude=**/.nitro --exclude=**/.tanstack . .
 ENV NODE_ENV=production
+ARG SOURCE_VERSION
 RUN bun run --cwd sdk build && bun run --cwd platform build
 
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 # Update and clean APT in one layer: https://docs.docker.com/build/building/best-practices/#apt-get
 RUN apt-get update \
@@ -22,7 +23,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 astralbeam \
-    && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam
+    && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam \
+    && install -d -o 10001 -g 10001 -m 700 /var/lib/astralbeam
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
@@ -31,10 +33,10 @@ COPY --from=build --chmod=755 /app/platform/.output/astralbeam-platform /usr/loc
 # Other notices are embedded. Preserve the SDK's separate notice: https://opensource.org/license/mit
 COPY --from=build /app/LICENSE-MIT /usr/share/doc/astralbeam/
 
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+ENV NODE_ENV=production HOST=0.0.0.0 ASTRALBEAM_DATA_DIR=/var/lib/astralbeam
 # Run without root. The binary unpacks assets and native libraries into writable, executable /tmp.
 USER 10001:10001
 WORKDIR /tmp
-EXPOSE 3000
+EXPOSE 4510
 ENTRYPOINT ["/usr/local/bin/astralbeam-platform"]
 CMD ["start"]

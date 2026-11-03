@@ -1,14 +1,16 @@
 import process from "node:process"
-import { createHash } from "node:crypto"
+import { join } from "node:path"
 
 import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { like, sql } from "drizzle-orm"
+import { eq, like, or, sql } from "drizzle-orm"
 import { Schema } from "effect"
 
 import { configTable } from "@/db/schema.ts"
-import { StorageEndpointSchema } from "@/lib/storage/schemas.ts"
+import { ENVIRONMENT_CONFIG_DEFINITIONS } from "@/lib/config/registry.ts"
+import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas.ts"
 import { BooleanSettingSchema, parseEnvironmentConfigValue } from "@/lib/config/schemas.ts"
 import { NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { defaultStorageDirectory } from "@/lib/storage/filesystem.server.ts"
 
 import type { SeedDatabase, SeedTransaction } from "./database.ts"
 import { SEED_CONFIG_VALUES } from "./fixtures.ts"
@@ -18,39 +20,68 @@ export type SeedConfigResult = {
   readonly fromEnvironment: string[]
 }
 
-/**
- * Writes the configuration the application needs before it will serve anything but `/configure`.
- *
- * A key whose uppercase environment variable is already set is left alone, because
- * `src/lib/config/registry.ts` gives the environment precedence and `/configure` renders
- * those fields read-only; writing a row for one would be invisible and misleading. Values are
- * upserted through the same encrypted-column codec `src/lib/config/store.ts` uses.
- */
+function seedStorageEndpoint() {
+  return `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`
+}
+
+export async function resolveSeedStorageProvider(
+  database: SeedDatabase,
+): Promise<"filesystem" | "s3"> {
+  const rows = await database
+    .select()
+    .from(configTable)
+    .where(or(like(configTable.key, "s3_%"), eq(configTable.key, "storage_provider")))
+  const provider = process.env.STORAGE_PROVIDER
+    ? parseEnvironmentConfigValue(process.env.STORAGE_PROVIDER)
+    : rows.find((row) => row.key === "storage_provider")?.value.value
+  if (provider !== undefined)
+    return Schema.decodeUnknownSync(Schema.Literals(["filesystem", "s3"]), { reportInput: false })(
+      provider,
+    )
+  if (
+    rows.length ||
+    Object.keys(SEED_CONFIG_VALUES).some(
+      (key) => key.startsWith("s3_") && process.env[key.toUpperCase()],
+    )
+  )
+    return "s3"
+  return "filesystem"
+}
+
+/** Skip environment overrides so seeded values do not hide behind read-only configuration fields. */
 export async function seedConfig(
   transaction: SeedTransaction,
   databaseName: string,
+  storageProvider: "filesystem" | "s3",
 ): Promise<SeedConfigResult> {
   const written: string[] = []
   const fromEnvironment: string[] = []
-  const values = {
+  const bucket = `astralbeam-${databaseName
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .slice(0, 19)}-${Bun.CryptoHasher.hash("sha256", databaseName, "hex").slice(0, 32)}`
+  const values: Record<string, string> = {
     ...SEED_CONFIG_VALUES,
-    s3_endpoint: `http://127.0.0.1:${process.env.RUSTFS_HOST_PORT || 9000}`,
-    s3_bucket: `astralbeam-${databaseName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .slice(0, 19)}-${createHash("sha256").update(databaseName).digest("hex").slice(0, 32)}`,
+    s3_endpoint: seedStorageEndpoint(),
+    s3_bucket: bucket,
     s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,
     s3_secret_access_key: process.env.RUSTFS_SECRET_KEY || SEED_CONFIG_VALUES.s3_secret_access_key,
+    storage_provider: storageProvider,
+    storage_directory: join(defaultStorageDirectory(), bucket),
   }
   for (const [key, value] of Object.entries(values)) {
-    if (process.env[key.toUpperCase()]) {
+    if (!isStorageSettingActive(key, storageProvider)) continue
+    if (
+      ENVIRONMENT_CONFIG_DEFINITIONS.some((definition) => definition.key === key) &&
+      process.env[key.toUpperCase()]
+    ) {
       fromEnvironment.push(key)
       continue
     }
     const storedValue = { key, value }
     const insert = transaction.insert(configTable).values({ key, value: storedValue })
     const rows = await (
-      key.startsWith("s3_")
+      key.startsWith("s3_") || key.startsWith("storage_")
         ? insert.onConflictDoNothing({ target: configTable.key })
         : insert.onConflictDoUpdate({
             target: configTable.key,
@@ -72,7 +103,6 @@ function localStorageEndpoint(value: string) {
 }
 
 export async function initializeStorage(database: SeedDatabase): Promise<void> {
-  if (process.env.SKIP_DOCKER_COMPOSE === "true") return
   const rows = await database.select().from(configTable).where(like(configTable.key, "s3_%"))
   const value = (key: string) => {
     const schema =

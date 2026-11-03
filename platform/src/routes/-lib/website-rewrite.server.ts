@@ -6,7 +6,7 @@ import { Config } from "@/lib/config/config"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
-// Website routes served at the same path. Keep in step with `prerenderRoutes` in www/vite.config.ts.
+// Website routes served at the same path. Keep in step with `prerenderRoutes` in website/vite.config.ts.
 const WEBSITE_PATHS = new Set([
   "/home",
   "/terms",
@@ -16,7 +16,9 @@ const WEBSITE_PATHS = new Set([
   "/og-image.png",
   "/licenses.txt",
   "/llms.txt",
+  "/install.sh",
   "/.well-known/agent-skills/index.json",
+  "/.well-known/security.txt",
   "/agent-skills/astralbeam/SKILL.md",
   "/site.webmanifest",
   "/sitemap.xml",

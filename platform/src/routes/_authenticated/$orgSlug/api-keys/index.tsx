@@ -36,7 +36,8 @@ function ApiKeysPage() {
       <div className="max-w-4xl space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">API keys</h1>
         <p className="text-sm text-muted-foreground">
-          Manage API keys. New keys are shown only once.{" "}
+          Authenticate your application server. Copy each new key when you create it, as it is shown
+          only once.{" "}
           <DocsLink href="/docs/dashboard/api-keys#keeping-a-key-server-side">
             Keep keys on your server
           </DocsLink>

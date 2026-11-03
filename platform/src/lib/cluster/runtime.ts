@@ -1,4 +1,4 @@
-import { Cause, Context, Duration, Effect, Fiber, Layer, Schedule, Semaphore } from "effect"
+import { Cause, Context, Effect, Fiber, Layer, Schedule, Semaphore } from "effect"
 import { Sharding, ShardingConfig } from "effect/cluster"
 import { WorkflowEngine } from "effect/workflow"
 
@@ -59,13 +59,7 @@ const retryClusterRunner = <A, E, R>(supervise: Effect.Effect<A, E, R>) =>
         { sqlstate },
       )
     }),
-    Effect.repeat(
-      Schedule.exponential("1 second").pipe(
-        Schedule.modifyDelay(({ duration }) =>
-          Effect.succeed(Duration.min(duration, Duration.seconds(30))),
-        ),
-      ),
-    ),
+    Effect.repeat(Schedule.min([Schedule.exponential("1 second"), Schedule.spaced("30 seconds")])),
   )
 
 /** Submits workflows through this process's running engine, so no request builds a runner. */

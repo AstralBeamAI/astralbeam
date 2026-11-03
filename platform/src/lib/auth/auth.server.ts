@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util"
+
 import { API_KEY_ERROR_CODES, apiKey } from "@better-auth/api-key"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import type { BetterAuthPlugin } from "better-auth"
@@ -9,9 +11,10 @@ import {
   createEmailVerificationToken,
   isAPIError,
 } from "better-auth/api"
+import { parseSetCookieHeader } from "better-auth/cookies"
 import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { Clock, Context, Effect, Layer, Predicate, Ref } from "effect"
+import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database"
 import { tables } from "@/db/schema"
@@ -24,14 +27,14 @@ import {
 } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
-import { APP_NAME } from "@/lib/constants"
+import { APP_HANDLE, APP_NAME } from "@/lib/constants"
 import { Mailer } from "@/lib/email/email.server"
 import { organizationAccessControl, organizationRoles } from "@/lib/organizations/access"
 import { OrganizationSlugTaken, SignInRequired } from "@/lib/organizations/errors"
 import { organizationImageHooks } from "@/lib/organizations/image-hooks.server"
 import { organizationApiKeyPlugin } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
-import { IS_TEST_RUNTIME } from "@/lib/runtime/environment.server"
+import { IS_TEST_RUNTIME, skipEmailVerification } from "@/lib/runtime/environment.server"
 import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import {
   assertNoGlobalAvatar,
@@ -40,7 +43,7 @@ import {
   isOAuthImageRequest,
   captureOAuthImage,
 } from "@/lib/auth/profile-images.server"
-import { LOOPBACK_PROXY_ADDRESSES } from "@/lib/utils.server"
+import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.server"
 import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
@@ -74,6 +77,7 @@ const ORGANIZATION_INVITATION_EXPIRY_SECONDS = 48 * 60 * 60
 const AUTH_BASE_PATH = "/api/auth"
 
 interface AuthConfig {
+  proxy: ReturnType<typeof proxySettingsFromValues>
   appBaseUrl: string
   betterAuthSecret: string
   google: { clientId: string; clientSecret: string } | null
@@ -86,6 +90,7 @@ function authConfigFromValues(values: ConfigValues): AuthConfig | null {
   const { app_base_url: appBaseUrl, better_auth_secret: betterAuthSecret } = values
   if (!appBaseUrl || !betterAuthSecret || !values.turnstile_secret_key) return null
   return {
+    proxy: proxySettingsFromValues(values),
     appBaseUrl,
     betterAuthSecret,
     google:
@@ -186,7 +191,38 @@ const deleteOrganizationApiKey = Effect.fn("deleteOrganizationApiKey")(function*
   )
 })
 
+// Better Auth cannot verify the sender. Ignore client IP headers unless proxy trust allows them.
+// https://better-auth.com/docs/concepts/rate-limit#connecting-ip-address
+function withTrustedProxyHeaders(
+  request: Request,
+  peerAddress: string | undefined,
+  proxy: ReturnType<typeof proxySettingsFromValues>,
+): Request {
+  if (proxy.trustProxy === "true") {
+    const headers = new Headers(request.headers)
+    // Better Auth needs a single client address when no proxy ranges are configured.
+    for (const header of proxy.clientIpHeaders) {
+      const clientIp = headers.get(header)?.split(",")[0]
+      if (clientIp !== undefined) headers.set(header, clientIp.trim())
+    }
+    return new Request(request, { headers })
+  }
+  const trustedPeer = isTrustedProxyAddress(peerAddress, proxy)
+  if (proxy.trustProxy !== "false" && trustedPeer) return request
+  const headers = new Headers(request.headers)
+  for (const header of proxy.clientIpHeaders) {
+    if (peerAddress === undefined) headers.delete(header)
+    else headers.set(header, peerAddress)
+  }
+  if (!trustedPeer) {
+    headers.delete("x-forwarded-host")
+    headers.delete("x-forwarded-proto")
+  }
+  return new Request(request, { headers })
+}
+
 function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
+  const requireEmailVerification = !skipEmailVerification()
   // Avoid losing organization session fields to plugin inference. https://github.com/better-auth/better-auth/issues/4222
   const turnstileAuthPlugin = captcha({
     provider: "cloudflare-turnstile",
@@ -204,6 +240,17 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
   if (config.github) enabledOAuthProviders.add("github")
 
   return betterAuth({
+    logger: {
+      log: (level, message, ...args: unknown[]) => {
+        const log = {
+          debug: Effect.logDebug,
+          info: Effect.logInfo,
+          warn: Effect.logWarning,
+          error: Effect.logError,
+        }[level]
+        void runAppEffect(log(message, ...args)).catch(() => {})
+      },
+    },
     appName: APP_NAME,
     baseURL: config.appBaseUrl,
     secret: config.betterAuthSecret,
@@ -214,10 +261,10 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     }),
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
-      minPasswordLength: 12,
+      requireEmailVerification,
+      minPasswordLength: 8,
       maxPasswordLength: 128,
-      autoSignIn: false,
+      autoSignIn: !requireEmailVerification,
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRY_SECONDS,
       revokeSessionsOnPasswordReset: true,
       customSyntheticUser: ({ coreFields }) => createSyntheticUser(coreFields),
@@ -245,7 +292,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     },
     emailVerification: {
       expiresIn: EMAIL_VERIFICATION_EXPIRY_SECONDS,
-      sendOnSignUp: true,
+      sendOnSignUp: requireEmailVerification,
       sendOnSignIn: false,
       autoSignInAfterVerification: true,
       // Better Auth returns before this callback for an already verified address.
@@ -341,49 +388,22 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     // backgroundTasks stays unset, because a handler would defer each send past the response and
     // swallow its rejection behind a "check your inbox" screen. https://better-auth.com/docs/concepts/email
     advanced: {
+      trustedProxyHeaders: true,
       database: {
         // Let PostgreSQL apply the schema's UUIDv7 defaults. https://better-auth.com/docs/concepts/database#id-generation
         generateId: false,
         joins: true,
       },
-      // Better Auth walks a forwarded chain to the first hop it does not own, and `/api/auth/$`
+      // Better Auth walks a forwarded chain to the first hop it does not own, and `Auth.handler`
       // verifies the sender. https://better-auth.com/docs/concepts/rate-limit
       ipAddress: {
-        trustedProxies: [...LOOPBACK_PROXY_ADDRESSES],
+        ipAddressHeaders: config.proxy.clientIpHeaders,
+        trustedProxies: config.proxy.trustedProxies,
       },
     },
     hooks: {
       before: createAuthMiddleware(async (context) => {
         const body = recordValue(context.body)
-        // Hash once before the original token consumption, leaving the endpoint and plugins intact.
-        // Remove this request-scoped wrapper after https://github.com/better-auth/better-auth/pull/10717 ships.
-        if (context.path === "/reset-password" && Predicate.isString(body?.newPassword)) {
-          const { internalAdapter, password } = context.context
-          const newPassword = body.newPassword
-          const hashPassword = await runAppEffect(
-            Effect.cached(
-              tryPromiseInServerRequest(() => password.hash(newPassword)).pipe(Effect.orDie),
-            ),
-          )
-          context.context.password = { ...password, hash: () => runAppEffect(hashPassword) }
-          context.context.internalAdapter = {
-            ...internalAdapter,
-            consumeVerificationValue: (identifier) =>
-              runAppEffect(
-                Effect.gen(function* () {
-                  const verification = yield* tryPromiseInServerRequest(() =>
-                    internalAdapter.findVerificationValue(identifier),
-                  )
-                  const now = yield* Clock.currentTimeMillis
-                  if (verification && verification.expiresAt.getTime() >= now) yield* hashPassword
-                  return yield* tryPromiseInServerRequest(() =>
-                    internalAdapter.consumeVerificationValue(identifier),
-                  )
-                }).pipe(Effect.orDie),
-              ),
-          }
-          return
-        }
         if (context.path === "/api-key/delete" && Predicate.isString(body?.keyId)) {
           // A returned body short-circuits the endpoint. https://better-auth.com/docs/concepts/hooks#before-hooks
           await runAppEffect(
@@ -435,6 +455,25 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
         assertAuthEmailDelivered(context.request)
         const signedIn = context.context.newSession?.user
         if (signedIn) await enqueueOAuthProfileImage(signedIn.id)
+        const { sessionToken, dontRememberToken } = context.context.authCookies
+        const cookie = parseSetCookieHeader(
+          context.context.responseHeaders?.get("set-cookie") ?? "",
+        ).get(sessionToken.name)
+        const session = context.context.session?.session
+        if (cookie || (context.path === "/get-session" && !isAPIError(context.context.returned))) {
+          const loggedIn = cookie ? Boolean(cookie.value) : Boolean(session)
+          const attributes = { ...sessionToken.attributes, httpOnly: false }
+          delete attributes.maxAge
+          if (cookie?.["max-age"] !== undefined) attributes.maxAge = cookie["max-age"]
+          else if (!loggedIn) attributes.maxAge = 0
+          else if (
+            session &&
+            !(await context.getSignedCookie(dontRememberToken.name, context.context.secret))
+          ) {
+            attributes.expires = session.expiresAt
+          }
+          context.setCookie(`${APP_HANDLE}_signed_in`, loggedIn ? "1" : "", attributes)
+        }
         if (context.path !== "/change-password" || isAPIError(context.context.returned)) return
         const user = context.context.session?.user
         if (user) await notifyPasswordChanged(mailer, user)
@@ -489,6 +528,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
           organization: {
             additionalFields: {
               logoFileId: storedFileIdField,
+              domain: { type: "string", input: false, required: false },
               updatedAt: {
                 type: "date",
                 input: false,
@@ -552,7 +592,7 @@ export class Auth extends Context.Service<
     readonly requireSession: (input: {
       readonly headers: Headers
     }) => Effect.Effect<AuthSession, SignInRequired>
-    readonly handler: (request: Request) => Effect.Effect<Response>
+    readonly handler: (request: Request, peerAddress: string | undefined) => Effect.Effect<Response>
     /** Better Auth owns the organization table and rechecks the caller's permission itself. */
     readonly updateOrganization: (input: {
       readonly headers: Headers
@@ -572,19 +612,22 @@ export class Auth extends Context.Service<
     Effect.gen(function* () {
       const config = yield* Config
       const mailer = yield* Mailer
-      const built = yield* Ref.make<{ generation: number; auth: AppAuth } | null>(null)
+      const built = yield* Ref.make<{
+        config: AuthConfig
+        auth: AppAuth
+      } | null>(null)
       const sessions = new WeakMap<Headers, Effect.Effect<AuthSession | null>>()
 
-      const instance = Effect.gen(function* () {
-        const snapshot = yield* config.snapshot
-        const current = yield* Ref.get(built)
-        if (current?.generation === snapshot.generation) return current.auth
-        const authConfig = authConfigFromValues(snapshot.values)
+      const configured = Effect.gen(function* () {
+        const authConfig = authConfigFromValues((yield* config.snapshot).values)
         if (!authConfig) return yield* Effect.die("Authentication configuration is incomplete")
-        const auth = buildAuth(authConfig, mailer)
-        yield* Ref.set(built, { generation: snapshot.generation, auth })
-        return auth
+        const current = yield* Ref.get(built)
+        if (current && isDeepStrictEqual(current.config, authConfig)) return current
+        const result = { config: authConfig, auth: buildAuth(authConfig, mailer) }
+        yield* Ref.set(built, result)
+        return result
       })
+      const instance = Effect.map(configured, ({ auth }) => auth)
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
         Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
@@ -626,9 +669,14 @@ export class Auth extends Context.Service<
           session ? Effect.succeed(session) : Effect.fail(new SignInRequired()),
         )
 
-      const handler = Effect.fn("Auth.handler")(function* (request: Request) {
-        const auth = yield* instance
-        return yield* tryPromiseInServerRequest(() => auth.handler(request)).pipe(Effect.orDie)
+      const handler = Effect.fn("Auth.handler")(function* (
+        request: Request,
+        peerAddress: string | undefined,
+      ) {
+        const { auth, config } = yield* configured
+        return yield* tryPromiseInServerRequest(() =>
+          auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
+        ).pipe(Effect.orDie)
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {

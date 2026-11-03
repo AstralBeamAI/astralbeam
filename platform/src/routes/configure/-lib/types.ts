@@ -49,6 +49,7 @@ export type ConfigurePageState =
       /** ISO instant the operator session expires at, for the live countdown. */
       sessionExpiresAt: string
       fallbackEncryptionKeyCount: number
+      testingDefaults: string[]
       setupComplete: boolean
       migrations: { pending: PendingMigration[]; appliedCount: number }
       fields: ConfigureField[]

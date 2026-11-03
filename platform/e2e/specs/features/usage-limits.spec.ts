@@ -17,6 +17,8 @@ test("the owner creates, reviews, edits, and deletes usage limits", async ({
 
   await test.step("a fixed weekly token limit applies to everyone", async () => {
     await usageLimits.startCreate()
+    await page.locator("#usage-limit-name").fill(weekly)
+    await expect(usageLimits.summary).toContainText("Fill in the fields above")
     await usageLimits.fillForm({
       name: weekly,
       duration: "Weekly",

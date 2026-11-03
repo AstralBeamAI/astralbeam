@@ -80,7 +80,7 @@ describe("Mailer", () => {
     }).pipe(Effect.provide(layer))
   })
 
-  it.effect("copies support on welcome and support emails so replies reach the team", () => {
+  it.effect("routes replies to support and preserves welcome and support copies", () => {
     const { layer, sent } = mailerTestLayer()
     return Effect.gen(function* () {
       const mailer = yield* Mailer
@@ -97,17 +97,25 @@ describe("Mailer", () => {
         attachments: [attachment],
       })
       yield* mailer.sendPasswordChanged({ user })
-      const [welcome, support, passwordChanged] = sent
+      yield* mailer.sendResetPassword({
+        user,
+        url: "https://app.example.test/api/auth/reset-password/secret-token",
+        expiresInSeconds: 3600,
+      })
+      const [welcome, support, passwordChanged, resetPassword] = sent
       for (const email of [welcome, support]) {
         assert.deepStrictEqual(email?.to, [user.email])
-        assert.deepStrictEqual(email?.cc, ["support@example.test"])
+        assert.deepStrictEqual(email === welcome ? email?.bcc : email?.cc, ["support@example.test"])
         assert.strictEqual(email?.replyTo, "support@example.test")
       }
       assert.strictEqual(support?.subject, `${APP_NAME} support request: The sidebar`)
       assert.include(support?.text, "stops responding")
       assert.deepStrictEqual(support?.attachments, [attachment])
       assert.deepStrictEqual(passwordChanged?.cc, [])
-      assert.strictEqual(passwordChanged?.replyTo, MAILER_TEST_CONFIG.email_from_address)
+      assert.strictEqual(passwordChanged?.replyTo, MAILER_TEST_CONFIG.support_email_address)
+      assert.deepStrictEqual(resetPassword?.cc, [])
+      assert.deepStrictEqual(resetPassword?.bcc, [])
+      assert.strictEqual(resetPassword?.replyTo, MAILER_TEST_CONFIG.support_email_address)
     }).pipe(Effect.provide(layer))
   })
 
@@ -163,6 +171,7 @@ describe("EmailProviders", () => {
           email: {
             to: ["person@example.com"],
             cc: [],
+            bcc: [],
             from: "sender@example.com",
             replyTo: "sender@example.com",
             subject: "Test",

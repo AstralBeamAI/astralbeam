@@ -1,17 +1,19 @@
 import { and, eq, isNull, or, sql, type SQL } from "drizzle-orm"
 
+import type { AnyPgColumn } from "drizzle-orm/pg-core"
+import type { ChatThreadScope } from "@/lib/chat/threads/schemas"
 import { usageLimitCounter } from "@/db/schema/usage-limits"
 import type { UsageLimitFields } from "./schemas.ts"
 
 /** Whose usage a chat request spends: its tenant user, their tenant, and the conversation if any. */
-export interface UsageSubject {
-  readonly organizationId: string
-  readonly tenantId: string
-  readonly tenantUserId: string
+export interface UsageSubject extends ChatThreadScope {
   readonly threadId?: string | undefined
 }
 
-type CounterKey = { tenantId: string | null; tenantUserId: string | null; threadId: string | null }
+type CounterKey = Pick<
+  typeof usageLimitCounter.$inferSelect,
+  "tenantId" | "tenantUserId" | "threadId"
+>
 
 /** The counter a limit keeps for a subject, or null for a conversation limit outside a conversation. */
 export function usageCounterKey(
@@ -28,13 +30,16 @@ export function usageCounterKey(
     : null
 }
 
-function matchesColumn(column: typeof usageLimitCounter.tenantId, value: string | null) {
+function matchesColumn<Column extends AnyPgColumn>(
+  column: Column,
+  value: Column["_"]["data"] | null,
+) {
   return value === null ? isNull(column) : eq(column, value)
 }
 
 /** Selects each limit's counter for its own subject columns. */
 export function usageCountersWhere(
-  organizationId: string,
+  organizationId: UsageSubject["organizationId"],
   keys: readonly { usageLimitId: string; key: CounterKey }[],
 ): SQL | undefined {
   return and(

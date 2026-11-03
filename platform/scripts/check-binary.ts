@@ -1,14 +1,9 @@
-import { type ChildProcess, execFile, spawn, spawnSync } from "node:child_process"
-import { once } from "node:events"
 import { rmSync } from "node:fs"
-import { mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises"
-import { createServer } from "node:net"
-import { tmpdir } from "node:os"
+import { mkdtemp, readdir } from "node:fs/promises"
+import { availableParallelism, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import process, { env as processEnvironment, platform } from "node:process"
 import { setTimeout as delay } from "node:timers/promises"
-import { fileURLToPath } from "node:url"
-import { promisify } from "node:util"
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
 
 import { Client } from "pg"
@@ -17,26 +12,25 @@ import packageJson from "../package.json" with { type: "json" }
 
 const BINARY_CHECK_START_TIMEOUT_MS = 20_000
 const BINARY_CHECK_FETCH_TIMEOUT_MS = 2_000
-const runBinaryCheckCommand = promisify(execFile)
+async function runBinaryCheckCommand(
+  binaryPath: string,
+  args: readonly string[],
+  options: { cwd?: string; env?: Record<string, string | undefined>; timeout?: number } = {},
+) {
+  const child = Bun.spawn([binaryPath, ...args], { ...options, stdout: "pipe", stderr: "pipe" })
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ])
+  if (code !== 0) throw new Error(`Binary command failed (${code}): ${stderr}`)
+  return { stdout }
+}
 
 async function reserveBinaryCheckPort() {
-  const server = createServer()
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject)
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", reject)
-      resolve()
-    })
-  })
-  const address = server.address()
-  if (!address || typeof address === "string") {
-    server.close()
-    throw new Error("Could not reserve a TCP port for the binary")
-  }
-  const port = address.port
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()))
-  })
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() })
+  const port = server.port!
+  await server.stop(true)
   return port
 }
 
@@ -81,6 +75,12 @@ async function checkBinaryAssetCompression(url: URL) {
       decompress: false,
     })
     const bytes = Buffer.from(await response.arrayBuffer())
+    if (
+      url.pathname.startsWith("/assets/") &&
+      response.headers.get("cache-control") !== "public, max-age=31536000, immutable"
+    ) {
+      throw new Error(`Binary did not preserve immutable asset caching for ${url.pathname}`)
+    }
     if (
       response.headers.get("content-encoding") !== encoding ||
       !response.headers
@@ -144,30 +144,41 @@ async function checkBinaryDocsDiscovery(baseUrl: URL) {
   }
 }
 
-async function stopBinaryCheckProcess(binaryProcess: ChildProcess, status: Promise<unknown>) {
+async function stopBinaryCheckProcess(binaryProcess: Bun.Subprocess) {
   if (binaryProcess.exitCode !== null || binaryProcess.signalCode !== null) {
     throw new Error("Binary exited before completing its smoke check")
   }
-  const processId = binaryProcess.pid
-  if (processId === undefined) throw new Error("Binary process did not start")
-  process.kill(processId, "SIGTERM")
-  const stopped = await Promise.race([status.then(() => true), delay(5_000, false)])
+  binaryProcess.kill("SIGTERM")
+  const stopped = await Promise.race([
+    binaryProcess.exited.then(() => true),
+    delay(15_000, false, { ref: false }),
+  ])
   if (stopped) {
     if (binaryProcess.exitCode !== 0) {
       throw new Error("Binary did not exit cleanly after SIGTERM")
     }
     return
   }
-  process.kill(processId, "SIGKILL")
-  await status
-  throw new Error("Binary did not exit within 5 seconds of SIGTERM")
+  binaryProcess.kill("SIGKILL")
+  await binaryProcess.exited
+  throw new Error("Binary did not exit within 15 seconds of SIGTERM")
+}
+
+async function waitForBinaryWorkers(url: URL, predicate: () => boolean, message: string) {
+  const deadline = Date.now() + BINARY_CHECK_START_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const response = await fetchBinaryCheckResponse(url, { headers: { Connection: "close" } })
+    await response.body?.cancel()
+    if (predicate()) return
+    await delay(100)
+  }
+  throw new Error(message)
 }
 
 async function runBinaryCheck() {
-  const platformDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
+  const platformDirectory = dirname(import.meta.dir)
   const binaryPath = join(platformDirectory, ".output", "astralbeam-platform")
-  const binaryInfo = await stat(binaryPath)
-  const binarySizeMiB = binaryInfo.size / 1024 / 1024
+  const binarySizeMiB = Bun.file(binaryPath).size / 1024 / 1024
   for (const args of [["version"], ["--version"]]) {
     const { stdout } = await runBinaryCheckCommand(binaryPath, args)
     const expected = `astralbeam-platform ${packageJson.version} (`
@@ -229,20 +240,22 @@ async function runBinaryCheck() {
     NODE_ENV: "production",
     DATABASE_URL: unreachableDatabaseUrl,
     DATABASE_ENCRYPTION_KEY: undefined,
+    WORKERS: undefined,
   }
   function checkBinaryFailure(
     args: readonly string[],
     environment: Record<string, string | undefined>,
     expectedError = "DATABASE_ENCRYPTION_KEY must",
   ) {
-    const rejected = spawnSync(binaryPath, args, {
+    const rejected = Bun.spawnSync([binaryPath, ...args], {
       cwd: temporaryDirectory,
       env: { ...binaryEnvironment, ...environment },
-      encoding: "utf8",
+      stdout: "pipe",
+      stderr: "pipe",
       timeout: 5_000,
       killSignal: "SIGKILL",
     })
-    if (rejected.status !== 1 || !rejected.stderr.includes(expectedError)) {
+    if (rejected.exitCode !== 1 || !rejected.stderr.toString().includes(expectedError)) {
       throw new Error(`Binary ${args[0] ?? "start"} did not reject ${expectedError}`)
     }
   }
@@ -253,7 +266,7 @@ async function runBinaryCheck() {
       checkBinaryFailure([command], { DATABASE_URL: value }, "DATABASE_URL")
     }
   }
-  await writeFile(
+  await Bun.write(
     join(temporaryDirectory, ".env.development.local"),
     `DATABASE_URL=${unreachableDatabaseUrl}\n`,
   )
@@ -264,17 +277,13 @@ async function runBinaryCheck() {
   })
   const port = await reserveBinaryCheckPort()
   const baseUrl = new URL(`http://127.0.0.1:${port}`)
-  await writeFile(join(temporaryDirectory, ".env"), "PORT=1\n")
+  await Bun.write(join(temporaryDirectory, ".env"), "PORT=1\n")
   const environmentContents = `PORT=${port}\nAPP_BASE_URL=https://dotenv.invalid\nCI=true\nTEST=true\n`
-  await writeFile(environmentFile, environmentContents)
+  await Bun.write(environmentFile, environmentContents)
   const launchOptions = {
     cwd: temporaryDirectory,
     env: {
       ...binaryEnvironment,
-      // Exercise production shutdown. srvx skips signal handlers when CI or TEST is set.
-      // https://github.com/h3js/srvx/blob/v1.0.5/src/_plugins.ts
-      CI: "",
-      TEST: "",
       APP_BASE_URL: baseUrl.href,
       DATABASE_URL: migrateDatabaseUrl ?? processEnvironment.DATABASE_URL,
       DATABASE_ENCRYPTION_KEY: migrateDatabaseUrl
@@ -289,11 +298,27 @@ async function runBinaryCheck() {
       timeout: BINARY_CHECK_START_TIMEOUT_MS,
     })
   }
-  const binaryProcess = spawn(binaryPath, [], {
+  const binaryProcess = Bun.spawn([binaryPath], {
     ...launchOptions,
-    stdio: ["ignore", "inherit", "inherit"],
+    stdio: ["ignore", "pipe", "pipe"],
   })
-  const status = once(binaryProcess, "exit")
+  const output = { stdout: "", stderr: "" }
+  const outputClosed = Promise.all(
+    (["stdout", "stderr"] as const).map(async (stream) => {
+      for await (const chunk of binaryProcess[stream]) {
+        output[stream] += Buffer.from(chunk).toString()
+        process[stream].write(chunk)
+      }
+    }),
+  )
+  const workerStarts = () => [...output.stderr.matchAll(/Started worker (\d+) \(PID (\d+)\)/gu)]
+  const servingWorkers = () =>
+    new Set(
+      [...output.stdout.matchAll(/"message":"HTTP response ready".*?"process.pid":(\d+)/gu)].map(
+        (match) => Number(match[1]),
+      ),
+    )
+  const expectedWorkers = platform === "linux" ? availableParallelism() : 1
 
   try {
     for (const path of [
@@ -305,11 +330,11 @@ async function runBinaryCheck() {
       await checkBinaryAssetCompression(new URL(path, baseUrl))
     }
     if (migrateDatabaseUrl) {
-      const environment = await readFile(environmentFile, "utf8")
+      const environment = await Bun.file(environmentFile).text()
       if (
         !environment.startsWith(environmentContents) ||
         !/^DATABASE_ENCRYPTION_KEY=\S{32,}$/m.test(environment) ||
-        (platform !== "win32" && ((await stat(environmentFile)).mode & 0o777) !== 0o600)
+        (platform !== "win32" && ((await Bun.file(environmentFile).stat()).mode & 0o777) !== 0o600)
       ) {
         throw new Error("Bootstrap did not preserve the environment and securely save its key")
       }
@@ -340,12 +365,48 @@ async function runBinaryCheck() {
       throw new Error("Binary did not serve docs with cache and security headers")
     }
     const cached = await fetch(docsUrl, { headers: { "If-None-Match": etag } })
-    if (cached.status !== 304) {
+    if (cached.status !== 304 || cached.headers.get("cache-control") !== "public, no-cache") {
       throw new Error("Binary did not revalidate unchanged docs")
     }
+    const missingAsset = await fetch(new URL("/assets/missing.js", baseUrl), {
+      redirect: "manual",
+    })
+    await missingAsset.body?.cancel()
+    if (missingAsset.ok || missingAsset.headers.get("cache-control") !== "private, no-store") {
+      throw new Error("Binary allowed a missing asset to inherit immutable caching")
+    }
     await checkBinaryDocsDiscovery(baseUrl)
+    if (expectedWorkers > 1) {
+      await waitForBinaryWorkers(
+        docsUrl,
+        () => workerStarts().length === expectedWorkers && servingWorkers().size > 1,
+        "Binary did not start the expected workers and distribute HTTP traffic",
+      )
+      const killed = workerStarts()[0]!
+      process.kill(Number(killed[2]), "SIGKILL")
+      await waitForBinaryWorkers(
+        docsUrl,
+        () =>
+          workerStarts().some(
+            (match) =>
+              match[1] === killed[1] &&
+              match[2] !== killed[2] &&
+              servingWorkers().has(Number(match[2])),
+          ),
+        "Replacement worker did not serve HTTP traffic",
+      )
+    }
   } finally {
-    await stopBinaryCheckProcess(binaryProcess, status)
+    await stopBinaryCheckProcess(binaryProcess)
+    await outputClosed
+  }
+  for (const worker of workerStarts()) {
+    try {
+      process.kill(Number(worker[2]), 0)
+    } catch {
+      continue
+    }
+    throw new Error("Binary left a worker running after shutdown")
   }
   console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }

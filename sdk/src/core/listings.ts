@@ -273,10 +273,13 @@ export function loadDirectoryThreadFile(
 ) {
   return listingRequest(session, signal, async (auth) => {
     try {
-      const response = await getThreadAttachment(params, {
-        ...auth,
-        headers: options?.preview ? { "X-File-Preview": "true" } : {},
-      })
+      const response = await getThreadAttachment(
+        { ...params, delivery: "direct" },
+        {
+          ...auth,
+          headers: options?.preview ? { "X-File-Preview": "true" } : {},
+        },
+      )
       return await response.blob()
     } catch (error) {
       if (

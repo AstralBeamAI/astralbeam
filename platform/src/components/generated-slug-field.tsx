@@ -129,8 +129,10 @@ export function GeneratedSlugField({
           {availability === "unavailable" && <XIcon className="text-destructive" />}
         </InputGroupAddon>
       </InputGroup>
-      <FieldDescription id={`${id}-description`}>
-        Used in your dashboard URL. Use lowercase letters, numbers, and hyphens.
+      <FieldDescription id={`${id}-description`} className="break-words">
+        Your dashboard URL:{" "}
+        <span className="font-medium text-foreground">/{value || "your-organization"}</span>. Use
+        lowercase letters, numbers, and hyphens.
       </FieldDescription>
       <FieldError id={`${id}-error`}>{error}</FieldError>
     </Field>

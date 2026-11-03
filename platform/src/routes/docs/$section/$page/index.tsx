@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-route
 import { parseMarkdown } from "@tanstack/markdown"
 import { docsMarkdownExtensions } from "@tanstack/markdown/extensions/docs"
 import { APP_NAME } from "@/lib/constants"
-import { DocsMarkdown } from "../../-components/docs-markdown"
+import { DocsMarkdown } from "@/components/docs/docs-markdown"
 import {
   DOCS_SECTIONS,
   findDocsArticleNeighbors,
@@ -58,6 +58,12 @@ function DocsArticlePage() {
   })
   const pageLinks = (
     <>
+      <Link
+        to="/docs"
+        className="mb-5 block py-1.5 text-sm text-muted-foreground hover:text-foreground any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+      >
+        All documentation
+      </Link>
       <p className="mb-3 text-sm font-semibold">{section.title}</p>
       <ul className="space-y-1 border-s">
         {publishedDocsPages(section).map((entry) => (
@@ -72,6 +78,22 @@ function DocsArticlePage() {
             </Link>
           </li>
         ))}
+      </ul>
+      <p className="mt-6 mb-2 text-sm font-semibold">Other sections</p>
+      <ul>
+        {DOCS_SECTIONS.filter((entry) => !entry.draft && entry.slug !== section.slug).map(
+          (entry) => (
+            <li key={entry.slug}>
+              <Link
+                to="/docs/$section"
+                params={{ section: entry.slug }}
+                className="block py-1.5 text-sm text-muted-foreground hover:text-foreground any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"
+              >
+                {entry.title}
+              </Link>
+            </li>
+          ),
+        )}
       </ul>
     </>
   )
@@ -96,26 +118,14 @@ function DocsArticlePage() {
       </nav>
       <main className="min-w-0 max-w-3xl pb-16">
         <div className="mb-6 space-y-2 lg:hidden">
-          <details
-            key={`browse:${section.slug}/${params.page}`}
-            className="rounded-lg border px-4 md:hidden"
-          >
+          <details key={`browse:${section.slug}/${params.page}`} className="border px-4 md:hidden">
             <summary className="cursor-pointer py-3 text-sm font-medium">Browse docs</summary>
             <nav aria-label="Browse documentation" className="pb-4">
-              <Link
-                to="/docs"
-                className="mb-4 block py-2 text-sm text-primary underline underline-offset-4"
-              >
-                All documentation
-              </Link>
               {pageLinks}
             </nav>
           </details>
           {headings.length > 0 && (
-            <details
-              key={`outline:${section.slug}/${params.page}`}
-              className="rounded-lg border px-4"
-            >
+            <details key={`outline:${section.slug}/${params.page}`} className="border px-4">
               <summary className="cursor-pointer py-3 text-sm font-medium">On this page</summary>
               <nav aria-label="On this page" className="pb-3">
                 <ul>{outlineLinks}</ul>
@@ -137,7 +147,7 @@ function DocsArticlePage() {
               to="/docs/$section/$page"
               params={{ section: previous.section.slug, page: previous.page.slug }}
               rel="prev"
-              className="min-w-0 rounded-lg border p-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="min-w-0 border p-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="block text-sm text-muted-foreground">Previous</span>
               <span className="mt-1 block font-medium wrap-break-word">
@@ -150,7 +160,7 @@ function DocsArticlePage() {
               to="/docs/$section/$page"
               params={{ section: next.section.slug, page: next.page.slug }}
               rel="next"
-              className="min-w-0 rounded-lg border p-4 text-end hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:col-start-2"
+              className="min-w-0 border p-4 text-end hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:col-start-2"
             >
               <span className="block text-sm text-muted-foreground">Next</span>
               <span className="mt-1 block font-medium wrap-break-word">

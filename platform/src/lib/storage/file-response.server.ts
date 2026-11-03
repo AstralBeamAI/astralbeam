@@ -8,9 +8,10 @@ import { StorageObjectMissing, type StorageUnavailable } from "./errors"
 import type { SignInRequired } from "@/lib/organizations/errors"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { ObjectStorage } from "./object-storage.server"
+import { StoredFiles } from "./stored-files.server"
 
-// Controllers authorize access before issuing a URL. The URL is valid for one minute.
-export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
+// Controllers authorize access before local bytes or a one-minute S3 URL are returned.
+export const fileDownloadResponse = Effect.fn("fileDownloadResponse")(function* ({
   organizationId,
   fileId,
 }: {
@@ -19,7 +20,7 @@ export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
 }) {
   const db = yield* Database
   const [file] = yield* db
-    .select({ key: fileObject.objectKey })
+    .select()
     .from(fileObject)
     .where(
       and(
@@ -30,14 +31,22 @@ export const fileDownloadUrl = Effect.fn("fileDownloadUrl")(function* ({
     )
     .pipe(mapDatabaseErrors())
   if (!file) return yield* new StorageObjectMissing()
-  return yield* (yield* ObjectStorage).signedUrl(file)
+  const location = yield* (yield* ObjectStorage).signedUrl({ key: file.objectKey })
+  if (location) return new Response(null, { status: 302, headers: { location } })
+  const bytes = yield* (yield* StoredFiles).read({ file })
+  return new Response(bytes as BodyInit, {
+    headers: {
+      "content-type": file.contentType,
+      "content-length": String(bytes.byteLength),
+      "x-content-type-options": "nosniff",
+    },
+  })
 })
 
 export function fileResponse<R>(
-  url: Effect.Effect<string, SignInRequired | StorageObjectMissing | StorageUnavailable, R>,
+  response: Effect.Effect<Response, SignInRequired | StorageObjectMissing | StorageUnavailable, R>,
 ): Effect.Effect<Response, never, R> {
-  return url.pipe(
-    Effect.map((location) => new Response(null, { status: 302, headers: { location } })),
+  return response.pipe(
     Effect.catchTag("SignInRequired", () => Effect.succeed(new Response(null, { status: 401 }))),
     Effect.catchTag("StorageObjectMissing", () =>
       Effect.succeed(new Response(null, { status: 404 })),

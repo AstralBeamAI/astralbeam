@@ -1,6 +1,4 @@
 import { OpenApi } from "effect/http-api"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { argv } from "node:process"
 import { ApiV1 } from "@/routes/api/v1/-lib/contract.server.ts"
 
 const apiSnapshot = new URL("../public/api/openapi.json", import.meta.url)
@@ -9,16 +7,15 @@ document.servers = [{ url: "/" }]
 document.info.description = (
   await Promise.all(
     ["getting-started", "authentication", "pagination-and-errors"].map((page) =>
-      readFile(new URL(`../src/routes/docs/-content/api/${page}.md`, import.meta.url), "utf8"),
+      Bun.file(new URL(`../src/routes/docs/-content/api/${page}.md`, import.meta.url)).text(),
     ),
   )
 ).join("\n\n")
 const apiJson = JSON.stringify(document, null, 2) + "\n"
-if (argv.includes("--check")) {
-  if ((await readFile(apiSnapshot, "utf8")) !== apiJson) {
+if (Bun.argv.includes("--check")) {
+  if ((await Bun.file(apiSnapshot).text()) !== apiJson) {
     throw new Error("OpenAPI snapshot is stale. Run bun run generate:openapi.")
   }
 } else {
-  await mkdir(new URL(".", apiSnapshot), { recursive: true })
-  await writeFile(apiSnapshot, apiJson)
+  await Bun.write(apiSnapshot, apiJson)
 }

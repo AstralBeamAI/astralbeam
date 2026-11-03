@@ -45,13 +45,12 @@ const AgentSandboxProviderSchema = Schema.Struct({
 export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type
 
 /** The agent policy a chat run reads before resolving its selected model. */
-export interface ChatAgent {
-  readonly id: string
-  readonly systemPrompt: string
-  readonly attachmentsEnabled: boolean
-  readonly webAccessEnabled: boolean
-  readonly sandboxProviderId: string | null
-}
+export type ChatAgent = Readonly<
+  Pick<
+    typeof agent.$inferSelect,
+    "id" | "systemPrompt" | "attachmentsEnabled" | "webAccessEnabled" | "sandboxProviderId"
+  >
+>
 
 const DefaultAgentConfigurationSchema = Schema.NullOr(
   Schema.Struct({ defaultAgentId: Schema.NullOr(UuidV7Schema) }),
@@ -243,10 +242,9 @@ export class Agents extends Context.Service<
         }
       }, Effect.orDie)
 
-      const get = Effect.fn("Agents.get")(function* (input: {
-        organizationId: string
-        agentId: string
-      }) {
+      const get = Effect.fn("Agents.get")(function* (
+        input: Parameters<typeof Agents.Service.get>[0],
+      ) {
         const id = yield* ownAgentId(input.organizationId, input.agentId)
         const [row] = yield* db
           .select()
@@ -261,10 +259,9 @@ export class Agents extends Context.Service<
         })
       })
 
-      const create = Effect.fn("Agents.create")(function* (input: {
-        organizationId: string
-        fields: AgentFields
-      }) {
+      const create = Effect.fn("Agents.create")(function* (
+        input: Parameters<typeof Agents.Service.create>[0],
+      ) {
         const { modelIds, ...fields } = input.fields
         return yield* db
           .transaction((transaction) =>
@@ -289,12 +286,7 @@ export class Agents extends Context.Service<
       })
 
       const update = Effect.fn("Agents.update")(
-        function* (input: {
-          organizationId: string
-          agentId: string
-          lockVersion: number
-          fields: AgentFields
-        }) {
+        function* (input: Parameters<typeof Agents.Service.update>[0]) {
           const id = yield* ownAgentId(input.organizationId, input.agentId)
           const { modelIds, ...fields } = input.fields
           yield* db
@@ -337,7 +329,7 @@ export class Agents extends Context.Service<
       )
 
       const remove = Effect.fn("Agents.remove")(
-        function* (input: { organizationId: string; agentId: string; lockVersion: number }) {
+        function* (input: Parameters<typeof Agents.Service.remove>[0]) {
           const id = yield* ownAgentId(input.organizationId, input.agentId)
           yield* db.transaction((transaction) =>
             Effect.gen(function* () {
@@ -372,7 +364,7 @@ export class Agents extends Context.Service<
       )
 
       const setDefault = Effect.fn("Agents.setDefault")(
-        function* (input: { organizationId: string; agentId: string }) {
+        function* (input: Parameters<typeof Agents.Service.setDefault>[0]) {
           const id = yield* ownAgentId(input.organizationId, input.agentId)
           yield* db
             .insert(organizationConfiguration)
@@ -392,10 +384,9 @@ export class Agents extends Context.Service<
         }),
       )
 
-      const resolveForChat = Effect.fn("Agents.resolveForChat")(function* (input: {
-        organizationId: string
-        agentId: unknown
-      }) {
+      const resolveForChat = Effect.fn("Agents.resolveForChat")(function* (
+        input: Parameters<typeof Agents.Service.resolveForChat>[0],
+      ) {
         const useDefault = input.agentId === undefined || input.agentId === null
         const parsed = parseAgentId(input.agentId)
         if (!useDefault && parsed?.organizationId !== input.organizationId) {
@@ -431,10 +422,9 @@ export class Agents extends Context.Service<
         return row
       })
 
-      const provisionDefault = Effect.fn("Agents.provisionDefault")(function* (input: {
-        organizationId: string
-        organizationName: string
-      }) {
+      const provisionDefault = Effect.fn("Agents.provisionDefault")(function* (
+        input: Parameters<typeof Agents.Service.provisionDefault>[0],
+      ) {
         return yield* db.transaction((transaction) =>
           Effect.gen(function* () {
             yield* transaction

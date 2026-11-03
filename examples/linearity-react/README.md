@@ -27,7 +27,7 @@ Acme and Orbit have separate projects, issues, and teams. You can create, edit, 
 
 7. Open [localhost:4900](http://localhost:4900), enter your Basic Auth credentials, and try a prompt in Astro. You can use the rest of the app without configuring AstralBeam, but the assistant will show a connection error until its credentials are ready.
 
-For local platform development, follow the repository [setup](../../SETUP.md). Its seeded todos API key also works here, but configure an agent with Astro's prompt below. Worktrees get their own platform database. Linearity itself needs no database.
+For local platform development, follow the repository [setup](../../docs/SETUP.md). Its seeded todos API key also works here, but configure an agent with Astro's prompt below. Worktrees get their own platform database. Linearity itself needs no database.
 
 ### Astro's system prompt
 

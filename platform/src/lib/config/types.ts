@@ -3,6 +3,7 @@ import type { Schema } from "effect"
 // The non-secret slice of the database-backed runtime configuration that the client may see.
 export interface PublicConfig {
   enabledSocialProviders: ("google" | "github")[]
+  requireEmailVerification: boolean
   turnstileSiteKey: string
   privacyPolicyUrl: string | undefined
   termsOfServiceUrl: string | undefined
@@ -15,6 +16,8 @@ export type ConfigKey =
   | "dogfood_api_key"
   | "dogfood_pending_setup"
   | "app_base_url"
+  | "trust_proxy"
+  | "client_ip_headers"
   | "better_auth_secret"
   | "google_client_id"
   | "google_client_secret"
@@ -38,6 +41,8 @@ export type ConfigKey =
   | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
+  | "storage_provider"
+  | "storage_directory"
   | "s3_endpoint"
   | "s3_region"
   | "s3_bucket"

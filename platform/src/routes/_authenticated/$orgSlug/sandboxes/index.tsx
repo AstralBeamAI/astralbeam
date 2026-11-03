@@ -33,12 +33,12 @@ function SandboxesPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex max-w-4xl flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sandboxes</h1>
           <p className="text-sm text-muted-foreground">
-            Configure named sandbox providers for this organization. Credentials are encrypted and
-            visible only to organization owners and developers.
+            Connect an environment where agents can run code and work with files. Sandboxes are
+            optional for chat.
           </p>
         </div>
         {permissions.updateConfiguration && (
@@ -57,7 +57,8 @@ function SandboxesPage() {
             </EmptyMedia>
             <EmptyTitle>No sandbox providers yet</EmptyTitle>
             <EmptyDescription>
-              Selecting a provider on an agent is what gives that agent its sandbox tools.
+              Add a provider, then select it on an agent to enable sandbox tools. Credentials are
+              encrypted and available only to owners and developers.
             </EmptyDescription>
           </EmptyHeader>
           {permissions.updateConfiguration && (

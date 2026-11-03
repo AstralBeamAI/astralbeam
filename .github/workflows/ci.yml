@@ -28,7 +28,7 @@ jobs:
           - { project: platform, leg: platform unit tests, tasks: test --project=unit }
           - { project: platform, leg: platform integration tests, tasks: test --project=integration, database: true }
           - { project: platform, leg: platform build, tasks: build && bun run binary:check, database: true }
-          - { project: www, tasks: ready }
+          - { project: website, tasks: ready }
           - { project: sdk, tasks: ready }
           - { project: cli, tasks: check && bun run test && bun run binary:check }
           - { project: examples/todos, tasks: ready }
@@ -101,9 +101,18 @@ jobs:
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: bun run ${{ matrix.tasks }}
 
+      - name: Upload the website source maps to PostHog
+        if: matrix.project == 'website' && github.event_name == 'push' && vars.POSTHOG_PROJECT_ID != ''
+        working-directory: website
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
+        run: bun run sourcemaps:posthog --directory .output/sourcemaps
+
   todos-rails:
     name: Check examples/todos-rails
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -115,7 +124,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           # Reads .ruby-version there and caches the bundle. https://github.com/ruby/setup-ruby#caching-bundle-install-automatically
           working-directory: examples/todos-rails

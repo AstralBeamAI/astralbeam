@@ -39,7 +39,12 @@ import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { TenantUsers } from "@/lib/tenants/tenant-users"
 import { Tenants } from "@/lib/tenants/tenants"
-import { organization } from "@/db/schema/organizations"
+import {
+  OrganizationIdSchema,
+  TenantIdSchema,
+  TenantUserIdSchema,
+  organization,
+} from "@/db/schema/organizations"
 import { chatMessage } from "@/db/schema/chat"
 import {
   getThreadAttachment as sdkGetThreadAttachment,
@@ -47,6 +52,7 @@ import {
   listTenants as sdkListTenants,
   listUsersForTenant as sdkListUsers,
   runChat as sdkRunChat,
+  searchDocumentation as sdkSearchDocumentation,
 } from "@sdk/api/index.ts"
 
 const restTestState = vi.hoisted(() => ({
@@ -67,6 +73,7 @@ const restTestState = vi.hoisted(() => ({
   consume: vi.fn<(options: { key: string }) => Effect.Effect<void, RateLimiter.RateLimiterError>>(),
   agent: vi.fn(),
   run: vi.fn(),
+  downloadFile: vi.fn(),
   readFile: vi.fn(),
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
@@ -222,6 +229,7 @@ const restTestServices = Layer.mergeAll(
   Layer.succeed(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
     read: (input) => restTestState.readFile(input) as never,
+    download: (input) => restTestState.downloadFile(input) as never,
     hydrate: ({ messages }) => Effect.succeed([...messages]),
     attach: () => Effect.succeed(0),
   }),
@@ -291,9 +299,9 @@ function runRestEffect<A, E>(effect: Effect.Effect<A, E, Layer.Success<typeof re
   return Effect.runPromise(effect.pipe(Effect.provide(restTestServices)))
 }
 
-const restOrgId = "019a0000-0000-7000-8000-000000000001"
-const restTenantId = "019a0000-0000-7000-8000-000000000002"
-const restUserId = "019a0000-0000-7000-8000-000000000003"
+const restOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
+const restTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+const restUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const restOtherId = "019a0000-0000-7000-8000-000000000004"
 const restSdkFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
   input,
@@ -454,6 +462,31 @@ afterEach(() => {
 })
 
 describe("v1 router boundary", () => {
+  test("documentation search uses the shared index with API authentication and bounded queries", async () => {
+    const result = await sdkSearchDocumentation(
+      { q: "customCss" },
+      {
+        apiKey: restTestApiKey,
+        apiUrl: "http://localhost/api",
+        fetchClient: restSdkFetch,
+      },
+    )
+    expect(result.results[0]).toMatchObject({
+      path: "sdk/theming",
+      url: "/docs/sdk/theming#custom-css",
+    })
+    const unauthenticated = await restSdkFetch("http://localhost/api/v1/docs/search?q=customCss")
+    expect(unauthenticated.status).toBe(401)
+    for (const query of [
+      "",
+      "?q=",
+      `?q=${"x".repeat(256)}`,
+      "?q=theme&unexpected=yes",
+      "?q=theme&q=keys",
+    ]) {
+      expect((await restRequest(`/docs/search${query}`)).status).toBe(400)
+    }
+  })
   test("rejects personal MCP API-key impersonation", async () => {
     const response = await restRequest("/me/mcp/catalog")
     expect(response.status).toBe(401)
@@ -1240,13 +1273,29 @@ describe("REST API through the Effect Fetch handler", () => {
     expect(response.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'")
     expect(response.headers.get("cache-control")).toBe("private, no-store")
     expect(restTestState.thread).toHaveBeenCalledWith({ scope: restThreadScope, id: restOtherId })
+    restTestState.downloadFile.mockReturnValue(
+      Effect.succeed({ url: "https://storage.example/private" }),
+    )
+    const direct = await restRequest(`/chat/files?${new URLSearchParams(query)}&delivery=direct`, {
+      headers: { Authorization: "Bearer chat-token" },
+    })
+    expect(direct.status).toBe(204)
+    expect(direct.headers.get("location")).toBe("https://storage.example/private")
+    expect(direct.headers.get("cache-control")).toContain("no-store")
+    expect(restTestState.downloadFile).toHaveBeenCalledWith({
+      scope: { organizationId: restOrgId, tenantId: restTenantId, threadId: restOtherId },
+      fileId: restUserId,
+      contentDisposition: "attachment; filename=\"report.txt\"; filename*=UTF-8''report.txt",
+    })
     restTestState.readFile.mockClear()
+    restTestState.downloadFile.mockClear()
     restTestState.thread.mockReturnValue(Effect.fail(new ChatThreadNotFound()))
-    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}`, {
+    const denied = await restRequest(`/chat/files?${new URLSearchParams(query)}&delivery=direct`, {
       headers: { Authorization: "Bearer chat-token" },
     })
     expect(denied.status).toBe(404)
     expect(restTestState.readFile).not.toHaveBeenCalled()
+    expect(restTestState.downloadFile).not.toHaveBeenCalled()
     restTestState.thread.mockReturnValue(Effect.succeed(restThread))
     for (const error of [new ChatThreadInvalid(), new ChatFileUnavailable()]) {
       restTestState.readFile.mockReturnValue(Effect.fail(error))

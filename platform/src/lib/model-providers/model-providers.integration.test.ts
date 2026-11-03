@@ -98,7 +98,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     await db.execute(sql`truncate "organization" cascade`)
     const [created] = await db
       .insert(organization)
-      .values({ name: "Models", slug: "models" })
+      .values({ domain: "example.com", name: "Models", slug: "models" })
       .returning()
     organizationId = created!.id
     const [createdAgent] = await db
@@ -334,7 +334,7 @@ describe.skipIf(!modelProviderIntegration.url)("model provider persistence", () 
     const modelId = provider!.models[0]!.id
     const [foreign] = await db
       .insert(organization)
-      .values({ name: "Foreign", slug: "foreign" })
+      .values({ domain: "example.com", name: "Foreign", slug: "foreign" })
       .returning()
     const refusal = await runAppEffect(
       Effect.flatMap(Agents, (service) =>

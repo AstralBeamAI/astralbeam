@@ -7,9 +7,10 @@ import {
   SmtpSecuritySchema,
 } from "@/lib/email/schemas"
 import { ApiKeyCredentialSchema, parseApiKeyCredential } from "@/lib/api-keys/schemas"
-import { generateSecret } from "@/lib/utils.server"
-import { allowInsecure } from "@/lib/runtime/environment.server"
-import { StorageEndpointSchema } from "@/lib/storage/schemas"
+import { generateSecret, parseClientIpHeaders, proxySettingsFromValues } from "@/lib/utils.server"
+import { allowInsecure, IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
+import { isStorageSettingActive, StorageEndpointSchema } from "@/lib/storage/schemas"
+import { defaultStorageDirectory, StorageDirectorySchema } from "@/lib/storage/filesystem.server"
 import {
   EmailAddressSchema,
   NonEmptyStringSchema,
@@ -168,6 +169,29 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     ]),
   },
   {
+    key: "storage_provider",
+    group: "File storage",
+    label: "Storage provider",
+    description: "File System stores files on this host. Existing S3 configurations remain in use.",
+    kind: "enum",
+    required: true,
+    options: [
+      { value: "filesystem", label: "File System" },
+      { value: "s3", label: "S3-compatible" },
+    ],
+    schema: Schema.Literals(["filesystem", "s3"]),
+  },
+  {
+    key: "storage_directory",
+    group: "File storage",
+    label: "Storage directory",
+    description: "Absolute directory on this host. Back it up together with PostgreSQL.",
+    kind: "text",
+    required: false,
+    defaultValue: defaultStorageDirectory(),
+    schema: StorageDirectorySchema,
+  },
+  {
     key: "s3_endpoint",
     group: "File storage",
     label: "S3 endpoint",
@@ -263,11 +287,49 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Application Base URL",
     description:
-      "Public origin the application is served from; used for authentication callbacks and links in emails.",
+      "Public origin used for authentication callbacks and email links. Defaults to localhost on the server port. Set this for public hosting.",
     kind: "url",
     required: true,
     isPublic: true,
+    defaultValue: `http://localhost:${process.env.PORT || (IS_DEVELOPMENT_SERVER ? "4500" : "4510")}`,
     schema: ServerOriginSchema,
+  },
+  {
+    key: "trust_proxy",
+    group: "General",
+    label: "Trust Proxy",
+    description:
+      "Loopback is always trusted for forwarded host and HTTPS. Enable to trust configured client IP headers and additional proxies. An empty list trusts all proxies, so restrict origin access and ensure your proxy overwrites these headers. Unchecking clears additional proxies on save and ignores client IP headers. Restart other instances after saving.",
+    kind: "text",
+    required: false,
+    defaultValue: "false",
+    schema: Schema.Union([BooleanSettingSchema, Schema.String]).pipe(
+      Schema.decode(SchemaTransformation.trim()),
+      Schema.check(
+        Schema.makeFilter(
+          (value) =>
+            Result.isSuccess(Result.try(() => proxySettingsFromValues({ trust_proxy: value }))) ||
+            "Enter valid comma-separated proxy IP addresses or CIDR ranges",
+        ),
+      ),
+    ),
+  },
+  {
+    key: "client_ip_headers",
+    group: "General",
+    label: "Client IP Headers",
+    description:
+      "Comma-separated HTTP header names, in priority order. Use headers your trusted proxy overwrites, such as x-forwarded-for or cf-connecting-ip.",
+    kind: "text",
+    required: false,
+    defaultValue: "x-forwarded-for",
+    schema: Schema.String.check(
+      Schema.makeFilter(
+        (value) =>
+          Result.isSuccess(Result.try(() => parseClientIpHeaders(value))) ||
+          "Use a comma-separated list of HTTP header names",
+      ),
+    ),
   },
   {
     key: "better_auth_secret",
@@ -486,9 +548,9 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     group: "General",
     label: "Support Email Address",
     description:
-      "Copied on welcome and support request emails so replies reach your team, and where Contact Support requests go.",
+      "Optional address copied on welcome emails and used by Contact Support. Leave unset to hide Contact Support.",
     kind: "text",
-    required: true,
+    required: false,
     isPublic: true,
     schema: EmailAddressSchema,
   },
@@ -537,10 +599,24 @@ export const DEFAULT_CONFIG_VALUES = Object.fromEntries(
   ),
 ) as ConfigValues
 
-/** System-managed values stay database-only, so no environment variable can replace them. */
+/** System-managed settings and the storage path have no per-setting environment override. */
 export const ENVIRONMENT_CONFIG_DEFINITIONS = CONFIG_DEFINITIONS.filter(
-  (definition) => !definition.systemManaged,
+  (definition) => !definition.systemManaged && definition.key !== "storage_directory",
 )
+
+export function storageProviderFromConfig(
+  values: ConfigValues,
+  configuredKeys: readonly string[] = [],
+): "filesystem" | "s3" {
+  if (values.storage_provider === "filesystem" || values.storage_provider === "s3")
+    return values.storage_provider
+  return configuredKeys.some((key) => key.startsWith("s3_")) ||
+    Object.entries(values).some(
+      ([key, value]) => key.startsWith("s3_") && key !== "s3_path_style" && Boolean(value),
+    )
+    ? "s3"
+    : "filesystem"
+}
 
 /** `environmentKeys` names the keys an environment variable supplies. */
 export function validateConfigCompleteness(
@@ -558,7 +634,10 @@ export function validateConfigCompleteness(
       message: "Embedded assistant credential ownership is invalid",
     })
   }
+  const storageProvider = storageProviderFromConfig(values)
   for (const definition of CONFIG_DEFINITIONS) {
+    if (definition.key === "storage_provider") continue
+    if (!isStorageSettingActive(definition.key, storageProvider)) continue
     if (definition.required && !values[definition.key]) {
       issues.push({ key: definition.key, message: `${definition.label} is required` })
     }
@@ -570,9 +649,7 @@ export function validateConfigCompleteness(
       const missing = id ? `${provider}_client_secret` : `${provider}_client_id`
       issues.push({
         key: missing as ConfigKey,
-        message: `${
-          findConfigDefinition(missing)?.label
-        } is required to enable this sign-in provider`,
+        message: `${findConfigDefinition(missing)?.label} is required to enable this sign-in provider`,
       })
     }
   }
@@ -607,9 +684,7 @@ export function validateConfigCompleteness(
       : "aws_access_key_id"
     issues.push({
       key: missing,
-      message: `${configEnvironmentVariable(
-        missing,
-      )} is required when the paired AWS credential is supplied through the environment`,
+      message: `${configEnvironmentVariable(missing)} is required when the paired AWS credential is supplied through the environment`,
     })
   } else if (Boolean(values.aws_access_key_id) !== Boolean(values.aws_secret_access_key)) {
     const missing = values.aws_access_key_id ? "aws_secret_access_key" : "aws_access_key_id"

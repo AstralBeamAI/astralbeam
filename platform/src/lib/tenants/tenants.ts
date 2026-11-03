@@ -4,15 +4,16 @@ import { Context, Effect, Layer } from "effect"
 import { Database } from "@/db/database"
 import { type DatabasePage, type DatabasePageOptions, databasePage } from "@/db/lib/pagination"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
-import { tenant } from "@/db/schema/organizations"
+import type { OrganizationId, TenantId } from "@/db/schema/organizations"
+import { TenantIdSchema, tenant } from "@/db/schema/organizations"
 import { TenantExternalIdTaken, TenantNotFound, TenantWriteForbidden } from "./errors.ts"
 import type { TenantPatchSchema, TenantRecordSchema, TenantWriteSchema } from "./schemas.ts"
 
 /** The Tenants a verified credential may reach, derived from the credential and never the request. */
 export interface TenantScope {
-  readonly organizationId: string
+  readonly organizationId: OrganizationId
   /** Omitted for organization-wide access, and null means no accessible Tenant. */
-  readonly tenantId?: string | null | undefined
+  readonly tenantId?: TenantId | null | undefined
 }
 
 export type TenantRecord = typeof TenantRecordSchema.Type
@@ -38,7 +39,7 @@ export function tenantSearchPattern(search: string) {
   return `%${search.replace(/[\\%_]/g, "\\$&")}%`
 }
 
-function tenantWhere(scope: TenantScope, id?: string) {
+function tenantWhere(scope: TenantScope, id?: TenantId) {
   return and(
     eq(tenant.organizationId, scope.organizationId),
     scope.tenantId === undefined
@@ -59,13 +60,13 @@ export class Tenants extends Context.Service<
   {
     /** The internal ID of a Tenant identified by its customer-provided external ID. */
     readonly resolveId: (input: {
-      readonly organizationId: string
+      readonly organizationId: OrganizationId
       readonly externalId: string
-    }) => Effect.Effect<string | null>
+    }) => Effect.Effect<TenantId | null>
     readonly list: (input: TenantListInput) => Effect.Effect<DatabasePage<TenantRecord>>
     readonly get: (input: {
       readonly scope: TenantScope
-      readonly id: string
+      readonly id: TenantId
     }) => Effect.Effect<TenantRecord, TenantNotFound>
     readonly create: (input: {
       readonly scope: TenantScope
@@ -73,7 +74,7 @@ export class Tenants extends Context.Service<
     }) => Effect.Effect<TenantRecord, TenantWriteForbidden | TenantExternalIdTaken>
     readonly update: (input: {
       readonly scope: TenantScope
-      readonly id: string
+      readonly id: TenantId
       readonly patch: typeof TenantPatchSchema.Type
     }) => Effect.Effect<TenantRecord, TenantWriteForbidden | TenantNotFound>
   }
@@ -83,10 +84,9 @@ export class Tenants extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
 
-      const resolveId = Effect.fn("Tenants.resolveId")(function* (input: {
-        organizationId: string
-        externalId: string
-      }) {
+      const resolveId = Effect.fn("Tenants.resolveId")(function* (
+        input: Parameters<typeof Tenants.Service.resolveId>[0],
+      ) {
         const [row] = yield* db
           .select({ id: tenant.id })
           .from(tenant)
@@ -116,7 +116,9 @@ export class Tenants extends Context.Service<
                       ilike(tenant.externalId, tenantSearchPattern(search)),
                     )
                   : undefined,
-                position ? (backward ? lt : gt)(tenant.id, position.id) : undefined,
+                position
+                  ? (backward ? lt : gt)(tenant.id, TenantIdSchema.make(position.id))
+                  : undefined,
               ),
             )
             .orderBy((backward ? desc : asc)(tenant.id))
@@ -125,7 +127,9 @@ export class Tenants extends Context.Service<
         )
       })
 
-      const get = Effect.fn("Tenants.get")(function* (input: { scope: TenantScope; id: string }) {
+      const get = Effect.fn("Tenants.get")(function* (
+        input: Parameters<typeof Tenants.Service.get>[0],
+      ) {
         const [row] = yield* db
           .select(tenantRecordColumns)
           .from(tenant)
@@ -136,10 +140,9 @@ export class Tenants extends Context.Service<
         return row
       })
 
-      const create = Effect.fn("Tenants.create")(function* (input: {
-        scope: TenantScope
-        fields: typeof TenantWriteSchema.Type
-      }) {
+      const create = Effect.fn("Tenants.create")(function* (
+        input: Parameters<typeof Tenants.Service.create>[0],
+      ) {
         yield* requireOrganizationScope(input.scope)
         const [row] = yield* db
           .insert(tenant)
@@ -153,11 +156,9 @@ export class Tenants extends Context.Service<
         return row!
       })
 
-      const update = Effect.fn("Tenants.update")(function* (input: {
-        scope: TenantScope
-        id: string
-        patch: typeof TenantPatchSchema.Type
-      }) {
+      const update = Effect.fn("Tenants.update")(function* (
+        input: Parameters<typeof Tenants.Service.update>[0],
+      ) {
         yield* requireOrganizationScope(input.scope)
         const [row] = yield* db
           .update(tenant)

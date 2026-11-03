@@ -127,16 +127,6 @@ export function decodeProviderOptions<Provider extends SandboxProviderId>(
   )(value)
 }
 
-export function decodeProviderCredentials<Provider extends SandboxProviderId>(
-  provider: Provider,
-  value: unknown,
-): Effect.Effect<SandboxProviderCredentials[Provider], Schema.SchemaError> {
-  return Schema.decodeUnknownEffect(
-    sandboxProviderSchemas[provider].credentials,
-    strictParseOptions,
-  )(value)
-}
-
 export function isProviderCredentials<Provider extends SandboxProviderId>(
   provider: Provider,
   value: unknown,

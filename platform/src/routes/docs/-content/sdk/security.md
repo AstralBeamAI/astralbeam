@@ -19,8 +19,9 @@ The dashboard defines agent capabilities and the server enforces them. SDK optio
 ## Sandbox artifacts
 
 - Published files are copied and verified in private storage before the tool returns. Downloads require your token and current conversation access.
-- The download route verifies stored size and hash before returning any bytes. MIME types are sniffed at publication, never inferred from extensions.
-- Only sniffed raster images render inline. SVG can only ever be served as `text/plain`, and every response carries `nosniff` plus a frame-and-script-free CSP.
+- Proxied downloads verify stored size and hash before returning bytes. Direct S3 downloads authorize access before issuing a one-minute bearer URL for the previously verified object. That URL remains usable until expiry after access is revoked.
+- Direct original downloads force attachment disposition. Generated WebP previews may render inline. Proxied responses retain `nosniff` and a frame-and-script-free CSP. Published artifact MIME types are sniffed, and SVG publishes as `text/plain`.
+- The SDK fetches signed URLs without AstralBeam credentials or cookies and rejects further redirects. Storage CORS must allow the embedding origin. Model processing continues to read and verify stored bytes through the server.
 - Published files survive sandbox shutdown and retire when the conversation is deleted. Temporary working files remain inside the sandbox.
 
 ## What the SDK does not protect against

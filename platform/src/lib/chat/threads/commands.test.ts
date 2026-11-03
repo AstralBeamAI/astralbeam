@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
@@ -6,14 +7,15 @@ import { SqlClient } from "effect/sql"
 import { Agents } from "@/lib/agents/agents.server"
 import { SandboxProviderUnreadable } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import { ChatThreadForbidden } from "./errors"
 
-const commandOrgId = "019a0000-0000-7000-8000-000000000001"
-const commandTenantId = "019a0000-0000-7000-8000-000000000002"
-const commandUserId = "019a0000-0000-7000-8000-000000000003"
+const commandOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
+const commandTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+const commandUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const commandThreadId = "019a0000-0000-7000-8000-000000000004"
 const commandScope = {
   organizationId: commandOrgId,
@@ -82,7 +84,12 @@ describe("managed conversation commands", () => {
     let sandboxProviderId: string | null = null
     let sandboxReadable = false
     const layer = Layer.mergeAll(
+      Layer.mock(UsageLimits, {
+        applicable: () => Effect.succeed([]),
+        check: () => Effect.void,
+      }),
       Layer.succeed(ChatFiles, {
+        download: () => Effect.die("unused"),
         store: ({ payload }) => {
           stored += 1
           return Effect.succeed(payload)
@@ -113,6 +120,36 @@ describe("managed conversation commands", () => {
     return Effect.gen(function* () {
       const input = { scope: commandScope, params: commandParams }
       yield* prepareManagedChat(input)
+      for (const source of [
+        { type: "url", value: "http://internal.invalid/image", mimeType: "image/png" },
+        {
+          type: "data",
+          value: `${btoa("\x89PNG\r\n\x1a\n" + "x".repeat(30))}!`,
+          mimeType: "image/png",
+        },
+        {
+          type: "data",
+          value: `data:application/pdf;base64,${btoa("%PDF-1.7" + "x".repeat(30))}!`,
+          mimeType: "application/pdf",
+        },
+      ] as const) {
+        const invalid = yield* prepareManagedChat({
+          ...input,
+          params: {
+            ...commandParams,
+            messages: [
+              {
+                id: "upload",
+                role: "user",
+                content: [
+                  { type: source.mimeType === "application/pdf" ? "document" : "image", source },
+                ],
+              },
+            ],
+          },
+        }).pipe(Effect.result)
+        assert.equal(invalid._tag, "Failure")
+      }
       const uploadParams: ChatParams = {
         ...commandParams,
         messages: [

@@ -2,7 +2,7 @@
 
 TanStack Start application for the AstralBeam product.
 
-For local development, follow [Setup](../SETUP.md). See [Architecture](../ARCHITECTURE.md) for the system overview, the [code map](src/README.md) to find your way around the source, and [Platform development](AGENTS.md) for implementation rules.
+For local development, follow [Setup](../docs/SETUP.md). See [Architecture](../docs/ARCHITECTURE.md) for the system overview, the [code map](src/README.md) to find your way around the source, and [Platform development](AGENTS.md) for implementation rules.
 
 ## Authentication
 
@@ -10,7 +10,7 @@ Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-i
 
 The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification. OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
 
-See [authentication setup](../SETUP.md#authentication-and-transactional-email) before testing these flows.
+See [authentication setup](../docs/SETUP.md#authentication-and-transactional-email) before testing these flows.
 
 ## Development tools
 

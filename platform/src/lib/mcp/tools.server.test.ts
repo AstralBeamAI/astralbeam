@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { Effect, Layer, Redacted } from "effect"
 import { describe, expect, test, vi } from "vitest"
 const mcpFixtureFetch = vi.hoisted<{
@@ -14,9 +15,9 @@ import { McpAuthorization } from "./authorization.server.ts"
 import { startMcpFixture } from "./fixture.ts"
 import type { McpActor, McpAuthConfig, McpCredential, McpReference } from "./schemas.ts"
 const mcpToolTestActor: McpActor = {
-  organizationId: "019a0000-0000-7000-8000-000000000001",
-  tenantId: "019a0000-0000-7000-8000-000000000010",
-  tenantUserId: "019a0000-0000-7000-8000-000000000011",
+  organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
+  tenantId: TenantIdSchema.make("019a0000-0000-7000-8000-000000000010"),
+  tenantUserId: TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000011"),
 }
 const mcpToolTestConnection = {
   ...mcpToolTestActor,

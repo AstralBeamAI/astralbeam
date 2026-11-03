@@ -31,3 +31,9 @@ export const StorageConnectionSchema = Schema.Struct({
 })
 
 export type StorageConnection = typeof StorageConnectionSchema.Type
+
+export function isStorageSettingActive(key: string, provider: string | undefined): boolean {
+  return key.startsWith("s3_")
+    ? provider === "s3"
+    : key !== "storage_directory" || provider === "filesystem"
+}

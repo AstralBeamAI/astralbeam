@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import type { ChatThreadScope } from "@/lib/chat/threads/schemas"
 import { LockVersionSchema, NonEmptyStringSchema, UuidV7Schema } from "../schemas.ts"
 
 export const MCP_PROTOCOL_VERSION = "2026-07-28"
@@ -13,14 +14,14 @@ export const MCP_REFRESH_MARGIN_MS = 60_000
 export const MCP_REFRESH_LEASE_MS = 30_000
 
 const McpActorSchema = Schema.Struct({
-  organizationId: UuidV7Schema,
-  tenantId: UuidV7Schema,
-  tenantUserId: UuidV7Schema,
-})
+  organizationId: UuidV7Schema.pipe(Schema.brand("astralbeam/OrganizationId")),
+  tenantId: UuidV7Schema.pipe(Schema.brand("astralbeam/TenantId")),
+  tenantUserId: UuidV7Schema.pipe(Schema.brand("astralbeam/TenantUserId")),
+}) satisfies Schema.Decoder<ChatThreadScope>
 export type McpActor = typeof McpActorSchema.Type
 const McpReferenceSchema = Schema.Struct({
-  organizationId: UuidV7Schema,
-  tenantId: UuidV7Schema,
+  organizationId: McpActorSchema.fields.organizationId,
+  tenantId: McpActorSchema.fields.tenantId,
   id: UuidV7Schema,
 })
 export type McpReference = typeof McpReferenceSchema.Type
@@ -122,12 +123,12 @@ export const McpServerWriteSchema = Schema.Struct({
 })
 export const McpStoredAuthConfigSchema = mcpAuthConfigSchema(Schema.String)
 export const McpClientEnvelopeSchema = Schema.Struct({
-  organizationId: UuidV7Schema,
+  organizationId: McpActorSchema.fields.organizationId,
   id: UuidV7Schema,
   client: McpManualClientSchema,
 })
 export const McpServerSummarySchema = Schema.Struct({
-  organizationId: UuidV7Schema,
+  organizationId: McpActorSchema.fields.organizationId,
   id: UuidV7Schema,
   endpointUrl: Schema.String,
   authKind: Schema.NullOr(Schema.Literals(["none", "static_headers", "oauth"])),

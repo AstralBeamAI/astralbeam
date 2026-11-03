@@ -7,10 +7,12 @@ import { CreateOrganizationDialog } from "@/components/auth/organization/create-
 import { UserInvitations } from "@/components/auth/organization/user-invitations"
 import { useHydrated } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { suggestOrganizationNameFromEmail } from "../-lib/utils"
 
 export type OrganizationOnboardingProps = {
   email: string
+  hasInvitations: boolean
   /** Refreshes organization access after an invitation is accepted or rejected. */
   onInvitationAction: () => unknown
   onOrganizationCreated: (organization: Organization) => unknown
@@ -18,6 +20,7 @@ export type OrganizationOnboardingProps = {
 
 export function OrganizationOnboarding({
   email,
+  hasInvitations,
   onInvitationAction,
   onOrganizationCreated,
 }: OrganizationOnboardingProps) {
@@ -28,35 +31,58 @@ export function OrganizationOnboarding({
   return (
     <section
       aria-labelledby="organization-onboarding-title"
-      className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12"
+      className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12"
     >
       <div className="space-y-2">
         <h1
           id="organization-onboarding-title"
-          className="text-2xl font-semibold tracking-tight sm:text-3xl"
+          className="font-sans text-xl font-semibold tracking-tight"
         >
-          Join or create an organization
+          {hasInvitations ? "Join your team" : "Create your organization"}
         </h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Accept a pending invitation or create a new organization to continue.
+        <p className="text-sm text-muted-foreground">
+          {hasInvitations
+            ? "Accept an invitation below, or create an organization of your own."
+            : "Bring your agents, models, and team together in one place."}
         </p>
       </div>
 
-      <UserInvitations hideEmpty onInvitationAction={onInvitationAction} />
+      <UserInvitations
+        hideEmpty
+        className="[&_h2]:font-sans"
+        onInvitationAction={onInvitationAction}
+      />
 
-      <div className="flex flex-col items-stretch gap-2 sm:items-start">
-        <Button type="button" disabled={!hydrated} onClick={() => setCreateOpen(true)}>
-          {hydrated ? "Create a new organization" : "Loading organization setup…"}
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          You will be the organization owner and can add members afterward.
+      <Card>
+        <CardContent className="flex flex-col items-stretch gap-4 sm:items-start">
+          <div className="space-y-2">
+            {hasInvitations && (
+              <h2 className="font-sans text-sm font-semibold">Create your own organization</h2>
+            )}
+            <p className="text-sm text-muted-foreground">
+              We’ll create your first agent. Connect a model, then add the agent to your app.
+            </p>
+          </div>
+          <Button
+            className="text-sm"
+            type="button"
+            disabled={!hydrated}
+            onClick={() => setCreateOpen(true)}
+          >
+            Create organization
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            You’ll be the owner and can invite teammates anytime.
+          </p>
+        </CardContent>
+      </Card>
+
+      {!hasInvitations && (
+        <p className="text-sm text-muted-foreground wrap-anywhere">
+          Joining an existing team? Ask an owner to invite{" "}
+          <span className="font-medium text-foreground">{email}</span>.
         </p>
-      </div>
-
-      <p className="text-sm text-muted-foreground">
-        Already part of an organization? Ask its owner to invite{" "}
-        <strong className="break-all">{email}</strong>, the email address you use to sign in.
-      </p>
+      )}
 
       <CreateOrganizationDialog
         open={createOpen}

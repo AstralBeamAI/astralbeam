@@ -8,13 +8,14 @@ import {
   Exit,
   Layer,
   Option,
-  Ref,
   Result,
 } from "effect"
 
 import { Database } from "@/db/database"
 import { getDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
 import { isInDatabaseTransaction } from "@/db/lib/transaction-guard"
+import { skipEmailVerification } from "@/lib/runtime/environment.server"
+import { isStorageSettingActive } from "@/lib/storage/schemas"
 import {
   DatabaseMigrations,
   type DatabaseMigrationState,
@@ -32,6 +33,7 @@ import {
   DEFAULT_CONFIG_VALUES,
   ENVIRONMENT_CONFIG_DEFINITIONS,
   findConfigDefinition,
+  storageProviderFromConfig,
   validateConfigCompleteness,
 } from "./registry.ts"
 import { parseEnvironmentConfigValue } from "./schemas.ts"
@@ -53,8 +55,6 @@ import type {
 
 /** One load of the effective configuration: defaults, then stored values, then the environment. */
 export interface ConfigSnapshot {
-  /** Increments with every load, so values derived from a snapshot know when to rebuild. */
-  readonly generation: number
   readonly rows: readonly ConfigStorageEntry[] | null
   readonly values: ConfigValues
   readonly issues: readonly ConfigIssue[]
@@ -79,7 +79,7 @@ const environmentConfig = EffectConfig.all(
 )
 
 /** Environment values, decoded like stored ones. An invalid value fails every load until fixed. */
-const readEnvironmentConfig = Effect.fnUntraced(function* () {
+export const readEnvironmentConfig = Effect.fnUntraced(function* () {
   const raw = yield* environmentConfig.pipe(
     // Each load rereads the process environment, as it rereads the stored values it overrides.
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
@@ -110,7 +110,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
   if (values.github_client_id && values.github_client_secret) enabledSocialProviders.push("github")
   return {
     enabledSocialProviders,
-    // Setup cannot complete without the site key or the support address.
+    requireEmailVerification: !skipEmailVerification(),
     turnstileSiteKey: values.turnstile_site_key ?? "",
     privacyPolicyUrl: values.privacy_policy_url,
     termsOfServiceUrl: values.terms_of_service_url,
@@ -122,7 +122,7 @@ export function publicConfigFromValues(values: ConfigValues): PublicConfig {
 export class Config extends Context.Service<
   Config,
   {
-    /** Cached per process outside Effect transactions, until a same-process write invalidates it. */
+    /** Cached for up to five seconds outside transactions, invalidated immediately by local writes. */
     readonly snapshot: Effect.Effect<ConfigSnapshot>
     readonly get: <Key extends ConfigKey>(key: Key) => Effect.Effect<ConfigValues[Key]>
     readonly invalidate: Effect.Effect<void>
@@ -153,15 +153,32 @@ export class Config extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Database
       const migrations = yield* DatabaseMigrations
-      const generations = yield* Ref.make(0)
       const load = Effect.gen(function* () {
         const environment = yield* readEnvironmentConfig()
         const environmentKeys = new Set(Object.keys(environment) as ConfigKey[])
         const stored = yield* readDatabaseConfig(db, [...environmentKeys])
         const values = { ...DEFAULT_CONFIG_VALUES, ...stored.values, ...environment }
+        values.storage_provider = storageProviderFromConfig(values, [
+          ...(stored.rows ?? []).map((row) => row.key),
+          ...environmentKeys,
+        ])
+        for (const row of stored.rows ?? []) {
+          const definition = findConfigDefinition(row.key)
+          if (row.storageStatus === "unreadable" && definition?.required)
+            delete values[definition.key]
+        }
         const issues = validateConfigCompleteness(values, environmentKeys)
+        for (const key of ["storage_provider", "storage_directory"] as const) {
+          if (
+            isStorageSettingActive(key, values.storage_provider) &&
+            stored.rows?.some((row) => row.key === key && row.storageStatus === "unreadable")
+          )
+            issues.push({
+              key,
+              message: `${findConfigDefinition(key)!.label} is unreadable. Replace it to use storage.`,
+            })
+        }
         return {
-          generation: yield* Ref.updateAndGet(generations, (generation) => generation + 1),
           rows: stored.rows,
           values,
           issues,
@@ -171,7 +188,7 @@ export class Config extends Context.Service<
 
       const cache = yield* Cache.makeWith(() => load, {
         capacity: 1,
-        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+        timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(5) : Duration.zero),
       })
       // Transaction-local values must neither escape the connection nor populate the process cache.
       const snapshot = Effect.gen(function* () {
@@ -197,6 +214,9 @@ export class Config extends Context.Service<
 
       const update = Effect.fn("Config.update")(function* (updates: readonly ConfigUpdate[]) {
         const current = yield* snapshot
+        const provider =
+          updates.find((update) => update.key === "storage_provider")?.value ??
+          current.values.storage_provider!
         const decoded = validateConfigUpdates(updates, current.environmentKeys)
         if (decoded.issues.length > 0) {
           return yield* new ConfigUpdateInvalid({ issues: decoded.issues })
@@ -208,6 +228,17 @@ export class Config extends Context.Service<
         if (generated.issues.length > 0) {
           return yield* new ConfigUpdateInvalid({ issues: generated.issues })
         }
+        // Generated defaults are inserted only if no value was saved by an operator.
+        if (!current.environmentKeys.has("storage_provider"))
+          generated.values.push({ key: "storage_provider", value: provider })
+        if (
+          isStorageSettingActive("storage_directory", provider) &&
+          !current.environmentKeys.has("storage_directory")
+        )
+          generated.values.push({
+            key: "storage_directory",
+            value: DEFAULT_CONFIG_VALUES.storage_directory!,
+          })
         // Hidden system-managed values must rotate on saves without being sent to the browser.
         if (getDatabaseEncryptionKeyring().length > 1) {
           const stored = yield* readDatabaseConfig(db)

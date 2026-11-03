@@ -12,13 +12,13 @@ https://github.com/user-attachments/assets/6bb3d981-b82d-40a2-9be1-d1bb6cfe5759
 
 To add AstralBeam to your app, follow the <a href="https://astralbeam.ai/docs/start/quickstart" target="_blank" rel="noopener noreferrer">quickstart</a>.
 
-To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](ARCHITECTURE.md) for implementation boundaries.
+To self-host, follow [Deploy](platform/src/routes/docs/-content/self-hosting/deploy.md). For development, start with [local setup](docs/SETUP.md), then see [contributing](CONTRIBUTING.md) for project structure and validation or [architecture](docs/ARCHITECTURE.md) for implementation boundaries.
 
 ## Licensing
 
 Portions of this repository are licensed as follows:
 
-- Files under [`www`](www), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
+- Files under [`website`](website), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are licensed under the [MIT License](LICENSE-MIT), except for third-party material governed by its applicable license.
 - All other files in this repository are licensed under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL) (`AGPL-3.0-only`), except where an adjacent license or notice states otherwise.
 - Third-party components and materials are licensed under the applicable licenses provided by their respective owners. See [third-party notices](docs/legal/THIRD_PARTY_NOTICES.md).
 

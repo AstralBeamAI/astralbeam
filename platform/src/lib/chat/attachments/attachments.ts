@@ -7,7 +7,8 @@ import { Database } from "@/db/database.ts"
 import { chatFile } from "@/db/schema/chat.ts"
 import { fileObject } from "@/db/schema/files.ts"
 import { StoredFiles } from "@/lib/storage/stored-files.server.ts"
-import { FilePreviews } from "@/lib/storage/file-previews.server.ts"
+import { FilePreviews, filePreviewObjectKey } from "@/lib/storage/file-previews.server.ts"
+import { ObjectStorage } from "@/lib/storage/object-storage.server.ts"
 import {
   ChatMessagePayloadSchema,
   type ChatMessagePayload,
@@ -35,7 +36,7 @@ import type { ChatAttachmentFile, ChatAttachmentKind, ChatAttachmentOutcome } fr
 import type { ChatMessages } from "../types"
 
 // Normalize both AG-UI `content` and UIMessage `parts` so neither can bypass attachment checks.
-type ContentShape = "agui" | "ui"
+type ContentShape = "agui" | "model"
 
 interface MediaEntry {
   type: "image" | "audio" | "video" | "document"
@@ -186,7 +187,10 @@ function attachmentHandle(filename: string, taken: Set<string>): string {
   return handle
 }
 
-export function normalizeChatAttachments(messages: ChatMessages): {
+export function normalizeChatAttachments(
+  messages: ChatMessages,
+  options: { readonly contentShape?: ContentShape } = {},
+): {
   messages: ChatMessages
   attachments: ChatAttachmentOutcome[]
   files: ChatAttachmentFile[]
@@ -331,8 +335,9 @@ export function normalizeChatAttachments(messages: ChatMessages): {
   const normalized = messages.map((message) => {
     const next = { ...message } as typeof message & { content?: unknown; parts?: unknown }
     if (message.role === "user") {
-      if (Array.isArray(next.content)) next.content = normalizeUserEntries(next.content, "agui")
-      if (Array.isArray(next.parts)) next.parts = normalizeUserEntries(next.parts, "ui")
+      if (Array.isArray(next.content))
+        next.content = normalizeUserEntries(next.content, options.contentShape ?? "agui")
+      if (Array.isArray(next.parts)) next.parts = normalizeUserEntries(next.parts, "model")
       return next
     }
     if (Array.isArray(next.parts)) {
@@ -457,14 +462,19 @@ export function createChatAttachmentSnapshotMiddleware(
 }
 
 type JsonObject = typeof Schema.JsonObject.Type
-export interface ChatFileScope {
-  organizationId: string
-  tenantId: string
+export interface ChatFileScope extends Pick<ChatThreadScope, "organizationId" | "tenantId"> {
   threadId: string
-  tenantUserId?: string
+  tenantUserId?: ChatThreadScope["tenantUserId"]
 }
 export type ChatFileCache = Map<string, typeof storedSource.Type & { byteSize: number }>
 type FileError = ChatThreadInvalid | ChatFileUnavailable | ChatThreadNotFound
+
+type ChatFileReadInput = {
+  scope: Omit<ChatFileScope, "threadId"> & { threadId?: string }
+  fileId: string
+  preview?: boolean
+}
+type ChatFileBytes = { bytes: Uint8Array; mimeType: string }
 
 const storedSource = Schema.Struct({
   type: Schema.Literal(APP_HANDLE),
@@ -557,17 +567,16 @@ export class ChatFiles extends Context.Service<
       payload: ChatMessagePayload
       cache?: ChatFileCache
     }) => Effect.Effect<ChatMessagePayload, FileError>
-    readonly read: (input: {
-      scope: Omit<ChatFileScope, "threadId"> & { threadId?: string }
-      fileId: string
-      preview?: boolean
-    }) => Effect.Effect<{ bytes: Uint8Array; mimeType: string }, FileError>
+    readonly read: (input: ChatFileReadInput) => Effect.Effect<ChatFileBytes, FileError>
+    readonly download: (
+      input: ChatFileReadInput & { contentDisposition: string },
+    ) => Effect.Effect<ChatFileBytes | { url: string }, FileError>
     readonly hydrate: (input: {
       scope: ChatFileScope
       messages: readonly ModelMessage[]
     }) => Effect.Effect<ModelMessage[], FileError>
     readonly attach: (input: {
-      scope: ChatFileScope & { tenantUserId: string }
+      scope: ChatThreadScope & { threadId: string }
       messageId: string
       value: unknown
     }) => Effect.Effect<number, ChatThreadInvalid>
@@ -580,6 +589,7 @@ export class ChatFiles extends Context.Service<
       const db = yield* Database
       const files = yield* StoredFiles
       const previews = yield* FilePreviews
+      const storage = yield* ObjectStorage
       const queryFile = (id: string, ownership: ReturnType<typeof ownedFiles>) =>
         db
           .select({ file: fileObject, attachment: chatFile })
@@ -702,12 +712,12 @@ export class ChatFiles extends Context.Service<
           ),
         )
       }
-      const read = Effect.fnUntraced(function* ({
+      const resolveFile = Effect.fnUntraced(function* ({
         scope,
         fileId,
         preview = false,
         maxBytes = CHAT_ATTACHMENT_MAX_TOTAL_BYTES,
-      }: Parameters<typeof ChatFiles.Service.read>[0] & { maxBytes?: number }) {
+      }: ChatFileReadInput & { maxBytes?: number }) {
         if (!preview && !scope.threadId) return yield* new ChatThreadInvalid()
         // Admission reads uploader-private files. Saved downloads use conversation ownership.
         const ownership = scope.tenantUserId
@@ -718,17 +728,40 @@ export class ChatFiles extends Context.Service<
         if (!ownership) return yield* new ChatThreadInvalid()
         const [saved] = yield* queryFile(fileId, ownership)
         if (!saved) return yield* new ChatThreadInvalid()
-        const file = saved.file
-        if (preview)
+        if (!preview && saved.file.byteSize > maxBytes) return yield* new ChatThreadInvalid()
+        return saved.file
+      })
+      const read = Effect.fnUntraced(function* (input: ChatFileReadInput & { maxBytes?: number }) {
+        const file = yield* resolveFile(input)
+        if (input.preview)
           return yield* previews.read({ file }).pipe(
             Effect.map((result) => result ?? { bytes: new Uint8Array(), mimeType: "image/webp" }),
             Effect.mapError(() => new ChatFileUnavailable()),
           )
-        if (file.byteSize > maxBytes) return yield* new ChatThreadInvalid()
         const bytes = yield* files
           .read({ file })
           .pipe(Effect.mapError(() => new ChatFileUnavailable()))
         return { bytes, mimeType: file.contentType }
+      })
+      const download = Effect.fnUntraced(function* (
+        input: ChatFileReadInput & { contentDisposition: string },
+      ) {
+        const file = yield* resolveFile(input)
+        const key = input.preview ? filePreviewObjectKey(file.objectKey) : file.objectKey
+        if (input.preview) {
+          const cached = yield* storage
+            .head({ key })
+            .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.succeed(undefined)))
+          if (cached && cached.size > 256 * 1024) return yield* new ChatFileUnavailable()
+          if (!cached && !(yield* previews.read({ file })))
+            return { bytes: new Uint8Array(), mimeType: "image/webp" }
+        }
+        const url = yield* storage.signedUrl({
+          key,
+          contentType: input.preview ? "image/webp" : file.contentType,
+          contentDisposition: input.contentDisposition,
+        })
+        return url ? { url } : yield* read(input)
       })
       const hydrate = ({ scope, messages }: Parameters<typeof ChatFiles.Service.hydrate>[0]) => {
         let totalBytes = 0
@@ -771,7 +804,7 @@ export class ChatFiles extends Context.Service<
         messageId,
         value,
       }: {
-        scope: ChatFileScope & { tenantUserId: string }
+        scope: ChatThreadScope & { threadId: string }
         messageId: string
         value: unknown
       }) {
@@ -823,12 +856,19 @@ export class ChatFiles extends Context.Service<
       return ChatFiles.of({
         store: (input) => store(input).pipe(mapDatabaseErrors()),
         read: (input) => read(input).pipe(mapDatabaseErrors()),
+        download: (input) =>
+          download(input).pipe(
+            mapDatabaseErrors(),
+            Effect.catchTag(["StorageUnavailable", "StorageObjectMissing"], () =>
+              Effect.fail(new ChatFileUnavailable()),
+            ),
+          ),
         hydrate: (input) => hydrate(input).pipe(mapDatabaseErrors()),
         attach: (input) => attach(input).pipe(mapDatabaseErrors()),
       })
     }),
   )
   static readonly layer = ChatFiles.layerNoDeps.pipe(
-    Layer.provide([Database.layer, StoredFiles.layer, FilePreviews.layer]),
+    Layer.provide([Database.layer, StoredFiles.layer, FilePreviews.layer, ObjectStorage.layer]),
   )
 }

@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
   chat,
   EventType,
@@ -19,9 +20,9 @@ import { managedChatDelivery, managedChatMiddleware } from "./stream"
 
 const managedStreamClaim: ChatWriterClaim = {
   scope: {
-    organizationId: crypto.randomUUID(),
-    tenantId: crypto.randomUUID(),
-    tenantUserId: crypto.randomUUID(),
+    organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
+    tenantId: TenantIdSchema.make(crypto.randomUUID()),
+    tenantUserId: TenantUserIdSchema.make(crypto.randomUUID()),
   },
   threadId: crypto.randomUUID(),
   assistantMessageId: crypto.randomUUID(),

@@ -1,3 +1,4 @@
+import type { ChatThreadScope } from "@/lib/chat/threads/schemas"
 import {
   chatParamsFromRequestBody,
   EventType,
@@ -47,7 +48,7 @@ export function consumeChatRateLimit(
 /** Refuses a new turn or continuation before admission once an applicable usage limit is used up. */
 export const checkChatUsageLimits = Effect.fn("checkChatUsageLimits")(function* (input: {
   readonly principal: ChatPrincipal
-  readonly scope: { organizationId: string; tenantId: string; tenantUserId: string }
+  readonly scope: ChatThreadScope
   readonly threadId: unknown
 }) {
   const usageLimits = yield* UsageLimits

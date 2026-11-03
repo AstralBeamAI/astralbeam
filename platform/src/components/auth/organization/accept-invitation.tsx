@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading. Use TanStack hydration readiness.
+// Local changes: use Phosphor icons and standard browser globals, render comma-joined static roles correctly, and provide a semantic page heading. Use TanStack hydration readiness. Identify the joining account without repeating organization details. Distinguish unavailable invitations, account mismatches, and load failures with recovery actions.
 
 import { getSafeRedirectTo } from "@better-auth-ui/core"
 import {
@@ -13,13 +13,13 @@ import {
   useRejectInvitation,
 } from "@better-auth-ui/react/plugins/organization"
 import type { Invitation } from "better-auth/client"
+import { Predicate } from "effect"
 import {
   BriefcaseIcon as BriefcaseBusiness,
   CheckIcon as Check,
   XIcon as X,
 } from "@phosphor-icons/react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldDescription } from "@/components/ui/field"
@@ -41,12 +41,51 @@ function isPendingInvitation(invitation: UserInvitation | undefined) {
   return new Date(invitation.expiresAt).getTime() > Date.now()
 }
 
+function getInvitationRecovery({
+  error,
+  unavailableTitle,
+  returnLabel,
+}: {
+  error: unknown
+  unavailableTitle: string
+  returnLabel: string
+}) {
+  if (
+    Predicate.hasProperty(error, "error") &&
+    Predicate.hasProperty(error.error, "code") &&
+    error.error.code === "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION"
+  ) {
+    return {
+      title: "Use your invited account",
+      description:
+        "This invitation was sent to a different email address. Sign in with the email that received it to join the organization.",
+      label: "Sign in with another account",
+      action: "sign-in",
+    }
+  }
+  if (error && !(Predicate.hasProperty(error, "status") && error.status === 400)) {
+    return {
+      title: "Couldn’t load invitation",
+      description: "We couldn’t check this invitation. Try again in a moment.",
+      label: "Try again",
+      action: "retry",
+    }
+  }
+  return {
+    title: unavailableTitle,
+    description:
+      "This invitation has expired or is no longer available. Ask an owner to send a new invitation to your sign-in email.",
+    label: returnLabel,
+    action: "return",
+  }
+}
+
 /**
  * Render the organization invitation addressed by the `invitationId` query
  * parameter and let the signed-in recipient accept or reject it directly.
  */
 export function AcceptInvitation({ className }: AcceptInvitationProps) {
-  const { authClient, navigate, redirectTo } = useAuth()
+  const { authClient, basePaths, navigate, redirectTo, viewPaths } = useAuth()
   const { localization, roles } = useAuthPlugin(organizationPlugin)
   const organizationAuthClient = authClient as OrganizationAuthClient
   const isHydrated = useHydrated()
@@ -57,6 +96,7 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
   const invitationQuery = useInvitation(organizationAuthClient, {
     query: { id: invitationId ?? "" },
     enabled: Boolean(invitationId),
+    meta: { errorPresentation: "inline" },
   })
   const invitation = invitationQuery.data as UserInvitation | undefined
 
@@ -85,6 +125,23 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
     !session.data ||
     (Boolean(invitationId) && invitationQuery.isPending)
   const isAvailable = isPendingInvitation(invitation)
+  const recovery = getInvitationRecovery({
+    error: invitationQuery.error,
+    unavailableTitle: localization.invitationUnavailable,
+    returnLabel: localization.return,
+  })
+  const recoverInvitation = () => {
+    if (recovery.action === "sign-in") {
+      const search = new URLSearchParams({
+        redirectTo: `${globalThis.location.pathname}${globalThis.location.search}`,
+      })
+      navigate({ to: `${basePaths.auth}/${viewPaths.auth.signOut}?${search}` })
+    } else if (recovery.action === "retry") {
+      void invitationQuery.refetch()
+    } else {
+      returnToApplication()
+    }
+  }
   const organizationName = invitation?.organizationName || localization.organization
   const role = invitation
     ? memberRoleLabels(invitation.role, roles).join(", ")
@@ -101,10 +158,8 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
           {isLoading ? (
             <Skeleton className="h-6 w-48" />
           ) : (
-            <h1>
-              {isAvailable
-                ? localization.acceptInvitationTitle
-                : localization.invitationUnavailable}
+            <h1 className="wrap-anywhere">
+              {isAvailable ? `Join ${organizationName}` : recovery.title}
             </h1>
           )}
         </CardTitle>
@@ -118,22 +173,19 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
           </div>
         ) : isAvailable ? (
           <>
-            <FieldDescription>
-              {localization.acceptInvitationDescription
-                .replace("{{organization}}", organizationName)
-                .replace("{{role}}", role)}
-            </FieldDescription>
-
-            <div className="flex items-center gap-3 rounded-md bg-muted p-3">
-              <div className="min-w-0 flex-1 truncate text-sm font-medium">{organizationName}</div>
-              <Badge variant="secondary">{role}</Badge>
-            </div>
+            <p className="text-sm text-muted-foreground wrap-anywhere">
+              You’ll join with <span className="font-medium text-foreground">{role}</span> access.
+            </p>
+            <p className="text-sm text-muted-foreground wrap-anywhere">
+              You’re signed in as{" "}
+              <span className="font-medium text-foreground">{session.data?.user.email}</span>.
+            </p>
           </>
         ) : (
-          <FieldDescription>{localization.invitationUnavailableDescription}</FieldDescription>
+          <FieldDescription className="wrap-anywhere">{recovery.description}</FieldDescription>
         )}
 
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {isLoading ? (
             <>
               <Skeleton className="h-9 flex-1" />
@@ -159,12 +211,18 @@ export function AcceptInvitation({ className }: AcceptInvitationProps) {
                 onClick={() => acceptInvitation({ invitationId: invitation.id })}
               >
                 {isAccepting ? <Spinner /> : <Check />}
-                {localization.accept}
+                Join organization
               </Button>
             </>
           ) : (
-            <Button className="w-full" type="button" onClick={returnToApplication}>
-              {localization.return}
+            <Button
+              className="w-full sm:col-span-2"
+              type="button"
+              disabled={invitationQuery.isFetching}
+              aria-busy={invitationQuery.isFetching}
+              onClick={recoverInvitation}
+            >
+              {recovery.label}
             </Button>
           )}
         </div>

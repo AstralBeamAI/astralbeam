@@ -81,7 +81,7 @@ export function personalMcpHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "personalMcp",
-    Effect.fn("personalMcpHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { McpConnections } = yield* Effect.promise(() => import("@/lib/mcp/mcp.server"))
       const { McpAuthorization } = yield* Effect.promise(
         () => import("@/lib/mcp/authorization.server"),

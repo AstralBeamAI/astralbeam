@@ -19,6 +19,7 @@ import { testConnection } from "./smtp.ts"
 const smtpEmail = {
   to: ["person@example.com"],
   cc: [],
+  bcc: [],
   from: "sender@example.com",
   replyTo: "sender@example.com",
   subject: "Hello",

@@ -644,6 +644,26 @@ export interface TenantPage {
   page_before: string | null
 }
 
+export type DocumentationSearchResultsItem = {
+  path: string
+  url: string
+  page: string
+  heading: string
+  text: string
+}
+
+export interface DocumentationSearch {
+  results: DocumentationSearchResultsItem[]
+}
+
+export type SearchDocumentationParams = {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  q: string
+}
+
 export type ListTenantsParams = {
   /**
    * Case-insensitive literal substring of name or external_id. Trimmed, blank means no search.
@@ -719,13 +739,9 @@ export type GetTenantUserUsageParams = {
    * @maxLength 3699
    */
   user_ids: string
-  /**
-   * Inclusive start timestamp, with Z or a numeric timezone offset.
-   */
+  /** Inclusive start timestamp, with Z or a numeric timezone offset. */
   start: string
-  /**
-   * Exclusive end timestamp, with Z or a numeric timezone offset.
-   */
+  /** Exclusive end timestamp, with Z or a numeric timezone offset. */
   end: string
 }
 
@@ -809,7 +825,15 @@ export type GetThreadAttachmentParams = {
   tenantId?: string
   fileId: string
   filename?: string
+  delivery?: GetThreadAttachmentDelivery
 }
+
+export type GetThreadAttachmentDelivery =
+  (typeof GetThreadAttachmentDelivery)[keyof typeof GetThreadAttachmentDelivery]
+
+export const GetThreadAttachmentDelivery = {
+  direct: "direct",
+} as const
 
 export type GetChatConfigParams = {
   agentId?: string
@@ -963,6 +987,36 @@ export type PersonalMcpBindBrowserBody = {
 
 export type PersonalMcpCompleteAuthorizationBody = {
   attempt_id: string
+}
+
+export const getSearchDocumentationUrl = (params: SearchDocumentationParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/docs/search?${stringifiedParams}`
+    : `/api/v1/docs/search`
+}
+
+/**
+ * Search the published guides and API reference. Returns up to five matching pages with relative URLs and the best matching section. Accepts the same credentials as the resource APIs.
+ * @summary Search documentation
+ */
+export const searchDocumentation = (
+  params: SearchDocumentationParams,
+  options: Parameters<typeof astralBeamApiFetch>[1],
+) => {
+  return astralBeamApiFetch<DocumentationSearch>(getSearchDocumentationUrl(params), {
+    ...options,
+    method: "GET",
+  })
 }
 
 export const getListTenantsUrl = (params: ListTenantsParams) => {
@@ -1386,7 +1440,7 @@ export const getGetThreadAttachmentUrl = (params: GetThreadAttachmentParams) => 
 }
 
 /**
- * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.
+ * Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original proxied downloads verify stored bytes. Request delivery=direct to receive 204 with a short-lived S3 URL in Location after authorization. A preview may still return 204 without Location when unavailable. Fetch storage URLs without application credentials and do not cache these capability responses.
  * @summary Download a chat file
  */
 export const getThreadAttachment = (

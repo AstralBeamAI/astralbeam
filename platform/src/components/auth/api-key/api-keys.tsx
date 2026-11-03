@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/api-key
-// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states.
+// Local changes: Support exact optional property types, explicit load errors, total-aware pagination, last-key deletion protection, and colocated list states. Improve onboarding copy, layout, and form guidance.
 
 import type { ApiKeyAuthClient } from "@better-auth-ui/core/plugins/api-key"
 import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
@@ -135,41 +135,38 @@ export function ApiKeys({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <div className="flex items-end justify-between gap-3">
-        <h2 className="truncate text-sm font-semibold">{apiKeyLocalization.apiKeys}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Select
+          items={sortItems}
+          value={sort}
+          onValueChange={(value) => {
+            setSort(value ?? "createdAt:desc")
+            setPage(0)
+          }}
+        >
+          <SelectTrigger
+            aria-label={apiKeyLocalization.sortBy}
+            className="any-pointer-coarse:min-h-11"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {sortItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
 
         {!hideCreate && (
-          <Button
-            className="shrink-0"
-            size="sm"
-            disabled={isPending}
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button className="shrink-0" disabled={isPending} onClick={() => setCreateOpen(true)}>
             {apiKeyLocalization.createApiKey}
           </Button>
         )}
       </div>
-      <Select
-        items={sortItems}
-        value={sort}
-        onValueChange={(value) => {
-          setSort(value ?? "createdAt:desc")
-          setPage(0)
-        }}
-      >
-        <SelectTrigger aria-label={apiKeyLocalization.sortBy}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {sortItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
 
       <Card className="p-0">
         <CardContent className="p-0">

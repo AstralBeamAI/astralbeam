@@ -1627,7 +1627,7 @@ function acceptedStream(id: string, threadId = thread.id) {
   )
 }
 
-test("a send during the refresh after a reply is taken at once and sent when it settles", async () => {
+test("a send stays busy through reconciliation and admits a follow-up from ready", async () => {
   let sends = 0
   let reads = 0
   let release: (() => void) | undefined
@@ -1646,14 +1646,22 @@ test("a send during the refresh after a reply is taken at once and sent when it 
   const first = chat.sendMessage("First")
   await vi.waitFor(() => expect(release).toBeDefined())
   expect(chat.getState().history).toBe("refreshing")
-  const next = chat.sendMessage("Next")
+  expect(await chat.sendMessage("Too early")).toMatchObject({ phase: "refused" })
   expect(chat.getState()).toMatchObject({
-    status: "submitted",
-    submission: { content: "Next", phase: "submitting" },
+    status: "streaming",
+    submission: { content: "First", phase: "accepted" },
   })
   expect(sends).toBe(1)
+  let next: ReturnType<typeof chat.sendMessage> | undefined
+  const unsubscribe = chat.subscribe(() => {
+    if (chat.getState().status === "ready") {
+      unsubscribe()
+      next = chat.sendMessage("Next")
+    }
+  })
   release!()
-  await Promise.all([first, next])
+  await first
+  expect((await next)?.phase).toBe("accepted")
   expect(sends).toBe(2)
   expect(chat.getState()).toMatchObject({ status: "ready", submission: { phase: "accepted" } })
 })
@@ -1929,6 +1937,7 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
   let creations = 0
   let release: (() => void) | undefined
   const targets: string[] = []
+  const secondStream = Promise.withResolvers<void>()
   stubSessionFetch((input: string | URL, init?: RequestInit) => {
     const path = new URL(input).pathname
     if (path.endsWith("/config")) return sessionResponse({ attachments: true })
@@ -1942,7 +1951,7 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
       if (typeof init?.body !== "string") throw new Error("Expected an AG-UI request body")
       const { threadId } = JSON.parse(init.body) as { threadId: string }
       targets.push(threadId)
-      return Promise.resolve(acceptedStream(String(targets.length), threadId))
+      return secondStream.promise.then(() => acceptedStream(String(targets.length), threadId))
     }
     const id = path.split("/").at(-2)!
     return sessionResponse({ ...page(), thread: id === second.id ? second : thread })
@@ -1953,10 +1962,15 @@ test("a send after Stop keeps its own conversation when the cancelled creation f
   await vi.waitUntil(() => release)
   chat.stop()
   expect(await cancelled).toMatchObject({ phase: "refused", content: "Cancelled" })
-  expect(await chat.sendMessage("Kept")).toMatchObject({ phase: "accepted" })
+  const kept = chat.sendMessage("Kept")
+  await vi.waitFor(() => expect(targets).toHaveLength(1))
   release!()
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(chat.getState().thread?.id).toBe(second.id)
+  expect(chat.getState().status).toBe("submitted")
+  expect(await chat.sendMessage("Too early")).toMatchObject({ phase: "refused" })
+  secondStream.resolve()
+  expect(await kept).toMatchObject({ phase: "accepted" })
   expect(await chat.sendMessage("Next")).toMatchObject({ phase: "accepted" })
   expect(targets).toEqual([second.id, second.id])
 })

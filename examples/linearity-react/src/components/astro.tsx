@@ -1,5 +1,4 @@
-import { AstralBeamChat, type AstralBeamChatRef, defineWidget } from "@astralbeam/sdk/react"
-import type { RefObject } from "react"
+import { AstralBeamChat, type AstralBeamChatCore, defineWidget } from "@astralbeam/sdk/react"
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -9,33 +8,25 @@ import {
 } from "@phosphor-icons/react"
 import { z } from "zod"
 import { type Issue, type Workspace } from "@/lib/model.ts"
-import type { AppNavigation } from "@/lib/navigation.ts"
 import { demoStore } from "@/lib/store.ts"
-import { createWorkspaceTools } from "@/lib/astro-tools.ts"
 import { Avatar, PriorityIcon, StatusIcon } from "./issue-bits.tsx"
 
 export function Astro({
-  ref,
+  chat,
   workspace,
-  visitorId,
   resizeContainer,
   onOpen,
   onClose,
-  navigation,
 }: {
-  ref: RefObject<AstralBeamChatRef | null>
+  chat: AstralBeamChatCore
   workspace: Workspace
-  visitorId: string
   resizeContainer?: (() => HTMLElement | null) | undefined
   onOpen: (issue: Issue) => void
   onClose: () => void
-  navigation: AppNavigation
 }) {
-  const workspaceId = workspace.id
-
   return (
     <AstralBeamChat
-      ref={ref}
+      chat={chat}
       resizeContainer={resizeContainer}
       title="Astro"
       onClose={onClose}
@@ -54,14 +45,6 @@ export function Astro({
         </div>
       }
       colorScheme="light"
-      apiUrl={import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api"}
-      agentId={import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined}
-      fetchAstralBeamToken={{
-        url: "/api/astralbeam/token",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId, visitorId }),
-      }}
-      tools={createWorkspaceTools(workspaceId, navigation)}
       theme={{
         light: {
           "--background": "#fcfcfd",

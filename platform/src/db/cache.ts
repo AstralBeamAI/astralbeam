@@ -144,6 +144,13 @@ export const makeDatabaseCache = Effect.fn("makeDatabaseCache")(function* <
       Effect.asVoid,
       Effect.mapError((cause) => databaseCacheError("clear", cause)),
     ),
+    keys: Effect.suspend(
+      () => sql<{ key: string }>`select key from cache_entry
+      where namespace = ${namespace} and (expires_at is null or expires_at > statement_timestamp())`,
+    ).pipe(
+      Effect.map((rows) => rows.map(({ key }) => key)),
+      Effect.mapError((cause) => databaseCacheError("keys", cause)),
+    ),
     size: Effect.suspend(
       () => sql<{ count: number }>`select count(*)::integer as count from cache_entry
       where namespace = ${namespace} and (expires_at is null or expires_at > statement_timestamp())`,

@@ -17,19 +17,13 @@ services:
       # Keep Linux-native dependencies and Bun's cache isolated from the macOS checkout. https://bun.sh/docs/install/cache
       - root-node-modules:/workspaces/astralbeam/node_modules
       - platform-node-modules:/workspaces/astralbeam/platform/node_modules
-      - www-node-modules:/workspaces/astralbeam/www/node_modules
+      - website-node-modules:/workspaces/astralbeam/website/node_modules
       - sdk-node-modules:/workspaces/astralbeam/sdk/node_modules
       - cli-node-modules:/workspaces/astralbeam/cli/node_modules
       - linearity-node-modules:/workspaces/astralbeam/examples/linearity-react/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - bun-cache:/root/.bun/install/cache
-      # Persist Cursor/VS Code server + extensions across rebuilds
-      - ./tmp/.cursor-server:/root/.cursor-server:cached
-      - ./tmp/.vscode-server:/root/.vscode-server:cached
-      - "${HOME}/.cursor:/workspaces/astralbeam/tmp/.cursor:cached"
-      - "${HOME}/.codex:/workspaces/astralbeam/tmp/.codex:cached"
-      - "${HOME}/.claude:/workspaces/astralbeam/tmp/.claude:cached"
-      - "${HOME}/.config/gh:/workspaces/astralbeam/tmp/.gh:cached"
+      - file-storage:/root/.local/share/astralbeam/storage
     command: sleep infinity
     init: true
     depends_on:
@@ -45,9 +39,10 @@ services:
 volumes:
   root-node-modules:
   platform-node-modules:
-  www-node-modules:
+  website-node-modules:
   sdk-node-modules:
   cli-node-modules:
   linearity-node-modules:
   todos-node-modules:
   bun-cache:
+  file-storage:

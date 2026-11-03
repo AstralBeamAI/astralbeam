@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { createHash } from "node:crypto"
 
 import { assert, describe, it } from "@effect/vitest"
@@ -14,7 +15,7 @@ import {
 import { authenticateChatRequest, verifyChatAuthToken } from "./auth"
 import { CHAT_AUTH_TOKEN_AUDIENCE, CHAT_AUTH_TOKEN_TYPE } from "./constants"
 
-const ORGANIZATION_ID = "01990a5d-ac96-774b-b942-6b13c85384ca"
+const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
 const KEY_ID = "01990a5d-ac96-774b-b942-6b13c85384c9"
 const apiKeyId = `key_${ORGANIZATION_ID}_${KEY_ID}`
 const rawApiKey = `abo_${"A".repeat(64)}`

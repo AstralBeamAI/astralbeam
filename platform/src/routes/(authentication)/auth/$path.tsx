@@ -1,4 +1,4 @@
-import { parseAuthResult, viewPaths } from "@better-auth-ui/core"
+import { authQueryKeys, parseAuthResult, viewPaths } from "@better-auth-ui/core"
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router"
 
 import { Auth } from "@/components/auth/auth"
@@ -17,6 +17,7 @@ const AUTHENTICATED_AUTH_VIEWS = new Set([
   "reset-link-sent",
   "reset-password",
   "sign-out",
+  "verify-email",
 ])
 
 export const Route = createFileRoute("/(authentication)/auth/$path")({
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/(authentication)/auth/$path")({
       })
     }
 
+    await context.queryClient.invalidateQueries({ queryKey: authQueryKeys.session })
     const access = await getRouteSessionAccessDecision(context.queryClient)
     if (access.status === "signed-out") {
       if (params.path === "accept-invitation") {
@@ -73,7 +75,10 @@ function AuthRoute() {
     <div className="flex min-h-svh flex-col">
       <PublicNavbar />
       <main className="flex flex-1 items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
-        <Auth path={path} />
+        <Auth
+          path={path}
+          className="max-w-md [--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]"
+        />
       </main>
     </div>
   )

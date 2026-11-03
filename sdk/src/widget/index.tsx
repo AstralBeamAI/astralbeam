@@ -1,4 +1,5 @@
-import { createRef } from "react"
+import { createAstralBeamChat } from "../core/session.ts"
+import { createDebugCallbacks } from "./lib/stream-debug.ts"
 import { createRoot } from "react-dom/client"
 import type { MountAstralBeamChatOptions } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
@@ -9,15 +10,7 @@ import { chatStyles } from "./styles.generated.ts"
 
 export interface ChatHandle {
   update: (options: MountAstralBeamChatOptions) => void
-  reset: () => void
-  stop: () => void
   dispose: () => void
-}
-
-/** The widget's imperative surface, attached by ChatWidget through `useImperativeHandle`. */
-export interface ChatController {
-  reset: () => void
-  stop: () => void
 }
 
 export function renderChat(
@@ -36,19 +29,23 @@ export function renderChat(
   let live = options
   const disposeHostStyle = bridgeHostStyle(shadowRoot, () => createDebugLogger(live.debug))
   const root = createRoot(container)
-  const controller = createRef<ChatController>()
+  let streamCallbacks = createDebugCallbacks(createDebugLogger(options.debug))
+  const ownedChat = options.chat ? undefined : createAstralBeamChat({ ...options, streamCallbacks })
   // The mount target (an HTMLElement per mountAstralBeamChat) hosts the slotted widget renders.
   const render = (nextOptions: MountAstralBeamChatOptions) => {
     if (live.customCss !== nextOptions.customCss) {
       style.textContent = chatStyles + (nextOptions.customCss ?? "")
     }
+    if (live.debug !== nextOptions.debug)
+      streamCallbacks = createDebugCallbacks(createDebugLogger(nextOptions.debug))
     live = nextOptions
+    ownedChat?.updateOptions({ ...nextOptions, streamCallbacks })
     root.render(
       <TooltipProvider delay={400}>
         <ChatWidget
+          chat={nextOptions.chat ?? ownedChat!}
           options={nextOptions}
           host={shadowRoot.host as HTMLElement}
-          controller={controller}
         />
       </TooltipProvider>,
     )
@@ -58,10 +55,9 @@ export function renderChat(
     // Rendering the same element type into the same root updates it in place, so the transcript,
     // the chat session, and live widget renders all survive an update.
     update: render,
-    reset: () => controller.current?.reset(),
-    stop: () => controller.current?.stop(),
     dispose: () => {
       root.unmount()
+      ownedChat?.dispose()
       disposeHostStyle()
       style.remove()
     },
