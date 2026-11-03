@@ -10,6 +10,8 @@ import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Cause, Effect, Exit, Result, Schedule, Schema } from "effect"
 import { defineServerEntry } from "nitro"
 
+import { stopEmbeddedPostgres } from "@/db/embedded-postgres.ts"
+
 const workerCountSchema = Schema.NumberFromString.pipe(
   Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
 )
@@ -52,10 +54,15 @@ export async function startPlatformServer(): Promise<void> {
     const command = Bun.isStandaloneExecutable
       ? [process.execPath, "start"]
       : [process.execPath, fileURLToPath(new URL("./src/main.ts", import.meta.url)), "start"]
-    BunRuntime.runMain(supervisePlatformWorkers({ count, command }), {
-      teardown: (exit, onExit) =>
-        onExit(Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? 1 : 0),
-    })
+    BunRuntime.runMain(
+      supervisePlatformWorkers({ count, command }).pipe(
+        Effect.ensuring(Effect.promise(stopEmbeddedPostgres)),
+      ),
+      {
+        teardown: (exit, onExit) =>
+          onExit(Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? 1 : 0),
+      },
+    )
     return
   }
   if (isWorker && !process.connected) return
