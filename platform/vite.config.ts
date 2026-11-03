@@ -36,15 +36,16 @@ const legalAssets = [
 const viteConfig = defineConfig(({ mode }) => {
   return {
     resolve: { tsconfigPaths: true },
+    // Nitro bundles this prebuilt workspace once instead of duplicating it in the SSR output.
+    // https://vite.dev/config/ssr-options#ssr-external
+    ssr: { external: ["@astralbeam/sandbox"] },
     // `strictPort` keeps a busy port an error instead of a silent move to the next one, which
     // would leave APP_BASE_URL, auth cookies, and email links pointing at another server.
     server: {
       port: Number(process.env.PORT ?? 4500),
       strictPort: true,
     },
-    // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
     optimizeDeps: {
-      exclude: ["dockerode"],
       // Prebundle lazy client imports to avoid a reload during initial hydration.
       // https://vite.dev/config/dep-optimization-options.html#optimizedeps-include
       include: ["jose/errors", "seroval"],
@@ -120,9 +121,9 @@ const viteConfig = defineConfig(({ mode }) => {
             compressPublicAssets: true,
             sourcemap: true,
             experimental: { sourcemapMinify: false },
-            // Trace Daytona's dynamic busboy import and include Windows Sharp's libvips DLLs that tracing misses.
+            // Windows Sharp's DLLs need a full package copy, not only traced imports.
             // https://nitro.build/config#tracedeps
-            traceDeps: ["busboy", "@img/sharp-win32-x64*"],
+            traceDeps: ["@img/sharp-win32-x64*"],
             minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
@@ -215,7 +216,7 @@ const viteConfig = defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: "unit",
-            exclude: [...configDefaults.exclude, "e2e/**", "**/*.integration.test.*"],
+            exclude: ["**/*.integration.test.*"],
           },
         },
         {

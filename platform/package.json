@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev",
     "generate:openapi": "bun run scripts/export-openapi.ts",
-    "build": "bun run generate:openapi && NODE_ENV=production vite build && bun run compile",
+    "build": "bun run --cwd packages/sandbox build && bun run generate:openapi && NODE_ENV=production vite build && bun run compile",
     "sourcemaps:posthog": "posthog-cli sourcemap upload --release-mode symbol-set",
     "start": "bun run src/main.ts",
     "binary:check": "bun run --env-file=.env.test scripts/check-binary.ts",
@@ -34,6 +34,7 @@
     "compile": "bun run scripts/compile.ts"
   },
   "dependencies": {
+    "@astralbeam/sandbox": "workspace:*",
     "@astralbeam/sdk": "workspace:*",
     "@aws-sdk/client-s3": "^3.1151.0",
     "@aws-sdk/client-sesv2": "^3.1151.0",
@@ -72,11 +73,6 @@
     "@tanstack/ai-openrouter": "^1.0.0",
     "@tanstack/ai-persistence": "^1.0.0",
     "@tanstack/ai-sandbox": "^1.0.0",
-    "@tanstack/ai-sandbox-daytona": "^1.0.0",
-    "@tanstack/ai-sandbox-docker": "^1.0.0",
-    "@tanstack/ai-sandbox-e2b": "^1.0.0",
-    "@tanstack/ai-sandbox-sprites": "^1.0.0",
-    "@tanstack/ai-sandbox-vercel": "^1.0.0",
     "@tanstack/highlight": "^1.1.0",
     "@tanstack/markdown": "^1.0.0",
     "@tanstack/react-devtools": "^0.10.13",
@@ -88,7 +84,6 @@
     "@tanstack/react-start": "^1.169.1",
     "better-auth": "^1.7.15",
     "bowser": "^2.14.1",
-    "busboy": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "commander": "^15.0.0",
@@ -107,7 +102,6 @@
     "shadcn": "^4.21.5",
     "sharp": "^0.35.5",
     "tanstack-router-theme-provider": "^0.1.5",
-    "tslib": "^2.8.1",
     "tw-animate-css": "^1.4.0",
     "undici": "^7.30.1"
   },

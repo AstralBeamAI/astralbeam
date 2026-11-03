@@ -72,6 +72,7 @@ async function bootstrapWorktree(): Promise<void> {
   await Bun.$`${process.execPath} run db migrate`.env(process.env)
   if (seedRequired) await Bun.$`${process.execPath} run db-seed`.env(process.env)
   await Bun.$`${process.execPath} run --cwd ../sdk build`.env(process.env)
+  await Bun.$`${process.execPath} run --cwd packages/sandbox build`.env(process.env)
 }
 
 await bootstrapWorktree()
