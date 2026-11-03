@@ -3,8 +3,6 @@
   // Use `/** @knipignore */` only for exports whose external use cannot be represented in the entry graph.
   // https://knip.dev/reference/jsdoc-tsdoc-tags
   "tags": ["-knipignore"],
-  // Entry files are execution roots, not permission to expose every symbol they contain.
-  "includeEntryExports": true,
   "treatConfigHintsAsErrors": true,
   "treatTagHintsAsErrors": true,
   // Let Knip delete unreachable registry files without rewriting generated symbols inside retained files.
@@ -26,6 +24,8 @@
   },
   "workspaces": {
     ".": {
+      // Entry files are execution roots, not permission to expose every symbol they contain.
+      "includeEntryExports": true,
       // Keep Bun-run generators and framework entry points explicit.
       "entry": [
         "e2e/mailbox-server.ts",
@@ -40,7 +40,6 @@
         "src/start.ts",
       ],
     },
-    // Platform consumes the generated bundle, so its source entry defines the package's public API.
-    "packages/sandbox": { "includeEntryExports": false },
+    "packages/sandbox": {},
   },
 }
