@@ -120,9 +120,9 @@ const viteConfig = defineConfig(({ mode }) => {
             compressPublicAssets: true,
             sourcemap: true,
             experimental: { sourcemapMinify: false },
-            // Trace Daytona's dynamic busboy import and every installed native Sharp package.
+            // Trace Daytona's dynamic busboy import and include Windows Sharp's libvips DLLs that tracing misses.
             // https://nitro.build/config#tracedeps
-            traceDeps: ["busboy", "@img", "@img/sharp-win32-x64*"],
+            traceDeps: ["busboy", "@img/sharp-win32-x64*"],
             minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias
