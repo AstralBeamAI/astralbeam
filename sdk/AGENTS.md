@@ -13,6 +13,7 @@ When changing chat persistence or recovery, read the [chat lifecycle and failure
 
 ## Sessions and credentials
 
+- Keep keyed tool/widget registries, `parameters`, `metadata.title`, and callback positions. Helpers are optional and preserve inference. Plain JSON gets an SDK-built envelope, only `toolResult(...)` marks a custom envelope, and versioned widget-only data stays out of model history. Preserve existing plain results and `render_widget` calls within canonical saved history.
 - Keep one AstralBeam `apiUrl`, using generated URL helpers with `resolveApiUrl`. Token acquisition uses `fetchAstralBeamToken`, standard `RequestInit` fields, and the session abort signal. Preserve chat's `/api/astralbeam/token` default and require explicit directory token sources.
 - Update options and callbacks in place without remounting or clearing state on reference changes. Read current values per request. Account and API changes clear scoped authentication and data. Refresh must recover failed authentication, with shared failures reported once through the latest `onError`.
 - Keep one `ChatClient` per selected conversation. Separate submission acceptance, run status, and history ownership. Admit an attempt only when no submission is active. A declined attempt resolves `refused` without replacing `state.submission`. Change phases only through the session's transition table. Stop, navigation, identity changes, and disposal settle pending sends. Undispatched input is refused, while uncertain delivery remains failed with Retry.

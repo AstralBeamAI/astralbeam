@@ -102,6 +102,12 @@ function managedToolPart(
 ) {
   const nativeId = Schema.decodeUnknownSync(Schema.String)(part.id)
   const tool = state.tools.find((candidate) => candidate.name === part.name)
+  const descriptor: unknown = tool?.metadata?.astralbeam
+  const native =
+    Schema.is(Schema.JsonObject)(descriptor) && descriptor.resultVersion === 1
+      ? descriptor
+      : undefined
+  const title: unknown = tool?.metadata?.title
   const browser = tool !== undefined && !tool.execute
   const toolPartId = managedPartId(state.partIds, `tool:${nativeId}`)
   return {
@@ -117,7 +123,10 @@ function managedToolPart(
     declaration: chatStoredJson({
       name: tool?.name ?? part.name,
       inputSchema: tool?.inputSchema ? convertSchemaToJsonSchema(tool.inputSchema) : undefined,
-      outputSchema: tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined,
+      outputSchema:
+        native?.outputSchema ??
+        (tool?.outputSchema ? convertSchemaToJsonSchema(tool.outputSchema) : undefined),
+      ...(native ? { ...native, title } : {}),
       ...(tool?.execute && tool.metadata?.source === "mcp"
         ? {
             source: "mcp",

@@ -20,7 +20,7 @@ import {
   resolveAttachmentOptions,
 } from "./lib/attachments.ts"
 import { DEFAULT_API_URL, DEFAULT_TITLE } from "../lib/constants.ts"
-import type { MountAstralBeamChatOptions, WidgetDefinition } from "../lib/types.ts"
+import type { MountAstralBeamChatOptions, WidgetRegistry } from "../lib/types.ts"
 import { createDebugLogger } from "../lib/debug.ts"
 import { ASK_QUESTIONNAIRE_TOOL } from "../core/protocol.ts"
 import type { AstralBeamChatCore } from "../core/session.ts"
@@ -33,7 +33,7 @@ import { useComposerDraft } from "./use-composer-draft.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
 // Keep an absent widget catalog stable across view updates.
-const NO_WIDGETS: Record<string, WidgetDefinition> = {}
+const NO_WIDGETS: WidgetRegistry = {}
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
 
 export function ChatWidget({

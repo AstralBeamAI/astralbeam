@@ -13,7 +13,7 @@ export {
   type WidgetRenderRequest,
 } from "./session.ts"
 export type { ChatAuthenticationState } from "./auth.ts"
-export type { ChatThread, ChatPendingInteraction } from "./threads.ts"
+export type { ChatThread, ChatPendingInteraction, ChatToolCallPart } from "./threads.ts"
 export { buildAgentTools, type WidgetDeclaration } from "./agent-tools.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "./messages.ts"
 export {
@@ -44,13 +44,22 @@ export type {
   SandboxStatus,
 } from "./types.ts"
 // No defineWidget: a core widget is declared without a render, so its generic would type nothing.
-export { defineTool } from "../lib/define.ts"
+export { defineTool, toolResult } from "../lib/define.ts"
 export type {
   InferParameters,
   JsonSchemaObject,
+  OutputSchema,
   ParametersSchema,
   StandardSchemaV1,
   ToolDefinition,
+  ToolRegistry,
+  ToolInput,
+  ToolResult,
+  ToolContent,
+  ToolAnnotations,
+  ToolExecutionContext,
+  WidgetContext,
+  WidgetRenderHandle,
 } from "../lib/types.ts"
 export type { WebSource, WebCitation, WebEvidence, WebPartMetadata } from "./web.ts"
 

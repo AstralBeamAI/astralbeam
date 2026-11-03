@@ -1,5 +1,5 @@
 import type { UIMessage } from "@tanstack/ai-client"
-import type { WidgetDefinition } from "../../lib/types.ts"
+import type { WidgetDefinition, WidgetRegistry } from "../../lib/types.ts"
 import { citedWebText, webPartMetadata } from "../../core/web.ts"
 import { isAstralBeamApiError } from "../../api/api.ts"
 export { hasPendingToolRun, isSettledToolCall, lastPartInProgress } from "../../core/messages.ts"
@@ -33,11 +33,7 @@ export function formatByteSize(size: number | undefined): string | undefined {
   return `${Math.round(size / 1024)} KB`
 }
 
-// Widget names come from the agent; inherited keys like "constructor" must not resolve.
-export function getWidget(
-  widgets: Record<string, WidgetDefinition>,
-  name: string,
-): WidgetDefinition | undefined {
+export function getWidget(widgets: WidgetRegistry, name: string): WidgetDefinition | undefined {
   return Object.hasOwn(widgets, name) ? widgets[name] : undefined
 }
 

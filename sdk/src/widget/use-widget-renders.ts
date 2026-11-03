@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { WidgetDefinition } from "../lib/types.ts"
+import type { WidgetRegistry } from "../lib/types.ts"
 import type { DebugLogger } from "../lib/debug.ts"
 import type { WidgetRenderRequest } from "../core/session.ts"
 import { getWidget, slotNameForToolCall } from "./lib/utils.ts"
@@ -25,7 +25,7 @@ interface ActiveWidgetRender {
  * handed to resolves the widget and validates the props; this hook only draws.
  */
 export function useWidgetRenders(
-  widgets: Record<string, WidgetDefinition>,
+  widgets: WidgetRegistry,
   host: HTMLElement,
   debug: DebugLogger | undefined,
 ) {
@@ -85,7 +85,7 @@ export function useWidgetRenders(
   })
 
   const renderWidget = useCallback(
-    ({ widget, props, toolCallId, release }: WidgetRenderRequest) => {
+    ({ widget, props, context, toolCallId, release }: WidgetRenderRequest) => {
       const debug = debugRef.current
       debug?.("widget", `agent requested widget "${widget}"`, { toolCallId, props })
       const definition = getWidget(widgetsRef.current, widget)
@@ -99,9 +99,9 @@ export function useWidgetRenders(
       host.append(container)
       // A render that throws part-way would otherwise leave its container in the host's DOM,
       // with no entry below to dispose it.
-      let cleanup: (() => void) | void
+      let handle: ReturnType<WidgetRegistry[string]["render"]>
       try {
-        cleanup = definition.render(props, container)
+        handle = definition.render(props, container, context)
       } catch (error) {
         container.remove()
         throw error
@@ -109,7 +109,7 @@ export function useWidgetRenders(
       const active: ActiveWidgetRender = {
         widget,
         container,
-        cleanup: cleanup ?? undefined,
+        cleanup: typeof handle === "function" ? handle : () => handle?.dispose(),
         release,
       }
       activeRenders.current.set(toolCallId, active)
@@ -124,7 +124,8 @@ export function useWidgetRenders(
       setActiveSlots((current) => new Map(current).set(slotName, widget))
       debug?.("widget", `widget "${widget}" rendered`, { slotName })
       // Selected by identity, so disposing a render this hook already evicted or replaced is a no-op.
-      return () => discardRenders((render) => render === active)
+      const dispose = () => discardRenders((render) => render === active)
+      return handle && typeof handle !== "function" ? { update: handle.update, dispose } : dispose
     },
     [host, discardRenders],
   )

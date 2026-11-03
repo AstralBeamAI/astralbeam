@@ -46,12 +46,12 @@ widgets: {
 
 ## Schemas
 
-`parameters` is a plain JSON Schema object, or any [Standard Schema](https://standardschema.dev) validator such as Zod, Valibot, or ArkType.
+`parameters` accepts object JSON Schema or a [Standard Schema](https://standardschema.dev) validator with JSON Schema export. `outputSchema` can describe any JSON value.
 
 - A Standard Schema is enforced in the browser before your `execute` or `render` runs. JSON Schema export errors are surfaced during declaration.
-- With plain JSON Schema, nothing validates in the browser: treat the agent's input as untrusted.
+- Plain JSON Schema also validates input in the browser. Standard Schema validators must provide JSON Schema export.
 - Models sometimes send numbers as strings. With Zod, prefer `z.coerce.number()` over `z.number()`.
-- The model is held to a schema only when every object in it lists its `properties` and allows no other keys. A free-form object such as `z.record()`, or a validator that cannot export JSON Schema, still works, but the model may then send input that does not match.
+- The model is held to a schema only when every object in it lists its `properties` and allows no other keys. A free-form object such as `z.record()` still works, but the model may then send input that does not match.
 
 ## Typed definitions
 
@@ -76,6 +76,29 @@ const createTodo = defineTool({
 
 - Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets). `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
 - With a plain JSON Schema, the input stays `Record<string, unknown>`, which is the honest type.
+
+## Results and widget context
+
+Return JSON data directly, including arrays and primitives. The SDK constructs the model-safe envelope. For custom results, let's use `toolResult(...)`:
+
+```ts
+import { toolResult } from "@astralbeam/sdk/core"
+
+return toolResult({
+  content: "Found three todos",
+  structuredContent: { count: 3 },
+  uiData: { todos },
+})
+```
+
+- Only `toolResult(...)` marks an envelope. Business data can use the same field names. `content` accepts text or content blocks, or defaults to JSON from `structuredContent`.
+- `uiData` is retained for widgets and saved history, and excluded from model context and raw disclosures. Set `isError: true` for a known failure.
+- `execute(input, context)` receives `signal` and an optional `invocationId`. Callbacks may omit unused arguments. Cancellation cannot undo completed changes.
+- Set a tool's `widget` to its presentation ID. Standalone widgets declare schema-specific `show_<id>` tools. Existing saved `render_widget` calls remain readable.
+- React uses `render(props, context)`. Native rendering uses `render(props, container, context)` and returns cleanup or `{ update(context), dispose() }`.
+- Context includes `input`, `result`, `status`, `invocationId`, `signal`, and `callTool(name, input)`. Local calls validate and run app-visible tools without a chat message.
+- `visibility` defaults to `["model", "app"]`. Add `tools` to a `defineWidget` definition for inferred local-call names, inputs, and results. `annotations` carry advisory behavior hints.
+- Input and output validation support Effect's [Draft 2020-12 subset](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/SchemaRepresentation.ts). Unsupported contracts fail declaration. Server validation uses bounded regex analysis.
 
 ## Live state
 
