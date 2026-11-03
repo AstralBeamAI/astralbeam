@@ -70,7 +70,8 @@ test("preparing context keeps the transcript visible and clears when the run fin
   await page.addInitScript(
     ({ threadId }) => {
       const originalFetch = window.fetch
-      window.fetch = (input, init) => {
+      window.fetch = Object.assign((...args: Parameters<typeof originalFetch>) => {
+        const [input, init] = args
         const url = input instanceof Request ? input.url : String(input)
         if (!url.endsWith("/api/v1/chat")) return originalFetch(input, init)
         return Promise.resolve(
@@ -108,7 +109,7 @@ test("preparing context keeps the transcript visible and clears when the run fin
             { headers: { "content-type": "text/event-stream" } },
           ),
         )
-      }
+      }, originalFetch)
     },
     { threadId: thread.id },
   )
