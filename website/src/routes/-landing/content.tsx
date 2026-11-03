@@ -199,13 +199,7 @@ export const integrations: Integration[] = [
   {
     label: "CODING SANDBOXES",
     desc: "Pick a provider in the dashboard. The agent gets a workspace per conversation.",
-    items: [
-      { name: "Docker" },
-      { name: "Daytona" },
-      { name: "E2B" },
-      { name: "Vercel Sandbox" },
-      { name: "Sprites" },
-    ],
+    items: [{ name: "Daytona" }, { name: "E2B" }, { name: "Vercel Sandbox" }, { name: "Sprites" }],
   },
   {
     label: "IDENTITY & BILLING",

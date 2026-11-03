@@ -65,7 +65,7 @@ export type OrganizationSandboxProviderSummary = Effect.Success<
 
 /** A provider as its no-store editing page sees it, with credentials revealed for masking. */
 export type OrganizationSandboxProvider = SandboxProviderRow & {
-  credentials: SandboxProviderCredentials[SandboxProviderId]
+  credentials: SandboxProviderCredentials[SandboxProviderId] | Record<string, never>
   /** False when stored credentials no longer decrypt, so the member enters them again. */
   credentialsReadable: boolean
 }
@@ -107,8 +107,6 @@ function readStoredCredentials(
   row: SandboxProviderRow,
   storedCredentials: string | null,
 ): Option.Option<SandboxProviderCredentials[SandboxProviderId]> {
-  if (row.providerType === "docker")
-    return storedCredentials === null ? Option.some({}) : Option.none()
   const decrypted = decryptDatabaseValue({
     storedValue: storedCredentials,
     schema: SandboxProviderCredentialsPayloadSchema,
@@ -129,14 +127,12 @@ function credentialsPayload(input: {
   provider: SandboxProviderId
   credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
-  return input.provider === "docker"
-    ? null
-    : {
-        sandboxProviderId: input.id,
-        organizationId: input.organizationId,
-        providerType: input.provider,
-        credentials: input.credentials,
-      }
+  return {
+    sandboxProviderId: input.id,
+    organizationId: input.organizationId,
+    providerType: input.provider,
+    credentials: input.credentials,
+  }
 }
 
 const mapSandboxProviderWriteErrors = mapDatabaseErrors({
@@ -344,7 +340,7 @@ export class SandboxProviders extends Context.Service<
             providerType: input.providerType,
             options: input.options,
             lastTest,
-            ...(credentials === null || credentialsChanged ? { credentials } : {}),
+            ...(credentialsChanged ? { credentials } : {}),
           },
         }).pipe(
           mapSandboxProviderWriteErrors,

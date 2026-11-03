@@ -1,8 +1,8 @@
 import { it as effectIt } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { decodeProviderOptions } from "./schemas.ts"
+import { decodeProviderOptions, SandboxProviderIdSchema } from "./schemas.ts"
 import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "@/routes/_authenticated/$orgSlug/sandboxes/-lib/schemas"
 
@@ -12,20 +12,21 @@ describe("sandbox provider schemas", () => {
     const result = await validator["~standard"].validate({
       organizationSlug: "acme",
       name: "",
-      providerType: "docker",
-      options: { image: "" },
-      credentials: { apiKey: "private-test-secret" },
+      providerType: "e2b",
+      options: { template: "" },
+      credentials: { token: "private-test-secret" },
       id: null,
       lockVersion: null,
     })
     expect(result.issues?.map((issue) => issue.path)).toEqual(
-      expect.arrayContaining([["name"], ["options", "image"], ["credentials", "apiKey"]]),
+      expect.arrayContaining([["name"], ["options", "template"], ["credentials", "token"]]),
     )
     expect(JSON.stringify(result)).not.toContain("private-test-secret")
   })
 
   effectIt.effect("rejects provider-mismatched and unsafe stored values", () =>
     Effect.gen(function* () {
+      yield* Effect.flip(Schema.decodeUnknownEffect(SandboxProviderIdSchema)("docker"))
       const options = { target: "us", snapshot: "daytona-medium", apiKey: "leak" }
       yield* Effect.flip(decodeProviderOptions("daytona", options))
       yield* Effect.flip(decodeProviderOptions("e2b", { template: "base", apiKey: "leak" }))

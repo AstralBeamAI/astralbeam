@@ -37,7 +37,7 @@ For other file types, the agent receives a handle and reads the contents through
 - `read_attachment` reads plain text files without a sandbox, in pages of up to 40,000 characters. See [Limits](./limits.md).
 - Results include type and size. Ask the agent to calculate sheet names, column types, row counts, and totals in the sandbox.
 - Agents with a sandbox receive the original file at `uploads/<name>` when they first use a sandbox tool.
-- Large files can exceed the sandbox's 30-second transfer timeout, particularly with Docker. Split the file if analysis fails during sandbox startup.
+- Large files can exceed the sandbox's 30-second transfer timeout. Split the file if analysis fails during sandbox startup.
 - New Office and data attachments, including CSV and TSV, require a sandbox. Visible thumbnails do not provide their contents to the agent.
 - Earlier attachments remain downloadable if sandbox access becomes unavailable. You can continue chatting and reading plain text, but rereading Office and data requires restored access.
 - A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.

@@ -42,9 +42,7 @@ const viteConfig = defineConfig(({ mode }) => {
       port: Number(process.env.PORT ?? 4500),
       strictPort: true,
     },
-    // @tanstack/ai-sandbox-docker uses dockerode, whose optional SSH transport includes a native module that Vite cannot prebundle. https://github.com/apocas/dockerode#connecting-to-docker
     optimizeDeps: {
-      exclude: ["dockerode"],
       // Prebundle lazy client imports to avoid a reload during initial hydration.
       // https://vite.dev/config/dep-optimization-options.html#optimizedeps-include
       include: ["jose/errors", "seroval"],

@@ -66,8 +66,8 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
       .values({
         organizationId,
         name: "Original",
-        providerType: "docker",
-        options: { image: "test-image" },
+        providerType: "e2b",
+        options: { template: "test-template" },
       })
       .returning()
     const update = Effect.flatMap(Database, (executor) =>
@@ -83,7 +83,7 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
     await expect(runtime.runPromise(update)).resolves.toMatchObject({
       name: "Updated",
       lockVersion: row!.lockVersion + 1,
-      options: { image: "test-image" },
+      options: { template: "test-template" },
     })
     await expect(runtime.runPromise(update)).rejects.toMatchObject({ _tag: "OptimisticLockError" })
   })
@@ -101,9 +101,9 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
       db.insert(sandboxProvider).values({
         organizationId,
         name: "Invalid",
-        providerType: "docker",
+        providerType: "e2b",
         options: {
-          image: "test-image",
+          template: "test-template",
           unexpected: true,
         } as unknown as typeof sandboxProvider.$inferInsert.options,
       }),
@@ -113,11 +113,14 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
       .values({
         organizationId,
         name: "Corrupted",
-        providerType: "docker",
-        options: { image: "test-image" },
+        providerType: "e2b",
+        options: { template: "test-template" },
       })
       .returning()
-    for (const invalid of ['{"image":"test-image"}', { image: "test-image", unexpected: true }]) {
+    for (const invalid of [
+      '{"template":"test-template"}',
+      { template: "test-template", unexpected: true },
+    ]) {
       await db.execute(
         sql`update sandbox_provider set options = ${JSON.stringify(invalid)}::jsonb where id = ${row!.id}`,
       )

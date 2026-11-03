@@ -85,7 +85,7 @@ export function SandboxProviderForm({
     value: item.id,
   }))
   const descriptor = sandboxProviderDescriptors.find((item) => item.id === providerType)!
-  const credentialLabel = descriptor.credentialLabel ?? "Credential"
+  const credentialLabel = descriptor.credentialLabel
   const input = Schema.decodeUnknownResult(
     SaveSandboxProviderInputSchema,
     strictParseOptions,
@@ -94,12 +94,7 @@ export function SandboxProviderForm({
     name,
     providerType,
     options,
-    credentials:
-      providerType === "docker"
-        ? {}
-        : providerType === "vercel"
-          ? { token: secret.trim() }
-          : { apiKey: secret.trim() },
+    credentials: providerType === "vercel" ? { token: secret.trim() } : { apiKey: secret.trim() },
     id: existing?.id ?? null,
     lockVersion: existing?.lockVersion ?? null,
   })
@@ -219,57 +214,55 @@ export function SandboxProviderForm({
             }
           />
 
-          {providerType !== "docker" && (
-            <Field data-invalid={credentialErrors.length > 0 || undefined}>
-              <FieldLabel htmlFor="sandbox-credential">{credentialLabel}</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
-                  id="sandbox-credential"
-                  aria-invalid={credentialErrors.length > 0 || undefined}
-                  aria-describedby={
-                    credentialErrors.length > 0 ? "sandbox-credential-error" : undefined
-                  }
-                  type={secretVisible ? "text" : "password"}
-                  autoComplete="new-password"
-                  className="ph-no-capture"
-                  maxLength={16_384}
-                  value={secret}
-                  disabled={disabled}
-                  placeholder={`Enter the ${credentialLabel.toLowerCase()}`}
-                  onChange={(event) => setSecret(event.target.value)}
-                />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    aria-label={`${secretVisible ? "Hide" : "Show"} ${credentialLabel}`}
-                    title={`${secretVisible ? "Hide" : "Show"} ${credentialLabel}`}
-                    disabled={disabled || !secret}
-                    onClick={() => setSecretVisible((visible) => !visible)}
-                  >
-                    {secretVisible ? (
-                      <EyeSlashIcon aria-hidden="true" />
-                    ) : (
-                      <EyeIcon aria-hidden="true" />
-                    )}
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
-              <FieldError id="sandbox-credential-error" errors={credentialErrors} />
-              {existing && existing.providerType !== providerType && (
+          <Field data-invalid={credentialErrors.length > 0 || undefined}>
+            <FieldLabel htmlFor="sandbox-credential">{credentialLabel}</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                id="sandbox-credential"
+                aria-invalid={credentialErrors.length > 0 || undefined}
+                aria-describedby={
+                  credentialErrors.length > 0 ? "sandbox-credential-error" : undefined
+                }
+                type={secretVisible ? "text" : "password"}
+                autoComplete="new-password"
+                className="ph-no-capture"
+                maxLength={16_384}
+                value={secret}
+                disabled={disabled}
+                placeholder={`Enter the ${credentialLabel.toLowerCase()}`}
+                onChange={(event) => setSecret(event.target.value)}
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={`${secretVisible ? "Hide" : "Show"} ${credentialLabel}`}
+                  title={`${secretVisible ? "Hide" : "Show"} ${credentialLabel}`}
+                  disabled={disabled || !secret}
+                  onClick={() => setSecretVisible((visible) => !visible)}
+                >
+                  {secretVisible ? (
+                    <EyeSlashIcon aria-hidden="true" />
+                  ) : (
+                    <EyeIcon aria-hidden="true" />
+                  )}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            <FieldError id="sandbox-credential-error" errors={credentialErrors} />
+            {existing && existing.providerType !== providerType && (
+              <FieldDescription>
+                Changing providers requires new credentials; the previous credentials will be
+                removed.
+              </FieldDescription>
+            )}
+            {existing &&
+              !existing.credentialsReadable &&
+              existing.providerType === providerType && (
                 <FieldDescription>
-                  Changing providers requires new credentials; the previous credentials will be
-                  removed.
+                  The stored credentials cannot be read. Enter them again, then test and save.
                 </FieldDescription>
               )}
-              {existing &&
-                !existing.credentialsReadable &&
-                existing.providerType === providerType && (
-                  <FieldDescription>
-                    The stored credentials cannot be read. Enter them again, then test and save.
-                  </FieldDescription>
-                )}
-            </Field>
-          )}
+          </Field>
         </FieldGroup>
       </CardContent>
       {!readOnly && (

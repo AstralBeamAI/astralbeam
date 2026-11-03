@@ -75,7 +75,7 @@ bun run --cwd platform db migrate
 
 ## Seed sample data
 
-`bun run --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, a Docker sandbox provider, and saved conversations for the todos tenant user and for `owner@example.com` in Astro on `acme`. It skips `/configure`, signup, email verification, and API-key creation entirely.
+`bun run --cwd platform db-seed` fills the current worktree's database with global configuration, dogfood and sample organizations, verified accounts, members, agents, organization API keys, Tenants and tenant users, and saved conversations for the todos tenant user and for `owner@example.com` in Astro on `acme`. It skips `/configure`, signup, email verification, and API-key creation entirely.
 
 ```sh
 bun run --cwd platform db-reset

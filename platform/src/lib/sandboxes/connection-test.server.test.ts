@@ -26,14 +26,18 @@ vi.mock("./factory.server.ts", () => ({
 
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 
-const dockerTest = { provider: "docker", options: { image: "node:22" }, credentials: {} } as const
+const e2bTest = {
+  provider: "e2b",
+  options: { template: "base" },
+  credentials: { apiKey: "test-key" },
+} as const
 
 describe("runSandboxConnectionTest", () => {
   it.effect("reports failed cleanup after a successful connection test", () =>
     Effect.gen(function* () {
       connectionTestSandbox.exec.mockResolvedValue({ exitCode: 0, stdout: "sandbox-connection-ok" })
       connectionTestSandbox.destroy.mockRejectedValueOnce(new Error("Vendor cleanup failed"))
-      assert.deepInclude(yield* runSandboxConnectionTest(dockerTest), {
+      assert.deepInclude(yield* runSandboxConnectionTest(e2bTest), {
         status: "failure",
         errorCode: "cleanup_failed",
       })
@@ -48,7 +52,7 @@ describe("runSandboxConnectionTest", () => {
         Deferred.doneUnsafe(started, Effect.void)
         return new Promise(() => {})
       })
-      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
+      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(e2bTest))
       yield* Deferred.await(started)
       yield* Fiber.interrupt(fiber)
       assert.strictEqual(connectionTestSandbox.destroy.mock.calls.length, 1)
@@ -59,7 +63,7 @@ describe("runSandboxConnectionTest", () => {
     Effect.gen(function* () {
       connectionTestSandbox.destroy.mockClear()
       connectionTestSandbox.exec.mockImplementation(() => new Promise(() => {}))
-      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
+      const fiber = yield* Effect.forkChild(runSandboxConnectionTest(e2bTest))
       yield* TestClock.adjust("15 seconds")
       const result = yield* Fiber.join(fiber)
       assert.deepInclude(result, { status: "failure", errorCode: "timeout" })
@@ -67,14 +71,14 @@ describe("runSandboxConnectionTest", () => {
     }),
   )
 
-  // Docker's adapter ignores the abort signal, so its create can still finish after the test ends.
+  // A provider may finish provisioning after the caller has already timed out or disconnected.
   it.effect("destroys a sandbox whose create finishes after a timeout or interruption", () =>
     Effect.gen(function* () {
       for (const end of ["timeout", "interrupt"] as const) {
         connectionTestSandbox.destroy.mockClear()
         const late = Promise.withResolvers<unknown>()
         connectionTestSandbox.pendingCreate = late.promise
-        const fiber = yield* Effect.forkChild(runSandboxConnectionTest(dockerTest))
+        const fiber = yield* Effect.forkChild(runSandboxConnectionTest(e2bTest))
         if (end === "timeout") {
           yield* TestClock.adjust("30 seconds")
           assert.deepInclude(yield* Fiber.join(fiber), { status: "failure", errorCode: "timeout" })
@@ -100,7 +104,7 @@ describe("runSandboxConnectionTest", () => {
       const e2b = Object.assign(new Error("Unauthorized"), { status: 401 })
       for (const error of [vercel, sprites, e2b]) {
         connectionTestSandbox.createError = error
-        const result = yield* runSandboxConnectionTest(dockerTest)
+        const result = yield* runSandboxConnectionTest(e2bTest)
         assert.deepInclude(result, { status: "failure", errorCode: "authentication" })
       }
       connectionTestSandbox.createError = undefined

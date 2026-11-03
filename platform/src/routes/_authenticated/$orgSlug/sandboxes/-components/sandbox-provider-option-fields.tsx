@@ -24,20 +24,6 @@ export function SandboxProviderOptionFields({
   errorsFor,
   onChange,
 }: SandboxProviderOptionFieldsProps) {
-  if (provider === "docker") {
-    const value = options as SandboxProviderOptions["docker"]
-    return (
-      <ProviderField
-        id="docker-image"
-        label="Image"
-        value={value.image}
-        errors={errorsFor("image")}
-        maximumLength={256}
-        disabled={disabled}
-        onChange={(image) => onChange({ image })}
-      />
-    )
-  }
   if (provider === "daytona") {
     const value = options as SandboxProviderOptions["daytona"]
     return (

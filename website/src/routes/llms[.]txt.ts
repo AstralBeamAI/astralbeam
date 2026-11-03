@@ -22,7 +22,7 @@ AstralBeam is for developers and product teams building SaaS and multi-tenant ap
 
 - LLM providers and gateways: OpenAI, Anthropic, Google Gemini, xAI Grok, and OpenRouter. Vercel AI Gateway is in progress.
 - Observability: OpenTelemetry. Langfuse, Braintrust, and LangSmith are in progress.
-- Coding sandboxes: Docker, Daytona, E2B, Vercel Sandbox, and Sprites.
+- Coding sandboxes: Daytona, E2B, Vercel Sandbox, and Sprites.
 - Identity and billing: any auth provider for identity, with Stripe billing in progress.
 
 ## Deployment

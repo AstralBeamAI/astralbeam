@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 
 import { loadEnv } from "vite"
 
-import { pinDockerHost, worktreeHash } from "../../../platform/e2e/bootstrap.ts"
+import { worktreeHash } from "../../../platform/e2e/bootstrap.ts"
 import { SEED_TODOS_TARGET } from "../../../platform/scripts/seed/fixtures.ts"
 
 /**
@@ -49,8 +49,6 @@ export const seedTarget = SEED_TODOS_TARGET
 /** Agent specs spend real model credits, so they only run when a key is actually configured. */
 export const agentSpecsEnabled = Boolean(platformEnv.OPENAI_API_KEY)
 
-pinDockerHost()
-
 /**
  * `E2E_CAPTURE=all` records video, a trace, and an end-of-test screenshot for every spec, passing
  * or not, which is what you want when the run itself is the evidence for a pull request. Left
@@ -74,8 +72,6 @@ function forwardedPlatformEnv(): Record<string, string> {
   return {
     PORT: String(platformPort),
     APP_BASE_URL: platformUrl,
-    // Explicit, so the server's sandbox client uses the same daemon the specs probed.
-    ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
   }
 }
 

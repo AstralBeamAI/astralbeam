@@ -31,7 +31,6 @@ export const SEED_MODEL_PROVIDER = {
 const SEED_NAMES = {
   acme: "acme",
   globex: "globex",
-  dockerProvider: "Local Docker",
   todosTenant: "todos-tenant-1",
   todosTenantUser: "todos-user-1",
 } as const
@@ -111,17 +110,6 @@ const SEED_TODOS_AGENT_SYSTEM_PROMPT =
 const SEED_STARTER_AGENT_SYSTEM_PROMPT =
   "You are the starter assistant for a seeded development organization. Help whoever is testing this application, act only through the tools and widgets the host page declares, and say plainly when a request is outside what you can do."
 
-/**
- * Docker is the one provider that stores no credentials, so it is the only one a seed can install
- * without inventing a secret. `lastTest` stays null: it is display-only on the sandboxes page and
- * the chat endpoint never reads it. https://docs.docker.com/engine/install/
- */
-const SEED_DOCKER_SANDBOX_PROVIDER = {
-  name: SEED_NAMES.dockerProvider,
-  providerType: "docker",
-  options: { image: "node:22" },
-} as const
-
 export const SEED_ORGANIZATIONS = [
   {
     id: SEED_ORGANIZATION_IDS.acme,
@@ -133,21 +121,18 @@ export const SEED_ORGANIZATIONS = [
       { email: "viewer@example.com", role: "viewer" },
     ],
     invitations: [],
-    sandboxProviders: [SEED_DOCKER_SANDBOX_PROVIDER],
     agents: [
       {
         id: SEED_AGENT_IDS.acmeStarter,
         name: "Acme Inc Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
-        sandboxProviderName: null,
       },
       {
         id: SEED_AGENT_IDS.acmeTodos,
         name: "Todos Assistant",
         systemPrompt: SEED_TODOS_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
-        sandboxProviderName: SEED_NAMES.dockerProvider,
       },
     ],
     // The todos agent is the default so the example works with VITE_ASTRALBEAM_AGENT_ID unset.
@@ -206,14 +191,12 @@ export const SEED_ORGANIZATIONS = [
     members: [{ email: "globex-owner@example.com", role: "owner" }],
     // Exercises the pending-invitation row on the members page without sending email.
     invitations: [{ email: "invitee@example.com", role: "viewer" }],
-    sandboxProviders: [],
     agents: [
       {
         id: SEED_AGENT_IDS.globexStarter,
         name: "Globex Corporation Assistant",
         systemPrompt: SEED_STARTER_AGENT_SYSTEM_PROMPT,
         attachmentsEnabled: true,
-        sandboxProviderName: null,
       },
     ],
     defaultAgentId: SEED_AGENT_IDS.globexStarter,
@@ -297,7 +280,7 @@ export const SEED_CONVERSATIONS = {
         ],
         [
           "Can it run code?",
-          "Yes. The Todos Assistant has the Local Docker sandbox provider, so it can run commands and write files.",
+          "Select a sandbox provider on the Todos Assistant to enable commands and file tools.",
         ],
       ],
     },

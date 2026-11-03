@@ -1,11 +1,10 @@
-import { spawnSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import process from "node:process"
 import { fileURLToPath } from "node:url"
 
 import { loadEnv } from "vite"
 
-import { pinDockerHost, worktreeHash } from "./bootstrap.ts"
+import { worktreeHash } from "./bootstrap.ts"
 
 const e2eDirectory = dirname(fileURLToPath(import.meta.url))
 const platformDirectory = join(e2eDirectory, "..")
@@ -70,18 +69,6 @@ export const e2eDatabaseUrl = deriveE2eDatabaseUrl()
  * what you want when the run itself is the evidence for a pull request.
  */
 export const captureEverything = process.env.E2E_CAPTURE === "all" || seededMode
-
-pinDockerHost()
-
-/**
- * Saving a sandbox provider runs the product's real connection test, which creates, uses, and
- * destroys a container and may pull its image, so that project is opt-in rather than ambient.
- */
-export const sandboxSpecsEnabled = process.env.E2E_SANDBOX === "docker"
-
-export function dockerDaemonAvailable(): boolean {
-  return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
-}
 
 /** Playwright `webServer` entries: the mail sink first, because the platform is pointed at it. */
 export function e2eWebServers() {
@@ -155,8 +142,6 @@ export function e2eWebServers() {
         // Better Auth would otherwise take its base URL from stored configuration and reject
         // requests arriving on the suite's port.
         APP_BASE_URL: platformUrl,
-        // Explicit, so the server's sandbox client uses the same daemon the spec probed.
-        ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}),
       },
       reuseExistingServer: false,
       timeout: 240_000,

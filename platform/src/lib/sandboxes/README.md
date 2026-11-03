@@ -1,13 +1,12 @@
 # Sandbox providers
 
-Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or Vercel. Each uses a maintained adapter from the official [TanStack AI sandbox provider list](https://tanstack.com/ai/latest/docs/sandbox/providers). Deno Sandbox and other providers are outside this initial set.
+Organization owners and developers can choose Daytona, E2B, Sprites, or Vercel. Each uses a maintained adapter from the official [TanStack AI sandbox provider list](https://tanstack.com/ai/latest/docs/sandbox/providers). Deno Sandbox and other providers are outside this initial set.
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
 | Provider | Package | Stored initializer options | Encrypted credential |
 | --- | --- | --- | --- |
 | Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |
-| Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | `image` | None |
 | E2B | [`@tanstack/ai-sandbox-e2b`](https://www.npmjs.com/package/@tanstack/ai-sandbox-e2b) | `template` | `apiKey` |
 | Sprites | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None | `apiKey` |
 | Vercel | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel) | `teamId`, `projectId`, `runtime` | `token` |
@@ -20,13 +19,6 @@ Defaults only populate a new organization form. Once saved, the database values 
 2. Choose the `us` or `eu` target and one of the organization's [available snapshots](https://www.daytona.io/docs/snapshots/). `daytona-medium` is the default shown in TanStack's [Daytona example](https://tanstack.com/ai/latest/docs/sandbox/providers#daytona).
 3. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Daytona**, enter the target, snapshot, and API key, then select **Test and save**.
 4. To rotate the key, test and save its replacement before revoking the previous key.
-
-## Docker setup
-
-1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
-2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
-3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
-4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`. Docker pulls it when absent.
 
 ## E2B setup
 

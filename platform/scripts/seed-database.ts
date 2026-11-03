@@ -73,11 +73,7 @@ try {
 
   console.log("\nAgents")
   for (const seededAgent of summary.agents) {
-    const labels = [
-      seededAgent.isDefault ? "default" : null,
-      seededAgent.sandboxProviderName,
-    ].filter((label) => label !== null)
-    const suffix = labels.length > 0 ? `  [${labels.join(", ")}]` : ""
+    const suffix = seededAgent.isDefault ? "  [default]" : ""
     console.log(`  ${seededAgent.id}  ${seededAgent.name}${suffix}`)
   }
 

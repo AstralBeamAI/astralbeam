@@ -73,7 +73,6 @@
     "@tanstack/ai-persistence": "^1.0.0",
     "@tanstack/ai-sandbox": "^1.0.0",
     "@tanstack/ai-sandbox-daytona": "^1.0.0",
-    "@tanstack/ai-sandbox-docker": "^1.0.0",
     "@tanstack/ai-sandbox-e2b": "^1.0.0",
     "@tanstack/ai-sandbox-sprites": "^1.0.0",
     "@tanstack/ai-sandbox-vercel": "^1.0.0",

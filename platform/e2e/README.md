@@ -2,7 +2,7 @@
 
 Browser tests cover authentication, `/configure`, and dashboard flows against a real Platform server and PostgreSQL database, with email captured by a local SMTP sink. Complete [local setup](../../docs/SETUP.md#local-development) before running them.
 
-Default runs create and migrate a separate database, start their own server, and leave the development database and port 4500 untouched. They make no model calls and start no containers. Docker sandbox tests are opt-in, while seeded evidence runs use the worktree's development database.
+Default runs create and migrate a separate database, start their own server, and leave the development database and port 4500 untouched. They make no model calls and start no containers. Seeded evidence runs use the worktree's development database.
 
 ## Run it
 
@@ -13,7 +13,6 @@ bun run --cwd platform e2e
 
 - `bun run --cwd platform e2e -g "some title"` narrows to matching test titles while iterating. Playwright does not apply `-g` to a dependency project, so the baseline below is still established.
 - `bun run --cwd platform e2e --project=features` runs only the focused specs, after their dependencies.
-- `E2E_SANDBOX=docker bun run --cwd platform e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
 - `bun run --cwd platform e2e --ui` opens Playwright's runner for stepping through a flow.
 - It is not part of `check`, `test`, or `ready`. CI does not run it. Agents run the default projects after creating or pushing to a pull request, as the [post-PR checks](../../.agents/skills/create-github-pr/SKILL.md#post-pr-checks) describe.
 
@@ -67,18 +66,16 @@ E2E_PLATFORM_URL=http://localhost:4500 bun run --cwd platform e2e:seeded  # reus
 | `pages/` | Selectors and actions, one module per surface |
 | `specs/journey/` | The full cold-start journey, which is also the suite's setup project |
 | `specs/features/` | Focused specs, which start from the journey's baseline |
-| `specs/sandbox/` | Specs that run real containers, present only under `E2E_SANDBOX=docker` |
 | `sign-in.setup.ts` | Signs in as the seeded owner once for `specs/seeded`, reusing a still-valid session |
 | `specs/seeded/` | Evidence specs against the seeded database, present only under `E2E_SEEDED=1` |
 
 ## Projects, and the baseline between them
 
-Three default Playwright projects run in a dependency chain, with a fourth opt-in sandbox project, so state a spec relies on is established by a project it depends on rather than by an unwritten ordering rule.
+Three default Playwright projects run in a dependency chain, so state a spec relies on is established by a project it depends on rather than by an unwritten ordering rule.
 
 1. `preflight` checks the environment.
 2. `journey` drives the product from an unconfigured deployment, and ends by writing `.output/baseline.json` and `.output/baseline-state.json`.
 3. `features` depends on `journey`, so its specs open with the owner already signed in and read that organization from the `baseline` fixture.
-4. `sandbox` depends on `journey` the same way, and exists only under `E2E_SANDBOX=docker`.
 
 ## Adding a flow
 
@@ -88,13 +85,13 @@ Compose it from the page objects; a spec should read as the user's steps and not
 2. Take the page objects you need from the fixture argument. Add a method to a page object rather than putting a raw selector in a spec.
 3. Take the organization to work in from the `baseline` fixture; the spec is already signed in as its owner. `test.use({ storageState: { cookies: [], origins: [] } })` gets a signed-out context instead, as `route-guards.spec.ts` does.
 4. Take unique names from `makeRunIdentity()` for anything the spec creates, so two runs never collide.
-5. Put a flow that needs an unconfigured deployment in `specs/journey` instead, and extend the baseline it records if a later spec needs more of it. Put anything that starts a container in `specs/sandbox`.
+5. Put a flow that needs an unconfigured deployment in `specs/journey` instead, and extend the baseline it records if a later spec needs more of it.
 
 ## How the environment is assembled
 
 `worktree.ts` derives three ports from the worktree path, so a given worktree always uses the same ones and two worktrees can run at once. It also derives the suite's database from `DATABASE_URL` in `platform/.env*` by appending `_e2e`, which `prepare-database.ts` refuses to touch unless the name really ends that way and the host is loopback.
 
-The platform server receives its derived ports, database URL, and resolved `DOCKER_HOST`. SMTP and Turnstile test keys are pinned so local provider settings cannot redirect test email or require a production CAPTCHA. The journey sets the SMTP port through `/configure`, reuses an environment-provided authentication secret or generates one, and completes the dogfood owner's password-reset onboarding before testing signup and the dashboard.
+The platform server receives its derived ports and database URL. SMTP and Turnstile test keys are pinned so local provider settings cannot redirect test email or require a production CAPTCHA. The journey sets the SMTP port through `/configure`, reuses an environment-provided authentication secret or generates one, and completes the dogfood owner's password-reset onboarding before testing signup and the dashboard.
 
 `E2E_DATABASE_URL`, `E2E_PLATFORM_PORT`, `E2E_SMTP_PORT`, and `E2E_MAILBOX_PORT` override the derived values.
 
@@ -108,5 +105,5 @@ The platform server receives its derived ports, database URL, and resolved `DOCK
 - **The invitations table keeps a cancelled row** and only changes its status badge, so a cancelled invitation does not disappear.
 - **Creating an organization generates a random slug suffix**, so a spec that asserts URLs must type its own slug into the dialog.
 - **Signing up checks the password against Have I Been Pwned**, which is a real network call. `makeRunIdentity()` returns a random password, which satisfies it.
-- **Saving a sandbox provider runs a real connection test**, which is why that lives behind `E2E_SANDBOX=docker` rather than behind an ambient daemon probe. `worktree.ts` resolves the CLI's active context into `DOCKER_HOST` and forwards it to the server, so the spec's probe and the application cannot end up on different daemons.
+- **Saving a sandbox provider runs a real connection test and may incur vendor charges.** Default suites do not save a provider.
 - **A mutation's own controls are disabled while it runs and enabled again afterwards**, so waiting on a button says nothing about whether the write landed. Page-object methods wait for the success toast through `expectToast`, which is what makes them safe to compose.

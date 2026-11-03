@@ -200,8 +200,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   await test.step("the owner reviews the sandbox providers page", async () => {
     await shell.openSection("Sandboxes", "Sandboxes")
     await expect(sandboxes.emptyState()).toBeVisible()
-    // Creating one runs a real connection test against a container, which `specs/sandbox` covers
-    // on request; the journey stays deterministic and stops at the form.
+    // Saving a provider creates a real vendor sandbox. The journey stops at the form.
     await sandboxes.startCreate()
     await captureMilestone(page, "06-sandboxes")
   })

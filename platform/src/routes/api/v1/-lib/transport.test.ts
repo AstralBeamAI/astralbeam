@@ -223,7 +223,12 @@ const restTestServices = Layer.mergeAll(
   ),
   Layer.succeed(SandboxProviders, {
     resolveConfiguration: () =>
-      Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
+      Effect.succeed({
+        name: "Test",
+        provider: "e2b",
+        options: { template: "base" },
+        credentials: { apiKey: "test-key" },
+      }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
   Layer.succeed(ChatFiles, {

@@ -4,7 +4,7 @@ export type SandboxProviderDescriptor = {
   id: SandboxProviderId
   label: string
   setupUrl: string
-  credentialLabel: string | null
+  credentialLabel: string
 }
 
 const SANDBOX_PROVIDER_DESCRIPTORS = {
@@ -13,12 +13,6 @@ const SANDBOX_PROVIDER_DESCRIPTORS = {
     label: "Daytona",
     setupUrl: "https://www.daytona.io/docs/api-keys/",
     credentialLabel: "API key",
-  },
-  docker: {
-    id: "docker",
-    label: "Docker",
-    setupUrl: "https://docs.docker.com/engine/install/",
-    credentialLabel: null,
   },
   e2b: {
     id: "e2b",

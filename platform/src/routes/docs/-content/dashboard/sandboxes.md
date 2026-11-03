@@ -17,12 +17,13 @@ The connection test creates a sandbox, runs a command, and destroys it. It can t
 | Provider | Options | Credential |
 | --- | --- | --- |
 | Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
-| Docker | Image, default `node:22`. | None |
 | E2B | Template name or ID, default `base`. | API key |
 | Sprites | None. | API token |
 | Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
-Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
+Names must be unique within the organization.
+
+The direct Docker provider is retired. Upgrading deletes its connections and clears their agent assignments. Add and verify another provider, then select it on affected agents. No replacement is selected automatically.
 
 ## Connection tests
 
