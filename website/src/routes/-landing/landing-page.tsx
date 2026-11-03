@@ -3,7 +3,7 @@ import { ScriptOnce } from "@tanstack/react-router"
 import antonFontUrl from "@fontsource/anton/files/anton-latin-400-normal.woff2?url"
 import spaceGroteskFontUrl from "@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2?url"
 
-import { DiscordIcon, GithubIcon } from "@/components/icons"
+import { GithubIcon } from "@/components/icons"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { cssVars } from "@/lib/css-vars"
@@ -17,12 +17,7 @@ import { CopyPrompt } from "./copy-prompt"
 import { Faq } from "./faq"
 import { Pricing } from "./pricing"
 
-const {
-  signUp: signUpUrl,
-  docs: docsUrl,
-  discord: discordUrl,
-  github: githubUrl,
-} = siteMetadata.links
+const { signUp: signUpUrl, docs: docsUrl, github: githubUrl } = siteMetadata.links
 
 export function landingPageHead() {
   const head = pageHead({
@@ -107,10 +102,15 @@ export function LandingPage() {
               <p className="hero-sub">{siteMetadata.description}</p>
               <div className="hero-ctas">
                 <a className="btn btn-primary btn-lg" href={signUpUrl}>
-                  GET STARTED
+                  START ON CLOUD
                 </a>
                 <CopyPrompt />
               </div>
+              <p className="hero-links">
+                Paste the setup prompt into your coding agent, or follow the{" "}
+                <a href={`${docsUrl}/start/quickstart`}>quickstart</a>.{" "}
+                <a href={`${docsUrl}/self-hosting`}>Prefer to self-host?</a>
+              </p>
               {/* Keep reveal self-contained so this script can animate the hero before hydration.
               https://tanstack.com/router/latest/docs/framework/react/guide/document-head-management */}
               <ScriptOnce>{`{const els=document.querySelectorAll('.hero-copy .reveal'),animate=(${shouldAnimate.toString()})();if(animate)els.forEach(el=>el.classList.add('reveal-pending'));els.forEach(el=>(${reveal.toString()})(el,animate))}`}</ScriptOnce>
@@ -134,7 +134,9 @@ export function LandingPage() {
               <h2 className="display section-title reveal scramble" data-text={step.title}>
                 {step.title}
               </h2>
-              <p className="section-sub reveal">{step.desc}</p>
+              <p className="section-sub reveal">
+                {step.desc} <a href={`${docsUrl}${step.guide.href}`}>{step.guide.label} →</a>
+              </p>
             </div>
             <div className="step-body">
               <div className="panel terminal reveal" data-terminal="">
@@ -272,20 +274,14 @@ export function LandingPage() {
             READY FOR LAUNCH
           </h2>
           <p className="section-sub launch-sub reveal">
-            Get started with a few lines of code, <span>or come talk to us on Discord.</span>
+            Start with a working chat. Add your app&apos;s tools when you&apos;re ready.
           </p>
           <div className="launch-ctas reveal" style={cssVars({ "--reveal-delay": ".2s" })}>
             <a className="btn btn-primary btn-xl" href={signUpUrl}>
-              GET STARTED
+              START ON CLOUD
             </a>
-            <a
-              className="btn btn-ghost btn-xl"
-              href={discordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <DiscordIcon />
-              JOIN DISCORD
+            <a className="btn btn-ghost btn-xl" href={`${docsUrl}/start/quickstart`}>
+              QUICKSTART
             </a>
           </div>
         </section>

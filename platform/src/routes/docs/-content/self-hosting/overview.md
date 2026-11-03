@@ -38,6 +38,8 @@ The application opens when required configuration is valid and no bundled migrat
 
 While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
 
+Next, follow the [Quickstart](/docs/start/quickstart), using your deployment's `/api` URL for the SDK's `apiUrl`.
+
 ## Running more than one replica
 
 Replicas cache configuration, migration state, and sandbox leases independently:

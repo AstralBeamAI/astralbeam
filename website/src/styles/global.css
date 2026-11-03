@@ -712,6 +712,20 @@ main {
   gap: 1rem;
 }
 
+.hero-links {
+  margin-top: 1rem;
+  max-width: 34rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.hero-links a,
+.section-sub a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 /* The hero grows past 100svh on short viewports, so anchor the cue to the fold
    itself rather than to the bottom of the section: the hero starts at the top of
    the document, so this always lands just inside the first screen. */
@@ -1705,7 +1719,8 @@ main {
   .hero-title {
     font-size: clamp(3.4rem, 13.5vw, 5.2rem);
   }
-  .hero-sub {
+  .hero-sub,
+  .hero-links {
     margin-inline: auto;
   }
   .hero-ctas {
@@ -1848,10 +1863,6 @@ main {
   .prompt-actions {
     grid-auto-flow: row;
     width: 100%;
-  }
-  /* One sentence per line, instead of a break mid-clause. */
-  .launch-sub span {
-    display: block;
   }
   /* Two columns of links, with the copyright spanning its own row. */
   .site-footer {
