@@ -79,11 +79,11 @@ The installer verifies `SHA256SUMS` and installs to `~/.local/bin`. Follow the p
 
 Pass flags after `sh -s --`:
 
-| Flag | Effect |
-| --- | --- |
-| `--version <X.Y.Z>` | Pin a release (default: latest) |
-| `--install-dir <absolute-path>` | Choose the binary directory |
-| `--help` | Show usage |
+| Flag                            | Effect                          |
+| ------------------------------- | ------------------------------- |
+| `--version <X.Y.Z>`             | Pin a release (default: latest) |
+| `--install-dir <absolute-path>` | Choose the binary directory     |
+| `--help`                        | Show usage                      |
 
 For the systemd service below, inspect the script and install into `/usr/local/bin`:
 
