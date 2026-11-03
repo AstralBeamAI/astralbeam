@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { availableParallelism, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
-import { fileURLToPath, pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL, URL } from "node:url"
 
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Cause, Effect, Exit, Result, Schedule, Schema } from "effect"
