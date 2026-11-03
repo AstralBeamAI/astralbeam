@@ -19,6 +19,7 @@ export const RESERVED_ORGANIZATION_SLUGS = [
   "invitations",
   "invite",
   "login",
+  "mcp",
   "logout",
   "new",
   "o",

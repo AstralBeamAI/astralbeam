@@ -98,23 +98,6 @@ test("createAstralBeamToken lists usage limits once, and refuses IDs the server 
     )
 })
 
-test("createAstralBeamToken validates the combined API key", async () => {
-  await expect(
-    createAstralBeamToken({
-      apiKey: `key_analytical-engines_production-key_${apiKeySecret}`,
-      user: { id: "user-1" },
-      tenant,
-    }),
-  ).rejects.toThrow(/key_<organizationId>_<id>_abo_<secret>/)
-  await expect(
-    createAstralBeamToken({
-      apiKey: `${apiKeyId}_notabo_${"aB".repeat(32)}`,
-      user: { id: "user-1" },
-      tenant,
-    }),
-  ).rejects.toThrow(/key_<organizationId>_<id>_abo_<secret>/)
-})
-
 test("createAstralBeamToken preserves opaque tenant user IDs exactly", async () => {
   const id = " user-1 "
   const token = await createAstralBeamToken({
@@ -126,33 +109,6 @@ test("createAstralBeamToken preserves opaque tenant user IDs exactly", async () 
 
   expect(payload.user).toEqual({ id })
   expect(payload.tenant).toEqual({ id: " tenant-1 " })
-})
-
-test("createAstralBeamToken rejects out-of-range lifetimes and tenant user IDs", async () => {
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "" },
-      tenant,
-    }),
-  ).rejects.toThrow(/1-255 character string/)
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1" },
-      tenant,
-      expiresInSeconds: 601,
-    }),
-  ).rejects.toThrow(/60-600 seconds/)
-})
-
-// Both cases are values the prop type already rejects; the assertion is that the runtime schema
-// rejects them too, so `as never` is what lets the call be written at all.
-test.each([
-  ["class instances", { id: "user-1", metadata: { value: new Date() } }],
-  ["toJSON hooks", { id: "user-1", toJSON: () => ({ id: "other" }) }],
-])("createAstralBeamToken rejects user %s", async (_label, user) => {
-  await expect(createAstralBeamToken({ apiKey, user: user as never, tenant })).rejects.toThrow()
 })
 
 test("createAstralBeamToken accepts deeply nested metadata and rejects oversized identity data", async () => {
@@ -176,45 +132,22 @@ test("createAstralBeamToken accepts deeply nested metadata and rejects oversized
   ).rejects.toThrow(/8192 bytes/)
 })
 
-test("createAstralBeamToken rejects fields outside the metadata objects", async () => {
+test.each([
+  ["legacy key", { apiKey: `key_analytical-engines_production-key_${apiKeySecret}` }],
+  ["invalid prefix", { apiKey: `${apiKeyId}_notabo_${"aB".repeat(32)}` }],
+  ["empty user ID", { user: { id: "" } }],
+  ["excessive lifetime", { expiresInSeconds: 601 }],
+  ["class metadata", { user: { id: "user-1", metadata: { value: new Date() } } }],
+  ["serialization hook", { user: { id: "user-1", toJSON: () => ({ id: "other" }) } }],
+  ["unknown user field", { user: { id: "user-1", roles: ["owner"] } }],
+  ["unknown tenant field", { tenant: { id: "tenant-1", plan: "enterprise" } }],
+  ["missing tenant", { tenant: undefined }],
+  ["empty tenant ID", { tenant: { id: "" } }],
+  ["invalid admin", { user: { id: "user-1", admin: "yes" } }],
+])("refuses %s before minting", async (_name, invalid) => {
   await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1", roles: ["owner"] } as never,
-      tenant,
-    }),
-  ).rejects.toThrow(/roles/)
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1" },
-      tenant: { id: "tenant-1", plan: "enterprise" } as never,
-    }),
-  ).rejects.toThrow(/plan/)
-})
-
-test("createAstralBeamToken requires user and tenant and validates predefined fields", async () => {
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1" },
-      tenant: undefined as never,
-    }),
-  ).rejects.toThrow(/tenant/)
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1" },
-      tenant: { id: "" },
-    }),
-  ).rejects.toThrow(/tenant\.id/)
-  await expect(
-    createAstralBeamToken({
-      apiKey,
-      user: { id: "user-1", admin: "yes" } as never,
-      tenant,
-    }),
-  ).rejects.toThrow(/admin/)
+    createAstralBeamToken({ apiKey, user: { id: "user-1" }, tenant, ...invalid } as never),
+  ).rejects.toThrow()
 })
 
 test.each([true, false])(

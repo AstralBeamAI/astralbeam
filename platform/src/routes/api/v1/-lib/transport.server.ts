@@ -36,6 +36,7 @@ import { authenticateRestRequest } from "./auth.server"
 import { threadDirectoryHandlers } from "./thread.server"
 import { tenantHandlers } from "./tenant.server"
 import { tenantUserHandlers } from "./tenant-user.server"
+import { organizationMcpRoutes } from "@/routes/mcp/-lib/organization-mcp.server"
 import {
   RestInternalError,
   RestInvalidBody,
@@ -113,7 +114,11 @@ const RestAuthorizationLive = Layer.effect(
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
-        const scope = yield* authenticateRestRequest(native).pipe(Effect.provideContext(services))
+        // Only an internal dispatch can provide scope. HTTP headers never populate this service.
+        const inherited = yield* Effect.serviceOption(RestScope)
+        const scope = Option.isSome(inherited)
+          ? inherited.value
+          : yield* authenticateRestRequest(native).pipe(Effect.provideContext(services))
         return yield* Effect.provideService(httpEffect, RestScope, scope)
       })
   }),
@@ -166,6 +171,9 @@ function restRouterFailure<E>(
     )
   }
   const failure = Cause.findErrorOption(cause)
+  if (Option.isSome(failure) && isRestError(failure.value)) {
+    return Effect.succeed(restProblemResponse(failure.value))
+  }
   return Option.isSome(failure) &&
     HttpServerError.isHttpServerError(failure.value) &&
     failure.value.reason._tag === "RouteNotFound"
@@ -181,7 +189,10 @@ const RestRouterBoundary = Layer.unwrap(
         Effect.gen(function* () {
           const { setupComplete } = yield* config.setupState
           if (!setupComplete) return restProblemResponse(new RestSetupRequired())
-          return restProblemOnly(yield* httpEffect)
+          const request = yield* HttpServerRequest.HttpServerRequest
+          const response = yield* httpEffect
+          // MCP retains the SDK's JSON-RPC errors. REST normalizes transport-level failures.
+          return request.url.startsWith("/api/") ? restProblemOnly(response) : response
         }).pipe(Effect.catchCause(restRouterFailure), Effect.map(restResponseHeaders)),
       { global: true },
     ),
@@ -190,6 +201,7 @@ const RestRouterBoundary = Layer.unwrap(
 
 /** The v1 routes and their boundaries, before the application services they run on. */
 export const ApiV1Routes = Layer.mergeAll(
+  organizationMcpRoutes,
   HttpApiBuilder.layer(ApiV1).pipe(
     Layer.provide([
       documentationHandlers(ApiV1),

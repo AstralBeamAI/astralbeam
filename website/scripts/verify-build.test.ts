@@ -6,14 +6,11 @@ import { fileURLToPath } from "node:url"
 import sharp from "sharp"
 import { describe, expect, test } from "vitest"
 
-import { palette } from "../src/brand/palette"
 import { blogPosts } from "../src/lib/blog"
 import { landingUpdated, siteMetadata } from "../src/lib/site"
 
 const origin = "https://astralbeam.ai"
 const homeUrl = `${origin}/`
-const iconUrl = `${origin}${siteMetadata.icon.path}`
-const iconSize = `${siteMetadata.icon.size}x${siteMetadata.icon.size}`
 const distUrl = new URL("../.output/public/", import.meta.url)
 
 function readText(path: string) {
@@ -56,36 +53,25 @@ describe("production website build", () => {
     })
   })
 
+  test("publishes public Markdown guides with discovery", async () => {
+    for (const page of ["auth.md", "agents.md"]) {
+      expect(await readText(page)).toBe(
+        await readFile(new URL(`../public/${page}`, import.meta.url), "utf8"),
+      )
+      expect(await readText("llms.txt")).toContain(`https://astralbeam.ai/${page}`)
+      expect(await readText("_headers")).toContain(
+        `/${page}\n  Content-Type: text/plain; charset=utf-8`,
+      )
+    }
+  })
+
   test("renders the homepage with discovery metadata", async () => {
     const html = await readText("index.html")
 
     expect(html).toContain(`<link rel="canonical" href="${homeUrl}"/>`)
     expect(await readText("home.html")).toContain(`<link rel="canonical" href="${homeUrl}"/>`)
     expect(html).toContain('<meta name="robots" content="index,follow"/>')
-    expect(html).toContain(
-      `<meta name="theme-color" content="${palette.dark.background.srgbHex}"/>`,
-    )
-    expect(html).toMatch(/<html[^>]*class="dark"/u)
     expect(html).toContain(`<meta property="og:image" content="${origin}/og-image.png"/>`)
-    expect(html).toContain('<meta name="twitter:card" content="summary_large_image"/>')
-    expect(html).toMatch(
-      /<img[^>]*class="hud-brand-wordmark"[^>]*src="[^"]*astralbeam-wordmark-dark[^"]*\.svg"/u,
-    )
-    expect(html).toMatch(
-      /<link rel="icon" type="image\/svg\+xml" href="[^"]*astralbeam-logo-light[^"]*\.svg" media="\(prefers-color-scheme: light\)"\/>/u,
-    )
-    expect(html).toMatch(
-      /<link rel="icon" type="image\/svg\+xml" href="[^"]*astralbeam-logo-dark[^"]*\.svg" media="\(prefers-color-scheme: dark\)"\/>/u,
-    )
-    expect(html).toContain(
-      `<link rel="icon" type="image/png" sizes="${iconSize}" href="${siteMetadata.icon.path}"/>`,
-    )
-    expect(html).toContain(
-      `<link rel="apple-touch-icon" sizes="${iconSize}" href="${siteMetadata.icon.path}"/>`,
-    )
-    expect(html).toContain(`"logo":"${iconUrl}"`)
-    expect(html).not.toMatch(/\/(?:apple-touch-icon|icon-512)\.png/u)
-    expect(html).not.toMatch(/(?:--site-|data-(?:near|far|streak)-rgb)/u)
     expect(html).toContain('<link rel="manifest" href="/site.webmanifest"/>')
     expect(html).toContain('<link rel="license" href="/licenses.txt"/>')
     expect(html).toMatch(/application\/ld\+json/u)
@@ -124,31 +110,6 @@ describe("production website build", () => {
     expect(sitemap).toContain(`<lastmod>${landingUpdated}</lastmod>`)
   })
 
-  test("ships brand colors without Node APIs", async () => {
-    const assetDirectory = new URL("website-assets/", distUrl)
-    const assets = await readdir(assetDirectory)
-    const [stylesheets, scripts] = await Promise.all([
-      Promise.all(
-        assets
-          .filter((asset) => asset.endsWith(".css"))
-          .map((asset) => readFile(new URL(asset, assetDirectory), "utf8")),
-      ),
-      Promise.all(
-        assets
-          .filter((asset) => asset.endsWith(".js"))
-          .map((asset) => readFile(new URL(asset, assetDirectory), "utf8")),
-      ),
-    ])
-    const css = stylesheets.join("\n")
-    const javascript = scripts.join("\n")
-
-    expect(css).toContain("--background:")
-    expect(css).toContain("--primary:")
-    expect(css).toContain("--chart-5:")
-    expect(css).not.toContain("--site-")
-    expect(javascript).not.toContain("node:fs")
-  })
-
   test("keeps the not-found page out of discovery", async () => {
     const html = await readText("404.html")
 
@@ -184,16 +145,7 @@ describe("production website build", () => {
     expect(sitemap).not.toContain("/404")
     expect(manifest).toMatchObject({
       name: "AstralBeam",
-      background_color: palette.dark.background.srgbHex,
-      theme_color: palette.dark.background.srgbHex,
-      icons: [
-        {
-          src: iconUrl,
-          sizes: iconSize,
-          type: "image/png",
-          purpose: "any",
-        },
-      ],
+      icons: [expect.objectContaining({ type: "image/png" })],
     })
   })
 

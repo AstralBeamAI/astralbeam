@@ -15,7 +15,7 @@ const jsonbIntegration = vi.hoisted(() => {
 
 import { Database, getAuthDatabase } from "../database.ts"
 import { organization, sandboxProvider, tenant } from "../schema.ts"
-import { updateWithOptimisticLock } from "./optimistic-locking.ts"
+import { deleteWithOptimisticLock, updateWithOptimisticLock } from "./optimistic-locking.ts"
 
 describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
   const runtime = ManagedRuntime.make(Database.layer)
@@ -60,7 +60,7 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
     expect(restored!.tenants[0]!.metadata).toEqual(metadata)
   })
 
-  test("optimistic updates return decoded rows and reject stale versions", async () => {
+  test("optimistic mutations preserve decoded rows, scope and versions", async () => {
     const [row] = await db
       .insert(sandboxProvider)
       .values({
@@ -70,22 +70,47 @@ describe.skipIf(!jsonbIntegration.url)("schema-backed JSONB columns", () => {
         options: { image: "test-image" },
       })
       .returning()
-    const update = Effect.flatMap(Database, (executor) =>
-      updateWithOptimisticLock({
-        executor,
-        table: sandboxProvider,
-        id: row!.id,
-        scope: eq(sandboxProvider.organizationId, organizationId),
-        expectedLockVersion: row!.lockVersion,
-        set: { name: "Updated" },
-      }),
-    )
-    await expect(runtime.runPromise(update)).resolves.toMatchObject({
+    const update = (scopeId = organizationId) =>
+      runtime.runPromise(
+        Effect.flatMap(Database, (executor) =>
+          updateWithOptimisticLock({
+            executor,
+            table: sandboxProvider,
+            id: row!.id,
+            scope: eq(sandboxProvider.organizationId, scopeId),
+            expectedLockVersion: row!.lockVersion,
+            set: { name: "Updated" },
+          }),
+        ),
+      )
+    const otherOrganizationId = OrganizationIdSchema.make("01990a5d-0000-7000-8000-000000000099")
+    await expect(update(otherOrganizationId)).rejects.toMatchObject({ _tag: "OptimisticLockError" })
+    await expect(update()).resolves.toMatchObject({
       name: "Updated",
       lockVersion: row!.lockVersion + 1,
       options: { image: "test-image" },
     })
-    await expect(runtime.runPromise(update)).rejects.toMatchObject({ _tag: "OptimisticLockError" })
+    await expect(update()).rejects.toMatchObject({ _tag: "OptimisticLockError" })
+    const remove = (expectedLockVersion: number, scopeId = organizationId) =>
+      runtime.runPromise(
+        Effect.flatMap(Database, (executor) =>
+          deleteWithOptimisticLock({
+            executor,
+            table: sandboxProvider,
+            id: row!.id,
+            scope: eq(sandboxProvider.organizationId, scopeId),
+            expectedLockVersion,
+          }),
+        ),
+      )
+    await expect(remove(row!.lockVersion)).rejects.toMatchObject({ _tag: "OptimisticLockError" })
+    await expect(remove(row!.lockVersion + 1, otherOrganizationId)).rejects.toMatchObject({
+      _tag: "OptimisticLockError",
+    })
+    await expect(remove(row!.lockVersion + 1)).resolves.toBeUndefined()
+    expect(await db.select().from(sandboxProvider).where(eq(sandboxProvider.id, row!.id))).toEqual(
+      [],
+    )
   })
 
   test("rejects invalid writes and corrupted reads without silently stripping fields", async () => {

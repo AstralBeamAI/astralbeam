@@ -8,6 +8,8 @@ import { runRouteEffect } from "@/lib/runtime/server-fn.server"
 
 // Website routes served at the same path. Keep in step with `prerenderRoutes` in website/vite.config.ts.
 const WEBSITE_PATHS = new Set([
+  "/auth.md",
+  "/agents.md",
   "/home",
   "/terms",
   "/privacy",

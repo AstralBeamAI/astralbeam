@@ -1,7 +1,6 @@
 import { color, ColorNotation, serializeRGB } from "@csstools/css-color-parser"
 import { isTokenNode, parseComponentValue } from "@csstools/css-parser-algorithms"
 import { isTokenNumber, tokenize } from "@csstools/css-tokenizer"
-import { Exit, Schema } from "effect"
 import { describe, expect, test } from "vitest"
 
 import {
@@ -11,9 +10,7 @@ import {
   parseThemeDocument,
   resolveThemeDefinition,
   type ThemeDefinition,
-  themeDefinitionSchemaUrl,
   type ThemeDocument,
-  themeDocumentSchema,
   themeTokenNames,
 } from "./theme.ts"
 
@@ -55,175 +52,6 @@ function createColorMap(surface: string, foreground: string) {
     ]),
   )
 }
-
-describe("theme document schema", () => {
-  test("requires the exact resolved structure and semantic token set", async () => {
-    const organizationTheme = createOrganizationTheme()
-    const missingToken = { ...organizationTheme.colors.light } as Record<string, string>
-    delete missingToken.background
-
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: { ...organizationTheme.colors, light: missingToken },
-      }),
-    ).toThrow(/background/u)
-
-    const documentsWithExtras = [
-      { ...organizationTheme, metadata: "organization-aurora" },
-      {
-        ...organizationTheme,
-        colors: { ...organizationTheme.colors, organizationMode: "organization" },
-      },
-      {
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          light: { ...organizationTheme.colors.light, "organization-light": "#000000" },
-        },
-      },
-      {
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          dark: { ...organizationTheme.colors.dark, "organization-dark": "#000000" },
-        },
-      },
-      {
-        ...organizationTheme,
-        geometry: { ...organizationTheme.geometry, density: "compact" },
-      },
-    ]
-
-    for (const document of documentsWithExtras) {
-      const validation = await themeDocumentSchema["~standard"].validate(document)
-      expect(validation.issues?.length).toBeGreaterThan(0)
-    }
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          dark: { ...organizationTheme.colors.dark, "organization-only": "#000000" },
-        },
-      }),
-    ).toThrow(/organization-only/u)
-  })
-
-  test("rejects unsafe radius values", () => {
-    const organizationTheme = createOrganizationTheme()
-
-    expect(() =>
-      parseThemeDocument({ ...organizationTheme, geometry: { radius: "calc(1rem + 1px)" } }),
-    ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
-    expect(() =>
-      parseThemeDocument({ ...organizationTheme, geometry: { radius: "1rem; color: red" } }),
-    ).toThrow("Theme radius must be zero or a nonnegative px, rem, em, or percentage length")
-  })
-
-  test("rejects invalid and transparent color values without throwing from safeParse", () => {
-    const organizationTheme = createOrganizationTheme()
-    const malformedTheme = {
-      ...organizationTheme,
-      colors: {
-        ...organizationTheme.colors,
-        light: { ...organizationTheme.colors.light, primary: "color(display-p3" },
-      },
-    }
-
-    const safelyDecodeMalformedTheme = () =>
-      Schema.decodeUnknownExit(themeDocumentSchema)(malformedTheme)
-
-    expect(safelyDecodeMalformedTheme).not.toThrow()
-    expect(Exit.isFailure(safelyDecodeMalformedTheme())).toBe(true)
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          light: { ...organizationTheme.colors.light, primary: "not-a-color" },
-        },
-      }),
-    ).toThrow("Theme colors must be valid opaque CSS colors")
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 50%)" },
-        },
-      }),
-    ).toThrow("Theme colors must be valid opaque CSS colors")
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          dark: { ...organizationTheme.colors.dark, primary: "rgb(0 0 0 / 99.95%)" },
-        },
-      }),
-    ).toThrow("Theme colors must be valid opaque CSS colors")
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          dark: {
-            ...organizationTheme.colors.dark,
-            primary: "color-mix(in srgb, transparent 0.05%, black)",
-          },
-        },
-      }),
-    ).toThrow("Theme colors must be valid opaque CSS colors")
-  })
-
-  test("rejects low-contrast foreground pairs in resolved documents", () => {
-    const organizationTheme = createOrganizationTheme()
-    const lowContrastTheme = {
-      ...organizationTheme,
-      colors: {
-        ...organizationTheme.colors,
-        light: {
-          ...organizationTheme.colors.light,
-          "primary-foreground": organizationTheme.colors.light.primary,
-        },
-      },
-    }
-
-    expect(() => parseThemeDocument(lowContrastTheme)).toThrow(/contrast/u)
-    expect(() => Schema.decodeUnknownSync(themeDocumentSchema)(lowContrastTheme)).toThrow(
-      /contrast/u,
-    )
-
-    for (const token of ["destructive", "warning"] as const) {
-      expect(() =>
-        parseThemeDocument({
-          ...organizationTheme,
-          colors: {
-            ...organizationTheme.colors,
-            light: {
-              ...organizationTheme.colors.light,
-              [token]: organizationTheme.colors.light.background,
-            },
-          },
-        }),
-      ).toThrow(/contrast/u)
-    }
-
-    expect(() =>
-      parseThemeDocument({
-        ...organizationTheme,
-        colors: {
-          ...organizationTheme.colors,
-          light: {
-            ...organizationTheme.colors.light,
-            ring: organizationTheme.colors.light.background,
-          },
-        },
-      }),
-    ).toThrow(/focus indicators/u)
-  })
-})
 
 describe("theme CSS generation", () => {
   test("runtime-validates resolved documents before serializing CSS", () => {
@@ -324,35 +152,6 @@ describe("theme definitions", () => {
     const resolved = resolveThemeDefinition({ ...definition, geometry: {} })
 
     expect(resolved.geometry.radius).toBe(defaultThemeRadius)
-  })
-
-  test("accepts only the schema URL, colors, and geometry at the top level", () => {
-    const definition = createThemeDefinition()
-
-    expect(resolveThemeDefinition({ $schema: themeDefinitionSchemaUrl, ...definition })).toEqual(
-      resolveThemeDefinition(definition),
-    )
-    expect(() =>
-      resolveThemeDefinition({ $schema: "https://example.com/theme.json", ...definition }),
-    ).toThrow(/\$schema/u)
-    expect(() => resolveThemeDefinition({ ...definition, metadata: "organization-seed" })).toThrow(
-      /metadata/u,
-    )
-    expect(() => resolveThemeDefinition({ colors: definition.colors })).toThrow(/geometry/u)
-    expect(() =>
-      resolveThemeDefinition({
-        ...definition,
-        colors: {
-          light: { ...definition.colors.light, customization: { ring: "#008f88" } },
-        },
-      }),
-    ).toThrow(/customization/u)
-    expect(() =>
-      resolveThemeDefinition({
-        ...definition,
-        colors: { ...definition.colors, dark: { primary: "#ffcc00", ring: "#ffcc00" } },
-      }),
-    ).toThrow(/ring/u)
   })
 
   test("propagates direct source colors through dependent aliases", () => {

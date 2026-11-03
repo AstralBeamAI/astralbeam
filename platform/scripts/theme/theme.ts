@@ -31,7 +31,7 @@ export const themeTokenNames: readonly ThemeToken[] = Object.freeze(
 )
 export type ThemeMode = "light" | "dark"
 export const defaultThemeRadius = themeAuthoringSchema.$defs.geometry.properties.radius.default
-export const themeDefinitionSchemaUrl = themeAuthoringSchema.properties.$schema.default
+const themeDefinitionSchemaUrl = themeAuthoringSchema.properties.$schema.default
 const maximumThemeColorLength = findSchemaMaximumLength(
   themeAuthoringSchema.$defs.themeColor.allOf,
   "theme color",
@@ -233,23 +233,7 @@ const themeDefinitionEffectSchema = Schema.Struct({
   }),
 })
 
-type ThemeDocumentSchema = ReturnType<
-  typeof Schema.toStandardSchemaV1<typeof themeDocumentEffectSchema>
->
-type ThemeDefinitionSchema = ReturnType<
-  typeof Schema.toStandardSchemaV1<typeof themeDefinitionEffectSchema>
->
-
 const themeParseOptions = { errors: "all", onExcessProperty: "error" } as const
-
-export const themeDocumentSchema: ThemeDocumentSchema = Schema.toStandardSchemaV1(
-  themeDocumentEffectSchema,
-  { parseOptions: themeParseOptions },
-)
-const themeDefinitionSchema: ThemeDefinitionSchema = Schema.toStandardSchemaV1(
-  themeDefinitionEffectSchema,
-  { parseOptions: themeParseOptions },
-)
 
 type ThemeColorMap = Schema.Schema.Type<typeof themeColorMapSchema>
 export type ThemeDocument = Schema.Schema.Type<typeof themeDocumentEffectSchema>
@@ -264,8 +248,11 @@ export type ThemeCssCompilationResult =
   | { readonly ok: true; readonly css: string }
   | { readonly ok: false; readonly issues: readonly ThemeValidationIssue[] }
 
-const decodeThemeDocument = Schema.decodeUnknownSync(themeDocumentSchema, themeParseOptions)
-const decodeThemeDefinition = Schema.decodeUnknownSync(themeDefinitionSchema, themeParseOptions)
+const decodeThemeDocument = Schema.decodeUnknownSync(themeDocumentEffectSchema, themeParseOptions)
+const decodeThemeDefinition = Schema.decodeUnknownSync(
+  themeDefinitionEffectSchema,
+  themeParseOptions,
+)
 
 export function parseThemeDocument(input: unknown): ThemeDocument {
   return decodeThemeDocument(input)

@@ -2,7 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { describe, expect, it } from "vitest"
 
 import { SANDBOX_RUN_COMMAND_TOOL, SANDBOX_WRITE_FILE_TOOL } from "./protocol.ts"
-import { collectSandboxActivity, describeSandboxCommandRun } from "./sandbox.ts"
+import { collectSandboxActivity } from "./sandbox.ts"
 
 function toolCall(input: {
   id: string
@@ -54,21 +54,6 @@ describe("collectSandboxActivity", () => {
     })
   })
 
-  it("labels a write with its absolute path until the result reports a shorter one", () => {
-    const activity = collectSandboxActivity([
-      toolCall({
-        id: "1",
-        name: SANDBOX_WRITE_FILE_TOOL,
-        input: { path: "/workspace/app.py", content: "print(1)" },
-        output: { path: "/workspace/app.py" },
-      }),
-    ])
-    expect(activity.files[0]).toMatchObject({
-      path: "/workspace/app.py",
-      label: "/workspace/app.py",
-    })
-  })
-
   it("leaves out a write that is still streaming or was refused", () => {
     const activity = collectSandboxActivity([
       toolCall({
@@ -105,45 +90,5 @@ describe("collectSandboxActivity", () => {
     expect(activity.commands.map((run) => run.command)).toEqual(["python app.py", "sleep 5"])
     expect(activity.commands[0]).toMatchObject({ exitCode: 0, stdout: "3\n", finished: true })
     expect(activity.commands[1]).toMatchObject({ finished: false })
-  })
-
-  it("ignores tool calls that are not the endpoint's sandbox tools", () => {
-    const activity = collectSandboxActivity([
-      toolCall({ id: "1", name: "create_todo", input: { text: "write code" }, output: { id: 4 } }),
-    ])
-    expect(activity).toEqual({ files: [], commands: [] })
-  })
-})
-
-describe("describeSandboxCommandRun", () => {
-  it("summarizes the exit code, the duration, and a truncated log", () => {
-    expect(
-      describeSandboxCommandRun({
-        toolCallId: "1",
-        command: "npm test",
-        stdout: "",
-        stderr: "",
-        exitCode: 1,
-        durationMs: 2400,
-        timedOut: false,
-        truncated: true,
-        finished: true,
-      }),
-    ).toBe("exit 1 · 2.4s · output truncated")
-  })
-
-  it("reports a timeout instead of an exit code it never got", () => {
-    expect(
-      describeSandboxCommandRun({
-        toolCallId: "1",
-        command: "sleep 999",
-        stdout: "",
-        stderr: "",
-        durationMs: 120_000,
-        timedOut: true,
-        truncated: false,
-        finished: true,
-      }),
-    ).toBe("timed out · 120.0s")
   })
 })

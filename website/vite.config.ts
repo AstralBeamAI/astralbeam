@@ -9,6 +9,7 @@ import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
 import { collectSourceMaps, sourceMapDebugIds } from "../platform/source-maps.ts"
+import { servePublicMarkdown } from "./scripts/serve-public-markdown.ts"
 import { siteUrl } from "./src/lib/site.ts"
 
 const workspaceDirectory = join(import.meta.dirname, "..")
@@ -52,6 +53,16 @@ export default defineConfig(({ mode }) => ({
     {
       ...sourceMapDebugIds,
       applyToEnvironment: (environment) => environment.name === "client",
+    },
+    {
+      name: "public-markdown-mime",
+      apply: "serve",
+      configureServer(server) {
+        server.middlewares.use(servePublicMarkdown(new URL("./public/", import.meta.url)))
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use(servePublicMarkdown(new URL("./.output/public/", import.meta.url)))
+      },
     },
     // The suite reads the built output, so it has no server or prerenderer to start.
     mode !== "test" &&

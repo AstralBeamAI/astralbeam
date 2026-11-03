@@ -22,6 +22,7 @@ import { Route as ConfigureIndexRouteImport } from './routes/configure/index'
 import { Route as DevSplatRouteImport } from './routes/dev/$'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSitemapDotxmlRouteImport } from './routes/docs/sitemap[.]xml'
+import { Route as McpIndexRouteImport } from './routes/mcp/index'
 import { Route as authenticationAuthPathRouteImport } from './routes/(authentication)/auth/$path'
 import { Route as AuthenticatedOrgSlugIndexRouteImport } from './routes/_authenticated/$orgSlug/index'
 import { Route as AuthenticatedChar126SplatRouteImport } from './routes/_authenticated/~/$'
@@ -124,6 +125,11 @@ const DocsSitemapDotxmlRoute = DocsSitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
   getParentRoute: () => DocsRouteRoute,
+} as any)
+const McpIndexRoute = McpIndexRouteImport.update({
+  id: '/mcp/',
+  path: '/mcp/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const authenticationAuthPathRoute = authenticationAuthPathRouteImport.update({
   id: '/(authentication)/auth/$path',
@@ -357,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/mcp/': typeof McpIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
@@ -405,6 +412,7 @@ export interface FileRoutesByTo {
   '/docs/sitemap.xml': typeof DocsSitemapDotxmlRoute
   '/configure': typeof ConfigureIndexRoute
   '/docs': typeof DocsIndexRoute
+  '/mcp': typeof McpIndexRoute
   '/auth/$path': typeof authenticationAuthPathRoute
   '/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
@@ -459,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/configure/': typeof ConfigureIndexRoute
   '/docs/': typeof DocsIndexRoute
+  '/mcp/': typeof McpIndexRoute
   '/(authentication)/auth/$path': typeof authenticationAuthPathRoute
   '/_authenticated/~/$': typeof AuthenticatedChar126SplatRoute
   '/api/astralbeam/token': typeof ApiAstralbeamTokenRoute
@@ -512,6 +521,7 @@ export interface FileRouteTypes {
     | '/docs/sitemap.xml'
     | '/configure/'
     | '/docs/'
+    | '/mcp/'
     | '/auth/$path'
     | '/~/$'
     | '/api/astralbeam/token'
@@ -560,6 +570,7 @@ export interface FileRouteTypes {
     | '/docs/sitemap.xml'
     | '/configure'
     | '/docs'
+    | '/mcp'
     | '/auth/$path'
     | '/~/$'
     | '/api/astralbeam/token'
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/configure/'
     | '/docs/'
+    | '/mcp/'
     | '/(authentication)/auth/$path'
     | '/_authenticated/~/$'
     | '/api/astralbeam/token'
@@ -661,6 +673,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ApiStatusRoute: typeof ApiStatusRoute
   DevSplatRoute: typeof DevSplatRoute
+  McpIndexRoute: typeof McpIndexRoute
   authenticationAuthPathRoute: typeof authenticationAuthPathRoute
   ApiAstralbeamTokenRoute: typeof ApiAstralbeamTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -763,6 +776,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/docs/sitemap.xml'
       preLoaderRoute: typeof DocsSitemapDotxmlRouteImport
       parentRoute: typeof DocsRouteRoute
+    }
+    '/mcp/': {
+      id: '/mcp/'
+      path: '/mcp'
+      fullPath: '/mcp/'
+      preLoaderRoute: typeof McpIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/(authentication)/auth/$path': {
       id: '/(authentication)/auth/$path'
@@ -1187,6 +1207,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   ApiStatusRoute: ApiStatusRoute,
   DevSplatRoute: DevSplatRoute,
+  McpIndexRoute: McpIndexRoute,
   authenticationAuthPathRoute: authenticationAuthPathRoute,
   ApiAstralbeamTokenRoute: ApiAstralbeamTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

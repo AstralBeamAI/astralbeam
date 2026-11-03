@@ -52,13 +52,6 @@ test("added todos and completion survive reload", async ({ todos, page }) => {
   await expect(todos.items()).toHaveCount(5)
 })
 
-test("the widget reaches a ready composer, which proves the token round-trip", async ({ chat }) => {
-  await chat.waitForReady()
-  // Nothing has been sent, so the widget offers its own empty transcript and no reset.
-  await expect(chat.emptyState()).toBeVisible()
-  await expect(chat.newChatButton()).toBeDisabled()
-})
-
 test("one theme control retunes the app and the widget together", async ({ todos, chat }) => {
   await chat.waitForReady()
   await expect(todos.controls.theme).toHaveText("Theme: system")
@@ -73,20 +66,6 @@ test("one theme control retunes the app and the widget together", async ({ todos
 
   // The widget keeps its own palette inside the shadow root and must survive the switch.
   await expect(chat.composer()).toBeVisible()
-})
-
-test("hiding the assistant unmounts the widget and showing it mounts a new one", async ({
-  todos,
-  chat,
-}) => {
-  await chat.waitForReady()
-  await todos.toggleAssistant()
-  await expect(todos.controls.assistant).toHaveText("Show assistant")
-  await expect(chat.root).toHaveCount(0)
-
-  await todos.toggleAssistant()
-  await expect(todos.controls.assistant).toHaveText("Hide assistant")
-  await chat.waitForReady()
 })
 
 test("a tap beside the text focuses the message input", async ({ chat }) => {

@@ -66,6 +66,18 @@
 /.well-known/security.txt
   Cache-Control: public, max-age=300, must-revalidate
 
+/auth.md
+  Content-Type: text/plain; charset=utf-8
+  Content-Disposition: inline
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: *
+
+/agents.md
+  Content-Type: text/plain; charset=utf-8
+  Content-Disposition: inline
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: *
+
 /.well-known/agent-skills/index.json
   Content-Type: application/json; charset=utf-8
   Cache-Control: no-cache

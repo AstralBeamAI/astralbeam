@@ -45,7 +45,7 @@ E2E_PLATFORM_URL=http://localhost:4500 bun run --cwd platform e2e:seeded  # reus
 
 - `sign-in.setup.ts` signs in once and saves the session to `e2e/.output/seeded-state.json`. Later runs reuse it while the server still accepts it, so they skip the Turnstile wait.
 - The setup is its own project, so each spec's video starts at the spec's first navigation and shows only the flow.
-- Add a spec under `specs/seeded` for the flow you are proving, composed from the page objects. `astro-history.spec.ts` shows the shape: open a page, open Astro, and assert on seeded content.
+- Add a spec under `specs/seeded` for the flow you are proving, composed from the page objects. `dashboard-ux.spec.ts` covers opening Astro and reading seeded content.
 - Keep a spec that protects durable behavior, and delete one that only recorded a one-off walkthrough.
 
 ## Layout

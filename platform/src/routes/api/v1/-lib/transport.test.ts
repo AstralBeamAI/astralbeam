@@ -1,4 +1,5 @@
 import { APP_HANDLE } from "@/lib/constants"
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
@@ -128,6 +129,7 @@ import { ApiV1Routes } from "./transport.server"
 import { handleApiV1Request } from "./route.server"
 import { authenticateRestRequest } from "./auth.server"
 import { RestApiErrorSchema } from "./shared.server"
+import { RestRateLimited } from "./errors"
 import { TenantRecordSchema, tenantRestPage } from "./tenant.server"
 import { TenantUserRecordSchema, tenantUserRestPage } from "./tenant-user.server"
 import {
@@ -532,6 +534,240 @@ describe("v1 router boundary", () => {
     expect(response.status).toBe(404)
     expect(response.headers.get("content-type")).toContain("application/problem+json")
     expect(response.headers.get("access-control-allow-origin")).toBe("*")
+  })
+})
+
+describe("organization MCP", () => {
+  const clients: Client[] = []
+  afterEach(() => Promise.all(clients.splice(0).map((client) => client.close())))
+
+  async function connectOrganizationMcp() {
+    const client = new Client(
+      { name: "organization-mcp-test", version: "1" },
+      {
+        versionNegotiation: {
+          mode: { pin: "2026-07-28" },
+        },
+      },
+    )
+    clients.push(client)
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL("http://localhost/mcp"), {
+        requestInit: { headers: { Authorization: `Bearer ${restTestApiKey}` } },
+        fetch: (url, init) => restWebHandler.handler(new Request(url, init)),
+      }),
+    )
+    return client
+  }
+
+  test("discovers only organization tools and calls the scoped API", async () => {
+    const client = await connectOrganizationMcp()
+    expect(client.getServerCapabilities()?.tools?.listChanged ?? false).toBe(false)
+    restTestState.verify.mockClear()
+    const { tools } = await client.listTools()
+    expect(restTestState.verify).toHaveBeenCalledTimes(1)
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      [
+        "createTenant",
+        "createTenantUser",
+        "getOrganization",
+        "getTenant",
+        "getTenantUser",
+        "getTenantUserUsage",
+        "listTenants",
+        "listThreadMessages",
+        "listThreads",
+        "listUsersForTenant",
+        "searchDocumentation",
+        "updateTenant",
+        "updateTenantUser",
+      ].sort(),
+    )
+    const documentation = await client.callTool({
+      name: "searchDocumentation",
+      arguments: { query: { q: "customCss" } },
+    })
+    expect(documentation.isError).toBe(false)
+    expect(documentation.content[0]).toHaveProperty(
+      "text",
+      expect.stringContaining('"url":"/docs/sdk/theming#custom-css"'),
+    )
+    expect(
+      tools.find((tool) => tool.name === "searchDocumentation")?.annotations?.readOnlyHint,
+    ).toBe(true)
+    expect(restTestState.verify).toHaveBeenCalledTimes(2)
+    restTestState.verify.mockClear()
+    restTestState.rows.push([restTenantRow])
+    const page = await client.callTool({
+      name: "listTenants",
+      arguments: { query: { "filter[external_id]": restTenantRow.externalId, page_size: 5 } },
+    })
+    expect(page.isError).toBe(false)
+    expect(restTestState.verify).toHaveBeenCalledTimes(1)
+    expect(page.content[0]).toHaveProperty(
+      "text",
+      expect.stringContaining('"external_id":" Customer/東京 +?# "'),
+    )
+    expect(restLastPredicate().params).toEqual([restOrgId, restTenantRow.externalId])
+    restTestState.rows.push([restTenantRow])
+    const created = await client.callTool({
+      name: "createTenant",
+      arguments: { body: { external_id: "new-customer" } },
+    })
+    expect(created.isError).toBe(false)
+    expect(restTestState.writes).toEqual([
+      expect.objectContaining({ organizationId: restOrgId, externalId: "new-customer" }),
+    ])
+    restTestState.rows.push([])
+    const missing = await client.callTool({
+      name: "getTenant",
+      arguments: { params: { id: restOtherId } },
+    })
+    expect(missing.isError).toBe(true)
+    expect(missing.content[0]).toHaveProperty("text", expect.stringContaining('"status":404'))
+    expect(restLastPredicate().params).toEqual([restOrgId, restOtherId])
+  })
+
+  test("rejects browser origins, tenant credentials, cookies, revoked keys and quota failures", async () => {
+    const send = (headers: HeadersInit) =>
+      restWebHandler.handler(
+        new Request("http://localhost/mcp", {
+          method: "POST",
+          headers,
+          body: "{}",
+        }),
+      )
+    for (const headers of [
+      {},
+      { Cookie: "session=example" },
+      { Authorization: `Bearer ${restTenantJwt}` },
+      {
+        Authorization: `Bearer ${btoa(JSON.stringify({ typ: "astralbeam-organization+jwt" }))}.e30.c2ln`,
+      },
+    ]) {
+      const response = await send(headers)
+      expect(response.status).toBe(401)
+      expect(response.headers.get("www-authenticate")).toContain("Bearer")
+      expect(response.headers.get("cache-control")).toBe("no-store")
+    }
+    expect(
+      (
+        await send({
+          Authorization: `Bearer ${restTestApiKey}`,
+          Origin: "https://untrusted.example",
+        })
+      ).status,
+    ).toBe(403)
+    expect(restTestState.verify).not.toHaveBeenCalled()
+    restTestState.verify.mockResolvedValue({ valid: false, error: { code: "KEY_DISABLED" } })
+    expect((await send({ "X-API-Key": restTestApiKey })).status).toBe(401)
+    restTestState.verify.mockResolvedValue({
+      valid: false,
+      error: { code: "RATE_LIMITED", details: { tryAgainIn: 1501 } },
+    })
+    const limited = await send({ "X-API-Key": restTestApiKey })
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBe("2")
+  })
+
+  test("revocation takes effect after discovery and invalid tool arguments cannot write", async () => {
+    const client = await connectOrganizationMcp()
+    const invalid = await client.callTool({
+      name: "createTenant",
+      arguments: { body: { external_id: "x", organization_id: restOrgId } },
+    })
+    expect(invalid.isError).toBe(true)
+    expect(restTestState.writes).toEqual([])
+    restTestState.verify.mockResolvedValue({ valid: false, error: { code: "KEY_DISABLED" } })
+    await expect(
+      client.callTool({ name: "createTenant", arguments: { body: { external_id: "x" } } }),
+    ).rejects.toBeDefined()
+    expect(restTestState.writes).toEqual([])
+  })
+
+  test("tool failures preserve retry timing", async () => {
+    const client = await connectOrganizationMcp()
+    restTestState.directoryList.mockReturnValue(
+      Effect.fail(new RestRateLimited({ retryAfterSeconds: 2 })),
+    )
+    const result = await client.callTool({ name: "listThreads", arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toHaveProperty("text", expect.stringContaining('"status":429'))
+    expect(result.content[1]).toEqual({ type: "text", text: "Retry-After: 2 seconds." })
+  })
+
+  test("protocol failures retain JSON-RPC errors and cannot be cached", async () => {
+    const legacy = await restWebHandler.handler(
+      new Request("http://localhost/mcp", {
+        method: "POST",
+        headers: { "X-API-Key": restTestApiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-11-25",
+            capabilities: {},
+            clientInfo: { name: "old", version: "1" },
+          },
+        }),
+      }),
+    )
+    expect(legacy.status).toBe(400)
+    expect(await legacy.json()).toMatchObject({ error: { data: { supported: ["2026-07-28"] } } })
+    const response = await restWebHandler.handler(
+      new Request("http://localhost/mcp", {
+        method: "POST",
+        body: "{}",
+        headers: { "X-API-Key": restTestApiKey, "Content-Type": "text/plain" },
+      }),
+    )
+    expect(response.status).toBe(415)
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.json()).toMatchObject({ jsonrpc: "2.0", error: { code: -32000 } })
+  })
+
+  test("isolates request scopes and cancels the API operation", async () => {
+    const client = await connectOrganizationMcp()
+    const started = Promise.withResolvers<void>()
+    const stopped = Promise.withResolvers<void>()
+    const page = { items: [], nextPosition: null, previousPosition: null }
+    restTestState.directoryList
+      .mockReturnValueOnce(
+        Effect.sync(started.resolve).pipe(
+          Effect.andThen(Effect.never),
+          Effect.ensuring(Effect.sync(stopped.resolve)),
+        ),
+      )
+      .mockReturnValue(Effect.succeed(page))
+    const controller = new AbortController()
+    const pending = client.callTool(
+      { name: "listThreads", arguments: {} },
+      { signal: controller.signal },
+    )
+    await started.promise
+    try {
+      expect(
+        (await restRequest("/threads", { headers: { "X-Organization-Id": restOrgId } })).status,
+      ).toBe(401)
+      restTestState.rows.push([{ id: restTenantId }])
+      const restricted = await restRequest("/threads", {
+        headers: { Authorization: `Bearer ${restTenantJwt}` },
+      })
+      expect(restricted.status).toBe(200)
+      expect(restTestState.directoryList.mock.calls[0]?.[0]).toHaveProperty("scope", {
+        organizationId: restOrgId,
+        tenantId: undefined,
+      })
+      expect(restTestState.directoryList.mock.calls[1]?.[0]).toHaveProperty(
+        "scope",
+        expect.objectContaining({ organizationId: restOrgId, tenantId: restTenantId }),
+      )
+    } finally {
+      controller.abort()
+      await expect(pending).rejects.toBeDefined()
+      await stopped.promise
+    }
   })
 })
 
