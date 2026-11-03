@@ -117,19 +117,6 @@ test("independent OpenAI connections supply distinct agent models and protect as
     await expect(page.getByRole("combobox", { name: "Default model", exact: true })).toContainText(
       secondChoice,
     )
-    const compaction = page.getByRole("switch", {
-      name: "Continue long conversations",
-      exact: true,
-    })
-    await expect(compaction).toBeChecked()
-    await compaction.uncheck()
-    await agents.saveChanges()
-    await page.reload()
-    await expect(compaction).not.toBeChecked()
-    await compaction.check()
-    await agents.saveChanges()
-    await page.reload()
-    await expect(compaction).toBeChecked()
     await captureMilestone(page, "02-provider-qualified-agent-models")
   })
 

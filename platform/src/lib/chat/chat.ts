@@ -5,6 +5,7 @@ import {
   mergeAgentTools,
   type StreamChunk,
   type ChatMiddleware,
+  type TokenUsage,
 } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
@@ -343,6 +344,13 @@ export class Chat extends Context.Service<
               if (usageLimitGuard && !(await usageLimitGuard.check()))
                 throw new ChatCompactionError({ code: "compaction_usage_limit" })
             }
+            const recordCompactionUsage = async (usage: TokenUsage) => {
+              compactionState.usage = chatStoredJson(usage)
+              await usageLimitGuard?.record(usage)
+              await Effect.runPromiseWith(services)(
+                Effect.logInfo("Conversation compaction usage", usage),
+              )
+            }
             const projectCompactionSuffix = () =>
               Effect.runPromiseWith(services)(
                 Effect.gen(function* () {
@@ -378,30 +386,16 @@ export class Chat extends Context.Service<
                         model,
                         input,
                         init,
-                        record: async (usage) => {
-                          compactionState.usage = chatStoredJson(usage)
-                          await usageLimitGuard?.record(usage)
-                          await Effect.runPromiseWith(services)(
-                            Effect.logInfo("Native conversation compaction usage", usage),
-                          )
-                        },
+                        record: recordCompactionUsage,
                       }),
                   }
                 : model,
             )
-            const summaryAccounting: ChatMiddleware[] = [
-              {
-                name: "compaction-accounting",
-                onConfig: beforeModelCall,
-                onUsage: async (_ctx, usage) => {
-                  compactionState.usage = chatStoredJson(usage)
-                  await Effect.runPromiseWith(services)(
-                    Effect.logInfo("Conversation summary usage", usage),
-                  )
-                },
-              },
-              ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
-            ]
+            const summaryAccounting: ChatMiddleware = {
+              name: "compaction-accounting",
+              onConfig: beforeModelCall,
+              onUsage: (_ctx, usage) => recordCompactionUsage(usage),
+            }
             const compaction =
               agent.compactionEnabled && pricing
                 ? createChatCompactionMiddleware({
@@ -421,8 +415,8 @@ export class Chat extends Context.Service<
                       false,
                     ),
                     summaryMiddleware: [
-                      chatFailedUsageMiddleware(summaryAccounting),
-                      ...summaryAccounting,
+                      chatFailedUsageMiddleware([summaryAccounting]),
+                      summaryAccounting,
                     ],
                     beforeCall: beforeModelCall,
                     projectSuffix: projectCompactionSuffix,

@@ -248,80 +248,6 @@ describe("Chat.run", () => {
     ),
   )
 
-  it.effect("keeps attachment handles stable after an older duplicate filename is compacted", () =>
-    Effect.gen(function* () {
-      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
-      const gate = chatRunTest.options[0]!.middleware.find(
-        (middleware) => middleware.name === "managed-thread",
-      )!
-      const refreshed = yield* Effect.promise(async () =>
-        gate.onConfig!(
-          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
-          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
-        ),
-      )
-      const messages = JSON.stringify(refreshed?.providerMessages)
-      assert.include(messages, "[Attached: notes-2.txt]")
-      assert.notInclude(messages, "[Attached: notes.txt]")
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({
-          agent: { ...sandboxedAgent, compactionEnabled: true, sandboxProviderId: null },
-          model: CHAT_TEST_MODEL,
-          pricing: {
-            currency: "USD",
-            pricingSource: { kind: "manual" },
-            prices: { inputPerMillion: "1", outputPerMillion: "1" },
-            contextTiers: [],
-            contextWindowTokens: 16000,
-            maxInputTokens: null,
-            maxOutputTokens: 1000,
-            outputCap: 1000,
-          },
-          history: ["older", "newer"].flatMap((id) => [
-            {
-              id,
-              role: "user",
-              state: "complete",
-              payload: {
-                version: 1,
-                parts: [
-                  {
-                    id: `${id}-file`,
-                    type: "document",
-                    source: { type: "data", value: btoa(id), mimeType: "text/plain" },
-                    metadata: { filename: "notes.txt" },
-                  },
-                ],
-              },
-            },
-            {
-              id: `${id}-reply`,
-              role: "assistant",
-              state: "complete",
-              turnMessageId: id,
-              payload: {
-                version: 1,
-                parts: [{ id: `${id}-text`, type: "text", content: "Read" }],
-              },
-            },
-          ]) as unknown as MessageRecord[],
-          compactions: [
-            {
-              id: "checkpoint",
-              coveredThroughMessageId: "older-reply",
-              payload: {
-                version: 1,
-                kind: "portable",
-                messages: [{ role: "user", content: "Old history" }],
-              },
-            },
-          ] as unknown as ChatCompactionArtifact[],
-        }),
-      ),
-    ),
-  )
-
   it.effect.each([true, undefined])(
     "enables native debug only for an explicit development debug request: %s",
     (debug) =>
@@ -665,6 +591,86 @@ describe("Chat.run", () => {
         }),
       ),
     ),
+  )
+
+  it.effect.each([false, true])(
+    "keeps saved attachment handles stable after refresh, compaction: %s",
+    (compactionEnabled) =>
+      Effect.gen(function* () {
+        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+        const options = chatRunTest.options[0]!
+        assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
+        assert.include(JSON.stringify(options.messages), "[Attached: notes-2.txt]")
+        const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
+        const refreshed = yield* Effect.promise(async () =>
+          gate.onConfig!(
+            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+          ),
+        )
+        assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes-2.txt]")
+        assert.strictEqual(
+          JSON.stringify(refreshed?.providerMessages).includes("[Attached: notes.txt]"),
+          !compactionEnabled,
+        )
+        assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, compactionEnabled },
+            model: CHAT_TEST_MODEL,
+            pricing: {
+              currency: "USD",
+              pricingSource: { kind: "manual" },
+              prices: { inputPerMillion: "1", outputPerMillion: "1" },
+              contextTiers: [],
+              contextWindowTokens: 16000,
+              maxInputTokens: null,
+              maxOutputTokens: 1000,
+              outputCap: 1000,
+            },
+            history: ["older", chatTestExecution.claim.inputMessageId].flatMap((id) => [
+              {
+                id,
+                role: "user",
+                state: "complete",
+                payload: {
+                  version: 1,
+                  parts: [
+                    {
+                      id: `${id}-file`,
+                      type: "document",
+                      source: { type: "data", value: btoa(id), mimeType: "text/plain" },
+                      metadata: { filename: "notes.txt" },
+                    },
+                  ],
+                },
+              },
+              {
+                id: `${id}-reply`,
+                role: "assistant",
+                state: "complete",
+                turnMessageId: id,
+                payload: {
+                  version: 1,
+                  parts: [{ id: `${id}-text`, type: "text", content: "Read" }],
+                },
+              },
+            ]) as unknown as MessageRecord[],
+            compactions: [
+              {
+                id: "checkpoint",
+                coveredThroughMessageId: "older-reply",
+                payload: {
+                  version: 1,
+                  kind: "portable",
+                  messages: [{ role: "user", content: "Old history" }],
+                },
+              },
+            ] as unknown as ChatCompactionArtifact[],
+          }),
+        ),
+      ),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>

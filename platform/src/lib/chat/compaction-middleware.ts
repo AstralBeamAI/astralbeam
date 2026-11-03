@@ -16,7 +16,6 @@ import {
   estimateMessageTokens,
   summarizeOldest,
   withCompaction,
-  type CompactionContext,
 } from "@tanstack/ai-compaction"
 import { Schema } from "effect"
 import type { chatCompaction } from "@/db/schema/chat"
@@ -85,8 +84,6 @@ export function selectChatCompaction(
         positions.get(b.coveredThroughMessageId)! - positions.get(a.coveredThroughMessageId)! ||
         Number(a.payload.kind === "portable") - Number(b.payload.kind === "portable"),
     )[0]
-  const start = state.artifact ? positions.get(state.artifact.coveredThroughMessageId)! + 1 : 0
-  return state.history.slice(start)
 }
 
 export function estimateChatContext(message: ModelMessage) {
@@ -170,7 +167,7 @@ export function createChatCompactionMiddleware(options: {
   })
   const compact = async (
     messages: readonly ModelMessage[],
-    ctx: CompactionContext,
+    ctx: { signal?: AbortSignal | undefined },
     native: boolean,
   ) => {
     await options.beforeCall()
@@ -195,7 +192,13 @@ export function createChatCompactionMiddleware(options: {
         summaryRole: "user",
         keepRecentTokens: suffix.reduce((sum, message) => sum + estimateChatContext(message), 0),
       })
-      const next = await strategy(messages, ctx)
+      const next = await strategy(messages, {
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        maxTokens: budget,
+        estimate: estimateChatContext,
+        threadId: state.claim.threadId,
+        addUsage() {}, // Summary middleware records each call's usage.
+      })
       if (!next) throw new ChatCompactionError({ code: "compaction_context_full" })
       head = next.slice(0, 1)
     }
@@ -218,23 +221,11 @@ export function createChatCompactionMiddleware(options: {
   const middleware = withCompaction({
     maxTokens: () => Math.floor(budget * 0.8),
     estimateTokens: estimateChatContext,
-    strategyKey: "astralbeam-summary-v1",
     strategy: (messages, ctx) => compact(messages, ctx, false),
     ...(options.native && adapter.compact
       ? {
           native: {
-            compact: (input) =>
-              compact(
-                input.messages,
-                {
-                  maxTokens: budget,
-                  estimate: estimateChatContext,
-                  addUsage() {},
-                  threadId: state.claim.threadId,
-                  ...(input.signal ? { signal: input.signal } : {}),
-                },
-                true,
-              ),
+            compact: (input) => compact(input.messages, input, true),
           },
         }
       : {}),
