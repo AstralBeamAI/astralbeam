@@ -80,6 +80,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
+import type { ModelConfiguration } from "@/lib/model-providers/schemas"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
@@ -92,6 +93,7 @@ import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./co
 import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
+import type { ChatCompactionArtifact } from "./compaction-middleware"
 
 const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
 const chatTestExecution = {
@@ -138,6 +140,8 @@ function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
+  readonly pricing?: ModelConfiguration
+  readonly compactions?: ChatCompactionArtifact[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
 }) {
@@ -169,7 +173,7 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(null),
+        pricing: () => Effect.succeed(options.pricing ?? null),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -181,6 +185,7 @@ function chatTestLayer(options: {
       } as unknown as UsageLimits["Service"]),
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
+        compactions: () => Effect.succeed(options.compactions ?? []),
         assertActive: () => Effect.void,
         interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
@@ -222,6 +227,101 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect("reports missing compaction limits safely before calling the model", () =>
+    Effect.gen(function* () {
+      const events = yield* Stream.runCollect(yield* runChat())
+      assert.deepStrictEqual(events, [
+        {
+          type: EventType.RUN_ERROR,
+          message: "Set the model token limits in Models to continue long conversations.",
+        },
+      ])
+      assert.isEmpty(chatRunTest.options)
+      assert.deepStrictEqual(chatRunTest.order, ["interrupted"])
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: { ...sandboxedAgent, compactionEnabled: true },
+          model: CHAT_TEST_MODEL,
+        }),
+      ),
+    ),
+  )
+
+  it.effect("keeps attachment handles stable after an older duplicate filename is compacted", () =>
+    Effect.gen(function* () {
+      yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
+      const gate = chatRunTest.options[0]!.middleware.find(
+        (middleware) => middleware.name === "managed-thread",
+      )!
+      const refreshed = yield* Effect.promise(async () =>
+        gate.onConfig!(
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
+          {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
+        ),
+      )
+      const messages = JSON.stringify(refreshed?.providerMessages)
+      assert.include(messages, "[Attached: notes-2.txt]")
+      assert.notInclude(messages, "[Attached: notes.txt]")
+    }).pipe(
+      Effect.provide(
+        chatTestLayer({
+          agent: { ...sandboxedAgent, compactionEnabled: true, sandboxProviderId: null },
+          model: CHAT_TEST_MODEL,
+          pricing: {
+            currency: "USD",
+            pricingSource: { kind: "manual" },
+            prices: { inputPerMillion: "1", outputPerMillion: "1" },
+            contextTiers: [],
+            contextWindowTokens: 16000,
+            maxInputTokens: null,
+            maxOutputTokens: 1000,
+            outputCap: 1000,
+          },
+          history: ["older", "newer"].flatMap((id) => [
+            {
+              id,
+              role: "user",
+              state: "complete",
+              payload: {
+                version: 1,
+                parts: [
+                  {
+                    id: `${id}-file`,
+                    type: "document",
+                    source: { type: "data", value: btoa(id), mimeType: "text/plain" },
+                    metadata: { filename: "notes.txt" },
+                  },
+                ],
+              },
+            },
+            {
+              id: `${id}-reply`,
+              role: "assistant",
+              state: "complete",
+              turnMessageId: id,
+              payload: {
+                version: 1,
+                parts: [{ id: `${id}-text`, type: "text", content: "Read" }],
+              },
+            },
+          ]) as unknown as MessageRecord[],
+          compactions: [
+            {
+              id: "checkpoint",
+              coveredThroughMessageId: "older-reply",
+              payload: {
+                version: 1,
+                kind: "portable",
+                messages: [{ role: "user", content: "Old history" }],
+              },
+            },
+          ] as unknown as ChatCompactionArtifact[],
+        }),
+      ),
+    ),
+  )
+
   it.effect.each([true, undefined])(
     "enables native debug only for an explicit development debug request: %s",
     (debug) =>

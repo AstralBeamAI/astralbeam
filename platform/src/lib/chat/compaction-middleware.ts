@@ -261,7 +261,13 @@ export function createChatCompactionMiddleware(options: {
       const working = (config.providerMessages ?? config.messages).map(
         boundChatCompactionToolResult,
       )
-      const prepared = await middleware.onConfig?.(ctx, { ...config, providerMessages: working })
+      let prepared
+      try {
+        prepared = await middleware.onConfig?.(ctx, { ...config, providerMessages: working })
+      } catch (error) {
+        if (ctx.signal?.aborted || error instanceof ChatCompactionError) throw error
+        throw new ChatCompactionError({ code: "compaction_failed" })
+      }
       const messages = (prepared?.providerMessages ?? working).map(boundChatCompactionToolResult)
       if (messages.reduce((sum, message) => sum + estimateChatContext(message), 0) > budget)
         throw new ChatCompactionError({ code: "compaction_context_full" })
