@@ -64,6 +64,69 @@ test.beforeEach(async ({ context }) => {
   )
 })
 
+test("preparing context keeps the transcript visible and clears when the run finishes", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ threadId }) => {
+      const originalFetch = window.fetch
+      window.fetch = (input, init) => {
+        const url = input instanceof Request ? input.url : String(input)
+        if (!url.endsWith("/api/v1/chat")) return originalFetch(input, init)
+        return Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                const emit = (event: unknown) =>
+                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+                emit({ type: "RUN_STARTED", threadId, runId: "compaction" })
+                emit({
+                  type: "CUSTOM",
+                  name: "astralbeam_thread",
+                  value: { threadId, version: 2, acceptedMessageId: "accepted" },
+                })
+                emit({
+                  type: "CUSTOM",
+                  name: "compaction:started",
+                  value: { state: "started", operationId: "operation" },
+                })
+                window.addEventListener(
+                  "finish-compaction-test",
+                  () => {
+                    emit({
+                      type: "CUSTOM",
+                      name: "compaction:ended",
+                      value: { state: "completed", operationId: "operation" },
+                    })
+                    emit({ type: "RUN_FINISHED", threadId, runId: "compaction" })
+                    controller.close()
+                  },
+                  { once: true },
+                )
+              },
+            }),
+            { headers: { "content-type": "text/event-stream" } },
+          ),
+        )
+      }
+    },
+    { threadId: thread.id },
+  )
+  await todosPage(page).open()
+  const chat = chatWidget(page)
+  await chat.send("Keep the corrected release date in context")
+  const preparing = page.getByRole("status").filter({ hasText: "Preparing conversation context" })
+  await expect(preparing).toBeVisible()
+  await expect(
+    chat.root.getByText("Keep the corrected release date in context", { exact: true }),
+  ).toBeVisible()
+  await captureMoment(page, "compaction-preparing")
+  await page.evaluate(() => window.dispatchEvent(new Event("finish-compaction-test")))
+  await expect(preparing).toBeHidden()
+  await chat.waitForIdle()
+  await expect(chat.errorAlert()).toHaveCount(0)
+})
+
 test("reviewing a rejected file reveals and focuses its removal action", async ({ page }) => {
   await todosPage(page).open()
   const chat = chatWidget(page)

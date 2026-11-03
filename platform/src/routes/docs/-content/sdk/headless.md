@@ -89,3 +89,5 @@ await chat.sendMessage("Continue from here")
 - Use `reset()` for a fresh conversation. Managers can rename the selected thread with `renameThread(title)` and delete any listed thread with `deleteThread(thread)`.
 - Keep tool responses associated with their stored call and target across browser clients.
 - Reopening another client's saved state loads history. It does not replay live events or resume a disconnected stream.
+
+When an agent summarizes older conversation context, session state exposes `preparingContext: true`. Let's show a brief progress label while it is true. The full transcript remains in `messages`, and failures that block continuation use the normal chat error state.

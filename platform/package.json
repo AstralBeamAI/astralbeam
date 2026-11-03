@@ -66,6 +66,7 @@
     "@tanstack/ai": "^1.2.0",
     "@tanstack/ai-anthropic": "^1.0.0",
     "@tanstack/ai-effect": "^0.1.0",
+    "@tanstack/ai-compaction": "^1.0.0",
     "@tanstack/ai-gemini": "^1.0.0",
     "@tanstack/ai-grok": "^1.0.0",
     "@tanstack/ai-harness": "0.1.0",

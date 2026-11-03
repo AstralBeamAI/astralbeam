@@ -118,6 +118,7 @@ const sandboxedAgent: ChatAgent = {
   systemPrompt: "Help",
   attachmentsEnabled: false,
   webAccessEnabled: false,
+  compactionEnabled: false,
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 

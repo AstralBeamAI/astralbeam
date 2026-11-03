@@ -52,6 +52,7 @@ interface ManagedChatStreamOptions {
   }>
   readonly model: ChatModelConfiguration
   readonly pricing?: ModelConfiguration | null | undefined
+  readonly contextKey?: () => string | undefined
   readonly agentId: string
   readonly publicHistory: UIMessage[]
   readonly refreshContext?:
@@ -218,6 +219,7 @@ function managedAssistantPayload(
       providerType: options.model.providerType,
       protocol: options.model.api,
       modelId: options.model.modelId,
+      ...(options.contextKey?.() ? { contextKey: options.contextKey()! } : {}),
       ...(state.usage ? { usage: state.usage } : {}),
     },
   }
