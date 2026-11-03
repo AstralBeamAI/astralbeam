@@ -1,5 +1,7 @@
 # Overview
 
+Run the agent backend and dashboard on your own infrastructure. Use your own model keys and choose where conversations and files are stored. Your app connects through the same SDK with your deployment's API URL.
+
 Run AstralBeam with PostgreSQL 18 and email delivery. File storage defaults to the local filesystem for new installations. Choose a [container or Linux binary deployment](./deploy.md), then complete configuration in the browser.
 
 ## What you run
@@ -37,6 +39,8 @@ Edit other deployment settings at `/configure`. Uppercase environment overrides 
 The application opens when required configuration is valid and no bundled migration is pending. Clearing a required value or installing pending migrations closes that gate again.
 
 While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
+
+Once the dashboard is ready, follow the [Quickstart](/docs/start/quickstart) to connect a model and add chat to your app. Set the SDK's `apiUrl` to your deployment's `/api` base.
 
 ## Running more than one replica
 

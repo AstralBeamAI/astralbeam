@@ -95,4 +95,6 @@ accessible
 
 ## Building with AstralBeam
 
-[AstralBeam](/) provides an embeddable agent sidebar with conversation history, file attachments, and tools that connect the agent to your app. It gives you a starting point for the chat experience while you define the product's actions and permission boundaries. Explore the [documentation](/docs) or the [source](https://github.com/astralbeamai/astralbeam) to see how it fits your application.
+[AstralBeam](/) provides an embeddable agent sidebar with conversation history, file attachments, and tools that connect the agent to your app. You define the product's actions and permission boundaries.
+
+Follow the [quickstart](/docs/start/quickstart) to connect your existing login and get a streamed reply inside your app. Then use the [Todos tutorial](/docs/start/todos-tutorial) to let the agent update application state and render live widgets. You can run AstralBeam on [your own infrastructure](/docs/self-hosting) and inspect the [source](https://github.com/astralbeamai/astralbeam).

@@ -40,10 +40,9 @@ const questions = [
     question: "How do I get started?",
     answer: (
       <>
-        AstralBeam provides the chat UI and agent backend, including conversation history and file
-        handling. You add a server endpoint to identify your users, define the tools that connect to
-        your app, and keep your business logic and permission checks. See the{" "}
-        <a href={`${docs}/start/quickstart`}>quickstart</a>.
+        Connect a model provider in the dashboard, create an API key, and follow the{" "}
+        <a href={`${docs}/start/quickstart`}>quickstart</a> to add chat to your app. Then add a tool
+        that reads or updates data in your app.
       </>
     ),
   },

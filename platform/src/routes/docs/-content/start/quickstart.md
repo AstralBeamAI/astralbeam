@@ -1,6 +1,8 @@
 # Quickstart
 
-Let's add an assistant to your **React app** using your existing login.
+Let's add an assistant to your **React app** using your existing login. We'll connect a model, mount the chat, and send a message from inside your app.
+
+Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
 
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
@@ -152,6 +154,10 @@ See [SDK props](/docs/sdk/configuration#options) to customize the assistant.
 
 ## Next
 
-[Add tools and widgets](/docs/sdk/tools-and-widgets), or try the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
+- [Build a todo assistant](./todos-tutorial.md) that updates the list and shows live cards in chat.
+- [Add your own tools and widgets](/docs/sdk/tools-and-widgets) to connect the agent to your app's actions and components.
+- [Style the chat](/docs/sdk/theming) to match your app.
+
+Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
 
 See [Authentication](/docs/sdk/authentication) for troubleshooting.

@@ -29,6 +29,8 @@ The Website links in docs and the platform's profile menu always open `https://a
 
 The build publishes the [AstralBeam skill](../skills/astralbeam/SKILL.md) and its discovery index from this single source.
 
+`public/install.sh` serves the standalone Platform installer at `/install.sh`. Keep target names aligned with `.github/workflows/release.yml`. Usage and flags are documented in [Get a release binary](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary).
+
 Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
 
 Fenced blocks with the language `demo` embed the interactive example named inside, such as `retry`. The available examples are in `src/routes/blog/-components/failure-demo.tsx`. Normal Markdown handles the rest of the article. These examples run entirely in the browser with synthetic data and no model calls. Keep each example's explanation in the Markdown so the article remains useful without JavaScript.
