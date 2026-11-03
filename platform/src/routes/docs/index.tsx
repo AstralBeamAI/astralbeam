@@ -35,7 +35,7 @@ function DocsHomePage() {
         </li>
         <li>
           <a href="/docs/sdk/getting-started" className="text-primary underline underline-offset-4">
-            Use JavaScript or another framework
+            Use plain JavaScript or another framework
           </a>
           . Mount the widget directly or use a script tag in a server-rendered app.
         </li>

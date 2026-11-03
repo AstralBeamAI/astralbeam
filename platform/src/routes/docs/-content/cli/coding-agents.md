@@ -1,12 +1,10 @@
 # Coding agents
 
-Use your coding agent to add AstralBeam to an app or administer an organization from the terminal.
-
 ## Integrate your app
 
-Open your app's repository in Cursor, Claude Code, Codex, or another coding agent. Ask it to add an AstralBeam assistant using the [integration skill](/agent-skills/astralbeam/SKILL.md). The skill covers authentication, the token endpoint, chat layout, tools, and verification. You don't need the CLI for this.
+Ask your coding agent to use the [AstralBeam skill](/agent-skills/astralbeam/SKILL.md) in your app's repository. The CLI is not required.
 
-Follow [Prepare your agent](/docs/start/quickstart#1-prepare-your-agent) to connect a model and create an API key. Put the key in your backend's environment, never in the agent's prompt.
+First, [connect a model and create an API key](/docs/start/quickstart#1-prepare-your-agent). Keep the key in your backend's environment, never in the prompt.
 
 ## Use the CLI
 

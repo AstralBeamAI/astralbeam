@@ -69,25 +69,23 @@ The following steps target a Linux host with systemd and `sudo`. Container users
 
 ## 1. Get a release binary
 
-Download `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Linux and macOS builds support x86_64 and ARM64. Windows supports x86_64. Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
-
-Install the appropriate Platform binary on macOS or Linux with glibc. No Bun or Node installation is needed:
+Install the Platform binary on macOS or Linux with glibc, for x86_64 or ARM64:
 
 ```sh
 curl -fsSL https://astralbeam.ai/install.sh | sh
 ```
 
-The installer selects x86_64 or ARM64, including native ARM64 under Rosetta, verifies `SHA256SUMS`, and checks that the binary runs before installing it. It requires `curl`, plus `shasum` on macOS or `sha256sum` on Linux. The default directory is `~/.local/bin`, without `sudo`. Follow the printed PATH instructions if needed. On Alpine or other musl systems, use the container. On Windows, download the x86_64 `.exe` from releases manually.
+The installer verifies `SHA256SUMS` and installs to `~/.local/bin`. Follow the printed PATH instructions if needed. No Bun or Node installation is required.
 
-Pass installer flags after `sh -s --`:
+Pass flags after `sh -s --`:
 
 | Flag | Effect |
 | --- | --- |
-| `--version <X.Y.Z>` | Pin a release, with or without a leading `v`. Defaults to `latest` |
+| `--version <X.Y.Z>` | Pin a release (default: latest) |
 | `--install-dir <absolute-path>` | Choose the binary directory |
-| `--help` | Print usage without downloading |
+| `--help` | Show usage |
 
-For the systemd service below, install into `/usr/local/bin` instead of the default directory. Download the script for inspection, then run it with permission to write that directory:
+For the systemd service below, inspect the script and install into `/usr/local/bin`:
 
 ```sh
 curl -fsSLo install.sh https://astralbeam.ai/install.sh
@@ -95,9 +93,11 @@ less install.sh
 sudo sh install.sh --install-dir /usr/local/bin
 ```
 
-To pin a fresh install, add `--version 0.25.1`. Rerunning delegates to the existing binary's `upgrade --yes` command, which refuses downgrades. Installation leaves shell profiles untouched and does not configure the database, run migrations, or start a service. Follow the remaining setup steps below, and [the upgrade procedure](#upgrade-the-binary) for an existing deployment.
+For an existing installation, follow [Upgrade the binary](#upgrade-the-binary). Rerunning the installer uses `upgrade --yes` and refuses downgrades.
 
-Checksums verify download integrity, not publisher identity: releases are unsigned. On macOS, browser downloads may require `xattr -d com.apple.quarantine <file>` before running. Run `astralbeam-platform version` to confirm the version and target, or `astralbeam-platform --help` for commands.
+Use the container on Alpine or other musl systems. For manual downloads, including Windows x86_64, choose `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
+
+Checksums verify download integrity, not publisher identity: releases are unsigned. Run `astralbeam-platform version` to confirm the installation.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
 
