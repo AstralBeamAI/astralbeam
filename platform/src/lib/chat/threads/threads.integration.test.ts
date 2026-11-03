@@ -224,6 +224,15 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
           }),
         ),
       ).rejects.toBeDefined()
+    const third = await admit(thread.id)
+    await runtime.runPromise(service.interrupt({ claim: second.claim! }))
+    await runtime.runPromise(
+      service.saveCompaction({
+        claim: third.claim!,
+        leafMessageId: third.claim!.assistantMessageId,
+        artifact: { ...artifact, coveredThroughMessageId: second.claim!.assistantMessageId },
+      }),
+    )
     const current = await runtime.runPromise(service.get({ scope, id: thread.id }))
     await runtime.runPromise(
       service.remove({ scope, id: thread.id, lockVersion: current.lockVersion }),
