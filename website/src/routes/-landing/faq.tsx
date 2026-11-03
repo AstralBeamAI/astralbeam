@@ -2,6 +2,47 @@ import { siteMetadata } from "@/lib/site"
 
 const docs = siteMetadata.links.docs
 
+const comparisons = [
+  {
+    name: "CopilotKit",
+    href: "https://docs.copilotkit.ai/quickstart",
+    offering: "Chat components and an agent runtime, plus optional cloud services.",
+    difference:
+      "We run the agent backend and store conversations and files, with usage limits for each customer.",
+  },
+  {
+    name: "assistant-ui",
+    href: "https://www.assistant-ui.com/docs/architecture",
+    offering:
+      "Customizable chat components, backend integrations, and hosted conversation history.",
+    difference:
+      "Get the chat UI and agent backend together, with file handling and per-customer usage limits included.",
+  },
+  {
+    name: "OpenAI ChatKit",
+    href: "https://developers.openai.com/api/docs/guides/chatkit",
+    offering:
+      "Embeddable chat UI. Its recommended path for new apps connects to your own agent backend.",
+    difference:
+      "Use our managed backend or self-host the same open-source platform, with your choice of model providers.",
+  },
+  {
+    name: "Mastra",
+    href: "https://mastra.ai/docs",
+    offering: "A TypeScript framework for building agents and workflows.",
+    difference:
+      "Start with a working chat sidebar and managed backend, then add your app's tools and UI widgets.",
+  },
+  {
+    name: "ElevenAgents",
+    href: "https://elevenlabs.io/docs/eleven-agents/overview",
+    offering:
+      "Agents for voice and multimodal conversations, with web widgets, phone integrations, and model choice.",
+    difference:
+      "We focus on agentic chat inside your web app, with tools, UI widgets, files, and per-customer usage limits.",
+  },
+]
+
 const questions = [
   {
     question: "What is AstralBeam?",
@@ -33,6 +74,60 @@ const questions = [
         Developers should be able to focus on their product rather than keeping up with all this.
         That&apos;s why we made AstralBeam open source. We encourage you to try{" "}
         <a href={`${docs}/self-hosting`}>self-hosting it</a> before building your own.
+      </>
+    ),
+  },
+  {
+    question: "How is AstralBeam different from other tools and services?",
+    answer: (
+      <>
+        <p>
+          AstralBeam gives you an agentic chat sidebar and a managed backend together. We handle the
+          agent loop, conversation history, files, and per-customer usage limits. You hook up tools
+          and UI widgets to connect it to your product.
+        </p>
+        <div
+          className="faq-comparison"
+          role="region"
+          aria-label="Comparison with other tools and services"
+        >
+          <table role="table">
+            <thead>
+              <tr>
+                <th scope="col">Tool / service</th>
+                <th scope="col">What it provides</th>
+                <th scope="col">Why choose AstralBeam</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisons.map(({ name, href, offering, difference }) => (
+                <tr key={name}>
+                  <th scope="row">
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {name}
+                    </a>
+                  </th>
+                  <td>
+                    <span className="faq-comparison-label" aria-hidden="true">
+                      What it provides
+                    </span>
+                    {offering}
+                  </td>
+                  <td>
+                    <span className="faq-comparison-label" aria-hidden="true">
+                      Why choose AstralBeam
+                    </span>
+                    {difference}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Try the <a href={`${docs}/start/quickstart`}>quickstart</a>, or{" "}
+          <a href={`${docs}/self-hosting`}>self-host</a> the same open-source platform.
+        </p>
       </>
     ),
   },
@@ -148,7 +243,7 @@ export function Faq() {
         {questions.map(({ question, answer }) => (
           <details className="faq-item" key={question}>
             <summary>{question}</summary>
-            <p className="faq-answer">{answer}</p>
+            <div className="faq-answer">{answer}</div>
           </details>
         ))}
       </div>
