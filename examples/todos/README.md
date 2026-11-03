@@ -29,7 +29,7 @@ For manual configuration:
 - Enable **Show stored admin fields** to reveal the optional column and filter. Metadata appears in its own column. The tenant comes from the signed JWT, with no tenant picker or organization token.
 - Toggle **Hide assistant**, **Theme**, and **Custom theme** to compare layout and palettes.
 - Ask the assistant to edit todos, then toggle a `TodoCard` inside the chat and confirm the host list updates.
-- Paste a screenshot or attach `samples/tasks.csv` and ask the assistant to create todos or analyze the table.
+- Paste a screenshot and ask the assistant to create todos. With a sandbox provider, attach `samples/tasks.csv` to analyze the table.
 - With a sandbox provider, ask it to export your todos as CSV. Inspect file downloads, command output, and exit codes in the **Sandbox** panel.
 
 The demo token route grants a fixed identity and returns `503` in production. Before deploying, replace it with a handler that derives stable Tenant and tenant-local user IDs from an authenticated session. Follow the [SDK authentication guide](https://astralbeam.ai/docs/sdk/authentication).

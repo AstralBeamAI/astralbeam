@@ -23,8 +23,6 @@ The connection test creates a sandbox, runs a command, and destroys it. It can t
 
 Names must be unique within the organization.
 
-The direct Docker provider is retired. Upgrading deletes its connections and clears their agent assignments. Add and verify another provider, then select it on affected agents. No replacement is selected automatically.
-
 ## Connection tests
 
 Creating a provider or changing its connection settings requires a passing test. A failed test leaves stored settings unchanged. Renaming needs no test.
