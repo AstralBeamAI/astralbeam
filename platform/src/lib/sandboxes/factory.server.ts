@@ -22,31 +22,31 @@ const factories: {
   ) => Effect.Effect<SandboxProvider, SandboxProviderUnavailable>
 } = {
   daytona: (configuration: ProviderConfiguration<"daytona">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-daytona")).pipe(
+    loadSandboxProviderModule(() => import("@astralbeam/sandbox")).pipe(
       Effect.map(({ daytonaSandbox }) =>
         daytonaSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
   docker: (configuration: ProviderConfiguration<"docker">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-docker")).pipe(
+    loadSandboxProviderModule(() => import("@astralbeam/sandbox")).pipe(
       Effect.map(({ dockerSandbox }) =>
         dockerSandbox({ ...configuration.options, keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND }),
       ),
     ),
   e2b: (configuration: ProviderConfiguration<"e2b">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-e2b")).pipe(
+    loadSandboxProviderModule(() => import("@astralbeam/sandbox")).pipe(
       Effect.map(({ e2bSandbox }) =>
         e2bSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
   sprites: (configuration: ProviderConfiguration<"sprites">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-sprites")).pipe(
+    loadSandboxProviderModule(() => import("@astralbeam/sandbox")).pipe(
       Effect.map(({ spritesSandbox }) =>
         spritesSandbox({ ...configuration.options, ...configuration.credentials }),
       ),
     ),
   vercel: (configuration: ProviderConfiguration<"vercel">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-vercel")).pipe(
+    loadSandboxProviderModule(() => import("@astralbeam/sandbox")).pipe(
       Effect.map(({ vercelSandbox }) =>
         vercelSandbox({ ...configuration.options, ...configuration.credentials }),
       ),

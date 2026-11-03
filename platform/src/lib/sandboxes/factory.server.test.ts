@@ -5,7 +5,7 @@ const sandboxFactoryMocks = vi.hoisted(() => ({
   docker: vi.fn(),
 }))
 
-vi.mock("@tanstack/ai-sandbox-docker", () => ({ dockerSandbox: sandboxFactoryMocks.docker }))
+vi.mock("@astralbeam/sandbox", () => ({ dockerSandbox: sandboxFactoryMocks.docker }))
 
 import { createSandboxProvider } from "./factory.server.ts"
 

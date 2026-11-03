@@ -5,7 +5,7 @@ FROM oven/bun:1.4.4 AS build
 
 WORKDIR /app
 # Source edits reuse dependency installation: https://docs.docker.com/build/cache/optimize/#order-your-layers
-COPY --parents package.json bun.lock bunfig.toml .bun-version */package.json examples/*/package.json patches/*.patch ./
+COPY --parents package.json bun.lock bunfig.toml .bun-version */package.json examples/*/package.json platform/packages/*/package.json patches/*.patch ./
 RUN test "$(bun --version)" = "$(cat .bun-version)" && bun install --frozen-lockfile
 # Exclude local secrets and host artifacts: https://docs.docker.com/reference/dockerfile/#copy---exclude
 COPY --exclude=.git --exclude=**/node_modules --exclude=**/.env* --exclude=**/*.local \
