@@ -70,7 +70,7 @@ const readAppliedMigrationHistory = Effect.fn("readAppliedMigrationHistory")(fun
 export class DatabaseMigrations extends Context.Service<
   DatabaseMigrations,
   {
-    /** Cached until this process applies migrations, which only an operator does. */
+    /** Cached for up to five seconds, invalidated immediately after local migration attempts. */
     readonly state: Effect.Effect<DatabaseMigrationState>
     /** Applies exactly the pending migrations the operator reviewed, each in its own transaction. */
     readonly apply: (approved: readonly string[]) => Effect.Effect<void, MigrationsNotApplied>
@@ -87,7 +87,7 @@ export class DatabaseMigrations extends Context.Service<
           })),
         {
           capacity: 1,
-          timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+          timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.seconds(5) : Duration.zero),
         },
       )
 

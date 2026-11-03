@@ -12,6 +12,7 @@ import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
 import { Context, Effect, identity, Layer, Option, Stream, Schema } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
+import { redactSensitiveValue } from "@/lib/redaction"
 import { ChatThreads, type MessageRecord } from "./threads/threads"
 import { ChatThreadInvalid, type ChatThreadError } from "./threads/errors"
 import { projectChatModelHistory, projectChatPublicHistory } from "./threads/projection"
@@ -31,6 +32,7 @@ import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
   ChatFiles,
+  type ChatFileScope,
   normalizeChatAttachments,
   redactChatAttachmentData,
 } from "./attachments/attachments"
@@ -114,7 +116,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   readonly files: typeof ChatFiles.Service
   readonly sandbox: boolean
   readonly webAccessEnabled: boolean
-  readonly scope: { organizationId: string; tenantId: string; threadId: string }
+  readonly scope: Pick<ChatFileScope, "organizationId" | "tenantId" | "threadId">
 }) {
   const stored = yield* Effect.try({
     try: () =>
@@ -134,7 +136,7 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     return content.length ? [{ ...message, content }] : []
   })
   const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { sandbox })
+  const normalized = normalizeChatAttachments(projected, { sandbox, contentShape: "model" })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -394,7 +396,15 @@ export class Chat extends Context.Service<
             turn = managed.state
             const accounting = [
               ...Option.toArray(yield* Effect.serviceOption(OtelTracer.OtelTracer)).map((tracer) =>
-                otelMiddleware({ tracer, captureContent: false }),
+                otelMiddleware({
+                  tracer,
+                  captureContent: true,
+                  redact: (text) => redactSensitiveValue("", text),
+                  attributeEnricher: () => ({
+                    "gen_ai.conversation.id": params.threadId,
+                    "gen_ai.agent.id": agent.id,
+                  }),
+                }),
               ),
               ...managed.middleware,
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),

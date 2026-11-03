@@ -1,3 +1,4 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
   chat,
   EventType,
@@ -320,9 +321,9 @@ async function exerciseWeb(
   let results = 0
   const claim: ChatWriterClaim = {
     scope: {
-      organizationId: crypto.randomUUID(),
-      tenantId: crypto.randomUUID(),
-      tenantUserId: crypto.randomUUID(),
+      organizationId: OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001"),
+      tenantId: TenantIdSchema.make(crypto.randomUUID()),
+      tenantUserId: TenantUserIdSchema.make(crypto.randomUUID()),
     },
     threadId: crypto.randomUUID(),
     inputMessageId: crypto.randomUUID(),

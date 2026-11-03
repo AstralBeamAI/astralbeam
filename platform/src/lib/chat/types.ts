@@ -1,3 +1,4 @@
+import type { OrganizationId } from "@/db/schema/organizations.ts"
 import type { chatParamsFromRequest } from "@tanstack/ai"
 
 import type { ChatAuthTokenPayloadSchema } from "./schemas.ts"
@@ -12,7 +13,7 @@ export type ChatTenantUser = ChatAuthTokenPayload["user"] & {
 }
 
 export interface ChatPrincipal {
-  readonly organization: { readonly id: string }
+  readonly organization: { readonly id: OrganizationId }
   readonly tenantUser: ChatTenantUser
   /** Public IDs of the usage limits the token lists, applied beyond the default limits. */
   readonly usageLimitIds?: readonly string[] | undefined

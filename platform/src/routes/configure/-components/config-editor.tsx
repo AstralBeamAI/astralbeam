@@ -22,7 +22,7 @@ import {
 } from "@/lib/email/schemas"
 import type { ConfigIssue, ConfigKey } from "@/lib/config/types"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { StorageConnectionSchema } from "@/lib/storage/schemas"
+import { isStorageSettingActive, StorageConnectionSchema } from "@/lib/storage/schemas"
 import { generateConfigValue } from "../-functions/generate-config-value"
 import { revealConfigValue } from "../-functions/reveal-config-value"
 import { saveConfigValues } from "../-functions/save-config-values"
@@ -31,7 +31,6 @@ import type { ConfigureField, FieldDraft } from "../-lib/types"
 import { ConfigFieldGroups } from "./config-field-groups"
 import { ConfigSection } from "./config-section"
 import { ConfigureActions } from "./configure-actions"
-import { SetupStatusAlert } from "./setup-status-alert"
 
 const decodeEmailProvider = Schema.decodeUnknownSync(EmailProviderSchema)
 const decodeEmailProviderConnectionInput = Schema.decodeUnknownOption(
@@ -86,8 +85,14 @@ export function ConfigEditor({
 
   const storedValue = (field: ConfigureField) => revealedValues[field.key] ?? field.value
 
-  const pendingUpdates = fields.flatMap<{ key: string; value: string | null }>((field) => {
-    const draft = drafts[field.key] ?? { kind: "unchanged" }
+  const storageProvider = currentValue("storage_provider")
+  const activeFields = fields.filter((field) => isStorageSettingActive(field.key, storageProvider))
+
+  const pendingUpdates = activeFields.flatMap<{ key: string; value: string | null }>((field) => {
+    const draft: FieldDraft =
+      field.key === "client_ip_headers" && currentValue("trust_proxy", "false") === "false"
+        ? { kind: "unchanged" }
+        : (drafts[field.key] ?? { kind: "unchanged" })
     const stored = storedValue(field)
     if (field.source === "environment") return []
     if (draft.kind === "unchanged") {
@@ -97,7 +102,12 @@ export function ConfigEditor({
         ? [{ key: field.key, value: stored }]
         : []
     }
-    if (draft.value === (stored ?? "") && field.storageStatus !== "unreadable") return []
+    if (
+      draft.value === (stored ?? "") &&
+      (stored !== null || !field.isSet) &&
+      field.storageStatus !== "unreadable"
+    )
+      return []
     if (!field.required && draft.value === "") {
       return [{ key: field.key, value: null }]
     }
@@ -113,14 +123,16 @@ export function ConfigEditor({
       return updated
     })
     const field = fields.find((candidate) => candidate.key === key)
+    const stored = field && storedValue(field)
     const unchanged =
       draft.kind === "set" &&
       field?.storageStatus !== "unreadable" &&
-      draft.value === ((field && storedValue(field)) ?? "")
+      !(field?.kind === "secret" && field.isSet && stored === null) &&
+      draft.value === (stored ?? "")
     setDrafts((current) => ({ ...current, [key]: unchanged ? { kind: "unchanged" } : draft }))
   }
 
-  const currentValue = (key: ConfigKey, clearedValue = "") => {
+  function currentValue(key: ConfigKey, clearedValue = "") {
     const field = fields.find((candidate) => candidate.key === key)
     const draft = drafts[key] ?? { kind: "unchanged" }
     if (draft.kind === "set") return draft.value || clearedValue
@@ -257,6 +269,7 @@ export function ConfigEditor({
     issues.some(
       (issue) => issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
     )
+  const ownerFirst = !onboarding?.complete && !configurationRequired
 
   const actions = (
     <ConfigureActions
@@ -268,29 +281,34 @@ export function ConfigEditor({
     />
   )
 
+  const fieldGroups = (
+    <ConfigFieldGroups
+      key="configuration"
+      fields={activeFields}
+      issues={issues}
+      changedKeys={new Set(pendingUpdates.map((update) => update.key))}
+      drafts={drafts}
+      revealedValues={revealedValues}
+      fieldErrors={fieldErrors}
+      failedSaveAttempt={failedSaveAttempt}
+      disabled={busy}
+      onDraftChange={setDraft}
+      onGenerate={(key) => void handleGenerate(key)}
+      onReveal={handleReveal}
+      onTestEmailProvider={() => void handleTestEmailProvider()}
+      emailProvider={emailProvider}
+      canTestEmailProvider={canTestEmailProvider}
+      emailProviderTesting={emailProviderTesting}
+      emailProviderTestResult={emailProviderTestResult}
+      storageSettings={Option.getOrUndefined(storageSettings)}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-6">
       {actions}
 
-      <ConfigFieldGroups
-        fields={fields}
-        issues={issues}
-        changedKeys={new Set(pendingUpdates.map((update) => update.key))}
-        drafts={drafts}
-        revealedValues={revealedValues}
-        fieldErrors={fieldErrors}
-        failedSaveAttempt={failedSaveAttempt}
-        disabled={busy}
-        onDraftChange={setDraft}
-        onGenerate={(key) => void handleGenerate(key)}
-        onReveal={handleReveal}
-        onTestEmailProvider={() => void handleTestEmailProvider()}
-        emailProvider={emailProvider}
-        canTestEmailProvider={canTestEmailProvider}
-        emailProviderTesting={emailProviderTesting}
-        emailProviderTestResult={emailProviderTestResult}
-        storageSettings={Option.getOrUndefined(storageSettings)}
-      />
+      {!ownerFirst && fieldGroups}
 
       {onboarding && owner && (
         <ConfigSection
@@ -300,7 +318,10 @@ export function ConfigEditor({
             [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
             "Invite the owner to finish setup."
           }
+          id="configure-owner"
           configured={onboarding.complete}
+          configuredLabel="Invitation sent"
+          defaultOpen={!onboarding.complete}
         >
           <p className="text-sm text-muted-foreground">
             {onboarding.complete
@@ -310,6 +331,25 @@ export function ConfigEditor({
                 : "The owner receives an email to set their password."}{" "}
             This organization also hosts the dashboard assistant.
           </p>
+          {!onboarding.complete && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || !canTestEmailProvider}
+                onClick={() => void handleTestEmailProvider()}
+              >
+                {emailProviderTesting && <Spinner />}
+                Test email connection
+              </Button>
+              {emailProviderTestResult && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {emailProviderTestResult.message}
+                </p>
+              )}
+            </div>
+          )}
           {(
             [
               ["email", "Owner email", "Enter a valid email address."],
@@ -364,23 +404,9 @@ export function ConfigEditor({
         </ConfigSection>
       )}
 
-      {actions}
+      {ownerFirst && fieldGroups}
 
-      <SetupStatusAlert
-        setupComplete={setupComplete}
-        issues={
-          onboarding && !onboarding.complete
-            ? [
-                ...issues.filter(
-                  (issue) =>
-                    issue.key !== "dogfood_organization_id" && issue.key !== "dogfood_api_key",
-                ),
-                { key: "dogfood_organization_id", message: "Invite the owner to finish setup." },
-              ]
-            : issues
-        }
-        fallbackEncryptionKeyCount={fallbackEncryptionKeyCount}
-      />
+      {actions}
     </div>
   )
 }

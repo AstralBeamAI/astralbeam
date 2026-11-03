@@ -4,7 +4,9 @@ import { Cause, DateTime, Effect, Exit, Predicate, Schema } from "effect"
 import { createSandboxProvider } from "./factory.server.ts"
 import type {
   SandboxConnectionErrorCode,
+  SandboxProviderCredentials,
   SandboxProviderId,
+  SandboxProviderOptions,
   SandboxTestMetadata,
 } from "./schemas.ts"
 
@@ -61,8 +63,8 @@ const execSandboxTest = (handle: SandboxHandle) =>
  */
 export const runSandboxConnectionTest = Effect.fn("runSandboxConnectionTest")(function* (input: {
   readonly provider: SandboxProviderId
-  readonly options: unknown
-  readonly credentials: unknown
+  readonly options: SandboxProviderOptions[SandboxProviderId]
+  readonly credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
   const testedAt = DateTime.formatIso(yield* DateTime.now)
   const failed = (action: SandboxTestAction, cause: unknown, errorCode = sandboxErrorCode(cause)) =>

@@ -1,4 +1,6 @@
 import process from "node:process"
+import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
+import { context as otelContext, isSpanContextValid, trace } from "@opentelemetry/api"
 
 import {
   Array,
@@ -9,32 +11,27 @@ import {
   Formatter,
   Layer,
   Logger,
-  Predicate,
   References,
+  Tracer,
 } from "effect"
 import { OtlpExporter, OtlpLogger, OtlpSerialization } from "effect/observability"
 
-const SECRET_LOG_FIELDS =
-  "authorization|cookie|set-cookie|password|passwd|secret|credentials?|api[_-]?key|(?:access|refresh)[_-]?token|client[_-]?secret|secret(?:[_-]?access)?[_-]?key|token"
-const SECRET_LOG_FIELD = new RegExp(`^(?:${SECRET_LOG_FIELDS})$`, "iu")
-const SECRET_LOG_ASSIGNMENT = new RegExp(
-  `(\\b(?:${SECRET_LOG_FIELDS})["']?\\s*[:=]\\s*["']?)[^"'&,\\s<>]+`,
-  "giu",
-)
+import { redactValue } from "@/lib/redaction"
+import { getRequestTelemetryAttributes } from "./tracing-context.server.ts"
 
 // Nitro and SSR load separate module copies. Forward their synchronous logs to one scoped exporter.
-const otlpLoggersKey = Symbol.for("platform.otlpLoggers")
-const otlpLoggers = ((
+const telemetryLoggersKey = Symbol.for("platform.telemetryLoggers")
+const telemetryLoggers = ((
   globalThis as typeof globalThis & {
-    [otlpLoggersKey]?: Set<Logger.Logger<unknown, void>>
+    [telemetryLoggersKey]?: Set<Logger.Logger<unknown, void>>
   }
-)[otlpLoggersKey] ??= new Set())
+)[telemetryLoggersKey] ??= new Set())
 
 // Keep Effect's cause rendering intact and map only the record fields to ECS.
 // https://www.elastic.co/docs/reference/ecs/logging/intro
 const ecsLogger = Logger.formatStructured.pipe(
   // Normalize with Effect, then mask credentials before message arguments become a single string.
-  Logger.map(redactLogRecord),
+  Logger.map(redactValue),
   Logger.map(({ timestamp, level, message, cause, annotations }) => {
     const { event, requestId, method, path, status, durationMs, ...attributes } = annotations
     return Formatter.formatJson({
@@ -45,6 +42,7 @@ const ecsLogger = Logger.formatStructured.pipe(
         .join(" "),
       "ecs.version": "9.5.0",
       "service.name": "astralbeam-platform",
+      "process.pid": process.pid,
       "event.action": event,
       // ECS durations are integer nanoseconds.
       "event.duration":
@@ -60,49 +58,28 @@ const ecsLogger = Logger.formatStructured.pipe(
   Logger.withConsoleLog,
 )
 
-function redactLogValue(key: string, value: unknown): unknown {
-  if (SECRET_LOG_FIELD.test(key)) return "[REDACTED]"
-  // OTLP represents named fields as KeyValue objects rather than JSON property names.
-  if (
-    Predicate.hasProperty(value, "key") &&
-    typeof value.key === "string" &&
-    Predicate.hasProperty(value, "value") &&
-    SECRET_LOG_FIELD.test(value.key)
-  ) {
-    return { ...value, value: { stringValue: "[REDACTED]" } }
-  }
-  if (typeof value !== "string") return value
-  // Better Auth puts password-reset credentials in the path, unlike its query-based tokens.
-  return value
-    .replace(/(\/api\/auth\/reset-password\/)[^/?#\s"']+/gu, "$1[REDACTED]")
-    .replace(/(\b[a-z][a-z\d+.-]*:\/\/[^/\s:@]+:)[^/\s@]*@/giu, "$1[REDACTED]@")
-    .replace(/\b(Bearer|Basic)\s+[\w.~+/*-]+=*/giu, "$1 [REDACTED]")
-    .replace(
-      /\b(?:sk-[\w*-]+|(?:gh[pousr]_|github_pat_)\w+|xox[baprs]-[\w-]+|AIza[\w-]{35}|(?:AKIA|ASIA)[A-Z\d]{16}|eyJ[\w-]+\.[\w-]+\.[\w-]+)/gu,
-      "[REDACTED]",
-    )
-    .replace(SECRET_LOG_ASSIGNMENT, "$1[REDACTED]")
-}
-
-function redactLogRecord<A>(record: A): A {
-  return JSON.parse(Formatter.formatJson(record), redactLogValue) as A
-}
-
-/** Native OTLP batching and finalization, with the same redaction as console output. */
-export const otlpLoggerLayer = (options: Parameters<typeof OtlpLogger.make>[0]) =>
+/** Keep one scoped forwarding pipeline available to Nitro and fallback failures. */
+export const telemetryLoggerLayer = (
+  options: Parameters<typeof OtlpLogger.make>[0] | undefined,
+  nativeLogger?: Logger.Logger<unknown, void>,
+) =>
   Layer.effectDiscard(
     Effect.gen(function* () {
-      const logger = yield* OtlpLogger.make(options)
+      const otlp = options ? yield* OtlpLogger.make(options) : undefined
+      const logger = Logger.make((options) => {
+        otlp?.log(options)
+        nativeLogger?.log(options)
+      })
       yield* Effect.acquireRelease(
-        Effect.sync(() => otlpLoggers.add(logger)),
-        () => Effect.sync(() => otlpLoggers.delete(logger)),
+        Effect.sync(() => telemetryLoggers.add(logger)),
+        () => Effect.sync(() => telemetryLoggers.delete(logger)),
       )
     }),
   ).pipe(
     Layer.provide(OtlpExporter.layerFlusher),
     Layer.updateService(OtlpSerialization.OtlpSerialization, (serialization) => ({
       ...serialization,
-      logs: (data) => serialization.logs(redactLogRecord(data)),
+      logs: (data) => serialization.logs(redactValue(data)),
     })),
     Layer.provide(OtlpSerialization.layerProtobuf),
   )
@@ -111,16 +88,29 @@ export const serverLoggerLayer = Layer.mergeAll(
   Logger.layer([
     ecsLogger,
     Logger.make((options) => {
-      const logger = otlpLoggers.values().next().value
+      const logger = telemetryLoggers.values().next().value
       if (!logger) return
       const { fiber } = options
       const context = fiber.context
-      const annotations = redactLogRecord(fiber.getRef(References.CurrentLogAnnotations))
+      const annotations = redactValue({
+        ...getRequestTelemetryAttributes(),
+        ...fiber.getRef(References.CurrentLogAnnotations),
+      })
       // Native OTLP formatting stringifies objects. Redact messages and annotations before it does.
       // Emission is synchronous, so restore the context before any other logger or Effect runs.
       fiber.setContext(Context.add(context, References.CurrentLogAnnotations, annotations))
+      const active = trace.getSpanContext(otelContext.active())
+      if (
+        (!fiber.cache.span || fiber.getRef(Tracer.Tracer) === Tracer.nativeTracer) &&
+        active &&
+        isSpanContextValid(active)
+      ) {
+        fiber.setContext(
+          Context.add(fiber.context, Tracer.ParentSpan, OtelTracer.makeExternalSpan(active)),
+        )
+      }
       try {
-        logger.log({ ...options, message: redactLogRecord(options.message) })
+        logger.log({ ...options, message: redactValue(options.message) })
       } finally {
         fiber.setContext(context)
       }

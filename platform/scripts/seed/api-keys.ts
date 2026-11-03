@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import { eq, sql } from "drizzle-orm"
 
 import { apiKey } from "@/db/schema.ts"
@@ -27,7 +25,7 @@ export type SeedApiKeySummary = {
  * https://github.com/better-auth/better-auth/blob/v1.7.2/packages/api-key/src/index.ts
  */
 export function hashSeedApiKeySecret(secret: string): string {
-  return createHash("sha256").update(secret).digest("base64url")
+  return Bun.CryptoHasher.hash("sha256", secret, "base64url")
 }
 
 /**

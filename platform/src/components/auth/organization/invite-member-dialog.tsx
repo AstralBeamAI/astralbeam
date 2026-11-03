@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select. Take the organization and creator role as props from the page loader and scope the invitation query to its ID, through the core query options so no active-organization fetch runs beside it. Reveal the pending invitation when its email could not be delivered. Omit disabled teams, dynamic roles, and invitation model fields. Focus the email through the dialog's initialFocus and adjust role and error state during render.
+// Local changes: use Phosphor/Base Toast, domain-specific function names, and a single-role select. Take the organization and creator role as props from the page loader and scope the invitation query to its ID, through the core query options so no active-organization fetch runs beside it. Reveal the pending invitation when its email could not be delivered. Omit disabled teams, dynamic roles, and invitation model fields. Focus the email through the dialog's initialFocus and adjust role and error state during render. Improve onboarding copy, layout, and form guidance.
 
 "use client"
 
@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -173,9 +173,13 @@ export function InviteMemberDialog({
                   setEmailError(msg)
                 }}
                 aria-invalid={!!emailError}
+                aria-describedby={emailError ? "invite-member-email-error" : undefined}
               />
 
-              <FieldError>{emailError}</FieldError>
+              <FieldError id="invite-member-email-error">{emailError}</FieldError>
+              <FieldDescription>
+                Use their sign-in email. They can create an account from the invitation.
+              </FieldDescription>
             </Field>
 
             <Field>
@@ -187,7 +191,11 @@ export function InviteMemberDialog({
                 onValueChange={setSelectedRole}
                 disabled={isInviting}
               >
-                <SelectTrigger id="invite-member-role" className="w-full">
+                <SelectTrigger
+                  id="invite-member-role"
+                  aria-describedby="invite-member-role-description"
+                  className="w-full"
+                >
                   <SelectValue placeholder={organizationLocalization.selectRoles} />
                 </SelectTrigger>
                 <SelectContent>
@@ -199,7 +207,13 @@ export function InviteMemberDialog({
                 </SelectContent>
               </Select>
 
-              <FieldError />
+              <FieldDescription id="invite-member-role-description">
+                {selectedRole === "owner"
+                  ? "Full access, including inviting members and managing the organization."
+                  : selectedRole === "developer"
+                    ? "Manage agents, providers, and API keys. Cannot manage members or organization settings."
+                    : "View customer records, conversations, and members. Cannot change configuration or access API keys."}
+              </FieldDescription>
             </Field>
           </div>
 

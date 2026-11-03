@@ -6,7 +6,7 @@ Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vul
 
 ## Get set up
 
-Follow [SETUP.md](SETUP.md) to install prerequisites, start local services, seed the database, and run the applications.
+Follow [SETUP.md](docs/SETUP.md) to install prerequisites, start local services, seed the database, and run the applications.
 
 Bun is the runtime and package manager for the six JavaScript/TypeScript projects. The Rails example uses Ruby and its own tooling.
 
@@ -15,7 +15,7 @@ Bun is the runtime and package manager for the six JavaScript/TypeScript project
 The repository holds six Bun projects in one workspace:
 
 - `platform`, the TanStack Start product application, database, theme, and dashboard UI with app-local shadcn/ui components.
-- `www`, the public website, a prerendered TanStack Start application.
+- `website`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
 - `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Bun binaries.
 - `examples/linearity-react`, [Linearity](examples/linearity-react), a multi-workspace project tracker with an embedded Astro assistant that consumes the built SDK.
@@ -23,7 +23,11 @@ The repository holds six Bun projects in one workspace:
 
 `examples/todos-rails` is a Ruby on Rails consumer of the published SDK outside the Bun toolchain. Validate it with `bin/ci` from its directory, which CI runs too.
 
-Each owns its dependencies and tooling, with one shared Bun lockfile. [ARCHITECTURE.md](ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
+Each owns its dependencies and tooling, with one shared Bun lockfile. [ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how they fit together, and [AGENTS.md](AGENTS.md) holds the implementation rules that reviews apply.
+
+The root security overrides advance TanStack's Daytona and Docker adapters to patched vendor dependencies, and Glob 13 and Minimatch 10 consumers to the fixed major versions. Remove each override when the parent packages accept the fixed versions from the <a href="https://github.com/advisories/GHSA-8988-4f7v-96qf" target="_blank" rel="noopener noreferrer">OpenTelemetry Core</a>, <a href="https://github.com/advisories/GHSA-45rx-2jwx-cxfr" target="_blank" rel="noopener noreferrer">Jaeger</a>, <a href="https://github.com/advisories/GHSA-j3f2-48v5-ccww" target="_blank" rel="noopener noreferrer">Protobuf.js</a>, <a href="https://github.com/advisories/GHSA-w5hq-g745-h8pq" target="_blank" rel="noopener noreferrer">UUID</a>, <a href="https://github.com/advisories/GHSA-3g3m-2fjr-6pw4" target="_blank" rel="noopener noreferrer">Glob</a>, and <a href="https://github.com/advisories/GHSA-g3hv-75wg-m249" target="_blank" rel="noopener noreferrer">Minimatch</a> advisories. OpenTelemetry API stays below 1.10 until the Effect-compatible telemetry packages accept it in their peer ranges.
+
+Run `bun run audit` for dependency advisories. [SECURITY.md](SECURITY.md#dependency-advisory-assessments) records the reviewed exception and when to reassess it.
 
 ## Validate your change
 
@@ -31,7 +35,7 @@ Each Bun project defines `check` for static validation, `test` for Vitest, and `
 
 ```sh
 bun run --cwd platform ready
-bun run --cwd www ready
+bun run --cwd website ready
 bun run --cwd sdk ready
 bun run --cwd cli ready
 bun run --cwd examples/todos ready
@@ -53,7 +57,7 @@ CI runs checks, tests, and builds for all six projects and compiles and smoke-te
 
 ## Licensing of contributions
 
-Different parts of this repository carry different licenses. Files under [`www`](www), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
+Different parts of this repository carry different licenses. Files under [`website`](website), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
 
 AstralBeam also asks contributors to agree to the [Contributor License Agreement](docs/legal/CLA.md). It grants AstralBeam Inc. a copyright and patent license to your contribution and lets AstralBeam license that contribution onward under any terms, expressly including AGPL-3.0-only, the MIT License, and proprietary or commercial terms. That is what makes separate proprietary licensing and closed distributions possible alongside the open source releases. You keep ownership of your contribution and every right to use it yourself.
 

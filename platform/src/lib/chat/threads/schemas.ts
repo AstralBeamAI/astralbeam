@@ -1,6 +1,6 @@
 import { Schema } from "effect"
-import { LockVersionSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
+import { LockVersionSchema, NonEmptyStringSchema, ApiUuidSchema } from "@/lib/schemas.ts"
+import type { chatParticipant } from "@/db/schema/chat.ts"
 
 export const ChatSubmissionReceiptSchema = Schema.Struct({
   threadId: ApiUuidSchema,
@@ -56,11 +56,9 @@ export const ChatMessagePayloadSchema = Schema.Struct({
 })
 export type ChatMessagePayload = typeof ChatMessagePayloadSchema.Type
 
-export interface ChatThreadScope {
-  readonly organizationId: string
-  readonly tenantId: string
-  readonly tenantUserId: string
-}
+export type ChatThreadScope = Readonly<
+  Pick<typeof chatParticipant.$inferSelect, "organizationId" | "tenantId" | "tenantUserId">
+>
 
 export interface ChatWriterClaim {
   readonly scope: ChatThreadScope

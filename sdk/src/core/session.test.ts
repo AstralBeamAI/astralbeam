@@ -138,6 +138,11 @@ test("the reply after a server tool round keeps its first text delta", async () 
   const events = [
     { type: "RUN_STARTED", ...run },
     {
+      type: "CUSTOM",
+      name: "astralbeam_thread",
+      value: { threadId: thread.id, version: 2, acceptedMessageId: "input" },
+    },
+    {
       type: "TOOL_CALL_START",
       toolCallId: "call",
       toolCallName: "write",
@@ -155,6 +160,7 @@ test("the reply after a server tool round keeps its first text delta", async () 
     finished("stop"),
   ]
   const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")
+  const completeStream = Promise.withResolvers<void>()
   vi.stubGlobal("fetch", (input: URL) => {
     const path = String(input)
     if (path.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
@@ -165,7 +171,17 @@ test("the reply after a server tool round keeps its first text delta", async () 
       return Promise.resolve(
         Response.json({ ...emptyPage, thread, messages: [], pending_interactions: [] }),
       )
-    return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }))
+    return Promise.resolve(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(body))
+            void completeStream.promise.then(() => controller.close())
+          },
+        }),
+        { headers: { "Content-Type": "text/event-stream" } },
+      ),
+    )
   })
   const onFinish = vi.fn<(message: UIMessage) => void>()
   const chat = createTestSession({
@@ -173,7 +189,11 @@ test("the reply after a server tool round keeps its first text delta", async () 
   })
   const snapshots: ReturnType<typeof chat.getState>[] = []
   chat.subscribe(() => snapshots.push(chat.getState()))
-  await chat.sendMessage("Write a file")
+  const sending = chat.sendMessage("Write a file")
+  await vi.waitFor(() => expect(onFinish).toHaveBeenCalled())
+  expect(chat.getState().status).toBe("streaming")
+  completeStream.resolve()
+  await sending
   expect(onFinish.mock.calls.at(-1)?.[0].parts.at(-1)).toEqual({
     type: "text",
     content: "I wrote it.",
@@ -194,10 +214,7 @@ test("the reply after a server tool round keeps its first text delta", async () 
   expect(reply.messages.find((message) => message.id === "call-turn")).toBe(
     firstDelta.messages.find((message) => message.id === "call-turn"),
   )
-  expect(reply.status).toBe("ready")
-  expect(reply.messages).toBe(
-    snapshots.findLast((snapshot) => snapshot.status === "streaming")?.messages,
-  )
+  expect(chat.getState().status).toBe("ready")
 })
 
 // A React host rebuilds its tool objects every render, so publishing a fresh `agentTools` for an

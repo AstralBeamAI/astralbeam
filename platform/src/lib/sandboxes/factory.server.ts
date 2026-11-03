@@ -2,12 +2,10 @@ import type { SandboxProvider } from "@tanstack/ai-sandbox"
 import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
-import {
-  decodeProviderCredentials,
-  decodeProviderOptions,
-  type SandboxProviderCredentials,
-  type SandboxProviderId,
-  type SandboxProviderOptions,
+import type {
+  SandboxProviderCredentials,
+  SandboxProviderId,
+  SandboxProviderOptions,
 } from "./schemas.ts"
 
 // `tail` as PID 1 ignores SIGTERM, so without the trap every destroy waits out Docker's stop timeout.
@@ -55,16 +53,13 @@ const factories: {
     ),
 }
 
-/** Revalidates the stored configuration and builds the provider's TanStack adapter. */
-export const createSandboxProvider = Effect.fn("createSandboxProvider")(function* <
-  Provider extends SandboxProviderId,
->(provider: Provider, configuration: { options: unknown; credentials: unknown }) {
-  const decoded = yield* Effect.all({
-    options: decodeProviderOptions(provider, configuration.options),
-    credentials: decodeProviderCredentials(provider, configuration.credentials),
-  }).pipe(Effect.mapError((cause) => new SandboxProviderUnavailable({ cause })))
-  return yield* factories[provider](decoded)
-})
+/** Builds the TanStack adapter from the configuration validated by its caller. */
+export const createSandboxProvider = Effect.fn("createSandboxProvider")(
+  <Provider extends SandboxProviderId>(
+    provider: Provider,
+    configuration: ProviderConfiguration<Provider>,
+  ) => factories[provider](configuration),
+)
 
 export class SandboxProviderFactory extends Context.Service<
   SandboxProviderFactory,

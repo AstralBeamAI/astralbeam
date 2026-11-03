@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { and, eq, sql } from "drizzle-orm"
 
 import {
@@ -85,7 +86,7 @@ async function seedThreads(
   identity: ChatIdentity,
   conversations: readonly Conversation[],
 ): Promise<number> {
-  const { organizationId } = identity
+  const organizationId = OrganizationIdSchema.make(identity.organizationId)
   const [customer] = await transaction
     .insert(tenant)
     .values({ organizationId, ...identity.tenant })

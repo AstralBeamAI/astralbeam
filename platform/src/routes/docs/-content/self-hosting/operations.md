@@ -4,19 +4,27 @@ Maintain a running deployment with migrations, coordinated backups, health check
 
 Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
+## HTTP workers
+
+`WORKERS` defaults to `auto`: one server process per available CPU on Linux, plus a supervisor. macOS and Windows use one process. Set `WORKERS=1` to disable supervision or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
+
+Linux workers share the public HTTP port. Leave `CLUSTER_RUNNER_PORT` unset or `0` for distinct private runner ports. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with backoff capped at 30 seconds, and workers exit if their supervisor dies.
+
+Memory, extracted assets, sandbox leases, and sandbox/preview concurrency limits are per worker. Size `WORKERS` for memory, provider capacity, and the [connection budget](#connection-pooling). Request logs include `process.pid` to identify the serving worker.
+
 ## Applying migrations
 
 Application migrations ship with each release. When migrations are pending, pages redirect to `/configure`.
 
 1. Back up the database and bucket before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
-3. Apply the reviewed set. After success, restart other replicas to refresh their migration state.
+3. Apply the reviewed set. Other replicas refresh migration state on their next read after the five-second cache expires.
 
 Effect manages the separate `effect_cluster_*` tables automatically at runner startup, as described under [cluster readiness and recovery](#cluster-readiness-and-recovery).
 
 Migrations are serialized and each runs in a transaction. If another operator is applying migrations, wait and reload. If the pending set changes, review it again before applying.
 
-On failure, earlier migrations remain applied, the failed migration rolls back, and later ones do not run. Fix the reported cause and retry. Restart replicas after a CLI migration or history repair so they reload migration state.
+On failure, earlier migrations remain applied, the failed migration rolls back, and later ones do not run. Fix the reported cause and retry. Migration state refreshes after CLI migrations and history repairs too.
 
 **NOTE**: Failed transactions roll back automatically. There is no command to undo a committed migration. Reverse an applied change with a new forward migration.
 
@@ -39,7 +47,7 @@ bun run --cwd platform db migrate
 
 ## Backups and restore
 
-Because file state spans PostgreSQL and the configured S3 bucket, let's stop all application replicas before taking the database dump and bucket backup.
+Because file state spans PostgreSQL and the configured filesystem directory or S3 bucket, stop all application replicas before backing up the database and files.
 
 Run this command to take that dump:
 
@@ -47,7 +55,7 @@ Run this command to take that dump:
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 ```
 
-Keep the replicas stopped and use your storage provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode from **File storage** alongside the backup.
+Keep the replicas stopped. For File System, back up the entire configured directory, preserving relative paths and private permissions, and record its absolute path from **File storage**. For S3, use the provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode alongside the backup.
 
 Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. Use the same PostgreSQL major version or newer, with `citext` available. See [Security](./security.md).
 
@@ -59,7 +67,7 @@ Run this command against an empty database to restore:
 pg_restore --dbname="$DATABASE_URL" astralbeam.dump
 ```
 
-Restore the bucket objects to the destination recorded in the restored configuration, keeping their object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
+Restore files to the directory or bucket recorded in the restored configuration, keeping their relative paths or object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
 
 Then start the application with that `DATABASE_URL` and the encryption keyring that was in effect when the dump was taken. If the restored data predates the running version, the setup gate closes until you approve the missing migrations. Test a restore before you need one, and confirm afterwards that `/configure` can read the stored secrets rather than reporting them unreadable.
 
@@ -76,7 +84,7 @@ Point a process supervisor or load balancer probe at `/api/status`. It does not 
 
 ## Shutdown
 
-SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give the process supervisor more than ten seconds before sending SIGKILL.
+SIGTERM and SIGINT start a single shutdown sequence. The server stops accepting requests and gives active responses, including streams, up to five seconds to finish. It then stops the cluster runner, destroys live chat sandboxes, closes both database pools, and exits. That cleanup has five seconds of its own, and a failure or timeout exits with status 1. Give an external supervisor at least fifteen seconds before sending SIGKILL so the parent can stop all workers.
 
 Long-lived streams can be disconnected. Accepted durable work remains recoverable through PostgreSQL. Reconnect to inspect the result.
 
@@ -109,9 +117,9 @@ Cluster readiness entries include the advertised private runner address. Configu
 
 Point `DATABASE_URL` at PostgreSQL directly or a transaction-pooling pooler. The native Effect client uses unnamed queries with `prepare: false`. With PgBouncer, keep `pool_mode = transaction` and a non-zero `max_prepared_statements` for clients that use named prepared statements, as in the reference setup, which sets it to 200.
 
-Budget up to 15 client connections per replica: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
+Budget up to 15 client connections per worker: 5 for authentication and 10 for the main application. Size PostgreSQL backend connections separately using the pooler's limits. Both pools use a five-second connection timeout, close connections after 30 seconds idle, and recycle them after 30 minutes.
 
-Size the pooler's own limits for the number of replicas you run, and remember that the migration runner holds one connection for the duration of a migration run.
+Size the pooler's own limits for the total worker count, and remember that the migration runner holds one additional connection for the duration of a migration run.
 
 ## Rate limits
 

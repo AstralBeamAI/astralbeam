@@ -1,5 +1,5 @@
 import { useAuthenticate } from "@better-auth-ui/react"
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, notFound, Outlet, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Spinner } from "@/components/ui/spinner"
@@ -7,11 +7,20 @@ import { authClient } from "@/lib/auth/client"
 import { normalizeReturnPath } from "@/lib/auth/redirect"
 import { getRouteSessionAccessDecision } from "@/lib/auth/session"
 import { INERT_REDIRECT_ORIGIN } from "@/lib/constants"
+import { isValidSlug } from "@/lib/organizations/slug"
 import { DogfoodChat } from "./-components/dogfood-chat"
 import { DirectoryCacheContext } from "./-lib/directory-cache"
 
 export const Route = createFileRoute("/_authenticated")({
-  beforeLoad: async ({ context, location }) => {
+  beforeLoad: async ({ context, location, matches }) => {
+    if (
+      matches.some(
+        (match) =>
+          match.routeId === "/_authenticated/$orgSlug" && !isValidSlug(match.params.orgSlug),
+      )
+    ) {
+      throw notFound({ routeId: "__root__" })
+    }
     const access = await getRouteSessionAccessDecision(context.queryClient)
     if (access.status !== "signed-out") return { access }
 

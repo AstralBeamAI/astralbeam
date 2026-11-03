@@ -1,4 +1,4 @@
-import { inArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 import { Effect } from "effect"
 import { afterAll, describe, expect, test, vi } from "vitest"
 
@@ -14,7 +14,8 @@ const organizationCountsIntegration = vi.hoisted(() => {
 })
 
 import { getAuthDatabase } from "@/db/database"
-import { apiKey, organization } from "@/db/schema/organizations"
+import { chatThread } from "@/db/schema/chat"
+import { OrganizationIdSchema, apiKey, organization, tenant } from "@/db/schema/organizations"
 import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { deriveOrganizationPermissions } from "./access.ts"
@@ -27,17 +28,17 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
       await getAuthDatabase().delete(organization).where(inArray(organization.id, organizationIds))
   })
 
-  test("separates usable keys from totals without leaking another organization's keys or restricted counts", async () => {
+  test("counts usable keys and checks conversations without leaking another organization's resources or restricted counts", async () => {
     const db = getAuthDatabase()
     const created = await db
       .insert(organization)
       .values([
-        { name: "Dashboard", slug: `dashboard-${crypto.randomUUID()}` },
-        { name: "Other", slug: `other-${crypto.randomUUID()}` },
+        { domain: "example.com", name: "Dashboard", slug: `dashboard-${crypto.randomUUID()}` },
+        { domain: "example.com", name: "Other", slug: `other-${crypto.randomUUID()}` },
       ])
       .returning({ id: organization.id })
     organizationIds.push(...created.map((row) => row.id))
-    const organizationId = created[0]!.id
+    const organizationId = OrganizationIdSchema.make(created[0]!.id)
     const key = {
       organizationId,
       name: "Dashboard test key",
@@ -59,7 +60,27 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
           }),
         ),
       )
-    expect(await counts("owner")).toMatchObject({ apiKeys: 4, usableApiKeys: 0 })
+    const tenants = await db
+      .insert(tenant)
+      .values(
+        created.map((row) => ({
+          organizationId: OrganizationIdSchema.make(row.id),
+          externalId: "dashboard-test",
+        })),
+      )
+      .returning()
+    await db.insert(chatThread).values({
+      organizationId: tenants[1]!.organizationId,
+      tenantId: tenants[1]!.id,
+    })
+    expect(await counts("owner")).toMatchObject({
+      apiKeys: 4,
+      usableApiKeys: 0,
+      hasConversations: false,
+    })
+
+    await db.insert(chatThread).values({ organizationId, tenantId: tenants[0]!.id })
+    expect(await counts("owner")).toMatchObject({ hasConversations: true })
 
     await db.insert(apiKey).values([
       { ...key, key: crypto.randomUUID() },
@@ -71,7 +92,11 @@ describe.skipIf(!organizationCountsIntegration.url)("organization dashboard coun
       sandboxProviders: null,
       apiKeys: null,
       usableApiKeys: null,
+      hasConversations: true,
       members: 0,
     })
+    expect(await counts("")).toMatchObject({ hasConversations: null })
+    await db.delete(chatThread).where(eq(chatThread.organizationId, organizationId))
+    expect(await counts("owner")).toMatchObject({ hasConversations: false })
   })
 })

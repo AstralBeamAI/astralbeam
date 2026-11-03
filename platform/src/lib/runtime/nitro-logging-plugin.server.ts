@@ -1,9 +1,11 @@
 import { Cause, Effect } from "effect"
+import { context, trace } from "@opentelemetry/api"
 import { getEventContext, HTTPError } from "nitro/h3"
 import type { NitroAppPlugin } from "nitro/types"
 
 import { reportFailure } from "./failure-report.server.ts"
 import { serverLoggerLayer } from "./logging.server.ts"
+import { traceHttpRequest } from "./tracing-context.server.ts"
 
 type RequestLogContext = {
   requestId?: string
@@ -12,6 +14,8 @@ type RequestLogContext = {
 
 const nitroLoggingPlugin: NitroAppPlugin = (nitro) => {
   if (import.meta.prerender) return
+  const fetch = nitro.fetch
+  nitro.fetch = (request) => traceHttpRequest(request, fetch)
   // Validate the operator's log level before registering hooks that also use the logger.
   Effect.runSync(Effect.void.pipe(Effect.provide(serverLoggerLayer)))
   nitro.hooks.hook("request", (event) => {
@@ -22,6 +26,7 @@ const nitroLoggingPlugin: NitroAppPlugin = (nitro) => {
     })
     // Replace caller-supplied IDs so correlation never logs arbitrary header values.
     event.req.headers.set("X-Request-Id", requestId)
+    trace.getSpan(context.active())?.setAttribute("http.request.id", requestId)
     Effect.runSync(
       Effect.logDebug("HTTP request started").pipe(
         Effect.annotateLogs({

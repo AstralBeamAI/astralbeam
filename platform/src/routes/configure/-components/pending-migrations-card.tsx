@@ -57,7 +57,7 @@ export function PendingMigrationsCard({
   }
 
   return (
-    <Card>
+    <Card id="pending-migrations" className="scroll-mt-24">
       <CardHeader>
         <CardTitle>Database migrations</CardTitle>
       </CardHeader>

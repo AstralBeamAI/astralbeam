@@ -56,7 +56,8 @@ export function ConfigValueInput({
   const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false)
   const value = draft.kind === "set" ? draft.value : (revealedValue ?? field.value ?? "")
   const readOnly = field.source === "environment"
-  const needsReveal = field.kind === "secret" && field.isSet && !revealed
+  const needsReveal =
+    field.kind === "secret" && field.isSet && field.storageStatus !== "unreadable" && !hasLocalValue
   const valueVisible = field.kind !== "secret" || visible
 
   const revealValue = async () => {
@@ -85,9 +86,16 @@ export function ConfigValueInput({
           id={`config-${field.key}`}
           type={valueVisible ? (field.kind === "url" ? "url" : "text") : "password"}
           autoComplete={field.kind === "secret" ? "new-password" : "off"}
+          className={field.kind === "secret" ? "ph-no-capture" : undefined}
           value={value}
           placeholder={
-            needsReveal && !readOnly ? "Reveal to edit" : field.isSet ? "Configured" : "Not set"
+            field.storageStatus === "unreadable"
+              ? "Unreadable stored value"
+              : needsReveal && !readOnly
+                ? "Reveal to edit"
+                : field.isSet && draft.kind !== "set"
+                  ? "Configured"
+                  : "Not set"
           }
           disabled={disabled || readOnly}
           readOnly={needsReveal}

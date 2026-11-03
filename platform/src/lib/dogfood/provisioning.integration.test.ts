@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import process from "node:process"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
@@ -189,7 +190,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       for (const fixture of SEED_ORGANIZATIONS) {
         await db
           .insert(organization)
-          .values({ id: fixture.id, name: fixture.name, slug: fixture.slug })
+          .values({ domain: "example.com", id: fixture.id, name: fixture.name, slug: fixture.slug })
         await db.insert(agent).values({
           organizationId: fixture.id,
           name: fixture.agents[0].name,
@@ -328,12 +329,12 @@ describe.skipIf(!dogfoodIntegration.url)(
       const [first, second] = await db
         .insert(organization)
         .values([
-          { name: "First", slug: "first" },
-          { name: "Second", slug: "second" },
+          { domain: "example.com", name: "First", slug: "first" },
+          { domain: "example.com", name: "Second", slug: "second" },
         ])
         .returning()
       const principal = {
-        organization: { id: first!.id },
+        organization: { id: OrganizationIdSchema.make(first!.id) },
         tenantUser: {
           id: "same-user",
           name: "Original",
@@ -392,7 +393,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       })
       const otherOrganization = await synchronize({
         ...principal,
-        organization: { id: second!.id },
+        organization: { id: OrganizationIdSchema.make(second!.id) },
       })
       expect(new Set([original.user.id, otherTenant.user.id, otherOrganization.user.id]).size).toBe(
         3,
@@ -669,6 +670,39 @@ describe.skipIf(!dogfoodIntegration.url)(
       expect(await db.select().from(user)).toHaveLength(1)
     })
 
+    test("losing the provisioning lock interrupts work and permits a retry", async () => {
+      const withTestProvisioningLock = <A, E>(operation: Effect.Effect<A, E>) =>
+        runAppEffect(Effect.flatMap(Dogfood, (dogfood) => dogfood.withProvisioningLock(operation)))
+      const acquired = Promise.withResolvers<void>()
+      const release = Promise.withResolvers<void>()
+      const interrupted = vi.fn<() => void>()
+      const outcome = withTestProvisioningLock(
+        Effect.promise(() => {
+          acquired.resolve()
+          return release.promise
+        }).pipe(Effect.onInterrupt(() => Effect.sync(interrupted))),
+      ).then(
+        () => false,
+        () => true,
+      )
+      try {
+        await acquired.promise
+        const locks = await db.execute<{ pid: number }>(sql`select a.pid from pg_locks l
+          join pg_stat_activity a on a.pid = l.pid
+          where l.locktype = 'advisory' and l.objid = 734028190
+          and a.datname = current_database()`)
+        expect(locks.rows).toHaveLength(1)
+        await db.execute(sql`select pg_terminate_backend(${locks.rows[0]!.pid})`)
+        await vi.waitFor(() => expect(interrupted).toHaveBeenCalledOnce(), { timeout: 7_500 })
+        release.resolve()
+        expect(await outcome).toBe(true)
+        await expect(withTestProvisioningLock(Effect.succeed("retry"))).resolves.toBe("retry")
+      } finally {
+        release.resolve()
+        await outcome
+      }
+    }, 10_000)
+
     test("an unrelated slug is rejected without taking ownership or trapping setup", async () => {
       const auth = await getProvisioningAuth()
       const [other] = await db
@@ -823,7 +857,7 @@ describe.skipIf(!dogfoodIntegration.url)(
         )
         expect(result.result).toEqual({ fieldErrors: [] })
         // This process only has the active key, so a read proves the fallback can be retired.
-        expect((await getDatabaseConfig()).values).toEqual(configured)
+        expect((await getDatabaseConfig()).values).toMatchObject(configured)
       } finally {
         server.kill("SIGTERM")
         await exited

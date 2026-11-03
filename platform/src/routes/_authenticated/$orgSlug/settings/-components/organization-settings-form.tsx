@@ -27,18 +27,25 @@ import {
 } from "@/lib/organizations/reserved-slugs"
 import { isValidSlug, SLUG_MAX_LENGTH, SLUG_VALIDATION_MESSAGE } from "@/lib/organizations/slug"
 import { updateOrganizationSettings } from "../-functions/update-organization-settings"
+import { OrganizationLogoControls } from "./organization-logo-controls"
 
 const ORGANIZATION_NAME_MAX_LENGTH = 100
 
 export type OrganizationSettingsFormProps = {
   organizationSlug: string
   organizationName: string
+  organizationId: string
+  domain: string
+  logoFileId: string | null
   readOnly: boolean
 }
 
 export function OrganizationSettingsForm({
   organizationSlug,
   organizationName,
+  organizationId,
+  domain,
+  logoFileId,
   readOnly,
 }: OrganizationSettingsFormProps) {
   const router = useRouter()
@@ -98,6 +105,11 @@ export function OrganizationSettingsForm({
         </CardHeader>
         <CardContent>
           <FieldGroup>
+            <OrganizationLogoControls
+              organization={{ id: organizationId, name: organizationName, logoFileId }}
+              organizationSlug={organizationSlug}
+              disabled={saving || readOnly}
+            />
             <Field>
               <FieldLabel htmlFor="organization-name">Name</FieldLabel>
               <Input
@@ -110,7 +122,15 @@ export function OrganizationSettingsForm({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="organization-slug">Slug</FieldLabel>
+              <FieldLabel htmlFor="organization-domain">Domain</FieldLabel>
+              <Input id="organization-domain" value={domain} required readOnly />
+              <FieldDescription>
+                Set automatically from the organization&apos;s members. This domain cannot be edited
+                and does not verify domain ownership.
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="organization-slug">Organization slug</FieldLabel>
               <Input
                 id="organization-slug"
                 value={slug}

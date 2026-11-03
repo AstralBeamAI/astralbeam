@@ -41,7 +41,7 @@ test("the operator saves storage settings and recovers from validation errors", 
   }
   await configure.setValue("s3_region", originalRegion)
   await expect(region.locator('[data-slot="field-error"]')).toHaveCount(0)
-  await expect(storage.getByText("Configured", { exact: true })).toBeVisible()
+  await expect(storage.getByText("Settings present", { exact: true })).toBeVisible()
   await expect(save).toBeDisabled()
 })
 

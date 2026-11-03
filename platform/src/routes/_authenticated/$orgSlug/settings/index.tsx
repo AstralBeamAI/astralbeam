@@ -30,12 +30,15 @@ function OrganizationSettingsPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Organization settings</h1>
         <p className="text-sm text-muted-foreground">
-          Update this organization&apos;s name and URL slug.
+          Manage this organization&apos;s logo, name, domain, and slug.
         </p>
       </div>
       <OrganizationSettingsForm
         organizationSlug={data.organization.slug}
         organizationName={data.organization.name}
+        organizationId={data.organization.id}
+        domain={data.organization.domain}
+        logoFileId={data.organization.logoFileId}
         readOnly={!permissions.updateOrganization}
       />
       {permissions.deleteOrganization && (

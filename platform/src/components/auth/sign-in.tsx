@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration.
+// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration. Improve onboarding copy, layout, and form guidance.
 
 "use client"
 
@@ -125,7 +125,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
           <h1>{localization.auth.signIn}</h1>
         </CardTitle>
         {invitation && (
-          <CardDescription>
+          <CardDescription className="wrap-anywhere text-sm">
             Sign in or create an account to join {invitation.organization}. Use{" "}
             {invitation.email || "the email address that received the invitation"}.
           </CardDescription>
@@ -182,9 +182,10 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                       }))
                     }}
                     aria-invalid={!!fieldErrors.email}
+                    aria-describedby={fieldErrors.email ? "signin-email-error" : undefined}
                   />
 
-                  <FieldError>{fieldErrors.email}</FieldError>
+                  <FieldError id="signin-email-error">{fieldErrors.email}</FieldError>
                 </Field>
 
                 <Field data-invalid={!!fieldErrors.password}>
@@ -205,8 +206,8 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                     }}
                     placeholder={localization.auth.passwordPlaceholder}
                     required
-                    minLength={emailAndPassword?.minPasswordLength}
-                    maxLength={emailAndPassword?.maxPasswordLength}
+                    minLength={emailAndPassword.minPasswordLength}
+                    maxLength={emailAndPassword.maxPasswordLength}
                     disabled={isPending}
                     onInvalid={(e) => {
                       e.preventDefault()
@@ -225,9 +226,10 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                       }))
                     }}
                     aria-invalid={!!fieldErrors.password}
+                    aria-describedby={fieldErrors.password ? "signin-password-error" : undefined}
                   />
 
-                  <FieldError>{fieldErrors.password}</FieldError>
+                  <FieldError id="signin-password-error">{fieldErrors.password}</FieldError>
                 </Field>
 
                 {emailAndPassword.rememberMe && (

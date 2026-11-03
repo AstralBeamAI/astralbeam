@@ -5,7 +5,7 @@ import { waitForHydration } from "../hydration.ts"
 
 /**
  * The operator surface at `/configure`. Selectors track `src/routes/configure`, whose fields all
- * carry a `config-<key>` id and a Database or Environment badge.
+ * carry a `config-<key>` id and an Environment badge when read-only.
  */
 export function configurePage(page: Page) {
   const saveButton = page.getByRole("button", { name: "Save", exact: true }).first()

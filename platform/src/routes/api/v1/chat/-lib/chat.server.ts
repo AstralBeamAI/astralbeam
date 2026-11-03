@@ -1,9 +1,10 @@
 import { Effect, Schema } from "effect"
-import { ApiUuidSchema } from "@/lib/tenants/schemas.ts"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import { ChatSubmissionReceiptSchema } from "./threads.server"
 import { chatArtifactResponse, chatFileSuccess } from "./files.server"
-import { NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { artifactContentDisposition } from "@/lib/chat/sandbox/artifacts"
+import { ApiUuidSchema, NonEmptyStringSchema } from "@/lib/schemas.ts"
+import { TenantIdSchema } from "@/db/schema/organizations"
 import {
   HttpApiBuilder,
   HttpApiEndpoint,
@@ -124,9 +125,10 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
     HttpApiEndpoint.get("getThreadAttachment", "/chat/files", {
       query: Schema.Struct({
         threadId: Schema.optionalKey(ApiUuidSchema),
-        tenantId: Schema.optionalKey(ApiUuidSchema),
+        tenantId: Schema.optionalKey(TenantIdSchema),
         fileId: ApiUuidSchema,
         filename: Schema.optionalKey(Schema.String),
+        delivery: Schema.optionalKey(Schema.Literal("direct")),
       }),
       success: chatFileSuccess,
     })
@@ -134,7 +136,7 @@ export const chatApi = HttpApiGroup.make("chat", { topLevel: true })
       .annotate(OpenApi.Summary, "Download a chat file")
       .annotate(
         OpenApi.Description,
-        "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original downloads verify stored bytes.",
+        "Pass the fileId from a saved message, its threadId, and an optional download filename. Tenant JWTs require current conversation membership. Administrative reads also pass tenantId and require directory-read permission through an Organization API key, Organization-management JWT, or signed Tenant admin JWT. Send X-File-Preview: true for a cached thumbnail, or 204 when unavailable. Only the uploader's unsent previews may omit threadId. Original proxied downloads verify stored bytes. Request delivery=direct to receive 204 with a short-lived S3 URL in Location after authorization. A preview may still return 204 without Location when unavailable. Fetch storage URLs without application credentials and do not cache these capability responses.",
       ),
   )
 
@@ -142,7 +144,7 @@ export function chatHandlers(api: typeof ApiV1) {
   return HttpApiBuilder.group(
     api,
     "chat",
-    Effect.fn("chatHandlers")(function* (handlers) {
+    Effect.fnUntraced(function* (handlers) {
       const { authenticateChatRequest } = yield* Effect.promise(() => import("@/lib/chat/auth"))
       const { Chat } = yield* Effect.promise(() => import("@/lib/chat/chat"))
       const { ChatThreads } = yield* Effect.promise(() => import("@/lib/chat/threads/threads"))
@@ -150,7 +152,6 @@ export function chatHandlers(api: typeof ApiV1) {
         () => import("@/lib/chat/threads/commands"),
       )
       const {
-        checkChatUsageLimits,
         consumeChatRateLimit,
         readChatRunParams,
         chatAdmissionResponse,
@@ -177,7 +178,6 @@ export function chatHandlers(api: typeof ApiV1) {
         | Effect.Services<ReturnType<typeof authenticateChatRequest>>
         | Effect.Services<ReturnType<typeof authenticateRestRequest>>
         | Effect.Services<ReturnType<typeof consumeChatRateLimit>>
-        | Effect.Services<ReturnType<typeof checkChatUsageLimits>>
         | Effect.Services<ReturnType<typeof prepareManagedChat>>
         | Effect.Services<ReturnType<typeof chatAdmissionResponse>>
       >()
@@ -235,13 +235,11 @@ export function chatHandlers(api: typeof ApiV1) {
             const native = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie)
             const params = yield* readChatRunParams(native)
             const scope = yield* threads.resolveScope({ principal })
-            yield* checkChatUsageLimits({ principal, scope, threadId: params.threadId }).pipe(
-              Effect.provideContext(services),
-            )
             const { admission, receipt, clientId } = yield* prepareManagedChat({
               scope,
               params,
               idempotencyKey: native.headers.get("Idempotency-Key") ?? undefined,
+              usageLimitIds: principal.usageLimitIds,
             }).pipe(Effect.provideContext(services))
             if (!admission)
               return HttpServerResponse.jsonUnsafe(
@@ -325,20 +323,22 @@ export function chatHandlers(api: typeof ApiV1) {
                 ...(preview ? { tenantUserId: access.tenantUserId } : {}),
               }
             }
-            const file = yield* files
-              .read({
-                scope,
-                fileId: query.fileId,
-                ...(preview ? { preview: true } : {}),
-              })
-              .pipe(
-                Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
-              )
-            return chatArtifactResponse({
-              ...file,
-              path: preview ? "preview.webp" : (query.filename ?? "artifact"),
-              preview,
-            })
+            const input = { scope, fileId: query.fileId, ...(preview ? { preview: true } : {}) }
+            const path = preview ? "preview.webp" : (query.filename ?? "artifact")
+            const file = yield* (
+              query.delivery === "direct"
+                ? files.download({
+                    ...input,
+                    contentDisposition: artifactContentDisposition(
+                      preview ? "inline" : "attachment",
+                      path,
+                    ),
+                  })
+                : files.read(input)
+            ).pipe(
+              Effect.catchTag("ChatThreadInvalid", () => Effect.fail(new ChatThreadNotFound())),
+            )
+            return chatArtifactResponse({ ...file, path, preview })
           }),
         )
     }),

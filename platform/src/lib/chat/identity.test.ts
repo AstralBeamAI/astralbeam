@@ -1,9 +1,10 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { expect, test } from "vitest"
 
 import { chatPrincipalScope } from "./identity"
 
 test("encodes opaque tenant and tenant-user IDs without delimiter collisions", () => {
-  const organization = { id: "01990a5d-ac96-774b-b942-6b13c85384ca" }
+  const organization = { id: OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca") }
   const first = chatPrincipalScope({
     organization,
     tenantUser: { id: "user\0suffix", tenant: { id: "tenant" } },

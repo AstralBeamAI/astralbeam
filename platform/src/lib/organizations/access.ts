@@ -1,3 +1,4 @@
+import type { OrganizationMembership } from "./organizations.server.ts"
 import { createAccessControl } from "better-auth/plugins/access"
 import { defaultStatements, memberAc, ownerAc } from "better-auth/plugins/organization/access"
 
@@ -54,13 +55,7 @@ export interface OrganizationPermissions {
 }
 
 /** The organization a dashboard page shows, and what the signed-in member may do in it. */
-export interface OrganizationAccess {
-  readonly organizationId: string
-  readonly organizationSlug: string
-  readonly organizationName: string
-  readonly role: string
-  readonly memberId: string
-  readonly avatarFileId: string | null
+export interface OrganizationAccess extends Readonly<OrganizationMembership> {
   readonly permissions: OrganizationPermissions
 }
 

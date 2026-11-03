@@ -1,8 +1,9 @@
-import { Effect, Result } from "effect"
+import { Effect, Option, Result } from "effect"
 
+import { Config, readEnvironmentConfig } from "@/lib/config/config"
 import { allowInsecure } from "@/lib/runtime/environment.server"
 import { ServerRedirect, ServerRequest } from "@/lib/runtime/server-request.server"
-import { isLoopbackProxyAddress } from "@/lib/utils.server"
+import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.server"
 import { ConfigureHttpsRequired, ConfigureRequestForbidden } from "./errors.ts"
 
 export function isSameOriginConfigureRequest(request: Request, requestUrl: URL): boolean {
@@ -30,9 +31,17 @@ export const checkConfigureRequest = Effect.fn("checkConfigureRequest")(function
     "Referrer-Policy": "no-referrer",
   })
   const { request } = server
-  // Forwarded host and protocol count only from the ingress, or a direct caller could satisfy the
-  // HTTPS requirement below with a header of its own.
-  const requestUrl = server.url({ forwarded: isLoopbackProxyAddress(server.clientAddress) })
+  // Keep operator recovery available before bootstrap and while database settings are unavailable.
+  const config = yield* Effect.serviceOption(Config)
+  const values = yield* Option.isSome(config)
+    ? config.value.snapshot.pipe(
+        Effect.map((snapshot) => snapshot.values),
+        Effect.catchDefect(() => readEnvironmentConfig()),
+      )
+    : readEnvironmentConfig()
+  const requestUrl = server.url({
+    forwarded: isTrustedProxyAddress(server.clientAddress, proxySettingsFromValues(values)),
+  })
   if (import.meta.env.PROD && !allowInsecure() && requestUrl.protocol !== "https:") {
     if (["GET", "HEAD"].includes(request.method.toUpperCase())) {
       const httpsUrl = new URL(requestUrl)

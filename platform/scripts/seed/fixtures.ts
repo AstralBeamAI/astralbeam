@@ -8,7 +8,7 @@
  * cannot reach a real deployment.
  */
 
-/** Shared sign-in password. Long enough for Better Auth's 12-character minimum. */
+/** Shared sign-in password. */
 export const SEED_PASSWORD = "astralbeam-seed-password"
 
 export const SEED_DOGFOOD = {

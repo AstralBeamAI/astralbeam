@@ -2,6 +2,8 @@
 
 The Platform owns its server-only PostgreSQL client, Drizzle schema, and generated migrations in this directory.
 
+Tenant services, chat and MCP scopes, and usage-limit subjects use `OrganizationId`, `TenantId`, and `TenantUserId` brands from `@/db/schema/organizations`. Decode IDs at application boundaries and retain their types through Drizzle columns and record schemas. These brands distinguish entity kinds, while scoped queries and composite foreign keys enforce ownership. Customer-provided external IDs remain strings.
+
 ## Structure
 
 - `database.ts` owns the separate process-wide pools, the shared SQL runtime and idempotent shutdown. It exports the Promise Drizzle client for Better Auth and the `Database` service with its replaceable layer.
@@ -40,9 +42,9 @@ JSONB columns use `schemaJsonb(schema)` from `lib/columns.ts`. Its synchronous E
 
 ## Local services
 
-Follow [local setup](../../../SETUP.md#local-development) for native Bun and RustFS on macOS and Compose-managed database services. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
+Follow [local setup](../../../docs/SETUP.md#local-development) for native Bun on macOS and Compose-managed supporting services. `STORAGE_PROVIDER=s3` seeds new databases with RustFS storage. Without an explicit provider or existing S3 settings, setup defaults to File System. PgBouncer is the only host-published database endpoint. Wait for healthy services before running database commands.
 
-Worktree setup copies the primary checkout's ignored `platform/.env.development.local`, or creates it when absent, and appends a `DATABASE_URL` for that worktree. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative.
+Worktree setup creates missing environment files using the primary checkout's defaults and a `DATABASE_URL` for that worktree. Existing files are left alone. The database name is the unique worktree folder: for example, Codex worktree `.../worktrees/a3f4/astralbeam` uses database `a3f4`. An exported shell `DATABASE_URL` remains authoritative. The worktree hook creates a missing loopback database and refuses URLs targeting a different database name. Setup seeds only when the application schema was absent before migration and never resets or reseeds existing data.
 
 ## Database commands
 
@@ -85,7 +87,7 @@ The seed runs in one transaction and can be rerun to restore fixture values. It 
 
 It prints every account with its password, each agent's public ID, each API key's full value, and ready-to-paste blocks for `examples/todos/.env` and `examples/todos-rails/.env`. `scripts/seed/fixtures.ts` is the single source of those values, and `examples/todos/e2e` imports it directly.
 
-The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments. Put the OpenAI key in `platform/.env.local`, which `scripts/copy-worktree-env.sh` copies into every worktree. See [environment configuration](../../../SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
+The seed skips configuration keys with an uppercase environment override. When `OPENAI_API_KEY` is present, it creates a **Development OpenAI** connection, enables its model, and assigns it to agents in sample organizations and dogfood that have no provider. Rerunning the seed preserves existing provider credentials, enabled models, and agent assignments. Put the OpenAI key in `platform/.env.local`. New worktrees inherit this file, while existing copies are left alone. See [environment configuration](../../../docs/SETUP.md#configure-the-environment) for precedence and `/configure` behavior.
 
 ## Drizzle migration workflow
 
@@ -201,6 +203,7 @@ After authorizing the caller, supply an immutable Organization UUID as the scope
 import { Effect, Schema } from "effect"
 import { withDatabaseIdempotency } from "@/db/lib/idempotency"
 import { Tenants } from "@/lib/tenants/tenants"
+import type { OrganizationId } from "@/db/schema/organizations"
 import { TenantExternalIdTaken, TenantWriteForbidden } from "@/lib/tenants/errors"
 import { TenantRecordSchema, TenantWriteSchema } from "@/lib/tenants/schemas"
 
@@ -211,7 +214,7 @@ const tenantOperation = {
   error: Schema.Union([TenantExternalIdTaken, TenantWriteForbidden]),
 }
 
-const example = (authorizedOrganizationId: string) =>
+const example = (authorizedOrganizationId: OrganizationId) =>
   Effect.gen(function* () {
     const tenants = yield* Tenants
 

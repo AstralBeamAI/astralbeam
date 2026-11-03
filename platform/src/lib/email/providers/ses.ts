@@ -58,7 +58,11 @@ export const acquireSender = (settings: SesProviderSettings) =>
         client.send(
           new SendEmailCommand({
             FromEmailAddress: email.from,
-            Destination: { ToAddresses: [...email.to], CcAddresses: [...email.cc] },
+            Destination: {
+              ToAddresses: [...email.to],
+              CcAddresses: [...email.cc],
+              BccAddresses: [...email.bcc],
+            },
             ReplyToAddresses: [email.replyTo],
             Content: {
               Simple: {

@@ -29,6 +29,8 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   userSettings,
 }) => {
   const identity = makeRunIdentity()
+  // Exercise reset, signup, and sign-in at the minimum supported password length.
+  identity.password = crypto.randomUUID().slice(0, 8)
   const ownerEmail = `owner-${identity.runId}@example.com`
   const renamedOrganization = `${identity.organizationName} Renamed`
   const movedSlug = `${identity.organizationSlug}-moved`
@@ -47,6 +49,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
+    await configure.openSection("File storage")
+    await configure.field("storage_provider").click()
+    await page.getByRole("option", { name: "S3-compatible", exact: true }).click()
     await configure.setValue("s3_endpoint", "http://127.0.0.1:9000")
     await configure.setValue("s3_region", "us-east-1")
     await configure.setValue("s3_bucket", "e2e-files")
@@ -59,7 +64,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
 
     await expect(configure.setupStatus()).toBeHidden()
     await expect(
-      configure.section("Owner onboarding").getByText("Configured", { exact: true }),
+      configure.section("Owner onboarding").getByText("Invitation sent", { exact: true }),
     ).toBeVisible()
     await captureMilestone(page, "01-configure-complete")
     await configure.goToApp()
@@ -75,6 +80,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
   await test.step("a visitor signs up and verifies their email address", async () => {
     await page.waitForURL(/\/auth\/sign-in/)
     await auth.open("sign-up")
+    await expect(page.locator("#signup-password-requirements")).toHaveCount(0)
     await auth.signUp(identity)
     await page.waitForURL(/\/auth\/verify-email/)
     await captureMilestone(page, "02-verify-email-prompt")
@@ -95,12 +101,15 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "03-onboarding")
     await onboarding.openCreateOrganization()
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
-    await page.waitForURL(`**/${identity.organizationSlug}/models`)
-    await expect(page.getByRole("heading", { level: 1, name: "Models", exact: true })).toBeVisible()
-    await captureMilestone(page, "04-model-onboarding")
+    await page.waitForURL(`**/${identity.organizationSlug}`)
+    await expect(
+      page.getByRole("heading", { name: "Set up your first agent", exact: true }),
+    ).toBeVisible()
+    await captureMilestone(page, "04-organization-setup")
   })
 
   await test.step("the owner adds a provider and enables a model before configuring agents", async () => {
+    await shell.openSection("Models", "Models")
     await models.create({
       name: modelProviderName,
       modelId: journeyModelId,
@@ -250,10 +259,10 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       identity.secondOrganizationName,
       identity.secondOrganizationSlug,
     )
-    await page.waitForURL(`**/${identity.secondOrganizationSlug}/models`)
+    await page.waitForURL(`**/${identity.secondOrganizationSlug}`)
 
     await shell.switchOrganization(identity.secondOrganizationName, renamedOrganization)
-    await page.waitForURL(`**/${movedSlug}/models`)
+    await page.waitForURL(`**/${movedSlug}`)
 
     await page.goto("/organizations")
     await expect(page.getByRole("heading", { level: 1, name: "Organizations" })).toBeVisible()

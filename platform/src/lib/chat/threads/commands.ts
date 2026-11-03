@@ -5,6 +5,7 @@ import { isSafePattern } from "redos-detector"
 import { NonEmptyStringSchema } from "@/lib/schemas"
 import { ApiUuidSchema } from "@/lib/tenants/schemas"
 import { Agents } from "@/lib/agents/agents.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { withDatabaseIdempotency } from "@/db/lib/idempotency"
 import { CHAT_ATTACHMENT_MAX_COUNT } from "../attachments/constants"
 import {
@@ -16,12 +17,7 @@ import {
 import { ChatAttachmentsDisabled, ChatSystemPromptRefused } from "../errors"
 import type { ChatParams } from "../types"
 import { ChatThreads, type ChatAdmission, type ThreadInput } from "./threads"
-import {
-  ChatThreadForbidden,
-  ChatThreadInvalid,
-  ChatThreadNotFound,
-  type ChatThreadError,
-} from "./errors"
+import { ChatThreadForbidden, ChatThreadInvalid, ChatThreadNotFound } from "./errors"
 import { chatStoredJson } from "./projection"
 import {
   ChatSubmissionReceiptSchema,
@@ -133,6 +129,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   readonly scope: ChatThreadScope
   readonly params: ChatParams
   readonly idempotencyKey?: string | undefined
+  readonly usageLimitIds?: readonly string[] | undefined
 }) {
   const threads = yield* ChatThreads
   const agents = yield* Agents
@@ -216,7 +213,6 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   }
   const thread = yield* threads.get({ scope, id })
   let admission: ChatAdmission | undefined
-  let rejected: ChatThreadError | ChatAttachmentsDisabled | undefined
   const parameters = {
     id,
     parts: yield* identifyChatFiles(parts),
@@ -242,22 +238,34 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       scope: { ...scope, threadId: id },
       messages: convertMessagesToModelMessages(params.messages),
     }),
-    { sandbox: agent.sandboxProviderId !== null },
+    { sandbox: agent.sandboxProviderId !== null, contentShape: "model" },
   )
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
-  const stored = yield* files.store({
-    scope: { ...scope, threadId: id },
-    payload: {
-      version: 1,
-      parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
-      tools,
-      provenance: { clientId: options.clientId },
-    },
-  })
+  // Defer preparation failures so an existing receipt can replay, without storing rejected uploads.
+  const prepared = yield* Effect.result(
+    Effect.gen(function* () {
+      const usageLimits = yield* UsageLimits
+      const limits = yield* usageLimits.applicable({
+        organizationId: scope.organizationId,
+        listedIds: input.usageLimitIds ?? [],
+      })
+      yield* usageLimits.check({ limits, subject: { ...scope, threadId: id } })
+      return yield* files.store({
+        scope: { ...scope, threadId: id },
+        payload: {
+          version: 1,
+          parts: parts.map((part) => ({ ...part, id: crypto.randomUUID() })),
+          tools,
+          provenance: { clientId: options.clientId },
+        },
+      })
+    }),
+  )
   const accept = Effect.fnUntraced(function* (
     command: typeof chatAdmissionOperation.parameters.Type,
   ) {
+    const stored = yield* Effect.fromResult(prepared)
     admission = yield* threads.admit({
       scope,
       id: command.id,
@@ -269,6 +277,8 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
       threadVersion: admission.thread.lockVersion,
     }
   })
+  type AdmissionError = Effect.Error<ReturnType<typeof accept>>
+  let rejected: AdmissionError | undefined
   const receipt =
     input.idempotencyKey === undefined
       ? yield* accept(parameters)
@@ -293,9 +303,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
           Effect.catchCause((cause) =>
             rejected &&
             cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected)
-              ? Effect.fail<
-                  ChatThreadError | ChatAttachmentsDisabled | Cause.Cause.Error<typeof cause>
-                >(rejected)
+              ? Effect.fail<AdmissionError | Cause.Cause.Error<typeof cause>>(rejected)
               : Effect.failCause(cause),
           ),
         )
@@ -374,6 +382,7 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
   const threads = yield* ChatThreads
   const results: ChatToolResolution[] = []
   const patternBudget = { remaining: 32 }
+  const schemas = new Map<string, Effect.Success<ReturnType<typeof storedResponseSchema>>>()
   for (const result of input.results) {
     const part = yield* threads.authorizeToolResponse({
       scope: input.scope,
@@ -422,7 +431,12 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
       declaration.outputSchema !== undefined &&
       !nativeOutput?.isError
     ) {
-      const schema = yield* storedResponseSchema(declaration.outputSchema, patternBudget)
+      const key = JSON.stringify(declaration.outputSchema)
+      let schema = schemas.get(key)
+      if (!schema) {
+        schema = yield* storedResponseSchema(declaration.outputSchema, patternBudget)
+        schemas.set(key, schema)
+      }
       yield* Schema.decodeUnknownEffect(schema)(native ? nativeOutput?.structuredContent : output, {
         onExcessProperty: "error",
       }).pipe(Effect.mapError(() => new ChatThreadInvalid()))

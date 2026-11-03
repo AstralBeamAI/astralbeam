@@ -48,7 +48,7 @@ Every command then uses the nearest bound directory at or above where it runs, a
 ▸ Acme (acme) · org 01990a5d-… · bound at ~/work/acme
 ```
 
-A directory with no bound ancestor fails with exit code 1 instead of guessing an organization. For CI and agents, set `ASTRALBEAM_API_KEY`, which overrides any binding, and `ASTRALBEAM_API_URL` when self-hosting. API URLs require HTTPS, except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`).
+A directory with no bound ancestor fails with exit code 1 instead of guessing an organization. For CI and agents, set `ASTRALBEAM_API_KEY`, which overrides any binding, and `ASTRALBEAM_API_URL` when self-hosting. The URL also overrides a bound key's saved URL. `ASTRALBEAM_CONFIG_DIR` selects the directory containing `config.json`. API URLs require HTTPS, except for HTTP on loopback hosts (`localhost`, IPv4 `127.0.0.0/8`, or `[::1]`).
 
 Check the binding commands will use, or list them all:
 
@@ -64,12 +64,17 @@ astralbeam auth list
 | `auth login`, `auth logout`, `auth status`, `auth list` | Bind, unbind, verify, and list directory logins |
 | `tenants list`, `get`, `create`, `update` | Manage Tenants |
 | `tenant-users list`, `get`, `create`, `update` | Manage a Tenant's users |
+| `tenant-users usage get` | Read users' usage in USD over a time range |
+| `threads`, `organization` | Read thread directory data and organization details |
+| `tenants threads messages list` | Read a saved conversation's messages |
 | `token chat` | Mint a chat JWT for a Tenant's user, as your token endpoint would |
 | `token organization` | Mint an organization-management JWT for a member |
 | `chat` | Chat with an agent as a Tenant's user |
 | `skill`, `skill install` | Print or install the bundled Agent Skill |
 
-Run `astralbeam <command> --help` for every flag. Lists take `--search`, `--external-id`, `--page-size`, `--page-after`, `--page-before`, and `--all`.
+Run `astralbeam <command> --help` for every flag. Tenant lists take `--external-id`, `-q` / `--search`, `--page-size`, `--page-after`, and `--page-before`. TenantUser lists also take `--admin true|false`. Writes also accept `--body '<json>'` or `--body @file.json`. Clear a name with `--body '{"name":null}'`.
+
+Forge's `--dry-run` prints a local JSON request preview without sending HTTP or validating with the server. It reads configuration and supplied `@file` contents.
 
 ```sh
 astralbeam tenants create --external-id customer-42 --name "Acme Logistics" --metadata '{"plan":"pro"}'
@@ -80,18 +85,18 @@ astralbeam chat --tenant customer-42 --user user-7 "What can you do?"
 
 ## Output and exit codes
 
-Human-readable tables and records go to stdout. With `--json`, records and pages stay in API format, and `--all` merges fetched pages. Non-interactive operations write one stderr object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API failures retain their problem details, while runtime and usage errors provide `error.detail`. Help and version output remain plain text. Commands exit with `0` on success, `1` when the API or runtime fails, and `2` for invalid usage.
+Human-readable tables and records go to stdout. With `--json`, records and pages stay in API format, and non-interactive operations write one stderr object: `{"context": {...}}` on success or `{"error": {...}, "context": {...}}` on failure. API failures retain their problem details, while runtime and usage errors provide `error.detail`. Help and version output remain plain text. Commands exit with `0` on success, `1` when the API, generated input handling, or runtime fails, and `2` for parser usage errors.
 
 For unexpected failures, use `--debug` to log HTTP methods, URLs, status, duration, and stack traces to stderr, without headers. It adds lines beyond the JSON object. After a failed write, check whether it succeeded before retrying.
 
 ## Coding agents
 
-The CLI ships an [Agent Skill](skills/astralbeam/SKILL.md) that teaches an agent its commands, JSON output, and safety rules. Let's install it for Claude Code in the current project:
+The CLI ships an [Agent Skill](../skills/astralbeam/SKILL.md) for app integration and CLI usage. Let's install it in the current project's `.agents/skills` directory:
 
 ```sh
 astralbeam skill install
 ```
 
-Pass `--dir ~/.claude/skills` to install it for every project, or `--dir .agents/skills` for agents that read that directory. Then give the agent credentials by logging in from the project directory or through `ASTRALBEAM_API_KEY`, never in the prompt.
+Commit `.agents/skills/astralbeam/SKILL.md` to share it with the team and make it available in fresh checkouts. For Claude Code, pass `--dir .claude/skills`. Use `--dir <path>` for another project or a user-level directory. Then give the agent credentials by logging in from the project directory or through `ASTRALBEAM_API_KEY`, never in the prompt.
 
 The full guide is at [astralbeam.ai/docs/cli/getting-started](https://astralbeam.ai/docs/cli/getting-started).

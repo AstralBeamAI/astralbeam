@@ -220,12 +220,23 @@ export class Dogfood extends Context.Service<
                       .pipe(Effect.orDie)
                     if (!lock?.acquired) return yield* new ConfigurationBusy()
                     yield* Deferred.succeed(acquired, undefined)
-                    yield* Deferred.await(release)
+                    // Probe the pinned connection so a lost idle lock interrupts the external work.
+                    // Finish each probe before release so successful work never cancels SQL.
+                    while (!(yield* Deferred.isDone(release))) {
+                      yield* transaction
+                        .execute(sql`select 1`)
+                        .pipe(Effect.timeout("5 seconds"), Effect.orDie)
+                      yield* Effect.raceFirst(Deferred.await(release), Effect.sleep("1 second"))
+                    }
                   }),
                 )
                 .pipe(Effect.onExit((exit) => Deferred.done(acquired, Exit.asVoid(exit)))),
             ),
-            () => Effect.andThen(Deferred.await(acquired), operation),
+            (fiber) =>
+              Effect.andThen(
+                Deferred.await(acquired),
+                Effect.raceFirst(operation, Fiber.join(fiber).pipe(Effect.andThen(Effect.never))),
+              ),
             (fiber) => Effect.andThen(Deferred.succeed(release, undefined), Fiber.join(fiber)),
           )
         }).pipe(mapDatabaseErrors())

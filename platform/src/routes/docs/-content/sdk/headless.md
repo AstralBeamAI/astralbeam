@@ -8,20 +8,21 @@ Build your own chat UI with the SDK's authentication, transport, tools, and tran
 
 ### React
 
-`useAstralBeamChat` returns live state and session actions. Your application supplies the message and composer components:
+`useAstralBeamChat` returns a stable session and subscribes the component to its state updates. Read the current snapshot with `chat.getState()` and call actions directly on `chat`. Use it with the styled `<AstralBeamChat chat={chat} />` view, or supply your own message and composer components:
 
 ```tsx
 import { useAstralBeamChat } from "@astralbeam/sdk/react"
 
 function MyChat() {
   const chat = useAstralBeamChat({})
+  const { messages, auth, status } = chat.getState()
   return (
     <div>
-      {chat.messages.map((message) => (
+      {messages.map((message) => (
         <MyMessage key={message.id} message={message} />
       ))}
       <MyComposer
-        disabled={chat.auth.status !== "ready" || chat.status !== "ready"}
+        disabled={auth.status !== "ready" || status !== "ready"}
         onSend={chat.sendMessage}
       />
     </div>
@@ -29,14 +30,15 @@ function MyChat() {
 }
 ```
 
-- State: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, `history`, `submission`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
-- Actions: `sendMessage`, `retry`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
+- State from `chat.getState()`: `messages`, `status`, `error`, `auth`, `capabilities`, `sandbox`, `sandboxStatus`, `agentTools`, `history`, `submission`, and `usageLimitReached`, which names the [usage limit](/docs/dashboard/usage-limits) that refused or ended the last run and when it resets.
+- Actions on `chat`: `sendMessage`, `retry`, `addToolResult`, `stop`, `reload`, `reset`. `reload` refreshes saved history and can deliver retained tool results, without resubmitting user input.
 - Each send becomes the `submission`, whose `phase` moves from `submitting` to `accepted`, `failed`, or `refused`. `sendMessage` and `retry()` resolve with the attempt's outcome.
 - Clear your composer when you send, and return the `content` of a `refused` outcome to it. A `failed` submission may have reached the server, so offer `retry()`.
 - An attempt the session declines, such as one sent while another is active, resolves `refused` without replacing the active submission. `stop()` returns an unsent message the same way.
 - `retry()` reuses the admission key. Within 24 hours, an accepted retry restores saved history without starting another response.
+- Keep tool schemas outside render, or memoize schemas derived from props. Changing a schema invalidates pending execution. Tool callbacks can still read current props and state.
 - Options follow the props you pass, including `agentId`, `apiUrl`, and `fetchAstralBeamToken`. Remount when the host identity changes, as described in [Authentication](./authentication.md#switching-workspaces).
-- No shadow root and no bundled styles: your markup, your CSS.
+- With your own components, there is no shadow root or bundled styling. See [shared sessions](./configuration.md#shared-session) for ownership and moving the styled view between layouts.
 
 ### JavaScript
 

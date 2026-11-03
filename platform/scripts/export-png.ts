@@ -1,9 +1,7 @@
-import { readdir, writeFile } from "node:fs/promises"
-import { dirname, extname, join, relative } from "node:path"
-import { fileURLToPath } from "node:url"
+import { join, relative } from "node:path"
 import sharp from "sharp"
 
-const applicationDirectory = join(dirname(fileURLToPath(import.meta.url)), "..")
+const applicationDirectory = join(import.meta.dir, "..")
 const publicDirectory = join(applicationDirectory, "public")
 const logoSvgPattern = /^[a-z0-9-]+-(?:logo|wordmark)-(?:dark|light)\.svg$/u
 
@@ -13,21 +11,8 @@ if (!Number.isFinite(scale) || scale <= 0) {
   throw new Error(`SCALE must be a positive number; received ${process.env.SCALE}`)
 }
 
-let entries
-
-try {
-  entries = await readdir(publicDirectory, { withFileTypes: true })
-} catch (error) {
-  if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-    throw new Error(`Public directory not found: ${publicDirectory}`, { cause: error })
-  }
-
-  throw error
-}
-
-const svgFiles = entries
-  .filter((entry) => entry.isFile() && logoSvgPattern.test(entry.name))
-  .map((entry) => entry.name)
+const svgFiles = [...new Bun.Glob("*.svg").scanSync(publicDirectory)]
+  .filter((name) => logoSvgPattern.test(name))
   .toSorted()
 
 if (svgFiles.length === 0) {
@@ -36,7 +21,7 @@ if (svgFiles.length === 0) {
 
 // Process one image at a time to bound Sharp/libvips work and memory. https://sharp.pixelplumbing.com/performance/#parallelism-and-concurrency
 for (const svgFile of svgFiles) {
-  const pngFile = `${svgFile.slice(0, -extname(svgFile).length)}.png`
+  const pngFile = svgFile.replace(/\.svg$/u, ".png")
   const pngPath = join(publicDirectory, pngFile)
 
   // Sharp/libvips renders SVG viewBox units at 72 DPI, so this is equivalent
@@ -44,10 +29,10 @@ for (const svgFile of svgFiles) {
   const output = await sharp(join(publicDirectory, svgFile), {
     density: 72 * scale,
   })
-    .png()
+    .png({ compressionLevel: 9 })
     .toBuffer()
 
-  await writeFile(pngPath, output)
+  await Bun.write(pngPath, output)
 
   console.log(`Wrote ${relative(applicationDirectory, pngPath)}`)
 }

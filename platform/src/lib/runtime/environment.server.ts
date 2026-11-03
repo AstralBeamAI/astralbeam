@@ -10,3 +10,7 @@ export const IS_TEST_RUNTIME = process.env.VITEST === "true" || process.env.NODE
 export function allowInsecure(): boolean {
   return process.env.ALLOW_INSECURE === "true"
 }
+
+export function skipEmailVerification(): boolean {
+  return process.env.SKIP_EMAIL_VERIFICATION === "true"
+}

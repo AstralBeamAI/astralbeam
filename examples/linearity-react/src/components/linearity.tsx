@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import type { AstralBeamChatRef } from "@astralbeam/sdk/react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAstralBeamChat } from "@astralbeam/sdk/react"
 import { Outlet, useLocation, useNavigate, useParams, useRouter } from "@tanstack/react-router"
 import { ArrowsClockwiseIcon, SidebarSimpleIcon, StarFourIcon } from "@phosphor-icons/react"
 import { Button } from "./ui/button.tsx"
@@ -8,6 +8,7 @@ import { Sidebar, type View } from "./sidebar.tsx"
 import { Astro } from "./astro.tsx"
 import type { Workspace } from "@/lib/model.ts"
 import { demoStore, useDemo } from "@/lib/store.ts"
+import { createWorkspaceTools } from "@/lib/astro-tools.ts"
 import { workspaceUrl } from "@/lib/navigation.ts"
 
 export function Linearity() {
@@ -50,7 +51,26 @@ function WorkspaceApp({
   const [chatOpen, setChatOpen] = useState(() => window.innerWidth >= 1000)
   const [navOpen, setNavOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
-  const chat = useRef<AstralBeamChatRef>(null)
+  const tools = useMemo(
+    () =>
+      createWorkspaceTools(workspace.id, {
+        current: () => router.state.location.href,
+        go: async (url) => {
+          await router.navigate({ href: url })
+        },
+      }),
+    [workspace.id, router],
+  )
+  const chat = useAstralBeamChat({
+    apiUrl: import.meta.env.VITE_ASTRALBEAM_API_URL || "https://astralbeam.ai/api",
+    agentId: import.meta.env.VITE_ASTRALBEAM_AGENT_ID || undefined,
+    fetchAstralBeamToken: {
+      url: "/api/astralbeam/token",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId: workspace.id, visitorId }),
+    },
+    tools,
+  })
   const workspaceStage = useRef<HTMLDivElement>(null)
   const resizeContainer = useCallback(() => workspaceStage.current, [])
   const navigate = (next: View) => {
@@ -155,20 +175,13 @@ function WorkspaceApp({
           >
             <div className="astro-widget">
               <Astro
-                ref={chat}
+                chat={chat}
                 workspace={workspace}
-                visitorId={visitorId}
                 resizeContainer={resizeContainer}
                 onClose={() => setChatOpen(false)}
                 onOpen={(issue) =>
                   void route({ href: workspaceUrl(workspace.id, `issues/${issue.id}`) })
                 }
-                navigation={{
-                  current: () => router.state.location.href,
-                  go: async (url) => {
-                    await router.navigate({ href: url })
-                  },
-                }}
               />
             </div>
           </aside>
@@ -190,7 +203,7 @@ function WorkspaceApp({
               <Button
                 type="button"
                 onClick={() => {
-                  chat.current?.reset()
+                  chat.reset()
                   demoStore.reset()
                   setResetOpen(false)
                   void route({ href: workspaceUrl(workspace.id, "issues") })

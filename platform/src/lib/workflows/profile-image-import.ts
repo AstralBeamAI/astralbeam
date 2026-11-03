@@ -1,14 +1,14 @@
+import { and, eq } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 import { Activity, Workflow } from "effect/workflow"
 
-import { and, eq } from "drizzle-orm"
 import { Database } from "@/db/database"
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { member } from "@/db/schema/organizations"
 import { retireImage } from "@/lib/organizations/images.server"
+import { UuidV7Schema } from "@/lib/schemas"
 import { ImageSources } from "@/lib/storage/image-source.server"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
-import { UuidV7Schema } from "@/lib/schemas"
 
 // Each trigger imports a validated URL across the user's memberships, replacing existing avatars.
 const profileImageImport = Workflow.make("ProfileImageImport/v3", {

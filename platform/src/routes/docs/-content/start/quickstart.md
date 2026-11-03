@@ -2,6 +2,8 @@
 
 Let's add an assistant to your **React app** using your existing login.
 
+Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
+
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
 You'll need an authenticated backend and a model-provider API key. Any backend language or authentication provider works. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
@@ -55,12 +57,13 @@ Here are two examples. See the [token format](/docs/sdk/authentication#mint-toke
 
 <!-- ::start:tabs -->
 
-### TypeScript
+### Next.js
 
-This example uses an existing Better Auth instance at `@/lib/auth`.
+This App Router example uses an existing Better Auth instance at `@/lib/auth` with the organization plugin and an active organization.
 
-```ts title="src/server/astralbeam-token.ts"
+```ts title="src/app/api/astralbeam/token/route.ts"
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
+import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
@@ -70,7 +73,7 @@ export async function POST(request: Request) {
     user: { id: member.userId },
     tenant: { id: member.organizationId },
   })
-  return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ token })
 }
 ```
 
@@ -93,25 +96,30 @@ class AstralbeamTokensController < ApplicationController
   before_action :require_authentication
 
   def create
-    no_store
-    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
-    digest = Digest::SHA256.digest("abo_#{secret}")
-    signing_key = Base64.urlsafe_encode64(digest, padding: false)
+    key_id, issuer, signing_secret = get_signing_secret
     claims = {
-      ver: 4, iss: key_id.split("_")[1], aud: "astralbeam",
+      ver: 4, iss: issuer, aud: "astralbeam",
       iat: Time.current.to_i, exp: 5.minutes.from_now.to_i,
       user: { id: Current.user.id.to_s },
       tenant: { id: Current.user.account_id.to_s }
     }
     token = JWT.encode(
-      claims, signing_key, "HS256", { typ: "astralbeam+jwt", kid: key_id }
+      claims, signing_secret, "HS256", { typ: "astralbeam+jwt", kid: key_id }
     )
     render json: { token: token }
+  end
+
+  private
+
+  def get_signing_secret
+    key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
+    digest = Digest::SHA256.digest("abo_#{secret}")
+    [key_id, key_id.split("_")[1], Base64.urlsafe_encode64(digest, padding: false)]
   end
 end
 ```
 
-Keep `csrf_meta_tags` in your Rails layout.
+Keep `csrf_meta_tags` in your Rails layout and include the CSRF header shown in the [Rails integration](/docs/sdk/script-tag#ruby-on-rails).
 
 <!-- ::end:tabs -->
 
@@ -125,11 +133,7 @@ Pass a function that calls your token handler:
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
 async function fetchToken() {
-  const csrfMeta = document.querySelector<HTMLMetaElement>("meta[name=csrf-token]")
-  const response = await fetch("/api/astralbeam/token", {
-    method: "POST",
-    headers: csrfMeta ? { "X-CSRF-Token": csrfMeta.content } : {},
-  })
+  const response = await fetch("/api/astralbeam/token", { method: "POST" })
   return response.json()
 }
 
@@ -150,6 +154,10 @@ See [SDK props](/docs/sdk/configuration#options) to customize the assistant.
 
 ## Next
 
-[Add tools and widgets](/docs/sdk/tools-and-widgets), or try the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
+- [Build a todo assistant](./todos-tutorial.md) that updates the list and shows live cards in chat.
+- [Add your own tools and widgets](/docs/sdk/tools-and-widgets) to connect the agent to your app's actions and components.
+- [Style the chat](/docs/sdk/theming) to match your app.
+
+Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
 
 See [Authentication](/docs/sdk/authentication) for troubleshooting.

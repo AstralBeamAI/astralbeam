@@ -1,17 +1,19 @@
+import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Layer, type Schema } from "effect"
 import { SqlClient } from "effect/sql"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import type { ChatParams } from "../types"
 import { ChatThreads, type AdmitInput, type ResolveToolsInput } from "./threads"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import { ChatThreadForbidden } from "./errors"
 
-const commandOrgId = "019a0000-0000-7000-8000-000000000001"
-const commandTenantId = "019a0000-0000-7000-8000-000000000002"
-const commandUserId = "019a0000-0000-7000-8000-000000000003"
+const commandOrgId = OrganizationIdSchema.make("019a0000-0000-7000-8000-000000000001")
+const commandTenantId = TenantIdSchema.make("019a0000-0000-7000-8000-000000000002")
+const commandUserId = TenantUserIdSchema.make("019a0000-0000-7000-8000-000000000003")
 const commandThreadId = "019a0000-0000-7000-8000-000000000004"
 const commandScope = {
   organizationId: commandOrgId,
@@ -77,7 +79,12 @@ describe("managed conversation commands", () => {
     const admitted: AdmitInput[] = []
     let attachmentsEnabled = true
     const layer = Layer.mergeAll(
+      Layer.mock(UsageLimits, {
+        applicable: () => Effect.succeed([]),
+        check: () => Effect.void,
+      }),
       Layer.succeed(ChatFiles, {
+        download: () => Effect.die("unused"),
         store: ({ payload }) => Effect.succeed(payload),
         read: () => Effect.die("unused"),
         hydrate: ({ messages }) => Effect.succeed([...messages]),
@@ -132,8 +139,11 @@ describe("managed conversation commands", () => {
             name,
             outputSchema: {
               type: "object",
-              patternProperties: Object.fromEntries(
-                Array.from({ length: 17 }, (_, index) => [`^key${index}$`, { type: "string" }]),
+              properties: Object.fromEntries(
+                Array.from({ length: 17 }, (_, index) => [
+                  `key${index}`,
+                  { type: "string", pattern: `^key${index}$` },
+                ]),
               ),
             },
           })),
@@ -198,6 +208,7 @@ describe("managed conversation commands", () => {
   it.effect("validates legacy and versioned results against the saved declaration", () => {
     const resolved: ResolveToolsInput[] = []
     let resultVersion: number | undefined
+    let outputSchema: typeof Schema.Json.Type = { type: "integer", minimum: 1, maximum: 5 }
     const layer = Layer.succeed(ChatThreads, {
       authorizeToolResponse: () =>
         Effect.succeed({
@@ -206,7 +217,7 @@ describe("managed conversation commands", () => {
           toolCallId: "provider",
           declaration: {
             ...(resultVersion === 1 ? { resultVersion } : {}),
-            outputSchema: { type: "integer", minimum: 1, maximum: 5 },
+            outputSchema,
           },
         }),
       resolveTools: (input: ResolveToolsInput) => {
@@ -218,20 +229,19 @@ describe("managed conversation commands", () => {
       const submit = (
         output: typeof Schema.Json.Type,
         outcome: "succeeded" | "failed" | "unknown" = "succeeded",
+        count = 1,
       ) =>
         resolveManagedChatTools({
           scope: commandScope,
           id: commandThreadId,
           clientId: commandUserId,
-          results: [
-            {
-              sourceMessageId: commandThreadId,
-              sourcePartId: "part",
-              responseTargetId: commandTenantId,
-              outcome,
-              output,
-            },
-          ],
+          results: Array.from({ length: count }, (_, index) => ({
+            sourceMessageId: commandThreadId,
+            sourcePartId: `part-${index}`,
+            responseTargetId: [commandTenantId, commandOrgId][index]!,
+            outcome,
+            output,
+          })),
         })
       for (resultVersion of [undefined, 1]) {
         const output = (value: number | string) =>
@@ -278,6 +288,18 @@ describe("managed conversation commands", () => {
           })
         }
       }
+      outputSchema = {
+        type: "object",
+        additionalProperties: false,
+        properties: Object.fromEntries(
+          Array.from({ length: 17 }, (_, index) => [
+            `key${index}`,
+            { type: "string", pattern: `^key${index}$` },
+          ]),
+        ),
+      }
+      yield* submit({ content: [], structuredContent: {} }, "succeeded", 2)
+      assert.lengthOf(resolved.at(-1)!.results, 2)
     }).pipe(Effect.provide(layer))
   })
 

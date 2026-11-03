@@ -63,11 +63,9 @@ export function mcpAttemptLocator(state: string): McpAttemptReference | null {
     return null
   }
 }
-function mcpAttemptKey(reference: {
-  organizationId: string
-  tenantId: string
-  connectionId: string
-}) {
+function mcpAttemptKey(
+  reference: Pick<McpAttemptReference, "organizationId" | "tenantId" | "connectionId">,
+) {
   return `${reference.organizationId}:${reference.tenantId}:${reference.connectionId}`
 }
 type McpAuthorizationInput = { actor: McpActor; reference: McpReference }

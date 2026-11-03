@@ -1,11 +1,11 @@
-import { useSession } from "@better-auth-ui/react"
 import { Link, useLocation } from "@tanstack/react-router"
 import { createContext, type ReactNode, useContext } from "react"
 
 import { useHasWebsite } from "@/components/public-config-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { DocsSearch } from "@/components/docs/docs-search"
 import { buttonVariants } from "@/components/ui/button"
-import { authClient } from "@/lib/auth/client"
+import { WebsiteLink } from "@/components/website-link"
 import { normalizeReturnPathFromSearch } from "@/lib/auth/redirect"
 import {
   APP_LOGO_DARK_SVG_URL,
@@ -107,6 +107,19 @@ export function NavbarDocsLink() {
   )
 }
 
+function DashboardLink({ reloadDocument = false }: { reloadDocument?: boolean }) {
+  return (
+    <Link
+      to="/"
+      data-session="signed-in"
+      reloadDocument={reloadDocument}
+      className={cn(buttonVariants({ size: "sm" }), "ms-2.5")}
+    >
+      Dashboard
+    </Link>
+  )
+}
+
 /** Docs pages load without the auth providers, so their links leave through a full navigation. */
 function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
   const redirectTo = useLocation({
@@ -117,6 +130,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
     <>
       <Link
         to="/auth/$path"
+        data-session="signed-out"
         params={{ path: "sign-in" }}
         search={{ redirectTo }}
         reloadDocument={reloadDocument}
@@ -126,6 +140,7 @@ function AuthLinks({ reloadDocument = false }: { reloadDocument?: boolean }) {
       </Link>
       <Link
         to="/auth/$path"
+        data-session="signed-out"
         params={{ path: "sign-up" }}
         search={{ redirectTo }}
         reloadDocument={reloadDocument}
@@ -178,22 +193,13 @@ export function DocsNavbar({
         </div>
       }
     >
-      <a href="/" className={navLinkClassName}>
-        Home
-      </a>
+      <DocsSearch />
+      <WebsiteLink className={navLinkClassName}>
+        <span>Website</span>
+      </WebsiteLink>
+      <DashboardLink reloadDocument />
       <AuthLinks reloadDocument />
     </Navbar>
-  )
-}
-
-function SessionLinks() {
-  const session = useSession(authClient)
-  if (session.isPending) return null
-  if (!session.data) return <AuthLinks />
-  return (
-    <Link to="/" className={navLinkClassName}>
-      Home
-    </Link>
   )
 }
 
@@ -204,12 +210,16 @@ export function PublicNavbar() {
   const isDocs = useLocation({
     select: ({ pathname }) => pathname === "/docs" || pathname.startsWith("/docs/"),
   })
+  const isConfigure = useLocation({
+    select: ({ pathname }) => pathname === "/configure" || pathname.startsWith("/configure/"),
+  })
   if (underNavbar) return null
   if (isDocs) return <DocsNavbar />
   return (
     <Navbar wordmark reloadDocument={hasWebsite}>
       <NavbarDocsLink />
-      <SessionLinks />
+      {!isConfigure && <DashboardLink />}
+      {!isConfigure && <AuthLinks />}
     </Navbar>
   )
 }

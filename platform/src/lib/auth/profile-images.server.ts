@@ -28,11 +28,11 @@ export function assertNoGlobalAvatar(image: string | null | undefined): void {
     })
 }
 
-async function enqueueProfileImage(userId: string, imageUrl: string): Promise<void> {
+async function enqueueProfileImage(input: { userId: string; imageUrl: string }): Promise<void> {
   // Loaded after authentication commits, avoiding the Auth -> runtime -> Auth initialization cycle.
   const { provideClusterWorkflowEngine } = await import("@/lib/cluster/runtime")
   await runAppEffect(
-    profileImageImport.execute({ userId, imageUrl }, { discard: true }).pipe(
+    profileImageImport.execute(input, { discard: true }).pipe(
       provideClusterWorkflowEngine,
       Effect.catchCause(() =>
         Effect.logWarning("Could not schedule optional profile image import"),
@@ -46,10 +46,13 @@ export async function enqueueGravatar(input: {
 }): Promise<void> {
   if (await isOAuthImageRequest()) return
   const hash = createHash("sha256").update(input.user.email.trim().toLowerCase()).digest("hex")
-  await enqueueProfileImage(input.user.id, `https://gravatar.com/avatar/${hash}?d=404&r=g&s=128`)
+  await enqueueProfileImage({
+    userId: input.user.id,
+    imageUrl: `https://gravatar.com/avatar/${hash}?d=404&r=g&s=128`,
+  })
 }
 
 export async function enqueueOAuthProfileImage(userId: string): Promise<void> {
   const imageUrl = (await profileImageRequest.get()).imageUrl
-  if (imageUrl) await enqueueProfileImage(userId, imageUrl)
+  if (imageUrl) await enqueueProfileImage({ userId, imageUrl })
 }

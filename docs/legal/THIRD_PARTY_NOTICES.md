@@ -20,9 +20,9 @@ Common license text: [MIT License](LICENSES/MIT.txt).
 
 Common license text: [SIL Open Font License 1.1](LICENSES/OFL-1.1.txt).
 
-- `@fontsource/anton` font files in `www` — Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
-- `@fontsource/jetbrains-mono` font files in `www` — Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
-- `@fontsource-variable/space-grotesk` font files in `www` — Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
+- `@fontsource/anton` font files in `website` — Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+- `@fontsource/jetbrains-mono` font files in `website` — Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+- `@fontsource-variable/space-grotesk` font files in `website` — Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
 - `@fontsource-variable/inter` font files in `platform` — Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
 - `@fontsource-variable/manrope` font files in `platform` — Copyright 2019 The Manrope Project Authors (https://github.com/sharanda/manrope)
-- `@fontsource/source-serif-4` font files in `www`, Google Inc. (notice supplied in the package's license).
+- `@fontsource/source-serif-4` font files in `website`, Google Inc. (notice supplied in the package's license).

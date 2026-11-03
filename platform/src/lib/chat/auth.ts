@@ -1,3 +1,4 @@
+import { OrganizationIdSchema } from "@/db/schema/organizations"
 import { and, eq } from "drizzle-orm"
 import { Clock, Effect, Schema } from "effect"
 import { decodeProtectedHeader, jwtVerify } from "jose"
@@ -95,7 +96,7 @@ export const authenticateOrganizationIssuedToken = Effect.fn("authenticateOrgani
       return yield* new ChatAuthenticationError()
     }
 
-    return { organizationId: initial.organizationId, identity }
+    return { organizationId: OrganizationIdSchema.make(initial.organizationId), identity }
   },
 )
 
