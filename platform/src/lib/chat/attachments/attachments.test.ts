@@ -97,8 +97,6 @@ test("passes images and PDFs through with repaired types and sanitized filenames
   expect(files).toEqual([])
 })
 
-// The provider adapter throws on a part it cannot map, which would fail the whole run; a refusal
-// the model can relay keeps the conversation alive.
 test("replaces unsupported attachments with an explanation instead of failing the run", () => {
   const { messages, attachments } = normalizeChatAttachments(
     userMessage([
@@ -117,7 +115,7 @@ test("replaces unsupported attachments with an explanation instead of failing th
   expect(attachments.map((attachment) => attachment.result)).toEqual(["rejected", "rejected"])
 })
 
-// A URL source would have the provider fetch a caller-chosen host on this deployment's API key.
+// Refuse caller-chosen URLs so providers cannot fetch them on deployment credentials.
 test("refuses attachments that are not inline data", () => {
   const { messages } = normalizeChatAttachments(
     userMessage([
@@ -142,8 +140,6 @@ test("refuses a binary file mislabeled as text and an oversized one", () => {
   expect(attachments.every((attachment) => attachment.result === "rejected")).toBe(true)
 })
 
-// The SDK composer stops at MAX_ATTACHMENTS_PER_MESSAGE files, so a caller that sends more is not
-// the composer and gets the same number applied here.
 test("refuses attachments past the per-message count limit", () => {
   const { attachments, files } = normalizeChatAttachments(
     userMessage(
@@ -158,9 +154,6 @@ test("refuses attachments past the per-message count limit", () => {
   expect(rejected[0]?.reason).toContain(`limit of ${CHAT_ATTACHMENT_MAX_COUNT} attachments`)
 })
 
-// The handle is what `read_attachment` answers to and the file's name in the sandbox, so a
-// collision would make one of two same-named files unreachable, and the message has to carry it
-// rather than the original name.
 test("names files in the message by handle, not by their original name", () => {
   const { messages, files } = normalizeChatAttachments(
     userMessage([
@@ -185,8 +178,6 @@ test("keeps attachment payloads out of the debug log", () => {
   expect(contentOf(redacted)[0]).toMatchObject({ source: { value: "<4 KB base64>" } })
 })
 
-// A renamed or truncated file used to reach the provider and fail the whole run with an opaque
-// 400; it is refused here with an explanation instead, while a genuine file still passes.
 test("refuses a payload whose bytes do not match its declared type", () => {
   const { messages, attachments } = normalizeChatAttachments(
     userMessage([
@@ -235,10 +226,7 @@ test("refuses a payload whose bytes do not match its declared type", () => {
   ])
 })
 
-// `convertMessagesToModelMessages` dispatches on the presence of `parts` before it looks at the
-// role, and the provider adapter maps every role that is neither `tool` nor `assistant` as a user
-// turn — so media on a non-user message would otherwise reach the provider unchecked, URL sources
-// and all.
+// Provider adapters also convert non-user media, so role checks must precede conversion.
 test("strips media smuggled onto a non-user message", () => {
   const messages = [
     {
@@ -278,7 +266,6 @@ test("strips media smuggled onto a non-user message", () => {
   expect(attachments).toHaveLength(2)
 })
 
-// Snapshots keep authenticated file references while hydrated model input stays server-side.
 test("restores the user's own attachments in a messages snapshot", () => {
   const sent = [
     {
