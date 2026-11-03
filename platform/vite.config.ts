@@ -207,7 +207,7 @@ const viteConfig = defineConfig(({ mode }) => {
         OTEL_SDK_DISABLED: "true",
         DATABASE_URL: process.env.DATABASE_URL ?? "postgres://test:test@127.0.0.1:5432/test",
       },
-      // Playwright specs run through their own task.
+      // `e2e` holds Playwright specs, which `bun run e2e` runs in its own runner.
       exclude: [...configDefaults.exclude, "e2e/**"],
       // Integration suites share one disposable database, so run their files one at a time.
       // https://vitest.dev/guide/projects

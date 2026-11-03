@@ -1,33 +1,24 @@
-import { rm } from "node:fs/promises"
-import { basename, join } from "node:path"
-import { fileURLToPath } from "node:url"
+const sandboxDirectory = `${import.meta.dir}/../packages/sandbox`
 
-const source = fileURLToPath(new URL("../packages/sandbox/", import.meta.url))
-const outdir = join(source, "dist")
-
-await rm(outdir, { recursive: true, force: true })
+await Bun.$`rm -rf ${sandboxDirectory}/dist`
 await Bun.build({
   // Internal entries keep vendor SDKs separate behind the single public export.
-  entrypoints: ["index", "daytona", "docker", "e2b", "sprites", "vercel"].map((name) =>
-    join(source, "src", `${name}.ts`),
-  ),
-  outdir,
+  entrypoints: [
+    ...new Bun.Glob("src/*.ts").scanSync({ cwd: sandboxDirectory, absolute: true }),
+  ].sort(),
+  outdir: `${sandboxDirectory}/dist`,
   // Node-compatible imports keep CommonJS/ESM chunks resolvable when Platform rebundles them.
   // https://bun.sh/docs/bundler#target
   target: "node",
   splitting: true,
   minify: true,
-  external: ["cpu-features"],
+  // ssh2 catches missing optional native accelerators and uses its JavaScript fallback.
+  // https://github.com/mscdex/ssh2/blob/master/README.md#installation
+  external: ["cpu-features", "*.node"],
   plugins: [
     {
       name: "sandbox-vendor-imports",
       setup(build) {
-        // ssh2 catches missing optional native accelerators and uses its JavaScript fallback.
-        // https://github.com/mscdex/ssh2/blob/master/README.md#installation
-        build.onResolve({ filter: /\.node$/ }, ({ path }) => ({
-          path: `./${basename(path)}`,
-          external: true,
-        }))
         // Remove when Daytona's runtime loaders use statically resolvable imports.
         // https://github.com/daytonaio/daytona/blob/main/libs/sdk-typescript/src/utils/Import.ts
         build.onLoad({ filter: /\/@daytona\/sdk\/esm\/utils\/Import\.js$/ }, async ({ path }) => ({
