@@ -30,17 +30,19 @@ The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentia
 
 ### Local services
 
-New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the platform's [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
+`platform/.env.development` sets `ASTRALBEAM_DATA_DIR=.data/astralbeam`. Setup and project tasks run from `platform`, giving each checkout its own Git-ignored `platform/.data/astralbeam/` directory for uploads, embedded PostgreSQL downloads, database files, and credentials. Data survives restarts. Override the directory through the shell or `platform/.env.development.local`. Production retains the OS data directory default.
+
+New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage), `platform/.data/astralbeam/storage/` in development. Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
 
 To use containers for supporting services, install and start Docker, then run `SERVICES=docker ./scripts/setup.sh`. Compose provides PostgreSQL through PgBouncer and Mailpit for email testing. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at the default Linux storage directory, `/root/.local/share/astralbeam/storage`, for persistent File System storage.
+Service startup uses `SERVICES` from the shell environment. Devcontainers use the checkout's `platform/.data/astralbeam/` directory for new development data. The `file-storage` volume at `/root/.local/share/astralbeam/storage` retains files for existing storage settings.
 
 Authenticate CLI tools inside the devcontainer using their default configuration directories.
 
 Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](../platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
 
-Before changing storage destinations, follow the [storage migration procedure](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified.
+Before changing storage destinations, follow the [storage migration procedure](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified. Stop embedded PostgreSQL before moving its data directory, and move its credentials with the database. Deleting a checkout removes its local data but leaves any external database intact.
 
 ### 2. Run the applications
 

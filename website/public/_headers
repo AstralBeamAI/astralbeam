@@ -53,6 +53,10 @@
 /llms.txt
   Cache-Control: public, max-age=300, must-revalidate
 
+/install.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+
 /sitemap.xml
   Cache-Control: public, max-age=300, must-revalidate
 

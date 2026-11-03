@@ -15,7 +15,7 @@ ENV NODE_ENV=production
 ARG SOURCE_VERSION
 RUN bun run --cwd sdk build && bun run --cwd platform build
 
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 # Update and clean APT in one layer: https://docs.docker.com/build/building/best-practices/#apt-get
 RUN apt-get update \

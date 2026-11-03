@@ -23,6 +23,7 @@ interface Step {
   title: string
   desc: string
   file: string
+  guide: { href: string; label: string }
   code: string
   benefits: Benefit[]
 }
@@ -33,6 +34,7 @@ export const steps: Step[] = [
     title: "ADD THE FRONTEND SDK",
     desc: "Install the SDK and mount the agent chat in your app. You get robust message streaming, file uploads, and style customization.",
     file: "sidebar.tsx",
+    guide: { href: "/sdk/getting-started", label: "SDK setup" },
     code: `$ npm install @astralbeam/sdk
 + added 1 package
 
@@ -77,6 +79,7 @@ export function Sidebar() {
     title: "IDENTIFY YOUR USERS",
     desc: "Your server already knows who is signed in. Mint a short-lived token that carries the user and their tenant, and the widget picks it up. API keys never reach the browser.",
     file: "api/astralbeam/token.ts",
+    guide: { href: "/sdk/authentication", label: "Connect your login" },
     code: `import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
 export async function POST(request: Request) {
@@ -122,6 +125,7 @@ export async function POST(request: Request) {
     title: "CONNECT TOOLS & WIDGETS",
     desc: "Declare what the agent can do and what it can show. Tools run in your page against your own state. Widgets render your components inside the reply.",
     file: "sidebar.tsx",
+    guide: { href: "/sdk/tools-and-widgets", label: "Add your first tool" },
     code: `<AstralBeamChat
   tools={{
     refundOrder: defineTool({

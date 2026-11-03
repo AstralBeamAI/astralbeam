@@ -123,7 +123,7 @@ const viteConfig = defineConfig(({ mode }) => {
             experimental: { sourcemapMinify: false },
             // Windows Sharp's DLLs need a full package copy, not only traced imports.
             // https://nitro.build/config#tracedeps
-            traceDeps: ["@img", "@img/sharp-win32-x64*"],
+            traceDeps: ["@img/sharp-win32-x64*"],
             minify: true,
             // Nitro bundles runtime plugins itself, so it needs the tsconfig `@/` path mapping too.
             // https://nitro.build/config#alias

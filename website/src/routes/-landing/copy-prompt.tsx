@@ -74,8 +74,8 @@ export function CopyPrompt() {
           <p className="prompt-note">
             <a href={signUpUrl} target="_blank" rel="noopener noreferrer">
               Sign up
-            </a>{" "}
-            and create an organization API key to authorize chat requests.
+            </a>
+            , connect a model, and create an organization API key. Keep the key in your backend.
           </p>
           <p className="prompt-manual" role="status">
             Your browser blocked the clipboard, so the prompt is selected. Copy it with Ctrl+C or
