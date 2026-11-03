@@ -12,9 +12,8 @@ import { platformUrl, seedTarget } from "../worktree.ts"
  * `components/chat-composer.tsx` (the "Message" textbox, "Send", "Stop", "Attach files"),
  * `chat-widget.tsx` ("New chat" and the header), `components/chat-transcript.tsx`
  * (`aria-busy` while a run streams, and the "Thinking…" status), `components/tool-disclosure.tsx`
- * (each tool call collapses to one trigger button), and `components/sandbox-panel.tsx` (the
- * "Sandbox · N files · M commands" trigger with Files and Log tabs). Update this file when that
- * markup changes; the specs should not need to.
+ * (each tool call collapses to one trigger button). Update this file when that markup changes;
+ * the specs should not need to.
  */
 const CHAT_IDLE_TIMEOUT_MS = 150_000
 
@@ -246,25 +245,6 @@ export function chatWidget(page: Page) {
 
     emptyState(): Locator {
       return root.getByText("What would you like to get done?", { exact: true })
-    },
-
-    sandboxTrigger(): Locator {
-      return root.getByRole("button", { name: /^Sandbox ·/ })
-    },
-
-    async openSandboxPanel(): Promise<void> {
-      const trigger = this.sandboxTrigger()
-      await expect(trigger).toBeVisible()
-      if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click()
-    },
-
-    sandboxTab(name: "Files" | "Log"): Locator {
-      return root.getByRole("tab", { name: new RegExp(`^${name}`) })
-    },
-
-    /** Download buttons in the Sandbox panel's Files tab, one per file the agent wrote. */
-    sandboxFileDownloads(): Locator {
-      return root.getByRole("button", { name: /^Download / })
     },
   }
 }

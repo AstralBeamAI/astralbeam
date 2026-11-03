@@ -17,7 +17,6 @@ bun run --cwd examples/todos e2e
 - `bun run --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
 - `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
 - The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
-- Sandbox specs require `E2E_SANDBOX=1` and a verified provider assigned to the seeded Todos agent. The seed does not configure one. These specs use real model credits and provider resources.
 - `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
 The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
@@ -56,7 +55,7 @@ Compose it from the page objects. A spec should read as the user's steps and not
 1. Decide the project. Does it need a model reply? `specs/agent/`. Otherwise `specs/app/`.
 2. Add `specs/<project>/<feature>.spec.ts` and import `{ expect, test }` from `../../fixtures.ts`.
 3. Take what you need from the `todos` and `chat` fixtures. Add a method to a page object rather than putting a raw selector in a spec.
-4. Assert on side effects: the host's todo list, a tool row, the sandbox panel. Never assert on the assistant's wording, which changes between runs.
+4. Assert on side effects: the host's todo list or a tool row. Never assert on the assistant's wording, which changes between runs.
 
 ## Things that will bite you
 
@@ -65,6 +64,5 @@ Compose it from the page objects. A spec should read as the user's steps and not
 - **The page is server-rendered, so a click can land before React hydrates** and be silently dropped. `todosPage.open()` waits for hydration. Keep new entry points going through it.
 - **Every idle signal is an absence**, so a check that runs a moment too early passes against a run that never started. `chat.sendAndWait` waits for a new assistant turn first, which is why specs should use it rather than `send` plus `waitForIdle`.
 - **Do not wait on `role="status"` generally.** The sandbox status pill uses it and stays as long as the conversation has a sandbox.
-- **The widget renders a sandbox file write from the tool call, not its result**, so a row and a download appear even when the sandbox never started. Assert on `Wrote` versus `Could not write`, and on a command's `exit 0`.
 - **`/api/v1/chat` allows 20 new turns a minute per tenant user**, and host-tool continuations count against a separate 200-a-minute bucket. The example mints one fixed tenant user, so every spec shares those windows. `chat.sendAndWait` waits the window out and presses Retry rather than failing.
 - **Use the SDK’s server helpers.** `tokens.ts` mints tokens through `createAstralBeamToken`, and preflight verifies that the platform accepts them.
