@@ -39,9 +39,8 @@
         "src/router.tsx",
         "src/start.ts",
       ],
-      // Follow the private workspace's source behind its generated runtime entry.
-      "paths": { "@astralbeam/sandbox": ["packages/sandbox/src/index.ts"] },
     },
-    "packages/sandbox": {},
+    // Platform consumes the generated bundle, so its source entry defines the package's public API.
+    "packages/sandbox": { "includeEntryExports": false },
   },
 }
