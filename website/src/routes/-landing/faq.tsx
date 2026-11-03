@@ -4,11 +4,34 @@ const docs = siteMetadata.links.docs
 
 const comparisons = [
   {
+    name: "CopilotKit",
+    href: "https://docs.copilotkit.ai/quickstart",
+    offering: "Chat components and an agent runtime, plus optional cloud services.",
+    difference:
+      "We run the agent backend and store conversations and files, with usage limits for each customer.",
+  },
+  {
+    name: "assistant-ui",
+    href: "https://www.assistant-ui.com/docs/architecture",
+    offering:
+      "Customizable chat components, backend integrations, and hosted conversation history.",
+    difference:
+      "Get the chat UI and agent backend together, with file handling and per-customer usage limits included.",
+  },
+  {
     name: "OpenAI ChatKit",
     href: "https://developers.openai.com/api/docs/guides/chatkit",
     offering:
       "Embeddable chat UI. Its recommended path for new apps connects to your own agent backend.",
-    difference: "We provide the chat UI and a managed agent backend together.",
+    difference:
+      "Use our managed backend or self-host the same open-source platform, with your choice of model providers.",
+  },
+  {
+    name: "Mastra",
+    href: "https://mastra.ai/docs",
+    offering: "A TypeScript framework for building agents and workflows.",
+    difference:
+      "Start with a working chat sidebar and managed backend, then add your app's tools and UI widgets.",
   },
   {
     name: "ElevenAgents",
@@ -17,27 +40,6 @@ const comparisons = [
       "Agents for voice and multimodal conversations, with web widgets, phone integrations, and model choice.",
     difference:
       "We focus on agentic chat inside your web app, with tools, UI widgets, files, and per-customer usage limits.",
-  },
-  {
-    name: "CopilotKit",
-    href: "https://docs.copilotkit.ai/quickstart",
-    offering: "Chat components and an agent runtime, plus optional cloud services.",
-    difference:
-      "We offer an opinionated frontend and managed backend, so you can focus on connecting the agent to your product.",
-  },
-  {
-    name: "assistant-ui",
-    href: "https://www.assistant-ui.com/docs/architecture",
-    offering:
-      "Customizable chat components, backend integrations, and hosted conversation history.",
-    difference: "We also run the agent loop and handle files and per-customer usage limits.",
-  },
-  {
-    name: "Mastra",
-    href: "https://mastra.ai/docs",
-    offering: "A TypeScript framework for building agents and workflows.",
-    difference:
-      "We provide the embedded chat experience and managed backend, reducing what you need to build and operate.",
   },
 ]
 
@@ -80,21 +82,21 @@ const questions = [
     answer: (
       <>
         <p>
-          There are tons of backend frameworks, but we feel you shouldn&apos;t need to manage the
-          backend for your agents at all. The UI/UX of an agent is also hard to get right, so
-          we&apos;re offering an opinionated solution to both.
+          AstralBeam gives you an agentic chat sidebar and a managed backend together. We handle the
+          agent loop, conversation history, files, and per-customer usage limits. You hook up tools
+          and UI widgets to connect it to your product.
         </p>
         <div
           className="faq-comparison"
           role="region"
           aria-label="Comparison with other tools and services"
         >
-          <table>
+          <table role="table">
             <thead>
               <tr>
                 <th scope="col">Tool / service</th>
                 <th scope="col">What it provides</th>
-                <th scope="col">How AstralBeam compares</th>
+                <th scope="col">Why choose AstralBeam</th>
               </tr>
             </thead>
             <tbody>
@@ -105,13 +107,27 @@ const questions = [
                       {name}
                     </a>
                   </th>
-                  <td>{offering}</td>
-                  <td>{difference}</td>
+                  <td>
+                    <span className="faq-comparison-label" aria-hidden="true">
+                      What it provides
+                    </span>
+                    {offering}
+                  </td>
+                  <td>
+                    <span className="faq-comparison-label" aria-hidden="true">
+                      Why choose AstralBeam
+                    </span>
+                    {difference}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p>
+          Try the <a href={`${docs}/start/quickstart`}>quickstart</a>, or{" "}
+          <a href={`${docs}/self-hosting`}>self-host</a> the same open-source platform.
+        </p>
       </>
     ),
   },

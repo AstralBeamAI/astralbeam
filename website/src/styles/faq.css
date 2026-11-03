@@ -69,6 +69,10 @@
   margin-bottom: 1.25rem;
 }
 
+.faq-answer > p:last-child {
+  margin: 1.25rem 0 0;
+}
+
 .faq-answer:has(.faq-comparison) {
   max-width: none;
   padding-right: 0;
@@ -98,6 +102,56 @@
   font-weight: 500;
 }
 
+.faq-comparison thead th:last-child {
+  color: var(--primary);
+}
+
 .faq-comparison tbody th {
   white-space: nowrap;
+}
+
+.faq-comparison-label {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .faq-comparison table,
+  .faq-comparison tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .faq-comparison thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .faq-comparison tbody tr {
+    display: grid;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+  }
+
+  .faq-comparison th,
+  .faq-comparison td {
+    border: 0;
+  }
+
+  .faq-comparison td {
+    padding-top: 0;
+  }
+
+  .faq-comparison-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--foreground);
+    font-weight: 500;
+  }
+
+  .faq-comparison td:last-child .faq-comparison-label {
+    color: var(--primary);
+  }
 }
