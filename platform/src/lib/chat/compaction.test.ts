@@ -440,6 +440,34 @@ test("settled boundaries stop before older unfinished work and missing tool resp
   expect(chatCompactionBoundaries(history)).toEqual([])
 })
 
+test("compaction advances past terminal interrupted replies without replaying draft tool calls", async () => {
+  const fixture = compactionTestSetup()
+  fixture.state.history[0]!.payload = {
+    version: 1,
+    parts: [{ id: "u1-part", type: "text", content: "input".repeat(1000) }],
+  }
+  fixture.state.history[1]!.state = "interrupted"
+  fixture.state.history[1]!.payload = {
+    version: 1,
+    parts: [
+      {
+        id: "uncommitted-call",
+        type: "tool-call",
+        name: "update",
+        arguments: "{}",
+        toolCallId: "never-executed",
+        targets: [{ id: "uncommitted-slot" }],
+      },
+    ],
+  }
+  expect(chatCompactionBoundaries(fixture.state.history)).toEqual([1, 3])
+  await fixture.run()
+  expect(fixture.save).toHaveBeenCalledOnce()
+  expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
+  expect(JSON.stringify(fixture.requests)).not.toContain("never-executed")
+  expect(fixture.state.history[1]!.state).toBe("interrupted")
+})
+
 test("media budgets count images independently of base64 length", () => {
   const message = (size: number): ModelMessage => ({
     role: "user",

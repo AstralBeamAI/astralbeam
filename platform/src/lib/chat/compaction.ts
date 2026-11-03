@@ -25,7 +25,8 @@ export function chatCompactionMessages(payload: typeof ChatCompactionPayloadSche
   return structuredClone(payload.messages) as unknown as ModelMessage[]
 }
 
-// Only settled prefixes are immutable. Wait for every response target, including interleaved calls.
+// Interrupted drafts are immutable and omitted from context. Only live drafts block a cut.
+// Wait for every committed response target, including interleaved calls.
 export function chatCompactionBoundaries(
   history: readonly Pick<
     MessageRecord,
@@ -36,11 +37,11 @@ export function chatCompactionBoundaries(
   const unanswered = new Set<string>()
   const boundaries: number[] = []
   for (const [index, message] of history.entries()) {
-    if (message.state !== "complete") break
+    if (message.state === "draft") break
     if (message.role === "user") unanswered.add(message.id)
     if (message.role === "assistant" && message.turnMessageId)
       unanswered.delete(message.turnMessageId)
-    for (const part of message.payload.parts) {
+    for (const part of message.state === "complete" ? message.payload.parts : []) {
       if (part.type !== "tool-call" || !Array.isArray(part.targets)) continue
       for (const target of part.targets as readonly Schema.Json[]) {
         if (Schema.is(Schema.JsonObject)(target) && typeof target.id === "string")
