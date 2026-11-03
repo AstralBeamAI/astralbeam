@@ -34,6 +34,7 @@ import type { ChatParams } from "../types"
 import {
   agent,
   chatThread,
+  chatCompaction,
   chatMessage,
   chatFile,
   chatMessagePart,
@@ -160,6 +161,76 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
         },
       }),
     )
+
+  test("compactions are immutable, scoped to ancestry, and published only through settled history", async () => {
+    const thread = await create()
+    const first = await admit(thread.id)
+    const second = await admit(thread.id)
+    const artifact = {
+      coveredThroughMessageId: first.claim!.assistantMessageId,
+      compatibilityKey: "model-config",
+      payload: {
+        version: 1 as const,
+        kind: "portable" as const,
+        messages: [{ role: "user", content: "Completed history" }],
+      },
+      usage: {},
+    }
+    const save = () =>
+      runtime.runPromise(
+        service.saveCompaction({
+          claim: second.claim!,
+          leafMessageId: second.claim!.assistantMessageId,
+          artifact,
+        }),
+      )
+    await expect(save()).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
+    await runtime.runPromise(complete({ claim: first.claim!, payload }))
+    const saved = await save()
+    expect((await save()).id).toBe(saved.id)
+    const [sibling] = await db
+      .insert(chatMessage)
+      .values({
+        ...scope,
+        threadId: thread.id,
+        parentMessageId: first.inputMessage.id,
+        role: "assistant",
+        state: "complete",
+        turnMessageId: first.inputMessage.id,
+        metadata: { version: 1 },
+      })
+      .returning()
+    expect(
+      await runtime.runPromise(
+        service.compactions({ scope, id: thread.id, leafMessageId: sibling!.id }),
+      ),
+    ).toEqual([])
+    expect(
+      await runtime.runPromise(
+        service.compactions({
+          scope,
+          id: thread.id,
+          leafMessageId: second.claim!.assistantMessageId,
+        }),
+      ),
+    ).toHaveLength(1)
+    for (const denied of [other, foreign])
+      await expect(
+        runtime.runPromise(
+          service.compactions({
+            scope: denied,
+            id: thread.id,
+            leafMessageId: second.claim!.assistantMessageId,
+          }),
+        ),
+      ).rejects.toBeDefined()
+    const current = await runtime.runPromise(service.get({ scope, id: thread.id }))
+    await runtime.runPromise(
+      service.remove({ scope, id: thread.id, lockVersion: current.lockVersion }),
+    )
+    expect(await db.select().from(chatCompaction)).toEqual([])
+    await expect(save()).rejects.toBeDefined()
+  })
 
   test("published files belong to the assistant message, remain scoped, and retire with their conversation", async () => {
     const thread = await create()

@@ -30,6 +30,7 @@ import {
   chatToolResponse,
   chatParticipant,
   chatFile,
+  chatCompaction,
 } from "@/db/schema/chat"
 import type { OrganizationId, TenantId, TenantUserId } from "@/db/schema/organizations"
 import {
@@ -39,6 +40,7 @@ import {
   agent,
   organizationConfiguration,
 } from "@/db/schema/organizations"
+import { chatCompactionBoundaries } from "../compaction"
 import type { ChatPrincipal } from "../types"
 import { ChatFiles, type ChatFileCache } from "../attachments/attachments"
 import { StoredFiles } from "@/lib/storage/stored-files.server"
@@ -997,6 +999,17 @@ export class ChatThreads extends Context.Service<
     readonly history: (
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
+    readonly compactions: (
+      input: ThreadInput & { leafMessageId: string },
+    ) => Effect.Effect<(typeof chatCompaction.$inferSelect)[], ChatThreadError>
+    readonly saveCompaction: (input: {
+      claim: ChatWriterClaim
+      leafMessageId: string
+      artifact: Pick<
+        typeof chatCompaction.$inferInsert,
+        "coveredThroughMessageId" | "compatibilityKey" | "payload" | "usage"
+      >
+    }) => Effect.Effect<typeof chatCompaction.$inferSelect, ChatThreadError>
     readonly authorizeToolResponse: (
       input: ToolResponseInput,
     ) => Effect.Effect<Schema.JsonObject & { toolCallId: string }, ChatThreadError>
@@ -1278,6 +1291,84 @@ export class ChatThreads extends Context.Service<
             }),
           ),
       )
+      const compactions = Effect.fn("ChatThreads.compactions")(
+        (input: Parameters<typeof ChatThreads.Service.compactions>[0]) =>
+          readSnapshot((tx) =>
+            Effect.gen(function* () {
+              yield* readThread(tx, input)
+              const ancestry = yield* historyIds(tx, input.scope, input.id, input.leafMessageId)
+              return yield* tx
+                .select()
+                .from(chatCompaction)
+                .where(
+                  and(
+                    eq(chatCompaction.organizationId, input.scope.organizationId),
+                    eq(chatCompaction.tenantId, input.scope.tenantId),
+                    eq(chatCompaction.threadId, input.id),
+                    inArray(
+                      chatCompaction.coveredThroughMessageId,
+                      ancestry.map((node) => node.id),
+                    ),
+                  ),
+                )
+                .orderBy(desc(chatCompaction.createdAt), desc(chatCompaction.id))
+            }),
+          ),
+      )
+      const saveCompaction = Effect.fn("ChatThreads.saveCompaction")(
+        (input: Parameters<typeof ChatThreads.Service.saveCompaction>[0]) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const { claim, artifact } = input
+                yield* checkClaim(tx, claim)
+                const ancestry = yield* historyIds(
+                  tx,
+                  claim.scope,
+                  claim.threadId,
+                  input.leafMessageId,
+                )
+                const anchor = ancestry.findIndex(
+                  (node) => node.id === artifact.coveredThroughMessageId,
+                )
+                if (anchor < 0) return yield* new ChatThreadConflict()
+                const prefix = yield* historyMessages(
+                  tx,
+                  claim.scope,
+                  claim.threadId,
+                  ancestry.slice(0, anchor + 1),
+                )
+                if (!chatCompactionBoundaries(prefix).includes(anchor))
+                  return yield* new ChatThreadConflict()
+                const [inserted] = yield* tx
+                  .insert(chatCompaction)
+                  .values({
+                    ...rowScope(claim.scope),
+                    threadId: claim.threadId,
+                    ...artifact,
+                  })
+                  .onConflictDoNothing()
+                  .returning()
+                if (inserted) return inserted
+                const [existing] = yield* tx
+                  .select()
+                  .from(chatCompaction)
+                  .where(
+                    and(
+                      eq(chatCompaction.organizationId, claim.scope.organizationId),
+                      eq(chatCompaction.tenantId, claim.scope.tenantId),
+                      eq(chatCompaction.threadId, claim.threadId),
+                      eq(chatCompaction.coveredThroughMessageId, artifact.coveredThroughMessageId),
+                      eq(chatCompaction.compatibilityKey, artifact.compatibilityKey),
+                      sql`${chatCompaction.payload}->>'kind' = ${artifact.payload.kind}`,
+                    ),
+                  )
+                return existing!
+              }),
+            )
+            .pipe(mapDatabaseErrors()),
+      )
+
       const snapshot = Effect.fn("ChatThreads.snapshot")(
         (input: ThreadInput & DatabasePageOptions) =>
           readSnapshot((tx) =>
@@ -1929,6 +2020,8 @@ export class ChatThreads extends Context.Service<
         get,
         snapshot,
         history,
+        compactions,
+        saveCompaction,
         authorizeToolResponse,
         rename,
         remove,

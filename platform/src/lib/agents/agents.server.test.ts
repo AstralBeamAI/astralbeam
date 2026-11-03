@@ -20,6 +20,7 @@ const FIELDS = {
   systemPrompt: "Help",
   attachmentsEnabled: true,
   webAccessEnabled: false,
+  compactionEnabled: false,
   sandboxProviderId: null,
 }
 
@@ -122,6 +123,7 @@ describe("Agents", () => {
       systemPrompt: "Help",
       attachmentsEnabled: true,
       webAccessEnabled: false,
+      compactionEnabled: false,
       sandboxProviderId: null,
     }
     const { predicates, layer } = selectRecording([row])

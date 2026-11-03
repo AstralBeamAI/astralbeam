@@ -1,4 +1,10 @@
-import { EventType, type ChatMiddleware, type StreamChunk } from "@tanstack/ai"
+import {
+  fromSpecTokenUsage,
+  EventType,
+  type ChatMiddleware,
+  type StreamChunk,
+  type TokenUsage,
+} from "@tanstack/ai"
 import { Effect, Exit, Stream } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
@@ -25,26 +31,28 @@ export function chatUsageLimitGuard(options: {
 }) {
   const { usageLimits, limits, subject } = options
   let reached: UsageLimitReached | undefined
+  async function record(usage: TokenUsage) {
+    const spend = options.pricing ? modelUsageCost(options.pricing, usage) : "0"
+    const tokens = Math.max(usage.totalTokens, usage.promptTokens + usage.completionTokens)
+    await options.execute(
+      usageLimits.record({ limits, subject, usage: { tokens, spend } }).pipe(
+        // An unrecorded call only undercounts. Ending the reply would lose what was already paid for.
+        Effect.catchCause((cause) => reportFailure("chatUsageLimitGuard.record", cause)),
+      ),
+    )
+  }
+  async function check() {
+    const exit = await options.execute(Effect.exit(usageLimits.check({ limits, subject })))
+    if (Exit.isSuccess(exit)) return true
+    const failure = exit.cause.reasons.find((reason) => reason._tag === "Fail")
+    if (!failure) return true
+    reached = failure.error
+    return false
+  }
   const middleware: ChatMiddleware = {
     name: "usage-limits",
-    async onUsage(_ctx, usage) {
-      const spend = options.pricing ? modelUsageCost(options.pricing, usage) : "0"
-      const tokens = Math.max(usage.totalTokens, usage.promptTokens + usage.completionTokens)
-      await options.execute(
-        usageLimits.record({ limits, subject, usage: { tokens, spend } }).pipe(
-          // An unrecorded call only undercounts. Ending the reply would lose what was already paid for.
-          Effect.catchCause((cause) => reportFailure("chatUsageLimitGuard.record", cause)),
-        ),
-      )
-    },
-    async onShouldContinue() {
-      const exit = await options.execute(Effect.exit(usageLimits.check({ limits, subject })))
-      if (Exit.isSuccess(exit)) return true
-      const failure = exit.cause.reasons.find((reason) => reason._tag === "Fail")
-      if (!failure) return true
-      reached = failure.error
-      return false
-    },
+    onUsage: (_ctx, usage) => record(usage),
+    onShouldContinue: check,
   }
 
   /**
@@ -74,5 +82,5 @@ export function chatUsageLimitGuard(options: {
     )
   }
 
-  return { middleware, announce }
+  return { middleware, announce, record, check }
 }
