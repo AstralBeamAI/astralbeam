@@ -1,12 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM node:lts AS node-runtime
+FROM debian:stable AS base
+
+FROM base AS node-runtime
+
+COPY --from=node:lts /usr/local /usr/local
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends binutils \
+    && apt-get install -y --no-install-recommends binutils ca-certificates \
     && strip --strip-unneeded /usr/local/bin/node
 
-FROM debian:stable AS git-runtime
+FROM base AS git-runtime
 
 # NO_PERL keeps Git's core commands without Debian's full Perl dependency.
 # https://github.com/git/git/blob/master/Makefile
@@ -24,7 +28,7 @@ RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.s
     && make strip install \
     && install -Dm644 debian/copyright /opt/git/share/doc/git/copyright
 
-FROM debian:stable
+FROM base
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/
@@ -44,6 +48,8 @@ RUN apt-get update \
         poppler-utils qpdf tesseract-ocr tesseract-ocr-eng \
     && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && npm install --global typescript \
+    && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/opt/venv/bin:/opt/git/bin:${PATH}" \
