@@ -65,17 +65,20 @@ To build for the host architecture, run `docker build -f platform/Dockerfile -t 
 
 ## Embedded PostgreSQL
 
-Embedded PostgreSQL is **experimental**. [Install the Platform binary](#1-get-a-release-binary), then use `--embedded` to download PostgreSQL 18 (roughly 90 MB) on first use and run it on a private loopback port. Later starts reuse the cached binaries. Run without root privileges:
+Embedded PostgreSQL is **experimental**. [Install the Platform binary](#1-get-a-release-binary), then prepare PostgreSQL 18 (roughly 90 MB) once with `bootstrap --embeddedpg`. With `DATABASE_URL` unset, bootstrap initializes a private database and applies migrations. Run without root privileges:
 
 ```sh
-ALLOW_INSECURE=true astralbeam-platform --embedded start
+astralbeam-platform bootstrap --embeddedpg
+astralbeam-platform start
 ```
 
-Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. Approve migrations and [complete setup](#6-complete-setup). `ALLOW_INSECURE=true` permits local HTTP. Use HTTPS for production.
+Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. [Complete setup](#6-complete-setup). Bootstrap enables local HTTP for a new deployment. Use HTTPS for production.
 
 PostgreSQL lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Keep the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
 
-An environment or saved `DATABASE_URL` takes precedence. Use external PostgreSQL for multiple application replicas. `bootstrap` and `migrate` also accept `--embedded`. Stop the running executable before using them.
+Bootstrap saves `DATABASE_URL=embedded` in `.env.local` when it initializes the local database. On later starts, Platform launches that database on a private port and resolves the selector to its actual connection URL before application code connects. An external `DATABASE_URL` takes precedence. When the URL is unset, `start` and `migrate` can still recognize an initialized local database. They reuse cached PostgreSQL binaries. The launcher can download the distribution again if that cache is missing. A missing runtime requires `bootstrap --embeddedpg`. Use external PostgreSQL for multiple application replicas. Stop the running executable before running `bootstrap` or `migrate` against its embedded database.
+
+For an existing installation using `--embedded`, run `bootstrap --embeddedpg` once and remove the old startup flag. The database and credentials stay in the same locations.
 
 Embedded PostgreSQL requires glibc 2.36+ on Linux, macOS 15+, or the Microsoft Visual C++ runtime (`vcruntime140` family) on Windows.
 
@@ -150,7 +153,8 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | Unless `--embedded` | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
+| `DATABASE_URL` | No for initialized embedded installations | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
+| `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL and file storage. Containers use `/var/lib/astralbeam` |
 | `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |

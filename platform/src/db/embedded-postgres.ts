@@ -73,15 +73,32 @@ async function readEmbeddedCredentials(directory: string) {
   }
 }
 
-async function downloadEmbeddedPostgresWrapper(directory: string): Promise<string> {
+function embeddedPostgresRuntimePaths(directory: string) {
   const target = `${process.platform}-${process.arch}` as keyof typeof manifest.targets
   const assets = manifest.targets[target]
   if (!assets) throw new Error(`Embedded PostgreSQL is unavailable on ${target}. Set DATABASE_URL.`)
   const installation = join(directory, `runtime-${manifest.wrapperVersion}-${target}`)
   const wrapper = join(installation, assets.wrapper)
+  return { assets, installation, wrapper }
+}
+
+function embeddedPostgresEnvironment() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("EP_")),
+  )
+}
+
+export function hasEmbeddedPostgres(directory: string): boolean {
+  // A cached runtime alone must not silently create a database when DATABASE_URL is missing.
+  return existsSync(join(directory, "postgres", "PG_VERSION"))
+}
+
+export async function installEmbeddedPostgres(options: { directory: string }): Promise<void> {
+  const { assets, installation, wrapper } = embeddedPostgresRuntimePaths(options.directory)
+  await mkdir(options.directory, { recursive: true, mode: 0o700 })
   if (!existsSync(installation)) {
     console.error("Downloading embedded PostgreSQL supervisor")
-    const staging = await mkdtemp(join(directory, "runtime-"))
+    const staging = await mkdtemp(join(options.directory, "runtime-"))
     try {
       const response = await fetch(
         `https://github.com/fergusstrange/embedded-postgres/releases/download/v${manifest.wrapperVersion}/${assets.wrapper}`,
@@ -101,7 +118,26 @@ async function downloadEmbeddedPostgresWrapper(directory: string): Promise<strin
       await rm(staging, { recursive: true, force: true })
     }
   }
-  return wrapper
+  console.error("Preparing embedded PostgreSQL runtime")
+  const code = await Bun.spawn(
+    [
+      wrapper,
+      "prefetch",
+      "--cache-dir",
+      join(options.directory, "postgres-cache"),
+      "--postgres-version",
+      manifest.postgresVersion,
+    ],
+    {
+      env: embeddedPostgresEnvironment(),
+      timeout: 120_000,
+      killSignal: "SIGKILL",
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "inherit",
+    },
+  ).exited
+  if (code !== 0) throw new Error("Embedded PostgreSQL runtime preparation failed")
 }
 
 export async function startEmbeddedPostgres(options: { directory: string }): Promise<void> {
@@ -111,7 +147,11 @@ export async function startEmbeddedPostgres(options: { directory: string }): Pro
     throw new Error(
       "Run embedded PostgreSQL without sudo, or set DATABASE_URL for an external database",
     )
-  await mkdir(options.directory, { recursive: true, mode: 0o700 })
+  const { wrapper } = embeddedPostgresRuntimePaths(options.directory)
+  if (!existsSync(wrapper))
+    throw new Error(
+      "Run `astralbeam-platform bootstrap --embeddedpg` to prepare embedded PostgreSQL.",
+    )
   const credentials = await readEmbeddedCredentials(options.directory)
   if (credentials.encryptionKey) process.env.DATABASE_ENCRYPTION_KEY ??= credentials.encryptionKey
   if (process.env.DATABASE_ENCRYPTION_KEY === undefined) {
@@ -119,14 +159,11 @@ export async function startEmbeddedPostgres(options: { directory: string }): Pro
       "Restore DATABASE_ENCRYPTION_KEY in the environment before starting this database",
     )
   }
-  const wrapper = await downloadEmbeddedPostgresWrapper(options.directory)
   const environment = {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("EP_")),
-    ),
+    ...embeddedPostgresEnvironment(),
     EP_PASSWORD: credentials.password,
   }
-  console.error("Preparing embedded PostgreSQL (downloads on first use)")
+  console.error("Starting embedded PostgreSQL")
   const child = spawn(
     wrapper,
     [

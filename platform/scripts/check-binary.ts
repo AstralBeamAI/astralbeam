@@ -188,13 +188,20 @@ async function checkEmbeddedPostgresBinary(options: {
     ASTRALBEAM_DATA_DIR: directory,
     DATABASE_URL: undefined,
     DATABASE_ENCRYPTION_KEY: undefined,
+    DOCKERSANDBOX_DISABLED: "true",
     NODE_ENV: "production",
   }
   const commandOptions = { cwd: directory, env: environment, timeout: 45_000 }
-  await runBinaryCheckCommand(options.binaryPath, ["--embedded", "bootstrap"], {
+  await assert.rejects(
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
+    /DATABASE_URL is required/,
+  )
+  assert.equal(existsSync(join(directory, "embedded-postgres.json")), false)
+  await runBinaryCheckCommand(options.binaryPath, ["bootstrap", "--embeddedpg"], {
     ...commandOptions,
     timeout: 180_000,
   })
+  assert.match(await Bun.file(join(directory, ".env.local")).text(), /^DATABASE_URL=embedded$/m)
   // Warm starts must work without reaching the runtime download servers.
   environment.HTTPS_PROXY = "http://127.0.0.1:1"
   environment.HTTP_PROXY = "http://127.0.0.1:1"
@@ -207,7 +214,7 @@ async function checkEmbeddedPostgresBinary(options: {
   const baseUrl = new URL(`http://127.0.0.1:${await reserveBinaryCheckPort()}`)
   const pidFile = join(directory, "postgres", "postmaster.pid")
   for (const signal of ["SIGKILL", "SIGTERM"] as const) {
-    const child = Bun.spawn([options.binaryPath, "--embedded"], {
+    const child = Bun.spawn([options.binaryPath], {
       cwd: directory,
       env: { ...environment, PORT: baseUrl.port, APP_BASE_URL: baseUrl.href },
       stdio: ["ignore", "ignore", "inherit"],
@@ -246,20 +253,20 @@ async function checkEmbeddedPostgresBinary(options: {
     assert.equal(existsSync(pidFile), false, "Owned PostgreSQL did not stop with the executable")
   }
   assert.equal(await Bun.file(credentialsPath).text(), originalCredentials)
+  await runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
+    ...commandOptions,
+    env: { ...environment, DATABASE_URL: "embedded" },
+  })
   rmSync(credentialsPath)
   await assert.rejects(
-    runBinaryCheckCommand(
-      options.binaryPath,
-      ["--embedded", "migrate", "--dry-run"],
-      commandOptions,
-    ),
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
     /Restore the missing database credentials/,
   )
   assert.equal(existsSync(credentialsPath), false)
   assert.equal(existsSync(join(directory, "postgres", "PG_VERSION")), true)
   const externalDirectory = join(directory, "external")
   await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["--embedded", "migrate", "--dry-run"], {
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
       ...commandOptions,
       env: {
         ...environment,
