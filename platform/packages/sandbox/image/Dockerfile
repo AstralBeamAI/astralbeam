@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-trixie-slim
+FROM debian:stable-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
 
@@ -13,25 +15,27 @@ RUN apt-get update \
         time unzip wget xz-utils zip \
         libreoffice-calc libreoffice-impress libreoffice-writer \
         pandoc poppler-utils qpdf tesseract-ocr tesseract-ocr-eng \
-        python3 python3-venv \
-    && rm -rf /var/lib/apt/lists/*
+    && curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh \
+    && bash /tmp/nodesource.sh \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /tmp/nodesource.sh /var/lib/apt/lists/*
 
 ENV PATH="/opt/venv/bin:${PATH}" \
+    UV_PYTHON_INSTALL_DIR=/opt/python \
     LANG=C.UTF-8 \
     MPLBACKEND=Agg
 
-RUN python3 -m venv /opt/venv \
-    && pip install --no-cache-dir \
-        beautifulsoup4==4.15.0 lxml==6.1.3 matplotlib==3.11.2 numpy==2.5.4 \
-        openpyxl==3.1.5 pandas==3.1.0 pillow==13.0.0 pyarrow==26.0.1 \
-        pdfplumber==0.11.10 pypdf==6.21.4 pytesseract==0.3.13 \
-        python-docx==1.2.0 python-pptx==1.0.2 reportlab==5.1.0 \
-        requests==2.34.2 xlrd==2.0.2 xlsxwriter==3.3.1 \
+RUN uv --no-cache python install \
+    && uv --no-cache venv --seed /opt/venv \
+    && uv pip install --no-cache \
+        beautifulsoup4 lxml matplotlib numpy openpyxl pandas pillow pyarrow \
+        pdfplumber pypdf pytesseract python-docx python-pptx reportlab \
+        requests xlrd xlsxwriter \
     && pip check \
+    && useradd --create-home --uid 1000 --user-group --shell /bin/bash node \
     && chown -R node:node /opt/venv \
     && install -d -o node -g node /workspace
 
 USER node
 WORKDIR /workspace
-ENTRYPOINT []
 CMD ["sleep", "infinity"]

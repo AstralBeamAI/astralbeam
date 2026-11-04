@@ -23,8 +23,6 @@ jobs:
       push: ${{ github.repository == 'AstralBeamAI/astralbeam' && github.event_name != 'pull_request' }}
       context: platform/packages/sandbox/image
       platforms: linux/amd64,linux/arm64
-      cache: true
-      cache-scope: sandbox
       meta-images: ghcr.io/astralbeamai/sandbox
       meta-tags: |
         type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
