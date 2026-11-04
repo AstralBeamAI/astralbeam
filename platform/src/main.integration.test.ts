@@ -47,7 +47,7 @@ test.skipIf(!bootstrapDatabaseUrl)(
     ])
       delete env[key]
     const bootstrap = (cwd: string) => {
-      const environmentPath = join(cwd, ".env.local")
+      const environmentPath = join(cwd, ".env")
       const result = spawnSync(
         process.execPath,
         [
@@ -63,7 +63,7 @@ test.skipIf(!bootstrapDatabaseUrl)(
         },
       )
       expect(result.status).toBe(0)
-      return readFileSync(join(cwd, ".env.local"), "utf8")
+      return readFileSync(environmentPath, "utf8")
     }
     try {
       await admin.query(`CREATE DATABASE "${name}"`)
