@@ -65,20 +65,34 @@ To build for the host architecture, run `docker build -f platform/Dockerfile -t 
 
 ## Embedded PostgreSQL
 
-Embedded PostgreSQL is **experimental**. To try Platform locally without a separate database server, [install or build the Platform binary](#1-get-a-release-binary). From an empty directory, with `DATABASE_URL` unset, let's prepare PostgreSQL 18 (roughly 90 MB) and apply migrations. Run without root privileges:
+Embedded PostgreSQL is **experimental**. It runs a private PostgreSQL 18 server alongside Platform. You need no Bun, Docker, or separate storage service on the deployment host.
 
-```sh
-astralbeam-platform bootstrap --embeddedpg
-HOST=127.0.0.1 astralbeam-platform start
-```
+Let's start a local installation:
 
-Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. [Complete setup](#6-complete-setup). Bootstrap enables local HTTP for a new deployment. Use HTTPS for production.
+1. [Install or build the Platform binary](#1-get-a-release-binary). Choose an empty working directory and leave `DATABASE_URL` unset. Run without root privileges.
+2. Prepare PostgreSQL, generate private settings, and apply migrations:
 
-Run later commands from that same directory so Platform finds the generated `.env`. No Bun, Docker, or separate storage service is needed. Owner onboarding still needs [email delivery](./configuration.md#email-delivery), and chat needs a model-provider connection. Sandbox tools are optional. To prepare [Microsandbox](../dashboard/sandboxes.md#microsandbox) at the same time, add `--microsandbox` to the bootstrap command, then select its connection on your agent.
+   ```sh
+   astralbeam-platform bootstrap --embeddedpg
+   ```
 
-PostgreSQL lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Keep the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
+   The first run downloads roughly 90 MB of PostgreSQL binaries. To also prepare [Microsandbox](../dashboard/sandboxes.md#microsandbox), use `astralbeam-platform bootstrap --embeddedpg --microsandbox` instead.
 
-Bootstrap saves `DATABASE_URL=embedded` in `.env` when it initializes the local database. On later starts, Platform launches that database on a private port and resolves the selector to its actual connection URL before application code connects. An external `DATABASE_URL` takes precedence. `start` and `migrate` require `DATABASE_URL=embedded` to use that database. Its presence on disk alone never selects it. They reuse cached PostgreSQL binaries. The launcher can download the distribution again if that cache is missing. A missing runtime requires `bootstrap --embeddedpg`. Use external PostgreSQL for multiple application replicas. Stop the running executable before running `bootstrap` or `migrate` against its embedded database.
+3. Start Platform on loopback:
+
+   ```sh
+   HOST=127.0.0.1 astralbeam-platform start
+   ```
+
+4. Open `http://localhost:4510/configure`. Sign in with `encryptionKey` from `embedded-postgres.json` in the [data directory](./operations.md#data-directory), then [complete setup](#6-complete-setup).
+
+Run later commands from the same working directory so Platform finds the generated `.env`. Bootstrap enables local HTTP for a new deployment. Use HTTPS for production. Owner onboarding needs [email delivery](./configuration.md#email-delivery), and chat needs a model connection. Sandbox tools are optional and require a provider assigned to the agent.
+
+The database lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Preserve the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
+
+Bootstrap saves `DATABASE_URL=embedded` in `.env`. Both `start` and `migrate` require that value to select the embedded database. An initialized data directory alone never selects it. An external `DATABASE_URL` supplied through the environment takes precedence.
+
+Platform starts the database on a private port and reuses cached PostgreSQL binaries. If the PostgreSQL cache is missing, the launcher can download it again. If the supervisor runtime is missing, run `bootstrap --embeddedpg` again. Stop Platform before running `bootstrap` or `migrate` against its embedded database. Use external PostgreSQL for multiple application replicas.
 
 For an existing installation using `--embedded`, run `bootstrap --embeddedpg` once and remove the old startup flag. The database and credentials stay in the same locations.
 
@@ -156,7 +170,7 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
-| `MICROSANDBOX_DISABLED` | No | Set `true` to disable automatic Microsandbox availability. Prepare its runtime once with `bootstrap --microsandbox` |
+| `MICROSANDBOX_DISABLED` | No | Set `true` to disable Microsandbox. Otherwise an installed runtime appears when its host check passes. See [setup](../dashboard/sandboxes.md#microsandbox) |
 | `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL, Microsandbox, and file storage. Containers use `/var/lib/astralbeam` |

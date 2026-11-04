@@ -1,6 +1,6 @@
 # Setup
 
-To try Platform without a contributor environment, use the [standalone binary with embedded PostgreSQL](../platform/src/routes/docs/-content/self-hosting/deploy.md#embedded-postgresql). The steps below are for working on the source and running the example apps.
+This guide sets up the source checkout and example apps. To try Platform without contributor tooling, use the [standalone binary](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) with existing PostgreSQL or the [embedded database](../platform/src/routes/docs/-content/self-hosting/deploy.md#embedded-postgresql).
 
 ## Host prerequisites
 
@@ -67,9 +67,13 @@ For one project, use `bun run --cwd <project> <task>` or a root alias such as `b
 
 #### Try sandbox tools
 
-Ordinary chat needs a model connection, but no sandbox. The seed prints verified dashboard accounts, so signing in needs no email service. To try code execution and binary file uploads in Todos, configure a [sandbox provider](../platform/src/routes/docs/-content/dashboard/sandboxes.md) and select it on **Acme Inc → Agents → Todos Assistant**. The seeded Docker connection works when its daemon is reachable.
+The seed prints verified dashboard accounts, so you can sign in without email delivery. Chat needs a model connection. Code execution and binary file analysis also need a sandbox.
 
-For Microsandbox, use the [standalone binary setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). The Platform CLI runs its native host checks at startup. Vite's `dev` task does not, so installing Microsandbox alone will not add it to that development server's provider choices. [Build the binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) to test unreleased changes. A separate standalone installation has its own database and needs model and agent setup, rather than the contributor seed.
+1. Configure a [sandbox provider](../platform/src/routes/docs/-content/dashboard/sandboxes.md). The seeded Docker connection is ready to test when its daemon is reachable.
+2. Open **Acme Inc → Agents → Todos Assistant**, enable **Sandbox**, select the connection, and save.
+3. In Todos, ask the assistant to run a script or analyze an uploaded spreadsheet. For automated coverage, follow the [Todos browser guide](../examples/todos/e2e/README.md).
+
+**NOTE**: To try Microsandbox, [build the Platform binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) and follow [Microsandbox setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Vite's `dev` task does not run its native host checks. Microsandbox needs no Docker and works with either database choice. A fresh standalone deployment has no contributor seed, so configure its model and agent before testing chat.
 
 #### Port allocation
 

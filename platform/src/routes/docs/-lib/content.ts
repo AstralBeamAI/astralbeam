@@ -227,7 +227,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "sandboxes",
-        updated: "2026-10-27",
+        updated: "2026-11-04",
         title: "Sandboxes",
         description:
           "Connect sandbox providers and assign isolated code execution workspaces to your agents.",
@@ -277,10 +277,10 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "deploy",
-        updated: "2026-11-03",
+        updated: "2026-11-04",
         title: "Deploy",
         description:
-          "Deploy the platform on Linux with PostgreSQL, a connection pooler, systemd, and an HTTPS reverse proxy.",
+          "Deploy Platform with containers or a standalone binary, using embedded or external PostgreSQL.",
       },
       {
         slug: "configuration",
@@ -291,7 +291,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "operations",
-        updated: "2026-10-27",
+        updated: "2026-11-04",
         title: "Operations",
         description:
           "Operate a self-hosted deployment with migrations, backups, monitoring, and recovery procedures.",

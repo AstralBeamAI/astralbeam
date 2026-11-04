@@ -4,17 +4,21 @@ Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or 
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
-Each packaged provider has static `available()` and instance `valid({ signal })` methods. External providers are always available. Docker pings its daemon and Microsandbox runs `doctor` against its installed runtime without pulling an image. `valid()` returns `true` after creating a sandbox, verifying execution, and destroying it, or throws on failure. Creation allows two minutes, execution and cleanup each allow fifteen seconds. Platform owns authorization, result metadata, and safe error messages.
+Each packaged provider exposes two checks:
 
-Startup runs availability checks concurrently with database preparation and prints each provider's status to the console. Workers inherit the Microsandbox result without repeating its host check.
+- Static `available()` checks host prerequisites without creating a sandbox. External providers return `true` without checking credentials. Docker pings its daemon. Microsandbox runs `doctor` against its installed runtime without pulling an image.
+- Instance `valid({ signal })` creates a sandbox, verifies execution, and destroys it. It returns `true` on success or throws on failure. Creation allows two minutes. Execution and cleanup each allow fifteen seconds.
+
+Platform owns authorization, result metadata, and safe error messages. The CLI runs availability checks concurrently with database preparation and prints each provider's status. Workers inherit the Microsandbox result without repeating its host check.
 
 ```ts
 import { DockerSandbox } from "@astralbeam/sandbox"
 
-const connection = new DockerSandbox({ image: "node:22" })
-await DockerSandbox.available()
-await connection.valid()
-const provider = await connection.provider // TanStack SandboxProvider
+if (await DockerSandbox.available()) {
+  const connection = new DockerSandbox({ image: "node:22" })
+  await connection.valid()
+  const provider = await connection.provider // TanStack SandboxProvider
+}
 ```
 
 | Provider | Package | Stored initializer options | Encrypted credential |
@@ -44,7 +48,9 @@ Defaults only populate a new organization form. Once saved, the database values 
 
 ## Microsandbox setup
 
-Follow the [operator setup](../../routes/docs/-content/dashboard/sandboxes.md#microsandbox). `scripts/microsandbox-runtime.ts` owns installation and local paths. The package loads only the approved SDK and forces OCI sources so organization settings cannot mount host paths.
+Follow the [operator setup](../../routes/docs/-content/dashboard/sandboxes.md#microsandbox). Microsandbox is independent of Docker and the database choice.
+
+[`platform/scripts/microsandbox-runtime.ts`](../../../scripts/microsandbox-runtime.ts) downloads the pinned SDK and native runtime during bootstrap. Startup checks the cached runtime without downloading it. The private workspace adapter accepts only OCI image references, so organization settings cannot select a host directory as the guest filesystem. Vite does not run this CLI preparation.
 
 ## E2B setup
 

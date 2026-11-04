@@ -18,11 +18,23 @@ bun run --cwd examples/todos e2e
 - `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
 - The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
 - `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
-- To exercise Microsandbox, prepare it once with `astralbeam-platform bootstrap --microsandbox`, start Platform normally, select its connection on the seeded Todos Assistant, then run `E2E_PLATFORM_URL=http://localhost:4510 E2E_SANDBOX=microsandbox bun run --cwd examples/todos e2e sandbox.spec.ts --project=agent`. Storage CORS must allow the Todo app's origin for artifact downloads.
 
 The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
 
 The `list` reporter narrates every `test.step` as it starts and finishes, with its duration. An agent spec's steps say what turn is running and, if the endpoint throttles it, that it is waiting out the rate-limit window rather than hanging.
+
+### Test Microsandbox
+
+The suite's Vite server does not run Microsandbox host checks. Use a compiled Platform binary with the same seeded worktree database and encryption key, following [Microsandbox setup](../../../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Set its `APP_BASE_URL` to the URL the suite will use, such as `http://localhost:4510`, and assign the Microsandbox connection to **Acme Inc → Agents → Todos Assistant**.
+
+With that server running and `OPENAI_API_KEY` configured, run the sandbox specs against it:
+
+```sh
+E2E_PLATFORM_URL=http://localhost:4510 E2E_SANDBOX=microsandbox \
+  bun run --cwd examples/todos e2e sandbox.spec.ts --project=agent
+```
+
+The suite still starts its own Todo app. For direct S3 artifact downloads, allow that app's origin in the bucket's [CORS policy](../../../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). File System storage needs no bucket policy. These specs make real model calls and spend credits.
 
 ## Evidence
 
