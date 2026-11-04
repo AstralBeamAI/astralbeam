@@ -18,10 +18,9 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
         7zip ca-certificates curl file \
-        fonts-dejavu-core fonts-liberation fonts-noto-core \
+        fonts-dejavu-core fonts-liberation \
         gawk git jq less patch procps ripgrep rsync sqlite3 \
         time unzip wget xz-utils zip \
-        libreoffice-calc-nogui libreoffice-impress-nogui libreoffice-writer-nogui \
         poppler-utils qpdf tesseract-ocr tesseract-ocr-eng \
     && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
