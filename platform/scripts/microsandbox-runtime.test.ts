@@ -14,7 +14,11 @@ import process from "node:process"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { checkMicrosandboxRuntime, installMicrosandboxRuntime } from "./microsandbox-runtime.ts"
+import {
+  checkMicrosandboxRuntime,
+  installMicrosandboxRuntime,
+  pullMicrosandboxImage,
+} from "./microsandbox-runtime.ts"
 import manifest from "./microsandbox.json" with { type: "json" }
 
 const target = `${process.platform}-${process.arch}` as keyof typeof manifest.targets
@@ -80,6 +84,22 @@ describe.skipIf(process.platform === "win32" || !manifest.targets[target])(
       expect(await checkMicrosandboxRuntime({ directory })).toBeUndefined()
       expect(fetch).not.toHaveBeenCalled()
       expect(await readdir(directory)).toStrictEqual([])
+    })
+
+    it("refreshes the configured image in the prepared runtime cache on every bootstrap", async () => {
+      const argumentsFile = join(directory, "pull-arguments")
+      await cacheMicrosandboxDoctor(
+        `printf '%s\\n' "$@" >> '${argumentsFile}'\nprintf '%s' "$MSB_HOME" > '${join(directory, "pull-home")}'`,
+      )
+
+      await pullMicrosandboxImage({ directory, image: "operator/sandbox:latest" })
+      await pullMicrosandboxImage({ directory, image: "operator/sandbox:latest" })
+      expect(await readFile(argumentsFile, "utf8")).toBe(
+        "image\npull\n--force\noperator/sandbox:latest\n".repeat(2),
+      )
+      const home = await readFile(join(directory, "pull-home"), "utf8")
+      expect(await realpath(home)).toBe(await realpath(join(directory, "microsandbox")))
+      await rm(home)
     })
 
     it("reports failing prerequisites", async () => {

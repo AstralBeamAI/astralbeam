@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
 import { getAvailableSandboxProviderIds } from "./availability.server.ts"
+import { getLocalSandboxImage } from "./image.server.ts"
 import type {
   SandboxProviderCredentials,
   SandboxProviderId,
@@ -26,20 +27,20 @@ const factories: {
 } = {
   daytona: ({ DaytonaSandbox }, configuration) =>
     new DaytonaSandbox({ ...configuration.options, ...configuration.credentials }),
-  docker: async ({ DockerSandbox }, configuration) => {
+  docker: async ({ DockerSandbox }) => {
     if (!(await getAvailableSandboxProviderIds()).includes("docker"))
       throw new Error("Docker is not available on this server")
     return new DockerSandbox({
-      ...configuration.options,
+      image: getLocalSandboxImage(),
       keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND,
     })
   },
   e2b: ({ E2BSandbox }, configuration) =>
     new E2BSandbox({ ...configuration.options, ...configuration.credentials }),
-  microsandbox: ({ Microsandbox }, configuration) => {
+  microsandbox: ({ Microsandbox }) => {
     const sdkPath = process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
     if (!sdkPath) throw new Error("Microsandbox is not enabled on this server")
-    return new Microsandbox({ ...configuration.options, sdkPath })
+    return new Microsandbox({ image: getLocalSandboxImage(), sdkPath })
   },
   sprites: ({ SpritesSandbox }, configuration) =>
     new SpritesSandbox({ ...configuration.options, ...configuration.credentials }),

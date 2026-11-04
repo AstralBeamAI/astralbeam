@@ -274,7 +274,9 @@ jobs:
       context: platform/packages/sandbox/image
       platforms: linux/amd64,linux/arm64
       meta-images: ghcr.io/astralbeamai/sandbox
-      meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
+      meta-tags: |
+        type=raw,value=${{ needs.verify.outputs.version }}
+        type=raw,value=latest
       set-meta-labels: true
       set-meta-annotations: true
       meta-labels: |

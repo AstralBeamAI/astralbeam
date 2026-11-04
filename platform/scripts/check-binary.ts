@@ -190,6 +190,7 @@ async function checkEmbeddedPostgresBinary(options: {
     DATABASE_ENCRYPTION_KEY: undefined,
     MICROSANDBOX_DISABLED: "true",
     DOCKERSANDBOX_DISABLED: "true",
+    LOCAL_SANDBOX_IMAGE: undefined,
     NODE_ENV: "production",
   }
   const commandOptions = { cwd: directory, env: environment, timeout: 45_000 }
@@ -204,6 +205,13 @@ async function checkEmbeddedPostgresBinary(options: {
   })
   const environmentPath = join(directory, ".env")
   const bootstrapEnvironment = await Bun.file(environmentPath).text()
+  assert.ok(
+    bootstrapEnvironment
+      .split("\n")
+      .includes(`LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:${packageJson.version}`),
+  )
+  await runBinaryCheckCommand(options.binaryPath, ["bootstrap"], commandOptions)
+  assert.equal(await Bun.file(environmentPath).text(), bootstrapEnvironment)
   assert.match(bootstrapEnvironment, /^DATABASE_URL=embedded$/m)
   if (platform !== "win32")
     assert.equal((await Bun.file(environmentPath).stat()).mode & 0o777, 0o600)

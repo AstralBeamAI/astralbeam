@@ -13,7 +13,7 @@ bun run --cwd platform e2e
 
 - `bun run --cwd platform e2e -g "some title"` narrows to matching test titles while iterating. Playwright does not apply `-g` to a dependency project, so the baseline below is still established.
 - `bun run --cwd platform e2e --project=features` runs only the focused specs, after their dependencies.
-- `E2E_SANDBOX=docker bun run --cwd platform e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull `node:22` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
+- `E2E_SANDBOX=docker bun run --cwd platform e2e` adds the `sandbox` project. Its specs save a sandbox provider, which runs the product's real connection test, so they create, use, and destroy a container and may pull the operator's `LOCAL_SANDBOX_IMAGE` first. The project does not exist without that variable, so a run without it is deterministic rather than dependent on whether a daemon happens to be up.
 - `bun run --cwd platform e2e --ui` opens Playwright's runner for stepping through a flow.
 - It is not part of `check`, `test`, or `ready`. CI does not run it. Agents run the default projects after creating or pushing to a pull request, as the [post-PR checks](../../.agents/skills/create-github-pr/SKILL.md#post-pr-checks) describe.
 

@@ -15,12 +15,13 @@ RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.s
     && mkdir /build && cd /build \
     && apt-get source git \
     && cd git-* \
-    && printf '%s\n' 'prefix=/opt/git' 'NO_PERL=1' 'NO_TCLTK=1' 'NO_GETTEXT=1' \
-        'USE_LIBPCRE2=1' 'PYTHON_PATH=/opt/venv/bin/python' > config.mak \
+    && printf '%s\n' 'prefix=/usr/local' 'NO_PERL=1' 'NO_TCLTK=1' 'NO_GETTEXT=1' \
+        'USE_LIBPCRE2=1' 'PYTHON_PATH=/usr/local/bin/python' > config.mak \
     && dpkg-buildflags --export=make >> config.mak \
     && make -j"$(nproc)" \
-    && make strip install \
-    && install -Dm644 debian/copyright /opt/git/share/doc/git/copyright \
+    && make strip \
+    && make DESTDIR=/opt/git install \
+    && install -Dm644 debian/copyright /opt/git/usr/local/share/doc/git/copyright \
     && strip --strip-unneeded /usr/local/bin/node
 
 FROM base
@@ -29,7 +30,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 COPY --from=build /usr/local/bin/node /usr/local/bin/
 COPY --from=node:lts /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 COPY --from=node:lts /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
-COPY --from=build /opt/git /opt/git
+COPY --from=build /opt/git/usr/local/ /usr/local/
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
 
@@ -48,24 +49,20 @@ RUN apt-get update \
     && npm cache clean --force \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/opt/venv/bin:/opt/git/bin:${PATH}" \
+ENV VIRTUAL_ENV=/usr/local \
     UV_PYTHON_INSTALL_DIR=/opt/python \
     PYTHONUNBUFFERED=1 \
     LANG=C.UTF-8 \
     MPLBACKEND=Agg
 
 RUN uv --no-cache python install \
-    && uv --no-cache venv --seed /opt/venv \
+    && uv --no-cache venv --seed --allow-existing /usr/local \
     && uv pip install --no-cache \
         beautifulsoup4 httpx lxml markdown matplotlib numpy \
         openpyxl pandas pdf2image pdfplumber pillow \
         pypdf pytesseract python-docx python-pptx pyyaml \
         reportlab requests xlrd xlsxwriter \
-    && pip check \
-    && useradd --create-home --uid 1000 --user-group --shell /bin/bash node \
-    && chown -R node:node /opt/venv \
-    && install -d -o node -g node /workspace
+    && pip check
 
-USER node
 WORKDIR /workspace
 CMD ["sleep", "infinity"]

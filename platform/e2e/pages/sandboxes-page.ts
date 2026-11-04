@@ -29,11 +29,10 @@ export function sandboxesPage(page: Page) {
       await page.getByRole("option", { name: label }).click()
     },
 
-    async createDockerProvider(name: string, image: string): Promise<void> {
+    async createDockerProvider(name: string): Promise<void> {
       await this.startCreate()
       await page.locator("#sandbox-provider-name").fill(name)
       await this.selectProviderType("Docker")
-      await page.locator("#docker-image").fill(image)
       await page.getByRole("button", { name: "Test and save" }).click()
       await expect(page.getByRole("heading", { level: 1, name })).toBeVisible({ timeout: 120_000 })
     },

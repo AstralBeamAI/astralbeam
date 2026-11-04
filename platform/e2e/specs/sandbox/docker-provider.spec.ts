@@ -20,7 +20,7 @@ test("saving a Docker provider passes its real connection test", async ({
 
   const providerName = `Local Docker ${makeRunIdentity().runId}`
   await page.goto(`/${baseline.organizationSlug}/sandboxes`)
-  await sandboxes.createDockerProvider(providerName, "node:22")
+  await sandboxes.createDockerProvider(providerName)
 
   await shell.openSection("Sandboxes", "Sandboxes")
   await expect(sandboxes.card(providerName)).toBeVisible()
