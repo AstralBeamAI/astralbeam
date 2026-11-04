@@ -2,15 +2,9 @@
 
 FROM debian:stable AS base
 
-FROM base AS node-runtime
+FROM base AS build
 
-COPY --from=node:lts /usr/local /usr/local
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends binutils ca-certificates \
-    && strip --strip-unneeded /usr/local/bin/node
-
-FROM base AS git-runtime
+COPY --from=node:lts /usr/local/bin/node /usr/local/bin/
 
 # NO_PERL keeps Git's core commands without Debian's full Perl dependency.
 # https://github.com/git/git/blob/master/Makefile
@@ -26,15 +20,16 @@ RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.s
     && dpkg-buildflags --export=make >> config.mak \
     && make -j"$(nproc)" \
     && make strip install \
-    && install -Dm644 debian/copyright /opt/git/share/doc/git/copyright
+    && install -Dm644 debian/copyright /opt/git/share/doc/git/copyright \
+    && strip --strip-unneeded /usr/local/bin/node
 
 FROM base
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/
-COPY --from=node-runtime /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
-COPY --from=node-runtime /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
-COPY --from=git-runtime /opt/git /opt/git
+COPY --from=build /usr/local/bin/node /usr/local/bin/
+COPY --from=node:lts /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=node:lts /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
+COPY --from=build /opt/git /opt/git
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
 
