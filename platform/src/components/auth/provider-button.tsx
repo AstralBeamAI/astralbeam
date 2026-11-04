@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Use redirect-mode OAuth, forward explicit signup/legal intent and error redirects, honor disabled state, and omit the unconfigured last-login badge.
+// Local changes: Use redirect-mode OAuth, forward explicit signup/legal intent and error redirects, honor disabled state, and show the last-login badge only for sign-in.
 
 "use client"
 
@@ -12,11 +12,17 @@ import {
   getProviderName,
   getSafeRedirectTo,
 } from "@better-auth-ui/core"
-import { renderProviderIcon, useAuth, useSignInSocial } from "@better-auth-ui/react"
+import {
+  renderProviderIcon,
+  useAuth,
+  useLastLoginMethod,
+  useSignInSocial,
+} from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "cn"
 
@@ -44,6 +50,7 @@ export function ProviderButton({
   ...props
 }: ProviderButtonProps) {
   const { authClient, basePaths, baseURL, localization, redirectTo, viewPaths } = useAuth()
+  const lastLogin = useLastLoginMethod()
 
   const { mutate: signInSocial, isPending: signInSocialPending } = useSignInSocial(authClient)
 
@@ -102,6 +109,10 @@ export function ProviderButton({
           : null}
 
       {display === "icon" && <span className="sr-only">{getProviderName(provider)}</span>}
+
+      {view === "signIn" && lastLogin.method === providerId && (
+        <Badge variant="secondary">{lastLogin.localization.lastUsed}</Badge>
+      )}
     </Button>
   )
 }

@@ -12,7 +12,7 @@ import {
   isAPIError,
 } from "better-auth/api"
 import { parseSetCookieHeader } from "better-auth/cookies"
-import { captcha, haveIBeenPwned, organization } from "better-auth/plugins"
+import { captcha, haveIBeenPwned, lastLoginMethod, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
@@ -515,6 +515,7 @@ function buildAuth(config: AuthConfig, mailer: Mailer["Service"]) {
     },
     plugins: [
       turnstileAuthPlugin,
+      lastLoginMethod(),
       haveIBeenPwned({
         enabled: !IS_TEST_RUNTIME,
         paths: ["/sign-up/email", "/change-password", "/reset-password"],

@@ -1,3 +1,4 @@
+import { lastLoginMethodPlugin } from "@better-auth-ui/core/plugins/last-login-method"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 import { captchaPlugin } from "@better-auth-ui/react/plugins/captcha"
@@ -239,6 +240,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         multipleAccountsPerProvider={false}
         navigate={navigate}
         plugins={[
+          lastLoginMethodPlugin(),
           captchaPlugin({ render: TurnstileCaptcha }),
           themePlugin({ setTheme: setAppTheme, theme, themes: [...APP_THEMES] }),
           organizationPlugin({
