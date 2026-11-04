@@ -65,17 +65,20 @@ To build for the host architecture, run `docker build -f platform/Dockerfile -t 
 
 ## Embedded PostgreSQL
 
-Embedded PostgreSQL is **experimental**. [Install the Platform binary](#1-get-a-release-binary), then use `--embedded` to download PostgreSQL 18 (roughly 90 MB) on first use and run it on a private loopback port. Later starts reuse the cached binaries. Run without root privileges:
+Embedded PostgreSQL is **experimental**. [Install the Platform binary](#1-get-a-release-binary), then prepare PostgreSQL 18 (roughly 90 MB) once with `bootstrap --embeddedpg`. With `DATABASE_URL` unset, bootstrap initializes a private database and applies migrations. Run without root privileges:
 
 ```sh
-ALLOW_INSECURE=true astralbeam-platform --embedded start
+astralbeam-platform bootstrap --embeddedpg
+astralbeam-platform start
 ```
 
-Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. Approve migrations and [complete setup](#6-complete-setup). `ALLOW_INSECURE=true` permits local HTTP. Use HTTPS for production.
+Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. [Complete setup](#6-complete-setup). Bootstrap enables local HTTP for a new deployment. Use HTTPS for production.
 
 PostgreSQL lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Keep the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
 
-An environment or saved `DATABASE_URL` takes precedence. Use external PostgreSQL for multiple application replicas. `bootstrap` and `migrate` also accept `--embedded`. Stop the running executable before using them.
+Bootstrap saves `DATABASE_URL=embedded` in `.env` when it initializes the local database. On later starts, Platform launches that database on a private port and resolves the selector to its actual connection URL before application code connects. An external `DATABASE_URL` takes precedence. `start` and `migrate` require `DATABASE_URL=embedded` to use that database. Its presence on disk alone never selects it. They reuse cached PostgreSQL binaries. The launcher can download the distribution again if that cache is missing. A missing runtime requires `bootstrap --embeddedpg`. Use external PostgreSQL for multiple application replicas. Stop the running executable before running `bootstrap` or `migrate` against its embedded database.
+
+For an existing installation using `--embedded`, run `bootstrap --embeddedpg` once and remove the old startup flag. The database and credentials stay in the same locations.
 
 Embedded PostgreSQL requires glibc 2.36+ on Linux, macOS 15+, or the Microsoft Visual C++ runtime (`vcruntime140` family) on Windows.
 
@@ -150,7 +153,8 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | Unless `--embedded` | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
+| `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL and file storage. Containers use `/var/lib/astralbeam` |
 | `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
@@ -175,14 +179,14 @@ For a new Linux installation, create an unprivileged service account and its con
 ```sh
 sudo useradd --system --user-group --home-dir /etc/astralbeam --shell /usr/sbin/nologin astralbeam
 sudo install -d -m 750 -o astralbeam -g astralbeam /etc/astralbeam
-sudo -u astralbeam touch /etc/astralbeam/.env.local
-sudo chmod 600 /etc/astralbeam/.env.local
-sudoedit /etc/astralbeam/.env.local
+sudo -u astralbeam touch /etc/astralbeam/.env
+sudo chmod 600 /etc/astralbeam/.env
+sudoedit /etc/astralbeam/.env
 ```
 
 Add your database connection to that file:
 
-```sh title="/etc/astralbeam/.env.local"
+```sh title="/etc/astralbeam/.env"
 DATABASE_URL=postgresql://user:password@host:5432/database
 ```
 
@@ -192,7 +196,7 @@ Run bootstrap from the same directory the service will use:
 sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform bootstrap'
 ```
 
-Bootstrap applies migrations and appends missing defaults to `.env.local`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
+Bootstrap applies migrations and appends missing defaults to `.env`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
 
 Start reads unset database variables from `~/.astralbeam/platform.json`. With external PostgreSQL, interactive start prompts for a missing encryption key and saves it there. Environment values take precedence.
 
@@ -208,7 +212,7 @@ With external PostgreSQL, a rejected value reports `DATABASE_ENCRYPTION_KEY must
 
 ## 4. Start the server
 
-Run the binary as the service account created in step 3. It loads `.env.local` from its working directory.
+Run the binary as the service account created in step 3. It loads `.env` from its working directory.
 
 Save this unit as `/etc/systemd/system/astralbeam-platform.service`:
 
@@ -228,7 +232,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-Keep `DATABASE_URL` and the keyring in the private `.env.local` file. Environment variables supplied by systemd override that file.
+Keep `DATABASE_URL` and the keyring in the private `.env` file. Environment variables supplied by systemd override that file.
 
 Run these commands to load the unit and start the service:
 

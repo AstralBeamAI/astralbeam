@@ -45,6 +45,20 @@ bun run --cwd platform db migrate
 
 **NOTE**: Do not invoke `drizzle-kit migrate` directly: it skips TypeScript steps while recording the SQL as applied. Never use `drizzle-kit push` against this schema. Contributor migration commands are documented in the [database guide](https://github.com/AstralBeamAI/astralbeam/blob/main/platform/src/db/README.md).
 
+## Data directory
+
+`ASTRALBEAM_DATA_DIR` overrides the [OS data location](./configuration.md#file-storage). Preserve this location across upgrades:
+
+| Path | Contents |
+| --- | --- |
+| `storage/` | Uploaded and generated files, avatars, logos, and previews when using File System. An explicit **Storage directory** can place these elsewhere |
+| `postgres/` | Persistent embedded PostgreSQL database |
+| `embedded-postgres.json` | Private database credentials and the generated encryption key, when present. Preserve with the database |
+| `runtime-<version>-<platform>-<arch>/` | Embedded PostgreSQL supervisor executable |
+| `postgres-cache/` | PostgreSQL executables and supporting libraries |
+
+The embedded PostgreSQL runtime can be prepared again with `bootstrap --embeddedpg`. Later starts reuse its cache, and the launcher can fetch a missing PostgreSQL distribution. Original attachments and published artifacts use configured file storage. Docker keeps its data with its configured daemon.
+
 ## Backups and restore
 
 Because file state spans PostgreSQL and the configured filesystem directory or S3 bucket, stop all application replicas before backing up the database and files.
@@ -101,6 +115,8 @@ The `effect_cluster_*` tables are framework-owned journal and coordination stora
 ## Logs
 
 Collect stdout and stderr with your init system or container runtime. Application request and Effect logs use ECS JSON in development and production. Startup commands can also print plain text. The application does not manage log files. `LOG_LEVEL` sets the minimum level and defaults to `Info`, for example `LOG_LEVEL=Debug` includes debug entries.
+
+Startup checks sandbox availability in parallel and prints `Sandbox <provider>: available`, `unavailable`, or `disabled`. External providers are always available here. Credentials and execution are verified by their connection test.
 
 On Docker hosts, [enable log rotation](https://docs.docker.com/engine/logging/configure/) with the `local` logging driver or bounded `json-file` settings so container logs cannot exhaust the disk.
 

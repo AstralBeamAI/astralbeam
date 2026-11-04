@@ -29,7 +29,7 @@
     "lint": "oxlint --type-check",
     "lint:fix": "oxlint --fix",
     "ready": "bun run ../scripts/ready.ts check test build count-lines",
-    "test": "vitest run",
+    "test": "bun run --cwd packages/sandbox build && vitest run",
     "ui": "shadcn",
     "compile": "bun run scripts/compile.ts"
   },

@@ -29,7 +29,6 @@ export function sandboxesPage(page: Page) {
       await page.getByRole("option", { name: label }).click()
     },
 
-    /** Docker is the only provider with no credential, so it is the only one a suite can install. */
     async createDockerProvider(name: string, image: string): Promise<void> {
       await this.startCreate()
       await page.locator("#sandbox-provider-name").fill(name)

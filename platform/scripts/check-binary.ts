@@ -188,13 +188,24 @@ async function checkEmbeddedPostgresBinary(options: {
     ASTRALBEAM_DATA_DIR: directory,
     DATABASE_URL: undefined,
     DATABASE_ENCRYPTION_KEY: undefined,
+    DOCKERSANDBOX_DISABLED: "true",
     NODE_ENV: "production",
   }
   const commandOptions = { cwd: directory, env: environment, timeout: 45_000 }
-  await runBinaryCheckCommand(options.binaryPath, ["--embedded", "bootstrap"], {
+  await assert.rejects(
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
+    /DATABASE_URL.*not set/,
+  )
+  assert.equal(existsSync(join(directory, "embedded-postgres.json")), false)
+  await runBinaryCheckCommand(options.binaryPath, ["bootstrap", "--embeddedpg"], {
     ...commandOptions,
     timeout: 180_000,
   })
+  const environmentPath = join(directory, ".env")
+  const bootstrapEnvironment = await Bun.file(environmentPath).text()
+  assert.match(bootstrapEnvironment, /^DATABASE_URL=embedded$/m)
+  if (platform !== "win32")
+    assert.equal((await Bun.file(environmentPath).stat()).mode & 0o777, 0o600)
   // Warm starts must work without reaching the runtime download servers.
   environment.HTTPS_PROXY = "http://127.0.0.1:1"
   environment.HTTP_PROXY = "http://127.0.0.1:1"
@@ -207,7 +218,7 @@ async function checkEmbeddedPostgresBinary(options: {
   const baseUrl = new URL(`http://127.0.0.1:${await reserveBinaryCheckPort()}`)
   const pidFile = join(directory, "postgres", "postmaster.pid")
   for (const signal of ["SIGKILL", "SIGTERM"] as const) {
-    const child = Bun.spawn([options.binaryPath, "--embedded"], {
+    const child = Bun.spawn([options.binaryPath], {
       cwd: directory,
       env: { ...environment, PORT: baseUrl.port, APP_BASE_URL: baseUrl.href },
       stdio: ["ignore", "ignore", "inherit"],
@@ -246,20 +257,25 @@ async function checkEmbeddedPostgresBinary(options: {
     assert.equal(existsSync(pidFile), false, "Owned PostgreSQL did not stop with the executable")
   }
   assert.equal(await Bun.file(credentialsPath).text(), originalCredentials)
+  await Bun.write(environmentPath, bootstrapEnvironment.replace(/^DATABASE_URL=embedded$/m, ""))
+  await assert.rejects(
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
+    /DATABASE_URL.*not set/,
+  )
+  environment.DATABASE_URL = "embedded"
+  await runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
+    ...commandOptions,
+  })
   rmSync(credentialsPath)
   await assert.rejects(
-    runBinaryCheckCommand(
-      options.binaryPath,
-      ["--embedded", "migrate", "--dry-run"],
-      commandOptions,
-    ),
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
     /Restore the missing database credentials/,
   )
   assert.equal(existsSync(credentialsPath), false)
   assert.equal(existsSync(join(directory, "postgres", "PG_VERSION")), true)
   const externalDirectory = join(directory, "external")
   await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["--embedded", "migrate", "--dry-run"], {
+    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
       ...commandOptions,
       env: {
         ...environment,
@@ -428,11 +444,13 @@ async function runBinaryCheck() {
       await checkBinaryAssetCompression(new URL(path, baseUrl))
     }
     if (migrateDatabaseUrl) {
-      const environment = await Bun.file(environmentFile).text()
+      const savedEnvironment = Bun.file(join(temporaryDirectory, ".env"))
+      const environment = await savedEnvironment.text()
       if (
-        !environment.startsWith(environmentContents) ||
+        !environment.startsWith("PORT=1\n") ||
+        (await Bun.file(environmentFile).text()) !== environmentContents ||
         !/^DATABASE_ENCRYPTION_KEY=\S{32,}$/m.test(environment) ||
-        (platform !== "win32" && ((await Bun.file(environmentFile).stat()).mode & 0o777) !== 0o600)
+        (platform !== "win32" && ((await savedEnvironment.stat()).mode & 0o777) !== 0o600)
       ) {
         throw new Error("Bootstrap did not preserve the environment and securely save its key")
       }

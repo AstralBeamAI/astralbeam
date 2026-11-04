@@ -4,6 +4,19 @@ Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or 
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
+Each packaged provider has static `available()` and instance `valid({ signal })` methods. External providers are always available. Docker pings its daemon without pulling an image. `valid()` returns `true` after creating a sandbox, verifying execution, and destroying it, or throws on failure. Creation allows two minutes, execution and cleanup each allow fifteen seconds. Platform owns authorization, result metadata, and safe error messages.
+
+Startup runs availability checks concurrently with database preparation and prints each provider's status to the console.
+
+```ts
+import { DockerSandbox } from "@astralbeam/sandbox"
+
+const connection = new DockerSandbox({ image: "node:22" })
+await DockerSandbox.available()
+await connection.valid()
+const provider = await connection.provider // TanStack SandboxProvider
+```
+
 | Provider | Package | Stored initializer options | Encrypted credential |
 | --- | --- | --- | --- |
 | Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |

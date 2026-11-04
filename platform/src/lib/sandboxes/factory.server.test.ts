@@ -1,13 +1,45 @@
 import * as Effect from "effect/Effect"
-import { expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
+
+import { getAvailableSandboxProviderIds } from "./availability.server.ts"
 
 const sandboxFactoryMocks = vi.hoisted(() => ({
   docker: vi.fn(),
+  checkDocker: vi.fn<() => Promise<boolean>>(),
 }))
 
-vi.mock("@astralbeam/sandbox", () => ({ dockerSandbox: sandboxFactoryMocks.docker }))
+vi.mock("@astralbeam/sandbox", () => ({
+  DockerSandbox: Object.assign(sandboxFactoryMocks.docker, {
+    available: sandboxFactoryMocks.checkDocker,
+  }),
+}))
 
 import { createSandboxProvider } from "./factory.server.ts"
+
+afterEach(() => vi.unstubAllEnvs())
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.stubEnv("DOCKERSANDBOX_DISABLED", undefined)
+  sandboxFactoryMocks.checkDocker.mockResolvedValue(true)
+})
+
+test("hides Docker and rejects its factory when disabled or unreachable", async () => {
+  const configuration = { options: { image: "node:22" }, credentials: {} }
+  vi.stubEnv("DOCKERSANDBOX_DISABLED", "true")
+  expect(await getAvailableSandboxProviderIds()).not.toContain("docker")
+  expect(sandboxFactoryMocks.checkDocker).not.toHaveBeenCalled()
+  expect(
+    (await Effect.runPromise(Effect.flip(createSandboxProvider("docker", configuration))))._tag,
+  ).toBe("SandboxProviderUnavailable")
+
+  vi.stubEnv("DOCKERSANDBOX_DISABLED", undefined)
+  sandboxFactoryMocks.checkDocker.mockResolvedValue(false)
+  expect(await getAvailableSandboxProviderIds()).not.toContain("docker")
+  expect(
+    (await Effect.runPromise(Effect.flip(createSandboxProvider("docker", configuration))))._tag,
+  ).toBe("SandboxProviderUnavailable")
+  expect(sandboxFactoryMocks.docker).not.toHaveBeenCalled()
+})
 
 test("uses a Docker keep-alive command that exits on SIGTERM", async () => {
   await Effect.runPromise(

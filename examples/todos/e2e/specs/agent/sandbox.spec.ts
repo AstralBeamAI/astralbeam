@@ -4,25 +4,13 @@ import { readFile } from "node:fs/promises"
 import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 
-/**
- * The sandbox surface. The seed attaches a Docker sandbox provider to the `todos` agent, which is
- * what makes the endpoint hand that agent its file and command tools; the widget then shows each
- * step inline and collects them in the opt-in Sandbox panel.
- *
- * Docker itself is the one dependency the seed cannot provide, so these skip when no daemon
- * answers rather than failing.
- *
- * Assertions here deliberately read the outcome of each step, not just its presence. The widget
- * renders a file write from the tool call, so a row and even a download appear for a sandbox that
- * never started; only "Wrote" versus "Could not write", and a command's "exit 0", separate a real
- * run from a broken daemon connection.
- */
+// These tests use the seed's Docker connection.
 
 function dockerDaemonIsReachable(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
 }
 
-test.describe("with a Docker daemon", () => {
+test.describe("with a configured sandbox", () => {
   test.skip(
     () => !dockerDaemonIsReachable(),
     "No Docker daemon answered `docker info`; start Docker to run the sandbox specs.",
@@ -59,11 +47,9 @@ test.describe("with a Docker daemon", () => {
       ))
 
     await test.step("check the tool rows report a real sandbox run", async () => {
-      // The server chooses the socket, so a daemon the CLI can reach is not necessarily one the
-      // platform can: on macOS with OrbStack, export DOCKER_HOST=unix:///var/run/docker.sock.
       await expect(
         chat.toolRow(/Could not write/),
-        "The sandbox refused a file write, which usually means the server could not reach Docker",
+        "The sandbox refused a file write; check the agent's sandbox connection",
       ).toHaveCount(0)
       await expect(chat.toolRow(/^Wrote /).first()).toBeVisible()
       // A finished command only prints its exit status when it actually ran.
