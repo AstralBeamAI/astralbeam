@@ -1,6 +1,6 @@
 # Attachments
 
-Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. Other files are read through tools or analyzed in a sandbox.
+Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. With a sandbox enabled, their original bytes are also available for OCR, conversion, and editing. Other files are read through tools or analyzed in a sandbox.
 
 Enable **Allow attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a short text file and ask the assistant to summarize it.
 

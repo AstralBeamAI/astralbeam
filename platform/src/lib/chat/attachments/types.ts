@@ -1,5 +1,5 @@
-/** How an attachment reaches the model: the provider reads an `image` or a `pdf` itself, and the
- * agent reads anything else with `read_attachment` or in the sandbox. */
+/** Images and PDFs remain native model inputs. Their original bytes are also available to an
+ * enabled sandbox, alongside the other supported files. */
 export type ChatAttachmentKind = "image" | "pdf" | "text" | "data" | "office"
 
 /** What became of one attachment on a run, for the debug log. */
@@ -9,7 +9,7 @@ export interface ChatAttachmentOutcome {
   /** Decoded size, zero for a refused attachment, which is never decoded. */
   bytes: number
   result: ChatAttachmentKind | "rejected"
-  /** The name the agent reads the file by, absent for a native or refused attachment. */
+  /** The name the agent reads the file by, absent for a native-only or refused attachment. */
   handle?: string
   reason?: string
 }

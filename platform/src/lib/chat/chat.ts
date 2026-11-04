@@ -98,11 +98,13 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
   scope,
   files,
   webAccessEnabled,
+  sandboxEnabled,
 }: {
   readonly history: readonly MessageRecord[]
   readonly model: ChatModelConfiguration
   readonly files: typeof ChatFiles.Service
   readonly webAccessEnabled: boolean
+  readonly sandboxEnabled: boolean
   readonly scope: Pick<ChatFileScope, "organizationId" | "tenantId" | "threadId">
 }) {
   const stored = yield* Effect.try({
@@ -123,7 +125,10 @@ const prepareChatHistory = Effect.fnUntraced(function* ({
     return content.length ? [{ ...message, content }] : []
   })
   const projected = yield* files.hydrate({ scope, messages: executable })
-  const normalized = normalizeChatAttachments(projected, { contentShape: "model" })
+  const normalized = normalizeChatAttachments(projected, {
+    contentShape: "model",
+    includeNativeFiles: sandboxEnabled,
+  })
   if (normalized.attachments.some((attachment) => attachment.result === "rejected"))
     return yield* new ChatThreadInvalid()
   // Admission checks permission for new uploads. Saved uploads remain usable after it changes.
@@ -216,6 +221,7 @@ export class Chat extends Context.Service<
           files: storedFiles,
           model,
           webAccessEnabled: agent.webAccessEnabled,
+          sandboxEnabled: agent.sandboxProviderId !== null,
           scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
         })
         const unknownOutcome = history.some(
@@ -341,6 +347,7 @@ export class Chat extends Context.Service<
                       scope: { ...claim.scope, threadId: claim.threadId },
                       model,
                       webAccessEnabled: agent.webAccessEnabled,
+                      sandboxEnabled: agent.sandboxProviderId !== null,
                     })
                     files.splice(0, files.length, ...normalized.files)
                     inputMessages.splice(0, inputMessages.length, ...normalized.projected)
