@@ -50,22 +50,13 @@ async function acquireMicrosandbox<A>(
   signal: AbortSignal | undefined,
   release: (value: A) => Promise<void>,
 ): Promise<A> {
-  if (!signal) return pending
-  const aborted = Promise.withResolvers<never>()
-  const abort = () => aborted.reject(signal.reason)
-  signal.addEventListener("abort", abort, { once: true })
-  if (signal.aborted) abort()
-  try {
-    const result = await Promise.race([pending, aborted.promise])
+  // Keep native work in the caller's capacity budget until acquisition and cleanup settle.
+  const result = await pending
+  if (signal?.aborted) {
+    await release(result)
     signal.throwIfAborted()
-    return result
-  } catch (error) {
-    // A native create cannot be cancelled, so an interrupted provision reclaims its late result.
-    void pending.then(release).catch(() => undefined)
-    throw error
-  } finally {
-    signal.removeEventListener("abort", abort)
   }
+  return result
 }
 
 async function spawnMicrosandboxCommand(

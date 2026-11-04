@@ -69,14 +69,15 @@ it("terminates a process with unread output without blocking wait or cleanup", a
   expect(disposed).toHaveBeenCalledExactlyOnceWith()
 })
 
-it("reclaims interrupted creation but preserves an existing sandbox on interrupted resume", async () => {
+it("retains interrupted creation through cleanup and preserves an existing sandbox on interrupted resume", async () => {
   const created = Promise.withResolvers<unknown>()
+  const cleanup = Promise.withResolvers<void>()
   const connecting = Promise.withResolvers<void>()
   const resumed = Promise.withResolvers<unknown>()
   const sandbox = {
     name: "fixture",
     fs: () => ({ mkdir: () => Promise.resolve() }),
-    destroy: vi.fn(() => Promise.resolve()),
+    destroy: vi.fn(() => cleanup.promise),
   }
   const provider = await microsandboxFixture({
     created: created.promise,
@@ -87,11 +88,17 @@ it("reclaims interrupted creation but preserves an existing sandbox on interrupt
   })
   const controller = new AbortController()
   const pending = provider.create({ signal: controller.signal })
+  const settled = vi.fn()
+  void pending.then(settled, settled)
   controller.abort()
 
-  await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  expect(settled).not.toHaveBeenCalled()
   created.resolve(sandbox)
   await vi.waitFor(() => expect(sandbox.destroy).toHaveBeenCalledExactlyOnceWith({ force: true }))
+  expect(settled).not.toHaveBeenCalled()
+  cleanup.resolve()
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" })
 
   const resumeController = new AbortController()
   const reconnect = provider.resume({ id: sandbox.name, signal: resumeController.signal })

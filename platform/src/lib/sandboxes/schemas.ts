@@ -40,7 +40,11 @@ const DaytonaSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 
 const DockerSandboxOptionsSchema = Schema.Struct({ image: nonEmptyTrimmedString })
 const MicrosandboxOptionsSchema = Schema.Struct({
-  image: nonEmptyTrimmedString.check(Schema.isPattern(/^[a-z0-9][\w.:/@-]*$/)),
+  image: nonEmptyTrimmedString.check(
+    Schema.isPattern(/^[a-z0-9][\w.:/@-]*$/, {
+      message: "Use an OCI image reference, such as python:3.13-slim.",
+    }),
+  ),
 })
 const EmptySandboxConfigurationSchema = Schema.Record(
   Schema.String,

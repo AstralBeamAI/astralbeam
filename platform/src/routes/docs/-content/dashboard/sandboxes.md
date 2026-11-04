@@ -25,11 +25,15 @@ The connection test creates a sandbox, runs a command, and destroys it. A cold i
 
 Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
 
+## Local providers
+
 Unavailable local providers stay hidden from choices. Existing connections can still be renamed or switched to another provider. Operators can disable local providers through the [environment](../self-hosting/deploy.md#3-set-the-bootstrap-environment).
+
+Check the server startup console for each provider's status. Docker needs a reachable daemon. Microsandbox needs the managed runtime below, even if a separate `msb` command is already installed.
 
 ## Microsandbox
 
-Microsandbox runs microVMs on the Platform host without an API key. The host needs Apple Silicon on macOS, accessible KVM on Linux, or Windows Hypervisor Platform on Windows.
+Microsandbox runs microVMs on the Platform host without an API key. The host needs Apple Silicon on macOS, accessible KVM on Linux, or Windows 11 with Windows Hypervisor Platform enabled. Windows support is preview.
 
 1. [Install or build Platform](../self-hosting/deploy.md#1-get-a-release-binary) first. Stop it if it is running, then prepare Microsandbox from the same working directory and environment as the server:
 
@@ -47,6 +51,8 @@ If Microsandbox is missing from the dropdown, check the startup console for `San
 The default image includes Python and pip, but no Node.js or Office-processing libraries. Agents can install packages inside the VM. For repeatable startup without those downloads, use an image with the tools and libraries your agents need already installed.
 
 Microsandbox is enabled automatically when its installed runtime passes the startup check, unless `MICROSANDBOX_DISABLED=true`. Workspaces have a one-hour maximum lifetime. Snapshots, forks, and port forwarding are unavailable.
+
+The adapter does not configure CPU, memory, disk quotas, or network policy. Review the runtime's effective limits and the host's network controls before offering code execution to untrusted users. Prepare the runtime again with `bootstrap --microsandbox` when a Platform upgrade requires a new runtime version.
 
 ## Connection tests
 
