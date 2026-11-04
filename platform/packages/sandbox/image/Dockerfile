@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 
-FROM node:lts-slim AS node-runtime
+FROM node:lts AS node-runtime
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends binutils \
     && strip --strip-unneeded /usr/local/bin/node
 
-FROM debian:stable-slim AS git-runtime
+FROM debian:stable AS git-runtime
 
 # NO_PERL keeps Git's core commands without Debian's full Perl dependency.
 # https://github.com/git/git/blob/master/Makefile
@@ -24,7 +24,7 @@ RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.s
     && make strip install \
     && install -Dm644 debian/copyright /opt/git/share/doc/git/copyright
 
-FROM debian:stable-slim
+FROM debian:stable
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/
