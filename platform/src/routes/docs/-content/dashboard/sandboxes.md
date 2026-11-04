@@ -17,13 +17,15 @@ The connection test creates a sandbox, runs a command, and destroys it. Creation
 | Provider | Options | Credential |
 | --- | --- | --- |
 | Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
-| Docker | Image, default `node:22`. Available when the configured Docker daemon responds. | None |
+| Docker | Operator-selected image. Available when the configured Docker daemon responds. | None |
 | E2B | Template name or ID, default `base`. | API key |
-| Microsandbox | OCI image, default `python:3.13-slim`. Available when installed and supported by the host. | None |
+| Microsandbox | Operator-selected image. Available when installed and supported by the host. | None |
 | Sprites | None. | API token |
 | Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
 Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
+
+Docker and Microsandbox use the image selected by the deployment operator through `LOCAL_SANDBOX_IMAGE`. The default is `ghcr.io/astralbeamai/sandbox` tagged with the Platform version and includes Node.js LTS, TypeScript, Python, Git, Office/PDF libraries, and English OCR. Organization members cannot select another image.
 
 ## Local providers
 
@@ -56,13 +58,13 @@ Let's prepare the runtime, then verify it with a real VM:
 
    Look for `Sandbox Microsandbox: available` in the console. Startup runs `msb doctor` with a one-second timeout. It checks host prerequisites without downloading a runtime or image. If the check fails, Platform continues with Microsandbox unavailable.
 
-4. [Add and verify a provider](#add-and-verify-a-provider), choosing **Microsandbox**. The first connection test downloads the image and verifies that a VM can boot and execute code. Select the saved connection on your agent to give it sandbox tools.
+4. [Add and verify a provider](#add-and-verify-a-provider), choosing **Microsandbox**. The connection test verifies that a VM can boot and execute code. Select the saved connection on your agent to give it sandbox tools.
 
 **NOTE**: Source builds produce `platform/.output/astralbeam-platform`. Use that path in place of `astralbeam-platform`. Vite's development server does not run the native host checks, so use the Platform binary to try Microsandbox.
 
-### Choose an image
+### Image and dependencies
 
-The default image includes Python and pip, but no Node.js or Office-processing libraries. Agents can install packages inside the VM. For repeatable startup without those downloads, use an image with the tools and libraries your agents need already installed.
+The operator sets one image for Docker and Microsandbox in `.env`. Bootstrap pre-downloads it and refreshes the cache on later runs. See [local sandbox image configuration](../self-hosting/deploy.md#local-sandbox-image). Agents can also install additional Python packages inside their workspace.
 
 ### If Microsandbox is unavailable
 

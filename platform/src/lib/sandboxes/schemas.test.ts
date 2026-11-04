@@ -30,11 +30,8 @@ describe("sandbox provider schemas", () => {
       yield* Effect.flip(decodeProviderOptions("daytona", options))
       yield* Effect.flip(decodeProviderOptions("e2b", { template: "base", apiKey: "leak" }))
       yield* Effect.flip(decodeProviderOptions("e2b", { template: "" }))
-      yield* Effect.flip(decodeProviderOptions("microsandbox", { image: "/etc" }))
-      yield* Effect.flip(decodeProviderOptions("microsandbox", { image: "../rootfs" }))
-      yield* Effect.flip(
-        decodeProviderOptions("microsandbox", { image: "python:3.13-slim", mount: "/" }),
-      )
+      yield* Effect.flip(decodeProviderOptions("docker", { image: "customer/sandbox:tag" }))
+      yield* Effect.flip(decodeProviderOptions("microsandbox", { image: "customer/sandbox:tag" }))
     }),
   )
 })

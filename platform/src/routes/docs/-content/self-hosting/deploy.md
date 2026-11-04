@@ -148,6 +148,18 @@ bun run --cwd platform build
 
 The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
+### Local sandbox image
+
+The operator selects one OCI image for Docker and Microsandbox through `LOCAL_SANDBOX_IMAGE`. Organization sandbox settings cannot override it. Bootstrap writes the release-tagged default to `.env` when unset and pre-downloads the image for a reachable Docker daemon and an installed Microsandbox runtime. Disabled runtimes are skipped.
+
+To refresh the configured image in both native caches, run bootstrap again from the service's working directory, using its environment and data directory:
+
+```sh
+astralbeam-platform bootstrap
+```
+
+Normal sandbox starts reuse cached images. Set `LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:latest` to follow new image releases when bootstrap refreshes the cache. A bare image name also means `:latest`. Set a version tag or digest to select a fixed release, and restart Platform after changing `.env`.
+
 ## 2. Provision the database
 
 Skip this step when using embedded PostgreSQL. For an external server, PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
@@ -171,6 +183,7 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
 | `MICROSANDBOX_DISABLED` | No | Set `true` to disable Microsandbox. Otherwise an installed runtime appears when its host check passes. See [setup](../dashboard/sandboxes.md#microsandbox) |
+| `LOCAL_SANDBOX_IMAGE` | No | Operator-owned OCI reference shared by Docker and Microsandbox. Defaults to `ghcr.io/astralbeamai/sandbox:<Platform version>`. Bootstrap writes this default to `.env` and refreshes available local runtime caches. |
 | `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL, Microsandbox, and file storage. Containers use `/var/lib/astralbeam` |

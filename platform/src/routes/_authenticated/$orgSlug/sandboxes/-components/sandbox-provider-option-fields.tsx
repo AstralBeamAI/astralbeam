@@ -25,22 +25,10 @@ export function SandboxProviderOptionFields({
   onChange,
 }: SandboxProviderOptionFieldsProps) {
   if (provider === "docker" || provider === "microsandbox") {
-    const value = options as SandboxProviderOptions[typeof provider]
     return (
-      <ProviderField
-        id={`${provider}-image`}
-        label="Image"
-        value={value.image}
-        description={
-          provider === "microsandbox"
-            ? "Runs on the Platform host. The first connection test downloads this image."
-            : ""
-        }
-        errors={errorsFor("image")}
-        maximumLength={256}
-        disabled={disabled}
-        onChange={(image) => onChange({ image })}
-      />
+      <p className="text-sm text-muted-foreground">
+        The operator chooses the image for this local runtime.
+      </p>
     )
   }
   if (provider === "daytona") {

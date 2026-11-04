@@ -2,7 +2,7 @@
 
 Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or Vercel through the maintained [TanStack AI adapters](https://tanstack.com/ai/latest/docs/sandbox/providers), or Microsandbox through the private workspace's adapter.
 
-Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
+Each organization can store multiple named sandbox providers. Cloud provider options remain readable for editing and credentials are encrypted separately. Docker and Microsandbox always use the operator's `LOCAL_SANDBOX_IMAGE`, never an organization-selected image.
 
 Each packaged provider exposes two checks:
 
@@ -15,7 +15,7 @@ Platform owns authorization, result metadata, and safe error messages. The CLI r
 import { DockerSandbox } from "@astralbeam/sandbox"
 
 if (await DockerSandbox.available()) {
-  const connection = new DockerSandbox({ image: "node:22" })
+  const connection = new DockerSandbox({ image: "ghcr.io/astralbeamai/sandbox:<version>" })
   await connection.valid()
   const provider = await connection.provider // TanStack SandboxProvider
 }
@@ -24,9 +24,9 @@ if (await DockerSandbox.available()) {
 | Provider | Package | Stored initializer options | Encrypted credential |
 | --- | --- | --- | --- |
 | Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |
-| Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | `image` | None |
+| Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | None | None |
 | E2B | [`@tanstack/ai-sandbox-e2b`](https://www.npmjs.com/package/@tanstack/ai-sandbox-e2b) | `template` | `apiKey` |
-| Microsandbox | Private workspace adapter | `image` | None |
+| Microsandbox | Private workspace adapter | None | None |
 | Sprites | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None | `apiKey` |
 | Vercel | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel) | `teamId`, `projectId`, `runtime` | `token` |
 
@@ -44,11 +44,15 @@ Defaults only populate a new organization form. Once saved, the database values 
 1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
 2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
-4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`. Docker pulls it when absent.
+4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves the release-tagged default to `.env` when unset and pre-downloads it for available local runtimes. Every bootstrap refreshes the configured reference using their native image caches. Normal sandbox creation reuses those caches.
+
+The image installs commands under `/usr/local/bin` and uses the root/home defaults expected by the stock Docker adapter. The adapter is unmodified.
 
 ## Microsandbox setup
 
 Follow the [operator setup](../../routes/docs/-content/dashboard/sandboxes.md#microsandbox). Microsandbox is independent of Docker and the database choice.
+
+Microsandbox uses the same operator-owned `LOCAL_SANDBOX_IMAGE` as Docker. Organization image options, including legacy saved selections, are ignored. New organization requests cannot supply them.
 
 [`platform/scripts/microsandbox-runtime.ts`](../../../scripts/microsandbox-runtime.ts) downloads the pinned SDK and native runtime during bootstrap. Startup checks the cached runtime without downloading it. The private workspace adapter accepts only OCI image references, so organization settings cannot select a host directory as the guest filesystem. Vite does not run this CLI preparation.
 

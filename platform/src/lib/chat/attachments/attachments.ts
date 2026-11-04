@@ -189,7 +189,7 @@ function attachmentHandle(filename: string, taken: Set<string>): string {
 
 export function normalizeChatAttachments(
   messages: ChatMessages,
-  options: { readonly contentShape?: ContentShape } = {},
+  options: { readonly contentShape?: ContentShape; readonly includeNativeFiles?: boolean } = {},
 ): {
   messages: ChatMessages
   attachments: ChatAttachmentOutcome[]
@@ -205,7 +205,7 @@ export function normalizeChatAttachments(
     entry: MediaEntry,
     shape: ContentShape,
     position: number,
-  ): { entry: unknown } | { file: ChatAttachmentFile } => {
+  ): { entry: unknown; file?: ChatAttachmentFile } | { file: ChatAttachmentFile } => {
     const declared = normalizeMimeType(entry.source.mimeType)
     const filename = sanitizeAttachmentFilename(
       mediaEntryFilename(entry),
@@ -257,18 +257,20 @@ export function normalizeChatAttachments(
     }
     const bytes = decodeAttachmentBytes(entry.source.value)
     if (bytes === undefined) return refuse("its contents could not be decoded.")
-    if (kind === "image" || kind === "pdf") {
+    const nativeEntry =
+      kind === "image" || kind === "pdf"
+        ? {
+            ...entry,
+            type: kind === "image" ? "image" : "document",
+            metadata: { filename },
+          }
+        : undefined
+    if (nativeEntry && !options.includeNativeFiles) {
       totalBytes += size
       attachments.push({ filename, mimeType, bytes: size, result: kind })
       // The provider requires a filename beside PDF data, and the sanitized one is the only one
       // trusted to travel; images keep it for symmetry.
-      return {
-        entry: {
-          ...entry,
-          type: kind === "image" ? "image" : "document",
-          metadata: { filename },
-        },
-      }
+      return { entry: nativeEntry }
     }
     const text = kind === "text" ? decodeUtf8(bytes) : undefined
     if (kind === "text" && text === undefined) return refuse("it is not valid UTF-8 text.")
@@ -283,7 +285,7 @@ export function normalizeChatAttachments(
     }
     files.push(file)
     attachments.push({ filename, mimeType, bytes: size, result: kind, handle })
-    return { file }
+    return nativeEntry ? { entry: nativeEntry, file } : { file }
   }
 
   // Keep file contents in tool results. The user message carries only their handles.
@@ -304,10 +306,8 @@ export function normalizeChatAttachments(
       }
       position += 1
       const result = convert(entry, shape, position)
-      if (!("file" in result)) {
-        next.push(result.entry)
-        continue
-      }
+      if ("entry" in result) next.push(result.entry)
+      if (!result.file) continue
       attached.push(result.file.handle)
       if (slot < 0) {
         slot = next.length

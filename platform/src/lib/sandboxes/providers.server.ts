@@ -94,7 +94,8 @@ const sandboxProviderColumns = {
   organizationId: sandboxProvider.organizationId,
   name: sandboxProvider.name,
   providerType: sandboxProvider.providerType,
-  options: sandboxProvider.options,
+  // Discard legacy organization-selected images before the column codec decodes them.
+  options: sql<unknown>`case when ${sandboxProvider.providerType} in ('docker', 'microsandbox') then '{}'::jsonb else ${sandboxProvider.options} end`,
   lastTest: sandboxProvider.lastTest,
   lockVersion: sandboxProvider.lockVersion,
   createdAt: sandboxProvider.createdAt,
@@ -372,7 +373,7 @@ export class SandboxProviders extends Context.Service<
           id: input.id,
           scope: eq(sandboxProvider.organizationId, input.organizationId),
           expectedLockVersion: input.lockVersion,
-          set: { lastTest: result },
+          set: { options: found.row.options, lastTest: result },
         }).pipe(
           mapDatabaseErrors(),
           Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),

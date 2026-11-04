@@ -119,7 +119,7 @@ const SEED_STARTER_AGENT_SYSTEM_PROMPT =
 const SEED_DOCKER_SANDBOX_PROVIDER = {
   name: SEED_NAMES.dockerProvider,
   providerType: "docker",
-  options: { image: "node:22" },
+  options: {},
 } as const
 
 export const SEED_ORGANIZATIONS = [

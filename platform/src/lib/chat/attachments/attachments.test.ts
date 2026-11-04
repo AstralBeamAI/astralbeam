@@ -97,6 +97,37 @@ test("passes images and PDFs through with repaired types and sanitized filenames
   expect(files).toEqual([])
 })
 
+test.each(["agui", "model"] as const)(
+  "keeps native images and PDFs available as original sandbox files in %s messages",
+  (contentShape) => {
+    const input = userMessage([
+      documentEntry("chart.png", "image/png", REAL_PNG),
+      documentEntry("invoice.pdf", "application/pdf", btoa("%PDF-1.7")),
+      documentEntry("chart.png", "image/png", REAL_PNG),
+    ])
+    const normalized = normalizeChatAttachments(
+      contentShape === "model" ? convertMessagesToModelMessages(input) : input,
+      { contentShape, includeNativeFiles: true },
+    )
+    expect(normalized.files.map((file) => file.handle)).toEqual([
+      "chart.png",
+      "invoice.pdf",
+      "chart-2.png",
+    ])
+    expect(normalized.files[0]?.bytes).toEqual(
+      Uint8Array.from(atob(REAL_PNG), (character) => character.charCodeAt(0)),
+    )
+    expect(new TextDecoder().decode(normalized.files[1]?.bytes)).toBe("%PDF-1.7")
+    const content = convertMessagesToModelMessages(normalized.messages)[0]?.content
+    expect(content).toMatchObject([
+      { type: "image", source: { value: REAL_PNG } },
+      { type: "text", content: "[Attached: chart.png, invoice.pdf, chart-2.png]" },
+      { type: "document", source: { value: btoa("%PDF-1.7") } },
+      { type: "image", source: { value: REAL_PNG } },
+    ])
+  },
+)
+
 test("replaces unsupported attachments with an explanation instead of failing the run", () => {
   const { messages, attachments } = normalizeChatAttachments(
     userMessage([

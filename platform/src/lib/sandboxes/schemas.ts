@@ -38,14 +38,11 @@ const DaytonaSandboxOptionsSchema = Schema.Struct({
 })
 const DaytonaSandboxCredentialsSchema = Schema.Struct({ apiKey: secretString })
 
-const DockerSandboxOptionsSchema = Schema.Struct({ image: nonEmptyTrimmedString })
-const MicrosandboxOptionsSchema = Schema.Struct({
-  image: nonEmptyTrimmedString.check(
-    Schema.isPattern(/^[a-z0-9][\w.:/@-]*$/, {
-      message: "Use an OCI image reference, such as python:3.13-slim.",
-    }),
-  ),
-})
+export const SandboxImageSchema = nonEmptyTrimmedString.check(
+  Schema.isPattern(/^[a-z0-9][\w.:/@-]*$/, {
+    message: "Use an OCI image reference, such as ghcr.io/astralbeamai/sandbox:latest.",
+  }),
+)
 const EmptySandboxConfigurationSchema = Schema.Record(
   Schema.String,
   Schema.Never.annotate({ message: "This field is not allowed" }),
@@ -64,10 +61,10 @@ const VercelSandboxCredentialsSchema = Schema.Struct({ token: secretString })
 
 const SANDBOX_PROVIDER_SCHEMAS = {
   daytona: { options: DaytonaSandboxOptionsSchema, credentials: DaytonaSandboxCredentialsSchema },
-  docker: { options: DockerSandboxOptionsSchema, credentials: DockerSandboxCredentialsSchema },
+  docker: { options: EmptySandboxConfigurationSchema, credentials: DockerSandboxCredentialsSchema },
   e2b: { options: E2BSandboxOptionsSchema, credentials: E2BSandboxCredentialsSchema },
   microsandbox: {
-    options: MicrosandboxOptionsSchema,
+    options: EmptySandboxConfigurationSchema,
     credentials: EmptySandboxConfigurationSchema,
   },
   sprites: { options: SpritesSandboxOptionsSchema, credentials: SpritesSandboxCredentialsSchema },

@@ -31,7 +31,7 @@ vi.mock("./factory.server.ts", () => ({
 
 import { runSandboxConnectionTest } from "./connection-test.server.ts"
 
-const dockerTest = { provider: "docker", options: { image: "node:22" }, credentials: {} } as const
+const dockerTest = { provider: "docker", options: {}, credentials: {} } as const
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()

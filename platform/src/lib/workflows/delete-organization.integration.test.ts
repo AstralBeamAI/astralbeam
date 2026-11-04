@@ -82,7 +82,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
     await db.insert(member).values({ organizationId, userId: owner!.id, role: "owner" })
     const [provider] = await db
       .insert(sandboxProvider)
-      .values({ organizationId, name: "Local", providerType: "docker", options: { image: "node" } })
+      .values({ organizationId, name: "Local", providerType: "docker", options: {} })
       .returning()
     const [defaultAgent] = await db
       .insert(agent)

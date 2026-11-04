@@ -21,13 +21,14 @@ import { createSandboxProvider } from "./factory.server.ts"
 afterEach(() => vi.unstubAllEnvs())
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv("LOCAL_SANDBOX_IMAGE", "operator/sandbox:tag")
   vi.stubEnv("DOCKERSANDBOX_DISABLED", undefined)
   sandboxFactoryMocks.checkDocker.mockResolvedValue(true)
 })
 
 test("offers Microsandbox only when startup approved its SDK", async () => {
   vi.stubEnv("__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK", undefined)
-  const configuration = { options: { image: "python:3.13-slim" }, credentials: {} }
+  const configuration = { options: {}, credentials: {} }
 
   expect(await getAvailableSandboxProviderIds()).not.toContain("microsandbox")
   const error = await Effect.runPromise(
@@ -40,13 +41,13 @@ test("offers Microsandbox only when startup approved its SDK", async () => {
   expect(await getAvailableSandboxProviderIds()).toContain("microsandbox")
   await Effect.runPromise(createSandboxProvider("microsandbox", configuration))
   expect(sandboxFactoryMocks.microsandbox).toHaveBeenCalledExactlyOnceWith({
-    image: "python:3.13-slim",
+    image: "operator/sandbox:tag",
     sdkPath: "/approved/runtime/index.js",
   })
 })
 
 test("hides Docker and rejects its factory when disabled or unreachable", async () => {
-  const configuration = { options: { image: "node:22" }, credentials: {} }
+  const configuration = { options: {}, credentials: {} }
   vi.stubEnv("DOCKERSANDBOX_DISABLED", "true")
   expect(await getAvailableSandboxProviderIds()).not.toContain("docker")
   expect(sandboxFactoryMocks.checkDocker).not.toHaveBeenCalled()
@@ -63,12 +64,10 @@ test("hides Docker and rejects its factory when disabled or unreachable", async 
   expect(sandboxFactoryMocks.docker).not.toHaveBeenCalled()
 })
 
-test("uses a Docker keep-alive command that exits on SIGTERM", async () => {
-  await Effect.runPromise(
-    createSandboxProvider("docker", { options: { image: "custom/image:tag" }, credentials: {} }),
-  )
+test("uses the operator image and a Docker keep-alive command that exits on SIGTERM", async () => {
+  await Effect.runPromise(createSandboxProvider("docker", { options: {}, credentials: {} }))
   expect(sandboxFactoryMocks.docker).toHaveBeenCalledExactlyOnceWith({
-    image: "custom/image:tag",
+    image: "operator/sandbox:tag",
     keepAliveCommand: ["sh", "-c", "trap 'exit 0' TERM; tail -f /dev/null & wait"],
   })
 })
