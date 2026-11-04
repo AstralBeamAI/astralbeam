@@ -15,7 +15,7 @@ Platform owns authorization, result metadata, and safe error messages. The CLI r
 import { DockerSandbox } from "@astralbeam/sandbox"
 
 if (await DockerSandbox.available()) {
-  const connection = new DockerSandbox({ image: "node:22" })
+  const connection = new DockerSandbox({ image: "ghcr.io/astralbeamai/sandbox:<version>" })
   await connection.valid()
   const provider = await connection.provider // TanStack SandboxProvider
 }
@@ -44,7 +44,9 @@ Defaults only populate a new organization form. Once saved, the database values 
 1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
 2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
-4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`. Docker pulls it when absent.
+4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The default is `ghcr.io/astralbeamai/sandbox` tagged with the running Platform version. It includes Node.js LTS, TypeScript, Python, Git, Office/PDF libraries, and English OCR. Change **Image** to use another trusted image or digest. Docker pulls it when absent, and saved connections keep their selected image after upgrades.
+
+The Docker adapter is patched to inherit the image's `PATH` and `HOME`. Explicit handle and command environment overrides still take precedence. Remove the patch when [TanStack's adapter](https://github.com/TanStack/ai/blob/main/packages/ai-sandbox-docker/src/handle.ts) preserves those values itself.
 
 ## Microsandbox setup
 
