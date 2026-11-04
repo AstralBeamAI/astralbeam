@@ -28,7 +28,7 @@ Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYP
 
 ## Bootstrap variables and stored settings
 
-Run `bootstrap --embeddedpg` once for [experimental local PostgreSQL](./deploy.md#embedded-postgresql), or set `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` for an external server. Later starts infer the local database without flags.
+Run `bootstrap --embeddedpg` once for [experimental local PostgreSQL](./deploy.md#embedded-postgresql), or set `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` for an external server. Bootstrap saves `DATABASE_URL=embedded` for later starts without flags.
 
 Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values, including `STORAGE_PROVIDER` for file storage. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
 

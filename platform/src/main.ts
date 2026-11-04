@@ -19,7 +19,6 @@ import { Client } from "pg"
 import packageJson from "../package.json" with { type: "json" }
 import { getDatabaseEncryptionKeyring, getDatabaseUrl } from "./db/lib/database-credentials.ts"
 import {
-  hasEmbeddedPostgres,
   installEmbeddedPostgres,
   startEmbeddedPostgres,
   stopEmbeddedPostgres,
@@ -101,7 +100,7 @@ function loadBootstrapEnvironment(names: BootstrapVariable[], { promptMissing = 
 }
 
 function saveBootstrapValue({ name, value }: { name: string; value: string }): void {
-  const path = join(process.cwd(), ".env.local")
+  const path = join(process.cwd(), ".env")
   if (existsSync(path)) chmodSync(path, 0o600)
   writeFileSync(path, `\n${name}=${value}\n`, { flag: "a", mode: 0o600 })
   console.error(`Saved ${name} to ${path}`)
@@ -109,19 +108,13 @@ function saveBootstrapValue({ name, value }: { name: string; value: string }): v
 
 async function preparePlatformDatabase(options: { embeddedpg?: boolean } = {}): Promise<boolean> {
   loadBootstrapEnvironment(["DATABASE_URL", "DATABASE_ENCRYPTION_KEY"], { promptMissing: false })
-  const url = process.env.DATABASE_URL
-  if (url !== undefined && url !== "embedded") {
+  if (options.embeddedpg) process.env.DATABASE_URL ??= "embedded"
+  if (process.env.DATABASE_URL !== "embedded") {
     getDatabaseUrl()
     return false
   }
-  const directory = getDataDirectory()
-  if (url !== "embedded" && !options.embeddedpg && !hasEmbeddedPostgres(directory)) {
-    throw new Error(
-      "DATABASE_URL is required. Set it for an external database or run `astralbeam-platform bootstrap --embeddedpg`.",
-    )
-  }
   if (process.env.DATABASE_ENCRYPTION_KEY !== undefined) getDatabaseEncryptionKeyring()
-  await startEmbeddedPostgres({ directory })
+  await startEmbeddedPostgres({ directory: getDataDirectory() })
   return true
 }
 

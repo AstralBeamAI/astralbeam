@@ -88,11 +88,6 @@ function embeddedPostgresEnvironment() {
   )
 }
 
-export function hasEmbeddedPostgres(directory: string): boolean {
-  // A cached runtime alone must not silently create a database when DATABASE_URL is missing.
-  return existsSync(join(directory, "postgres", "PG_VERSION"))
-}
-
 export async function installEmbeddedPostgres(options: { directory: string }): Promise<void> {
   const { assets, installation, wrapper } = embeddedPostgresRuntimePaths(options.directory)
   await mkdir(options.directory, { recursive: true, mode: 0o700 })
