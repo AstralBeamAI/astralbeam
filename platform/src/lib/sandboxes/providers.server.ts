@@ -373,7 +373,7 @@ export class SandboxProviders extends Context.Service<
           id: input.id,
           scope: eq(sandboxProvider.organizationId, input.organizationId),
           expectedLockVersion: input.lockVersion,
-          set: { lastTest: result },
+          set: { options: found.row.options, lastTest: result },
         }).pipe(
           mapDatabaseErrors(),
           Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),

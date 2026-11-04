@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm"
 import { Effect, ManagedRuntime } from "effect"
-import { afterAll, beforeAll, describe, expect, test } from "vitest"
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest"
 import { getAuthDatabase } from "@/db/database"
 import { organization, sandboxProvider } from "@/db/schema/organizations"
 import { SandboxProviders } from "./providers.server.ts"
@@ -20,6 +20,8 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
   let db: ReturnType<typeof getAuthDatabase>
   let organizationId: string
   beforeAll(async () => {
+    vi.stubEnv("DOCKERSANDBOX_DISABLED", "true")
+    vi.stubEnv("__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK", undefined)
     db = getAuthDatabase()
     const [row] = await db
       .insert(organization)
@@ -30,15 +32,16 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
   afterAll(async () => {
     await db.delete(organization).where(eq(organization.id, organizationId))
     await runtime.dispose()
+    vi.unstubAllEnvs()
   })
 
   test.each(["docker", "microsandbox"] as const)(
-    "ignores legacy %s image selections without rewriting the row",
+    "ignores legacy %s image selections and normalizes explicit connection-test updates",
     async (providerType) => {
       const [row] = await db
         .insert(sandboxProvider)
         .values({ organizationId, name: providerType, providerType, options: {} })
-        .returning({ id: sandboxProvider.id })
+        .returning({ id: sandboxProvider.id, lockVersion: sandboxProvider.lockVersion })
       await db.execute(
         sql`update sandbox_provider set options = '{"image":"customer/untrusted:latest"}'::jsonb where organization_id = ${organizationId} and id = ${row!.id}`,
       )
@@ -56,6 +59,21 @@ describe.skipIf(!databaseUrl)("operator-owned sandbox images", () => {
         .from(sandboxProvider)
         .where(eq(sandboxProvider.id, row!.id))
       expect(stored?.options).toEqual({ image: "customer/untrusted:latest" })
+      const result = await runtime.runPromise(
+        Effect.flatMap(SandboxProviders, (providers) =>
+          providers.testConnection({ ...input, lockVersion: row!.lockVersion }),
+        ),
+      )
+      expect(result.status).toBe("failure")
+      const [tested] = await db
+        .select()
+        .from(sandboxProvider)
+        .where(eq(sandboxProvider.id, row!.id))
+      expect(tested).toMatchObject({
+        options: {},
+        lastTest: result,
+        lockVersion: row!.lockVersion + 1,
+      })
     },
   )
 })
