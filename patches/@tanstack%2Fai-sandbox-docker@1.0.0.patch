@@ -1,35 +1,21 @@
 diff --git a/dist/esm/handle.js b/dist/esm/handle.js
-index 5dee72fa7afa561fdaad264e1f975295033dc110..a0187b877c59cfb1b34ad8dc627f31dc906d8f3d 100644
 --- a/dist/esm/handle.js
 +++ b/dist/esm/handle.js
-@@ -310,9 +310,9 @@ var DockerHandle = class {
- 		return parseLstatOutput(r.stdout);
- 	}
- 	envArray(extra) {
+@@ -312,0 +313,2 @@
 +		// Remove when the adapter inherits the container environment without replacing PATH and HOME.
 +		// https://github.com/TanStack/ai/blob/main/packages/ai-sandbox-docker/src/handle.ts
- 		return Object.entries({
+@@ -314,2 +315,0 @@
 -			PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 -			HOME: "/root",
- 			...this.envVars,
- 			...extra
- 		}).map(([k, v]) => `${k}=${v}`);
 diff --git a/src/handle.ts b/src/handle.ts
-index 9f5619062c6ab419ef7135615aaf03efe8be9de3..b25a980ff58de25b4e2a04a3f780217fa6530863 100644
 --- a/src/handle.ts
 +++ b/src/handle.ts
-@@ -476,12 +476,9 @@ export class DockerHandle implements SandboxHandle {
-   }
- 
-   private envArray(extra?: Record<string, string>): Array<string> {
+@@ -479,3 +479,2 @@
 -    // Docker `exec` Env replaces the container env. Keep a PATH and HOME so
 -    // CLIs still resolve and `~/.claude` has a home when secrets are the only
 -    // other vars.
 +    // Remove when the adapter inherits the container environment without replacing PATH and HOME.
 +    // https://github.com/TanStack/ai/blob/main/packages/ai-sandbox-docker/src/handle.ts
-     return Object.entries({
+@@ -483,2 +481,0 @@
 -      PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
 -      HOME: '/root',
-       ...this.envVars,
-       ...extra,
-     }).map(([k, v]) => `${k}=${v}`)
