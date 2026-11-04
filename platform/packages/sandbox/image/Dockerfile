@@ -33,6 +33,7 @@ FROM base
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/
 COPY --from=node-runtime /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=node-runtime /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 COPY --from=git-runtime /opt/git /opt/git
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
