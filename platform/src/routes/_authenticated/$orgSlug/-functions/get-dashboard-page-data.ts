@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
+import { ChatThreads } from "@/lib/chat/threads/threads"
 import { ModelProviders } from "@/lib/model-providers/model-providers.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { Organizations } from "@/lib/organizations/organizations.server"
@@ -16,8 +17,13 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         // Counting only what this role may read makes the serialized payload the authorization
         // boundary, rather than the cards the browser chooses to render.
-        const { counts, modelSetup } = yield* Effect.all(
+        const { counts, modelSetup, hasAppReply } = yield* Effect.all(
           {
+            hasAppReply: context.permissions.readTenants
+              ? Effect.flatMap(ChatThreads, (threads) =>
+                  threads.hasCompletedReply({ organizationId: context.organizationId }),
+                )
+              : Effect.succeed(null),
             counts: Effect.flatMap(Organizations, (organizations) =>
               organizations.resourceCounts({
                 organizationId: context.organizationId,
@@ -33,7 +39,7 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
           { concurrency: "unbounded" },
         )
         return {
-          data: { organizationName: context.organizationName, counts, modelSetup },
+          data: { organizationName: context.organizationName, counts, modelSetup, hasAppReply },
           permissions: context.permissions,
         }
       }),

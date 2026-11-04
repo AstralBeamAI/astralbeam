@@ -435,7 +435,7 @@ function IntegrationChecklistWidget() {
       organizationSlug={organizationSlug}
       modelSetup={page.modelSetup}
       usableApiKeyCount={page.counts.usableApiKeys}
-      hasConversations={page.counts.hasConversations}
+      hasAppReply={page.hasAppReply}
       permissions={permissions}
     />
   )
