@@ -1083,6 +1083,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
 
   test("final reasoning can precede streamed text without replacing its part identity", async () => {
     const thread = await create()
+    const hasReply = service.hasCompletedReply({ organizationId: scope.organizationId })
+    expect(await runtime.runPromise(hasReply)).toBe(false)
     const accepted = await admit(thread.id)
     const streamed = {
       ...payload,
@@ -1104,7 +1106,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(
       service.checkpoint({ claim: accepted.claim!, payload: final, state: "complete" }),
     )
+    expect(await runtime.runPromise(hasReply)).toBe(false)
     await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+    expect(await runtime.runPromise(hasReply)).toBe(true)
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(history[1]!.payload.parts).toEqual(final.parts)
     expect(history[1]!.state).toBe("complete")

@@ -31,7 +31,7 @@ import {
   chatParticipant,
   chatFile,
 } from "@/db/schema/chat"
-import type { TenantId, TenantUserId } from "@/db/schema/organizations"
+import type { OrganizationId, TenantId, TenantUserId } from "@/db/schema/organizations"
 import {
   TenantUserIdSchema,
   tenant,
@@ -957,6 +957,9 @@ const appendResults = Effect.fnUntraced(function* (
 export class ChatThreads extends Context.Service<
   ChatThreads,
   {
+    readonly hasCompletedReply: (input: {
+      organizationId: OrganizationId
+    }) => Effect.Effect<boolean>
     readonly directoryList: (
       input: DatabasePageOptions & { scope: TenantScope; search?: string | undefined },
     ) => Effect.Effect<DatabasePage<DirectoryThreadRecord>>
@@ -1049,6 +1052,28 @@ export class ChatThreads extends Context.Service<
       const db = yield* Database
       const files = yield* ChatFiles
       const storedFiles = yield* StoredFiles
+      const hasCompletedReply = Effect.fn("ChatThreads.hasCompletedReply")(function* (input: {
+        organizationId: OrganizationId
+      }) {
+        const [result] = yield* db.execute<{ value: boolean }>(
+          sql`select exists (
+            select 1 from chat_message reply
+            join chat_message input on input.id = reply.turn_message_id
+              and input.organization_id = reply.organization_id
+              and input.tenant_id = reply.tenant_id and input.thread_id = reply.thread_id
+            join chat_message_part part on part.message_id = reply.id
+              and part.organization_id = reply.organization_id
+              and part.tenant_id = reply.tenant_id and part.thread_id = reply.thread_id
+            where reply.organization_id = ${input.organizationId}
+              and reply.role = 'assistant' and reply.state = 'complete'
+              and input.turn_state = 'completed'
+              and part.payload->>'type' = 'text'
+              and part.payload->>'content' ~ '[^[:space:]]'
+          ) as value`,
+          "objects",
+        )
+        return result!.value
+      }, Effect.orDie)
       const readSnapshot = <A, E, R>(read: (tx: Executor) => Effect.Effect<A, E, R>) =>
         db
           .transaction(read, { isolationLevel: "repeatable read", accessMode: "read only" })
@@ -1892,6 +1917,7 @@ export class ChatThreads extends Context.Service<
       )
 
       return ChatThreads.of({
+        hasCompletedReply,
         directoryList,
         directorySnapshot,
         directoryGet,

@@ -17,7 +17,7 @@ export function DashboardIntegrationGuide({
   organizationSlug,
   modelSetup,
   usableApiKeyCount,
-  hasConversations,
+  hasAppReply,
   permissions,
 }: {
   organizationId: string
@@ -29,7 +29,7 @@ export function DashboardIntegrationGuide({
     defaultAgentId: string | null
   } | null
   usableApiKeyCount: number | null
-  hasConversations: boolean | null
+  hasAppReply: boolean | null
   permissions: Pick<
     OrganizationPermissions,
     "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
@@ -82,7 +82,7 @@ export function DashboardIntegrationGuide({
     },
     {
       title: "Embed and verify in your app",
-      complete: hasConversations === true,
+      complete: hasAppReply === true,
       description:
         "Copy the prompt into your coding agent, or follow the quickstart to authenticate your app’s users and mount the widget.",
       link: { href: "/docs/start/quickstart" },
@@ -118,7 +118,7 @@ export function DashboardIntegrationGuide({
       return {
         title: "Connect your app",
         description:
-          "Your configuration is in place. Verify a reply and an action in your own app.",
+          "Your agent is configured. Setup completes after a successful reply in your app.",
       }
     return {
       title: "Set up your first agent",
@@ -218,7 +218,7 @@ export function DashboardIntegrationGuide({
                     {step.visible &&
                       (step.onClick ? (
                         <Button type="button" className={actionClassName} onClick={step.onClick}>
-                          {step.action}
+                          {index === nextStep ? "Continue setup" : step.action}
                         </Button>
                       ) : "href" in step.link ? (
                         <DocsLink
@@ -227,11 +227,11 @@ export function DashboardIntegrationGuide({
                           preload="intent"
                           className={cn(actionClassName, "no-underline")}
                         >
-                          {step.action}
+                          {index === nextStep ? "Continue setup" : step.action}
                         </DocsLink>
                       ) : (
                         <Link {...step.link} className={actionClassName}>
-                          {step.action}
+                          {index === nextStep ? "Continue setup" : step.action}
                         </Link>
                       ))}
                   </div>

@@ -21,11 +21,6 @@ function DashboardPage() {
   const { orgSlug } = Route.useParams()
   const { organization } = Route.useRouteContext()
   const { data, permissions } = Route.useLoaderData()
-  const configured =
-    data.modelSetup !== null &&
-    data.modelSetup.defaultAgentModelCount > 0 &&
-    (data.counts.usableApiKeys ?? 0) > 0
-
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="space-y-1">
@@ -36,17 +31,16 @@ function DashboardPage() {
             : "View your organization’s setup and customer activity."}
         </p>
       </div>
-      {configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
       <DashboardIntegrationGuide
         key={orgSlug}
         organizationId={organization.organizationId}
         organizationSlug={orgSlug}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}
-        hasConversations={data.counts.hasConversations}
+        hasAppReply={data.hasAppReply}
         permissions={permissions}
       />
-      {!configured && <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />}
+      <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />
     </div>
   )
 }
