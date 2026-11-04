@@ -19,12 +19,34 @@ The connection test creates a sandbox, runs a command, and destroys it. A cold i
 | Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
 | Docker | Image, default `node:22`. Available when the configured Docker daemon responds. | None |
 | E2B | Template name or ID, default `base`. | API key |
+| Microsandbox | OCI image, default `python:3.13-slim`. Available when installed and supported by the host. | None |
 | Sprites | None. | API token |
 | Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
 
 Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
 
 Unavailable local providers stay hidden from choices. Existing connections can still be renamed or switched to another provider. Operators can disable local providers through the [environment](../self-hosting/deploy.md#3-set-the-bootstrap-environment).
+
+## Microsandbox
+
+Microsandbox runs microVMs on the Platform host without an API key. The host needs Apple Silicon on macOS, accessible KVM on Linux, or Windows Hypervisor Platform on Windows.
+
+1. [Install or build Platform](../self-hosting/deploy.md#1-get-a-release-binary) first. Stop it if it is running, then prepare Microsandbox from the same working directory and environment as the server:
+
+   ```sh
+   astralbeam-platform bootstrap --microsandbox
+   ```
+
+   For a new installation without PostgreSQL, use `bootstrap --embeddedpg --microsandbox` as described in [local setup](../self-hosting/deploy.md#embedded-postgresql). Source builds produce `platform/.output/astralbeam-platform`. Use that executable's path in place of `astralbeam-platform`.
+
+2. Start Platform with `astralbeam-platform start`, keeping the same working directory and data directory. Each startup runs a one-second `msb doctor` check without installing anything. Failed checks leave Microsandbox unavailable while Platform continues booting. This checks host prerequisites. The connection test proves a VM can boot and execute code.
+3. Open **Sandboxes → Add provider**, choose **Microsandbox**, and keep `python:3.13-slim` or enter another OCI image. Choose **Test and save**. The first test downloads the image and boots a temporary VM. Then select the saved connection on your [agent](./agents.md#sandboxes) and save its settings.
+
+If Microsandbox is missing from the dropdown, check the startup console for `Sandbox Microsandbox: available` and any host-check failure. Confirm bootstrap and start use the same `ASTRALBEAM_DATA_DIR` and `MICROSANDBOX_DISABLED` is unset. Vite's development server does not run these CLI startup checks.
+
+The default image includes Python and pip, but no Node.js or Office-processing libraries. Agents can install packages inside the VM. For repeatable startup without those downloads, use an image with the tools and libraries your agents need already installed.
+
+Microsandbox is enabled automatically when its installed runtime passes the startup check, unless `MICROSANDBOX_DISABLED=true`. Workspaces have a one-hour maximum lifetime. Snapshots, forks, and port forwarding are unavailable.
 
 ## Connection tests
 

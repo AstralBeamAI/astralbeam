@@ -6,5 +6,9 @@ export async function getAvailableSandboxProviderIds() {
   const dockerAvailable =
     process.env.DOCKERSANDBOX_DISABLED !== "true" &&
     (await import("@astralbeam/sandbox").then((module) => module.DockerSandbox.available()))
-  return SANDBOX_PROVIDER_IDS.filter((provider) => provider !== "docker" || dockerAvailable)
+  return SANDBOX_PROVIDER_IDS.filter(
+    (provider) =>
+      (provider !== "docker" || dockerAvailable) &&
+      (provider !== "microsandbox" || Boolean(process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK)),
+  )
 }

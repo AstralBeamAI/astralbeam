@@ -18,6 +18,7 @@ bun run --cwd examples/todos e2e
 - `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
 - The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
 - `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
+- To exercise Microsandbox, prepare it once with `astralbeam-platform bootstrap --microsandbox`, start Platform normally, select its connection on the seeded Todos Assistant, then run `E2E_PLATFORM_URL=http://localhost:4510 E2E_SANDBOX=microsandbox bun run --cwd examples/todos e2e sandbox.spec.ts --project=agent`. Storage CORS must allow the Todo app's origin for artifact downloads.
 
 The suite starts its own platform and todos servers on ports derived from the worktree path, so it never touches the 4500 and 4700 development servers and two worktrees can run at once. Set `E2E_PLATFORM_URL` and `E2E_TODOS_URL` to test servers you are already running instead.
 

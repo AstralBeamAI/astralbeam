@@ -1,5 +1,7 @@
 # Setup
 
+To try Platform without a contributor environment, use the [standalone binary with embedded PostgreSQL](../platform/src/routes/docs/-content/self-hosting/deploy.md#embedded-postgresql). The steps below are for working on the source and running the example apps.
+
 ## Host prerequisites
 
 Install Git, curl, and unzip. Setup installs the Bun version pinned in [`.bun-version`](../.bun-version), including when another version is already installed. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
@@ -30,7 +32,7 @@ The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentia
 
 ### Local services
 
-`platform/.env.development` sets `ASTRALBEAM_DATA_DIR=.data/astralbeam`. Setup and project tasks run from `platform`, giving each checkout its own Git-ignored `platform/.data/astralbeam/` directory for uploads, embedded PostgreSQL downloads, database files, and credentials. Data survives restarts. Override the directory through the shell or `platform/.env.development.local`. Production retains the OS data directory default.
+`platform/.env.development` sets `ASTRALBEAM_DATA_DIR=.data/astralbeam`. Setup and project tasks run from `platform`, giving each checkout its own Git-ignored `platform/.data/astralbeam/` directory for uploads, embedded PostgreSQL, Microsandbox, and credentials. Data survives restarts. Override the directory through the shell or `platform/.env.development.local`. Production retains the OS data directory default.
 
 New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage), `platform/.data/astralbeam/storage/` in development. Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
 
@@ -62,6 +64,12 @@ bun run dev
 The [Rails example](../examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 4800. Reload examples after SDK changes so they use the rebuilt output.
 
 For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](../CONTRIBUTING.md#validate-your-change) before opening a PR.
+
+#### Try sandbox tools
+
+Ordinary chat needs a model connection, but no sandbox. The seed prints verified dashboard accounts, so signing in needs no email service. To try code execution and binary file uploads in Todos, configure a [sandbox provider](../platform/src/routes/docs/-content/dashboard/sandboxes.md) and select it on **Acme Inc → Agents → Todos Assistant**. The seeded Docker connection works when its daemon is reachable.
+
+For Microsandbox, use the [standalone binary setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). The Platform CLI runs its native host checks at startup. Vite's `dev` task does not, so installing Microsandbox alone will not add it to that development server's provider choices. [Build the binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) to test unreleased changes. A separate standalone installation has its own database and needs model and agent setup, rather than the contributor seed.
 
 #### Port allocation
 

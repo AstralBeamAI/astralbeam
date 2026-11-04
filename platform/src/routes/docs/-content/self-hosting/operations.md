@@ -6,7 +6,7 @@ The binary’s database commands use the same database selection as `start`. Sto
 
 ## HTTP workers
 
-`WORKERS` defaults to `auto`: one server process per available CPU on Linux, plus a supervisor. macOS and Windows use one process. Set `WORKERS=1` to disable supervision or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
+`WORKERS` defaults to `auto`: one HTTP worker per available CPU on Linux, plus a supervisor. macOS and Windows use one HTTP worker. Set `WORKERS=1` for a single worker or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`. Microsandbox also uses a supervisor with one worker.
 
 Linux workers share the public HTTP port. Leave `CLUSTER_RUNNER_PORT` unset or `0` for distinct private runner ports. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with backoff capped at 30 seconds, and workers exit if their supervisor dies.
 
@@ -56,8 +56,9 @@ bun run --cwd platform db migrate
 | `embedded-postgres.json` | Private database credentials and the generated encryption key, when present. Preserve with the database |
 | `runtime-<version>-<platform>-<arch>/` | Embedded PostgreSQL supervisor executable |
 | `postgres-cache/` | PostgreSQL executables and supporting libraries |
+| `microsandbox/` | Installed SDK, cached images, and temporary VM state |
 
-The embedded PostgreSQL runtime can be prepared again with `bootstrap --embeddedpg`. Later starts reuse its cache, and the launcher can fetch a missing PostgreSQL distribution. Original attachments and published artifacts use configured file storage. Docker keeps its data with its configured daemon.
+The embedded PostgreSQL runtime can be prepared again with `bootstrap --embeddedpg`. Later starts reuse its cache, and the launcher can fetch a missing PostgreSQL distribution. Prepare Microsandbox with `bootstrap --microsandbox`. Its workspaces are temporary. Original attachments and published artifacts use configured file storage and do not depend on preserving VM state. Docker keeps its data with its configured daemon.
 
 ## Backups and restore
 

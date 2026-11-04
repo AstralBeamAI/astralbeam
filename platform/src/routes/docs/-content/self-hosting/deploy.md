@@ -65,14 +65,16 @@ To build for the host architecture, run `docker build -f platform/Dockerfile -t 
 
 ## Embedded PostgreSQL
 
-Embedded PostgreSQL is **experimental**. [Install the Platform binary](#1-get-a-release-binary), then prepare PostgreSQL 18 (roughly 90 MB) once with `bootstrap --embeddedpg`. With `DATABASE_URL` unset, bootstrap initializes a private database and applies migrations. Run without root privileges:
+Embedded PostgreSQL is **experimental**. To try Platform locally without a separate database server, [install or build the Platform binary](#1-get-a-release-binary). From an empty directory, with `DATABASE_URL` unset, let's prepare PostgreSQL 18 (roughly 90 MB) and apply migrations. Run without root privileges:
 
 ```sh
 astralbeam-platform bootstrap --embeddedpg
-astralbeam-platform start
+HOST=127.0.0.1 astralbeam-platform start
 ```
 
 Open `http://localhost:4510/configure` and sign in with `encryptionKey` from `embedded-postgres.json` in the data directory. [Complete setup](#6-complete-setup). Bootstrap enables local HTTP for a new deployment. Use HTTPS for production.
+
+Run later commands from that same directory so Platform finds the generated `.env`. No Bun, Docker, or separate storage service is needed. Owner onboarding still needs [email delivery](./configuration.md#email-delivery), and chat needs a model-provider connection. Sandbox tools are optional. To prepare [Microsandbox](../dashboard/sandboxes.md#microsandbox) at the same time, add `--microsandbox` to the bootstrap command, then select its connection on your agent.
 
 PostgreSQL lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Keep the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
 
@@ -154,14 +156,15 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
+| `MICROSANDBOX_DISABLED` | No | Set `true` to disable automatic Microsandbox availability. Prepare its runtime once with `bootstrap --microsandbox` |
 | `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL and file storage. Containers use `/var/lib/astralbeam` |
+| `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL, Microsandbox, and file storage. Containers use `/var/lib/astralbeam` |
 | `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
 | `SKIP_EMAIL_VERIFICATION` | No | Set exactly `true` to skip password email verification and sign new users in immediately. Defaults to `false` when unset. Bootstrap supplies `true` for new deployments and preserves verification for existing deployments. Set `false` for public hosting |
 | `PORT` | No | TCP port to listen on. Defaults to `4510` |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
-| `WORKERS` | No | Defaults to `auto`: one process per available CPU on Linux, one on macOS and Windows. Set a positive count on Linux, or `1` to disable supervision. See [worker sizing](./operations.md#http-workers) |
+| `WORKERS` | No | Defaults to `auto`: one HTTP worker per available CPU on Linux, one on macOS and Windows. Set a positive count on Linux, or `1` for one worker. See [worker sizing](./operations.md#http-workers) |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Native binary bootstrap supplies `true` for new deployments. Set `false` for TLS. See [Security](./security.md#https-and-response-headers) |

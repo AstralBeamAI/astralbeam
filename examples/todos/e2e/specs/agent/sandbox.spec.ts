@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
+import process from "node:process"
 
 import { captureMoment } from "../../capture.ts"
 import { expect, test } from "../../fixtures.ts"
 
-// These tests use the seed's Docker connection.
+// E2E_SANDBOX=microsandbox uses an enabled Platform with its seeded Todos Assistant switched
+// to Microsandbox. Otherwise these tests use the seed's Docker connection.
 
 function dockerDaemonIsReachable(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
@@ -12,8 +14,8 @@ function dockerDaemonIsReachable(): boolean {
 
 test.describe("with a configured sandbox", () => {
   test.skip(
-    () => !dockerDaemonIsReachable(),
-    "No Docker daemon answered `docker info`; start Docker to run the sandbox specs.",
+    () => process.env.E2E_SANDBOX !== "microsandbox" && !dockerDaemonIsReachable(),
+    "Start Docker, or use E2E_SANDBOX=microsandbox with a configured Microsandbox agent.",
   )
 
   test("pages sandbox text and downloads the saved artifact", async ({ page, chat }) => {

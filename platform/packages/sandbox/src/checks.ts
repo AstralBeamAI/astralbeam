@@ -1,5 +1,9 @@
 import type { SandboxHandle, SandboxProvider } from "@tanstack/ai-sandbox"
 
+import { execFile } from "node:child_process"
+import process from "node:process"
+import { promisify } from "node:util"
+
 type CheckAction = "create-sandbox" | "execute-test" | "destroy-sandbox"
 type CheckOptions = { signal?: AbortSignal }
 
@@ -104,6 +108,27 @@ export async function dockerAvailable(): Promise<boolean> {
     }) => Promise<unknown>
     return String(await ping({ abortSignal: AbortSignal.timeout(1_000) })) === "OK"
   } catch {
+    return false
+  }
+}
+
+export async function microsandboxAvailable(): Promise<boolean> {
+  const executable = process.env.MSB_PATH ?? "msb"
+  try {
+    await promisify(execFile)(executable, ["doctor"], {
+      env: { ...process.env, NO_COLOR: "1" },
+      timeout: 1_000,
+      killSignal: "SIGKILL",
+      maxBuffer: 64 * 1024,
+      windowsHide: true,
+    })
+    return true
+  } catch (cause) {
+    const error = cause as Error & { killed?: boolean; stdout?: string; stderr?: string }
+    const diagnostic = error.killed
+      ? "Doctor exceeded its one-second timeout."
+      : `${error.stdout ?? ""}${error.stderr ?? ""}`.trim() || error.message
+    console.error(`Microsandbox host check failed: ${diagnostic}`)
     return false
   }
 }
