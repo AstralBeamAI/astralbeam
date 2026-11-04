@@ -1,14 +1,21 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA while removing unconfigured passkey, last-login, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration. Improve onboarding copy, layout, and form guidance.
+// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA and last-login hints while removing unconfigured passkey, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration. Improve onboarding copy, layout, and form guidance.
 
 "use client"
 
 import { authMutationKeys, getAuthLinkURL } from "@better-auth-ui/core"
-import { AuthPrompts, useAuth, useFetchOptions, useSignInEmail } from "@better-auth-ui/react"
+import {
+  AuthPrompts,
+  useAuth,
+  useFetchOptions,
+  useLastLoginMethod,
+  useSignInEmail,
+} from "@better-auth-ui/react"
 import { useIsMutating } from "@tanstack/react-query"
 import { type SyntheticEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -56,6 +63,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   } = useAuth()
 
   const invitation = getInvitationContext(redirectTo)
+  const lastLogin = useLastLoginMethod()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
 
@@ -254,6 +262,9 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                     {signInEmailPending && <Spinner />}
 
                     {localization.auth.signIn}
+                    {lastLogin.method === "email" && (
+                      <Badge variant="secondary">{lastLogin.localization.lastUsed}</Badge>
+                    )}
                   </Button>
                 </div>
               </FieldGroup>
