@@ -38,5 +38,4 @@ RUN uv --no-cache python install \
         reportlab requests xlrd xlsxwriter \
     && pip check
 
-WORKDIR /workspace
 CMD ["sleep", "infinity"]
