@@ -72,10 +72,7 @@ function DocsMarkdownTable(props: MarkdownComponentProps<"table">) {
   )
 }
 
-/**
- * Renders one docs page. Same-folder `./page.md` links, the form the Markdown sources use so
- * they stay readable on GitHub, are routed to the page's docs URL instead.
- */
+// Relative Markdown links stay readable on GitHub and navigate to rendered docs in Platform.
 export function DocsMarkdown({
   markdown,
   sectionSlug,
@@ -102,13 +99,13 @@ export function DocsMarkdown({
     ),
     table: DocsMarkdownTable,
     a: ({ href, children, ...props }: MarkdownComponentProps<"a">) => {
-      const relative = href?.match(/^\.\/([\w-]+)\.md(?:#(.*))?$/)
+      const relative = href?.match(/^(?:\.\/|\.\.\/([\w-]+)\/)([\w-]+)\.md(?:#(.*))?$/)
       if (relative) {
         return (
           <Link
             to="/docs/$section/$page"
-            params={{ section: sectionSlug, page: relative[1]! }}
-            hash={relative[2] ?? ""}
+            params={{ section: relative[1] ?? sectionSlug, page: relative[2]! }}
+            hash={relative[3] ?? ""}
             title={props.title}
             className={docsLinkClass}
           >
