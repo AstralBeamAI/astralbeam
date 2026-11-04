@@ -1,36 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM debian:stable AS base
-
-FROM base AS build
-
-COPY --from=node:lts /usr/local/bin/node /usr/local/bin/
-
-# NO_PERL keeps Git's core commands without Debian's full Perl dependency.
-# https://github.com/git/git/blob/master/Makefile
-RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential libcurl4-openssl-dev libexpat1-dev libpcre2-dev libssl-dev zlib1g-dev \
-    && mkdir /build && cd /build \
-    && apt-get source git \
-    && cd git-* \
-    && printf '%s\n' 'prefix=/usr/local' 'NO_PERL=1' 'NO_TCLTK=1' 'NO_GETTEXT=1' \
-        'USE_LIBPCRE2=1' 'PYTHON_PATH=/usr/local/bin/python' > config.mak \
-    && dpkg-buildflags --export=make >> config.mak \
-    && make -j"$(nproc)" \
-    && make strip \
-    && make DESTDIR=/opt/git install \
-    && install -Dm644 debian/copyright /opt/git/usr/local/share/doc/git/copyright \
-    && strip --strip-unneeded /usr/local/bin/node
-
-FROM base
+FROM debian:stable
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-COPY --from=build /usr/local/bin/node /usr/local/bin/
+COPY --from=node:lts /usr/local/bin/node /usr/local/bin/
 COPY --from=node:lts /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 COPY --from=node:lts /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
-COPY --from=build /opt/git/usr/local/ /usr/local/
 
 LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
 
@@ -39,8 +14,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         7zip ca-certificates curl file \
         fonts-dejavu-core fonts-liberation \
-        gawk jq less patch procps ripgrep rsync sqlite3 \
-        libcurl4t64 libexpat1 libpcre2-8-0 libssl3t64 zlib1g \
+        gawk git jq less patch procps ripgrep rsync sqlite3 \
         time unzip wget xz-utils zip \
         poppler-utils qpdf tesseract-ocr tesseract-ocr-eng \
     && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
