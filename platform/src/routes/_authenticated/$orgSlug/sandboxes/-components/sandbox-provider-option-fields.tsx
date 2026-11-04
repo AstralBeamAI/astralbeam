@@ -24,13 +24,18 @@ export function SandboxProviderOptionFields({
   errorsFor,
   onChange,
 }: SandboxProviderOptionFieldsProps) {
-  if (provider === "docker") {
-    const value = options as SandboxProviderOptions["docker"]
+  if (provider === "docker" || provider === "microsandbox") {
+    const value = options as SandboxProviderOptions[typeof provider]
     return (
       <ProviderField
-        id="docker-image"
+        id={`${provider}-image`}
         label="Image"
         value={value.image}
+        description={
+          provider === "microsandbox"
+            ? "Runs on the Platform host. The first connection test downloads this image."
+            : ""
+        }
         errors={errorsFor("image")}
         maximumLength={256}
         disabled={disabled}

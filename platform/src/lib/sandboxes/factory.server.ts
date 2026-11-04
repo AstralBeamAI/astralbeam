@@ -1,4 +1,5 @@
 import type { SandboxConnection } from "@astralbeam/sandbox"
+import process from "node:process"
 import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
@@ -35,6 +36,11 @@ const factories: {
   },
   e2b: ({ E2BSandbox }, configuration) =>
     new E2BSandbox({ ...configuration.options, ...configuration.credentials }),
+  microsandbox: ({ Microsandbox }, configuration) => {
+    const sdkPath = process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
+    if (!sdkPath) throw new Error("Microsandbox is not enabled on this server")
+    return new Microsandbox({ ...configuration.options, sdkPath })
+  },
   sprites: ({ SpritesSandbox }, configuration) =>
     new SpritesSandbox({ ...configuration.options, ...configuration.credentials }),
   vercel: ({ VercelSandbox }, configuration) =>

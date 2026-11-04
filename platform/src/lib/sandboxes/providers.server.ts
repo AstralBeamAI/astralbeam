@@ -107,7 +107,7 @@ function readStoredCredentials(
   row: SandboxProviderRow,
   storedCredentials: string | null,
 ): Option.Option<SandboxProviderCredentials[SandboxProviderId]> {
-  if (row.providerType === "docker")
+  if (row.providerType === "docker" || row.providerType === "microsandbox")
     return storedCredentials === null ? Option.some({}) : Option.none()
   const decrypted = decryptDatabaseValue({
     storedValue: storedCredentials,
@@ -129,7 +129,7 @@ function credentialsPayload(input: {
   provider: SandboxProviderId
   credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
-  return input.provider === "docker"
+  return input.provider === "docker" || input.provider === "microsandbox"
     ? null
     : {
         sandboxProviderId: input.id,

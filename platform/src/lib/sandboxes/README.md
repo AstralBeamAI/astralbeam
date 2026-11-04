@@ -1,20 +1,24 @@
 # Sandbox providers
 
-Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or Vercel. Each uses a maintained adapter from the official [TanStack AI sandbox provider list](https://tanstack.com/ai/latest/docs/sandbox/providers). Deno Sandbox and other providers are outside this initial set.
+Organization owners and developers can choose Daytona, Docker, E2B, Sprites, or Vercel through the maintained [TanStack AI adapters](https://tanstack.com/ai/latest/docs/sandbox/providers), or Microsandbox through the private workspace's adapter.
 
 Each organization can store multiple named sandbox providers, including multiple configurations for the same vendor. Public initializer options remain readable for editing, credentials are encrypted separately, and the factory passes both to the corresponding TanStack initializer without renaming or reinterpretation.
 
-Each packaged provider has static `available()` and instance `valid({ signal })` methods. External providers are always available. Docker pings its daemon without pulling an image. `valid()` returns `true` after creating a sandbox, verifying execution, and destroying it, or throws on failure. Creation allows two minutes, execution and cleanup each allow fifteen seconds. Platform owns authorization, result metadata, and safe error messages.
+Each packaged provider exposes two checks:
 
-Startup runs availability checks concurrently with database preparation and prints each provider's status to the console.
+- Static `available()` checks host prerequisites without creating a sandbox. External providers return `true` without checking credentials. Docker pings its daemon. Microsandbox runs `doctor` against its installed runtime without pulling an image.
+- Instance `valid({ signal })` creates a sandbox, verifies execution, and destroys it. It returns `true` on success or throws on failure. Creation allows two minutes. Execution and cleanup each allow fifteen seconds.
+
+Platform owns authorization, result metadata, and safe error messages. The CLI runs availability checks concurrently with database preparation and prints each provider's status. Workers inherit the Microsandbox result without repeating its host check.
 
 ```ts
 import { DockerSandbox } from "@astralbeam/sandbox"
 
-const connection = new DockerSandbox({ image: "node:22" })
-await DockerSandbox.available()
-await connection.valid()
-const provider = await connection.provider // TanStack SandboxProvider
+if (await DockerSandbox.available()) {
+  const connection = new DockerSandbox({ image: "node:22" })
+  await connection.valid()
+  const provider = await connection.provider // TanStack SandboxProvider
+}
 ```
 
 | Provider | Package | Stored initializer options | Encrypted credential |
@@ -22,6 +26,7 @@ const provider = await connection.provider // TanStack SandboxProvider
 | Daytona | [`@tanstack/ai-sandbox-daytona`](https://www.npmjs.com/package/@tanstack/ai-sandbox-daytona) | `target`, `snapshot` | `apiKey` |
 | Docker | [`@tanstack/ai-sandbox-docker`](https://www.npmjs.com/package/@tanstack/ai-sandbox-docker) | `image` | None |
 | E2B | [`@tanstack/ai-sandbox-e2b`](https://www.npmjs.com/package/@tanstack/ai-sandbox-e2b) | `template` | `apiKey` |
+| Microsandbox | Private workspace adapter | `image` | None |
 | Sprites | [`@tanstack/ai-sandbox-sprites`](https://www.npmjs.com/package/@tanstack/ai-sandbox-sprites) | None | `apiKey` |
 | Vercel | [`@tanstack/ai-sandbox-vercel`](https://www.npmjs.com/package/@tanstack/ai-sandbox-vercel) | `teamId`, `projectId`, `runtime` | `token` |
 
@@ -40,6 +45,12 @@ Defaults only populate a new organization form. Once saved, the database values 
 2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
 4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, enter a trusted image, and select **Test and save**. The default is the TanStack-documented `node:22`. Docker pulls it when absent.
+
+## Microsandbox setup
+
+Follow the [operator setup](../../routes/docs/-content/dashboard/sandboxes.md#microsandbox). Microsandbox is independent of Docker and the database choice.
+
+[`platform/scripts/microsandbox-runtime.ts`](../../../scripts/microsandbox-runtime.ts) downloads the pinned SDK and native runtime during bootstrap. Startup checks the cached runtime without downloading it. The private workspace adapter accepts only OCI image references, so organization settings cannot select a host directory as the guest filesystem. Vite does not run this CLI preparation.
 
 ## E2B setup
 

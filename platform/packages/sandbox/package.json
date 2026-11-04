@@ -18,6 +18,7 @@
     "@tanstack/ai-sandbox-sprites": "^1.0.0",
     "@tanstack/ai-sandbox-vercel": "^1.0.0",
     "@types/dockerode": "^4.0.2",
-    "dockerode": "^5.0.1"
+    "dockerode": "^5.0.1",
+    "microsandbox": "0.7.13"
   }
 }

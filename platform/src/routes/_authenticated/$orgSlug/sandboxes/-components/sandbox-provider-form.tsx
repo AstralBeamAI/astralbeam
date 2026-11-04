@@ -211,6 +211,12 @@ export function SandboxProviderForm({
             <FieldDescription>
               <DocsLink href={descriptor.setupUrl}>Provider setup guide</DocsLink>
             </FieldDescription>
+            <FieldDescription>
+              Local providers appear when their host checks pass.{" "}
+              <DocsLink href="/docs/dashboard/sandboxes#local-providers">
+                Check local setup
+              </DocsLink>
+            </FieldDescription>
           </Field>
 
           <SandboxProviderOptionFields

@@ -32,6 +32,12 @@ const SANDBOX_PROVIDER_DESCRIPTORS = {
     setupUrl: "https://docs.sprites.dev/cli/authentication/",
     credentialLabel: "API token",
   },
+  microsandbox: {
+    id: "microsandbox",
+    label: "Microsandbox",
+    setupUrl: "/docs/dashboard/sandboxes#microsandbox",
+    credentialLabel: null,
+  },
   vercel: {
     id: "vercel",
     label: "Vercel",
