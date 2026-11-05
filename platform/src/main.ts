@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
 import {
   chmodSync,
@@ -12,6 +13,7 @@ import {
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 import { Command, Option } from "commander"
 import { Client } from "pg"
@@ -144,10 +146,44 @@ async function preparePlatformMicrosandbox(): Promise<boolean> {
   }
 }
 
+async function validatePlatformMicrosandboxInChild(): Promise<void> {
+  // Until Bun propagates process.env to native addons, validate with the prepared OS environment.
+  // https://github.com/superradcompany/microsandbox/blob/v0.7.13/sdk/rust/lib/config/mod.rs
+  const entry = Bun.isStandaloneExecutable ? [] : [fileURLToPath(import.meta.url)]
+  const child = spawn(process.execPath, [...entry, "_validate-microsandbox"], {
+    env: process.env,
+    stdio: ["ignore", "inherit", "inherit", "ipc"],
+  })
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.once("error", reject)
+    child.once("exit", resolve)
+  })
+  if (code !== 0) throw new Error("Microsandbox validation process failed")
+}
+
+async function validatePlatformMicrosandbox(): Promise<void> {
+  const sdkPath = process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
+  if (!sdkPath) throw new Error("Microsandbox runtime is not prepared")
+  const controller = new AbortController()
+  const stop = () => controller.abort()
+  const signals = ["SIGINT", "SIGTERM", "disconnect"] as const
+  for (const signal of signals) process.once(signal, stop)
+  try {
+    if (!process.connected) throw new Error("Microsandbox validation requires a bootstrap parent")
+    const { Microsandbox } = await import("@astralbeam/sandbox")
+    await new Microsandbox({ image: getLocalSandboxImage(), sdkPath }).valid({
+      signal: controller.signal,
+    })
+  } finally {
+    for (const signal of signals) process.off(signal, stop)
+    if (process.connected) process.disconnect?.()
+  }
+}
+
 async function preparePlatformSandboxes({ prepareImages = false } = {}): Promise<void> {
   if (process.env.__ASTRALBEAM_INTERNAL_WORKER_ID !== undefined) return
   delete process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
-  const { DockerSandbox, Microsandbox, SandboxConnection } = await import("@astralbeam/sandbox")
+  const { DockerSandbox, SandboxConnection } = await import("@astralbeam/sandbox")
   // External providers inherit this check without initializing their SDKs or credentials.
   const checks = [
     ["Daytona", SandboxConnection.available()],
@@ -191,15 +227,9 @@ async function preparePlatformSandboxes({ prepareImages = false } = {}): Promise
           await pullMicrosandboxImage({ directory: getDataDirectory(), image })
         }
         if (required) {
-          const connection =
-            name === "Docker"
-              ? new DockerSandbox({ image })
-              : new Microsandbox({
-                  image,
-                  sdkPath: process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK!,
-                })
           try {
-            await connection.valid()
+            if (name === "Docker") await new DockerSandbox({ image }).valid()
+            else await validatePlatformMicrosandboxInChild()
           } catch (cause) {
             throw new Error(`${name} is required but its connection test failed`, { cause })
           }
@@ -244,6 +274,8 @@ const program = new Command(`${APP_HANDLE}-platform`)
   .description("Run the platform server and its maintenance commands.")
   .version(VERSION_OUTPUT)
   .addHelpText("after", CLI_HELP_FOOTER)
+
+program.command("_validate-microsandbox", { hidden: true }).action(validatePlatformMicrosandbox)
 
 program
   .command("start", { isDefault: true })
