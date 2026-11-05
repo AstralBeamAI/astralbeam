@@ -31,6 +31,7 @@ import { personalMcpHandlers } from "./mcp.server"
 import { organizationHandlers } from "./organization.server"
 import { documentationHandlers } from "./documentation.server"
 import { chatHandlers } from "../chat/-lib/chat.server"
+import { uploadHandlers } from "../chat/-lib/uploads.server"
 import { chatThreadHandlers } from "../chat/-lib/threads.server"
 import { authenticateRestRequest } from "./auth.server"
 import { threadDirectoryHandlers } from "./thread.server"
@@ -196,6 +197,7 @@ export const ApiV1Routes = Layer.mergeAll(
       tenantHandlers(ApiV1),
       tenantUserHandlers(ApiV1),
       chatHandlers(ApiV1),
+      uploadHandlers(ApiV1),
       chatThreadHandlers(ApiV1),
       threadDirectoryHandlers(ApiV1),
       currentUserHandlers(ApiV1),

@@ -61,11 +61,13 @@ export function ThreadHistory({
   state,
   onSelect,
   onDelete,
+  beforeDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
   onSelect: () => void
   onDelete: (threadId: string) => void
+  beforeDelete?: ((id: string) => Promise<void>) | undefined
 }) {
   const trigger = useRef<HTMLButtonElement>(null)
   const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null)
@@ -141,7 +143,7 @@ export function ThreadHistory({
           finalFocus={trigger}
           onClose={() => setDeletingThread(null)}
           onDelete={async () => {
-            const deleted = await chat.deleteThread(deletingThread)
+            const deleted = await chat.deleteThread(deletingThread, beforeDelete)
             if (deleted) {
               onDelete(deletingThread.id)
               void client.invalidateQueries({ queryKey: ["thread-history"] })

@@ -1,3 +1,4 @@
+import { uploadCleanupWorkflowLayer } from "./upload-cleanup"
 import { Layer } from "effect"
 
 import { profileImageImportWorkflowLayer } from "./profile-image-import.ts"
@@ -10,6 +11,7 @@ import { modelPriceCatalogInitializationLayer } from "./model-price-catalog-refr
 export const registeredWorkflowLayers = Layer.mergeAll(
   scheduledWorkflowsLayer,
   purgeFileWorkflowLayer,
+  uploadCleanupWorkflowLayer,
   profileImageImportWorkflowLayer,
   organizationLogoImportWorkflowLayer,
   deleteOrganizationWorkflowLayer,

@@ -10,6 +10,8 @@ import { DatabaseMigrations } from "@/db/migration-runner"
 import { Agents } from "@/lib/agents/agents.server"
 import { ApiKeys } from "@/lib/api-keys/api-keys.server"
 import { Auth } from "@/lib/auth/auth.server"
+import { Uploads } from "@/lib/chat/attachments/uploads.server"
+import { MultipartStorage } from "@/lib/storage/multipart-storage.server"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Chat } from "@/lib/chat/chat"
 import { ChatThreads } from "@/lib/chat/threads/threads"
@@ -39,6 +41,8 @@ export const appLayer = Layer.suspend(() =>
     Auth.layer,
     Chat.layer,
     ChatFiles.layer,
+    Uploads.layer,
+    MultipartStorage.layer,
     ChatThreads.layer,
     ChatSandboxes.layer,
     Config.layer,

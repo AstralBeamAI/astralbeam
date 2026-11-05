@@ -57,3 +57,41 @@ test("attachment references survive a move, while invalid storage is rejected wi
     expect(values.get(key)).toBe(invalid)
   }
 })
+
+test("unfinished uploads retain recovery identity without bytes, previews or signed URLs", async () => {
+  const scope = { apiUrl: "https://api.test", identity: "owner", threadId: "thread" }
+  const file = {
+    id: "draft",
+    name: "note.txt",
+    size: 5,
+    mimeType: "text/plain",
+    kind: "text" as const,
+    status: "uploading" as const,
+    sessionId: "session",
+    sha256: "hash",
+    agentId: "origin",
+    prepareAttempted: true,
+    data: "private file bytes",
+    preview: "blob:private-preview",
+    url: "https://storage.example/signed-secret",
+    progress: 0.5,
+  }
+  await storedThreadAttachments({ ...scope, update: () => [file] })
+  expect(await storedThreadAttachments(scope)).toEqual([
+    {
+      id: "draft",
+      name: "note.txt",
+      size: 5,
+      mimeType: "text/plain",
+      kind: "text",
+      status: "reselect",
+      sessionId: "session",
+      sha256: "hash",
+      agentId: "origin",
+      prepareAttempted: true,
+    },
+  ])
+  const saved = [...values.values()].join("")
+  expect(saved).not.toContain("private")
+  expect(saved).not.toContain("signed-secret")
+})

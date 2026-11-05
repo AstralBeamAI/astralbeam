@@ -324,3 +324,37 @@ test("reset without a view clears only this placement's new draft", async () => 
     await storedThreadAttachments({ apiUrl: DEFAULT_API_URL, identity, threadId: "" }),
   ).toEqual([])
 })
+
+test("navigation during upload cleanup still completes the requested conversation deletion", async () => {
+  const deleted: string[] = []
+  vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+    const url = new URL(input)
+    if (url.pathname.endsWith("/me")) return Promise.resolve(Response.json(currentUser))
+    if (url.pathname.endsWith("/config"))
+      return Promise.resolve(Response.json({ capabilities: { attachments: true } }))
+    if (url.pathname.endsWith("/messages"))
+      return Promise.resolve(Response.json(page(url.pathname.split("/").at(-2)!)))
+    if (init?.method === "DELETE") {
+      deleted.push(url.pathname)
+      return Promise.resolve(new Response(null, { status: 204 }))
+    }
+    return Promise.resolve(
+      Response.json({
+        items: [thread(threadA), thread(threadB)],
+        page_after: null,
+        page_before: null,
+      }),
+    )
+  })
+  const chat = createTestSession({ threadId: threadA })
+  await vi.waitFor(() => expect(chat.getState().thread?.id).toBe(threadA))
+  const cleanup = Promise.withResolvers<void>()
+  const beforeDelete = vi.fn(() => cleanup.promise)
+  const deleting = chat.deleteThread(undefined, beforeDelete)
+  await vi.waitFor(() => expect(beforeDelete).toHaveBeenCalledWith(threadA))
+  await chat.openThread(threadB)
+  cleanup.resolve()
+  expect(await deleting).toBe(true)
+  expect(deleted).toEqual([`/api/v1/chat/threads/${threadA}`])
+  expect(chat.getState().thread?.id).toBe(threadB)
+})

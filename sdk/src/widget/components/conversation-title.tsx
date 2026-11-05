@@ -28,11 +28,13 @@ export function ConversationTitle({
   state,
   thread,
   onDelete,
+  beforeDelete,
 }: {
   chat: AstralBeamChatCore
   state: AstralBeamChatState
   thread: ChatThread
   onDelete: (threadId: string) => void
+  beforeDelete?: ((id: string) => Promise<void>) | undefined
 }) {
   const actions = useRef<HTMLButtonElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -64,7 +66,7 @@ export function ConversationTitle({
           finalFocus={actions}
           onClose={() => setConfirmDelete(false)}
           onDelete={async () => {
-            const deleted = await chat.deleteThread()
+            const deleted = await chat.deleteThread(thread, beforeDelete)
             if (deleted) onDelete(thread.id)
             return deleted
           }}

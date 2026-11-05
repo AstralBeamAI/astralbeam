@@ -1,5 +1,13 @@
 import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
-import { useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
@@ -31,6 +39,19 @@ import { describeUsageLimit, hasPendingToolRun, lastPartInProgress } from "./lib
 import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useComposerDraft } from "./use-composer-draft.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
+
+import {
+  attachmentUploadState,
+  startAttachmentUpload,
+  pauseAttachmentUpload,
+  resumeAttachmentUpload,
+  removeAttachmentUpload,
+  discardAttachmentUploads,
+  recoverAttachmentUpload,
+  disposeAttachmentUploads,
+  releaseAttachmentUpload,
+} from "./lib/uploads.ts"
+import { storedThreadAttachments } from "../lib/drafts.ts"
 
 // Keep an absent widget catalog stable across view updates.
 const NO_WIDGETS: Record<string, WidgetDefinition> = {}
@@ -127,13 +148,96 @@ export function ChatWidget({
     debug,
   })
   const draftIdentity = composer.identity
+  const [discarding, setDiscarding] = useState(false)
+  const uploads = useMemo(
+    () => attachmentUploadState(chat, apiUrl, draftIdentity),
+    [chat, apiUrl, draftIdentity],
+  )
+  useEffect(() => () => disposeAttachmentUploads(uploads), [uploads])
+  const recoveredUploads = useRef(new WeakMap<typeof uploads, Set<string>>())
+  useEffect(() => {
+    let recovered = recoveredUploads.current.get(uploads)
+    if (!recovered) {
+      recovered = new Set()
+      recoveredUploads.current.set(uploads, recovered)
+    }
+    for (const file of composer.attachments)
+      if (
+        file.sessionId &&
+        (file.status === "reselect" || file.status === "ready") &&
+        !recovered.has(file.id)
+      ) {
+        recovered.add(file.id)
+        const current = chat.captureAuthentication()
+        void recoverAttachmentUpload({ chat, draft: file }).then((restored) => {
+          if (current()) composer.settleAttachment(file.id, restored)
+        })
+      }
+  }, [chat, uploads, composer])
+  const persistUpload = (draft: DraftAttachment) =>
+    storedThreadAttachments({
+      apiUrl,
+      identity: uploads.identity,
+      threadId: chatState.thread?.id ?? "",
+      update: (files) => [...files.filter((file) => file.id !== draft.id), draft],
+    }).then(() => undefined)
+  const startUpload = (draft: DraftAttachment, file: File) =>
+    startAttachmentUpload({
+      uploads,
+      draft,
+      file,
+      persist: persistUpload,
+      settle: (update) => composer.settleAttachment(draft.id, update),
+    })
+  const retryUpload = (id: string) => {
+    const draft = composer.attachments.find((file) => file.id === id)
+    if (!draft) return
+    const resumed = resumeAttachmentUpload({
+      uploads,
+      draft,
+      persist: persistUpload,
+      settle: (update) => composer.settleAttachment(id, update),
+    })
+    if (!resumed) {
+      const input = document.createElement("input")
+      input.type = "file"
+      input.onchange = () => {
+        const file = input.files?.[0]
+        if (file) startUpload(draft, file)
+      }
+      input.click()
+    }
+  }
+  const discardDraft = async (threadId: string) => {
+    await discardAttachmentUploads({
+      uploads,
+      apiUrl,
+      identity: draftIdentity,
+      threadId,
+      attachments: composer.attachmentsFor(threadId),
+      onCancelled: (id) =>
+        composer.settleAttachment(id, {
+          status: "error",
+          fileId: undefined,
+          error: "Upload cancelled. Remove the file.",
+        }),
+      onRemoved: composer.dropAttachment,
+    })
+  }
   // The agent's grant wins over the host option: the client may narrow, never widen.
   const attachmentLimits = useMemo(
     () =>
       resolveAttachmentOptions(
-        capabilities.attachments && composer.attachmentsLoaded ? options.attachments : false,
+        capabilities.attachments && !chatState.capabilitiesLoading && composer.attachmentsLoaded
+          ? options.attachments
+          : false,
       ),
-    [options.attachments, capabilities.attachments, composer.attachmentsLoaded],
+    [
+      options.attachments,
+      capabilities.attachments,
+      chatState.capabilitiesLoading,
+      composer.attachmentsLoaded,
+    ],
   )
   // A conversation's capability must not discard files selected in another draft.
   const attachments: DraftAttachment[] = []
@@ -148,13 +252,18 @@ export function ChatWidget({
       limits: attachmentLimits,
       createId: () => file.id,
     })
-    attachments.push(picked!.draft.status === "error" ? picked!.draft : file)
+    attachments.push(
+      picked!.draft.status === "error"
+        ? { ...file, status: "error", error: picked!.draft.error }
+        : file,
+    )
   }
   const streamBusy = status === "submitted" || status === "streaming"
   const awaitingReply = streamBusy && !lastPartInProgress(messages)
   const authPending = auth.status === "loading"
   const authError = auth.status === "error" ? auth.error : undefined
   const isBusy =
+    discarding ||
     authPending ||
     authError !== undefined ||
     streamBusy ||
@@ -198,6 +307,11 @@ export function ChatWidget({
         mimeType: pick.mimeType,
         size: pick.size,
       })
+      const draft = { ...pick, agentId: capabilities.resolvedAgentId ?? options.agentId }
+      if (capabilities.uploads?.available && draft.agentId && globalThis.crypto?.subtle) {
+        startUpload(draft, file)
+        continue
+      }
       const data = readAttachmentData(file)
       void chat
         .uploadAttachment({ data, filename: pick.name, mimeType: pick.mimeType })
@@ -220,8 +334,17 @@ export function ChatWidget({
   }
 
   const removeAttachment = (id: string) => {
-    debug?.("attachment", "attachment removed", { id })
-    composer.updateAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    const draft = composer.attachments.find((file) => file.id === id)
+    if (!draft) return
+    composer.settleAttachment(id, { status: "reading", error: undefined })
+    void removeAttachmentUpload({ uploads, draft }).then(
+      () => composer.dropAttachment(id),
+      () =>
+        composer.settleAttachment(id, {
+          status: "error",
+          error: "Removal failed. Try Remove again.",
+        }),
+    )
   }
 
   const sendDraft = () => {
@@ -229,7 +352,9 @@ export function ChatWidget({
     // Files are sent ahead of the text so the agent reads the question with them already in
     // context, and a file still being read blocks the send rather than being left behind.
     const parts = attachmentContentParts(attachments)
-    const pendingRead = attachments.some((attachment) => attachment.status === "reading")
+    const pendingRead = attachments.some(
+      (attachment) => attachment.status !== "ready" && attachment.status !== "error",
+    )
     if (isBusy || pendingRead || (text.length === 0 && parts.length === 0)) return
     debug?.(
       "send",
@@ -258,7 +383,14 @@ export function ChatWidget({
               ...(text.length > 0 ? [{ type: "text" as const, content: text }] : []),
             ],
           },
-      callbacks,
+      {
+        ...callbacks,
+        onAccepted: () => {
+          callbacks.onAccepted()
+          for (const file of attachments)
+            if (file.status === "ready") releaseAttachmentUpload({ uploads, id: file.id })
+        },
+      },
     )
     void sent.then((outcome) => {
       if (outcome.phase === "refused") restore(outcome.content)
@@ -289,6 +421,27 @@ export function ChatWidget({
       )
         composer.reset()
     },
+  }
+
+  const resetThread = () => {
+    // The session's reset is the client's own: it aborts an active stream, drops queued sends,
+    // resets resume state, and disposes the live widget renders.
+    if (chatState.thread) {
+      chat.reset()
+      return
+    }
+    if (discarding) return
+    const current = chat.captureAuthentication()
+    setDiscarding(true)
+    void discardDraft("")
+      .then(() => {
+        if (current() && !chat.getState().thread) {
+          chat.reset()
+          composer.reset()
+        }
+      })
+      .catch((error: unknown) => debug?.("error", "Draft files could not be removed", error))
+      .finally(() => setDiscarding(false))
   }
   const viewRef = useRef(viewOptions)
   useEffect(() => {
@@ -351,6 +504,7 @@ export function ChatWidget({
           <ThreadHistory
             key={`${apiUrl}:${draftIdentity}`}
             chat={chat}
+            beforeDelete={discardDraft}
             state={chatState}
             onDelete={composer.forget}
             onSelect={focusComposer}
@@ -359,10 +513,16 @@ export function ChatWidget({
             variant="ghost"
             size="icon-sm"
             tooltip="New chat"
-            disabled={!chatState.thread && messages.length === 0}
+            disabled={
+              discarding ||
+              (!chatState.thread &&
+                messages.length === 0 &&
+                !composer.text &&
+                composer.attachments.length === 0)
+            }
             onClick={(event) => {
               if (event.detail > 1) return
-              chat.reset()
+              resetThread()
               focusComposer()
             }}
           >
@@ -391,6 +551,7 @@ export function ChatWidget({
         <ConversationTitle
           key={`${apiUrl}:${draftIdentity}:${chatState.thread.id}`}
           chat={chat}
+          beforeDelete={discardDraft}
           state={chatState}
           thread={chatState.thread}
           onDelete={(threadId) => {
@@ -484,6 +645,7 @@ export function ChatWidget({
           </p>
         )}
         <ChatComposer
+          disabled={discarding}
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={
             hostSlots.has("composerActions") ? hostSlotName("composerActions") : undefined
@@ -516,6 +678,11 @@ export function ChatWidget({
           attachments={attachments}
           attachmentLimits={attachmentLimits}
           onAddFiles={addAttachmentFiles}
+          onPauseAttachment={(id) => {
+            pauseAttachmentUpload({ uploads, id })
+            composer.settleAttachment(id, { status: "paused" })
+          }}
+          onRetryAttachment={retryUpload}
           onRemoveAttachment={removeAttachment}
         />
       </CardFooter>

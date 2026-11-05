@@ -1,3 +1,5 @@
+import { Uploads } from "@/lib/chat/attachments/uploads.server"
+import { UploadClaimed } from "@/lib/chat/attachments/errors"
 import { APP_HANDLE } from "@/lib/constants"
 import { ChatFiles } from "@/lib/chat/attachments/attachments"
 import { Context, Duration, Effect, Layer, Logger, ManagedRuntime, Schema, Stream } from "effect"
@@ -75,6 +77,8 @@ const restTestState = vi.hoisted(() => ({
   run: vi.fn(),
   downloadFile: vi.fn(),
   readFile: vi.fn(),
+  uploadStatus: vi.fn(),
+  storageProvider: "s3",
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
   directoryGet: vi.fn(),
@@ -226,6 +230,14 @@ const restTestServices = Layer.mergeAll(
       Effect.succeed({ name: "Test", provider: "docker", options: {}, credentials: {} }),
   } as unknown as Context.Service.Shape<typeof SandboxProviders>),
   // Chat's own behavior is tested beside it, and these cover its HTTP contract.
+  Layer.succeed(Uploads, {
+    prepare: () => Effect.die("unused"),
+    status: (scope, id) => restTestState.uploadStatus(scope, id) as never,
+    sign: () => Effect.die("unused"),
+    complete: () => Effect.die("unused"),
+    cancel: () => Effect.die("unused"),
+    cancelPrepared: () => Effect.die("unused"),
+  }),
   Layer.succeed(ChatFiles, {
     store: ({ payload }) => Effect.succeed(payload),
     read: (input) => restTestState.readFile(input) as never,
@@ -284,6 +296,7 @@ const restTestServices = Layer.mergeAll(
       } as unknown as Context.Service.Shape<typeof Auth>),
       Layer.succeed(Config, {
         setupState: Effect.suspend(() => restTestState.setupState()),
+        get: () => Effect.succeed(restTestState.storageProvider),
         readStoredValue: () => Effect.succeed(null),
       } as unknown as Context.Service.Shape<typeof Config>),
     ),
@@ -443,6 +456,7 @@ beforeEach(() => {
     usagePredicates: [],
     logs: [],
     keyRows: [{ id: restOrgId }],
+    storageProvider: "s3",
   })
   vi.mocked(getDatabaseBootstrapIssues).mockReturnValue([])
   restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: true }))
@@ -1181,6 +1195,33 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await request({ ...body, messages: [] })).status).toBe(400)
     expect(restTestState.run).toHaveBeenCalledTimes(1)
     expect(restTestState.threadResolveTools).toHaveBeenCalledTimes(1)
+  })
+
+  test("filesystem storage keeps server uploads without advertising or preparing S3 uploads", async () => {
+    restTestState.storageProvider = "filesystem"
+    restTestState.agent.mockReturnValue(
+      Effect.succeed({ attachments: true, resolvedAgentId: `agent_${restOrgId}_${restOtherId}` }),
+    )
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const response = await restRequest("/chat/config", { headers })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      capabilities: { attachments: true, uploads: { available: false } },
+    })
+    expect(
+      (
+        await restRequest("/chat/uploads", {
+          method: "POST",
+          headers,
+          json: {
+            filename: "file.txt",
+            content_type: "text/plain",
+            byte_size: 5,
+            sha256: "0".repeat(64),
+          },
+        })
+      ).status,
+    ).toBe(409)
   })
 
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {
@@ -2095,5 +2136,41 @@ describe("administrative conversation reads", () => {
     }
     expect(input.tenantId).toBe(restOtherId)
     expect(input.scope.tenantId).toBe(restTenantId)
+  })
+  test("upload status uses scoped JWT authority and snake_case fields", async () => {
+    restTestState.uploadStatus.mockReturnValue(
+      Effect.succeed({
+        id: restOtherId,
+        status: "pending",
+        filename: "file.txt",
+        contentType: "text/plain",
+        byteSize: 5,
+        sha256: "0".repeat(64),
+        expiresAt: "2026-10-29T00:00:00.000Z",
+        partSize: 8388608,
+        parts: [],
+        fileId: null,
+      }),
+    )
+    const response = await restRequest(`/chat/uploads/${restOtherId}`, {
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      content_type: "text/plain",
+      byte_size: 5,
+      part_size: 8388608,
+      file_id: null,
+    })
+    expect(restTestState.uploadStatus).toHaveBeenCalledWith(
+      { organizationId: restOrgId, tenantId: restTenantId, tenantUserId: restUserId },
+      restOtherId,
+    )
+    restTestState.uploadStatus.mockReturnValue(Effect.fail(new UploadClaimed()))
+    const claimed = await restRequest(`/chat/uploads/${restOtherId}`, {
+      headers: { Authorization: `Bearer ${restTenantJwt}` },
+    })
+    expect(claimed.status).toBe(409)
+    expect(await claimed.json()).toMatchObject({ type: "urn:file-upload:claimed" })
   })
 })

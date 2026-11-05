@@ -25,6 +25,7 @@ export default defineConfig({
         mutator: mutator("astralBeamApiFetch"),
         fetch: { includeHttpResponseReturnType: false },
         tags: {
+          uploads: { mutator: mutator("astralBeamJwtFetch") },
           chatThreads: { mutator: mutator("astralBeamJwtFetch") },
           personalMcp: { mutator: mutator("astralBeamJwtFetch") },
         },

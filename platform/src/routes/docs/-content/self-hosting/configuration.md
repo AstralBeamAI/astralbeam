@@ -134,6 +134,12 @@ Selecting S3-compatible shows the following settings, all of which retain their 
 
 The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
 
+Direct browser uploads also require multipart permissions. For AWS S3, add `s3:ListBucketMultipartUploads` on the bucket and `s3:ListMultipartUploadParts` and `s3:AbortMultipartUpload` on its objects, alongside object read, write, and delete access. See [multipart permissions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html#mpuAndPermissions).
+
+Configure [bucket CORS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html) for the origins where you embed the SDK. Allow `PUT`, `GET`, and `HEAD`, with the request headers your provider requires. The host page's Content Security Policy must allow the storage endpoint in `connect-src`. Keep the bucket private. Short-lived part URLs grant writes only to staging uploads, and the server verifies completed files before accepting them.
+
+Set lifecycle rules to abort incomplete multipart uploads and expire objects under `upload-staging/` after at least two days, beyond the 24-hour upload session. The application also schedules durable staging cleanup. Provider lifecycle rules cover abandoned transfers and interrupted requests.
+
 For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
 
 You can change the provider, filesystem directory, endpoint, region, bucket, and addressing mode. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, verify their sizes and checksums, save the new settings, and restart every server instance. Export RustFS objects through its S3 API rather than copying its internal data directory. Credential rotation remains supported.

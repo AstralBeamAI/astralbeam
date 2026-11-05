@@ -26,7 +26,7 @@ const storageObjectMissing = (error: unknown) =>
   error instanceof Error &&
   (["NoSuchKey", "NotFound"].includes(error.name) || ("code" in error && error.code === "ENOENT"))
 
-const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
+export const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
   Effect.tryPromise({
     try: call,
     catch: (error) => error,
@@ -51,7 +51,7 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
     ),
   )
 
-const acquireStorageClient = (settings: StorageConnection) =>
+export const acquireStorageClient = (settings: StorageConnection) =>
   Effect.acquireRelease(
     Effect.sync(
       () =>
@@ -71,6 +71,20 @@ const acquireStorageClient = (settings: StorageConnection) =>
         }),
     ),
     (client) => Effect.sync(() => client.destroy()),
+  )
+
+export const objectStorageConnection = (config: typeof Config.Service) =>
+  Effect.flatMap(config.snapshot, ({ values, issues }) =>
+    values.storage_provider !== "s3" || issues.some((issue) => issue.key.startsWith("s3_"))
+      ? Effect.fail(new StorageUnavailable())
+      : Effect.succeed<StorageConnection>({
+          endpoint: values.s3_endpoint!,
+          region: values.s3_region!,
+          bucket: values.s3_bucket!,
+          accessKeyId: values.s3_access_key_id!,
+          secretAccessKey: values.s3_secret_access_key!,
+          pathStyle: values.s3_path_style === "true",
+        }),
   )
 
 export class ObjectStorage extends Context.Service<

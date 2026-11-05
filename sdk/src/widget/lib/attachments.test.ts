@@ -185,3 +185,14 @@ test("a sent attachment points only at data the composer itself sends", () => {
   ).toBe("data:audio/mpeg;base64,AAAA")
   expect(href("javascript:alert(1)", "image/png", "url")).toBeUndefined()
 })
+
+test("overlong filenames are rejected before preparing an upload", () => {
+  const accepted = acceptAttachmentFiles({
+    files: [{ name: "x".repeat(121) + ".txt", size: 1, type: "text/plain" }],
+    existing: [],
+    limits: resolveAttachmentOptions(true),
+    createId: () => "long-name",
+  })
+  expect(accepted[0]!.draft.status).toBe("error")
+  expect(accepted[0]!.draft.error).toContain("120 characters")
+})

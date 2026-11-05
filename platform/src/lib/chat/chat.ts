@@ -157,7 +157,10 @@ export class Chat extends Context.Service<
     readonly capabilities: (input: {
       readonly principal: ChatPrincipal
       readonly agentId?: string | undefined
-    }) => Effect.Effect<{ readonly attachments: boolean }, ChatAgentNotFound>
+    }) => Effect.Effect<
+      { readonly attachments: boolean; readonly resolvedAgentId: string },
+      ChatAgentNotFound
+    >
   }
 >()("astralbeam/chat/Chat") {
   static readonly layerNoDeps = Layer.effect(
@@ -498,7 +501,10 @@ export class Chat extends Context.Service<
             agentId: input.agentId,
           })
           .pipe(Effect.mapError(() => new ChatAgentNotFound()))
-        return { attachments: agent.attachmentsEnabled }
+        return {
+          attachments: agent.attachmentsEnabled,
+          resolvedAgentId: `agent_${input.principal.organization.id}_${agent.id}`,
+        }
       })
 
       return Chat.of({ run, capabilities })

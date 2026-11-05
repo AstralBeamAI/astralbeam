@@ -17,12 +17,18 @@ export interface DraftAttachment {
   /** Size in bytes as reported by the file, used for the label and the caps. */
   size: number
   mimeType: string
-  kind?: AttachmentKind
-  status: "reading" | "ready" | "error"
+  kind?: AttachmentKind | undefined
+  status: "reading" | "uploading" | "paused" | "reselect" | "ready" | "error"
   /** Uploaded object ID. Only this reference and file metadata are persisted locally. */
-  fileId?: string
+  sessionId?: string | undefined
+  sha256?: string | undefined
+  prepareAttempted?: boolean | undefined
+  agentId?: string | undefined
+  progress?: number | undefined
+  preview?: string | undefined
+  fileId?: string | undefined
   /** Why the file was rejected or could not be read; present when the status is `"error"`. */
-  error?: string
+  error?: string | undefined
 }
 
 let draftSessionId: string | undefined
@@ -58,9 +64,13 @@ function isStoredDraftAttachment(file: unknown): file is DraftAttachment {
     "mimeType" in file &&
     typeof file.mimeType === "string" &&
     "status" in file &&
-    file.status === "ready" &&
-    "fileId" in file &&
-    typeof file.fileId === "string" &&
+    ((file.status === "ready" && "fileId" in file && typeof file.fileId === "string") ||
+      file.status === "reselect") &&
+    (!("fileId" in file) || typeof file.fileId === "string") &&
+    (!("sessionId" in file) || typeof file.sessionId === "string") &&
+    (!("sha256" in file) || typeof file.sha256 === "string") &&
+    (!("agentId" in file) || typeof file.agentId === "string") &&
+    (!("prepareAttempted" in file) || typeof file.prepareAttempted === "boolean") &&
     (!("kind" in file) ||
       (typeof file.kind === "string" &&
         ["image", "pdf", "text", "data", "office"].includes(file.kind))) &&
@@ -111,13 +121,13 @@ export function storedThreadAttachments({
       const files: unknown = JSON.parse(globalThis.localStorage?.getItem(key) ?? "[]")
       if (!Array.isArray(files) || !files.every(isStoredDraftAttachment))
         throw new TypeError("Stored attachment draft is invalid")
-      return files
+      return files.map(storedAttachment)
     }
     let attachments = read(key)
     if (update)
-      attachments = update(attachments).filter(
-        (file) => file.status === "ready" && file.fileId !== undefined,
-      )
+      attachments = update(attachments)
+        .filter((file) => file.fileId || file.sha256 || file.prepareAttempted)
+        .map(storedAttachment)
     if (moveTo !== undefined) {
       const destinationKey = `astralbeam:attachments:${draftStorageKey(apiUrl, identity, moveTo)}`
       attachments = [
@@ -136,4 +146,23 @@ export function storedThreadAttachments({
   return globalThis.navigator?.locks
     ? navigator.locks.request("astralbeam:attachment-drafts", applyChanges)
     : Promise.resolve().then(applyChanges)
+}
+
+/** Browser recovery retains only file identity and session metadata. */
+function storedAttachment(file: DraftAttachment): DraftAttachment {
+  const { id, name, size, mimeType, kind, fileId, sessionId, sha256, agentId, prepareAttempted } =
+    file
+  return {
+    id,
+    name,
+    size,
+    mimeType,
+    ...(kind ? { kind } : {}),
+    status: file.status === "ready" && fileId ? "ready" : "reselect",
+    ...(fileId ? { fileId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(sha256 ? { sha256 } : {}),
+    ...(agentId ? { agentId } : {}),
+    ...(prepareAttempted ? { prepareAttempted } : {}),
+  }
 }

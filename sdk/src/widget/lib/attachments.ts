@@ -89,6 +89,8 @@ export function classifyAttachmentFile(
   file: AttachmentFileInfo,
   limits: ResolvedAttachmentOptions,
 ): { kind: AttachmentKind; mimeType: string } | { error: string } {
+  if (Array.from(file.name).length > 120 || file.name.includes("\0"))
+    return { error: "Use a filename of 120 characters or fewer, without NUL characters" }
   const reported = normalizeMimeType(file.type)
   const extension = fileExtension(file.name)
   const name = file.name.toLowerCase()
