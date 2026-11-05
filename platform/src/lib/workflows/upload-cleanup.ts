@@ -5,6 +5,7 @@ import { Database } from "@/db/database"
 import { chatFile } from "@/db/schema/chat"
 import { fileObject } from "@/db/schema/files"
 import { fileUpload } from "@/db/schema/uploads"
+import { OrganizationIdSchema, TenantIdSchema } from "@/db/schema/organizations"
 import { UuidV7Schema } from "@/lib/schemas"
 import { MultipartStorage } from "@/lib/storage/multipart-storage.server"
 import { ObjectStorage } from "@/lib/storage/object-storage.server"
@@ -12,8 +13,8 @@ import { ObjectStorage } from "@/lib/storage/object-storage.server"
 // The journal retains staging keys even when a Tenant or Organization cascades its upload rows.
 const uploadCleanup = Workflow.make("UploadCleanup/v1", {
   payload: {
-    organizationId: UuidV7Schema,
-    tenantId: UuidV7Schema,
+    organizationId: OrganizationIdSchema,
+    tenantId: TenantIdSchema,
     uploadId: UuidV7Schema,
     objectKey: Schema.String,
     deadline: Schema.Number,

@@ -187,6 +187,8 @@ export function chatHandlers(api: typeof ApiV1) {
       const { UsageLimits } = yield* Effect.promise(
         () => import("@/lib/usage-limits/usage-limits.server"),
       )
+      const { Config } = yield* Effect.promise(() => import("@/lib/config/config"))
+      const config = yield* Config
       const usageLimits = yield* UsageLimits
       const files = yield* ChatFiles
       const chat = yield* Chat
@@ -276,7 +278,8 @@ export function chatHandlers(api: typeof ApiV1) {
               capabilities: {
                 ...capabilities,
                 uploads: {
-                  available: capabilities.attachments,
+                  available:
+                    capabilities.attachments && (yield* config.get("storage_provider")) === "s3",
                   maxFiles: 5,
                   maxTotalBytes: 20 * 1024 * 1024,
                   partSize: 8 * 1024 * 1024,

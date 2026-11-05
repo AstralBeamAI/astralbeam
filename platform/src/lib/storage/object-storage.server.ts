@@ -75,7 +75,7 @@ export const acquireStorageClient = (settings: StorageConnection) =>
 
 export const objectStorageConnection = (config: typeof Config.Service) =>
   Effect.flatMap(config.snapshot, ({ values, issues }) =>
-    issues.some((issue) => issue.key.startsWith("s3_"))
+    values.storage_provider !== "s3" || issues.some((issue) => issue.key.startsWith("s3_"))
       ? Effect.fail(new StorageUnavailable())
       : Effect.succeed<StorageConnection>({
           endpoint: values.s3_endpoint!,

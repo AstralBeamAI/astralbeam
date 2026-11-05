@@ -78,6 +78,7 @@ const restTestState = vi.hoisted(() => ({
   downloadFile: vi.fn(),
   readFile: vi.fn(),
   uploadStatus: vi.fn(),
+  storageProvider: "s3",
   directoryList: vi.fn(),
   directorySnapshot: vi.fn(),
   directoryGet: vi.fn(),
@@ -295,6 +296,7 @@ const restTestServices = Layer.mergeAll(
       } as unknown as Context.Service.Shape<typeof Auth>),
       Layer.succeed(Config, {
         setupState: Effect.suspend(() => restTestState.setupState()),
+        get: () => Effect.succeed(restTestState.storageProvider),
         readStoredValue: () => Effect.succeed(null),
       } as unknown as Context.Service.Shape<typeof Config>),
     ),
@@ -454,6 +456,7 @@ beforeEach(() => {
     usagePredicates: [],
     logs: [],
     keyRows: [{ id: restOrgId }],
+    storageProvider: "s3",
   })
   vi.mocked(getDatabaseBootstrapIssues).mockReturnValue([])
   restTestState.setupState.mockReturnValue(Effect.succeed({ setupComplete: true }))
@@ -1192,6 +1195,33 @@ describe("REST API through the Effect Fetch handler", () => {
     expect((await request({ ...body, messages: [] })).status).toBe(400)
     expect(restTestState.run).toHaveBeenCalledTimes(1)
     expect(restTestState.threadResolveTools).toHaveBeenCalledTimes(1)
+  })
+
+  test("filesystem storage keeps server uploads without advertising or preparing S3 uploads", async () => {
+    restTestState.storageProvider = "filesystem"
+    restTestState.agent.mockReturnValue(
+      Effect.succeed({ attachments: true, resolvedAgentId: `agent_${restOrgId}_${restOtherId}` }),
+    )
+    const headers = { Authorization: `Bearer ${restTenantJwt}` }
+    const response = await restRequest("/chat/config", { headers })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      capabilities: { attachments: true, uploads: { available: false } },
+    })
+    expect(
+      (
+        await restRequest("/chat/uploads", {
+          method: "POST",
+          headers,
+          json: {
+            filename: "file.txt",
+            content_type: "text/plain",
+            byte_size: 5,
+            sha256: "0".repeat(64),
+          },
+        })
+      ).status,
+    ).toBe(409)
   })
 
   test("chat HTTP failures share v1 errors, CORS, challenges, and retry information", async () => {

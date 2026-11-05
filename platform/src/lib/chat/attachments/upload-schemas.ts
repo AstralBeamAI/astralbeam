@@ -1,6 +1,5 @@
 import { Schema } from "effect"
-import { ApiUuidSchema } from "@/lib/tenants/schemas"
-import { NonEmptyStringSchema } from "@/lib/schemas"
+import { ApiUuidSchema, NonEmptyStringSchema } from "@/lib/schemas"
 
 export const UPLOAD_PART_BYTES = 8 * 1024 * 1024
 export const UploadInputSchema = Schema.Struct({

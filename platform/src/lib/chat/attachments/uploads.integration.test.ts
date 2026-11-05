@@ -5,7 +5,7 @@ import { WorkflowEngine } from "effect/workflow"
 import { TestClock } from "effect/testing"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
 import { Database, getAuthDatabase } from "@/db/database"
-import { organization, tenant, tenantUser } from "@/db/schema/organizations"
+import { organization, tenant, tenantUser, OrganizationIdSchema } from "@/db/schema/organizations"
 import { chatFile, chatThread, chatMessage } from "@/db/schema/chat"
 import { fileUpload } from "@/db/schema/uploads"
 import { fileObject } from "@/db/schema/files"
@@ -141,27 +141,28 @@ describe.skipIf(!configured)("private multipart upload lifecycle", () => {
     uploads = await runtime.runPromise(Uploads)
     const [org] = await db
       .insert(organization)
-      .values({ name: "Uploads", slug: `uploads-${crypto.randomUUID()}` })
+      .values({ domain: "example.com", name: "Uploads", slug: `uploads-${crypto.randomUUID()}` })
       .returning()
+    const organizationId = OrganizationIdSchema.make(org!.id)
     const tenants = await db
       .insert(tenant)
       .values([
-        { organizationId: org!.id, externalId: "one" },
-        { organizationId: org!.id, externalId: "two" },
+        { organizationId, externalId: "one" },
+        { organizationId, externalId: "two" },
       ])
       .returning()
     const people = await db
       .insert(tenantUser)
       .values(
         tenants.map((item) => ({
-          organizationId: org!.id,
+          organizationId,
           tenantId: item.id,
           externalId: "uploader",
         })),
       )
       .returning()
-    scope = { organizationId: org!.id, tenantId: tenants[0]!.id, tenantUserId: people[0]!.id }
-    other = { organizationId: org!.id, tenantId: tenants[1]!.id, tenantUserId: people[1]!.id }
+    scope = { organizationId, tenantId: tenants[0]!.id, tenantUserId: people[0]!.id }
+    other = { organizationId, tenantId: tenants[1]!.id, tenantUserId: people[1]!.id }
   })
   afterEach(async () => {
     await runtime.dispose()

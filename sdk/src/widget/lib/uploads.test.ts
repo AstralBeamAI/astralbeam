@@ -15,7 +15,9 @@ import {
   recoverAttachmentUpload,
 } from "./uploads.ts"
 
-vi.mock("./drafts.ts", () => ({ storedThreadAttachments: vi.fn(() => Promise.resolve([])) }))
+vi.mock("../../lib/drafts.ts", () => ({
+  storedThreadAttachments: vi.fn(() => Promise.resolve([])),
+}))
 vi.mock("./attachments.ts", () => ({
   readAttachmentData: vi.fn(() => Promise.resolve("aGVsbG8=")),
 }))

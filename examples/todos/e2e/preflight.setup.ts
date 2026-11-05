@@ -41,7 +41,7 @@ test("the platform accepts a seeded chat auth token and resolves the seeded agen
     capabilities: {
       attachments: true,
       resolved_agent_id: seedTarget.agentId,
-      uploads: { available: true },
+      uploads: { available: expect.any(Boolean) },
     },
   })
 })

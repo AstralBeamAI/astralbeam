@@ -7,7 +7,7 @@ import {
   HttpApiSchema,
   OpenApi,
 } from "effect/http-api"
-import { ApiUuidSchema } from "@/lib/tenants/schemas"
+import { ApiUuidSchema } from "@/lib/schemas"
 import { UploadInputSchema, UploadStatusSchema } from "@/lib/chat/attachments/upload-schemas"
 import type { ApiV1 } from "../../-lib/contract.server"
 
@@ -73,14 +73,15 @@ export function uploadHandlers(api: typeof ApiV1) {
       const { Uploads } = yield* Effect.promise(
         () => import("@/lib/chat/attachments/uploads.server"),
       )
-      const { UploadInvalid } = yield* Effect.promise(() => import("@/lib/chat/attachments/errors"))
+      const { UploadConflict } = yield* Effect.promise(
+        () => import("@/lib/chat/attachments/errors"),
+      )
       const { ChatAttachmentsDisabled } = yield* Effect.promise(() => import("@/lib/chat/errors"))
       const { provideClusterWorkflowEngine } = yield* Effect.promise(
         () => import("@/lib/cluster/runtime"),
       )
-      const { CHAT_ATTACHMENT_MAX_TOTAL_BYTES } = yield* Effect.promise(
-        () => import("@/lib/chat/attachments/constants"),
-      )
+      const { Config } = yield* Effect.promise(() => import("@/lib/config/config"))
+      const config = yield* Config
       const threads = yield* ChatThreads
       const uploads = yield* Uploads
       const agents = yield* Agents
@@ -106,13 +107,12 @@ export function uploadHandlers(api: typeof ApiV1) {
           "prepareChatUpload",
           Effect.fn("prepareChatUpload")(function* ({ payload, request }) {
             const { principal, scope } = yield* authorize(request)
+            if ((yield* config.get("storage_provider")) !== "s3") return yield* new UploadConflict()
             const grant = yield* agents.resolveForChat({
               organizationId: principal.organization.id,
               agentId: payload.agentId,
             })
             if (!grant.attachmentsEnabled) return yield* new ChatAttachmentsDisabled()
-            if (payload.byteSize > CHAT_ATTACHMENT_MAX_TOTAL_BYTES)
-              return yield* new UploadInvalid()
             return yield* uploads.prepare(scope, payload).pipe(provideClusterWorkflowEngine)
           }),
         )

@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { deferrableForeignKey, timestamps, timestampWithTimeZone, uuidV7 } from "../lib/columns"
 import { fileObject } from "./files"
-import { tenantUser } from "./organizations"
+import { tenantUser, type OrganizationId, type TenantId, type TenantUserId } from "./organizations"
 
 const fileUploadStatus = pgEnum("file_upload_status", [
   "preparing",
@@ -25,10 +25,10 @@ const fileUploadStatus = pgEnum("file_upload_status", [
 export const fileUpload = snakeCase.table(
   "file_upload",
   {
-    organizationId: uuid().notNull(),
-    tenantId: uuid().notNull(),
+    organizationId: uuid().$type<OrganizationId>().notNull(),
+    tenantId: uuid().$type<TenantId>().notNull(),
     id: uuidV7(),
-    tenantUserId: uuid().notNull(),
+    tenantUserId: uuid().$type<TenantUserId>().notNull(),
     prepareKey: uuid().notNull(),
     fileId: uuid().notNull(),
     objectKey: text().notNull(),

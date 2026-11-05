@@ -422,9 +422,7 @@ export class Uploads extends Context.Service<
           },
           metadata: { filename: row.filename },
         }
-        const valid = normalizeChatAttachments([{ role: "user", content: [part] }], {
-          sandbox: true,
-        })
+        const valid = normalizeChatAttachments([{ role: "user", content: [part] }])
         if (
           bytes.length !== row.byteSize ||
           createHash("sha256").update(bytes).digest("hex") !== row.sha256 ||

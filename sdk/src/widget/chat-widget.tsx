@@ -1,5 +1,13 @@
 import { ArrowClockwiseIcon, NotePencilIcon, XIcon } from "@phosphor-icons/react"
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { Button } from "@/widget/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/widget/components/ui/card"
 import { ChatComposer } from "./components/chat-composer.tsx"
@@ -32,8 +40,6 @@ import { hostSlotName, useHostSlots } from "./use-host-slots.ts"
 import { useComposerDraft } from "./use-composer-draft.ts"
 import { useWidgetRenders } from "./use-widget-renders.ts"
 
-// Keep an absent widget catalog stable across view updates.
-const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 import {
   attachmentUploadState,
   startAttachmentUpload,
@@ -47,6 +53,8 @@ import {
 } from "./lib/uploads.ts"
 import { storedThreadAttachments } from "../lib/drafts.ts"
 
+// Keep an absent widget catalog stable across view updates.
+const NO_WIDGETS: Record<string, WidgetDefinition> = {}
 const EMPTY_ATTACHMENTS: DraftAttachment[] = []
 
 export function ChatWidget({
