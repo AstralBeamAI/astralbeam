@@ -118,8 +118,8 @@ export async function pullMicrosandboxImage(options: { directory: string; image:
   if (!existsSync(join(options.directory, "microsandbox"))) return
   const runtime = microsandboxRuntimePaths(options.directory)
   validateMicrosandboxRuntime(runtime)
-  console.error(`Pre-downloading Microsandbox image ${options.image}`)
-  await Bun.$`${runtime.msbPath} image pull --force ${options.image}`.env({
+  console.error(`Preparing Microsandbox image ${options.image}`)
+  await Bun.$`${runtime.msbPath} image pull ${options.image}`.env({
     ...process.env,
     MSB_HOME: await shortMicrosandboxHome(runtime.home),
     MSB_LIBKRUNFW_PATH: runtime.libkrunfwPath,

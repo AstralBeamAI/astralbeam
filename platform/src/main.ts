@@ -13,7 +13,7 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
 
-import { Command } from "commander"
+import { Command, Option } from "commander"
 import { Client } from "pg"
 
 import packageJson from "../package.json" with { type: "json" }
@@ -31,8 +31,8 @@ import { getLocalSandboxImage } from "./lib/sandboxes/image.server.ts"
 const CLI_HELP_FOOTER = `
 Environment:
   DATABASE_URL             PostgreSQL URL, or embedded for the owned local database
-  DOCKERSANDBOX_DISABLED   set true to disable automatic Docker availability
-  MICROSANDBOX_DISABLED    set true to disable automatic Microsandbox availability
+  DOCKERSANDBOX_DISABLED   true disables Docker, false requires it, unset auto-detects
+  MICROSANDBOX_DISABLED    true disables Microsandbox, false requires it, unset auto-detects
   LOCAL_SANDBOX_IMAGE      operator-selected OCI image for Docker and Microsandbox
   DATABASE_ENCRYPTION_KEY  keyring for encrypted settings (generated for embedded)
   ASTRALBEAM_DATA_DIR       persistent data directory (defaults to the OS data location)
@@ -46,6 +46,7 @@ Environment:
 Environment files load from the current working directory.
 Existing environment variables win.
 Run bootstrap --embeddedpg and/or --microsandbox once to prepare local runtimes.
+Use bootstrap --standalone for local file storage, embedded PostgreSQL, and Microsandbox.
 External start prompts for a missing encryption key and saves it in platform.json.`
 
 const BOOTSTRAP_ENVIRONMENT_FILE = join(homedir(), ".astralbeam", "platform.json")
@@ -70,6 +71,11 @@ const RELEASE_TARGET = RELEASE_TARGETS[BINARY_HOST]
 const VERSION_OUTPUT = `${APP_HANDLE}-platform ${packageJson.version} (${RELEASE_TARGET ?? BINARY_HOST})`
 
 type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
+type BootstrapOptions = {
+  microsandbox?: boolean
+  embeddedpg?: boolean
+  standalone?: boolean
+}
 
 // Fills unset variables from the saved file, prompts on a terminal for any still missing, and
 // reports where each value came from.
@@ -132,16 +138,16 @@ async function preparePlatformMicrosandbox(): Promise<boolean> {
     return true
   } catch (error) {
     console.error(
-      `Microsandbox disabled: ${error instanceof Error ? error.message : String(error)}`,
+      `Microsandbox unavailable: ${error instanceof Error ? error.message : String(error)}`,
     )
     return false
   }
 }
 
-async function preparePlatformSandboxes(): Promise<void> {
+async function preparePlatformSandboxes({ prepareImages = false } = {}): Promise<void> {
   if (process.env.__ASTRALBEAM_INTERNAL_WORKER_ID !== undefined) return
   delete process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
-  const { DockerSandbox, SandboxConnection } = await import("@astralbeam/sandbox")
+  const { DockerSandbox, Microsandbox, SandboxConnection } = await import("@astralbeam/sandbox")
   // External providers inherit this check without initializing their SDKs or credentials.
   const checks = [
     ["Daytona", SandboxConnection.available()],
@@ -161,25 +167,63 @@ async function preparePlatformSandboxes(): Promise<void> {
     ["Sprites", SandboxConnection.available()],
     ["Vercel", SandboxConnection.available()],
   ] as const
-  await Promise.all(
+  const checked = await Promise.allSettled(
     checks.map(async ([name, checking]) => {
       const result = await checking
+      const required =
+        (name === "Docker" && process.env.DOCKERSANDBOX_DISABLED === "false") ||
+        (name === "Microsandbox" && process.env.MICROSANDBOX_DISABLED === "false")
+      if (required && !result) throw new Error(`${name} is required but is unavailable`)
+      if (
+        prepareImages &&
+        result !== "disabled" &&
+        (name === "Docker" || name === "Microsandbox")
+      ) {
+        const image = getLocalSandboxImage()
+        if (name === "Docker") {
+          if (result)
+            await runBootstrapStep({
+              name: `Docker image ${image}`,
+              run: () => DockerSandbox.prepareImage(image),
+            })
+        } else {
+          const { pullMicrosandboxImage } = await import("@scripts/microsandbox-runtime.ts")
+          await pullMicrosandboxImage({ directory: getDataDirectory(), image })
+        }
+        if (required) {
+          const connection =
+            name === "Docker"
+              ? new DockerSandbox({ image })
+              : new Microsandbox({
+                  image,
+                  sdkPath: process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK!,
+                })
+          try {
+            await connection.valid()
+          } catch (cause) {
+            throw new Error(`${name} is required but its connection test failed`, { cause })
+          }
+        }
+      }
       const status = result === "disabled" ? "disabled" : result ? "available" : "unavailable"
       console.error(`Sandbox ${name}: ${status}`)
     }),
   )
+  for (const result of checked) if (result.status === "rejected") throw result.reason
 }
 
-async function prefetchPlatformSandboxImage(): Promise<void> {
-  const image = getLocalSandboxImage()
-  const { DockerSandbox } = await import("@astralbeam/sandbox")
-  if (process.env.DOCKERSANDBOX_DISABLED !== "true" && (await DockerSandbox.available())) {
-    console.error(`Pre-downloading Docker image ${image}`)
-    await DockerSandbox.pullImage(image)
-  }
-  if (process.env.MICROSANDBOX_DISABLED !== "true") {
-    const { pullMicrosandboxImage } = await import("@scripts/microsandbox-runtime.ts")
-    await pullMicrosandboxImage({ directory: getDataDirectory(), image })
+async function runBootstrapStep<A>(options: { name: string; run: () => Promise<A> }): Promise<A> {
+  const started = performance.now()
+  console.error(`${options.name}: starting`)
+  try {
+    const result = await options.run()
+    console.error(
+      `${options.name}: complete (${((performance.now() - started) / 1000).toFixed(1)}s)`,
+    )
+    return result
+  } catch (error) {
+    console.error(`${options.name}: failed`)
+    throw error
   }
 }
 
@@ -205,7 +249,11 @@ program
   .command("start", { isDefault: true })
   .description("start the server (the default command)")
   .action(async () => {
-    await Promise.all([preparePlatformSandboxes(), preparePlatformDatabase()])
+    const prepared = await Promise.allSettled([
+      preparePlatformSandboxes(),
+      preparePlatformDatabase(),
+    ])
+    for (const result of prepared) if (result.status === "rejected") throw result.reason
     loadBootstrapEnvironment(["DATABASE_ENCRYPTION_KEY"])
     getDatabaseEncryptionKeyring()
     process.env.PORT ||= "4510"
@@ -218,14 +266,40 @@ program
   .description("initialize missing environment defaults and apply pending migrations")
   .option("--microsandbox", "prepare the local Microsandbox SDK and runtime")
   .option("--embeddedpg", "prepare private persistent PostgreSQL")
-  .action(async (options: { microsandbox?: boolean; embeddedpg?: boolean }) => {
-    if (options.microsandbox) {
-      const { installMicrosandboxRuntime } = await import("@scripts/microsandbox-runtime.ts")
-      await installMicrosandboxRuntime({ directory: getDataDirectory() })
-    }
-    if (options.embeddedpg) await installEmbeddedPostgres({ directory: getDataDirectory() })
+  .addOption(
+    new Option("--standalone", "prepare local file storage, PostgreSQL, and Microsandbox").implies({
+      embeddedpg: true,
+      microsandbox: true,
+    }),
+  )
+  .action(async (options: BootstrapOptions) => {
+    const started = performance.now()
+    const directory = getDataDirectory()
+    console.error(`Bootstrapping ${program.name()} using data directory ${directory}`)
+    const installed = await Promise.allSettled([
+      options.microsandbox
+        ? runBootstrapStep({
+            name: "Microsandbox runtime",
+            run: async () => {
+              const { installMicrosandboxRuntime } =
+                await import("@scripts/microsandbox-runtime.ts")
+              await installMicrosandboxRuntime({ directory })
+            },
+          })
+        : undefined,
+      options.embeddedpg
+        ? runBootstrapStep({
+            name: "PostgreSQL runtime",
+            run: () => installEmbeddedPostgres({ directory }),
+          })
+        : undefined,
+    ])
+    for (const result of installed) if (result.status === "rejected") throw result.reason
     const databaseWasConfigured = process.env.DATABASE_URL !== undefined
-    const embedded = await preparePlatformDatabase(options)
+    const embedded = await runBootstrapStep({
+      name: "Database startup",
+      run: () => preparePlatformDatabase(options),
+    })
     if (process.env.DATABASE_ENCRYPTION_KEY !== undefined) getDatabaseEncryptionKeyring()
     const storedKeys = new Set<string>()
     const client = new Client({
@@ -248,6 +322,10 @@ program
     if (storedKeys.size > 0) getDatabaseEncryptionKeyring()
     const testingDefault = storedKeys.size === 0 ? "true" : "false"
     const defaults = {
+      ...(options.standalone && {
+        ...(storedKeys.size === 0 && { STORAGE_PROVIDER: "filesystem" }),
+        MICROSANDBOX_DISABLED: "false",
+      }),
       LOCAL_SANDBOX_IMAGE: getLocalSandboxImage(),
       DATABASE_ENCRYPTION_KEY: randomBytes(32).toString("base64url"),
       BETTER_AUTH_SECRET: randomBytes(32).toString("base64url"),
@@ -262,10 +340,20 @@ program
       process.env[name] = value
     }
     getDatabaseEncryptionKeyring()
-    await migratePlatformDatabase(false)
+    const [migration, sandboxes] = await Promise.allSettled([
+      runBootstrapStep({ name: "Database migrations", run: () => migratePlatformDatabase(false) }),
+      runBootstrapStep({
+        name: "Local sandbox images and validation",
+        run: () => preparePlatformSandboxes({ prepareImages: true }),
+      }),
+    ])
+    if (migration.status === "rejected") throw migration.reason
     if (embedded && !databaseWasConfigured)
       saveBootstrapValue({ name: "DATABASE_URL", value: "embedded" })
-    await prefetchPlatformSandboxImage()
+    if (sandboxes.status === "rejected") throw sandboxes.reason
+    console.error(
+      `Bootstrap complete (${((performance.now() - started) / 1000).toFixed(1)}s). Run \`${program.name()} start\` from this directory.`,
+    )
   })
 
 program

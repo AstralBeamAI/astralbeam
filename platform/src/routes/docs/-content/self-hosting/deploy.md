@@ -76,7 +76,7 @@ Let's start a local installation:
    astralbeam-platform bootstrap --embeddedpg
    ```
 
-   The first run downloads roughly 90 MB of PostgreSQL binaries. To also prepare [Microsandbox](../dashboard/sandboxes.md#microsandbox), use `astralbeam-platform bootstrap --embeddedpg --microsandbox` instead.
+   The first run downloads roughly 90 MB of PostgreSQL binaries. Use `astralbeam-platform bootstrap --standalone` to also prepare and require [Microsandbox](../dashboard/sandboxes.md#microsandbox), cache its [sandbox image](#local-sandbox-image), and select File System storage for a new deployment. Existing environment values and saved storage selections take precedence. Bootstrap runs independent downloads in parallel and prints phase timings.
 
 3. Start Platform on loopback:
 
@@ -150,15 +150,15 @@ The binary lands at `platform/.output/astralbeam-platform`. The server needs a w
 
 ### Local sandbox image
 
-The operator selects one OCI image for Docker and Microsandbox through `LOCAL_SANDBOX_IMAGE`. Organization sandbox settings cannot override it. Bootstrap writes the release-tagged default to `.env` when unset and pre-downloads the image for a reachable Docker daemon and an installed Microsandbox runtime. Disabled runtimes are skipped.
+The operator selects one OCI image for Docker and Microsandbox through `LOCAL_SANDBOX_IMAGE`. Organization sandbox settings cannot override it. Bootstrap saves the release-tagged default to `.env` when unset and downloads missing images into the native caches. Repeat runs preserve environment defaults, credentials, database contents, and cached images while applying pending migrations. Disabled runtimes are skipped. Runtimes explicitly required with `*_DISABLED=false` must also pass execution and cleanup validation during bootstrap. Startup checks availability only.
 
-To refresh the configured image in both native caches, run bootstrap again from the service's working directory, using its environment and data directory:
+To prepare the configured image in both native caches, run this from the service's working directory, using its environment and data directory:
 
 ```sh
 astralbeam-platform bootstrap
 ```
 
-Normal sandbox starts reuse cached images. Set `LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:latest` to follow new image releases when bootstrap refreshes the cache. A bare image name also means `:latest`. Set a version tag or digest to select a fixed release, and restart Platform after changing `.env`.
+Cached tags, including `:latest`, are reused. Choose a new version tag or digest in `LOCAL_SANDBOX_IMAGE` and rerun bootstrap to prepare another release. A bare image name means `:latest`. Restart Platform after changing `.env`.
 
 ## 2. Provision the database
 
@@ -182,9 +182,9 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
-| `MICROSANDBOX_DISABLED` | No | Set `true` to disable Microsandbox. Otherwise an installed runtime appears when its host check passes. See [setup](../dashboard/sandboxes.md#microsandbox) |
-| `LOCAL_SANDBOX_IMAGE` | No | Operator-owned OCI reference shared by Docker and Microsandbox. Defaults to `ghcr.io/astralbeamai/sandbox:<Platform version>`. Bootstrap writes this default to `.env` and refreshes available local runtime caches. |
-| `DOCKERSANDBOX_DISABLED` | No | Set `true` to disable automatic Docker availability. Otherwise the configured Docker daemon must respond to its readiness check |
+| `MICROSANDBOX_DISABLED` | No | `true` disables Microsandbox. `false` requires it at startup and bootstrap. Unset auto-detects the installed runtime. See [setup](../dashboard/sandboxes.md#microsandbox) |
+| `LOCAL_SANDBOX_IMAGE` | No | Shared Docker and Microsandbox OCI image. Defaults to `ghcr.io/astralbeamai/sandbox:<Platform version>`. See [Local sandbox image](#local-sandbox-image) for caching and validation |
+| `DOCKERSANDBOX_DISABLED` | No | `true` disables Docker. `false` requires it at startup and bootstrap. Unset auto-detects a reachable Docker daemon |
 | `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
 | `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL, Microsandbox, and file storage. Containers use `/var/lib/astralbeam` |
 | `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
