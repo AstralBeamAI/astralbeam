@@ -11,8 +11,14 @@ export class DockerSandbox extends SandboxConnection {
     return dockerAvailable()
   }
 
-  static async pullImage(image: string): Promise<void> {
+  static async prepareImage(image: string): Promise<void> {
     const docker = new Dockerode()
+    try {
+      await docker.getImage(image).inspect()
+      return
+    } catch (error) {
+      if ((error as { statusCode?: number }).statusCode !== 404) throw error
+    }
     const stream = await docker.pull(image)
     await new Promise<void>((resolve, reject) => {
       docker.modem.followProgress(stream, (error) => (error ? reject(error) : resolve()))

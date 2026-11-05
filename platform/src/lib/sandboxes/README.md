@@ -9,7 +9,7 @@ Each packaged provider exposes two checks:
 - Static `available()` checks host prerequisites without creating a sandbox. External providers return `true` without checking credentials. Docker pings its daemon. Microsandbox runs `doctor` against its installed runtime without pulling an image.
 - Instance `valid({ signal })` creates a sandbox, verifies execution, and destroys it. It returns `true` on success or throws on failure. Creation allows two minutes. Execution and cleanup each allow fifteen seconds.
 
-Platform owns authorization, result metadata, and safe error messages. The CLI runs availability checks concurrently with database preparation and prints each provider's status. Workers inherit the Microsandbox result without repeating its host check.
+Platform owns authorization, result metadata, and safe error messages. The CLI prints each provider's availability. `DOCKERSANDBOX_DISABLED` and `MICROSANDBOX_DISABLED` accept `true` to disable a runtime or `false` to require it. Unset means automatic detection. Bootstrap downloads `LOCAL_SANDBOX_IMAGE` and runs `valid()` for required runtimes. Startup checks availability only. An unavailable required runtime or failed validation stops the command. Workers inherit the supervisor's checks.
 
 ```ts
 import { DockerSandbox } from "@astralbeam/sandbox"
@@ -44,7 +44,7 @@ Defaults only populate a new organization form. Once saved, the database values 
 1. Install and start [Docker Engine](https://docs.docker.com/engine/install/) or [Docker Desktop](https://docs.docker.com/desktop/).
 2. Run the platform directly on that host. As the same operating-system user, run [`docker info`](https://docs.docker.com/reference/cli/docker/system/info/) and resolve any daemon or socket permission error.
 3. The adapter connects through `DOCKER_HOST`, or else `~/.docker/run/docker.sock` before `/var/run/docker.sock`, and ignores the CLI's [contexts](https://docs.docker.com/engine/manage-resources/contexts/). With OrbStack, Colima, or a stale Docker Desktop socket, start the platform with `DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')` exported.
-4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves the release-tagged default to `.env` when unset and pre-downloads it for available local runtimes. Every bootstrap refreshes the configured reference using their native image caches. Normal sandbox creation reuses those caches.
+4. In the app, open **Sandboxes** from the organization sidebar, add a provider, give it a unique name, choose **Docker**, and select **Test and save**. The operator controls the image through `LOCAL_SANDBOX_IMAGE`. Bootstrap saves the release-tagged default to `.env` when unset and downloads missing images into the native caches. Repeat bootstrap runs and normal sandbox creation reuse those caches. Choose a new version tag or digest to prepare another image.
 
 The image installs commands under `/usr/local/bin` and uses the root/home defaults expected by the stock Docker adapter. The adapter is unmodified.
 

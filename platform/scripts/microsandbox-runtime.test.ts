@@ -86,7 +86,7 @@ describe.skipIf(process.platform === "win32" || !manifest.targets[target])(
       expect(await readdir(directory)).toStrictEqual([])
     })
 
-    it("refreshes the configured image in the prepared runtime cache on every bootstrap", async () => {
+    it("prepares the configured image without forcing a cache refresh", async () => {
       const argumentsFile = join(directory, "pull-arguments")
       await cacheMicrosandboxDoctor(
         `printf '%s\\n' "$@" >> '${argumentsFile}'\nprintf '%s' "$MSB_HOME" > '${join(directory, "pull-home")}'`,
@@ -95,7 +95,7 @@ describe.skipIf(process.platform === "win32" || !manifest.targets[target])(
       await pullMicrosandboxImage({ directory, image: "operator/sandbox:latest" })
       await pullMicrosandboxImage({ directory, image: "operator/sandbox:latest" })
       expect(await readFile(argumentsFile, "utf8")).toBe(
-        "image\npull\n--force\noperator/sandbox:latest\n".repeat(2),
+        "image\npull\noperator/sandbox:latest\n".repeat(2),
       )
       const home = await readFile(join(directory, "pull-home"), "utf8")
       expect(await realpath(home)).toBe(await realpath(join(directory, "microsandbox")))

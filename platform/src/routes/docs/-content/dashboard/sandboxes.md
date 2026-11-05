@@ -64,7 +64,7 @@ Let's prepare the runtime, then verify it with a real VM:
 
 ### Image and dependencies
 
-The operator sets one image for Docker and Microsandbox in `.env`. Bootstrap pre-downloads it and refreshes the cache on later runs. See [local sandbox image configuration](../self-hosting/deploy.md#local-sandbox-image). Agents can also install additional Python packages inside their workspace.
+The operator sets one image for Docker and Microsandbox in `.env`. Bootstrap downloads it when missing and reuses the cache on later runs. See [local sandbox image configuration](../self-hosting/deploy.md#local-sandbox-image). Agents can also install additional Python packages inside their workspace.
 
 ### If Microsandbox is unavailable
 
