@@ -96,6 +96,83 @@ test.describe("S3 resumable uploads", () => {
     }
   })
 
+  test("a file paused in the queue can resume before its fingerprint exists", async ({ page }) => {
+    const occupied = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    let parts = 0
+    await page.route("**/*uploadId=*", async (route) => {
+      if (route.request().method() === "PUT") {
+        if (++parts === 2) occupied.resolve()
+        await release.promise
+      }
+      await route.continue()
+    })
+    try {
+      await todosPage(page).open()
+      const chat = chatWidget(page)
+      await chat.waitForReady()
+      await chat.attach(
+        [1, 2, 3].map((number) => ({
+          name: `queued-${number}.txt`,
+          mimeType: "text/plain",
+          buffer: Buffer.from("Queued file"),
+        })),
+      )
+      await occupied.promise
+      await chat.root.getByRole("button", { name: "Pause upload", exact: true }).nth(2).click()
+      await expect(chat.root.getByText("Upload paused", { exact: true })).toBeVisible()
+      await captureMoment(page, "queued-upload-paused-before-fingerprint")
+      await chat.root.getByRole("button", { name: "Resume upload", exact: true }).click()
+      release.resolve()
+      await expect(chat.sendButton()).toBeEnabled()
+      await chat.reset()
+      await expect(chat.attachmentChip("queued-3.txt")).toHaveCount(0)
+    } finally {
+      release.resolve()
+    }
+  })
+
+  test("fresh draft cancellation blocks edits and file changes until it settles", async ({
+    page,
+  }) => {
+    await todosPage(page).open()
+    const chat = chatWidget(page)
+    await chat.waitForReady()
+    await chat.attach({
+      name: "discard.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Discard file"),
+    })
+    await expect(chat.sendButton()).toBeEnabled()
+    await chat.composer().fill("Discard this draft")
+    const cancelling = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    await page.route("**/api/v1/chat/uploads/*", async (route) => {
+      if (route.request().method() === "DELETE") {
+        cancelling.resolve()
+        await release.promise
+      }
+      await route.continue()
+    })
+    try {
+      await chat.reset()
+      await cancelling.promise
+      await expect(chat.composer()).toBeDisabled()
+      await expect(
+        chat.root.getByRole("button", { name: "Attach files", exact: true }),
+      ).toBeDisabled()
+      await expect(chat.attachmentChip("discard.txt")).toBeDisabled()
+      await expect(chat.composer()).toHaveValue("Discard this draft")
+      await captureMoment(page, "composer-disabled-during-draft-discard")
+      release.resolve()
+      await expect(chat.composer()).toBeEnabled()
+      await expect(chat.composer()).toHaveValue("")
+      await expect(chat.attachmentChip("discard.txt")).toHaveCount(0)
+    } finally {
+      release.resolve()
+    }
+  })
+
   test("a failed upload cancellation retains its recoverable draft across reload", async ({
     page,
   }) => {

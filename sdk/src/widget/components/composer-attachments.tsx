@@ -32,7 +32,9 @@ export function ComposerAttachments({
   onRemove,
   onPause,
   onRetry,
+  disabled = false,
 }: {
+  disabled?: boolean
   attachments: readonly DraftAttachment[]
   onRemove: (id: string) => void
   onPause?: ((id: string) => void) | undefined
@@ -60,6 +62,7 @@ export function ComposerAttachments({
             type="button"
             variant="ghost"
             size="icon-sm"
+            disabled={disabled}
             tooltip="Review files"
             onClick={() => {
               const chip = group.current?.querySelector<HTMLElement>('[role="alert"]')
@@ -106,6 +109,7 @@ export function ComposerAttachments({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
+                    disabled={disabled}
                     tooltip="Pause upload"
                     onClick={() => onPause(attachment.id)}
                   >
@@ -114,11 +118,12 @@ export function ComposerAttachments({
                 )}
                 {onRetry &&
                   ["paused", "reselect", "error"].includes(attachment.status) &&
-                  (attachment.sessionId || attachment.sha256) && (
+                  (attachment.status === "paused" || attachment.sessionId || attachment.sha256) && (
                     <TooltipButton
                       type="button"
                       variant="ghost"
                       size="icon-xs"
+                      disabled={disabled}
                       tooltip="Resume upload"
                       onClick={() => onRetry(attachment.id)}
                     >
@@ -130,6 +135,7 @@ export function ComposerAttachments({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
+                  disabled={disabled}
                   aria-label={`Remove ${attachment.name}`}
                   tooltip="Remove attachment"
                   onClick={() => onRemove(attachment.id)}

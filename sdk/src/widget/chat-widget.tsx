@@ -645,6 +645,7 @@ export function ChatWidget({
           </p>
         )}
         <ChatComposer
+          disabled={discarding}
           title={options.title ?? DEFAULT_TITLE}
           actionsSlot={
             hostSlots.has("composerActions") ? hostSlotName("composerActions") : undefined
@@ -679,6 +680,7 @@ export function ChatWidget({
           onAddFiles={addAttachmentFiles}
           onPauseAttachment={(id) => {
             pauseAttachmentUpload({ uploads, id })
+            composer.settleAttachment(id, { status: "paused" })
           }}
           onRetryAttachment={retryUpload}
           onRemoveAttachment={removeAttachment}

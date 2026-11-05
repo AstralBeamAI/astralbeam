@@ -11,6 +11,7 @@ import { ComposerAttachments } from "./composer-attachments.tsx"
 import { TooltipButton } from "./tooltip-button.tsx"
 
 interface ChatComposerProps {
+  disabled?: boolean
   /** Widget title, used in the input's placeholder ("Message <title>…"). */
   title: string
   /** Name of the host's composer-actions slot; when set, extra host controls project into the row. */
@@ -45,6 +46,7 @@ interface ChatComposerProps {
 
 export function ChatComposer({
   title,
+  disabled = false,
   actionsSlot,
   draft,
   onDraftChange,
@@ -70,7 +72,7 @@ export function ChatComposer({
   const shortcutId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
   const [dropTarget, setDropTarget] = useState(false)
-  const blocked = authPending || authError !== undefined || threadLoading
+  const blocked = disabled || authPending || authError !== undefined || threadLoading
   // A file still being read would be left out of the message, so the send waits for it.
   const reading = attachments.some(
     (attachment) => attachment.status !== "ready" && attachment.status !== "error",
@@ -189,6 +191,7 @@ export function ChatComposer({
         {attachments.length > 0 && (
           <InputGroupAddon align="block-start" className="py-1">
             <ComposerAttachments
+              disabled={disabled}
               attachments={attachments}
               onRemove={onRemoveAttachment}
               onPause={onPauseAttachment}
