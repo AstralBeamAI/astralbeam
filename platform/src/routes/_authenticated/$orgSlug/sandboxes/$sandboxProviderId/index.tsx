@@ -3,6 +3,8 @@ import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-route
 import * as Schema from "effect/Schema"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { DocsLink } from "@/components/docs-link"
 import { APP_NAME } from "@/lib/constants"
 import { sandboxProviderDescriptors } from "@/lib/sandboxes/registry"
 import { UuidV7Schema } from "@/lib/schemas"
@@ -46,6 +48,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/sandboxes/$sandbo
 function SandboxProviderPage() {
   const { orgSlug } = Route.useParams()
   const { data, permissions } = Route.useLoaderData()
+  const available = data.availableProviders.includes(data.provider.providerType)
   const descriptor = sandboxProviderDescriptors.find(
     (item) => item.id === data.provider.providerType,
   )
@@ -67,16 +70,29 @@ function SandboxProviderPage() {
         </p>
       </div>
 
-      {data.provider.lastTest && (
-        <div className="max-w-2xl">
-          <SandboxConnectionStatus metadata={data.provider.lastTest} />
-        </div>
+      {!available ? (
+        <Alert className="max-w-2xl">
+          <AlertTitle>{descriptor?.label} is unavailable on this server</AlertTitle>
+          <AlertDescription>
+            Ask your server operator to check the provider setup and runtime availability. You can
+            still rename this connection or choose another provider.{" "}
+            <DocsLink href={descriptor?.setupUrl ?? "/docs/dashboard/sandboxes"}>
+              Provider setup
+            </DocsLink>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        data.provider.lastTest && (
+          <div className="max-w-2xl">
+            <SandboxConnectionStatus metadata={data.provider.lastTest} />
+          </div>
+        )
       )}
 
       <SandboxProviderActions
         organizationSlug={orgSlug}
         provider={data.provider}
-        canTest={permissions.testConfiguration}
+        canTest={permissions.testConfiguration && available}
         canDelete={permissions.deleteConfiguration}
       />
 
@@ -87,6 +103,7 @@ function SandboxProviderPage() {
         organizationSlug={orgSlug}
         provider={data.provider}
         readOnly={!permissions.updateConfiguration}
+        availableProviders={data.availableProviders}
       />
     </div>
   )

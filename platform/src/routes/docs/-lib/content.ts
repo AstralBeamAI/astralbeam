@@ -192,7 +192,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
         updated: "2026-11-05",
         title: "Coding agents",
         description:
-          "Give coding agents the bundled CLI skill and scoped credentials to manage your organization safely.",
+          "Add AstralBeam to your app with a coding agent, or use the CLI for organization administration.",
       },
     ],
   },
@@ -271,7 +271,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
         updated: "2026-11-05",
         title: "Overview",
         description:
-          "Understand the application process, PostgreSQL database, and private object storage needed to self-host the platform.",
+          "Run the agent backend with PostgreSQL and local or S3-compatible file storage on your own infrastructure.",
       },
       {
         slug: "deploy",

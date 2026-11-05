@@ -117,9 +117,9 @@ You now have tools and widgets connected to the same todo list.
 
 ## Try files and code execution
 
-To extend the example, enable **Allow file attachments** on the agent and configure Platform file storage. Attach `samples/tasks.csv` and ask **"Add the tasks from this CSV."** Check the new rows.
+To extend the example, enable **Allow file attachments** on the agent, configure Platform file storage, and select a tested [sandbox provider](/docs/dashboard/sandboxes). Attach `samples/tasks.csv` and ask **"Add the tasks from this CSV."** Check the new rows.
 
-Configure and test a provider under **Sandboxes**, then select it on the Todos agent. Ask **"Export my todos as CSV using the sandbox."** Check the command exit codes and download the result from **Sandbox**. Published files remain in saved history after the workspace stops.
+Ask **"Export my todos as CSV using the sandbox."** Check the command exit codes and download the result from **Sandbox**. Published files remain in saved history after the workspace stops.
 
 ## Continue
 

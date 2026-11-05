@@ -50,7 +50,7 @@ export function authPage(page: Page) {
       await waitForHydration(page.locator("#password"))
       await page.locator("#email").fill(email)
       await page.locator("#password").fill(password)
-      await submitWhenReady(submitButton(/^sign in$/i))
+      await submitWhenReady(submitButton(/^sign in(?: last used)?$/i))
     },
 
     async resetPassword(link: string, password: string): Promise<void> {

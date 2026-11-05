@@ -1,0 +1,26 @@
+{
+  "wrapperVersion": "2.0.1",
+  "postgresVersion": "18.6.1",
+  "targets": {
+    "darwin-arm64": {
+      "wrapper": "embedded-postgres_darwin_arm64",
+      "wrapperSha256": "f50844dbeb903e592f66a2c1f68e52d3c5e7a4ff73c426c523f9b2835feb16e0"
+    },
+    "darwin-x64": {
+      "wrapper": "embedded-postgres_darwin_amd64",
+      "wrapperSha256": "b2329f3741440db8a05caf74afbfcc027c843947b29df96bb1357af5501b2b6c"
+    },
+    "linux-arm64": {
+      "wrapper": "embedded-postgres_linux_arm64",
+      "wrapperSha256": "7102b41f10d0d84d6f3dab0c2153f8335d358e5592e774e43d10505279a1ef05"
+    },
+    "linux-x64": {
+      "wrapper": "embedded-postgres_linux_amd64",
+      "wrapperSha256": "7053a004dc24ba58b053253f2dd9b5bf760e250f15c8258d746d1ac9ec910c73"
+    },
+    "win32-x64": {
+      "wrapper": "embedded-postgres_windows_amd64.exe",
+      "wrapperSha256": "aa75f02a56b5ad836a51eeb16834640dedff62813e71ba8a0eef8ca3a2d33e22"
+    }
+  }
+}

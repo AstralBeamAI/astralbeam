@@ -2,9 +2,11 @@
 
 Add a chat assistant to your React app using your existing login. You'll connect a model, add a token endpoint, and send your first message.
 
+Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
+
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-You'll need a React app with an authenticated backend and a model-provider API key. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first. For an app without React, use the [JavaScript SDK](/docs/sdk/getting-started) or [script tag](/docs/sdk/script-tag).
+You'll need a React app with an authenticated backend and a model-provider API key. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
 ## 1. Prepare your agent
 

@@ -497,7 +497,8 @@ describe.skipIf(!mcpIntegration.url || !!mcpIntegration.worker)(
           globalThis.process.execPath,
           [
             "run",
-            "test",
+            "vitest",
+            "run",
             "--project=integration",
             "--maxWorkers=1",
             "src/lib/mcp/mcp.integration.test.ts",

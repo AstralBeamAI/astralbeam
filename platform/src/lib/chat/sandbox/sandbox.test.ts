@@ -6,6 +6,8 @@ import { TestClock } from "effect/testing"
 import { beforeEach } from "vitest"
 
 import { SandboxProviderFactory } from "@/lib/sandboxes/factory.server"
+import { SandboxConnection } from "@astralbeam/sandbox"
+import { SandboxProviderUnavailable } from "@/lib/sandboxes/errors"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import {
   CHAT_SANDBOX_FILE_TIMEOUT_MS,
@@ -19,6 +21,8 @@ import { ChatSandboxes, type ChatSandboxStatus } from "./sandbox.ts"
 function freshChatSandboxTestState() {
   return {
     created: 0,
+    factories: 0,
+    providerFails: false,
     providerIds: [] as string[],
     configuration: {
       name: "Local",
@@ -84,7 +88,14 @@ const sandboxesLayer = ChatSandboxes.layerNoDeps.pipe(
     Layer.succeed(SandboxProviders, {
       resolveConfiguration: () => Effect.succeed(sandboxTest.configuration),
     } as unknown as SandboxProviders["Service"]),
-    Layer.succeed(SandboxProviderFactory, { create: () => Effect.succeed(fakeSandboxProvider) }),
+    Layer.succeed(SandboxProviderFactory, {
+      create: () => {
+        sandboxTest.factories++
+        return sandboxTest.providerFails
+          ? Effect.fail(new SandboxProviderUnavailable({ cause: new Error("Provider disabled") }))
+          : Effect.succeed(new SandboxConnection(() => fakeSandboxProvider))
+      },
+    }),
   ]),
 )
 
@@ -122,6 +133,17 @@ beforeEach(() => {
 })
 
 describe("ChatSandboxes", () => {
+  it.effect("does not require an available provider until a chat uses its sandbox", () =>
+    Effect.gen(function* () {
+      sandboxTest.providerFails = true
+      const session = yield* sessionFor(yield* ChatSandboxes)
+      yield* session.prepareUploads([])
+      assert.strictEqual(sandboxTest.factories, 0)
+      const error = yield* Effect.flip(session.acquire(noStatus))
+      assert.strictEqual(error._tag, "ChatSandboxUnavailable")
+      assert.strictEqual(sandboxTest.factories, 1)
+    }).pipe(Effect.scoped, Effect.provide(sandboxesLayer)),
+  )
   it.effect("cancels attachment file writes when the run is interrupted", () =>
     Effect.gen(function* () {
       const upload = Promise.withResolvers<void>()

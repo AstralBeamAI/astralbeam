@@ -67,7 +67,7 @@ For a proxy on the same host, loopback (`127.0.0.1` and `::1`) is already truste
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
 - Prevent other clients from reaching the application port directly. With `TRUST_PROXY=true` or an empty list while **Trust Proxy** is enabled, any caller can supply trusted headers, so origin access restrictions are essential.
 
-The proxy must also overwrite **Client IP Headers**, which default to `x-forwarded-for`. Use `CLIENT_IP_HEADERS` for a different ordered list. When trust is disabled or the peer is untrusted, authentication uses the socket address. [Deploy](./deploy.md#5-put-it-behind-a-reverse-proxy) includes a same-host Nginx example.
+The proxy must also overwrite **Client IP Headers**, which default to `x-forwarded-for`. Use `CLIENT_IP_HEADERS` for a different ordered list. When trust is disabled or the peer is untrusted, authentication uses the socket address. [Deploy](./deploy.md#https-reverse-proxy) includes a same-host Nginx example.
 
 With an IP/CIDR allowlist, authentication resolves forwarded IP chains from right to left through trusted hops. With unrestricted trust, it uses the leftmost client address and validates it through Better Auth.
 

@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 
 import { APP_NAME } from "@/lib/constants"
 import { SandboxProviderForm } from "../-components/sandbox-provider-form"
+import { getAvailableSandboxProviders } from "../-functions/get-available-sandbox-providers"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/sandboxes/new/")({
   beforeLoad: ({ context, params }) => {
@@ -14,12 +15,15 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/sandboxes/new/")(
       })
     }
   },
+  loader: ({ params }) =>
+    getAvailableSandboxProviders({ data: { organizationSlug: params.orgSlug } }),
   component: NewSandboxProviderPage,
   head: () => ({ meta: [{ title: `New sandbox provider · ${APP_NAME}` }] }),
 })
 
 function NewSandboxProviderPage() {
   const { orgSlug } = Route.useParams()
+  const availableProviders = Route.useLoaderData()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -37,7 +41,12 @@ function NewSandboxProviderPage() {
           Saving runs a real connection test first, so a provider is never stored untested.
         </p>
       </div>
-      <SandboxProviderForm organizationSlug={orgSlug} provider={null} readOnly={false} />
+      <SandboxProviderForm
+        organizationSlug={orgSlug}
+        provider={null}
+        readOnly={false}
+        availableProviders={availableProviders}
+      />
     </div>
   )
 }

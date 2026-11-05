@@ -7,6 +7,7 @@ import { deleteWithOptimisticLock, updateWithOptimisticLock } from "@/db/lib/opt
 import { mapDatabaseErrors } from "@/db/lib/sqlstate"
 import { agent, agentModel, organizationConfiguration } from "@/db/schema/organizations"
 import { SandboxProviderIdSchema, SandboxProviderNameSchema } from "@/lib/sandboxes/schemas"
+import { getAvailableSandboxProviderIds } from "@/lib/sandboxes/availability.server"
 import { ModelProviders, type ModelChoice } from "@/lib/model-providers/model-providers.server"
 import { LockVersionSchema, UuidV7Schema } from "@/lib/schemas"
 import {
@@ -42,7 +43,9 @@ const AgentSandboxProviderSchema = Schema.Struct({
   providerType: SandboxProviderIdSchema,
 })
 
-export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type
+export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type & {
+  readonly available: boolean
+}
 
 /** The agent policy a chat run reads before resolving its selected model. */
 export type ChatAgent = Readonly<
@@ -235,8 +238,12 @@ export class Agents extends Context.Service<
           },
         })
         const { sandboxProviders, configuration } = yield* decodeAgentFormOptions(organization)
+        const availableProviders = yield* Effect.promise(getAvailableSandboxProviderIds)
         return {
-          sandboxProviders,
+          sandboxProviders: sandboxProviders.map((provider) => ({
+            ...provider,
+            available: availableProviders.includes(provider.providerType),
+          })),
           models: yield* modelProviders.choices({ organizationId }),
           defaultAgentId: publicDefaultAgentId(organizationId, configuration),
         }

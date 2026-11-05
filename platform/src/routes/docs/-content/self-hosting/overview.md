@@ -1,8 +1,8 @@
 # Overview
 
-Run AstralBeam on your own infrastructure with PostgreSQL, persistent file storage, and email delivery. Choose your installation:
+Run AstralBeam on your own infrastructure. The standalone setup prepares a local database, persistent file storage, and sandbox. Choose your installation:
 
-- [Standalone binary on Linux](./deploy.md#binary-on-linux) for public hosting.
+- [Standalone binary](./deploy.md#standalone-binary) to install and start the platform.
 - [Docker Compose](./deploy.md#docker-compose) for a local evaluation.
 
 ## What you run
@@ -11,13 +11,12 @@ One application serves the dashboard, API, docs, and operator setup page at `/co
 
 ## What you need alongside it
 
-- PostgreSQL 18 or newer with the `citext` extension.
-- A persistent directory writable by the application. New installations use File System storage, and Compose supplies a persistent volume. Use a private S3-compatible bucket when running across multiple hosts.
+- A persistent directory writable by the application. Keep it across upgrades.
 - SMTP, Resend, or Amazon SES for account verification, password recovery, and invitations.
 - An HTTPS reverse proxy for public hosting.
 - A model-provider API key, added under **Models** in each organization's dashboard.
 
-No separate queue or cache server is required.
+Standalone setup uses experimental embedded PostgreSQL. For multiple hosts, provide PostgreSQL 18 or newer and shared S3-compatible storage. No separate queue or cache server is required.
 
 For local contributor services, follow [repository setup](https://github.com/AstralBeamAI/astralbeam/blob/main/docs/SETUP.md).
 
@@ -29,11 +28,13 @@ PostgreSQL stores accounts, configuration, conversation history, and workflow st
 
 ## Bootstrap variables and stored settings
 
-The application needs `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` at startup. The binary's bootstrap command generates the key for a new installation. Use its first entry to sign in to `/configure` and edit deployment settings. Environment overrides take precedence over stored values. See [Configuration](./configuration.md).
+Standalone bootstrap saves private startup settings in `.env` and generates an encryption key for the local database. Use that key to sign in to `/configure` and edit deployment settings. Environment overrides take precedence over saved values. See [Configuration](./configuration.md).
 
 ## First boot
 
-Open `/configure`, review any pending migrations, complete the required settings, and invite the owner. **Go to app** becomes available when setup is complete. Application pages redirect to `/configure` and API routes return `503` until the required configuration and migrations are ready. Follow [Complete setup](./deploy.md#6-complete-setup).
+Open `/configure`, review any pending migrations, complete the required settings, and invite the owner. **Go to app** becomes available when setup is complete. Application pages redirect to `/configure` and API routes return `503` until the required configuration and migrations are ready. Follow [Complete setup](./deploy.md#complete-setup).
+
+Next, follow the [Quickstart](/docs/start/quickstart), using your deployment's `/api` URL for the SDK's `apiUrl`.
 
 ## Running more than one replica
 

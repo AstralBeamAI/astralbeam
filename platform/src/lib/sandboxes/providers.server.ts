@@ -94,7 +94,8 @@ const sandboxProviderColumns = {
   organizationId: sandboxProvider.organizationId,
   name: sandboxProvider.name,
   providerType: sandboxProvider.providerType,
-  options: sandboxProvider.options,
+  // Discard legacy organization-selected images before the column codec decodes them.
+  options: sql<unknown>`case when ${sandboxProvider.providerType} in ('docker', 'microsandbox') then '{}'::jsonb else ${sandboxProvider.options} end`,
   lastTest: sandboxProvider.lastTest,
   lockVersion: sandboxProvider.lockVersion,
   createdAt: sandboxProvider.createdAt,
@@ -107,7 +108,7 @@ function readStoredCredentials(
   row: SandboxProviderRow,
   storedCredentials: string | null,
 ): Option.Option<SandboxProviderCredentials[SandboxProviderId]> {
-  if (row.providerType === "docker")
+  if (row.providerType === "docker" || row.providerType === "microsandbox")
     return storedCredentials === null ? Option.some({}) : Option.none()
   const decrypted = decryptDatabaseValue({
     storedValue: storedCredentials,
@@ -129,7 +130,7 @@ function credentialsPayload(input: {
   provider: SandboxProviderId
   credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
-  return input.provider === "docker"
+  return input.provider === "docker" || input.provider === "microsandbox"
     ? null
     : {
         sandboxProviderId: input.id,
@@ -372,7 +373,7 @@ export class SandboxProviders extends Context.Service<
           id: input.id,
           scope: eq(sandboxProvider.organizationId, input.organizationId),
           expectedLockVersion: input.lockVersion,
-          set: { lastTest: result },
+          set: { options: found.row.options, lastTest: result },
         }).pipe(
           mapDatabaseErrors(),
           Effect.catchTag("OptimisticLockError", () => Effect.fail(new SandboxProviderChanged())),

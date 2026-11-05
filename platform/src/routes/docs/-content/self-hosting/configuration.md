@@ -1,6 +1,6 @@
 # Configuration
 
-Open `/configure` to set up authentication, email, and file storage. Most installations can keep the other defaults. The database URL and encryption key are startup settings, covered in [Deploy](./deploy.md#3-set-the-bootstrap-environment).
+Open `/configure` to set up authentication, email, and file storage. Most installations can keep the other defaults. Standalone bootstrap prepares the database and encryption key. See [Deploy](./deploy.md#standalone-binary).
 
 ## Complete the initial configuration
 

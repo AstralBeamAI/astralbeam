@@ -50,6 +50,11 @@ function DocsHomePage() {
       <h2 className="mt-8 font-heading text-xl font-semibold">Other ways to build</h2>
       <ul className="mt-4 list-disc space-y-2 ps-6 leading-7">
         <li>
+          <a href="/docs/cli/coding-agents#integrate-your-app" className="text-primary underline underline-offset-4">
+            Integrate with your coding agent
+          </a>
+        </li>
+        <li>
           <a href="/docs/sdk/getting-started" className="text-primary underline underline-offset-4">
             Embed chat with JavaScript
           </a>

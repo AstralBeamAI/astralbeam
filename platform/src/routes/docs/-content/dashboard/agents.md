@@ -39,7 +39,9 @@ Copy `agent_<organizationId>_<id>` from the agent page. It is immutable and safe
 Describe what the assistant helps with, how it should respond, and when it should ask before acting. For example:
 
 ```text
-Help customers manage their projects. Keep replies brief and name the project you are changing. Ask before deleting a project.
+Help customers manage their projects.
+Keep replies brief and name the project you are changing.
+Ask before deleting a project.
 ```
 
 Set these instructions in the dashboard. Browser-supplied system prompts are rejected. Your backend must still authorize every action a [host tool](/docs/sdk/tools-and-widgets) performs.

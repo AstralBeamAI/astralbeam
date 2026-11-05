@@ -1,0 +1,38 @@
+{
+  "version": "0.7.13",
+  "sdk": {
+    "name": "microsandbox",
+    "integrity": "sha512-+tt4XK0Lghnfk1ev/+SaSGUwMu1QM5Wuz3+nwSSWGiR6onGM6oD+FORMJ2QV8hl7LpsuIHkNbedQzJFDBjFJLg=="
+  },
+  "types": {
+    "name": "@microsandbox/types",
+    "integrity": "sha512-46PiHv30/FdeES5QHS3T+mwDaBFLiUcUQ9z/RX0I5V1Za55TFtp0gstLZFpQ6mAd3FCXd/KycnGoSFYLs2GboQ=="
+  },
+  "targets": {
+    "darwin-arm64": {
+      "name": "@superradcompany/microsandbox-darwin-arm64",
+      "integrity": "sha512-j4o5dlEATkJhalKUuvM/CEIE3Q1NaHAi1JG6JafHDk9HMEvSKE0Rh+hAaLI4hURjrduzARTpcAKxPkSoaCG3uw==",
+      "library": "libkrunfw.5.dylib"
+    },
+    "linux-x64": {
+      "name": "@superradcompany/microsandbox-linux-x64-gnu",
+      "integrity": "sha512-833z4BHBJ5RwbZMHYHIGcxYxhnPGWOi0Lm2Zusu6Kl4taBM+4u76WPudKg246ElJgtPb0UIuwHlIQJA3crRodg==",
+      "library": "libkrunfw.so.5.6.1"
+    },
+    "linux-arm64": {
+      "name": "@superradcompany/microsandbox-linux-arm64-gnu",
+      "integrity": "sha512-sQQ4MgzbM0yHKwxYuinOxMZgC51QSKaOJLt4iHIhvRLLtACj2K+TsyDmiEoarYVw6tLD9Q18l07uIAQnZ/M3ZQ==",
+      "library": "libkrunfw.so.5.6.1"
+    },
+    "win32-x64": {
+      "name": "@superradcompany/microsandbox-win32-x64-msvc",
+      "integrity": "sha512-pVOltXMyFQ+cKnnnIfChsMvgmLOguUSMF84ywrrwALB3PNusG4tz9XHxh0UU1YaPi5nyRxpoBcCjGgALHSvhUQ==",
+      "library": "libkrunfw.dll"
+    },
+    "win32-arm64": {
+      "name": "@superradcompany/microsandbox-win32-arm64-msvc",
+      "integrity": "sha512-ggs8eWAQJzrUNYhTpshe0UUgboZsagK9ngwBmeHXY/hW4sogBAgHnz9QJxrf00VWDMNFKSnISgCuQEIqtqLVIA==",
+      "library": "libkrunfw.dll"
+    }
+  }
+}

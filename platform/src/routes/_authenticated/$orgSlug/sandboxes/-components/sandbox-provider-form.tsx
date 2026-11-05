@@ -50,6 +50,7 @@ export type SandboxProviderFormProps = {
   /** Null on the create page; carries decrypted credentials for masked editing otherwise. */
   provider: OrganizationSandboxProvider | null
   readOnly: boolean
+  availableProviders: readonly SandboxProviderId[]
 }
 
 function existingSecret(provider: OrganizationSandboxProvider | null): string {
@@ -63,6 +64,7 @@ export function SandboxProviderForm({
   organizationSlug,
   provider: existing,
   readOnly,
+  availableProviders,
 }: SandboxProviderFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
@@ -95,7 +97,7 @@ export function SandboxProviderForm({
     providerType,
     options,
     credentials:
-      providerType === "docker"
+      descriptor.credentialLabel === null
         ? {}
         : providerType === "vercel"
           ? { token: secret.trim() }
@@ -197,15 +199,23 @@ export function SandboxProviderForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {sandboxProviderDescriptors.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.label}
-                  </SelectItem>
-                ))}
+                {sandboxProviderDescriptors
+                  .filter((item) => availableProviders.includes(item.id))
+                  .map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <FieldDescription>
               <DocsLink href={descriptor.setupUrl}>Provider setup guide</DocsLink>
+            </FieldDescription>
+            <FieldDescription>
+              Local providers appear when their host checks pass.{" "}
+              <DocsLink href="/docs/dashboard/sandboxes#local-providers">
+                Check local setup
+              </DocsLink>
             </FieldDescription>
           </Field>
 
@@ -213,13 +223,13 @@ export function SandboxProviderForm({
             provider={providerType}
             options={options}
             errorsFor={(key) => sandboxFieldErrors(`options.${key}`)}
-            disabled={disabled}
+            disabled={disabled || !availableProviders.includes(providerType)}
             onChange={(patch) =>
               setOptions({ ...options, ...patch } as SandboxProviderOptions[SandboxProviderId])
             }
           />
 
-          {providerType !== "docker" && (
+          {descriptor.credentialLabel !== null && (
             <Field data-invalid={credentialErrors.length > 0 || undefined}>
               <FieldLabel htmlFor="sandbox-credential">{credentialLabel}</FieldLabel>
               <InputGroup>
@@ -285,7 +295,7 @@ export function SandboxProviderForm({
           </Button>
           {requiresConnectionTest && (
             <span className="text-xs text-muted-foreground">
-              Connection tests create a real sandbox and may incur vendor charges.
+              Connection tests create a temporary sandbox. Cloud providers may charge for use.
             </span>
           )}
         </CardFooter>

@@ -87,7 +87,6 @@ export class ChatSandboxes extends Context.Service<
             organizationId,
             id: input.sandboxProviderId,
           })
-          const provider = yield* factory.create(configuration.provider, configuration)
           const scope = yield* Scope.fork(yield* Effect.scope)
           const configurationId = createHmac("sha256", ownerId)
             .update(
@@ -99,22 +98,12 @@ export class ChatSandboxes extends Context.Service<
               ]),
             )
             .digest("hex")
-          const definition = defineSandbox({
-            // Isolate lease owners and configuration changes without exposing credentials.
-            id: `${APP_HANDLE}-chat-${configurationId}-${input.agentId}-${input.sandboxProviderId}`,
-            provider,
-            // No snapshot: the workspace is empty until the agent writes to it, so an after-setup
-            // snapshot would cost a round trip per create and restore nothing worth restoring.
-            lifecycle: { reuse: "thread", snapshot: "none" },
-          })
           const principalScope = chatPrincipalScope(input.principal)
           const context = {
             threadId: input.threadId,
             runId: input.runId,
             tenant: { orgId: organizationId, userId: principalScope },
           }
-          // The upstream key is a 64-bit hash over a browser-supplied threadId, not a tenant boundary.
-          const key = `${principalScope}\0${definition.key(context)}`
           const started = yield* Deferred.make<SandboxHandle, ChatSandboxUnavailable>()
           const claimed = yield* Ref.make(false)
           const uploads = yield* Ref.make(input.uploads)
@@ -125,6 +114,16 @@ export class ChatSandboxes extends Context.Service<
               // `ensure` is the whole resume-or-create algorithm and the slowest step of a
               // sandboxed run, which is why the status event goes out before it.
               yield* report({ state: "starting" })
+              const connection = yield* factory.create(configuration.provider, configuration)
+              const provider = yield* Effect.promise(() => connection.provider)
+              const definition = defineSandbox({
+                // Isolate lease owners and configuration changes without exposing credentials.
+                id: `${APP_HANDLE}-chat-${configurationId}-${input.agentId}-${input.sandboxProviderId}`,
+                provider,
+                lifecycle: { reuse: "thread", snapshot: "none" },
+              })
+              // The upstream key is a 64-bit hash over a browser-supplied threadId, not a tenant boundary.
+              const key = `${principalScope}\0${definition.key(context)}`
               const handle = yield* acquireSandbox({ key, definition, context }).pipe(
                 Scope.provide(scope),
               )
