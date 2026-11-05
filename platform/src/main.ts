@@ -353,9 +353,12 @@ program
     // Existing deployments must keep their encryption key and secure flag defaults.
     if (storedKeys.size > 0) getDatabaseEncryptionKeyring()
     const testingDefault = storedKeys.size === 0 ? "true" : "false"
+    const hasS3Environment = Object.entries(process.env).some(
+      ([key, value]) => key.startsWith("S3_") && Boolean(value),
+    )
     const defaults = {
       ...(options.standalone && {
-        ...(storedKeys.size === 0 && { STORAGE_PROVIDER: "filesystem" }),
+        ...(storedKeys.size === 0 && !hasS3Environment && { STORAGE_PROVIDER: "filesystem" }),
         MICROSANDBOX_DISABLED: "false",
       }),
       LOCAL_SANDBOX_IMAGE: getLocalSandboxImage(),
