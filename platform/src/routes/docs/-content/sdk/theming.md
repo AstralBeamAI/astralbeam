@@ -31,9 +31,7 @@ chat.update({ colorScheme: "dark" })
 />
 ```
 
-- Keys are CSS custom property names (`--background`, `--primary`, `--radius`, `--font-sans`, ...).
-- Values apply immediately on prop or `update` changes.
-- The widget defines its own palette, so pass overrides through `theme` instead of relying on inherited host tokens.
+Use CSS custom property names such as `--background`, `--primary`, `--radius`, and `--font-sans`. Pass overrides through `theme` because the widget defines its own palette. Changes apply immediately.
 
 ## Custom CSS
 

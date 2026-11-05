@@ -1,10 +1,10 @@
 # Todos tutorial
 
-Let's add an assistant to a todo app, connect its tools to the list, and show live todo cards in chat. Each step shows the relevant code and links to the complete file on `main`.
+Build an assistant that adds, updates, and deletes todos, with live cards in chat. You'll connect tools to the same state and components the app already uses. The code excerpts link to complete files on `main`.
 
 ## 1. Run the starter
 
-The [starter branch](https://github.com/AstralBeamAI/astralbeam/tree/examples/todos-starter/examples/todos) already has browser persistence, create/update/delete helpers, and a `TodoCard` used by the list. It has no SDK integration. Create a working branch from it in a clean checkout:
+You'll need Git, Bun, and a model-provider API key. The [starter branch](https://github.com/AstralBeamAI/astralbeam/tree/examples/todos-starter/examples/todos) includes a working todo list with browser persistence and a `TodoCard` component. Create a working branch from it in a clean checkout:
 
 ```sh
 git fetch origin
@@ -97,15 +97,13 @@ Copy the public configuration from [`config.ts`](https://github.com/AstralBeamAI
 />
 ```
 
-Use the [complete component](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx) for imports, sidebar sizing, and appearance props. Add the sidebar rules from [`styles.css`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/styles.css).
+Use the [complete component](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/todos-assistant.tsx) for imports and sidebar sizing. Add the sidebar rules from [`styles.css`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/styles.css).
 
 Import `TodosAssistant` into [`AppShell`](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/src/components/app-shell.tsx) and place it immediately after `</main>`. The shared layout keeps chat mounted during navigation:
 
 ```tsx title="src/components/app-shell.tsx"
 <TodosAssistant colorScheme={colorScheme} />
 ```
-
-See [SDK configuration](/docs/sdk/configuration) for appearance, resizing, and optional controls.
 
 ## 6. Try it
 
@@ -115,12 +113,16 @@ In Platform, configure a provider under **Models** and assign its model to the T
 2. Toggle the card, then toggle the row. Both should stay in sync.
 3. Ask **"Delete Water the plants."** Reload and check that it stays deleted.
 
-With **Allow attachments** enabled and Platform file storage configured, attach `samples/tasks.csv` and ask **"Add the tasks from this CSV."** Check the new rows.
+You now have tools and widgets connected to the same todo list.
 
-Configure and test a provider under **Sandboxes**, then select it on the Todos agent. Ask **"Export my todos as CSV using the sandbox."** Check the command exit codes and download the result from **Sandbox**. Published files remain in saved history after the workspace stops.
+## Try files and code execution
+
+To extend the example, enable **Allow file attachments** on the agent, configure Platform file storage, and select a tested [sandbox provider](/docs/dashboard/sandboxes). Attach `samples/tasks.csv` and ask **"Add the tasks from this CSV."** Check the new rows.
+
+Ask **"Export my todos as CSV using the sandbox."** Check the command exit codes and download the result from **Sandbox**. Published files remain in saved history after the workspace stops.
 
 ## Continue
 
-The [completed example](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos) also includes Users, Conversations, and theme/debug controls. Follow [Tenant directories](/docs/sdk/listings) to add them, or use the [browser-suite guide](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/e2e/README.md) for automated checks. Its agent tests spend provider credits.
+Compare your app with the [completed example](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos). To add a customer user list, follow [Tenant directories](/docs/sdk/listings). For automated checks, use the [example's browser suite](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/todos/e2e/README.md), whose agent tests spend provider credits.
 
 Read the [security model](/docs/sdk/security) before connecting tools to production data.

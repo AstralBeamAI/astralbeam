@@ -50,6 +50,8 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 
 Your server must authenticate the host session and mint a chat token before the widget can chat. Keep the API key server-only. See [Authentication](https://astralbeam.ai/docs/sdk/authentication).
 
+Replace `getApplicationSession` below with your application's authenticated session lookup. Return the current user and their verified customer-account membership as `session.user` and `session.tenant`.
+
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
@@ -94,8 +96,6 @@ After acquiring a token, components call `POST /api/v1/me` and renew before expi
 Pass options as React props or apply a subset with `handle.update(options)`. Presentation changes preserve chat. Changing `threadId` selects a conversation, and changing `apiUrl` clears the previous deployment's state. See [Configuration](https://astralbeam.ai/docs/sdk/configuration) for all options, defaults, layout, and chrome slots.
 
 Most embeds let `<AstralBeamChat {...options} />` manage the session. For external controls, create `chat` with `useAstralBeamChat(options)` and render `<AstralBeamChat chat={chat} />`. Configure authentication and tools on the hook, with widgets and appearance on the view. Call actions directly on `chat` and read state through `chat.getState()`.
-
-**Migration:** replace chat refs and mount-handle commands with session actions. Use `chat` instead of `chat.core`, and `chat.getState()` instead of snapshot fields. Directory handles are unchanged. See Configuration for ownership and JavaScript usage.
 
 Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 

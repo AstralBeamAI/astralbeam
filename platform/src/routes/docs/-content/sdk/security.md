@@ -1,6 +1,6 @@
 # Security model
 
-The dashboard defines agent capabilities and the server enforces them. SDK options can restrict those capabilities but cannot grant more access. Your backend remains responsible for authorizing host-tool actions.
+Configure agent capabilities in the dashboard and authorize host-tool actions on your backend. The server enforces agent permissions. SDK options can restrict them but cannot grant more access.
 
 ## The boundary
 

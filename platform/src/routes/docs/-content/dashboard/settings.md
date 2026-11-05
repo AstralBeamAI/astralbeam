@@ -1,10 +1,10 @@
 # Settings
 
-Owners manage the organization's display name and slug under **Settings**. Other configuration has its own dashboard pages, linked below.
+Open **Settings** to update your organization's name, logo, and dashboard URL. Only owners can change organization settings.
 
 ## The name
 
-The name appears in the dashboard, organization switcher, and invitation emails. It accepts up to 100 characters. Tenant users do not see it, and changing it does not affect embedded chat.
+The name appears in the dashboard and invitation emails. Changing it does not affect embedded chat.
 
 ## The URL slug
 
@@ -18,17 +18,15 @@ The organization's immutable UUID remains unchanged. Agent IDs, API keys, tokens
 
 ## Who can change these
 
-Only owners can edit these settings. Owners and developers manage providers separately under [Models](./models.md). See [Members](./members.md) for roles.
+Only owners can edit organization settings. Owners and developers manage integrations on their own dashboard pages. See [Members](./members.md) for roles.
 
 ## Deleting the organization
 
-1. Find **Delete organization** at the bottom of **Settings**.
-2. Enter the organization's slug in the confirmation dialog.
-3. Choose **Delete organization**.
+**NOTE**: Deletion cannot be undone. It immediately ends dashboard access and invalidates the organization's API keys and chat tokens.
 
-Every member, pending invitation, and API key is removed at once, so dashboard access, management API calls, and chat auth tokens stop working immediately. Agents, model providers, sandbox providers, tenants, and tenant users are then removed in the background, and the slug becomes available again when that finishes. Every owner then receives an email confirming the deletion.
+In **Settings**, choose **Delete organization**, enter the organization's slug to confirm, then choose **Delete organization** again.
 
-**NOTE**: deletion cannot be undone. The deployment's own organization, which powers the dashboard assistant, cannot be deleted.
+Organization data is removed in the background. Owners receive a confirmation email, and the slug becomes available once cleanup finishes. The deployment's own organization, which powers the dashboard assistant, cannot be deleted.
 
 ## Settings that live elsewhere
 
@@ -42,12 +40,12 @@ Deployment caps on requests, attachments, and sandboxes cannot be raised here. S
 
 ## Logo and domain
 
-Click the logo or initials under **Settings** to choose an image, or open **Change logo** to upload or remove it. These changes save immediately. PNG, JPEG, GIF, and WebP images are supported. If the logo is empty, select **Refresh logo from domain** from the menu to request an update.
+Choose the logo under **Settings** to upload a PNG, JPEG, GIF, or WebP image. Logo changes save immediately. Use **Change logo** to replace or remove it, or **Refresh logo from domain** when no logo is set.
 
-The required, read-only **Domain** field starts with the creator's email domain. It does not verify domain ownership. Domain editing is unavailable.
+The read-only **Domain** comes from the creator's email address. It does not verify domain ownership.
 
 ## Your own account
 
-Open your account from your name at the bottom of the sidebar to change your display name. Update your personal Organization avatar under **Members**. Your sign-in email cannot be changed from the dashboard.
+Open your account from your name in the sidebar to change your display name. Update your organization avatar under **Members**. Your sign-in email cannot be changed from the dashboard.
 
 Use the adjacent security page to manage passwords, connected sign-in providers, and active sessions. Revoke a session to disconnect a device. Changing your password revokes your other sessions.

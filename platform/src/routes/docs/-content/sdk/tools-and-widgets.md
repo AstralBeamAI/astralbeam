@@ -40,8 +40,6 @@ widgets: {
 - In React, `render` returns JSX. Elsewhere it draws into a container and may return a cleanup.
 - Renders live in your app's tree, so state, context, and event handlers keep working. An inline picker can call the same mutation function as a form elsewhere in your app.
 - Clicking a widget does not send a chat message or return a tool result. Have the agent read current state before its next change so it sees edits made through your UI.
-- Several renders of one widget can be live at once. The oldest collapse to a summary past a cap.
-- Dropping a widget disposes any render of it still in the transcript.
 - Reopening saved history restores widget props without rerunning business tools. Persist the host records those props reference, and render a fallback when a record was deleted.
 
 ## Schemas
@@ -75,7 +73,7 @@ const createTodo = defineTool({
 ```
 
 - Import them from `@astralbeam/sdk/react` (JSX widgets) or `@astralbeam/sdk/client` (container widgets). `@astralbeam/sdk/core` has `defineTool` only, because its widgets carry no `render`.
-- With a plain JSON Schema, the input stays `Record<string, unknown>`, which is the honest type.
+- With plain JSON Schema, callback input is `Record<string, unknown>`. Validate it before use.
 
 ## Live state
 
@@ -98,6 +96,6 @@ An agent can call several tools before React renders again. Commit each change b
 
 ## Navigating the host app
 
-Navigation is another host tool. Let’s give the agent URLs from your app’s own issue and project records, validate its destination, and pass the URL to your client router. Keep the sidebar in a persistent layout so opening an issue does not discard the conversation.
+Register navigation as a host tool. Look up destinations from your app's records, validate them, and pass them to your client router. Keep the sidebar in a persistent layout so navigation preserves the conversation.
 
 [Linearity’s navigation tool](https://github.com/AstralBeamAI/astralbeam/blob/main/examples/linearity-react/src/lib/astro-tools.ts) accepts only known views and records in the active workspace. It rejects external URLs and another workspace’s IDs. Your production app must also enforce the current user’s permissions, just as it does for manual navigation.

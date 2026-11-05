@@ -1,6 +1,6 @@
 # Script tag
 
-Load the assistant from jsDelivr in any server-rendered application. You need an authenticated [token endpoint](./authentication.md), a container with a height, and a module script. No package manager or bundler is required.
+Embed chat in Ruby on Rails or another server-rendered app by loading the SDK from jsDelivr. You'll need an authenticated [token endpoint](./authentication.md), a container with a height, and a module script. No package manager or bundler is required.
 
 ## Load the widget
 
@@ -17,7 +17,7 @@ Mount the widget into an HTML element:
 </script>
 ```
 
-Keep `type="module"`, the full `/dist/client.js` path, and an exact version so lazy chunks load from the same release. See [Configuration](./configuration.md) for options and handle methods, or [Directories](./listings.md) for list widgets.
+Pin the exact version and keep the full `/dist/client.js` path so the widget and its lazy-loaded files use the same release. See [Configuration](./configuration.md) for customization.
 
 **NOTE**: If your application sends a Content Security Policy, allow `https://cdn.jsdelivr.net` in `script-src` and your AstralBeam API in `connect-src`. The widget injects its stylesheet into its shadow root with a `<style>` element, so `style-src` must also allow inline styles.
 
@@ -27,7 +27,7 @@ Add the [Quickstart's backend handler](/docs/start/quickstart#3-connect-your-bac
 
 ## Ruby on Rails
 
-For a Rails 8 app using import maps:
+To embed chat in a Rails 8 app using import maps:
 
 1. Pin the SDK by URL in `config/importmap.rb`, next to a pin for the page's own module. Avoid `bin/importmap pin`, because it vendors one file and the loader's lazy chunks would be missing.
 
@@ -57,6 +57,6 @@ For a Rails 8 app using import maps:
 
 Sign in and send **"Say hello in one sentence."** Check that a reply streams into the widget.
 
-For page navigation and recovery, see [Saved conversations](./configuration.md#saved-conversations). Host-rendered widgets use your [application styles](./theming.md#widget-renders).
+Keep chat mounted in a persistent layout during navigation. Conversations save automatically. See [Saved conversations](./configuration.md#saved-conversations) for recovery.
 
 **TIP**: The [`examples/todos-rails`](https://github.com/AstralBeamAI/astralbeam/tree/main/examples/todos-rails) app is a complete Rails 8 integration with host tools over a JSON API, a `todoCard` widget, and the tenant-user directory.

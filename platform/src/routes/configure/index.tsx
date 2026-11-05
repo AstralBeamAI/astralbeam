@@ -146,7 +146,7 @@ function BootstrapErrorPage({
             <code>platform/.env.development.local</code> locally, then restart the server.
           </p>
           <p>
-            <DocsLink href="/docs/self-hosting/deploy#3-set-the-bootstrap-environment">
+            <DocsLink href="/docs/self-hosting/deploy#standalone-binary">
               Set the bootstrap environment
             </DocsLink>
           </p>

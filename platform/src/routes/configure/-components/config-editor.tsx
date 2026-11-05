@@ -313,7 +313,7 @@ export function ConfigEditor({
       {onboarding && owner && (
         <ConfigSection
           title="Owner onboarding"
-          documentationHref="/docs/self-hosting/deploy#6-complete-setup"
+          documentationHref="/docs/self-hosting/deploy#complete-setup"
           summary={
             [onboarding.email, onboarding.organizationName].filter(Boolean).join(" · ") ||
             "Invite the owner to finish setup."

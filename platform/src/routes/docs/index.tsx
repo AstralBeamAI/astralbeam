@@ -22,49 +22,55 @@ function DocsHomePage() {
     <main className="container mx-auto max-w-4xl px-4 py-8">
       <h1 className="font-heading text-3xl font-semibold tracking-tight">Documentation</h1>
       <p className="mt-2 max-w-prose leading-7 text-muted-foreground">
-        Add an assistant to your app, connect it to your tools, or run the platform yourself. Pick
-        the guide that matches what you&apos;re building.
+        Add an assistant to your app, connect it to your data, and let users take action in chat.
       </p>
-      <h2 className="mt-8 font-heading text-xl font-semibold">Start here</h2>
-      <ul className="mt-4 list-disc space-y-2 ps-6 leading-7">
-        <li>
-          <a href="/docs/start/quickstart" className="text-primary underline underline-offset-4">
-            Add chat to a React app
-          </a>
-          . The quickstart covers model setup, your existing login, and the first reply.
-        </li>
-        <li>
-          <a href="/docs/sdk/getting-started" className="text-primary underline underline-offset-4">
-            Use plain JavaScript or another framework
-          </a>
-          . Mount the widget directly or use a script tag in a server-rendered app.
-        </li>
-        <li>
-          <a href="/docs/cli/coding-agents" className="text-primary underline underline-offset-4">
-            Work with your coding agent
-          </a>
-          . Give it the integration skill and open your app&apos;s repository.
-        </li>
-        <li>
+      <section aria-labelledby="start-here" className="mt-8 border bg-card p-6">
+        <h2 id="start-here" className="font-heading text-xl font-semibold">
+          Embed your first agent
+        </h2>
+        <p className="mt-2 max-w-prose leading-7 text-muted-foreground">
+          Use your existing login and a model-provider API key to add chat to a React app.
+        </p>
+        <a
+          href="/docs/start/quickstart"
+          className="mt-4 inline-flex min-h-11 items-center bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Start the quickstart
+        </a>
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          Have chat working?{" "}
           <a
             href="/docs/start/todos-tutorial"
             className="text-primary underline underline-offset-4"
           >
-            Add tools and widgets
+            Connect tools and live widgets in the Todos tutorial.
           </a>
-          . Follow the todo app tutorial to let the agent update a list and show live cards.
+        </p>
+      </section>
+      <h2 className="mt-8 font-heading text-xl font-semibold">Other ways to build</h2>
+      <ul className="mt-4 list-disc space-y-2 ps-6 leading-7">
+        <li>
+          <a
+            href="/docs/cli/coding-agents#integrate-your-app"
+            className="text-primary underline underline-offset-4"
+          >
+            Integrate with your coding agent
+          </a>
+        </li>
+        <li>
+          <a href="/docs/sdk/getting-started" className="text-primary underline underline-offset-4">
+            Embed chat with JavaScript
+          </a>
         </li>
         <li>
           <a href="/docs/api" className="text-primary underline underline-offset-4">
             Manage customers and users through the API
           </a>
-          . Create records from your backend or automate administration.
         </li>
         <li>
           <a href="/docs/self-hosting/deploy" className="text-primary underline underline-offset-4">
             Deploy on your own infrastructure
           </a>
-          . Run the Platform binary or a container, then connect your app with the SDK.
         </li>
       </ul>
       <h2 className="mt-10 font-heading text-xl font-semibold">Browse by section</h2>

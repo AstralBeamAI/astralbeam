@@ -1,6 +1,6 @@
 # Usage limits
 
-Cap tokens or model spend for an organization, customer, user, or conversation. Limits can apply to everyone or to plans selected by your token endpoint. The allowances below are examples, not pricing recommendations.
+Set a token allowance or model-spend budget for your customers. Start with a default limit for everyone, then add plan-specific limits when your product needs them.
 
 ## Create a limit
 

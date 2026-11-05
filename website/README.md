@@ -29,7 +29,7 @@ The Website links in docs and the platform's profile menu always open `https://a
 
 The build publishes the [AstralBeam skill](../skills/astralbeam/SKILL.md) and its discovery index from this single source.
 
-`public/install.sh` is the [Platform installer](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary). Keep targets aligned with `.github/workflows/release.yml`.
+`public/install.sh` is the [Platform installer](../platform/src/routes/docs/-content/self-hosting/deploy.md#standalone-binary). Keep targets aligned with `.github/workflows/release.yml`.
 
 Blog articles live in `src/content/blog/*.md`. Edit the prose and YAML front matter in the same file. The filename becomes `/blog/<filename>`, and `title`, `description`, quoted ISO `date`, `author`, `image`, and `imageAlt` supply the listing, search metadata, and RSS feed. New Markdown files enter the index, sitemap, feed, and static build automatically. The image field names a 1200 × 630 PNG, with a matching SVG used on the page. Keep both under `public/blog/images/`. The blog uses Source Serif 4 headlines and system body fonts.
 

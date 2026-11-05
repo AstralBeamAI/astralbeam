@@ -1,16 +1,14 @@
 # Models
 
-Connect a model provider, test a model, then assign it to an agent. Each organization manages its own provider credentials and billing.
+Connect a model provider so your agents can reply. You'll need a provider API key with access to the model you want to use. Each organization manages its own credentials and billing.
 
 ## Add a provider
 
 1. Open **Models** and choose **Add provider**.
 2. Enter a name, select a provider, and enter its API key. Keep the default API URL unless you use a compatible gateway.
-3. Enable the models you want. Keep **Override catalog defaults** off unless you need custom values or the model has no catalog entry.
+3. Enable the models you want. Use the catalog defaults where available.
 4. Choose **Save provider**, then select a model under **Test model** and run the test. Wait for a successful reply. The request may incur provider charges.
 5. Choose **Set up an agent**.
-
-**NOTE**: Saving alone does not verify model access. Tests use the saved configuration, are limited to five per minute per organization, and stop after 30 seconds.
 
 ## Provider formats
 
@@ -24,15 +22,13 @@ Connect a model provider, test a model, then assign it to an agent. Each organiz
 
 Leave the version path off Anthropic and Gemini API URLs. Their clients add it. The provider is fixed after saving. Create another connection to change it.
 
-Keys are encrypted. The editor shows only the last four characters. Leave the key blank to retain it, or enter a replacement to rotate it. Changing the API URL requires re-entering the key so a stored credential never follows a connection to a different endpoint.
+Keys are encrypted. Leave the key field blank to keep it, or enter a replacement to rotate it. Changing the API URL requires re-entering the key.
 
 ## Prices and token limits
 
-Enter zero explicitly for a free model. The catalog supplies no output maximum, so check the initial 4,096-token ceiling against your provider's supported maximum.
+Catalog prices refresh daily. Use **Override catalog defaults** for a custom model or different rates. Enter `0` explicitly for a free model. Turning overrides off discards your custom values.
 
-Catalog defaults refresh daily. Overrides belong to this model connection and survive refreshes. Turning **Override catalog defaults** off discards them. Catalog prices use context tiers, while overrides use flat rates. Expand **Cache pricing** to edit cache rates.
-
-These settings record prices and token bounds. When the context window includes both input and output, the configured output cap reduces the displayed input allowance. Saving validates those bounds, but chat does not yet enforce the configured input allowance or output cap. Reported model usage and prices do feed saved conversation costs and [Usage limits](./usage-limits.md).
+Verify the initial 4,096-token output maximum with your provider. Configured token bounds describe the model, but chat does not currently enforce them as request caps. To control token use or model spend, configure [Usage limits](./usage-limits.md). Spend limits depend on having a price for each model.
 
 ## Assign models to an agent
 

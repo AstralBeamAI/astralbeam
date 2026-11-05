@@ -1,18 +1,16 @@
 # Security
 
-Protect the deployment's encryption key, database, private storage, and operator endpoint. This guide covers self-hosting controls. For embedded chat and host tools, see the [SDK security model](/docs/sdk/security).
+Before public hosting, enable HTTPS, restrict access to `/configure`, replace test credentials, and back up the encryption key separately from the database. For embedded chat and host tools, see the [SDK security model](/docs/sdk/security).
 
 ## Encryption at rest
 
-Deployment settings, model and sandbox credentials, and MCP authorization data are encrypted in PostgreSQL.
+Deployment settings, model and sandbox credentials, and MCP authorization data use AES-256-GCM encryption derived from `DATABASE_ENCRYPTION_KEY`. Invalid ciphertext and unknown keys are rejected. Better Auth separately encrypts retained OAuth tokens.
 
-Encryption uses AES-256-GCM with a key derived from `DATABASE_ENCRYPTION_KEY`. Values are bound to their stored identity and keyring entry. Invalid ciphertext and unknown keys are rejected.
-
-Better Auth separately encrypts the OAuth tokens it retains. Everything else, including API key digests, is stored as it reads, so treat the whole database as sensitive and protect it with PostgreSQL's own transport and storage controls.
+This does not encrypt the whole database. Protect database connections and storage, and treat backups as sensitive. API key digests can be used to sign tokens, as described under [Credentials and tokens](#credentials-and-tokens).
 
 ## Rotating the encryption key
 
-`DATABASE_ENCRYPTION_KEY` is a comma-separated keyring, not a single value. The first entry is active: it encrypts every new write and it is the operator sign-in credential. Cluster peers send a credential derived from the active entry. Later entries decrypt older values and verify peer credentials.
+`DATABASE_ENCRYPTION_KEY` accepts a comma-separated keyring. The first entry encrypts new writes, provides cluster peer authentication, and grants operator access. Later entries decrypt older values and verify peer credentials. Keep both keys during rotation so all replicas can continue communicating.
 
 1. First restart every replica with `DATABASE_ENCRYPTION_KEY=old,new` to add the new key without changing the active entry. Once that rollout completes, restart them with `DATABASE_ENCRYPTION_KEY=new,old`.
 2. Open `/configure`. It confirms "Encryption key rotation in progress" and shows how many fallback entries are available.
@@ -28,25 +26,23 @@ Each entry must be 32 to 1024 characters, unique after trimming, and free of com
 
 ## Unreadable values
 
-A missing key or damaged ciphertext makes a stored setting unreadable. It is treated as unset. The log identifies the affected key, and `/configure` asks for a replacement.
+A missing key or damaged ciphertext makes a stored setting unreadable. The log identifies the setting, and `/configure` asks for a replacement. Enter a replacement and save without revealing the old value.
 
-Enter a replacement and save. You do not need to recover or reveal the old value first.
-
-**TIP**: If the value was a credential held elsewhere, rotate it at that provider too, since you can no longer prove what was stored.
+If it was a provider credential, rotate it at the provider too.
 
 ## Operator access
 
 Sign in to `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`. Dashboard accounts, database credentials, and fallback entries cannot access it.
 
 - Sessions last 15 minutes and are carried in an `HttpOnly`, `SameSite=Strict` cookie that is `Secure` in production, unless `ALLOW_INSECURE=true`. **Sign out** and **Go to app** both end the session immediately.
-- Sign-in is throttled to 5 attempts per minute for the whole deployment. Over the limit, the response carries `Retry-After` and reports `Too many sign-in attempts; try again in <n> seconds.`. A wrong value reports `Invalid encryption key`.
+- Sign-in allows 5 attempts per minute for the whole deployment. A throttled response includes `Retry-After`.
 - Page responses are `Cache-Control: no-store` with `Referrer-Policy: no-referrer`.
 
 Restrict `/configure` at the ingress with an IP allowlist, VPN, or identity-aware proxy, and add rate limiting during first setup. Its credential can decrypt the deployment's stored secrets.
 
 ## HTTPS and response headers
 
-Production builds require HTTPS on `/configure` unless `ALLOW_INSECURE=true`. Plain HTTP carries credentials unencrypted, so keep this flag unset for TLS deployments. Without the flag, plain-HTTP `GET` or `HEAD` requests redirect to HTTPS with `307`, and other methods are refused with `400` and `HTTPS is required`. Mutations must also be same origin, which the page checks against `Sec-Fetch-Site` and the `Origin` or `Referer` header, and a cross-origin attempt gets `403`.
+Use HTTPS for public hosting and keep `ALLOW_INSECURE` unset or `false`. Bootstrap enables it for local testing, so replace that default before going public. Production `/configure` redirects HTTP reads to HTTPS and rejects HTTP writes without this opt-in. Changes must also come from the same origin.
 
 Responses use these security defaults. Individual routes may strengthen them, as `/configure` does with `Referrer-Policy: no-referrer`:
 
@@ -63,23 +59,25 @@ Framing is denied everywhere, including the API paths, because the embedded widg
 
 ## Reverse proxy trust
 
-Loopback peers (`127.0.0.1` and `::1`) are always trusted for forwarded host/protocol. **Trust Proxy** defaults to unchecked, which ignores client IP headers and trusts no additional proxies. Enabling it at `/configure` reveals a blank optional IP/CIDR list and **Client IP Headers**. The list adds trusted socket peers alongside loopback. Leaving it empty while enabled trusts all proxies. Unchecking and saving removes the additional proxy list and ignores client IP headers, while preserving their saved value. The environment override accepts `TRUST_PROXY=false`, `TRUST_PROXY=true`, or `TRUST_PROXY=<IPs/CIDRs>`.
+For a proxy on the same host, loopback (`127.0.0.1` and `::1`) is already trusted for forwarded host/protocol. To use forwarded client IPs, enable **Trust Proxy** and enter the proxy's actual IPs/CIDRs. For remote proxies, set `TRUST_PROXY=<IPs/CIDRs>` in the service environment before first start so HTTPS operator access works even when database settings are unavailable.
+
+**Trust Proxy** defaults to disabled, which ignores client IP headers. Enabling it with an empty allowlist, or setting `TRUST_PROXY=true`, trusts every peer. Use an explicit allowlist and prevent clients from bypassing the proxy.
 
 - Allow the proxy's actual socket-peer address. Same-host loopback connections are already trusted for host/protocol. A host-published container port may present a different peer address.
 - Have the proxy overwrite `X-Forwarded-Host` and `X-Forwarded-Proto` on every request instead of passing a client value through.
 - Prevent other clients from reaching the application port directly. With `TRUST_PROXY=true` or an empty list while **Trust Proxy** is enabled, any caller can supply trusted headers, so origin access restrictions are essential.
 
-The proxy must overwrite the configured **Client IP Headers** too. They default to `x-forwarded-for` and accept an ordered comma-separated list, such as `cf-connecting-ip,x-forwarded-for`, with a `CLIENT_IP_HEADERS` environment override. When Trust Proxy is unchecked or the peer is untrusted, authentication uses the socket-peer address instead of client IP headers. Forwarded host/protocol headers are removed only for untrusted peers. [Deploy](./deploy.md) has a proxy configuration that satisfies this policy.
+The proxy must also overwrite **Client IP Headers**, which default to `x-forwarded-for`. Use `CLIENT_IP_HEADERS` for a different ordered list. When trust is disabled or the peer is untrusted, authentication uses the socket address. [Deploy](./deploy.md#https-reverse-proxy) includes a same-host Nginx example.
 
 With an IP/CIDR allowlist, authentication resolves forwarded IP chains from right to left through trusted hops. With unrestricted trust, it uses the leftmost client address and validates it through Better Auth.
 
 ## Bot protection
 
-The Cloudflare Turnstile site key and secret key are both required settings, listed with the rest in [Configuration](./configuration.md), so no deployment runs without a CAPTCHA. They protect sign-in, sign-up, and password reset. The site key is served to browsers, and the secret key stays server side and is used to validate each token with Cloudflare.
+Configure both Cloudflare Turnstile keys for sign-in, sign-up, and password reset. The site key is public, and the secret key stays on the server. See [Authentication settings](./configuration.md#authentication).
 
 Create a separate widget per deployment, restrict it to the hostnames that serve that deployment, and keep production widgets from allowing localhost.
 
-**NOTE**: Cloudflare publishes test keys for local and automated use. Those belong nowhere near production.
+Bootstrap supplies Cloudflare's test keys for evaluation. Replace both keys before public hosting and set `SKIP_EMAIL_VERIFICATION=false` so password sign-ups verify their address.
 
 ## Credentials and tokens
 
@@ -87,15 +85,7 @@ An organization API key is `key_<organizationId>_<id>_abo_<secret>`. Only a SHA-
 
 Chat tokens are signed with the API key secret's digest and verified against the stored digest. Read access to that digest therefore grants signing access. Treat a database dump or replica as capable of minting chat tokens for any organization.
 
-| Property        | Value                                                         |
-| --------------- | ------------------------------------------------------------- |
-| Algorithm       | HS256 over the API key secret's digest                        |
-| Issuer          | The organization's UUID                                       |
-| Audience        | `astralbeam`                                                  |
-| Lifetime        | 60 to 600 seconds, and a token outside that range is rejected |
-| Clock tolerance | 30 seconds either way                                         |
-
-A token is also re-checked against the key row after verification, so disabling or expiring an API key stops tokens already signed with it. Mint tokens only on your server, never in the browser, and keep the API key out of client bundles. The [SDK security model](/docs/sdk/security) covers the browser side.
+Deleting or expiring an API key stops tokens already signed with it. Mint tokens only on your server and keep the API key out of client bundles. For token format and lifetime, see [SDK authentication](/docs/sdk/authentication).
 
 ## Reporting a vulnerability
 

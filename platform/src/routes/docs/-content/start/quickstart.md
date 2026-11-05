@@ -1,12 +1,12 @@
 # Quickstart
 
-Let's add an assistant to your **React app** using your existing login.
+Add a chat assistant to your React app using your existing login. You'll connect a model, add a token endpoint, and send your first message.
 
 Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
 
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-You'll need an authenticated backend and a model-provider API key. Any backend language or authentication provider works. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
+You'll need a React app with an authenticated backend and a model-provider API key. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
 ## 1. Prepare your agent
 
@@ -15,7 +15,7 @@ Use your existing organization, [join your team's](/docs/dashboard/members#accep
 1. Open **[Models](/docs/dashboard/models)**, add your provider's API key, enable a model, and choose **Save provider**.
 2. Choose **Test model** and wait for **replied successfully**. Your provider may charge for the test.
 3. Open **[Agents](/docs/dashboard/agents)**, assign that model to the starter agent, and choose **Save changes**.
-4. Open **[API Keys](/docs/dashboard/api-keys)** and create a key. Copy the full key now. You won't see it again.
+4. Open **[API keys](/docs/dashboard/api-keys)** and create a key. Copy the full key now. You won't see it again.
 
 ## 2. Install and configure
 
@@ -51,9 +51,9 @@ ASTRALBEAM_API_KEY=your_organization_api_key
 
 ## 3. Connect your backend
 
-Your backend verifies the signed-in user, signs a short-lived JWT, and returns `{ token }` from `POST /api/astralbeam/token`. Use stable IDs from your authenticated session for the user and their customer account (`tenant`).
+Add `POST /api/astralbeam/token` to your backend. It verifies the signed-in user and returns a short-lived `{ token }` for chat. Use stable IDs from the authenticated session for the user and their customer account, called a Tenant in AstralBeam.
 
-Here are two examples. See the [token format](/docs/sdk/authentication#mint-tokens-without-javascript) to sign tokens in another language. Keep your backend's session and CSRF protections.
+Choose the example for your backend, or use the [token format](/docs/sdk/authentication#mint-tokens-without-javascript) in another language. Keep your backend's session and CSRF protections. Return an authentication error when the user has no valid session or account membership.
 
 <!-- ::start:tabs -->
 
@@ -67,13 +67,18 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 
 export async function POST(request: Request) {
-  const member = await auth.api.getActiveMember({ headers: request.headers })
+  const membership = await auth.api.getActiveMember({
+    headers: request.headers,
+    asResponse: true,
+  })
+  if (!membership.ok) return membership
+  const member = await membership.json()
   const token = await createAstralBeamToken({
     apiKey: process.env.ASTRALBEAM_API_KEY!,
     user: { id: member.userId },
     tenant: { id: member.organizationId },
   })
-  return NextResponse.json({ token })
+  return NextResponse.json({ token }, { headers: { "Cache-Control": "no-store" } })
 }
 ```
 
@@ -106,6 +111,7 @@ class AstralbeamTokensController < ApplicationController
     token = JWT.encode(
       claims, signing_secret, "HS256", { typ: "astralbeam+jwt", kid: key_id }
     )
+    response.headers["Cache-Control"] = "no-store"
     render json: { token: token }
   end
 
@@ -125,22 +131,17 @@ Keep `csrf_meta_tags` in your Rails layout and include the CSRF header shown in 
 
 ## 4. Mount and test
 
-Pass a function that calls your token handler:
+The SDK calls `/api/astralbeam/token` automatically. Add the chat to a container with a defined height:
 
 ```tsx title="src/Assistant.tsx"
 "use client"
 
 import { AstralBeamChat } from "@astralbeam/sdk/react"
 
-async function fetchToken() {
-  const response = await fetch("/api/astralbeam/token", { method: "POST" })
-  return response.json()
-}
-
 export function Assistant() {
   return (
     <aside style={{ height: "100dvh" }}>
-      <AstralBeamChat fetchAstralBeamToken={fetchToken} />
+      <AstralBeamChat />
     </aside>
   )
 }
@@ -150,14 +151,8 @@ Mount `<Assistant />` in your app, sign in, and send **"Say hello in one sentenc
 
 For self-hosting, pass `apiUrl="https://your-deployment.example/api"` on `<AstralBeamChat>`, using the deployment that issued your API key.
 
-See [SDK props](/docs/sdk/configuration#options) to customize the assistant.
+If chat cannot connect, check the token endpoint in your browser's Network panel and follow [authentication troubleshooting](/docs/sdk/authentication#troubleshooting).
 
 ## Next
 
-- [Build a todo assistant](./todos-tutorial.md) that updates the list and shows live cards in chat.
-- [Add your own tools and widgets](/docs/sdk/tools-and-widgets) to connect the agent to your app's actions and components.
-- [Style the chat](/docs/sdk/theming) to match your app.
-
-Read the [security model](/docs/sdk/security) before giving tools access to your app's data.
-
-See [Authentication](/docs/sdk/authentication) for troubleshooting.
+[Add tools and widgets](/docs/sdk/tools-and-widgets) to let the assistant work with your app's data, or follow the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before connecting production actions.

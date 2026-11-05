@@ -74,7 +74,7 @@ Import transcript helpers from `@astralbeam/sdk/core`:
 
 ## Saved conversation controls
 
-Let's open a saved conversation the current user can access:
+Open a saved conversation the current user can access:
 
 ```ts
 const chat = createAstralBeamChat({ tools })
@@ -88,4 +88,4 @@ await chat.sendMessage("Continue from here")
 - `searchThreads(query?, cursor?, signal?)` returns a page of conversations. Read `thread` and `history` from session state. Show loading only while `history` is `loading`, which means nothing is shown yet. A send during `refreshing` waits for it.
 - Use `reset()` for a fresh conversation. Managers can rename the selected thread with `renameThread(title)` and delete any listed thread with `deleteThread(thread)`.
 - Keep tool responses associated with their stored call and target across browser clients.
-- You can reopen saved state from another client. Live event replay, background recovery, branching controls, and tool fan-out are not available yet.
+- Reopening another client's saved state loads history. It does not replay live events or resume a disconnected stream.

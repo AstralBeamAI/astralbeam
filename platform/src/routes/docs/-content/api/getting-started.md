@@ -1,6 +1,6 @@
 # Getting started
 
-Create customer accounts (Tenants) and their users (TenantUsers) over HTTPS from any backend language. These records are separate from dashboard members.
+Create customer accounts and users from your backend. AstralBeam calls them Tenants and TenantUsers, separate from the colleagues who use your dashboard.
 
 Use the HTTP examples below or download the [OpenAPI document](/api/openapi.json). For embedded chat, see the separate [SDK guides](/docs/sdk).
 
@@ -10,7 +10,7 @@ In the dashboard, select your organization and open **API keys** as an owner or 
 
 The hosted API base is `https://astralbeam.ai/api`. Self-hosted installations use their own origin with the `/api` base, for example `https://beam.example.com/api`.
 
-Run the example once with your own stable identities. Creating them again returns `409`. Each request is independent, not one transaction.
+Use your application's stable customer and user IDs. Creating the same identity again returns `409`. Each request commits independently.
 
 ## Create a Tenant and its users
 
@@ -21,12 +21,10 @@ export ASTRALBEAM_API_URL="https://astralbeam.ai/api"
 curl --include "$ASTRALBEAM_API_URL/v1/tenants" \
   -H "X-API-Key: $ASTRALBEAM_API_KEY" \
   -H "Content-Type: application/json" \
-  --data '{"external_id":"customer-42","name":"Acme Logistics","metadata":{"plan":"pro","region":"eu-west-1"}}'
+  --data '{"external_id":"customer-42","name":"Acme Logistics"}'
 ```
 
-Expect `201 Created`, a JSON record, and a `Location` header. Copy the returned internal `id` for [TenantUser requests](/docs/api#tag/tenant_users).
-
-Copy that returned `id` into `TENANT_ID`, then create a user belonging to the Tenant:
+Expect `201 Created` and a JSON record. Copy its internal `id` into `TENANT_ID`, then create a user:
 
 ```sh
 TENANT_ID="<id from the Tenant response>"
@@ -46,11 +44,11 @@ curl --get "$ASTRALBEAM_API_URL/v1/tenants/$TENANT_ID/tenant_users" \
   --data-urlencode "page_size=20"
 ```
 
-Expect `200 OK` with an `items` array. Follow the returned cursor to load more users. See [Pagination](/docs/api#description/pagination).
+Expect `200 OK` with Alex in the `items` array. Follow the returned cursor to load more users. See [Pagination](/docs/api#description/pagination).
 
 ## Identities and write behavior
 
-On creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUser `admin` to `false`. On PATCH, omitted fields stay unchanged. Metadata updates replace the whole object, not individual keys. `{}` clears it and `null` is rejected. `name: null` clears a name. Stored `admin` is data, not permission to issue privileged JWTs.
+Create requests default to a null name, empty metadata, and false stored admin. PATCH changes only supplied fields. Metadata replaces the whole object, so include every key you want to keep. Use `{}` to clear metadata and `name: null` to clear a name. Stored admin does not grant JWT privileges.
 
 | Your identity | API field | Chat token field |
 | --- | --- | --- |
@@ -58,10 +56,18 @@ On creation, omitted `name` defaults to `null`, `metadata` to `{}`, and TenantUs
 | Tenant-local user ID | TenantUser `external_id` | `user.id` |
 | Returned internal ID | Response `id`, used in resource paths | Do not use as your external identity |
 
-Minting a chat token does not provision these records. API calls do not mint tokens. For embedded chat, follow the separate [token endpoint guide](/docs/sdk/authentication).
+For embedded chat, follow the [token endpoint guide](/docs/sdk/authentication). The SDK synchronizes the signed customer and user when they connect, so you do not need to create them first through this API.
 
 ## Recover from an uncertain create
 
-If a create times out or returns `409`, list with `filter[external_id]` set to the exact external ID before deciding what to do next. Inspect `items[0]`: a found record proves that identity exists, not that every attempted field matches. An empty page does not prove a timed-out request cannot still commit. These APIs do not offer idempotency keys.
+If a create times out or returns `409`, look up the exact external ID before retrying:
+
+```sh
+curl --get "$ASTRALBEAM_API_URL/v1/tenants" \
+  -H "X-API-Key: $ASTRALBEAM_API_KEY" \
+  --data-urlencode "filter[external_id]=customer-42"
+```
+
+Check a found record's fields against the intended values. A timed-out request may still commit after an empty lookup. These APIs do not offer idempotency keys.
 
 The [Tenants](/docs/api#tag/tenants) and [TenantUsers](/docs/api#tag/tenant_users) references include filtering examples. For permissions and complete schemas, see [authentication](/docs/api#description/authentication) and the [OpenAPI contract](/api/openapi.json).

@@ -1,6 +1,6 @@
 # Members
 
-Members are your colleagues with dashboard access. Your customers' users are TenantUsers and do not appear here. Every member can view this page.
+Invite colleagues as members to give them dashboard access. Your customers' users are TenantUsers and are managed separately. Every member can view the member list.
 
 ## Roles
 
@@ -19,7 +19,7 @@ Choose the role that matches the person's responsibilities:
 
 Reading a conversation through a directory does not grant permission to participate in it.
 
-A member can hold more than one role, and any single role that permits an action is enough. The dashboard assigns one role at a time. Only an owner can grant the Owner role.
+Choose Viewer for colleagues who need to read customer records, Developer for those setting up integrations, and Owner for those managing the team. Only an owner can assign the Owner role. If a member has multiple roles, their permissions combine.
 
 ## Inviting a member
 
@@ -37,15 +37,11 @@ Invitations last 48 hours. Invite the same address again to resend the email and
 
 If you are signed in with another account, choose **Sign in with another account** to switch without losing the invitation link. Only the invited, verified email address can accept it.
 
-**NOTE**: a sign-in address cannot be changed from the dashboard, so invite people at the address they already use to sign in.
-
-Accepting grants the invited roles. Declining updates the invitation's status without adding the person or sending a notification.
+Invite people at the address they use to sign in. Sign-in addresses cannot be changed from the dashboard.
 
 ## Changing roles
 
-An owner can change a member's role using the dropdown. If they have multiple roles, choose one before saving.
-
-A role change applies on the next request. An open tab's sidebar updates on navigation or reload, but the server enforces the new permissions immediately.
+An owner can change a member's role in the member list. The change applies on their next request. Reload an open dashboard tab to update its navigation.
 
 A role downgrade does not invalidate API keys the person created. Rotate those keys to revoke their signing authority. See [API keys](./api-keys.md).
 

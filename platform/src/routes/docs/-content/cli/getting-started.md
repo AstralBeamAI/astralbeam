@@ -1,6 +1,6 @@
 # Getting started
 
-Use the `astralbeam` CLI to manage Tenants and TenantUsers and test agents from the terminal. It calls the same [management API](/docs/api) as your servers and supports scripts, CI, and coding agents.
+Create a customer account and chat as one of its users from your terminal. The `astralbeam` CLI uses the same [API](/docs/api) as your backend.
 
 ## 1. Install the CLI
 
@@ -24,20 +24,18 @@ bun add --global @astralbeam/cli
 
 To run without installing, replace `astralbeam` below with `npx @astralbeam/cli` or `bunx @astralbeam/cli`.
 
-Without a package manager, download the matching `astralbeam-<platform>` binary from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases) and add it to your `PATH`. Builds cover Linux and macOS on x86_64/ARM64, plus Windows x86_64.
-
-**NOTE**: Binaries are unsigned. On macOS, browser downloads may require `xattr -d com.apple.quarantine <file>` before running.
+To use a standalone binary instead, follow the [binary installation instructions](https://github.com/AstralBeamAI/astralbeam/blob/main/cli/README.md#install).
 
 ## 2. Sign in
 
-As an owner or developer, open **API keys** in the dashboard and create a key. See [API keys](/docs/dashboard/api-keys). Logins are directory-scoped. Open your application's repository, run the command below, and paste the full `key_…_abo_…` value at the hidden prompt:
+Create an [API key](/docs/dashboard/api-keys) as an organization owner or developer. From your application's repository, run the command below and paste the full `key_…_abo_…` value at the hidden prompt:
 
 ```sh
 cd ~/work/acme
 astralbeam auth login
 ```
 
-The CLI verifies the key before saving a binding for this directory and its descendants. It stores credentials in your private `~/.config/astralbeam/config.json`, or `%APPDATA%\astralbeam\config.json` on Windows. Nothing is written into the repository.
+The CLI verifies the key and remembers the organization for this directory and its descendants. Credentials stay in your private user configuration, outside the repository.
 
 For a self-hosted deployment, pass its `/api` base. Use HTTPS, or HTTP on localhost for development:
 
@@ -45,9 +43,9 @@ For a self-hosted deployment, pass its `/api` base. Use HTTPS, or HTTP on localh
 astralbeam auth login --api-url https://beam.example.com/api
 ```
 
-Commands use the nearest bound directory and print the organization before their output. For another organization, log in from a separate directory. Unbound directories fail instead of selecting another organization.
+Commands print the active organization before their output. To work with another organization, log in from a separate directory.
 
-**TIP**: In CI, skip `login` and set `ASTRALBEAM_API_KEY`, plus `ASTRALBEAM_API_URL` when self-hosting. The key overrides any directory binding, and nothing is written to disk. The URL also overrides a bound key's saved URL.
+**TIP**: In CI, set `ASTRALBEAM_API_KEY` and, for self-hosting, `ASTRALBEAM_API_URL`. Environment values override saved login settings.
 
 Confirm the active organization:
 
@@ -55,14 +53,14 @@ Confirm the active organization:
 astralbeam auth status
 ```
 
-`auth status` verifies the key and shows the active organization. See [Commands](./commands.md#auth) for binding management and credential storage.
+Check that it names the organization you intend to use. See [Commands](./commands.md#auth) for saved logins and credential storage.
 
 ## 3. Create a Tenant and a user
 
-A Tenant is one of your customers, identified by your own stable external ID. Let's create one:
+A Tenant represents one of your customers. Create one with the stable ID your application uses:
 
 ```sh
-astralbeam tenants create --external-id customer-42 --name "Acme Logistics" --metadata '{"plan":"pro"}'
+astralbeam tenants create --external-id customer-42 --name "Acme Logistics"
 ```
 
 The output shows the new record, including its internal `id`. Copy that value, because the TenantUser create command takes it as its first argument:
@@ -79,10 +77,10 @@ astralbeam tenants list --external-id customer-42
 
 ## 4. Chat as that user
 
-With a model assigned to the [default agent](/docs/dashboard/agents#the-default-agent), let's send a message as Alex:
+Assign a model to the [default agent](/docs/dashboard/agents#the-default-agent), then send a message as Alex:
 
 ```sh
 astralbeam chat --tenant customer-42 --user user-7 "What can you help me with?"
 ```
 
-A reply should stream into the terminal. The CLI signs a short-lived token with your key. Omit the message for interactive chat, or pipe one in on stdin. See [Commands](./commands.md) for every command, and [Coding agents](./coding-agents.md) to hand the CLI to Claude Code.
+A reply should stream into the terminal. Omit the message to start interactive chat. See [Commands](./commands.md) for scripting options, or [Coding agents](./coding-agents.md) to use the CLI with your coding assistant.

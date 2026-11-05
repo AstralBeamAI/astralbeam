@@ -1,8 +1,8 @@
 # Attachments
 
-Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. With a sandbox enabled, their original bytes are also available for OCR, conversion, and editing. Other files are read through tools or analyzed in a sandbox.
+Let users attach files with the paperclip button, drag and drop, or paste. Files upload before the message is sent. Images and PDFs require a model that supports them. With a sandbox enabled, the agent can also use their original bytes for OCR, conversion, and editing. Other files are read through tools or analyzed in a sandbox.
 
-Enable **Allow attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a short text file and ask the assistant to summarize it.
+Enable **Allow file attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a short text file and ask the assistant to summarize it.
 
 ## Draft recovery
 
@@ -40,5 +40,4 @@ For other file types, the agent receives a handle and reads the contents through
 - Large files can exceed the sandbox's 30-second transfer timeout, particularly with Docker. Split the file if analysis fails during sandbox startup.
 - New Office and data attachments, including CSV and TSV, require a sandbox. Visible thumbnails do not provide their contents to the agent.
 - Earlier attachments remain downloadable if sandbox access becomes unavailable. You can continue chatting and reading plain text, but rereading Office and data requires restored access.
-- A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button. See [Security model](./security.md).

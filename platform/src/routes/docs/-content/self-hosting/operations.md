@@ -1,14 +1,12 @@
 # Operations
 
-Maintain a running deployment with migrations, coordinated backups, health checks, and logs. For installation, follow [Deploy](./deploy.md).
+Back up the database and files before upgrading, check health after a restart, and use logs to diagnose failures. For a new installation, follow [Deploy](./deploy.md).
 
-The binary’s database commands use the same database selection as `start`. Stop embedded PostgreSQL before running them. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
+The binary's database commands use the same database selection and working-directory `.env` as `start`. Stop Platform before running maintenance against its embedded database. Run `bun run` commands from a checkout of the deployed version.
 
 ## HTTP workers
 
 `WORKERS` defaults to `auto`: one HTTP worker per available CPU on Linux, plus a supervisor. macOS and Windows use one HTTP worker. Set `WORKERS=1` for a single worker or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
-
-When Microsandbox is available, Platform keeps a supervisor even with one HTTP worker.
 
 Linux workers share the public HTTP port. Leave `CLUSTER_RUNNER_PORT` unset or `0` for distinct private runner ports. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with backoff capped at 30 seconds, and workers exit if their supervisor dies.
 
@@ -18,7 +16,7 @@ Memory, extracted assets, sandbox leases, and sandbox/preview concurrency limits
 
 Application migrations ship with each release. When migrations are pending, pages redirect to `/configure`.
 
-1. Back up the database and bucket before upgrading a populated deployment.
+1. [Back up the database and files](#backups-and-restore) before upgrading a populated deployment.
 2. Open **Database migrations** at `/configure` and review the pending SQL and any TypeScript steps.
 3. Apply the reviewed set. Other replicas refresh migration state on their next read after the five-second cache expires.
 
@@ -49,18 +47,16 @@ bun run --cwd platform db migrate
 
 ## Data directory
 
-`ASTRALBEAM_DATA_DIR` overrides the [OS data location](./configuration.md#file-storage). Preserve this location across upgrades:
+The default data directory is `~/.local/share/astralbeam` on Linux, `~/Library/Application Support/AstralBeam` on macOS, or `%LOCALAPPDATA%\AstralBeam` on Windows. `ASTRALBEAM_DATA_DIR` overrides it, and an absolute `XDG_DATA_HOME` changes the Unix default to `$XDG_DATA_HOME/astralbeam`. Preserve this location across upgrades:
 
 | Path | Contents |
 | --- | --- |
 | `storage/` | Uploaded and generated files, avatars, logos, and previews when using File System. An explicit **Storage directory** can place these elsewhere |
 | `postgres/` | Persistent embedded PostgreSQL database |
 | `embedded-postgres.json` | Private database credentials and the generated encryption key, when present. Preserve with the database |
-| `runtime-<version>-<platform>-<arch>/` | Embedded PostgreSQL supervisor executable |
-| `postgres-cache/` | PostgreSQL executables and supporting libraries |
-| `microsandbox/` | Installed SDK, cached images, and temporary VM state |
+| Runtime caches | Downloaded executables, images, and temporary sandbox state |
 
-Stop Platform before preparing either local runtime again. Use `bootstrap --embeddedpg` for embedded PostgreSQL or `bootstrap --microsandbox` for Microsandbox, keeping the same working directory, environment, and data directory.
+Stop Platform before rerunning bootstrap. Keep the same working directory, environment, and data directory.
 
 Microsandbox workspaces are temporary. Original attachments and published artifacts live in configured file storage, so downloads do not depend on preserving VM state. Docker keeps its images and containers with its configured daemon.
 
@@ -70,7 +66,7 @@ Because file state spans PostgreSQL and the configured filesystem directory or S
 
 For embedded PostgreSQL, stop the executable and copy its data directory, including `postgres/` and `embedded-postgres.json`, together with configured file storage. Preserve permissions and the active encryption keyring when restoring. PostgreSQL major-version upgrades require dump and restore.
 
-For external PostgreSQL, run this command to take the dump:
+For external PostgreSQL, dump the database with all replicas stopped:
 
 ```sh
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
@@ -78,11 +74,11 @@ pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 
 Keep the replicas stopped. For File System, back up the entire configured directory, preserving relative paths and private permissions, and record its absolute path from **File storage**. For S3, use the provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode alongside the backup.
 
-Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. Use the same PostgreSQL major version or newer, with `citext` available. See [Security](./security.md).
+Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. A copied data directory requires the same PostgreSQL major version. Use a [SQL dump for major-version changes](https://www.postgresql.org/docs/18/upgrading.html#UPGRADING-VIA-PG-DUMP), with the required extensions available. See [Security](./security.md).
 
-**NOTE**: Back the keyring up in your secret manager, separately from the dump, and never in the same place.
+**NOTE**: Keep an independent keyring backup in your secret manager. The embedded database's credentials file can also contain its generated encryption key, so protect the complete directory backup as secret data.
 
-Run this command against an empty database to restore:
+To restore an external database, keep replicas stopped and load the dump into an empty database:
 
 ```sh
 pg_restore --dbname="$DATABASE_URL" astralbeam.dump
@@ -90,7 +86,7 @@ pg_restore --dbname="$DATABASE_URL" astralbeam.dump
 
 Restore files to the directory or bucket recorded in the restored configuration, keeping their relative paths or object keys unchanged. If you use a different destination, update **File storage** at `/configure` and restart every server instance. Saving settings does not copy objects.
 
-Then start the application with that `DATABASE_URL` and the encryption keyring that was in effect when the dump was taken. If the restored data predates the running version, the setup gate closes until you approve the missing migrations. Test a restore before you need one, and confirm afterwards that `/configure` can read the stored secrets rather than reporting them unreadable.
+Start the application with the restored `DATABASE_URL` and matching encryption keyring. Apply any pending migrations at `/configure`. Verify that stored secrets are readable and that an existing attachment can be downloaded. Test this restore procedure before relying on a backup.
 
 ## Health checks
 
@@ -111,11 +107,15 @@ Long-lived streams can be disconnected. Accepted durable work remains recoverabl
 
 ## Cluster readiness and recovery
 
-Each process runs one embedded cluster runner using the main application SQL pool. `Cluster runner ready` means the runner acquired its runtime services. `Cluster runner unavailable` means startup or supervision failed. Check database connectivity, the private runner addresses described in [Deploy](./deploy.md#3-set-the-bootstrap-environment), and whether the runtime database role can initialize or upgrade cluster storage.
+Each process runs a cluster runner for durable background work. If logs show `Cluster runner unavailable`, check database connectivity, private runner reachability, and database permissions. `Cluster runner ready` indicates successful initialization.
 
-The supervisor retries with backoff capped at 30 seconds and logs transitions between ready and unavailable. Effect creates missing cluster storage automatically. Initialization or migration failures keep the runner inactive until a retry succeeds. `/configure` remains available for repair when its database dependencies are reachable. After a process crash, another runner can recover persisted work when its shard leases expire. Recovery is not immediate, and external operations can repeat if their activity result was not persisted before the crash.
+Replicas discover peers through the shared database and authenticate with a credential derived from `DATABASE_ENCRYPTION_KEY`. Use the same keyring on every replica. Runner addresses default to private IPv6, then private IPv4, falling back to loopback. Set `CLUSTER_RUNNER_HOST` to a reachable private address if discovery chooses the wrong interface. `CLUSTER_RUNNER_PORT` defaults to `0` for an assigned port and must stay `0` with multiple HTTP workers.
 
-The `effect_cluster_*` tables are framework-owned journal and coordination storage. Their native Effect constructors own initialization and migrations, independently of the application migration approval flow. Include them in backups and preserve `effect_cluster_migrations` alongside messages and replies. The runtime database role needs database CONNECT, schema USAGE/CREATE, table read/write access, sequence access, and ownership or membership in the owning role to alter cluster tables. Review upstream storage changes and rolling-version compatibility before upgrading Effect because DDL can run as soon as a new replica starts. There is no automatic journal cleanup. Restoring an older backup can replay external operations, so workflow handlers must use stable idempotency keys.
+Keep runner ports reachable between replicas on a trusted private network. Do not expose them through the public proxy or advertise a shared load balancer address. Restart after changing runner settings.
+
+The supervisor retries failed runners with backoff capped at 30 seconds. `/configure` remains available for repair when its database dependencies are reachable. After a crash, another runner recovers persisted work when its leases expire. Recovery is not immediate, and an external operation can repeat if its result was not saved before the crash.
+
+Effect creates and upgrades `effect_cluster_*` storage automatically at startup, outside the application's migration approval flow. Include every cluster table in backups, including `effect_cluster_migrations`. The database role needs CONNECT, schema USAGE/CREATE, table read/write access, sequence access, and permission to alter cluster tables. Check rolling-version compatibility before upgrading Effect. There is no automatic journal cleanup. Restoring old work can replay external operations, so workflow handlers need stable idempotency keys.
 
 ## Logs
 

@@ -90,7 +90,7 @@ try {
 
 ## Token expiry and recovery
 
-The API helpers accept a token string and do not maintain a session. Tokens default to five minutes. Your token endpoint must reauthenticate every renewal; a renewal is not permission to extend an expired host session.
+API helpers accept a token string without managing a session or refreshing it. Tokens default to five minutes. Your endpoint must check the host session on every renewal.
 
 - On an API `401`, obtain a fresh token and retry a read once. If renewal fails or the retry returns `401`, stop and ask the user to sign in or check configuration.
 - On `403`, do not loop on renewal. Check current organization membership/role, or the tenant JWT's signed admin claim.
@@ -101,28 +101,13 @@ The API helpers accept a token string and do not maintain a session. Tokens defa
 
 ## Chat and downloads
 
-Use the [headless chat SDK](./headless.md) for event parsing, tools, cancellation, and token refresh. For direct HTTP access, `getChatConfig` returns JSON, while `runChat` and `getThreadAttachment` return native, unread `Response` objects.
+Use the [headless chat SDK](./headless.md) for streaming, tools, cancellation, and token refresh. For custom HTTP integrations, `getChatConfig` returns JSON, while `runChat` and `getThreadAttachment` return unread native `Response` objects.
 
-```ts
-import { getChatConfig, getThreadAttachment, runChat } from "@astralbeam/sdk/api"
+`runChat` accepts `ChatRunInput`: a saved conversation UUID, one new user message, and `forwardedProps.clientId`. New runs stream SSE, while an accepted retry returns a JSON receipt. The headless SDK handles these details for you.
 
-const config = await getChatConfig({ agentId }, { astralBeamToken: token })
-const response = await runChat(agUiRequest, { astralBeamToken: token, signal })
-// New runs stream SSE. An accepted idempotent retry returns a JSON receipt.
+For files, `getThreadAttachment` returns proxied bytes by default. With `delivery: "direct"`, it follows an authorized S3 storage URL without sending application credentials. Configure storage CORS for GET from the embedding origin and expose `Content-Disposition` if you read that header. The URL is a bearer credential valid for one minute, so do not persist or share it.
 
-const file = await getThreadAttachment(
-  { threadId, fileId, filename: "report.csv", delivery: "direct" },
-  { astralBeamToken: token },
-)
-const filename = file.headers.get("Content-Disposition")
-const bytes = await file.arrayBuffer()
-```
-
-With `delivery: "direct"`, S3 downloads return a short-lived storage URL after authorization and the SDK fetches it without application credentials. The headless chat SDK requests direct delivery automatically. Raw HTTP callers receive `204` with the URL in `Location`, then make a separate credential-free GET. A preview unavailable for rendering returns `204` without `Location`. Omit `delivery` to retain the proxied byte response. Configure storage CORS to allow GET from the embedding page's origin, exposing `Content-Disposition` if your code reads that header. Signed URLs are bearer credentials valid for one minute, so do not persist or share them.
-
-`agUiRequest` must follow `ChatRunInput`: use a saved conversation UUID, one new user message, and `forwardedProps.clientId`. The headless SDK handles this setup and the SSE or admission-receipt response automatically.
-
-Chat accepts tenant JWTs without requiring admin privileges. Participant downloads require current conversation access. Administrative downloads also pass `tenantId` and accept an Organization API key, Organization-management JWT, or signed Tenant-admin JWT. See the [API reference](/docs/api) for all operations, permissions, and response schemas.
+Chat requires a tenant JWT. Participant downloads require current conversation access. Administrative downloads also require `tenantId` and an authorized management credential. See the [API reference](/docs/api) for request and response schemas, including raw HTTP direct-download responses.
 
 ## Browser: organization JWT
 

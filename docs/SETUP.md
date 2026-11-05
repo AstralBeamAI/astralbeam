@@ -1,6 +1,6 @@
 # Setup
 
-This guide sets up the source checkout and example apps. To try Platform without contributor tooling, use the [standalone binary](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) with existing PostgreSQL or the [embedded database](../platform/src/routes/docs/-content/self-hosting/deploy.md#embedded-postgresql).
+This guide sets up the source checkout and example apps. To try Platform without contributor tooling, follow the [standalone installation](../platform/src/routes/docs/-content/self-hosting/deploy.md#standalone-binary).
 
 ## Host prerequisites
 
@@ -73,13 +73,13 @@ The seed prints verified dashboard accounts, so you can sign in without email de
 2. Open **Acme Inc → Agents → Todos Assistant**, enable **Sandbox**, select the connection, and save.
 3. In Todos, ask the assistant to run a script or analyze an uploaded spreadsheet. For automated coverage, follow the [Todos browser guide](../examples/todos/e2e/README.md).
 
-**NOTE**: To try Microsandbox, [build the Platform binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) and follow [Microsandbox setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Vite's `dev` task does not run its native host checks. Microsandbox needs no Docker and works with either database choice. A fresh standalone deployment has no contributor seed, so configure its model and agent before testing chat.
+**NOTE**: To try Microsandbox, [build the Platform binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#other-binary-installations) and follow [Microsandbox setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Vite's `dev` task does not run its native host checks. Microsandbox needs no Docker and works with either database choice. A fresh standalone deployment has no contributor seed, so configure its model and agent before testing chat.
 
 #### Port allocation
 
 Application port conventions use `xx00` for development, `xx10` for production, and `xx20` for preview where provided. Platform production defaults to `4510` and website preview to `4620`. Existing deployments keep their explicit ports. See [deployment](../platform/src/routes/docs/-content/self-hosting/deploy.md) for production commands.
 
-Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned loopback port, and needs no separate worker command. See the [cluster](../platform/src/lib/cluster/README.md) and [workflow](../platform/src/lib/workflows/README.md) guides for runtime details.
+Override Platform with `PORT` or Vite servers with `--port`. Keep the application base URL, consumer API URLs, and proxy targets aligned. Development and preview reject occupied ports. The embedded Effect Cluster runner initializes its PostgreSQL storage automatically, uses an OS-assigned port on a private address, and needs no separate worker command. See the [cluster](../platform/src/lib/cluster/README.md) and [workflow](../platform/src/lib/workflows/README.md) guides for runtime details.
 
 ## Development without Docker
 
@@ -105,17 +105,13 @@ See the [Codex guide](../.codex/README.md). Codex Cloud uses the native command 
 
 `DATABASE_ENCRYPTION_KEY` protects stored runtime settings, model and sandbox credentials, and MCP authorization data. It does not encrypt the whole database. The active key also grants operator access to `/configure`, so keep it private and back it up securely with the database. Never reuse the development default in production.
 
-Set it to one or more comma-separated raw secrets. The first entry encrypts new writes and is the operator sign-in credential. Later entries only decrypt older values. Each trimmed entry must be unique, contain 32–1024 characters, and contain no comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values and keep them in your secret manager:
+Set it to one or more comma-separated raw secrets. The first entry encrypts new writes and is the operator sign-in credential. Later entries decrypt older values and verify cluster peer credentials during rotation. Each trimmed entry must be unique, contain 32–1024 characters, and contain no comma. Each entry is hashed with SHA-256 into 32-byte root material. Hashing and a length check do not strengthen a weak passphrase, so generate high-entropy values and keep them in your secret manager:
 
 ```sh
 openssl rand -base64 32
 ```
 
-To rotate a key:
-
-1. Restart every server instance with `DATABASE_ENCRYPTION_KEY=new,old`, placing the new secret first. Changing the active key invalidates operator sessions. Sign in again with the new value.
-2. Follow the [key-rotation procedure](../platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key) to rewrite or replace all dependent settings, provider and sandbox credentials, and MCP authorization data. Saving unchanged sandbox credentials does not rewrite them. There is no automatic whole-database re-encryption command.
-3. Remove the old entry only after every dependent encrypted value has been rewritten or replaced, then restart every instance. Removing it too early makes those values unreadable. An empty fallback warning list on `/configure` does not prove rotation is complete.
+To rotate a key, follow the complete [key-rotation procedure](../platform/src/routes/docs/-content/self-hosting/security.md#rotating-the-encryption-key), including its staged rollout across replicas. Keep the old key until every dependent encrypted value has been rewritten or replaced. Removing it early makes those values unreadable, and an empty fallback warning list on `/configure` does not prove rotation is complete.
 
 Sign in to `/configure` with the first raw secret, never database credentials or a fallback entry. Operator sessions last 15 minutes. Apply pending migrations there on a new database. Missing keys or damaged ciphertext make stored values unreadable, but `/configure` permits replacement without revealing the old value.
 
@@ -123,7 +119,7 @@ Protect `/configure` with HTTPS and restricted ingress in production. Its creden
 
 #### Runtime settings
 
-Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL defaults to `http://localhost:<port>`. It must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Restart other server instances after changing database-backed settings, and restart the process after environment changes. See the [configuration guide](../platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
+Manage encrypted runtime settings through `/configure`. The editor masks values until explicitly revealed. Environment overrides make their fields read-only. The application base URL defaults to `http://localhost:<port>`. It must be a pathless HTTP(S) origin and use HTTPS in production. `/configure` generates the required Better Auth secret unless `BETTER_AUTH_SECRET` is set. Other replicas refresh stored settings on their next read after the five-second cache expires. Restart every instance after environment or observability changes. See the [configuration guide](../platform/src/routes/docs/-content/self-hosting/configuration.md) for the complete settings.
 
 ### Configure Cloudflare Turnstile
 
