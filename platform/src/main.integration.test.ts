@@ -37,6 +37,8 @@ test.skipIf(!bootstrapDatabaseUrl)(
       ...process.env,
       DATABASE_URL: url.href,
       DATABASE_ENCRYPTION_KEY: encryptionKey,
+      DOCKERSANDBOX_DISABLED: "true",
+      MICROSANDBOX_DISABLED: "true",
     }
     for (const key of [
       "BETTER_AUTH_SECRET",
