@@ -269,7 +269,7 @@ export function ChatTranscript({
                     <Spinner />
                   </MarkerIcon>
                   <MarkerContent className="shimmer">
-                    {preparingContext ? "Preparing conversation context…" : "Thinking…"}
+                    {preparingContext ? "Summarizing earlier messages…" : "Thinking…"}
                   </MarkerContent>
                 </Marker>
               </MessageScrollerItem>

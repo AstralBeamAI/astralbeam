@@ -261,11 +261,11 @@ export function AgentForm({
               <Field orientation="horizontal">
                 <FieldContent>
                   <FieldLabel htmlFor="agent-compaction-enabled">
-                    Continue long conversations
+                    Summarize long conversations
                   </FieldLabel>
                   <FieldDescription id="agent-compaction-description">
-                    Summarize older context automatically. The full conversation stays visible, but
-                    the agent may lose some details.
+                    Summarize earlier messages automatically. Uses additional model tokens and may
+                    lose details. The full conversation stays visible.
                     {!compactionAvailable &&
                       " Set the default model’s token limits in Models to enable this."}
                   </FieldDescription>
