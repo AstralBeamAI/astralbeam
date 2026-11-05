@@ -237,10 +237,12 @@ test("vanilla conversation directory follows cursors, filters Tenants and clears
 
 test("non-admin Tenant credentials cannot browse conversations", async ({ page }) => {
   const directory = threadDirectoryPage(page)
+  const tenant = SEED_ORGANIZATIONS[0].tenants[1]
+  const member = tenant.users[1]
   const token = await createAstralBeamToken({
     apiKey: seedTarget.apiKey,
-    tenant: { id: seedTarget.tenant.id },
-    user: { id: seedTarget.user.id, admin: false },
+    tenant: { id: tenant.externalId },
+    user: { id: member.externalId, admin: member.admin },
   })
   await page.route("**/__listing-token", (route) => route.fulfill({ json: { token } }))
   await openVanillaDirectories(page, { scope: "tenant" }, ["threads"])

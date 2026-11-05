@@ -7,6 +7,8 @@ test("the assistant and appearance persist across all example pages", async ({
   page,
 }) => {
   await chat.waitForReady()
+  await expect(chat.emptyState()).toBeVisible()
+  await expect(chat.newChatButton()).toBeDisabled()
   await todos.search.fill("launch")
   await expect(todos.items()).toHaveCount(1)
   await todos.search.fill("")
@@ -50,13 +52,6 @@ test("added todos and completion survive reload", async ({ todos, page }) => {
   await todos.checkbox("Water the garden").check()
   await expect(todos.checkbox("Water the plants")).toBeChecked()
   await expect(todos.items()).toHaveCount(5)
-})
-
-test("the widget reaches a ready composer, which proves the token round-trip", async ({ chat }) => {
-  await chat.waitForReady()
-  // Nothing has been sent, so the widget offers its own empty transcript and no reset.
-  await expect(chat.emptyState()).toBeVisible()
-  await expect(chat.newChatButton()).toBeDisabled()
 })
 
 test("one theme control retunes the app and the widget together", async ({ todos, chat }) => {
