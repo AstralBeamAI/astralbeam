@@ -12,17 +12,7 @@ An agent gives your assistant its instructions, model, and tools. Start with you
 
 The [Quickstart](/docs/start/quickstart) walks through mounting the assistant with the [default agent](#the-default-agent).
 
-## What an agent holds
-
-| Setting          | Purpose                                                |
-| ---------------- | ------------------------------------------------------ |
-| Name             | A unique dashboard label for the agent                 |
-| System prompt    | Instructions describing its purpose and behavior       |
-| Models           | Enabled provider models, with one default              |
-| File attachments | Allowed by default. Turning this off refuses new files |
-| Tools            | Web access and an optional sandbox connection          |
-
-New agents enable Web access when the default model supports it, and Sandbox when a connection is available. Review these capabilities before connecting production data. Saved changes apply to the next request, including in open conversations.
+New agents allow file attachments. They also enable Web access when the default model supports it, and Sandbox when a connection is available. Review these capabilities before connecting production data. Saved changes apply to the next request, including in open conversations.
 
 ## Model selection
 

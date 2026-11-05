@@ -10,8 +10,6 @@ Connect a model provider so your agents can reply. You'll need a provider API ke
 4. Choose **Save provider**, then select a model under **Test model** and run the test. Wait for a successful reply. The request may incur provider charges.
 5. Choose **Set up an agent**.
 
-**NOTE**: Saving does not verify model access. Run the test before assigning the model to an agent.
-
 ## Provider formats
 
 | Provider      | API format                                                        |

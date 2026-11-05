@@ -4,6 +4,8 @@ Install the standalone binary to run AstralBeam with its own database, file stor
 
 ## Standalone binary
 
+Use Linux x86_64 or ARM64 with glibc 2.36+ and KVM enabled, or Apple Silicon with macOS 15+. The local sandbox needs [host virtualization support](https://github.com/superradcompany/microsandbox#readme). Embedded PostgreSQL is experimental.
+
 Choose an empty working directory with no `DATABASE_URL` override, and run these commands as a regular user, without `sudo`:
 
 ```sh
@@ -16,7 +18,7 @@ The installer verifies the release checksum and installs to `~/.local/bin`. Boot
 
 Open http://localhost:4510/configure and [complete setup](#complete-setup). Run later commands from the same working directory so the binary finds its `.env` file. Stop with Ctrl+C.
 
-Standalone setup supports Linux x86_64 and ARM64 with glibc 2.36+, and Apple Silicon with macOS 15+. The host must support local VM execution. Embedded PostgreSQL is experimental. See [other installations](#other-binary-installations) for other hosts, or `astralbeam-platform bootstrap --help` for individual runtime options.
+See [other installations](#other-binary-installations) for other hosts, or `astralbeam-platform bootstrap --help` for individual runtime options.
 
 ## Complete setup
 
@@ -28,7 +30,7 @@ Standalone setup supports Linux x86_64 and ARM64 with glibc 2.36+, and Apple Sil
 
 Operator sessions last 15 minutes. Keep the encryption key private and back it up separately. If the invitation fails, fix email delivery and retry **Invite owner**.
 
-## Public hosting
+## Public deployment
 
 Bootstrap starts new installations with local testing defaults. Before making the application public:
 

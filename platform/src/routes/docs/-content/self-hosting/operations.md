@@ -47,7 +47,7 @@ bun run --cwd platform db migrate
 
 ## Data directory
 
-`ASTRALBEAM_DATA_DIR` overrides the [OS data location](./configuration.md#file-storage). Preserve this location across upgrades:
+The default data directory is `~/.local/share/astralbeam` on Linux, `~/Library/Application Support/AstralBeam` on macOS, or `%LOCALAPPDATA%\AstralBeam` on Windows. `ASTRALBEAM_DATA_DIR` overrides it, and an absolute `XDG_DATA_HOME` changes the Unix default to `$XDG_DATA_HOME/astralbeam`. Preserve this location across upgrades:
 
 | Path | Contents |
 | --- | --- |
@@ -74,7 +74,7 @@ pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
 
 Keep the replicas stopped. For File System, back up the entire configured directory, preserving relative paths and private permissions, and record its absolute path from **File storage**. For S3, use the provider's backup or export tool to copy the bucket's objects with their original keys and metadata. Record the endpoint, region, bucket name, and addressing mode alongside the backup.
 
-Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. Use the same PostgreSQL major version or newer, with `citext` available. See [Security](./security.md).
+Restoring encrypted settings and credentials requires the matching `DATABASE_ENCRYPTION_KEY`. A copied data directory requires the same PostgreSQL major version. Use a [SQL dump for major-version changes](https://www.postgresql.org/docs/18/upgrading.html#UPGRADING-VIA-PG-DUMP), with the required extensions available. See [Security](./security.md).
 
 **NOTE**: Keep an independent keyring backup in your secret manager. The embedded database's credentials file can also contain its generated encryption key, so protect the complete directory backup as secret data.
 

@@ -277,7 +277,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
         slug: "deploy",
         updated: "2026-11-05",
         title: "Deploy",
-        description: "Deploy the standalone Linux binary or try AstralBeam with Docker Compose.",
+        description: "Install the standalone binary or run AstralBeam with Docker Compose.",
       },
       {
         slug: "configuration",

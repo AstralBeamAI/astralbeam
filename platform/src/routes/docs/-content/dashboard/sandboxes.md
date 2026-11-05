@@ -14,14 +14,14 @@ The connection test creates a sandbox, runs a command, and destroys it. Creation
 
 ## Providers and their options
 
-| Provider | What you need                         | Default workspace                 |
-| -------- | ------------------------------------- | --------------------------------- |
-| Daytona  | API key                               | `daytona-medium` snapshot in `us` |
-| Docker   | A daemon reachable by the deployment  | Operator-selected image           |
-| E2B      | API key                               | `base` template                   |
-| Microsandbox | A prepared runtime and supported host | Operator-selected image        |
-| Sprites  | API token                             | No additional options             |
-| Vercel   | Access token, Team ID, and Project ID | `node24` runtime                  |
+| Provider     | What you need                         | Default workspace                 |
+| ------------ | ------------------------------------- | --------------------------------- |
+| Daytona      | API key                               | `daytona-medium` snapshot in `us` |
+| Docker       | A daemon reachable by the deployment  | Operator-selected image           |
+| E2B          | API key                               | `base` template                   |
+| Microsandbox | A prepared runtime and supported host | Operator-selected image           |
+| Sprites      | API token                             | No additional options             |
+| Vercel       | Access token, Team ID, and Project ID | `node24` runtime                  |
 
 Provider names must be unique within the organization. Cloud-provider forms offer the supported regions, templates, and runtimes.
 

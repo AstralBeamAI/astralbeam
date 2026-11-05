@@ -97,8 +97,6 @@ Pass options as React props or apply a subset with `handle.update(options)`. Pre
 
 Most embeds let `<AstralBeamChat {...options} />` manage the session. For external controls, create `chat` with `useAstralBeamChat(options)` and render `<AstralBeamChat chat={chat} />`. Configure authentication and tools on the hook, with widgets and appearance on the view. Call actions directly on `chat` and read state through `chat.getState()`.
 
-**Migration:** replace chat refs and mount-handle commands with session actions. Use `chat` instead of `chat.core`, and `chat.getState()` instead of snapshot fields. Directory handles are unchanged. See Configuration for ownership and JavaScript usage.
-
 Conversations are saved automatically and start private. The widget searches saved conversation titles. Reopening history does not execute earlier tool calls. Disconnecting can interrupt the current response.
 
 The headless session exposes conversation navigation, search, and pagination. With `useAstralBeamChat`, access these through `chat`, for example `chat.openThread(threadId)`. History loads a page at a time. `reset()` starts a new chat and keeps the saved one.

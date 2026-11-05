@@ -13,10 +13,7 @@ Create an organization API key to connect your backend to AstralBeam. Use it to 
 
 ## What a key looks like
 
-| Part       | Value                                                |
-| ---------- | ---------------------------------------------------- |
-| Full value | `key_<organizationId>_<id>_abo_<secret>`             |
-| Expiration | 30 days, 90 days, or never, and never is the default |
+The full value is `key_<organizationId>_<id>_abo_<secret>`. Keys do not expire unless you choose an expiration when creating them.
 
 Only the secret's hash is stored. A lost key cannot be recovered. Create a replacement and delete the old one.
 
