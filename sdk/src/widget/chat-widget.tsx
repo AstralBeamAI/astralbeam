@@ -58,16 +58,7 @@ export function ChatWidget({
     () => ({ getThreadAttachment: chat.getThreadAttachment, threadId: chatState.thread?.id }),
     [chat, chatState.thread?.id],
   )
-  const {
-    messages,
-    status,
-    auth,
-    capabilities,
-    sandbox,
-    sandboxStatus,
-    preparingContext,
-    agentTools,
-  } = chatState
+  const { messages, status, auth, capabilities, sandbox, sandboxStatus, agentTools } = chatState
   const { history, submission } = chatState
   // A limit that ended a run mid-way is shown like a refused send, which retrying cannot fix.
   const usageLimit = chatState.usageLimitReached
@@ -410,7 +401,7 @@ export function ChatWidget({
       )}
       <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
         <ChatTranscript
-          preparingContext={preparingContext}
+          preparingContext={chatState.preparingContext}
           readOnly={chatState.thread?.role === "viewer"}
           messages={messages}
           currentTenantUserId={auth.status === "ready" ? auth.currentUser.user.id : undefined}
