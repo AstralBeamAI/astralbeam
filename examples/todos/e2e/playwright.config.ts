@@ -13,8 +13,8 @@ import {
 assertSdkIsBuilt()
 
 /**
- * One shared platform, one agent backend, and one Docker daemon serve every spec, so the suite runs
- * serially. Specs are routed to projects by folder rather than by tag:
+ * App specs use isolated browser contexts and run in parallel. Agent specs run serially afterwards
+ * because they share a tenant user's rate limits and Docker daemon. Specs are routed by folder:
  *
  * - `specs/app` is deterministic and free; it never calls a model.
  * - `specs/agent` drives a real agent run, so it spends model credits and is skipped without a key.
@@ -24,7 +24,7 @@ assertSdkIsBuilt()
  */
 export default defineConfig({
   fullyParallel: false,
-  workers: 1,
+  workers: 4,
   forbidOnly: Boolean(process.env.CI),
   outputDir: "./.output/test-results",
   // printSteps narrates each `test.step` with its duration, which is most of what an agent run does.
@@ -43,13 +43,20 @@ export default defineConfig({
   },
   projects: [
     { name: "preflight", testMatch: /preflight\.setup\.ts/ },
-    { name: "app", testDir: "./specs/app", dependencies: ["preflight"], retries: 0 },
+    {
+      name: "app",
+      testDir: "./specs/app",
+      dependencies: ["preflight"],
+      fullyParallel: true,
+      retries: 0,
+    },
     ...(agentSpecsEnabled
       ? [
           {
             name: "agent",
             testDir: "./specs/agent",
-            dependencies: ["preflight"],
+            dependencies: ["app"],
+            workers: 1,
             // Model output varies between runs, so one retry absorbs a reply that skipped a tool.
             retries: 1,
             // Generous, because a throttled turn waits out the endpoint's one-minute window.
