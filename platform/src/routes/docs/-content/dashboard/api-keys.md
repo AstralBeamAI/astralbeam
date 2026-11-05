@@ -1,6 +1,6 @@
 # API keys
 
-Use an organization API key on your server to call the [management API](/docs/api) and sign short-lived [tokens](/docs/sdk/authentication).
+Create an organization API key to connect your backend to AstralBeam. Use it to sign short-lived [chat tokens](/docs/sdk/authentication) or call the [management API](/docs/api).
 
 ## Create a key
 
@@ -13,23 +13,20 @@ Use an organization API key on your server to call the [management API](/docs/ap
 
 ## What a key looks like
 
-| Part | Value |
-| --- | --- |
-| Full value | `key_<organizationId>_<id>_abo_<secret>` |
-| Name | Required, up to 32 characters, for your own bookkeeping |
+| Part       | Value                                                |
+| ---------- | ---------------------------------------------------- |
+| Full value | `key_<organizationId>_<id>_abo_<secret>`             |
 | Expiration | 30 days, 90 days, or never, and never is the default |
-| Requests | 100 management API requests per 5 minutes, per key |
-| Tokens signed with it | 60 to 600 seconds of life, 300 by default. See [Limits](/docs/sdk/limits). |
 
 Only the secret's hash is stored. A lost key cannot be recovered. Create a replacement and delete the old one.
 
 ## Keeping a key server-side
 
-Store the key in an environment variable or secret manager used by your backend. `createAstralBeamToken` signs tenant tokens and `createAstralBeamOrganizationToken` signs member-management tokens locally, without sending the raw key to AstralBeam.
+Store the key in your backend's environment or secret manager, such as `ASTRALBEAM_API_KEY`. Use `createAstralBeamToken` from `@astralbeam/sdk/server` to sign chat tokens locally. The browser receives the token, never the API key. See [Authentication](/docs/sdk/authentication) for the token endpoint.
 
 Keys belong to the organization rather than to the person who created them, so removing that person from the organization does not revoke their keys. Rotate a key when someone with access to it leaves.
 
-**TIP**: use one key per deployment or environment, as a retired environment can then be cut off on its own and one environment's request limit cannot throttle another.
+Use a separate key per environment so you can rotate or retire one independently.
 
 ## Rotating, expiring, and deleting
 
@@ -45,12 +42,10 @@ The last key in an organization and the key configured for the deployment's dash
 
 ## Request limits
 
-Management requests are limited per key, as listed above. A `429` response includes `Retry-After` in seconds. Wait before retrying.
+Management requests are limited to 100 per 5 minutes per key. A `429` response includes `Retry-After` in seconds. Wait before retrying.
 
 Chat has [separate identity-based limits](/docs/sdk/limits) and does not consume the key's management allowance.
 
 ## Who can see keys
 
-Owners and developers can list, create, rename, and delete keys, and viewers cannot open this page or see that any keys exist. See [Members](./members.md).
-
-Permission to create keys grants signing authority throughout the organization.
+Owners and developers can manage keys, which grants signing authority throughout the organization. Viewers cannot access this page. See [Members](./members.md).

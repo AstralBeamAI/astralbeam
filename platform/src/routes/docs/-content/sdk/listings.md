@@ -49,7 +49,7 @@ React refs expose `refresh()` and `reset()`. Import the matching `AstralBeamTena
 
 ## Tenant identifiers
 
-Tenant-scoped embeds resolve the Tenant from the signed token automatically. If you supply `tenantExternalId`, matching is exact and case-sensitive, with whitespace preserved. `tenantId` is the internal UUID and takes precedence if both options are supplied. A missing external ID shows an empty state, never another Tenant's records. View options never grant authorization.
+Tenant-scoped directories use the Tenant from the signed token. To pin one explicitly, use its internal UUID as `tenantId` or its exact, case-sensitive external ID as `tenantExternalId`. `tenantId` takes precedence if both are supplied. A missing Tenant shows an empty state. These options do not grant access.
 
 ## Account changes and lifecycle
 
@@ -72,23 +72,17 @@ Use an `accountId` that changes with either the signed-in user or tenant, and se
 
 ### Cache reuse
 
-Results stay fresh for 30 seconds, then refresh in the background on focus or reconnect. Unused data expires after five minutes.
+Directories refresh stale results on focus or reconnect. By default, unmounting discards their cached data.
 
-`cacheKey` is an optional opaque object defining the host-session boundary for remount reuse. The SDK uses its object identity, so keep the same object for the session and replace it on sign-out or account changes. Changing `cacheKey` clears authentication and the view. Without a key, unmounting discards the directory's data. Reuse also requires the same verified account and API.
-
-Each mount owns authentication, requests, and cancellation. Concurrent mounts keep separate data and do not deduplicate or refresh each other. For each directory kind and scope under a key, the last unmount replaces retained data. `cacheKey` enables remount reuse, not a shared live session.
+To reuse data across remounts, pass a stable object as `cacheKey` for the host session. Replace that object on sign-out or account changes. Reuse requires the same verified account and API. Each mount still owns its requests and cancellation, so refreshing one does not refresh another.
 
 ### Refresh and reset
 
-`refresh()` and `reset()` return `Promise<void>` after authentication and the current view's data finish loading. They wait for the lazy renderer, but not attachment previews, hidden views, or unrequested pages. Await the action before closing a host editor and handle rejection.
+Call `refresh()` after a host edit to reload the current view. Use `reset()` to clear this mount's authentication, cached data, and view state, then load it again. Reset also clears retained data for its `cacheKey`. Neither action changes active sibling mounts.
 
-- React props and vanilla `update()` apply live options. Inline token-source objects and callbacks do not clear the view.
-- `refresh()` reloads the current view and may reuse the cached JWT. Token-source updates apply on the next token acquisition.
-- `reset()` clears this mount's authentication, cached data, and view state, along with retained data for its `cacheKey`, then reacquires authentication and loads the initial view. Active sibling mounts remain independent. Reset requires a ready host session. Unmount for sign-out or while the host session changes.
-- API URL changes clear authentication and cached data.
-- Changing scope or a pinned tenant clears the view. Changing page size restarts pagination while preserving filters.
+Both return `Promise<void>` after authentication and the current view load, excluding attachment previews and unrequested pages. Await them and handle rejection. Account, API, scope, or cache changes can interrupt an action with `AbortError`, which does not call `onError`.
 
-Loading, authentication, and request failures reject the action's promise. Request and authentication failures also reach the existing `onError` callback once per failed request or shared authentication attempt. A newer action, unmount, verified identity change, or change to `apiUrl`, `cacheKey`, `scope`, or the pinned tenant interrupts the pending action with `AbortError`, without calling `onError`.
+React props and JavaScript `update()` apply live options. Token-source changes take effect on the next acquisition. For sign-out or an account switch, unmount instead of resetting while the host session changes.
 
 ## Browse saved conversations
 
@@ -130,30 +124,13 @@ Connect row actions and errors to your application:
 
 `onTenantSelect` and `onTenantUserSelect` add an Open action and receive API records with snake_case fields.
 
-`onError` reports failed requests after authentication retry, including background failures, without replacing the widget's error UI. Cancellations are excluded and shared authentication failures report once. Separate failed requests can each report an error. Use `isAstralBeamApiError` from `/api` for status and problem details.
+`onError` reports request and authentication failures, including background failures, while the widget keeps its own error UI. Cancellations are excluded. Use `isAstralBeamApiError` from `@astralbeam/sdk/api` for status and problem details.
 
 `onTenantChange` reports organization-scope picker changes as a Tenant or `null`. It does not fire for initial or pinned values and does not make the picker controlled.
 
 ## Options and behavior
 
-Directories share chat's `theme` and `colorScheme` options. Reuse the same theme object across widgets. Removing overrides restores the SDK palette without resetting the directory. See [Theming](./theming.md).
-
-Host styles and React `className` affect only the outer container. Use `customCss` for styles inside the shadow root:
-
-```tsx
-<AstralBeamTenantList
-  fetchAstralBeamToken={{ url: "/api/astralbeam/token" }}
-  customCss={`
-    [data-slot="directory"] { gap: 1.5rem; }
-    [data-slot="directory-toolbar"] { padding: 0.5rem; }
-    [data-slot="table"] { font-size: 0.75rem; }
-  `}
-/>
-```
-
-`customCss` is ordinary CSS, not uncompiled Tailwind classes. It applies only inside this widget. Changing or removing it updates styles without resetting filters, pagination, or authentication. Use `directory.update({ customCss })` with vanilla mounts, or change the React prop. Pass only trusted application CSS, never user-supplied content.
-
-Conversation views also expose `directory-transcript`. Use `[data-slot="directory"]`, `[data-slot="directory-toolbar"]`, and the shared control slots shown above. The [directory renderer](https://github.com/AstralBeamAI/astralbeam/blob/main/sdk/src/widget/listings/listing-widget.tsx) contains the full slot names. Prefer `theme` for colors and fonts.
+Directories use the same `theme`, `colorScheme`, and trusted `customCss` options as chat. Prefer [theme tokens](./theming.md) for colors and fonts. Host styles and React `className` affect the outer container only. For internal CSS selectors, see the [directory renderer](https://github.com/AstralBeamAI/astralbeam/blob/main/sdk/src/widget/listings/listing-widget.tsx).
 
 | Option | Default | Purpose |
 | --- | --- | --- |
@@ -173,27 +150,19 @@ Conversation views also expose `directory-transcript`. Use `[data-slot="director
 | `onTenantChange` | None | User or conversation directory's organization-scope picker changes. |
 | `onError` | None | Failed requests after authentication retry, excluding cancellations. |
 
-- Previous/Next follow server cursors, with no estimated totals or client-side sorting.
-- Search is debounced and matches literal text in names or external IDs. Collections use server-side search, while an explicitly selected single Tenant is filtered locally. Filters reset the current page.
-- Hiding stored admin fields removes any active admin filter.
-- Rows show external IDs under **ID**, names, metadata, and creation dates. Names do not expand rows. Internal UUIDs are not displayed.
-- Tokens refresh once on HTTP `401`. Other failures offer explicit retry.
+Search matches names and external IDs. Changing filters restarts pagination. Directories renew the token once on `401` and offer explicit retry for other failures.
 
 **NOTE**: For internal-management use cases, all three directories support `scope="organization"` with an [organization-management token](./api.md). User and conversation directories require a selected Tenant. Use the searchable picker or pin `tenantId` or `tenantExternalId`. When using that token with tenant scope, pin the Tenant explicitly. The read-only UI does not reduce token permissions.
 
 ## Usage costs
 
-Organization owners and developers see **Usage (USD)** in the user directory, independently of `showAdmin`. Viewers and Tenant administrators do not request usage. Costs load separately, so failures do not block rows or pagination.
+Organization owners and developers see **Usage (USD)** in the user directory. Viewers and Tenant administrators do not. Costs load separately, so an unavailable total does not prevent browsing users.
 
-Choose this month, previous month, this week, previous week, last 30 days, or last 7 days. Calendar periods use UTC and Monday-to-Sunday weeks. Rolling periods end when fetched and span exactly 30 or 7 days. The current month is the default.
+The default period is this month. Calendar periods use UTC, with weeks running Monday through Sunday. Rolling periods cover the preceding 7 or 30 days at fetch time.
 
-Changing periods reloads only costs. Results are reused for 30 seconds. Refresh reloads users and costs with a new rolling cutoff.
+Totals cover retained, settled assistant replies. They prefer provider-reported costs, then configured token prices. Older replies without a saved cost use current prices, so their totals can change. Deleted conversations and drafts are excluded. Missing usage or pricing contributes $0, so the display is not a billing ledger.
 
-Totals include retained settled assistant replies. New replies save their resolved USD cost, preferring the provider-reported amount over configured token prices. Older replies without a saved cost use current rates and can change after price updates. Drafts and deleted conversations are excluded. Missing usage or pricing currently contributes $0, including interrupted replies with unknown costs. Users without settled replies show zero.
-
-Amounts show precise values without trailing zeros. A failed request shows **Unavailable** with Retry.
-
-Server integrations can use `getTenantUserUsage` with an Organization API key, comma-separated `user_ids`, and ISO 8601 `start` and `end` timestamps with an explicit timezone. The start is inclusive and the end exclusive. Requests accept up to 100 users and a positive range of at most 93 days, with millisecond precision.
+For server-side reports, use `getTenantUserUsage` with an Organization API key. See the [API reference](/docs/api) for user filters and time-range limits.
 
 ## Troubleshooting
 

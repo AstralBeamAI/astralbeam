@@ -1,6 +1,6 @@
 # Limits
 
-The server enforces these limits independently of the SDK. Client options can lower them for your interface but cannot raise them. Organization-specific token and spend allowances are configured under [Usage limits](/docs/dashboard/usage-limits).
+Use this reference when handling rejected requests or setting upload limits. The server enforces these caps. SDK options can lower them but cannot raise them. Set your organization's token and spend allowances under [Usage limits](/docs/dashboard/usage-limits).
 
 ## Requests
 

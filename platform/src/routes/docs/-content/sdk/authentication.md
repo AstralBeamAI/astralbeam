@@ -87,25 +87,21 @@ const token = await createAstralBeamToken({ apiKey, user, tenant, usageLimits: p
 
 ## Refresh and current-user behavior
 
-Authentication becomes ready after token acquisition and `/me` succeed. Visible, online components renew before expiry and resynchronize on focus or reconnect when the last check is at least 60 seconds old. Callback changes apply to the next acquisition.
+Authentication is ready after token acquisition and `/me` succeed. While visible and online, the SDK renews tokens before expiry and resynchronizes stale identity on focus or reconnect. A `401` triggers one renewal and retry. Temporary synchronization failures retry with backoff and respect `Retry-After`.
 
-A `401` gets one renewal and retry. Network, `5xx`, and `429` synchronization failures get up to three delayed retries, respecting `Retry-After`. Other client errors require explicit retry. Failed synchronization hides the cached identity and blocks new work, while an authorized stream continues.
+Failed synchronization hides the cached identity and blocks new work. An already-authorized stream can continue. Changes to the token callback apply on the next acquisition, so [remount for account changes](#switching-workspaces).
 
-Synchronization preserves omitted profile fields. Supplied metadata replaces the whole object. An older JWT can overwrite newer profile fields, so use current host claims. See the [current-user API](/docs/api#description/current-user) for response shapes and update rules.
+Synchronization preserves omitted profile fields, while supplied metadata replaces the whole object. Always mint tokens from current host data because an older token can overwrite newer profile values. See the [current-user API](/docs/api#description/current-user) for update rules.
 
 ## Rules
 
-The tenant JWT identifies the tenant user to AstralBeam, so treat it like a session credential.
+Treat the token as a session credential. Keep the API key on your server, derive both identities from the same authenticated session, and include no secrets in token claims. JWTs are signed, not encrypted.
 
-- Authenticate once. Derive `user` and `tenant` from the same trusted server-side session, never browser-supplied identity.
-- `user.id` and `tenant.id` must be stable 1–255 character strings. Names are optional, and user IDs are tenant-local.
-- Set optional `user.admin` only from trusted application permissions.
-- Put custom fields in each identity's `metadata`. Tokens are signed, not encrypted, so include no secrets.
-- SDK fields use camelCase. AstralBeam-owned JWT claims use snake_case, preserving caller-owned metadata keys.
-- The issuer is the organization UUID from the API key, with audience `astralbeam`. AstralBeam does not require `sub`.
-- `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK retains tokens in memory and renews before expiry.
+- `user.id` and `tenant.id` must be stable strings of 1–255 characters. User IDs are local to a Tenant. Names are optional.
+- Grant `user.admin` only from verified application permissions. Store custom fields in each identity's `metadata`.
+- `expiresInSeconds` accepts 60–600 seconds and defaults to 300. The SDK keeps tokens in memory and renews them before expiry.
 
-**NOTE**: Internal tools can also use [organization-management tokens](./api.md). They are separate from tenant authentication and cannot authenticate chat or create a dashboard session.
+SDK options use camelCase. The signing helper sets AstralBeam's wire claims, issuer, and audience for you. [Organization-management tokens](./api.md#browser-organization-jwt) serve internal tools and cannot authenticate chat or create a dashboard session.
 
 ## Mint tokens without JavaScript
 
@@ -127,5 +123,3 @@ Use an HS256 JWT library in your backend language. The [Quickstart's Rails examp
 
 - The `user` and `tenant` objects together must serialize to at most 8 KB of JSON, and the token to at most 16 KB.
 - AstralBeam allows 30 seconds of clock skew, so keep your server's clock synchronized.
-
-See the [Rails token endpoint](/docs/start/quickstart#3-connect-your-backend) for a complete signing example.

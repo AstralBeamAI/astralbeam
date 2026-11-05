@@ -97,9 +97,10 @@ function DocsArticlePage() {
       </ul>
     </>
   )
-  const headings = markdown.headings?.filter((heading) => heading.level === 2) ?? []
+  const headings =
+    markdown.headings?.filter((heading) => heading.level === 2 || heading.level === 3) ?? []
   const outlineLinks = headings.map((heading) => (
-    <li key={heading.id}>
+    <li key={heading.id} className={heading.level === 3 ? "ps-3" : undefined}>
       <a
         href={`#${heading.id}`}
         className="block py-1.5 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring any-pointer-coarse:min-h-11 any-pointer-coarse:py-3"

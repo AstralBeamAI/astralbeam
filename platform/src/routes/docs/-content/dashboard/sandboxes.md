@@ -1,11 +1,11 @@
 # Sandboxes
 
-A sandbox provider connects your agents to a code-execution service. Each workspace belongs to one agent, conversation, and tenant user. The vendor bills your account for its use.
+A sandbox lets an agent run code, analyze files, and create downloads. Connect a provider, then assign it to the agents that need these tools. The provider bills your account for its use.
 
 ## Add and verify a provider
 
 1. Open **Sandboxes** and choose **Add provider**.
-2. Give it a name, choose a vendor, and enter the options and credentials listed below.
+2. Give it a name, choose a provider, and enter its credentials. Keep its default options unless your provider account needs different values.
 3. Choose **Test and save**. Wait for **Provider tested and saved** before continuing.
 4. Open an [agent](./agents.md#sandboxes), enable **Sandbox**, select the connection, and save.
 5. Ask the agent to create and publish a small text file. Check its command exit code and download the result. See [Sandbox](/docs/sdk/sandbox).
@@ -14,33 +14,31 @@ The connection test creates a sandbox, runs a command, and destroys it. It can t
 
 ## Providers and their options
 
-| Provider | Options | Credential |
-| --- | --- | --- |
-| Daytona | Target, `us` or `eu`, default `us`. Snapshot, default `daytona-medium`. | API key |
-| Docker | Image, default `node:22`. | None |
-| E2B | Template name or ID, default `base`. | API key |
-| Sprites | None. | API token |
-| Vercel | Team ID, Project ID, and Runtime, one of `node24`, `node22`, or `python3.13`, default `node24`. | Access token |
+| Provider | What you need                         | Default workspace                 |
+| -------- | ------------------------------------- | --------------------------------- |
+| Daytona  | API key                               | `daytona-medium` snapshot in `us` |
+| Docker   | A daemon reachable by the deployment  | `node:22` image                   |
+| E2B      | API key                               | `base` template                   |
+| Sprites  | API token                             | No additional options             |
+| Vercel   | Access token, Team ID, and Project ID | `node24` runtime                  |
 
-Names must be unique within the organization. Docker uses a daemon reachable by the deployment rather than vendor credentials.
+Provider names must be unique within the organization. The form offers the supported regions, images, templates, and runtimes.
 
 ## Connection tests
 
-Creating a provider or changing its connection settings requires a passing test. A failed test leaves stored settings unchanged. Renaming needs no test.
+Creating a provider or changing its connection requires a passing test. A failed test leaves the saved settings unchanged.
 
 Re-run the test to diagnose revoked credentials or provider failures. If cleanup fails, check the vendor console for a leftover sandbox.
 
 ## Credentials
 
-Credentials are stored encrypted and are revealed only to owners and developers, for editing, as viewers cannot reach these pages at all.
+Credentials are encrypted and accessible only to owners and developers. To rotate one, enter its replacement and choose **Test and save**. The new credential applies to new workspaces. Existing workspaces continue until replaced.
 
-A rotated credential applies to sandboxes provisioned after the save, so a conversation whose sandbox is already running is not disturbed until that sandbox is replaced.
-
-Changing a provider's vendor discards the stored credential, because a credential means nothing to a different vendor. Enter the new vendor's credential and let the test verify it before the change is stored.
+Changing vendors requires the new vendor's credentials and a passing connection test.
 
 ## What agents get from a provider
 
-An organization can keep several providers and assign different ones to its agents. Workspaces are provisioned on the first sandbox tool call. See [Agents](./agents.md).
+Each agent can use one provider. A workspace starts on its first sandbox tool call and belongs to that agent, conversation, and tenant user.
 
 If the provider configuration cannot be read, the agent answers without sandbox tools. Check the connection when an agent stops offering code execution.
 
@@ -54,4 +52,4 @@ Deleting removes the settings and the encrypted credential permanently, and conv
 
 ## Who can change providers
 
-Owners and developers can read, save, test, and delete provider configurations, and viewers have no access to them. See [Members](./members.md).
+Owners and developers can manage providers. Viewers cannot access these pages. See [Members](./members.md).

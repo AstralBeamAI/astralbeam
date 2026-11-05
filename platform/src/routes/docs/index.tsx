@@ -22,21 +22,36 @@ function DocsHomePage() {
     <main className="container mx-auto max-w-4xl px-4 py-8">
       <h1 className="font-heading text-3xl font-semibold tracking-tight">Documentation</h1>
       <p className="mt-2 max-w-prose leading-7 text-muted-foreground">
-        Embed an agent in your app, connect tools, or run AstralBeam on your own infrastructure.
+        Add an assistant to your app, connect it to your data, and let users take action in chat.
       </p>
-      <h2 className="mt-8 font-heading text-xl font-semibold">Choose a starting point</h2>
-      <ul className="mt-4 list-disc space-y-2 ps-6 leading-7">
-        <li>
-          <a href="/docs/start/quickstart" className="text-primary underline underline-offset-4">
-            Embed your first agent
-          </a>
-        </li>
-        <li>
+      <section aria-labelledby="start-here" className="mt-8 border bg-card p-6">
+        <h2 id="start-here" className="font-heading text-xl font-semibold">
+          Embed your first agent
+        </h2>
+        <p className="mt-2 max-w-prose leading-7 text-muted-foreground">
+          Use your existing login and a model-provider API key to add chat to a React app.
+        </p>
+        <a
+          href="/docs/start/quickstart"
+          className="mt-4 inline-flex min-h-11 items-center bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Start the quickstart
+        </a>
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          Have chat working?{" "}
           <a
             href="/docs/start/todos-tutorial"
             className="text-primary underline underline-offset-4"
           >
-            Build tools and widgets with the Todos tutorial
+            Connect tools and live widgets in the Todos tutorial.
+          </a>
+        </p>
+      </section>
+      <h2 className="mt-8 font-heading text-xl font-semibold">Other ways to build</h2>
+      <ul className="mt-4 list-disc space-y-2 ps-6 leading-7">
+        <li>
+          <a href="/docs/sdk/getting-started" className="text-primary underline underline-offset-4">
+            Embed chat with JavaScript
           </a>
         </li>
         <li>

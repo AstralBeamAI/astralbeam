@@ -43,8 +43,33 @@ const docsTagClasses: Record<string, string> = {
 const docsStyledTags = Object.fromEntries(
   Object.entries(docsTagClasses).map(([tag, className]) => [
     tag,
-    ({ className: extraClassName, ...props }: { children?: ReactNode; className?: string }) =>
-      createElement(tag, { ...props, className: cn(className, extraClassName) }),
+    ({
+      children,
+      id,
+      className: extraClassName,
+      ...props
+    }: {
+      children?: ReactNode
+      id?: string
+      className?: string
+    }) =>
+      createElement(
+        tag,
+        { ...props, id, className: cn(className, extraClassName) },
+        /^h[2-6]$/.test(tag) && id ? (
+          <a
+            href={`#${id}`}
+            className="inline-flex max-w-full items-baseline gap-2 rounded-sm text-inherit no-underline hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <span className="min-w-0">{children}</span>
+            <span aria-hidden="true" className="text-base font-normal text-muted-foreground">
+              #
+            </span>
+          </a>
+        ) : (
+          children
+        ),
+      ),
   ]),
 )
 

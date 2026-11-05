@@ -50,6 +50,8 @@ Without npm or a bundler, import the same entry from jsDelivr in a module script
 
 Your server must authenticate the host session and mint a chat token before the widget can chat. Keep the API key server-only. See [Authentication](https://astralbeam.ai/docs/sdk/authentication).
 
+Replace `getApplicationSession` below with your application's authenticated session lookup. Return the current user and their verified customer-account membership as `session.user` and `session.tenant`.
+
 ```ts
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 

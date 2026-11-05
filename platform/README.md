@@ -8,7 +8,7 @@ For local development, follow [Setup](../docs/SETUP.md). See [Architecture](../d
 
 Better Auth is mounted at `/api/auth/*`. Existing users sign in at `/auth/sign-in`, new users sign up at `/auth/sign-up` with legal acceptance when configured, unassociated users create an organization at `/onboarding`, and the authenticated application lives at `/` with organization members and account/security settings.
 
-The enabled methods are email/password, Google, and GitHub. Credential signup requires email verification. OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
+The enabled methods are email/password, Google, and GitHub. Email/password signup requires verification unless the operator sets `SKIP_EMAIL_VERIFICATION=true`. OAuth signup requires a verified provider identity and explicit signup intent. Organization invitations are emailed to the recipient and can be accepted only by the matching verified account.
 
 See [authentication setup](../docs/SETUP.md#authentication-and-transactional-email) before testing these flows.
 

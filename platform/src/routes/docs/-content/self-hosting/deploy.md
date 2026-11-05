@@ -1,73 +1,18 @@
 # Deploy
 
-Choose Docker Compose for a local evaluation, a container with existing services, or a standalone Linux binary. Each deployment needs PostgreSQL, private storage, and email delivery.
+Install the standalone Linux binary, or use Docker Compose for a local evaluation. Production hosting needs PostgreSQL 18, persistent private storage, email delivery, and an HTTPS reverse proxy.
 
-## Containers
+Choose your installation:
 
-### Docker Compose
-
-**NOTE**: This stack creates a new filesystem deployment. Existing S3 deployments should keep their current Compose file and storage settings.
-
-The stack defaults to the `0.25.1` image, which supports File System storage. Set `ASTRALBEAM_VERSION` to choose another filesystem-capable release.
-
-Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
-
-```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.25.1/docker-compose.production.yml
-
-(
-  umask 077
-  set -C
-  printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.25.1}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
-    > .env
-)
-```
-
-Compose rejects a missing or empty PostgreSQL password before starting containers. Platform validates its encryption key at startup. Exported environment variables override `.env` values. The bootstrapped `.env` enables local HTTP and skips password email verification, with Turnstile test keys for initial testing. Start the stack:
-
-```sh
-docker compose -f docker-compose.production.yml up --detach --wait
-```
-
-Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). File System storage is already configured at `/var/lib/astralbeam/storage`, backed by the persistent `file-storage` volume. No storage credentials, bucket, or separate storage service are needed. Configure your email provider before inviting the owner.
-
-**NOTE**: If uploads are at the volume root, stop Platform, back up the volume, and move them into `storage/`, preserving ownership.
-
-Set `PORT` to another free port if 4510 is occupied. The stack binds to localhost and requires HTTPS unless `ALLOW_INSECURE=true` is explicitly set. For public hosting with external storage and email, use [Existing services](#existing-services). [Back up](./operations.md#backups-and-restore) before upgrading, keeping the environment file separately from database backups. Set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Rebuilds and container replacements preserve uploads. Using the same flags, `down` preserves data, while `down --volumes` deletes the database and files.
-
-### Existing services
-
-The Linux AMD64 and ARM64 image contains Platform only. Provision [PostgreSQL 18](#2-provision-the-database) and email delivery separately. Choose File System or private S3-compatible storage at `/configure`. For File System, set `STORAGE_PROVIDER=filesystem` in your environment file and add `--mount source=astralbeam-files,target=/var/lib/astralbeam` to the commands below. The image prepares that directory for UID/GID `10001:10001`.
-
-1. Save `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` in a private environment file, such as `./astralbeam.env`, readable only by the operator. See [bootstrap settings](#3-set-the-bootstrap-environment) for their values. Use a database hostname reachable from the container. For local HTTP, also set `APP_BASE_URL=http://localhost:4510` and `ALLOW_INSECURE=true`.
-2. For local HTTP, replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform), then start Platform on host loopback:
-
-   ```sh
-   docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env -e PORT=4510 -p 127.0.0.1:4510:4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
-   ```
-
-3. For local setup, open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). For public Linux hosting, use this command instead of step 2. Remove `ALLOW_INSECURE` from `./astralbeam.env` and set `APP_BASE_URL` to your HTTPS origin. [Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the host proxy connect over loopback, which is always trusted for forwarded host/protocol:
-
-   ```sh
-   docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
-     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 --env PORT=4510 'ghcr.io/astralbeamai/astralbeam-platform:<version>'
-   ```
-
-   Configure the [host Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
-
-If startup fails, inspect `docker logs astralbeam-platform`. The server needs a writable, executable `/tmp`.
-
-Images use release version tags. To upgrade, [back up the database, storage, and keyring](./operations.md#backups-and-restore), stop and remove the old container, then repeat steps 2 and 3 with the new image. Recreate containers after environment changes. The binary's `upgrade` command does not upgrade containers, and older images cannot undo migrations.
-
-To build for the host architecture, run `docker build -f platform/Dockerfile -t astralbeam-platform .` from the repository root.
+- [Standalone binary on Linux](#binary-on-linux)
+- [Docker Compose](#docker-compose)
+- [Container with existing services](#existing-services)
 
 ## Binary on Linux
 
 The following steps target a Linux host with systemd and `sudo`. Container users can continue at [Complete setup](#6-complete-setup).
 
-## 1. Get a release binary
+### 1. Get a release binary
 
 Download `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Linux and macOS builds support x86_64 and ARM64. Windows supports x86_64. Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
 
@@ -84,9 +29,7 @@ sudo install -m 755 astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-p
 
 Check for `astralbeam-platform-linux-x86_64: OK` before installing. Checksums verify download integrity, not publisher identity: releases are unsigned. Run `astralbeam-platform version` to confirm the version and target, or `astralbeam-platform --help` for commands.
 
-For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
-
-With the [Bun version named in `.bun-version`](https://bun.sh/docs/installation) installed, run these commands from the repository root to install the frozen dependencies, build the SDK the platform bundles, and build the binary:
+For a custom build, install the [Bun version named in `.bun-version`](https://bun.sh/docs/installation) and run these commands from the repository root:
 
 ```sh
 bun install --frozen-lockfile
@@ -96,9 +39,9 @@ bun run --cwd platform build
 
 **NOTE**: Do not run `scripts/setup.sh` on a deployment host. It installs contributor dependencies, applies migrations, and seeds uninitialized loopback databases with fixed development credentials.
 
-The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
+The binary is written to `platform/.output/astralbeam-platform`. At runtime it needs a writable, executable temporary directory to unpack its bundled files.
 
-## 2. Provision the database
+### 2. Provision the database
 
 PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
 
@@ -113,31 +56,11 @@ The application owns its schema from there. The first migration creates the `cit
 
 Connect directly to PostgreSQL or use a [transaction pooler](./operations.md#connection-pooling).
 
-## 3. Set the bootstrap environment
+### 3. Set the bootstrap environment
 
-Set `NODE_ENV=production` when launching standalone binaries in production. The Docker image already sets it. Database variables are read once per process, so changing either needs a restart.
+The application needs `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` at startup. Bootstrap generates the encryption key and authentication secret for a new installation. An existing deployment must keep its original keyring.
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
-| `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `ASTRALBEAM_DATA_DIR` | No | Default file storage root. Uploads use `storage/` inside it. Containers use `/var/lib/astralbeam` |
-| `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
-| `SKIP_EMAIL_VERIFICATION` | No | Set exactly `true` to skip password email verification and sign new users in immediately. Defaults to `false` when unset. Bootstrap supplies `true` for new deployments and preserves verification for existing deployments. Set `false` for public hosting |
-| `PORT` | No | TCP port to listen on. Defaults to `4510` |
-| `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
-| `WORKERS` | No | Defaults to `auto`: one process per available CPU on Linux, one on macOS and Windows. Set a positive count on Linux, or `1` to disable supervision. See [worker sizing](./operations.md#http-workers) |
-| `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
-| `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
-| `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Native binary bootstrap supplies `true` for new deployments. Set `false` for TLS. See [Security](./security.md#https-and-response-headers) |
-| `CLUSTER_RUNNER_HOST` | No | Address used to bind and advertise this runner. Defaults to `auto`: discover private IPv6, then private IPv4, falling back to loopback. Override with a reachable private hostname or IP if discovery selects the wrong interface |
-| `CLUSTER_RUNNER_PORT` | No | Private runner port. Defaults to `0`, which publishes an OS-assigned port after binding. Multiple HTTP workers require `0` |
-
-Replicas sharing a database discover each other through Effect's SQL runner storage, without seed addresses. The discovered private addresses and assigned ports must be reachable between replicas. Override the host or port when network routing or firewall rules require it. See [cluster operations](./operations.md#cluster-readiness-and-recovery) for storage privileges and recovery.
-
-Keep runner ports on a trusted private network because they expose internal cluster RPCs. Replicas authenticate using a dedicated credential derived from `DATABASE_ENCRYPTION_KEY`, so use the same encryption keyring across replicas. Do not forward them through the public reverse proxy or advertise a shared load balancer address. These settings are environment-only and changing them requires restarting the process.
-
-The binary loads [Bun's standard environment files](https://bun.com/docs/runtime/environment-variables) from the current working directory according to `NODE_ENV`. Existing environment variables take precedence.
+The binary loads [environment files](https://bun.com/docs/runtime/environment-variables) from its working directory. Existing environment variables take precedence. Set `NODE_ENV=production` in the service and restart after environment changes. Use `astralbeam-platform --help` for command and environment options.
 
 For a new Linux installation, create an unprivileged service account and its configuration directory:
 
@@ -161,21 +84,17 @@ Run bootstrap from the same directory the service will use:
 sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform bootstrap'
 ```
 
-Bootstrap applies migrations and appends missing defaults to `.env.local`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
+Bootstrap applies migrations and appends missing defaults to `.env.local`. New deployments receive random secrets and local testing defaults. **Before public hosting**, edit the file to set `ALLOW_INSECURE=false` and `SKIP_EMAIL_VERIFICATION=false`, and replace the Turnstile test keys with keys restricted to your hostname. Keep the file private and back up the encryption keyring separately. Use its first entry to sign in at `/configure`.
 
-When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
-
-Run this command to generate a high-entropy encryption value:
+If you supply your own encryption key, generate a high-entropy value:
 
 ```sh
 openssl rand -base64 32
 ```
 
-Keep it in your deployment's secret manager. Hashing does not rescue a weak passphrase, and losing an entry can make values encrypted with it unrecoverable.
+Each keyring entry must be unique and contain 32 to 1024 characters with no comma. Keep it in your secret manager. Losing it can make encrypted settings unrecoverable. See [key rotation](./security.md#rotating-the-encryption-key) before replacing an existing key.
 
-A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. The binary exits before server startup when the key is missing or invalid. Development servers show the "Server restart required" page at `/configure` when either variable is missing or invalid.
-
-## 4. Start the server
+### 4. Start the server
 
 Run the binary as the service account created in step 3. It loads `.env.local` from its working directory.
 
@@ -208,9 +127,7 @@ sudo systemctl enable --now astralbeam-platform
 
 `systemctl status astralbeam-platform` should now report the service as active, and `curl -i http://127.0.0.1:4510/api/status` should answer `{"status":"ok"}`. The process logs to stdout and stderr, which systemd captures, and exits on SIGTERM, so `systemctl restart` and `systemctl stop` are both clean.
 
-**NOTE**: Development uses port 4500. Production defaults to port 4510. Set `PORT` to override either listener.
-
-## 5. Put it behind a reverse proxy
+### 5. Put it behind a reverse proxy
 
 Terminate TLS at the proxy, bind the application to loopback, and let nothing else reach the origin. Loopback is always trusted for forwarded host/protocol, so HTTPS `/configure` works without a proxy setting. To use forwarded client IPs, enable Trust Proxy and enter `127.0.0.1,::1` to limit trust to the same-host proxy. For remote proxies, add their socket-peer IPs/CIDRs and retain a `TRUST_PROXY` environment override for operator recovery when database settings are unavailable. See [Reverse proxy trust](./security.md#reverse-proxy-trust).
 
@@ -226,11 +143,9 @@ location / {
 }
 ```
 
-The application replaces configured client IP headers with the real peer address whenever the peer is untrusted, so a direct client cannot spoof the address authentication rate limits are keyed on.
-
 The encryption key grants access to every encrypted value in the database, so `/configure` deserves more protection than the application's own throttle. Restrict who can reach it at the ingress with an IP allowlist, a VPN, or an identity-aware proxy, and rate-limit it there during first setup. See [Security](./security.md).
 
-## 6. Complete setup
+### 6. Complete setup
 
 Open your deployment's `/configure` page in a browser. Application pages redirect there until setup is complete.
 
@@ -242,7 +157,7 @@ Open your deployment's `/configure` page in a browser. Application pages redirec
 
 Sessions last 15 minutes and sign-in is throttled to 5 attempts per minute, so keep the key at hand while you work through the form.
 
-## 7. Verify the deployment
+### 7. Verify the deployment
 
 Run each of these against the public origin:
 
@@ -255,9 +170,9 @@ Run each of these against the public origin:
 
 `/api/status` counts organization rows and answers `{"status":"ok"}` when that query succeeds. A database failure returns `503` with an `error` field, without the count. There is no separate readiness endpoint, so to check API readiness, call an API route and treat `503` as not ready.
 
-## Upgrade the binary
+### Upgrade the binary
 
-Let's move a running deployment to a newer release. Read the release notes first, and back up the database before an upgrade that carries migrations.
+Read the release notes and [back up the database, files, and keyring](./operations.md#backups-and-restore) before upgrading.
 
 The service account needs a writable, executable temporary directory. Set `TMPDIR` if the system default is restricted. Existing environment and bootstrap settings remain in use after an upgrade.
 
@@ -288,3 +203,61 @@ Before upgrading an existing deployment behind a remote TLS-terminating proxy, s
 4. Upgrade and restart every other replica so each one reloads configuration and migration state.
 
 Downgrading is not supported, because a migration has no rollback. `upgrade` refuses an older tag, and without a tag it reports `Already at <version>` when the running binary is newer than the latest release. Reverse a schema change with a forward migration instead.
+
+## Containers
+
+### Docker Compose
+
+This stack creates a new deployment with persistent File System storage and the `0.25.1` image. Existing S3 deployments should keep their current Compose file and storage settings.
+
+Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.25.1/docker-compose.production.yml
+
+(
+  umask 077
+  set -C
+  printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
+    "${ASTRALBEAM_VERSION:-0.25.1}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    > .env
+)
+```
+
+The `.env` file enables local HTTP, skips password email verification, and supplies Turnstile test keys. Keep these evaluation defaults private. Exported environment variables override the file. Start the stack:
+
+```sh
+docker compose -f docker-compose.production.yml up --detach --wait
+```
+
+Open http://localhost:4510/configure and follow [Complete setup](#6-complete-setup). Storage is configured at `/var/lib/astralbeam/storage` in the persistent `file-storage` volume. Configure email before inviting the owner.
+
+**NOTE**: If uploads are at the volume root, stop Platform, back up the volume, and move them into `storage/`, preserving ownership.
+
+The stack binds to localhost. Set `PORT` if 4510 is occupied. For public hosting, use [Existing services](#existing-services).
+
+To upgrade, [back up the database, files, and keyring](./operations.md#backups-and-restore), set `ASTRALBEAM_VERSION=<version>` in `.env`, rerun the startup command, and apply pending migrations at `/configure`. Container replacement preserves uploads. `docker compose -f docker-compose.production.yml down` preserves data. **Adding `--volumes` deletes the database and files.**
+
+### Existing services
+
+The image supports Linux AMD64 and ARM64. Provision [PostgreSQL](#2-provision-the-database) and email separately. The command below uses a persistent File System volume and a reverse proxy on the same Linux host.
+
+1. Create a private `./astralbeam.env` file containing `DATABASE_URL`, a high-entropy `DATABASE_ENCRYPTION_KEY`, `APP_BASE_URL=https://your-host`, and `STORAGE_PROVIDER=filesystem`. Use a database hostname reachable from the container. Keep `ALLOW_INSECURE` unset and `SKIP_EMAIL_VERIFICATION=false` for public hosting.
+2. Replace `<version>` with a [published image version](https://github.com/orgs/AstralBeamAI/packages/container/package/astralbeam-platform) and start the container:
+
+   ```sh
+   docker run -d --name astralbeam-platform --restart unless-stopped --stop-timeout 15 \
+     --env-file ./astralbeam.env --network host --env HOST=127.0.0.1 --env PORT=4510 \
+     --mount source=astralbeam-files,target=/var/lib/astralbeam \
+     'ghcr.io/astralbeamai/astralbeam-platform:<version>'
+   ```
+
+3. Configure the [Nginx proxy](#5-put-it-behind-a-reverse-proxy), then open your HTTPS origin's `/configure` page and follow [Complete setup](#6-complete-setup).
+
+[Host networking](https://docs.docker.com/engine/network/drivers/host/) lets the proxy connect over loopback. The image prepares its data directory for UID/GID `10001:10001`. For replicas on multiple hosts, choose [S3-compatible storage](./configuration.md#file-storage) instead of the local volume.
+
+If startup fails, inspect `docker logs astralbeam-platform`. The server needs a writable, executable `/tmp`.
+
+To upgrade, [back up the database, storage, and keyring](./operations.md#backups-and-restore), stop and remove the old container, then repeat steps 2 and 3 with the new image. Recreate containers after environment changes. Older images cannot undo migrations.
+
+To build for the host architecture, run `docker build -f platform/Dockerfile -t astralbeam-platform .` from the repository root.

@@ -20,9 +20,7 @@ The transcript shows sandbox steps by default. Enable the optional panel to coll
 <AstralBeamChat sandboxPanel />
 ```
 
-- A pill above the composer summarizes the sandbox ("3 files · 5 commands") and toggles the panel.
-- **Files** shows the latest write for each path in the loaded transcript, with downloads of that recorded content. Long writes may be truncated. Publish an artifact to retain the complete file.
-- **Log** shows commands from the loaded transcript with exit codes and durations. Failures read in red.
+**Files** collects recorded file writes, while **Log** lists commands, exit codes, and durations. Long writes can be truncated, so publish an artifact to retain the complete file.
 
 ## Limits
 

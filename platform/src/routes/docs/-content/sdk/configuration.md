@@ -1,6 +1,12 @@
 # Configuration
 
-Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call the JavaScript mount handle's `update(options)` to change them in place. Start with the [Quickstart](/docs/start/quickstart) if you have not connected authentication yet.
+Customize the chat sidebar with props on `<AstralBeamChat>` or options on `mountAstralBeamChat`. Defaults work for most embeds. Connect authentication with the [Quickstart](/docs/start/quickstart) first.
+
+```tsx
+<AstralBeamChat title="Acme Assistant" colorScheme="system" />
+```
+
+In JavaScript, call the mount handle's `update(options)` to change presentation without remounting.
 
 ## Options
 
@@ -35,14 +41,11 @@ Pass these options as props to `<AstralBeamChat>` or to a JavaScript mount. Call
 
 ## Chat width
 
-Chat resizes horizontally and fills its parent's height. Give the parent a definite height and let surrounding wrappers follow chat's width.
+Give chat's parent a definite height. The sidebar fills that height and resizes horizontally within its parent.
 
-- `defaultWidth` accepts pixels or `"100%"` for available width. Omit it to use the mount's initial CSS width. Saved overrides take precedence.
-- The mount's parent limits available width. Supply `resizeContainer={() => layoutRef.current}` only when nested wrappers require a stable outer layout container.
-- Drag the edge or use arrow keys, Home, and End to resize. `resizable={false}` hides the edge while preserving sizing and saved preferences.
-- Only widths that differ from the default are saved in `localStorage` across reloads and new tabs. Returning to the default clears the override.
-- Storage combines the mount element's `id` (React's `id` prop) and `agentId` when provided. Without either, chats share one width preference on the same origin.
-- Narrow containers temporarily clamp your preferred width. With `onClose`, mobile chat fills the viewport while keeping the desktop preference. Existing tabs keep their current layout.
+Set `defaultWidth` to pixels or `"100%"`, or leave it unset to use the initial CSS width. User-resized widths are saved across reloads and take precedence. Give independent chats distinct mount `id` values so they keep separate width preferences.
+
+Use `resizeContainer={() => layoutRef.current}` when an outer layout should limit width. Set `resizable={false}` to hide the resize edge. With `onClose`, chat fills the viewport on mobile and asks your application to dismiss it.
 
 ## Chrome slots
 
@@ -96,26 +99,17 @@ Keep the hook above conditional layouts and mount one interactive view at a time
 
 Outside React, create `chat` with `createAstralBeamChat(options)` from `@astralbeam/sdk/core` and pass it to `mountAstralBeamChat(target, { chat, ...appearance })`. Use `chat.updateOptions()` for session changes and `handle.update()` for presentation. `handle.unmount()` detaches the view. `chat.dispose()` ends the session. Remount to change session ownership.
 
-**NOTE**: This replaces `AstralBeamChatRef` and the mount handle's `reset()`/`stop()`. Use `chat` for actions and `chat.getState()` for state, replacing `.core` and snapshot fields. Directory handles are unchanged.
-
 ## Behavior notes
 
-- Assistant replies render as Markdown. Raw HTML is escaped and executable link protocols are dropped.
-- Turning attachments off hides selected files and prevents sending them. Ready files remain in that conversation's local draft and return when attachments are enabled again.
-- Dropping a widget from `widgets` disposes any render of it still in the transcript.
-- To defer the chat chunk, render the component only on first open. A supplied session can keep running without its view. Hide with CSS to preserve rendered host component state. History remains saved.
-- The host controls sidebar visibility. Persist its boolean in `sessionStorage` to restore it after reload within the same tab.
-- Changing `placementKey` selects that placement's remembered conversation and draft. An explicit `threadId` takes precedence. Placement keys do not restrict access to saved history.
+Your application controls when the sidebar appears. Mount it on first open to defer loading. Keep the session owner mounted if a response should continue while its view is hidden.
+
+Changing `placementKey` selects that placement's remembered conversation and draft. An explicit `threadId` takes precedence. Placement keys organize local state and do not restrict access to history.
+
+Turning attachments off prevents sending them but preserves ready files in the draft. Removing a registered widget disposes its existing renders. See [Attachments](./attachments.md) and [Tools and widgets](./tools-and-widgets.md) for details.
 
 ## Saved conversations
 
-Conversations save automatically and start private. Authenticated users can reopen, rename, and continue their history across devices.
-
-- Disconnecting may interrupt generation. Saved input, accepted tool results, and the last saved partial response remain available.
-- Reopening never repeats a business tool. An unconfirmed action needs an explicit response or closure before its turn can continue.
-- `reset()` starts another conversation. Managers can delete conversations, including their saved messages and uploaded files. Deletion does not undo tool actions.
-- Uploaded files and published sandbox artifacts remain available with their conversation. Temporary sandbox files can disappear when the workspace shuts down.
-- `threadId` defaults to `"auto"`, restoring this tab's selection after authentication. Fresh independent tabs start a new chat. Use `"new"` to bypass restoration or a UUID to open explicitly.
+Conversations save automatically and start private. Users can reopen, rename, and continue their history across devices.
 
 ```tsx
 <AstralBeamChat />                    // Restore this tab, or start new
@@ -123,9 +117,11 @@ Conversations save automatically and start private. Authenticated users can reop
 <AstralBeamChat threadId={threadId} /> // Open a saved thread
 ```
 
-Duplicating a tab or opening one through an opener can copy its initial session storage, including the pending draft before a conversation is saved. The tabs maintain independent selections afterwards.
+The default `threadId="auto"` restores this tab's selection after authentication. Independent tabs start a new chat, while duplicated tabs may inherit their initial selection and draft.
 
-**NOTE**: Existing shared browser selections and unsent drafts are not migrated to placement keys. Saved server conversations remain available through history.
+If a connection drops, saved input, accepted tool results, and the last saved partial reply remain available. Reopening history never repeats a business tool. Resolve any unconfirmed action before continuing its turn.
+
+`reset()` starts another conversation. Managers can delete conversations, removing their saved messages and uploaded files without undoing tool actions. Published sandbox files stay with their conversation, while temporary workspace files can disappear when the sandbox stops.
 
 ## MCP server management
 
@@ -145,6 +141,6 @@ import { AstralBeamMcpServers } from "@astralbeam/sdk/react"
 
 Load `servers` as `{ id, endpointUrl, authKind }` records. Callbacks must authorize the operation on your backend and refresh the list after success. Omit write callbacks for a read-only list.
 
-`onCreateServer` receives the endpoint and authentication configuration. Return `{ errors: [{ field: "endpointUrl", message: "Enter a public HTTPS URL." }] }` for field feedback. `oauthRedirectUri` displays the provider callback URI. The component accepts the shared `theme` and `colorScheme` options.
+`onCreateServer` receives the endpoint and authentication configuration. Return field errors as `{ errors: [{ field: "endpointUrl", message: "Enter a public HTTPS URL." }] }`. `oauthRedirectUri` displays the provider callback URI.
 
 Vanilla hosts use `mountAstralBeamMcpServers(element, options)` from `@astralbeam/sdk/client`, then call `update(options)` or `unmount()`. Unmount when identity or management scope changes, or change the React `key`, to clear pending form values. The component does not grant permissions or create a new management API. Currently, Organization admins manage server definitions and TenantUsers manage their own connections through chat's **MCP connections** panel.

@@ -1,6 +1,6 @@
 # Configuration
 
-Configure the deployment at `/configure`. Bootstrap credentials, the listen port, and private runner addresses are set through the environment. See [Deploy](./deploy.md#3-set-the-bootstrap-environment).
+Open `/configure` to set up authentication, email, and file storage. Most installations can keep the other defaults. The database URL and encryption key are startup settings, covered in [Deploy](./deploy.md#3-set-the-bootstrap-environment).
 
 ## Complete the initial configuration
 
@@ -10,7 +10,7 @@ Configure the deployment at `/configure`. Bootstrap credentials, the listen port
 4. Choose **Save**, resolve any field errors, and complete the owner invitation.
 5. Choose **Go to app**. Configure organization model providers in the dashboard.
 
-The tables below are the setting reference. Telemetry export and social sign-in are optional.
+Add social sign-in or telemetry export when you need them.
 
 ## Where settings live
 
@@ -23,19 +23,19 @@ Fields supplied by an environment variable show an **Environment** badge and are
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `app_base_url` | Yes | `http://localhost:<port>` | Public origin the deployment is served from. Used for OAuth callbacks and links in email |
-| `trust_proxy` | No | `false` | Loopback is always trusted for forwarded host/protocol. Enable Trust Proxy to use Client IP Headers and reveal an optional list of additional proxy IPs/CIDRs. An empty list trusts all proxies. Disabling clears additional proxies and ignores client IP headers. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
-| `client_ip_headers` | No | `x-forwarded-for` | Ordered comma-separated header names. Visible only with Trust Proxy enabled. Disabling trust preserves the saved value |
+| `trust_proxy` | No | `false` | Use an explicit proxy IP/CIDR allowlist when enabling forwarded client IPs. An empty list trusts all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
+| `client_ip_headers` | No | `x-forwarded-for` | Ordered client-IP headers, used only when proxy trust is enabled |
 | `privacy_policy_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `terms_of_service_url` | No | none | Public HTTP or HTTPS link shown during sign-up |
 | `support_email_address` | No | none | Copied on welcome and support request emails, so replies and **Contact Support** requests reach your team. Unset hides **Contact Support** |
 | `website_url` | No | none | Origin of a separately hosted website to serve under this deployment's origin |
 | `allow_private_model_endpoints` | No | `false` | `true` lets model provider connections use HTTP and private network hosts |
 
-The base URL must be an HTTP(S) origin without a path, query, fragment, or embedded credentials. HTTP is accepted for loopback hosts (`localhost`, `127.0.0.1`, or `[::1]`) or when `ALLOW_INSECURE=true`. Production HTTP deployments, including localhost, need this environment flag to access `/configure`.
+Use your public HTTPS origin as the base URL, with no path, query, fragment, or credentials. Local HTTP evaluation requires `ALLOW_INSECURE=true` to access `/configure` in production builds.
 
 When `website_url` is set, signed-out visitors to `/` and everyone at `/home` see the website's home page, and the website's own pages such as `/terms` and `/privacy` are served under the deployment's origin. Signed-in visitors to `/` still go to their organization.
 
-When either legal URL is configured, sign-up requires the user to accept those terms before the form can be submitted. Leave both unset and no acceptance step appears.
+Setting either legal URL adds an acceptance step to sign-up.
 
 ## Authentication
 
@@ -49,7 +49,7 @@ When either legal URL is configured, sign-up requires the user to accept those t
 | `github_client_id` | No | none | Set with `github_client_secret` or not at all |
 | `github_client_secret` | No | none | Paired with `github_client_id` |
 
-Use **Generate** for a new authentication secret or **Rotate** to replace it. Rotation signs out dashboard users as replicas refresh configuration, within five seconds.
+The authentication secret is generated during setup. Rotating it signs out dashboard users as replicas refresh configuration, within five seconds.
 
 Both Turnstile keys are mandatory, so setup cannot complete without them. Bootstrap supplies test keys for initial testing. For public hosting, create a widget in the Cloudflare dashboard, restrict it to the deployment's hostnames, and replace both keys. Cloudflare publishes [test keys for local and automated use](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 
@@ -79,7 +79,7 @@ Set `email_provider` to `smtp` (the default).
 
 The defaults target a local mail sink. Configure the host, port, and TLS mode for production.
 
-SMTP prefills are available for Local, Resend, Cloudflare, and SES US East (`us-east-1`). Resend and Cloudflare use an API token as the password. For SES, generate [regional SMTP credentials](https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html) in the AWS console. Selecting a prefill clears the previous SMTP credentials.
+For SES over SMTP, use [regional SMTP credentials](https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html), rather than AWS access keys.
 
 ### Resend
 
@@ -106,17 +106,13 @@ Use **Test connection** before saving. It checks the current form without sendin
 
 ## File storage
 
-Choose **File System** or **S3-compatible** under **File storage** at `/configure`. New installations default to File System. Existing S3 settings keep using S3 unless the provider is explicitly overridden. Set `STORAGE_PROVIDER=filesystem` or `STORAGE_PROVIDER=s3` to select the provider through the environment. Environment values take precedence over saved settings and make the corresponding fields read only.
+Keep **File System** for a single-host installation, or choose **S3-compatible** for replicas on different hosts. New installations default to File System. Existing S3 installations keep their provider. Both store attachments, avatars, logos, and published sandbox files privately.
 
-File System stores bytes directly on the application host and serves them through authenticated routes. The default directory is `~/.local/share/astralbeam/storage` on Linux, `~/Library/Application Support/AstralBeam/storage` on macOS, and `%LOCALAPPDATA%\AstralBeam\storage` on Windows. An absolute `XDG_DATA_HOME` overrides the Unix data location with `$XDG_DATA_HOME/astralbeam/storage`. `ASTRALBEAM_DATA_DIR` sets the default to `$ASTRALBEAM_DATA_DIR/storage`. Set an absolute **Storage directory** to choose another location, or clear it to restore the default. The server creates missing directories.
+For File System, choose a persistent **Storage directory** writable by the service account and outside the web server's public root. Every worker and maintenance runner on the host must use the same directory. Containers use `/var/lib/astralbeam/storage`, and Compose supplies its persistent volume. Monitor free space and use ingress connection limits for slow clients, since downloads hold a complete file in memory.
 
-Keep this directory outside any web server's public root. Downloads authorize access and verify original file sizes and checksums. Writes are atomic and create missing directories. A missing storage root makes reads and deletions fail, so purges retain metadata for retry. The host and local processes are trusted.
+Without an explicit directory, defaults are `~/.local/share/astralbeam/storage` on Linux, `~/Library/Application Support/AstralBeam/storage` on macOS, and `%LOCALAPPDATA%\AstralBeam\storage` on Windows. `ASTRALBEAM_DATA_DIR` changes the base directory, with files under `storage/`. On Unix, an absolute `XDG_DATA_HOME` also overrides the default data location.
 
-Choose a persistent directory writable by the service account. Containers use `/var/lib/astralbeam`, owned by UID/GID `10001:10001`, and production Compose mounts its data volume there. File System is intended for a single host. All processes and maintenance runners must use the same directory. Use S3 for replicas on different hosts.
-
-Filesystem responses hold a complete file in memory. Use normal ingress connection limits and timeouts for slow clients, and monitor storage capacity. Chat downloads retain their existing API limits.
-
-Selecting S3-compatible shows the following settings, all of which retain their existing uppercase environment overrides:
+For S3-compatible storage, configure:
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
@@ -128,27 +124,25 @@ Selecting S3-compatible shows the following settings, all of which retain their 
 | `s3_path_style` | Yes | `false` | Set to `true` for path-style backends such as MinIO |
 
 1. Create a private bucket and credentials with object read, write, and delete access. AWS S3 also requires [bucket-level `s3:ListBucket` permission](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) to distinguish missing files from denied reads. Versioned buckets need [`s3:DeleteObjectVersion`](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html) so connection tests permanently remove their temporary object version.
-2. Enter its settings in **File storage** at `/configure`. The RustFS/MinIO, AWS S3, and Cloudflare R2 shortcuts prefill the endpoint, region, and addressing mode. Adjust these values for your provider, including the R2 account ID. Your bucket and credentials stay unchanged.
+2. Enter the bucket settings in **File storage** at `/configure`.
 3. Press **Test storage** to upload, inspect, download, verify, delete, and confirm the temporary object is missing using the current values. Reveal stored credentials first if you have not entered new ones.
 4. Save the configuration.
 
-The test confirms object operations. Bucket privacy and browser CORS are separate provider settings.
+The test checks object operations. Configure bucket privacy and browser CORS separately at the provider.
 
 For versioned buckets, configure your provider's lifecycle rules to expire temporary objects, noncurrent versions, and expired delete markers under `connection-tests/`. This cleans up interrupted tests and upload retries whose responses were lost. See [S3 expiration behavior](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html).
 
-You can change the provider, filesystem directory, endpoint, region, bucket, and addressing mode. **File storage** warns that existing attachments, avatars, and logos are not moved automatically and may become unavailable. To keep them, stop writers and maintenance runners, copy the objects to the new destination with their object keys unchanged, verify their sizes and checksums, save the new settings, and restart every server instance. Export RustFS objects through its S3 API rather than copying its internal data directory. Credential rotation remains supported.
+**Changing the storage destination does not move existing files.** Stop writers and maintenance runners, copy files with their relative paths or object keys unchanged, verify sizes and checksums, save the new settings, and restart every instance. Keep the old storage until needed files are verified. Export RustFS through its S3 API rather than copying its internal data directory.
 
-The chat SDK requests direct S3 downloads and cached previews after conversation/file authorization. Configure the bucket's CORS policy to allow GET from your embedding origins, and expose `Content-Disposition` if consumers read that header. Keep the bucket private. Preview generation and model-side reads still run on AstralBeam, and File System downloads remain proxied. Signed chat URLs expire after one minute and must not be persisted. Existing HTTP clients can omit `delivery=direct` to retain proxied chat responses.
+For direct S3 downloads, the endpoint must be reachable from users' browsers. Allow GET from your embedding origins in the bucket's CORS policy, and expose `Content-Disposition` if your application reads that header. Keep the bucket private. Signed download URLs are bearer links that remain usable until their one-minute expiry, even if access is revoked. Do not persist them. File System downloads stay proxied through AstralBeam. HTTP clients can omit `delivery=direct` to keep proxied S3 responses.
 
-Both providers store avatars, logos, and published sandbox files. An S3 endpoint must be reachable from users' browsers. Signed S3 download URLs are private bearer links and remain valid until expiry, including after membership is revoked.
-
-Conversation files remain until deletion and survive sandbox shutdown. Retired files are deleted asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
+Conversation files survive sandbox shutdown and remain until deletion. Retired files are removed asynchronously. Unattached uploads or direct SQL deletions can leave unreachable objects.
 
 To rotate credentials, create a key with the same bucket permissions, enter it at `/configure`, test storage, and save. After the five-second configuration cache expires, verify uploads and downloads on every replica before revoking the old key. Keep destination fields unchanged.
 
 Follow [Backups and restore](./operations.md#backups-and-restore) for coordinated backups. A database-only restore can reference missing objects. Bucket versioning can retain old bytes under a separate [retention policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html).
 
-Storage failures are logged without file content or credentials. Repair settings at `/configure` and test the connection so durable purges can retry.
+If storage fails, repair its settings and run the connection test. Pending file deletions retry after recovery.
 
 ## Model providers
 
@@ -162,22 +156,11 @@ Each organization manages encrypted sandbox credentials under [Sandboxes](/docs/
 
 ## Applying changes
 
-Edit the fields you need and press **Save**. A successful save briefly reports "Configuration saved". **Go to app** becomes available once configuration and owner onboarding are complete.
-
-The page saves changes together, so an invalid field blocks the batch and shows its error inline. Required settings cannot be empty. To clear an optional setting, delete its contents and save. For an unreadable optional value, reveal it if it is a secret, press Delete in its empty input, and save. Resetting an enum to **Use default** restores its default.
+Choose **Save** to apply changes together. Resolve inline errors before saving again. Required fields cannot be empty. To clear an optional setting, delete its contents and save. Reveal a stored secret before replacing or clearing it.
 
 A save takes effect immediately on the process that handled it. Other replicas refresh their snapshot on the next read after its five-second cache expires. Observability exporters are created once at startup, so restart every server instance after changing observability settings. Environment changes also require a restart.
 
-While required settings are missing, the page lists each one and the application stays gated.
-
-| Message | Fix |
-| --- | --- |
-| `<field> is required` | Fill in the setting. It is one of the required keys above |
-| `A valid email from address is required when an email provider is selected` | Set `email_from_address`, or check its shape |
-| `Resend is the selected email provider but no Resend API key is configured` | Add `resend_api_key` or switch the provider |
-| `SES is the selected email provider but no AWS region is configured` | Add `aws_region` |
-| `<field> is required when its pair is configured` | Supply both SMTP credentials or neither |
-| `This value is provided by <VARIABLE>` | Change the environment variable and restart, or remove it |
+The app remains unavailable while required settings are missing. **Go to app** appears once configuration and owner onboarding are complete.
 
 ## Environment overrides
 
@@ -214,29 +197,15 @@ OTEL_LOGS_EXPORTER="otlp"
 OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=development,service.instance.id=worktree-1"
 ```
 
-For a hosted receiver, use its official endpoint and authentication headers. Check that it accepts the signals you enable. Presets fill only the base endpoint, preserving credentials and labels. Replace placeholders, save, and restart. Make a request and check the receiver after allowing time for ingestion.
+For a hosted receiver, copy its OTLP base endpoint and authentication headers from its official setup instructions. Remove a trailing `/v1/traces` from the endpoint, since AstralBeam appends the signal path. Save, restart every instance, make a request, and check the receiver after allowing time for ingestion.
 
-| Receiver | OTLP base endpoint | Headers |
-| --- | --- | --- |
-| Local OpenTelemetry Collector, Tempo, or Datadog Agent | `http://127.0.0.1:4318` | Depends on the receiver. Enable its OTLP HTTP listener first |
-| [PostHog](https://posthog.com/docs/distributed-tracing/installation/nodejs) | `https://us.i.posthog.com/i` | `Authorization=Bearer <project-token>` |
-| [New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/) | `https://otlp.nr-data.net` | `api-key=<license-key>` |
-| [Datadog](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/) | `https://otlp.datadoghq.com` | `dd-api-key=<api-key>` |
-| [Sentry](https://docs.sentry.io/concepts/otlp/direct/traces/) | Copy the project's OTLP endpoint and remove `/v1/traces` | `x-sentry-auth=sentry sentry_key=<public-key>`. Find both values in **Project settings → Client Keys (DSN)** |
-| [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/) | `https://api.honeycomb.io` | `x-honeycomb-team=<ingest-key>`. Classic also requires `x-honeycomb-dataset` |
-| [Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) | Copy the stack's OTLP base endpoint, typically `https://<otlp-host>/otlp` | Copy the stack's generated `Authorization=Basic …` header |
+Provider setup: [PostHog](https://posthog.com/docs/distributed-tracing/installation/nodejs), [New Relic](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/), [Datadog](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/), [Sentry](https://docs.sentry.io/concepts/otlp/direct/traces/), [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/), and [Grafana Cloud](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/).
 
-The presets cover Local, PostHog, New Relic, Datadog, Sentry, and Honeycomb. For other regions or receivers, use the provider's base endpoint. If its instructions supply a full traces URL, remove the trailing `/v1/traces` before entering it here.
+**Traces include prompts, responses, tool arguments, and results.** Credential patterns are redacted, but conversation content can still be sensitive. Send telemetry only to a receiver approved for that data. SQL text and credential-bearing URL fields are excluded.
 
-Existing Effect operations and TanStack's model and tool spans share the exporter. They include durations, model names, token counts, prompts, responses, tool arguments and results. Failed operations retain exception types, messages, cause-chain stacks and status descriptions with credential patterns redacted. SQL text and credential-bearing URL fields are excluded.
+Exported logs include request metadata, errors, and trace/span IDs. Log export uses generic OTLP headers rather than traces-specific headers. Early startup logs remain console-only. Receiver issue grouping varies, and Sentry's direct OTLP ingestion does not replace its native exception capture.
 
-Log shipping uses [Effect's native OTLP logger](https://effect.website/docs/v4/api/effect/observability/OtlpLogger). Console and shipped logs share credential redaction. Shipped logs include messages, full causes, request metadata, and active trace/span IDs. Request and error logs outside the application runtime use the exporter after it initializes. Earlier logs remain console-only. Log export uses generic OTLP headers, not traces-specific headers.
-
-Native issue grouping depends on the receiver. Failed spans include `error.type`, `error.message`, and `error.stack` alongside exception events for receivers such as Datadog. Sentry's direct OTLP ingestion does not replace its native exception capture.
-
-Browser correlation uses the standard `user.id` and `session.id` attributes on spans and shipped logs for every OTLP receiver. Provider-specific aliases are added only to that provider's exports.
-
-Set `deployment.environment.name` and `service.instance.id` through **OTel resource attributes** or `OTEL_RESOURCE_ATTRIBUTES` to filter spans and logs by environment and process. Restart after changing them. An environment override replaces stored labels, allowing replicas sharing a database to identify themselves separately.
+Use `deployment.environment.name` and `service.instance.id` resource attributes to distinguish environments and replicas. An environment override replaces stored labels. Browser correlation uses `user.id` and `session.id` on spans and shipped logs.
 
 ### PostHog errors and AI observability
 
@@ -248,4 +217,4 @@ Platform and website production builds generate hidden source maps and determini
 
 For PostHog, run `bun run sourcemaps:posthog --directory .output/sourcemaps` from the project directory after building. The command binds maps to the CLI's Git release. When uploading outside the original checkout, pass `--release-version <sha>` matching `SOURCE_VERSION`. Set `POSTHOG_CLI_API_KEY` to a personal API key with error tracking write and organization read scopes, and `POSTHOG_CLI_PROJECT_ID` to the project ID. `POSTHOG_CLI_HOST` optionally selects another region or instance. Keep these credentials in the CI upload step. Uploads leave the generated files unchanged, so the same artifact can be sent to multiple destinations.
 
-For GitHub releases, add the `POSTHOG_API_KEY` repository secret and `POSTHOG_PROJECT_ID` repository variable, plus `POSTHOG_HOST` if needed. CI uploads the regular release build's source maps directly to PostHog. Docker builds remain independent of PostHog and reuse those maps when their emitted debug IDs match. A different set of Docker bundles requires uploading its matching maps separately.
+Upload source maps from the exact build you deploy. Different bundles need their own matching maps.

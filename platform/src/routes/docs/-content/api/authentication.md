@@ -1,10 +1,19 @@
 # Authentication
 
-Authenticate management requests with an organization API key on your server, or a scoped JWT in a browser. Chat requires a tenant JWT. See the [API quickstart](/docs/api#description/getting-started) and [OpenAPI contract](/api/openapi.json).
+For backend integrations, use an organization API key. For browser integrations, mint a short-lived JWT on your server. Choose the credential for the task:
+
+| Task                                              | Credential                                |
+| ------------------------------------------------- | ----------------------------------------- |
+| Manage customers and users from your backend      | Organization API key                      |
+| Chat for a customer user                          | Tenant JWT                                |
+| Let a customer administrator manage their users   | Tenant JWT with signed `user.admin: true` |
+| Build an internal directory for dashboard members | Organization-management JWT               |
+
+Start with the [API quickstart](/docs/api#description/getting-started). Keep organization keys out of browser code.
 
 ## Organization API keys
 
-Send the full `key_…_abo_…` value through `X-API-Key` or `Authorization: Bearer <key>`. If both are present, `X-API-Key` takes precedence. Keys manage resources throughout their organization and retain their configured rate limits. Dashboard session cookies alone are not accepted. Never expose an organization key to browser code.
+Send the full `key_…_abo_…` value through `X-API-Key` or `Authorization: Bearer <key>`. `X-API-Key` takes precedence when both are present. A key grants access throughout its organization. Dashboard session cookies cannot authenticate API requests.
 
 ## Examples
 
@@ -38,17 +47,17 @@ JWT resource requests have a separate limit of 100 requests per five minutes per
 
 ## Chat and downloads
 
-Chat accepts tenant JWTs without administrator privileges, but not API keys or organization-management JWTs. Configuration reads do not synchronize identity. Before sending, call `POST /api/v1/me` and select a participant-authorized saved conversation. The SDK handles both. Endpoint operations select three independent rate buckets per Organization, Tenant, and tenant user: 20 new turns, 200 tool-result submissions, and 200 uploads per minute.
+Chat requires a tenant JWT and conversation participation. Before sending, call `POST /api/v1/me` and select an authorized saved conversation. The SDK handles both. Request rates are separate for new turns, tool results, and uploads. See [chat limits](/docs/sdk/limits#requests).
 
-Downloads pass the saved `fileId` and `threadId`. Tenant JWTs require current conversation participation. Administrative downloads also pass `tenantId` and accept an Organization API key, an organization-management JWT with current directory-read permission, or a signed Tenant admin JWT within its Tenant. Published files survive sandbox shutdown.
+Downloads use the saved `fileId` and `threadId` and check current conversation access. Administrative downloads also pass `tenantId` and require an organization key, a member JWT with directory-read permission, or a Tenant admin JWT within its Tenant. Published files remain available after sandbox shutdown.
 
 ## Current user
 
 Send a tenant or organization JWT to `POST /api/v1/me` without a request body. Identity comes only from the verified JWT, and query parameters are rejected. API keys and dashboard cookies cannot authenticate this endpoint.
 
-Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`, using the public Tenant and TenantUser records. The request upserts only the signed Tenant and current TenantUser in one transaction. Ordinary non-admin users can synchronize themselves. Omitted names, metadata, and admin preserve existing values. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
+Tenant JWTs return `{ scope: "tenant", organization: { id }, tenant, user }`. The request creates or updates the signed Tenant and current TenantUser together, including for ordinary non-admin users. Omitted profile fields stay unchanged. Supplied metadata replaces the stored object, and explicit `user.admin` updates stored admin. New records default to null names, empty metadata, and false admin.
 
-Organization JWTs return `{ scope: "organization", organization: { id }, user: { id, name, email, role } }`. Membership and role are read again, including for viewers, without creating users, memberships, tenants, or sessions. Removed membership returns `403`.
+Organization JWTs return `{ scope: "organization", organization: { id }, user: { id, name, email, role } }` from the member's current role. They create no records or sessions. Removed membership returns `403`.
 
 Success is `200` with `Cache-Control: no-store`. Invalid or revoked JWTs return `401`. Synchronization has its own 100-request-per-five-minute bucket per authenticated identity. Throttling returns `429` with `Retry-After`.
 
@@ -69,7 +78,7 @@ The issuer must authenticate the operator and authorize access to the selected o
 
 Use the API key's ID as protected `kid` and its hashed secret as the signing key, as described in the [token format](/docs/sdk/authentication#mint-tokens-without-javascript). The key must remain enabled and unexpired. Do not include `role`, `roles`, `admin`, `sub`, or user-ID claims.
 
-These tokens cannot authenticate chat, create dashboard sessions, or manage dashboard configuration. They create no users or memberships. Requests are limited to 100 per five minutes per organization and resolved member. Changing the token or email does not reset the bucket.
+These tokens grant API access within the member's current permissions, without creating a dashboard session or membership. They cannot authenticate chat or change dashboard settings. Requests are limited to 100 per five minutes per organization and resolved member.
 
 ## Browser transport
 

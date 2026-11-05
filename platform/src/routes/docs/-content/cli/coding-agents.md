@@ -1,22 +1,20 @@
 # Coding agents
 
-For app integration, give your coding agent the [AstralBeam skill](/agent-skills/astralbeam/SKILL.md). The CLI is not required.
-
-To manage Tenants and TenantUsers or test chat from the terminal, use the CLI's bundled copy of the same skill and JSON output. [Install the CLI](./getting-started.md#1-install-the-cli) first.
+Give your coding assistant the [AstralBeam skill](/agent-skills/astralbeam/SKILL.md) to help integrate chat. To also manage customers or test agents from the terminal, [install the CLI](./getting-started.md#1-install-the-cli) and follow the steps below.
 
 ## 1. Install the skill
 
-The CLI ships an [Agent Skill](https://agentskills.io) for app integration and CLI usage. Run this command from your repository root to install it for agents that read `.agents/skills`, including Codex:
+From your repository root, install the bundled [Agent Skill](https://agentskills.io) for Codex or another assistant that reads `.agents/skills`:
 
 ```sh
 astralbeam skill install
 ```
 
-It writes `.agents/skills/astralbeam/SKILL.md` in the current directory. Commit this file so it is present in your team's checkouts and cloud workspaces. For Claude Code, pass `--dir .claude/skills`. Use `--dir <path>` for another project or a user-level directory. Run `astralbeam skill` to print the skill without installing it.
+It writes `.agents/skills/astralbeam/SKILL.md`. Review and commit the file to share it with your team. For Claude Code, use `astralbeam skill install --dir .claude/skills`. Run `astralbeam skill` to inspect the contents before installation.
 
-Restart the agent session so it loads the skill. Then ask it to use the CLI, for example "create a tenant for customer-42" or "ask our agent what it can do, as user-7".
+Restart the assistant's session to load the skill.
 
-Skill installers supporting [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) can use [astralbeam.ai](https://astralbeam.ai) as the source. Repository-based installers can use the [skill directory](https://github.com/AstralBeamAI/astralbeam/tree/main/skills/astralbeam).
+You can also install from [astralbeam.ai](https://astralbeam.ai) with a tool that supports [website discovery](https://github.com/cloudflare/agent-skills-discovery-rfc), or from the [skill's repository directory](https://github.com/AstralBeamAI/astralbeam/tree/main/skills/astralbeam).
 
 ## 2. Give the agent credentials
 
@@ -43,4 +41,4 @@ Use `chat` to test dashboard instructions and server-side tools as a tenant user
 
 ## What it cannot do yet
 
-The public API covers Tenants, TenantUsers, and chat. Agents, API keys, members, sandboxes, and organization settings are managed only in the [dashboard](/docs/dashboard/agents) today, so the CLI cannot change them.
+Configure agents, model providers, keys, and members in the [dashboard](/docs/dashboard/agents). The CLI cannot change dashboard settings.

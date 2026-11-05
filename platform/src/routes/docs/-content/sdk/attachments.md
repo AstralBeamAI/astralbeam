@@ -1,8 +1,8 @@
 # Attachments
 
-Attach a file with the paperclip button, drag and drop, or paste. The composer uploads it before sending the message. Images and PDFs go directly to the model, which must support those inputs. Other files are read through tools or analyzed in a sandbox.
+Let users attach files with the paperclip button, drag and drop, or paste. Files upload before the message is sent. Images and PDFs require a model that supports them. The agent reads other files through tools or analyzes them in a sandbox.
 
-Enable **Allow attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a small CSV and ask the assistant to list its columns.
+Enable **Allow file attachments** on the [agent](/docs/dashboard/agents#file-attachments) and configure [file storage](/docs/self-hosting/configuration#file-storage) when self-hosting. To verify the setup, attach a small CSV and ask the assistant to list its columns.
 
 ## Draft recovery
 
@@ -40,5 +40,4 @@ For other file types, the agent receives a handle and reads the contents through
 - Agents with a sandbox receive the original file at `uploads/<name>` for analysis with code.
 - Excel sheets become CSV and per-sheet profiles. Dates assume the 1900 system and minute precision. Convert 1904-system dates to ISO strings before upload.
 - Parquet and SQLite have no text view and require a sandbox. Without one, server admission rejects the message.
-- A file that cannot be sent keeps its chip in the composer and says why, instead of vanishing.
 - Attachments are agent policy: when the dashboard disables them, the endpoint refuses files and the widget hides the attach button. See [Security model](./security.md).

@@ -79,7 +79,7 @@ First-party organization-owned rows use `(organization_id, id)` keys. Tenant-own
 
 Deployment settings, model and sandbox credentials, MCP clients, connection credentials, and pending OAuth attempts use compact JWE with keys derived from `DATABASE_ENCRYPTION_KEY`. Column codecs and explicit storage helpers share the same encryption implementation. Payloads bind secrets to their setting or resource identity, checked after decoding to prevent ciphertext transplantation. Better Auth separately encrypts retained OAuth tokens.
 
-Configuration snapshots, migration state, and sandbox leases are process-local. Restart other replicas after configuration changes. A conversation routed to another replica may receive a fresh sandbox.
+Configuration snapshots, migration state, and sandbox leases are process-local. Replicas refresh stored settings on their next read after the five-second cache expires. Environment and observability changes require a restart. A conversation routed to another replica may receive a fresh sandbox.
 
 ### Remote MCP connections
 

@@ -1,6 +1,6 @@
 # Getting started
 
-Mount the assistant in React or JavaScript. Start with the [Quickstart](/docs/start/quickstart) to configure an agent and connect your backend.
+Add the chat sidebar to a React or JavaScript application. If you haven't created an agent or connected your backend yet, start with the [Quickstart](/docs/start/quickstart).
 
 ## Before mounting
 
@@ -64,7 +64,7 @@ Sign in to your application and send **"Say hello in one sentence."** A reply sh
 
 - In a flex column, use `flex: 1` and `min-height: 0` on the container so it can shrink and scroll.
 - Mount above your router if the transcript should survive page navigation.
-- The widget does not know about notches. Keep safe-area padding on your container.
+- Add safe-area padding to your container for devices with a notch.
 
 ## Next
 
