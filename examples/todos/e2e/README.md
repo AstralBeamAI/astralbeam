@@ -15,7 +15,7 @@ bun run --cwd examples/todos e2e
 ```
 
 - `bun run --cwd examples/todos e2e --project=app` runs only the free specs. Nothing in that project calls a model.
-- `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent. **These spend OpenAI credits on every run.**
+- `bun run --cwd examples/todos e2e --project=agent` runs the specs that drive a real agent, after the free app specs pass. **These spend OpenAI credits on every run.**
 - The `agent` project is included only when `OPENAI_API_KEY` is set in the shell or platform development environment files. The seed uses that key to create a **Development OpenAI** connection for organizations without providers. Existing providers stay unchanged, so verify the seeded agent's model assignment. If the project is omitted, report it as not run.
 - `bun run --cwd examples/todos e2e -g "some title"` narrows to matching test titles while iterating.
 
