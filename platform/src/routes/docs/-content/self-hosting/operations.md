@@ -2,11 +2,13 @@
 
 Maintain a running deployment with migrations, coordinated backups, health checks, and logs. For installation, follow [Deploy](./deploy.md).
 
-Database commands need `DATABASE_URL`. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
+The binary’s database commands use the same database selection as `start`. Stop embedded PostgreSQL before running them. The binary also reads [environment files](./deploy.md#3-set-the-bootstrap-environment) from its working directory. Run `bun run` commands from a checkout of the deployed version.
 
 ## HTTP workers
 
-`WORKERS` defaults to `auto`: one server process per available CPU on Linux, plus a supervisor. macOS and Windows use one process. Set `WORKERS=1` to disable supervision or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
+`WORKERS` defaults to `auto`: one HTTP worker per available CPU on Linux, plus a supervisor. macOS and Windows use one HTTP worker. Set `WORKERS=1` for a single worker or choose a positive count on Linux, such as `WORKERS=2 astralbeam-platform start`.
+
+When Microsandbox is available, Platform keeps a supervisor even with one HTTP worker.
 
 Linux workers share the public HTTP port. Leave `CLUSTER_RUNNER_PORT` unset or `0` for distinct private runner ports. Multiple workers require a fixed public TCP port and cannot use `NITRO_UNIX_SOCKET`. The supervisor restarts exited workers with backoff capped at 30 seconds, and workers exit if their supervisor dies.
 
@@ -45,11 +47,30 @@ bun run --cwd platform db migrate
 
 **NOTE**: Do not invoke `drizzle-kit migrate` directly: it skips TypeScript steps while recording the SQL as applied. Never use `drizzle-kit push` against this schema. Contributor migration commands are documented in the [database guide](https://github.com/AstralBeamAI/astralbeam/blob/main/platform/src/db/README.md).
 
+## Data directory
+
+`ASTRALBEAM_DATA_DIR` overrides the [OS data location](./configuration.md#file-storage). Preserve this location across upgrades:
+
+| Path | Contents |
+| --- | --- |
+| `storage/` | Uploaded and generated files, avatars, logos, and previews when using File System. An explicit **Storage directory** can place these elsewhere |
+| `postgres/` | Persistent embedded PostgreSQL database |
+| `embedded-postgres.json` | Private database credentials and the generated encryption key, when present. Preserve with the database |
+| `runtime-<version>-<platform>-<arch>/` | Embedded PostgreSQL supervisor executable |
+| `postgres-cache/` | PostgreSQL executables and supporting libraries |
+| `microsandbox/` | Installed SDK, cached images, and temporary VM state |
+
+Stop Platform before preparing either local runtime again. Use `bootstrap --embeddedpg` for embedded PostgreSQL or `bootstrap --microsandbox` for Microsandbox, keeping the same working directory, environment, and data directory.
+
+Microsandbox workspaces are temporary. Original attachments and published artifacts live in configured file storage, so downloads do not depend on preserving VM state. Docker keeps its images and containers with its configured daemon.
+
 ## Backups and restore
 
 Because file state spans PostgreSQL and the configured filesystem directory or S3 bucket, stop all application replicas before backing up the database and files.
 
-Run this command to take that dump:
+For embedded PostgreSQL, stop the executable and copy its data directory, including `postgres/` and `embedded-postgres.json`, together with configured file storage. Preserve permissions and the active encryption keyring when restoring. PostgreSQL major-version upgrades require dump and restore.
+
+For external PostgreSQL, run this command to take the dump:
 
 ```sh
 pg_dump --format=custom --file=astralbeam.dump "$DATABASE_URL"
@@ -99,6 +120,8 @@ The `effect_cluster_*` tables are framework-owned journal and coordination stora
 ## Logs
 
 Collect stdout and stderr with your init system or container runtime. Application request and Effect logs use ECS JSON in development and production. Startup commands can also print plain text. The application does not manage log files. `LOG_LEVEL` sets the minimum level and defaults to `Info`, for example `LOG_LEVEL=Debug` includes debug entries.
+
+Startup checks sandbox availability in parallel and prints `Sandbox <provider>: available`, `unavailable`, or `disabled`. External providers are always available here. Credentials and execution are verified by their connection test.
 
 On Docker hosts, [enable log rotation](https://docs.docker.com/engine/logging/configure/) with the `local` logging driver or bounded `json-file` settings so container logs cannot exhaust the disk.
 

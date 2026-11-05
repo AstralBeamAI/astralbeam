@@ -26,18 +26,16 @@ A file rejected by the composer never reaches the agent. Server validation can r
 | One file, by kind | 5 MiB image, 10 MiB PDF, 1 MiB text, 10 MiB data, 10 MiB office |
 | All files along the selected conversation path | 20 MiB, including the new message |
 | Accepted types | PNG, JPEG, WebP, GIF, PDF, text and source files, CSV, TSV, Parquet, SQLite, `.docx`, `.pptx`, `.xlsx` |
-| Declared type | Checked against known file signatures. Text formats are validated by decoding |
+| Declared type | Checked against known file signatures. Plain text is validated by decoding |
 | Display filename | 120 characters, truncated with an ellipsis |
 
 ## Files the agent reads
 
 | Limit | Value | What happens at the limit |
 | --- | --- | --- |
-| Office archive | 96 MiB declared uncompressed, 2,048 kept parts, 4,096 entries walked | "it declares more content than this assistant will unpack." |
-| Table shape | 50,000 rows, 512 columns, 200,000 cells per sheet | cells outside the bounds are skipped and the table is reported as truncated |
-| Column type profile | the first 50 data rows | types stay a hint the agent should confirm against the file itself |
-| Readable text per file | 2,000,000 characters | `read_attachment` returns `readableTextTruncated: true` |
 | One `read_attachment` page | 40,000 characters, whatever `limit` asks for | the result carries `nextOffset` to read on from |
+
+Paging applies only to plain text files, whose upload limit is 1 MiB. Office and data files, including CSV and TSV, require a sandbox and have no text view through `read_attachment`. Upload admission checks Office file size and signature without inspecting archive contents. Structure and decompression failures surface during sandbox analysis.
 
 ## Sandbox and artifacts
 

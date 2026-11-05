@@ -27,6 +27,7 @@ const integration = vi.hoisted(() => {
 import { Database, getAuthDatabase } from "@/db/database"
 import { cacheEntry } from "@/db/schema/cache"
 import { Agents } from "@/lib/agents/agents.server"
+import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
 import { prepareManagedChat, resolveManagedChatTools } from "./commands"
 import type { ChatParams } from "../types"
@@ -665,15 +666,16 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const run = (input: typeof request) =>
       runtime.runPromise(
         prepareManagedChat(input).pipe(
+          Effect.provide(SandboxProviders.layer),
           Effect.provideService(Agents, {
             resolveForChat: () =>
               Effect.succeed({ attachmentsEnabled: true, sandboxProviderId: null }),
           } as unknown as typeof Agents.Service),
         ),
       )
-    for (const [value, mimeType] of [
-      ["/w==", "text/plain"],
-      ["UEFSMQ==", "application/vnd.apache.parquet"],
+    for (const [value, mimeType, errorTag] of [
+      ["/w==", "text/plain", "ChatThreadInvalid"],
+      ["UEFSMQ==", "application/vnd.apache.parquet", "ChatAttachmentSandboxRequired"],
     ] as const) {
       const invalid = await runtime.runPromise(
         files.store({
@@ -712,7 +714,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
             ],
           },
         }),
-      ).rejects.toMatchObject({ _tag: "ChatThreadInvalid" })
+      ).rejects.toMatchObject({ _tag: errorTag })
       expect(await runtime.runPromise(service.history({ scope, id: thread.id }))).toHaveLength(0)
     }
     const first = await run(request)
@@ -1081,6 +1083,8 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
 
   test("final reasoning can precede streamed text without replacing its part identity", async () => {
     const thread = await create()
+    const hasReply = service.hasCompletedReply({ organizationId: scope.organizationId })
+    expect(await runtime.runPromise(hasReply)).toBe(false)
     const accepted = await admit(thread.id)
     const streamed = {
       ...payload,
@@ -1102,7 +1106,9 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await runtime.runPromise(
       service.checkpoint({ claim: accepted.claim!, payload: final, state: "complete" }),
     )
+    expect(await runtime.runPromise(hasReply)).toBe(false)
     await runtime.runPromise(service.finish({ claim: accepted.claim! }))
+    expect(await runtime.runPromise(hasReply)).toBe(true)
     const history = await runtime.runPromise(service.history({ scope, id: thread.id }))
     expect(history[1]!.payload.parts).toEqual(final.parts)
     expect(history[1]!.state).toBe("complete")

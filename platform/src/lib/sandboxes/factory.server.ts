@@ -1,7 +1,10 @@
-import type { SandboxProvider } from "@tanstack/ai-sandbox"
+import type { SandboxConnection } from "@astralbeam/sandbox"
+import process from "node:process"
 import { Context, Effect, Layer } from "effect"
 
 import { SandboxProviderUnavailable } from "./errors.ts"
+import { getAvailableSandboxProviderIds } from "./availability.server.ts"
+import { getLocalSandboxImage } from "./image.server.ts"
 import type {
   SandboxProviderCredentials,
   SandboxProviderId,
@@ -18,47 +21,50 @@ type ProviderConfiguration<Provider extends SandboxProviderId> = {
 
 const factories: {
   [Provider in SandboxProviderId]: (
+    module: typeof import("@astralbeam/sandbox"),
     configuration: ProviderConfiguration<Provider>,
-  ) => Effect.Effect<SandboxProvider, SandboxProviderUnavailable>
+  ) => SandboxConnection | Promise<SandboxConnection>
 } = {
-  daytona: (configuration: ProviderConfiguration<"daytona">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-daytona")).pipe(
-      Effect.map(({ daytonaSandbox }) =>
-        daytonaSandbox({ ...configuration.options, ...configuration.credentials }),
-      ),
-    ),
-  docker: (configuration: ProviderConfiguration<"docker">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-docker")).pipe(
-      Effect.map(({ dockerSandbox }) =>
-        dockerSandbox({ ...configuration.options, keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND }),
-      ),
-    ),
-  e2b: (configuration: ProviderConfiguration<"e2b">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-e2b")).pipe(
-      Effect.map(({ e2bSandbox }) =>
-        e2bSandbox({ ...configuration.options, ...configuration.credentials }),
-      ),
-    ),
-  sprites: (configuration: ProviderConfiguration<"sprites">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-sprites")).pipe(
-      Effect.map(({ spritesSandbox }) =>
-        spritesSandbox({ ...configuration.options, ...configuration.credentials }),
-      ),
-    ),
-  vercel: (configuration: ProviderConfiguration<"vercel">) =>
-    loadSandboxProviderModule(() => import("@tanstack/ai-sandbox-vercel")).pipe(
-      Effect.map(({ vercelSandbox }) =>
-        vercelSandbox({ ...configuration.options, ...configuration.credentials }),
-      ),
-    ),
+  daytona: ({ DaytonaSandbox }, configuration) =>
+    new DaytonaSandbox({ ...configuration.options, ...configuration.credentials }),
+  docker: async ({ DockerSandbox }) => {
+    if (!(await getAvailableSandboxProviderIds()).includes("docker"))
+      throw new Error("Docker is not available on this server")
+    return new DockerSandbox({
+      image: getLocalSandboxImage(),
+      keepAliveCommand: DOCKER_KEEP_ALIVE_COMMAND,
+    })
+  },
+  e2b: ({ E2BSandbox }, configuration) =>
+    new E2BSandbox({ ...configuration.options, ...configuration.credentials }),
+  microsandbox: ({ Microsandbox }) => {
+    const sdkPath = process.env.__ASTRALBEAM_INTERNAL_MICROSANDBOX_SDK
+    if (!sdkPath) throw new Error("Microsandbox is not enabled on this server")
+    return new Microsandbox({ image: getLocalSandboxImage(), sdkPath })
+  },
+  sprites: ({ SpritesSandbox }, configuration) =>
+    new SpritesSandbox({ ...configuration.options, ...configuration.credentials }),
+  vercel: ({ VercelSandbox }, configuration) =>
+    new VercelSandbox({ ...configuration.options, ...configuration.credentials }),
 }
 
-/** Builds the TanStack adapter from the configuration validated by its caller. */
+/** Builds a configured connection and resolves its TanStack adapter. */
 export const createSandboxProvider = Effect.fn("createSandboxProvider")(
   <Provider extends SandboxProviderId>(
     provider: Provider,
     configuration: ProviderConfiguration<Provider>,
-  ) => factories[provider](configuration),
+  ) =>
+    Effect.tryPromise({
+      try: async () => {
+        const connection = await factories[provider](
+          await import("@astralbeam/sandbox"),
+          configuration,
+        )
+        await connection.provider
+        return connection
+      },
+      catch: (cause) => new SandboxProviderUnavailable({ cause }),
+    }),
 )
 
 export class SandboxProviderFactory extends Context.Service<
@@ -66,13 +72,4 @@ export class SandboxProviderFactory extends Context.Service<
   { readonly create: typeof createSandboxProvider }
 >()("astralbeam/sandboxes/SandboxProviderFactory") {
   static readonly layer = Layer.succeed(SandboxProviderFactory, { create: createSandboxProvider })
-}
-
-function loadSandboxProviderModule<Module>(
-  load: () => Promise<Module>,
-): Effect.Effect<Module, SandboxProviderUnavailable> {
-  return Effect.tryPromise({
-    try: load,
-    catch: (cause) => new SandboxProviderUnavailable({ cause }),
-  })
 }

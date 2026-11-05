@@ -103,7 +103,7 @@ export function SiteHeader() {
           DASHBOARD
         </a>
         <a className="btn btn-primary hud-cta" href={signUpUrl} data-session="signed-out">
-          GET STARTED
+          START ON CLOUD
         </a>
         <button
           className="hud-menu"

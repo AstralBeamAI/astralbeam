@@ -1,6 +1,6 @@
 # Deploy
 
-Choose Docker Compose for a local evaluation, a container with existing services, or a standalone Linux binary. Each deployment needs PostgreSQL, private storage, and email delivery.
+Choose Docker Compose, a container with existing services, or a standalone binary with embedded or external PostgreSQL. Each deployment also needs private storage and email delivery.
 
 ## Containers
 
@@ -8,18 +8,18 @@ Choose Docker Compose for a local evaluation, a container with existing services
 
 **NOTE**: This stack creates a new filesystem deployment. Existing S3 deployments should keep their current Compose file and storage settings.
 
-The stack defaults to the `0.25.1` image, which supports File System storage. Set `ASTRALBEAM_VERSION` to choose another filesystem-capable release.
+The stack defaults to the `0.26.0` image, which supports File System storage. Set `ASTRALBEAM_VERSION` to choose another filesystem-capable release.
 
 Download the current Compose file into an empty directory, then bootstrap a private `.env` file once. The bootstrap refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.25.1/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.26.0/docker-compose.production.yml
 
 (
   umask 077
   set -C
   printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.25.1}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    "${ASTRALBEAM_VERSION:-0.26.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 ```
@@ -63,26 +63,76 @@ Images use release version tags. To upgrade, [back up the database, storage, and
 
 To build for the host architecture, run `docker build -f platform/Dockerfile -t astralbeam-platform .` from the repository root.
 
+## Embedded PostgreSQL
+
+Embedded PostgreSQL is **experimental**. It runs a private PostgreSQL 18 server alongside Platform. You need no Bun, Docker, or separate storage service on the deployment host.
+
+Let's start a local installation:
+
+1. [Install or build the Platform binary](#1-get-a-release-binary). Choose an empty working directory and leave `DATABASE_URL` unset. Run without root privileges.
+2. Prepare PostgreSQL, generate private settings, and apply migrations:
+
+   ```sh
+   astralbeam-platform bootstrap --embeddedpg
+   ```
+
+   The first run downloads roughly 90 MB of PostgreSQL binaries. Use `astralbeam-platform bootstrap --standalone` to also prepare and require [Microsandbox](../dashboard/sandboxes.md#microsandbox), cache its [sandbox image](#local-sandbox-image), and select File System storage for a new deployment. Existing environment values and saved storage selections take precedence. Bootstrap runs independent downloads in parallel and prints phase timings.
+
+3. Start Platform on loopback:
+
+   ```sh
+   HOST=127.0.0.1 astralbeam-platform start
+   ```
+
+4. Open `http://localhost:4510/configure`. Sign in with `encryptionKey` from `embedded-postgres.json` in the [data directory](./operations.md#data-directory), then [complete setup](#6-complete-setup).
+
+Run later commands from the same working directory so Platform finds the generated `.env`. Bootstrap enables local HTTP for a new deployment. Use HTTPS for production. Owner onboarding needs [email delivery](./configuration.md#email-delivery), and chat needs a model connection. Sandbox tools are optional and require a provider assigned to the agent.
+
+The database lives in `postgres/` under `ASTRALBEAM_DATA_DIR` or the [OS data location](./configuration.md#file-storage). Preserve the data directory across upgrades and follow the [backup instructions](./operations.md#backups-and-restore).
+
+Bootstrap saves `DATABASE_URL=embedded` in `.env`. Both `start` and `migrate` require that value to select the embedded database. An initialized data directory alone never selects it. An external `DATABASE_URL` supplied through the environment takes precedence.
+
+Platform starts the database on a private port and reuses cached PostgreSQL binaries. If the PostgreSQL cache is missing, the launcher can download it again. If the supervisor runtime is missing, run `bootstrap --embeddedpg` again. Stop Platform before running `bootstrap` or `migrate` against its embedded database. Use external PostgreSQL for multiple application replicas.
+
+For an existing installation using `--embedded`, run `bootstrap --embeddedpg` once and remove the old startup flag. The database and credentials stay in the same locations.
+
+Embedded PostgreSQL requires glibc 2.36+ on Linux, macOS 15+, or the Microsoft Visual C++ runtime (`vcruntime140` family) on Windows.
+
 ## Binary on Linux
 
 The following steps target a Linux host with systemd and `sudo`. Container users can continue at [Complete setup](#6-complete-setup).
 
 ## 1. Get a release binary
 
-Download `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Linux and macOS builds support x86_64 and ARM64. Windows supports x86_64. Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
-
-Run these commands to download the latest x86_64 asset with the release's `SHA256SUMS`, check the download against it, and install it as `astralbeam-platform`. On an arm64 host, replace `linux-x86_64` with `linux-arm64`:
+Install the Platform binary on macOS or Linux with glibc, for x86_64 or ARM64:
 
 ```sh
-curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/astralbeam-platform-linux-x86_64
-curl -fsSLO https://github.com/AstralBeamAI/astralbeam/releases/latest/download/SHA256SUMS
-sha256sum --check --ignore-missing SHA256SUMS
-sudo install -m 755 astralbeam-platform-linux-x86_64 /usr/local/bin/astralbeam-platform
+curl -fsSL https://astralbeam.ai/install.sh | sh
 ```
 
-**TIP**: To pin a release, replace `latest/download` with `download/v<version>` in both URLs.
+The installer verifies `SHA256SUMS` and installs to `~/.local/bin`. Follow the printed PATH instructions if needed. No Bun or Node installation is required.
 
-Check for `astralbeam-platform-linux-x86_64: OK` before installing. Checksums verify download integrity, not publisher identity: releases are unsigned. Run `astralbeam-platform version` to confirm the version and target, or `astralbeam-platform --help` for commands.
+Pass flags after `sh -s --`:
+
+| Flag                            | Effect                          |
+| ------------------------------- | ------------------------------- |
+| `--version <X.Y.Z>`             | Pin a release (default: latest) |
+| `--install-dir <absolute-path>` | Choose the binary directory     |
+| `--help`                        | Show usage                      |
+
+For the systemd service below, inspect the script and install into `/usr/local/bin`:
+
+```sh
+curl -fsSLo install.sh https://astralbeam.ai/install.sh
+less install.sh
+sudo sh install.sh --install-dir /usr/local/bin
+```
+
+For an existing installation, follow [Upgrade the binary](#upgrade-the-binary). Rerunning the installer uses `upgrade --yes` and refuses downgrades.
+
+Use the container on Alpine or other musl systems. For manual downloads, including Windows x86_64, choose `astralbeam-platform-<target>` from [GitHub releases](https://github.com/AstralBeamAI/astralbeam/releases). Assets named `astralbeam-<target>` are the [CLI](/docs/cli/getting-started).
+
+Checksums verify download integrity, not publisher identity: releases are unsigned. Run `astralbeam-platform version` to confirm the installation.
 
 For a fork, or a target without a prebuilt asset, we build the binary ourselves. Bun is the only supported toolchain.
 
@@ -98,9 +148,21 @@ bun run --cwd platform build
 
 The binary lands at `platform/.output/astralbeam-platform`. The server needs a writable system temporary directory, where it unpacks its bundled dependencies and static assets at startup. Normal shutdown removes those files. Bun does not need to be installed on the deployment host.
 
+### Local sandbox image
+
+The operator selects one OCI image for Docker and Microsandbox through `LOCAL_SANDBOX_IMAGE`. Organization sandbox settings cannot override it. Bootstrap saves the release-tagged default to `.env` when unset and downloads missing images into the native caches. Repeat runs preserve environment defaults, credentials, database contents, and cached images while applying pending migrations. Disabled runtimes are skipped. Runtimes explicitly required with `*_DISABLED=false` must also pass execution and cleanup validation during bootstrap. Startup checks availability only.
+
+To prepare the configured image in both native caches, run this from the service's working directory, using its environment and data directory:
+
+```sh
+astralbeam-platform bootstrap
+```
+
+Cached tags, including `:latest`, are reused. Choose a new version tag or digest in `LOCAL_SANDBOX_IMAGE` and rerun bootstrap to prepare another release. A bare image name means `:latest`. Restart Platform after changing `.env`.
+
 ## 2. Provision the database
 
-PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
+Skip this step when using embedded PostgreSQL. For an external server, PostgreSQL 18 is the minimum. Production deployments should connect through a dedicated account with limited privileges, instead of the `postgres` superuser.
 
 Run these commands to create that role and an empty database it owns:
 
@@ -119,14 +181,17 @@ Set `NODE_ENV=production` when launching standalone binaries in production. The 
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | Yes | PostgreSQL connection URL, for example `postgresql://user:password@host:5432/database` |
-| `DATABASE_ENCRYPTION_KEY` | Yes | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
-| `ASTRALBEAM_DATA_DIR` | No | Default file storage root. Uploads use `storage/` inside it. Containers use `/var/lib/astralbeam` |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL, or `embedded` for the owned local database. Bootstrap saves the embedded selector automatically |
+| `MICROSANDBOX_DISABLED` | No | `true` disables Microsandbox. `false` requires it at startup and bootstrap. Unset auto-detects the installed runtime. See [setup](../dashboard/sandboxes.md#microsandbox) |
+| `LOCAL_SANDBOX_IMAGE` | No | Shared Docker and Microsandbox OCI image. Defaults to `ghcr.io/astralbeamai/sandbox:<Platform version>`. See [Local sandbox image](#local-sandbox-image) for caching and validation |
+| `DOCKERSANDBOX_DISABLED` | No | `true` disables Docker. `false` requires it at startup and bootstrap. Unset auto-detects a reachable Docker daemon |
+| `DATABASE_ENCRYPTION_KEY` | External only | Comma-separated keyring. Each entry is 32 to 1024 characters and unique. The first entry encrypts new writes and is the operator sign-in credential |
+| `ASTRALBEAM_DATA_DIR` | No | Data root for embedded PostgreSQL, Microsandbox, and file storage. Containers use `/var/lib/astralbeam` |
 | `BETTER_AUTH_SECRET` | No | Bootstrap generates an independent random secret when unset and no stored auth secret exists. Keep the same value across replicas |
 | `SKIP_EMAIL_VERIFICATION` | No | Set exactly `true` to skip password email verification and sign new users in immediately. Defaults to `false` when unset. Bootstrap supplies `true` for new deployments and preserves verification for existing deployments. Set `false` for public hosting |
 | `PORT` | No | TCP port to listen on. Defaults to `4510` |
 | `HOST` | No | HTTP bind address. Set `127.0.0.1` behind a proxy on the same host |
-| `WORKERS` | No | Defaults to `auto`: one process per available CPU on Linux, one on macOS and Windows. Set a positive count on Linux, or `1` to disable supervision. See [worker sizing](./operations.md#http-workers) |
+| `WORKERS` | No | Defaults to `auto`: one HTTP worker per available CPU on Linux, one on macOS and Windows. Set a positive count on Linux, or `1` for one worker. See [worker sizing](./operations.md#http-workers) |
 | `APP_BASE_URL` | No | Environment override for the base URL setting, which can otherwise be set at `/configure` |
 | `TRUST_PROXY` | No | Defaults to `false`: trust loopback for host/protocol and ignore client IP headers. Set remote proxy socket-peer IPs/CIDRs before first start or upgrade. Use `127.0.0.1,::1` to enable client IP headers for only a same-host proxy, or `true` to trust all proxies. See [Reverse proxy trust](./security.md#reverse-proxy-trust) |
 | `ALLOW_INSECURE` | No | Set exactly `true` to allow HTTP in production. Native binary bootstrap supplies `true` for new deployments. Set `false` for TLS. See [Security](./security.md#https-and-response-headers) |
@@ -144,14 +209,14 @@ For a new Linux installation, create an unprivileged service account and its con
 ```sh
 sudo useradd --system --user-group --home-dir /etc/astralbeam --shell /usr/sbin/nologin astralbeam
 sudo install -d -m 750 -o astralbeam -g astralbeam /etc/astralbeam
-sudo -u astralbeam touch /etc/astralbeam/.env.local
-sudo chmod 600 /etc/astralbeam/.env.local
-sudoedit /etc/astralbeam/.env.local
+sudo -u astralbeam touch /etc/astralbeam/.env
+sudo chmod 600 /etc/astralbeam/.env
+sudoedit /etc/astralbeam/.env
 ```
 
 Add your database connection to that file:
 
-```sh title="/etc/astralbeam/.env.local"
+```sh title="/etc/astralbeam/.env"
 DATABASE_URL=postgresql://user:password@host:5432/database
 ```
 
@@ -161,9 +226,9 @@ Run bootstrap from the same directory the service will use:
 sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform bootstrap'
 ```
 
-Bootstrap applies migrations and appends missing defaults to `.env.local`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
+Bootstrap applies migrations and appends missing defaults to `.env`. New deployments receive independent random encryption and authentication secrets, Cloudflare's always-pass Turnstile test keys, `ALLOW_INSECURE=true`, and `SKIP_EMAIL_VERIFICATION=true`. Existing database-backed credentials, secure flag defaults, file content, and environment values are preserved. An existing deployment needs its original encryption key. Keep the file private and back up the keyring separately. Use its active key to sign in at `/configure`.
 
-When either database variable is missing from the environment, `start` reads it from `~/.astralbeam/platform.json`. Run interactively, it prompts for any variable still missing and saves the answer there, readable only by you. At startup it prints whether each value came from the environment or that file, and the environment always wins.
+Start reads unset database variables from `~/.astralbeam/platform.json`. With external PostgreSQL, interactive start prompts for a missing encryption key and saves it there. Environment values take precedence.
 
 Run this command to generate a high-entropy encryption value:
 
@@ -173,11 +238,11 @@ openssl rand -base64 32
 
 Keep it in your deployment's secret manager. Hashing does not rescue a weak passphrase, and losing an entry can make values encrypted with it unrecoverable.
 
-A rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and a missing URL reports `'DATABASE_URL' environment variable is not set`. The binary exits before server startup when the key is missing or invalid. Development servers show the "Server restart required" page at `/configure` when either variable is missing or invalid.
+With external PostgreSQL, a rejected value reports `DATABASE_ENCRYPTION_KEY must be a comma-separated list of unique secrets containing 32 to 1,024 characters each`, and an explicitly empty URL is rejected. The binary exits before server startup when the key is missing or invalid. Development servers show the "Server restart required" page at `/configure` when either variable is missing or invalid.
 
 ## 4. Start the server
 
-Run the binary as the service account created in step 3. It loads `.env.local` from its working directory.
+Run the binary as the service account created in step 3. It loads `.env` from its working directory.
 
 Save this unit as `/etc/systemd/system/astralbeam-platform.service`:
 
@@ -197,7 +262,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-Keep `DATABASE_URL` and the keyring in the private `.env.local` file. Environment variables supplied by systemd override that file.
+Keep `DATABASE_URL` and the keyring in the private `.env` file. Environment variables supplied by systemd override that file.
 
 Run these commands to load the unit and start the service:
 
@@ -269,7 +334,7 @@ Before upgrading an existing deployment behind a remote TLS-terminating proxy, s
    sudo astralbeam-platform upgrade
    ```
 
-   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.25.1`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
+   Pass a tag to select a release, such as `sudo astralbeam-platform upgrade v0.26.0`. The command downloads the host's asset, verifies `SHA256SUMS`, and replaces the binary after confirmation. Releases before v0.13.4 have no checksum file and are unsupported by this command. Use `--yes` for non-interactive upgrades. Source checkouts must pull and rebuild instead.
 
 2. Run this command with the new binary to apply the release's migrations, as described in [database commands](./operations.md#database-commands):
 
@@ -277,7 +342,7 @@ Before upgrading an existing deployment behind a remote TLS-terminating proxy, s
    sudo -u astralbeam sh -c 'cd /etc/astralbeam && NODE_ENV=production /usr/local/bin/astralbeam-platform migrate'
    ```
 
-   It fails if `DATABASE_URL` is missing from the environment, including [automatically loaded files](#3-set-the-bootstrap-environment). You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
+   Use the same data directory or external `DATABASE_URL` and [environment files](#3-set-the-bootstrap-environment) as the service. You can skip this step and apply them from `/configure` after the restart instead, where the gate redirects every page until you review and apply the new SQL.
 
 3. Run this command to restart the service, since the running process keeps serving the old binary until then:
 

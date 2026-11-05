@@ -10,7 +10,7 @@ Source builds produce both the server bundle and `platform/.output/astralbeam-pl
 
 ## What you need alongside it
 
-- PostgreSQL 18 or newer with the `citext` extension. PgBouncer is optional. See [Connection pooling](./operations.md#connection-pooling).
+- PostgreSQL 18 or newer with `citext`, prepared using `bootstrap --embeddedpg` or provided externally. PgBouncer is optional. See [Connection pooling](./operations.md#connection-pooling).
 - A persistent directory writable by the application, or a private S3-compatible bucket and credentials. Production Compose supplies a persistent filesystem volume. Choose the provider in **File storage** at `/configure` or through the environment.
 - An email path: an SMTP server, a Resend API key, or Amazon SES. Sign-up verification, password reset, password-change notices, and organization invitations all send mail.
 - A reverse proxy that terminates TLS, unless explicitly opting into HTTP with `ALLOW_INSECURE=true`.
@@ -28,7 +28,7 @@ Deployment settings and provider credentials are encrypted with `DATABASE_ENCRYP
 
 ## Bootstrap variables and stored settings
 
-Set `DATABASE_URL` for PostgreSQL and `DATABASE_ENCRYPTION_KEY` for encrypted settings and operator sign-in. These are the only required environment settings.
+Run `bootstrap --embeddedpg` once for [experimental local PostgreSQL](./deploy.md#embedded-postgresql), or set `DATABASE_URL` and `DATABASE_ENCRYPTION_KEY` for an external server. Bootstrap saves `DATABASE_URL=embedded` for later starts without flags.
 
 Edit other deployment settings at `/configure`. Uppercase environment overrides take precedence over stored values, including `STORAGE_PROVIDER` for file storage. Each organization manages model provider keys separately in the dashboard. See [Configuration](./configuration.md).
 
@@ -37,6 +37,8 @@ Edit other deployment settings at `/configure`. Uppercase environment overrides 
 The application opens when required configuration is valid and no bundled migration is pending. Clearing a required value or installing pending migrations closes that gate again.
 
 While the gate is closed, application pages redirect to `/configure` and API routes answer `503` with a `Retry-After` header. Sign in at `/configure` with the first entry of `DATABASE_ENCRYPTION_KEY`, approve the pending migrations, and fill in the required settings. **Go to app** becomes available once configuration and owner onboarding are complete. [Deploy](./deploy.md) walks through the whole sequence.
+
+Next, follow the [Quickstart](/docs/start/quickstart), using your deployment's `/api` URL for the SDK's `apiUrl`.
 
 ## Running more than one replica
 

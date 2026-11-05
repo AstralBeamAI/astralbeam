@@ -23,6 +23,19 @@ The suite starts its own platform and todos servers on ports derived from the wo
 
 The `list` reporter narrates every `test.step` as it starts and finishes, with its duration. An agent spec's steps say what turn is running and, if the endpoint throttles it, that it is waiting out the rate-limit window rather than hanging.
 
+### Test Microsandbox
+
+The suite's Vite server does not run Microsandbox host checks. Use a compiled Platform binary with the same seeded worktree database and encryption key, following [Microsandbox setup](../../../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Set its `APP_BASE_URL` to the URL the suite will use, such as `http://localhost:4510`, and assign the Microsandbox connection to **Acme Inc → Agents → Todos Assistant**.
+
+With that server running and `OPENAI_API_KEY` configured, run the sandbox specs against it:
+
+```sh
+E2E_PLATFORM_URL=http://localhost:4510 E2E_SANDBOX=microsandbox \
+  bun run --cwd examples/todos e2e sandbox.spec.ts --project=agent
+```
+
+The suite still starts its own Todo app. For direct S3 artifact downloads, allow that app's origin in the bucket's [CORS policy](../../../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). File System storage needs no bucket policy. These specs make real model calls and spend credits.
+
 ## Evidence
 
 Failure videos, traces, and screenshots land in gitignored `e2e/.output`. The HTML report is `e2e/.output/report/index.html`, with traces under `test-results/<test>/trace.zip`.

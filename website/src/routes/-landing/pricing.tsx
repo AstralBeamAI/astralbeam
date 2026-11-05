@@ -44,7 +44,7 @@ export function Pricing() {
           </dl>
           <p className="pricing-credit mono">$20 in free credits every month</p>
           <a className="btn btn-primary btn-lg" href={siteMetadata.links.signUp}>
-            Get Started
+            Start on Cloud
           </a>
         </article>
 
@@ -62,7 +62,7 @@ export function Pricing() {
             </div>
           </dl>
           <a className="btn btn-ghost btn-lg" href={`mailto:${siteMetadata.email}`}>
-            Talk to Us
+            Discuss Hosting
           </a>
         </article>
 

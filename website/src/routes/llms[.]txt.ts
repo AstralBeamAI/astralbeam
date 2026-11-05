@@ -28,17 +28,19 @@ AstralBeam is for developers and product teams building SaaS and multi-tenant ap
 ## Deployment
 
 - The SDK is MIT licensed. The platform is AGPL-3.0.
-- Self-host: one binary, a PostgreSQL database, and a private S3-compatible bucket, with your own model keys and sandbox provider. See the self-hosting guide for complete infrastructure requirements.
-- AstralBeam Cloud: sign up, create an API key, and point the widget at astralbeam.ai.
+- Self-host: one binary or container, PostgreSQL 18+, email delivery, and a persistent file directory or private S3-compatible bucket. Use your own model keys and connect a sandbox provider when you need code execution. See the self-hosting guide for complete infrastructure requirements.
+- AstralBeam Cloud: sign up, connect a model provider, create an organization API key, and follow the quickstart to connect your app's authentication and mount the widget.
 
 ## Links
 
 - [Home](${siteUrl("/")}): Product overview, integration steps, and deployment model.
+- [Quickstart](${siteUrl("/docs/start/quickstart")}): Configure a model, connect your existing login, and stream the first reply inside your app.
 - [Pricing](${siteUrl("/home#pricing")}): Cloud, managed hosting, and self-hosting rates.
 - [Hosted app](${siteUrl(logIn)}): Sign up for or log in to AstralBeam Cloud, the managed dashboard.
 - [Documentation](${siteUrl(docs)}): Guides and reference for the SDK and the platform.
 - [Agent Skill](${siteUrl("/agent-skills/astralbeam/SKILL.md")}): Instructions for integrating AstralBeam and verifying replies and application tools.
-- [CLI and coding agents](${siteUrl("/docs/cli/coding-agents")}): Install the CLI skill and configure agent access.
+- [Coding agents](${siteUrl("/docs/cli/coding-agents")}): Use the integration skill in your app's repository, or configure CLI access for organization administration.
+- [Self-hosting](${siteUrl("/docs/self-hosting/deploy")}): Deploy a container or install the matching Platform binary with install.sh.
 - [Blog](${siteUrl("/blog")}): Notes on building agents and their interfaces.
 ${blogPosts.map((post) => `- [${post.title}](${siteUrl(post.path)}): ${post.description}`).join("\n")}
 - [Source code](${github}): The open-source platform under AGPL-3.0.

@@ -42,7 +42,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "quickstart",
-        updated: "2026-10-28",
+        updated: "2026-11-03",
         title: "Quickstart",
         description:
           "Embed an agent in your application, configure a model, create an API key, and stream your first reply.",
@@ -190,10 +190,10 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "coding-agents",
-        updated: "2026-10-27",
+        updated: "2026-11-03",
         title: "Coding agents",
         description:
-          "Give coding agents the bundled CLI skill and scoped credentials to manage your organization safely.",
+          "Add AstralBeam to your app with a coding agent, or use the CLI for organization administration.",
       },
     ],
   },
@@ -227,7 +227,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "sandboxes",
-        updated: "2026-10-27",
+        updated: "2026-11-04",
         title: "Sandboxes",
         description:
           "Connect sandbox providers and assign isolated code execution workspaces to your agents.",
@@ -270,17 +270,17 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "overview",
-        updated: "2026-10-27",
+        updated: "2026-11-03",
         title: "Overview",
         description:
-          "Understand the application process, PostgreSQL database, and private object storage needed to self-host the platform.",
+          "Run the agent backend with PostgreSQL and local or S3-compatible file storage on your own infrastructure.",
       },
       {
         slug: "deploy",
-        updated: "2026-10-29",
+        updated: "2026-11-04",
         title: "Deploy",
         description:
-          "Deploy the platform on Linux with PostgreSQL, a connection pooler, systemd, and an HTTPS reverse proxy.",
+          "Deploy Platform with containers or a standalone binary, using embedded or external PostgreSQL.",
       },
       {
         slug: "configuration",
@@ -291,7 +291,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "operations",
-        updated: "2026-10-27",
+        updated: "2026-11-04",
         title: "Operations",
         description:
           "Operate a self-hosted deployment with migrations, backups, monitoring, and recovery procedures.",

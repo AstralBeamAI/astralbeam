@@ -1,5 +1,7 @@
 # Setup
 
+This guide sets up the source checkout and example apps. To try Platform without contributor tooling, use the [standalone binary](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) with existing PostgreSQL or the [embedded database](../platform/src/routes/docs/-content/self-hosting/deploy.md#embedded-postgresql).
+
 ## Host prerequisites
 
 Install Git, curl, and unzip. Setup installs the Bun version pinned in [`.bun-version`](../.bun-version), including when another version is already installed. Install and start PostgreSQL 18 on your host, or use the [native Linux setup](#development-without-docker). Run application code natively. File System storage needs no additional service or credentials.
@@ -30,17 +32,19 @@ The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentia
 
 ### Local services
 
-New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the platform's [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
+`platform/.env.development` sets `ASTRALBEAM_DATA_DIR=.data/astralbeam`. Setup and project tasks run from `platform`, giving each checkout its own Git-ignored `platform/.data/astralbeam/` directory for uploads, embedded PostgreSQL, Microsandbox, and credentials. Data survives restarts. Override the directory through the shell or `platform/.env.development.local`. Production retains the OS data directory default.
+
+New databases use File System storage unless another provider is explicitly configured. Seeding assigns a separate directory per database under the [default storage directory](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage), `platform/.data/astralbeam/storage/` in development. Existing storage settings are preserved. View or change the destination under **File storage** at `/configure`.
 
 To use containers for supporting services, install and start Docker, then run `SERVICES=docker ./scripts/setup.sh`. Compose provides PostgreSQL through PgBouncer and Mailpit for email testing. PgBouncer is the only host-published database endpoint. If 5432 is occupied, change `PGBOUNCER_HOST_PORT` and `DATABASE_URL` together. `POSTGRES_HOST` and `POSTGRES_PORT` select its backend. Native and Compose versions of the same service need different host ports to run together.
 
-Service startup uses `SERVICES` from the shell environment. Devcontainers mount `file-storage` at the default Linux storage directory, `/root/.local/share/astralbeam/storage`, for persistent File System storage.
+Service startup uses `SERVICES` from the shell environment. Devcontainers use the checkout's `platform/.data/astralbeam/` directory for new development data. The `file-storage` volume at `/root/.local/share/astralbeam/storage` retains files for existing storage settings.
 
 Authenticate CLI tools inside the devcontainer using their default configuration directories.
 
 Apply intentional Compose configuration changes with `docker compose up --detach --wait`. Stop services with `docker compose down`. Setup never resets an existing database. Use the explicit [database commands](../platform/src/db/README.md#database-commands) to reset or seed only the current worktree database, never shared volumes. Use `docker compose exec postgres` only for direct administration.
 
-Before changing storage destinations, follow the [storage migration procedure](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified.
+Before changing storage destinations, follow the [storage migration procedure](../platform/src/routes/docs/-content/self-hosting/configuration.md#file-storage). Retain old storage until needed files have been copied and verified. Stop embedded PostgreSQL before moving its data directory, and move its credentials with the database. Deleting a checkout removes its local data but leaves any external database intact.
 
 ### 2. Run the applications
 
@@ -60,6 +64,16 @@ bun run dev
 The [Rails example](../examples/todos-rails/README.md) runs separately with `bin/setup` from its directory on port 4800. Reload examples after SDK changes so they use the rebuilt output.
 
 For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](../CONTRIBUTING.md#validate-your-change) before opening a PR.
+
+#### Try sandbox tools
+
+The seed prints verified dashboard accounts, so you can sign in without email delivery. Chat needs a model connection. Code execution and binary file analysis also need a sandbox.
+
+1. Configure a [sandbox provider](../platform/src/routes/docs/-content/dashboard/sandboxes.md). The seeded Docker connection is ready to test when its daemon is reachable.
+2. Open **Acme Inc → Agents → Todos Assistant**, enable **Sandbox**, select the connection, and save.
+3. In Todos, ask the assistant to run a script or analyze an uploaded spreadsheet. For automated coverage, follow the [Todos browser guide](../examples/todos/e2e/README.md).
+
+**NOTE**: To try Microsandbox, [build the Platform binary from this checkout](../platform/src/routes/docs/-content/self-hosting/deploy.md#1-get-a-release-binary) and follow [Microsandbox setup](../platform/src/routes/docs/-content/dashboard/sandboxes.md#microsandbox). Vite's `dev` task does not run its native host checks. Microsandbox needs no Docker and works with either database choice. A fresh standalone deployment has no contributor seed, so configure its model and agent before testing chat.
 
 #### Port allocation
 

@@ -4,6 +4,7 @@ import { Effect } from "effect"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { runEffect } from "@/lib/runtime/server-fn.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
+import { getAvailableSandboxProviderIds } from "@/lib/sandboxes/availability.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { SandboxProviderIdInputSchema } from "../../-lib/schemas.ts"
 
@@ -13,13 +14,21 @@ export const getSandboxProviderPageData = createServerFn({ method: "GET" })
   .validator(toValidationSchema(SandboxProviderIdInputSchema))
   .handler(({ context, data, serverFnMeta }) =>
     runEffect(
-      Effect.flatMap(SandboxProviders, (providers) =>
-        providers.get({ organizationId: context.organizationId, id: data.sandboxProviderId }),
-      ).pipe(
-        Effect.map((provider) =>
-          provider === null ? null : { data: { provider }, permissions: context.permissions },
-        ),
-      ),
+      Effect.gen(function* () {
+        const providers = yield* SandboxProviders
+        const provider = yield* providers.get({
+          organizationId: context.organizationId,
+          id: data.sandboxProviderId,
+        })
+        if (provider === null) return null
+        return {
+          data: {
+            provider,
+            availableProviders: yield* Effect.promise(getAvailableSandboxProviderIds),
+          },
+          permissions: context.permissions,
+        }
+      }),
       serverFnMeta.name,
     ),
   )

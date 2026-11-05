@@ -72,16 +72,17 @@ export function AgentForm({
 }: AgentFormProps) {
   const navigate = useNavigate()
   const router = useRouter()
+  const availableSandboxProviders = sandboxProviders.filter((provider) => provider.available)
   const [name, setName] = useState(existing?.name ?? "")
   const [systemPrompt, setSystemPrompt] = useState(existing?.systemPrompt ?? "")
   const hydrated = useHydrated()
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(existing?.attachmentsEnabled ?? true)
   const [webOverride, setWebOverride] = useState<boolean | null>(existing?.webAccessEnabled ?? null)
   const [sandboxEnabled, setSandboxEnabled] = useState(
-    existing ? existing.sandboxProviderId !== null : sandboxProviders.length > 0,
+    existing ? existing.sandboxProviderId !== null : availableSandboxProviders.length > 0,
   )
   const [sandboxProviderId, setSandboxProviderId] = useState(
-    existing?.sandboxProviderId ?? sandboxProviders[0]?.id ?? NO_SANDBOX_PROVIDER,
+    existing?.sandboxProviderId ?? availableSandboxProviders[0]?.id ?? NO_SANDBOX_PROVIDER,
   )
   const initialModel = models.find((model) => model.webAccess === true) ?? models[0]
   const [modelIds, setModelIds] = useState<string[]>([
@@ -291,7 +292,7 @@ export function AgentForm({
                 <FieldContent>
                   <FieldLabel htmlFor="agent-sandbox-enabled">Sandbox</FieldLabel>
                   <FieldDescription id="agent-sandbox-description">
-                    {sandboxProviders.length ? (
+                    {availableSandboxProviders.length ? (
                       "Run code and work with files in an isolated environment."
                     ) : (
                       <>
@@ -315,7 +316,7 @@ export function AgentForm({
                   id="agent-sandbox-enabled"
                   checked={sandboxEnabled}
                   onCheckedChange={setSandboxEnabled}
-                  disabled={disabled || sandboxProviders.length === 0}
+                  disabled={disabled || (!sandboxEnabled && availableSandboxProviders.length === 0)}
                   aria-describedby="agent-sandbox-description"
                 />
               </Field>
@@ -332,13 +333,21 @@ export function AgentForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {sandboxProviders.map((provider) => (
+                      {availableSandboxProviders.map((provider) => (
                         <SelectItem key={provider.id} value={provider.id}>
                           {provider.name} ({provider.providerType})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {!availableSandboxProviders.some(
+                    (provider) => provider.id === sandboxProviderId,
+                  ) && (
+                    <FieldDescription>
+                      This connection is unavailable on this server. Choose another connection or
+                      disable Sandbox.
+                    </FieldDescription>
+                  )}
                 </Field>
               )}
             </FieldSet>
