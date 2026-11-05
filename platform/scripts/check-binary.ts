@@ -364,6 +364,9 @@ async function runBinaryCheck() {
     DATABASE_URL: unreachableDatabaseUrl,
     DATABASE_ENCRYPTION_KEY: undefined,
     WORKERS: undefined,
+    // Serving and migration checks run before this release's sandbox image is published.
+    DOCKERSANDBOX_DISABLED: "true",
+    MICROSANDBOX_DISABLED: "true",
   }
   function checkBinaryFailure(
     args: readonly string[],
