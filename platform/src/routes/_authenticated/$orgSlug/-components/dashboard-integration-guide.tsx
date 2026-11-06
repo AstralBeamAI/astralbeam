@@ -24,7 +24,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
 import type { IntegrationGuideStep } from "@/lib/organizations/schemas"
 import { getAppReplyStatus } from "../-functions/get-app-reply-status"
@@ -74,51 +73,44 @@ function GuideStep({
         aria-hidden="true"
         className="absolute top-9 bottom-1 start-3.5 w-px -translate-x-1/2 bg-border in-[li:last-child]:hidden"
       />
-      {detected || !onMarkedChange ? (
-        <span aria-hidden="true" className={cn(stepCircle, complete && completeStepCircle)}>
-          {complete ? <CheckIcon /> : number}
-        </span>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={marked}
-                aria-label={`${title} complete`}
-                onClick={() => {
-                  onMarkedChange(!marked)
-                  setOpenOverride(undefined)
-                }}
-                className={cn(
-                  stepCircle,
-                  "cursor-pointer transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  marked && completeStepCircle,
-                )}
-              />
-            }
-          >
-            {marked ? <CheckIcon aria-hidden="true" /> : number}
-          </TooltipTrigger>
-          <TooltipContent>{marked ? "Mark incomplete" : "Mark complete"}</TooltipContent>
-        </Tooltip>
-      )}
+      <span aria-hidden="true" className={cn(stepCircle, complete && completeStepCircle)}>
+        {complete ? <CheckIcon /> : number}
+      </span>
       <Collapsible
         open={openOverride ?? !(marked || detectedOnLoad)}
         onOpenChange={setOpenOverride}
         className="min-w-0"
       >
-        <h3 className="font-sans text-sm font-medium">
-          <CollapsibleTrigger className="group flex cursor-pointer items-center gap-2 pt-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-            {title}
-            {complete && <span className="sr-only"> (complete)</span>}
-            <CaretDownIcon
-              aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground transition-transform group-aria-expanded:rotate-180"
-            />
+        <div className="flex items-center gap-2">
+          <h3 className="flex-1 font-sans text-sm font-medium">
+            <CollapsibleTrigger className="w-full cursor-pointer py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              {title}
+              {complete && <span className="sr-only"> (complete)</span>}
+            </CollapsibleTrigger>
+          </h3>
+          {!detected && onMarkedChange && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => {
+                onMarkedChange(!marked)
+                setOpenOverride(undefined)
+              }}
+            >
+              <CheckIcon aria-hidden="true" data-icon="inline-start" />
+              {marked ? "Mark as not done" : "Mark as done"}
+            </Button>
+          )}
+          {/* A pointer shortcut for the title button, which carries the accessible state. */}
+          <CollapsibleTrigger
+            aria-hidden="true"
+            tabIndex={-1}
+            className="group cursor-pointer p-1 text-muted-foreground"
+          >
+            <CaretDownIcon className="size-4 transition-transform group-aria-expanded:rotate-180" />
           </CollapsibleTrigger>
-        </h3>
+        </div>
         <CollapsibleContent className="space-y-3 pt-3">{children}</CollapsibleContent>
       </Collapsible>
     </li>

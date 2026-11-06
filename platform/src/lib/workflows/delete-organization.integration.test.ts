@@ -30,6 +30,7 @@ import {
   deleteOrganizationTenantBatch,
   revokeOrganizationAccess,
 } from "@/lib/organizations/deletion.server"
+import { INTEGRATION_GUIDE_CACHE_NAMESPACE } from "@/lib/organizations/schemas"
 import { deleteTenant } from "@/lib/tenants/deletion"
 import {
   agent,
@@ -647,7 +648,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await createDeletionChat(scope)
       await createDeletionChat(kept)
       await db.insert(cacheEntry).values(
-        ["chat", "mcp-oauth", "integration-guide"].flatMap((namespace) =>
+        ["chat", "mcp-oauth"].flatMap((namespace) =>
           [scope, kept].map(({ organizationId, tenantId }) => ({
             namespace,
             key: `${organizationId}:${tenantId}:pending`,
@@ -681,7 +682,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
           .from(cacheEntry)
           .orderBy(cacheEntry.namespace),
       ).toEqual(
-        ["chat", "mcp-oauth", "integration-guide"].map((namespace) => ({
+        ["chat", "mcp-oauth"].map((namespace) => ({
           namespace,
           key: `${kept.organizationId}:${kept.tenantId}:pending`,
         })),
@@ -791,6 +792,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
         key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted`,
         value: "kept input",
       },
+      ...[deletedId, keptId].map((organizationId) => ({
+        namespace: INTEGRATION_GUIDE_CACHE_NAMESPACE,
+        key: `${organizationId}:install`,
+        value: "true",
+      })),
     ])
 
     expect(await runAppEffect(revokeOrganizationAccess(deletedId))).toEqual([ownerId])
@@ -817,8 +823,11 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await deletion
     }
 
-    expect(await db.select({ key: cacheEntry.key }).from(cacheEntry)).toEqual([
+    expect(
+      await db.select({ key: cacheEntry.key }).from(cacheEntry).orderBy(cacheEntry.namespace),
+    ).toEqual([
       { key: `${keptId}:${kept.tenantId}:${keptChat.threadId}:accepted` },
+      { key: `${keptId}:install` },
     ])
     const remaining = await db.select({ id: organization.id }).from(organization)
     expect(remaining).toEqual([{ id: keptId }])
