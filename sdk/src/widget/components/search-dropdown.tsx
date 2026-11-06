@@ -1,6 +1,6 @@
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { QueryClient, QueryClientContext, useInfiniteQuery } from "@tanstack/react-query"
-import { useContext, useEffect, useId, useRef, useState } from "react"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { useEffect, useId, useRef, useState } from "react"
 import { Button } from "./ui/button.tsx"
 import {
   Combobox,
@@ -51,21 +51,15 @@ export function SearchDropdown<T extends { id: string }>({
   const [text, setText] = useState("")
   const [open, setOpen] = useState(false)
   const [search] = useDebouncedValue(text.trim(), { wait: 300 })
-  const sharedClient = useContext(QueryClientContext)
-  const [client] = useState(() => new QueryClient())
-  useEffect(() => () => client.clear(), [client])
   const queryId = useId()
-  const query = useInfiniteQuery(
-    {
-      queryKey: ["search-dropdown", queryId, search],
-      enabled: open,
-      initialPageParam: undefined as string | undefined,
-      queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
-      getNextPageParam: (page) => page.page_after ?? undefined,
-      retry: false,
-    },
-    sharedClient ?? client,
-  )
+  const query = useInfiniteQuery({
+    queryKey: ["search-dropdown", queryId, search],
+    enabled: open,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) => loadPage(search, pageParam, signal),
+    getNextPageParam: (page) => page.page_after ?? undefined,
+    retry: false,
+  })
   const searching = text.trim() !== search || query.isPending
   const { hasNextPage, isFetching, isError, fetchNextPage } = query
   useEffect(() => {

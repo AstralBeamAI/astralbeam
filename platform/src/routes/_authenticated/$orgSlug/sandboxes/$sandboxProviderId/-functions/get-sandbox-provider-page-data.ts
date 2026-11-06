@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { getAvailableSandboxProviderIds } from "@/lib/sandboxes/availability.server"
 import { toValidationSchema } from "@/lib/schemas"
@@ -12,8 +12,8 @@ import { SandboxProviderIdInputSchema } from "../../-lib/schemas.ts"
 export const getSandboxProviderPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(SandboxProviderIdInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const providers = yield* SandboxProviders
         const provider = yield* providers.get({
@@ -29,6 +29,5 @@ export const getSandboxProviderPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
-      serverFnMeta.name,
     ),
   )

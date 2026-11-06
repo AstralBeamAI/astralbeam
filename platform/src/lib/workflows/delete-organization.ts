@@ -1,4 +1,4 @@
-import { DateTime, Duration, Effect, Schedule, Schema } from "effect"
+import { DateTime, Effect, Schedule, Schema } from "effect"
 import { SqlError } from "effect/sql"
 import { Activity, Workflow } from "effect/workflow"
 
@@ -23,11 +23,10 @@ const deleteOrganization = Workflow.make("DeleteOrganization/v2", {
 })
 
 // Access is already revoked, so no user can retry a failed purge. Keep retrying.
-const organizationPurgeRetry = Schedule.exponential("1 second").pipe(
-  Schedule.modifyDelay(({ duration }) =>
-    Effect.succeed(Duration.min(duration, Duration.minutes(5))),
-  ),
-)
+const organizationPurgeRetry = Schedule.min([
+  Schedule.exponential("1 second"),
+  Schedule.spaced("5 minutes"),
+])
 
 function purgeOrganizationStep<E, R>(name: string, execute: Effect.Effect<unknown, E, R>) {
   return Activity.make({

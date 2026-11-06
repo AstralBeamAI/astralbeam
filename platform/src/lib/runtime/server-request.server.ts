@@ -1,5 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks"
-
 import {
   deleteCookie,
   getCookie,
@@ -9,14 +7,11 @@ import {
   setCookie,
   setResponseHeaders,
 } from "@tanstack/react-start/server"
-import { Context, Data, Effect, identity, Option } from "effect"
+import { Context, Effect } from "effect"
 
 type ServerCookieOptions = NonNullable<Parameters<typeof setCookie>[2]>
 
-/**
- * The TanStack request an Effect answers. A fiber resumes in the async context of whatever settled
- * its last callback, so TanStack's helpers and Better Auth calls run through `run`, never directly.
- */
+/** The current TanStack request and response operations for an Effect. */
 export class ServerRequest extends Context.Service<
   ServerRequest,
   {
@@ -32,44 +27,19 @@ export class ServerRequest extends Context.Service<
       options: ServerCookieOptions,
     ) => Effect.Effect<void>
     readonly deleteCookie: (name: string, options: ServerCookieOptions) => Effect.Effect<void>
-    /** Runs a callback in the request's async context, where TanStack's helpers find it. */
-    readonly run: <A>(evaluate: () => A) => A
   }
 >()("astralbeam/runtime/ServerRequest") {}
 
-/** Answers a server function with a redirect, such as a page load that must move to HTTPS. */
-export class ServerRedirect extends Data.TaggedError("ServerRedirect")<{
-  readonly href: string
-  readonly status: number
-}> {}
-
-/** Captures the current TanStack request. Call it synchronously in a handler, before any await. */
+/** Captures the current TanStack request and response operations. */
 export function captureServerRequest(): ServerRequest["Service"] {
-  const run = AsyncLocalStorage.snapshot()
   return ServerRequest.of({
     request: getRequest(),
     clientAddress: getRequestIP(),
     url: ({ forwarded }) =>
-      run(getRequestUrl, { xForwardedHost: forwarded, xForwardedProto: forwarded }),
-    cookie: (name) => run(getCookie, name),
-    setHeaders: (headers) => Effect.sync(() => run(setResponseHeaders, new Headers(headers))),
-    setCookie: (name, value, options) => Effect.sync(() => run(setCookie, name, value, options)),
-    deleteCookie: (name, options) => Effect.sync(() => run(deleteCookie, name, options)),
-    run,
+      getRequestUrl({ xForwardedHost: forwarded, xForwardedProto: forwarded }),
+    cookie: getCookie,
+    setHeaders: (headers) => Effect.sync(() => setResponseHeaders(new Headers(headers))),
+    setCookie: (name, value, options) => Effect.sync(() => setCookie(name, value, options)),
+    deleteCookie: (name, options) => Effect.sync(() => deleteCookie(name, options)),
   })
-}
-
-/**
- * Awaits a Promise API in the current request's async context when there is one, so Better Auth's
- * cookie plugin answers the request that called it. Fails with the API's own rejection.
- */
-export function tryPromiseInServerRequest<A>(
-  evaluate: () => Promise<A>,
-): Effect.Effect<A, unknown> {
-  return Effect.flatMap(Effect.serviceOption(ServerRequest), (request) =>
-    Effect.tryPromise({
-      try: () => (Option.isSome(request) ? request.value.run(evaluate) : evaluate()),
-      catch: identity,
-    }),
-  )
 }

@@ -133,12 +133,6 @@ export function getHttpServerSpan(request: Request): Span | undefined {
   return getEventContext<HttpTracingContext>({ req: request }).serverSpan
 }
 
-/** Retains a Promise caller's parent when Effect resumes in another socket's async context. */
-export function withActiveSpan<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  const parent = trace.getSpanContext(context.active())
-  return parent ? OtelTracer.withSpanContext(effect, parent) : effect
-}
-
 export function traceRequestInit(
   input: RequestInfo | URL,
   init?: RequestInit,

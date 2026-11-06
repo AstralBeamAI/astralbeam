@@ -12,7 +12,7 @@ import {
 } from "@/lib/model-providers/pricing-catalog.server"
 import type { ModelProviderType } from "@/lib/model-providers/schemas"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { ModelProviderPageInputSchema } from "../-lib/schemas"
 
@@ -62,8 +62,8 @@ const modelProviderSuggestions: Record<ModelProviderType, readonly string[]> = {
 export const getModelProviderPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(ModelProviderPageInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const providers = yield* ModelProviders
         const pricing = yield* readModelPriceCatalog
@@ -109,6 +109,5 @@ export const getModelProviderPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }),
-      serverFnMeta.name,
     ),
   )

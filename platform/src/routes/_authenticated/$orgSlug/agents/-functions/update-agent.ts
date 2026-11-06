@@ -3,15 +3,15 @@ import { Effect } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { UpdateAgentInputSchema } from "../-lib/schemas.ts"
 
 export const updateAgent = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(toValidationSchema(UpdateAgentInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.flatMap(Agents, (agents) =>
         agents.update({
           organizationId: context.organizationId,
@@ -25,6 +25,5 @@ export const updateAgent = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

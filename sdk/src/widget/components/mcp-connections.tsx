@@ -29,7 +29,6 @@ export function McpConnectionsPanel({
   const [open, setOpen] = useState(false)
   const [boundary, setBoundary] = useState<Element>()
   const [headersFor, setHeadersFor] = useState<string | null>(null)
-  const [activeServerId, setActiveServerId] = useState<string>()
   const identity =
     state.auth.status === "ready" && state.auth.currentUser.scope === "tenant"
       ? state.auth.currentUser
@@ -58,13 +57,10 @@ export function McpConnectionsPanel({
         operation.action === "authorize"
           ? chat.authorizeMcpConnection(operation)
           : chat.manageMcpConnection(operation),
-      onMutate: (operation) => {
-        setActiveServerId(
-          "mcpServerId" in operation
-            ? operation.mcpServerId
-            : catalog.data?.connections.find((entry) => entry.id === operation.id)?.mcp_server_id,
-        )
-      },
+      onMutate: (operation) =>
+        "mcpServerId" in operation
+          ? operation.mcpServerId
+          : catalog.data?.connections.find((entry) => entry.id === operation.id)?.mcp_server_id,
       onSuccess: () => setHeadersFor(null),
       onSettled: () => catalog.refetch(),
     },
@@ -148,7 +144,7 @@ export function McpConnectionsPanel({
               )
               const connected = connection?.auth_state === "connected"
               const publicServer = server.auth_kind === "none"
-              const active = activeServerId === server.id
+              const active = mutation.context === server.id
               const StatusIcon = busy && active ? SpinnerGapIcon : PlugIcon
               const endpoint = new URL(server.endpoint_url)
               const disconnectLabel = publicServer

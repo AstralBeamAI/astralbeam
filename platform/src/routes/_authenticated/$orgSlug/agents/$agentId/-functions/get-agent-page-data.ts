@@ -3,7 +3,7 @@ import { Effect } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { AgentIdInputSchema } from "../../-lib/schemas.ts"
 
@@ -11,8 +11,8 @@ import { AgentIdInputSchema } from "../../-lib/schemas.ts"
 export const getAgentPageData = createServerFn({ method: "GET" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["read"] })])
   .validator(toValidationSchema(AgentIdInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const agents = yield* Agents
         const [agent, { sandboxProviders, defaultAgentId, models }] = yield* Effect.all(
@@ -27,6 +27,5 @@ export const getAgentPageData = createServerFn({ method: "GET" })
           permissions: context.permissions,
         }
       }).pipe(Effect.catchTag("AgentNotFound", () => Effect.succeed(null))),
-      serverFnMeta.name,
     ),
   )

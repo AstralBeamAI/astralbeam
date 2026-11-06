@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { strictParseOptions, toValidationSchema } from "@/lib/schemas"
 import { SaveSandboxProviderInputSchema } from "../-lib/schemas.ts"
@@ -11,8 +11,8 @@ import { SaveSandboxProviderInputSchema } from "../-lib/schemas.ts"
 export const saveSandboxProvider = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["update"] })])
   .validator(toValidationSchema(SaveSandboxProviderInputSchema, strictParseOptions))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.flatMap(SandboxProviders, (providers) =>
         providers.save({
           organizationId: context.organizationId,
@@ -34,6 +34,5 @@ export const saveSandboxProvider = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

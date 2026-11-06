@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
@@ -17,11 +17,10 @@ const RevealConfigValueInput = Schema.Struct({
 export const revealConfigValue = createServerFn({ method: "POST" })
   .middleware([configureMiddleware])
   .validator(toValidationSchema(RevealConfigValueInput))
-  .handler(({ data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ data }) =>
       Effect.flatMap(Config, (config) => config.reveal(data.key)).pipe(
         Effect.catchTag("ConfigValueNotRevealable", exposeError),
       ),
-      serverFnMeta.name,
     ),
   )

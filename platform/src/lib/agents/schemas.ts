@@ -31,11 +31,7 @@ export const AgentFieldsSchema = Schema.Struct({
     Schema.Array(UuidV7Schema).pipe(
       Schema.check(Schema.isMinLength(1)),
       Schema.check(Schema.isMaxLength(100)),
-      Schema.check(
-        Schema.makeFilter((ids) => new Set(ids).size === ids.length, {
-          message: "Select each model only once",
-        }),
-      ),
+      Schema.check(Schema.isUnique({ message: "Select each model only once" })),
     ),
   ),
 })
