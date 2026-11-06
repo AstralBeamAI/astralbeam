@@ -7,7 +7,11 @@ COPY --from=node:lts /usr/local/bin/node /usr/local/bin/
 COPY --from=node:lts /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 COPY --from=node:lts /usr/local/LICENSE /usr/share/doc/nodejs/LICENSE
 
-LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam"
+LABEL org.opencontainers.image.title="AstralBeam Sandbox" \
+      org.opencontainers.image.description="General-purpose execution environment for AI agents" \
+      org.opencontainers.image.url="https://astralbeam.ai" \
+      org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \

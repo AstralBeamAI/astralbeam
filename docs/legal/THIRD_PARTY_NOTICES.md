@@ -6,12 +6,6 @@ This curated inventory covers known third-party material intentionally copied, g
 
 Project manifests and lockfiles identify additional dependencies. Every distribution must be reviewed against its actual contents and preserve all required license and notice material. Common license texts are stored under [`LICENSES`](LICENSES/), and each `platform` build generates client and server `THIRD_PARTY_LICENSES.md` reports from its bundle graphs.
 
-## Apache-2.0
-
-Common license text: [Apache License 2.0](LICENSES/Apache-2.0.txt).
-
-- <a href="https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml" target="_blank" rel="noopener noreferrer">Docker GitHub Builder</a> workflow copied to `.github/workflows/build-image.yml`, adapted for Blacksmith caching and local signing identities.
-
 ## MIT
 
 Common license text: [MIT License](LICENSES/MIT.txt).

@@ -26,7 +26,10 @@ RUN apt-get update \
     && useradd --no-log-init --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin astralbeam \
     && install -d -o 10001 -g 10001 -m 700 /var/lib/astralbeam
 
-LABEL org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
+LABEL org.opencontainers.image.title="AstralBeam Platform" \
+      org.opencontainers.image.description="Self-hosted AstralBeam Platform for building and running AI agents" \
+      org.opencontainers.image.url="https://astralbeam.ai" \
+      org.opencontainers.image.source="https://github.com/AstralBeamAI/astralbeam" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 COPY --from=build --chmod=755 /app/platform/.output/astralbeam-platform /usr/local/bin/astralbeam-platform

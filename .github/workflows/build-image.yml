@@ -1,1313 +1,219 @@
-# Copied from https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml (Apache-2.0, ../../docs/legal/LICENSES/Apache-2.0.txt).
-# Local changes: Blacksmith cache and runner support, local signing identity, pinned registry helper.
-name: build
+name: Build and publish images
 
 on:
   workflow_call:
     inputs:
-      runner:
-        type: string
-        description: "GitHub-hosted Linux runner label or platform mapping to build on"
-        required: false
-        default: |
-          default=ubuntu-26.04
-          linux/arm=ubuntu-26.04-arm
-          linux/arm64=ubuntu-26.04-arm
-      distribute:
-        type: boolean
-        description: "Whether to distribute the build across multiple runners (one platform per runner)"
-        required: false
-        default: true
-      fail-fast:
-        type: boolean
-        description: "Whether to cancel all in-progress and queued jobs in the matrix if any job fails"
-        required: false
-        default: false
-      job-name-prefix:
-        type: string
-        description: "Prefix to include in reusable workflow job matrix names in the GitHub Actions UI"
-        required: false
-      setup-qemu:
-        type: boolean
-        description: "Runs the setup-qemu-action step to install QEMU static binaries"
-        required: false
-        default: false
-      artifact-name:
-        type: string
-        description: "Name of the uploaded GitHub artifact (for local output)"
-        required: false
-        default: 'docker-github-builder-assets'
-      artifact-upload:
-        type: boolean
-        description: "Upload build output GitHub artifact (for local output)"
-        required: false
-        default: false
-      artifact-retention-days:
-        type: number
-        description: "Duration after which artifact will expire in days. 0 means using default retention."
-        required: false
-        default: 0
-      annotations:
-        type: string
-        description: "List of annotations to set to the image"
-        required: false
-      build-args:
-        type: string
-        description: "List of build-time variables"
-        required: false
-      cache:
-        type: boolean
-        description: "Enable cache to GitHub Actions cache backend"
-        required: false
-        default: false
-      blacksmith-cache:
-        type: boolean
-        description: "Persist BuildKit state on Blacksmith runners instead of exporting cache"
-        required: false
-        default: false
-      cache-scope:
-        type: string
-        description: "Which scope cache object belongs to if cache enabled (defaults to target name if set)"
-        required: false
-      cache-mode:
-        type: string
-        description: "Cache layers to export if cache enabled (min or max)"
-        required: false
-        default: 'min'
-      context:
-        type: string
-        description: "Context to build from in the Git working tree"
-        required: false
-        default: .
-      file:
-        type: string
-        description: "Path to the Dockerfile"
-        required: false
-      labels:
-        type: string
-        description: "List of labels for an image"
-        required: false
-      output:
-        type: string
-        description: "Build output destination (one of image or local). Unlike the build-push-action, it only accepts image or local. The reusable workflow takes care of setting the outputs attribute"
-        required: true
-      platforms:
-        type: string
-        description: "List of target platforms to build"
-        required: false
-      push:
-        type: boolean
-        description: "Push image to the registry (for image output)"
-        required: false
-        default: false
-      registry-login:
-        type: string
-        description: "Login to registry before build (one of auto, true or false). Auto enables login only when output is image and push is true"
-        required: false
-        default: auto
-      sbom:
-        type: boolean
-        description: "Generate SBOM attestation for the build"
-        required: false
-        default: false
-      shm-size:
-        type: string
-        description: "Size of /dev/shm (e.g., 2g)"
-        required: false
-      sign:
-        type: string
-        description: "Sign attestation manifest for image output or artifacts for local output, can be one of auto, true or false. The auto mode will enable signing if push is enabled for pushing the image or if artifact-upload is enabled for uploading the local build output as GitHub Artifact"
-        required: false
-        default: auto
-      target:
-        type: string
-        description: "Sets the target stage to build"
-        required: false
-      ulimit:
-        type: string
-        description: "Ulimit options (e.g., nofile=1024:1024)"
-        required: false
-      registry-identities:
-        type: string
-        description: "Keyless registry identity configuration as YAML objects"
-        required: false
-      # docker/metadata-action
-      set-meta-annotations:
-        type: boolean
-        description: "Append OCI Image Format Specification annotations generated by docker/metadata-action"
-        required: false
-        default: false
-      set-meta-labels:
-        type: boolean
-        description: "Append OCI Image Format Specification labels generated by docker/metadata-action"
-        required: false
-        default: false
-      meta-images:
-        type: string
-        description: "List of images to use as base name for tags (required for image output)"
-        required: false
-      meta-tags:
-        type: string
-        description: "List of tags as key-value pair attributes"
-        required: false
-      meta-labels:
-        type: string
-        description: "List of custom labels"
-        required: false
-      meta-annotations:
-        type: string
-        description: "List of custom annotations"
-        required: false
-      meta-flavor:
-        type: string
-        description: "Flavor defines a global behavior for meta-tags"
-        required: false
-      # buildkit config
-      buildkit-proxy-network:
-        type: boolean
-        description: "Enable BuildKit proxy network mode"
-        required: false
-        default: false
-    secrets:
-      registry-auths:
-        description: "Raw authentication to registries, defined as YAML objects"
-        required: false
-      build-secrets:
-        description: "YAML object mapping BuildKit secret IDs to secret values"
-        required: false
-      github-token:
-        description: "GitHub Token used to authenticate against the repository for Git context"
-        required: false
-    outputs:
-      meta-json:
-        description: "Metadata JSON output (for image output)"
-        value: ${{ jobs.finalize.outputs.meta-json }}
-      cosign-version:
-        description: "Cosign version used for verification"
-        value: ${{ jobs.finalize.outputs.cosign-version }}
-      cosign-verify-commands:
-        description: "Cosign verify commands"
-        value: ${{ jobs.finalize.outputs.cosign-verify-commands }}
-      artifact-name:
-        description: "Name of the uploaded artifact (for local output)"
-        value: ${{ jobs.finalize.outputs.artifact-name }}
-      digest:
-        description: "Digest of the image pushed or artifact uploaded"
-        value: ${{ jobs.finalize.outputs.digest }}
-      output-type:
-        description: "Build output type"
-        value: ${{ jobs.finalize.outputs.output-type }}
-      signed:
-        description: "Whether attestations manifests or artifacts were signed"
-        value: ${{ jobs.finalize.outputs.signed }}
+      phase: { type: string, required: true }
+      image: { type: string, required: true }
+      version: { type: string, required: true }
+      context: { type: string, default: "." }
+      file: { type: string, default: "" }
+      build-args: { type: string, default: "" }
+      cache-scope: { type: string, default: "" }
+      push: { type: boolean, default: false }
+      latest: { type: boolean, default: false }
+      cpus: { type: number, default: 2 }
+
+defaults:
+  run:
+    shell: bash
 
 env:
-  BUILDX_VERSION: "v0.38.0"
-  BUILDKIT_IMAGE: "moby/buildkit:v0.34.0"
-  SBOM_IMAGE: "docker/buildkit-syft-scanner:1.12.0"
-  BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.2.3-68"
-  RUNTIME_MODULE: "@docker/github-builder-runtime@0.106.0"
-  RUNTIME_INSTALL_ARGS: |
-    --loglevel=error
-    --no-save
-    --package-lock=false
-    --ignore-scripts
-    --omit=dev
-    --prefer-offline
-    --fund=false
-    --audit=false
-  COSIGN_VERSION: "v3.1.3"
-  LOCAL_EXPORT_DIR: "/tmp/buildx-output"
-  MATRIX_SIZE_LIMIT: "20"
-  BUILDX_METADATA_PROVENANCE: "false"
-  BUILDX_SEND_GIT_QUERY_AS_INPUT: "true"
-  NPM_CONFIG_FETCH_RETRIES: "5"
+  IMAGE_NAME: ghcr.io/astralbeamai/${{ inputs.image }}
+  DOCKER_BUILD_SUMMARY: false
 
 jobs:
-  registry-identities:
-    uses: docker/github-builder/.github/workflows/setup-registry-identities.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
-    with:
-      registry-login: ${{ inputs.registry-login == 'true' || (inputs.registry-login == 'auto' && inputs.push && inputs.output == 'image') }}
-      registry-identities: ${{ inputs.registry-identities }}
-
-  prepare:
-    runs-on: ubuntu-26.04
-    strategy:
-      matrix:
-        include:
-          - name: ${{ inputs.job-name-prefix }}
-    outputs:
-      includes: ${{ steps.set.outputs.includes }}
-      metaImages: ${{ steps.set.outputs.metaImages }}
-      sign: ${{ steps.set.outputs.sign }}
-      privateRepo: ${{ steps.set.outputs.privateRepo }}
-      ghaCacheSign: ${{ steps.set.outputs.ghaCacheSign }}
-      proxyNetwork: ${{ steps.set.outputs.proxyNetwork }}
-      registryLogin: ${{ steps.set.outputs.registryLogin }}
-    steps:
-      -
-        name: Install dependencies
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_RUNTIME-MODULE: ${{ env.RUNTIME_MODULE }}
-          INPUT_RUNTIME-INSTALL-ARGS: ${{ env.RUNTIME_INSTALL_ARGS }}
-        with:
-          script: |
-            const npmArgs = ['install', ...core.getMultilineInput('runtime-install-args'), core.getInput('runtime-module')];
-            const maxAttempts = 3;
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              const exitCode = await exec.exec('npm', npmArgs, {ignoreReturnCode: true});
-              if (exitCode === 0) {
-                return;
-              }
-              if (attempt === maxAttempts) {
-                core.setFailed(`npm install failed after ${maxAttempts} attempts`);
-                return;
-              }
-              const retryDelayMs = attempt * 50;
-              core.info(`npm install failed with exit code ${exitCode}; retrying in ${retryDelayMs}ms`);
-              await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-            }
-      -
-        name: Install Cosign
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
-        with:
-          script: |
-            const { Cosign } = require('@docker/github-builder-runtime/lib/cosign/cosign');
-            const { Install } = require('@docker/github-builder-runtime/lib/cosign/install');
-
-            const inpCosignVersion = core.getInput('cosign-version');
-
-            const cosignInstall = new Install();
-            const cosignBinPath = await cosignInstall.download({
-              version: core.getInput('cosign-version'),
-              ghaNoCache: true,
-              skipState: true,
-              verifySignature: true
-            });
-            const cosignPath = await cosignInstall.install(cosignBinPath);
-
-            const cosign = new Cosign();
-            await cosign.printVersion();
-      -
-        name: Check dependencies signatures
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_IMAGES: |
-            ${{ env.BUILDKIT_IMAGE }}
-            ${{ env.SBOM_IMAGE }}
-            ${{ env.BINFMT_IMAGE }}
-        with:
-          script: |
-            const { OCI } = require('@docker/github-builder-runtime/lib/oci/oci');
-            const { Sigstore } = require('@docker/github-builder-runtime/lib/sigstore/sigstore');
-
-            const sigstore = new Sigstore();
-
-            for (const image of core.getMultilineInput('images')) {
-              try {
-                await core.group(`Verifying ${image}`, async () => {
-                  await sigstore.verifyImageAttestations(image, {
-                    certificateIdentityRegexp: `^https://github.com/docker/github-builder(-experimental)?/.github/workflows/bake.yml.*$`,
-                    platform: OCI.defaultPlatform()
-                  });
-                });
-              } catch (error) {
-                core.setFailed(`Failed to verify ${image}: ${error.message || error}`);
-                return;
-              }
-            }
-      -
-        name: Set outputs
-        id: set
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
-          INPUT_META-IMAGES: ${{ inputs.meta-images }}
-          INPUT_RUNNER: ${{ inputs.runner }}
-          INPUT_DISTRIBUTE: ${{ inputs.distribute }}
-          INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
-          INPUT_JOB-NAME-PREFIX: ${{ inputs.job-name-prefix }}
-          INPUT_OUTPUT: ${{ inputs.output }}
-          INPUT_PLATFORMS: ${{ inputs.platforms }}
-          INPUT_PUSH: ${{ inputs.push }}
-          INPUT_REGISTRY-LOGIN: ${{ inputs.registry-login }}
-          INPUT_SIGN: ${{ inputs.sign }}
-          INPUT_BUILDKIT-PROXY-NETWORK: ${{ inputs.buildkit-proxy-network }}
-        with:
-          script: |
-            const { GitHub } = require('@docker/github-builder-runtime/lib/github/github');
-            const { RunnerMapping } = require('@docker/github-builder-runtime/lib/github-builder/runner-mapping');
-            const { Util } = require('@docker/github-builder-runtime/lib/util');
-
-            const inpMatrixSizeLimit = parseInt(core.getInput('matrix-size-limit'), 10);
-            const inpMetaImages = core.getMultilineInput('meta-images');
-            const actionsIdTokenSet = !!process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN && !!process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
-
-            const inpRunner = core.getMultilineInput('runner');
-            const inpDistribute = core.getBooleanInput('distribute');
-            const inpArtifactUpload = core.getBooleanInput('artifact-upload');
-            const inpJobNamePrefix = core.getInput('job-name-prefix');
-            const inpPlatforms = Util.getInputList('platforms');
-            const inpOutput = core.getInput('output');
-            const inpPush = core.getBooleanInput('push');
-            const inpRegistryLogin = core.getInput('registry-login');
-            const inpSign = core.getInput('sign');
-            const inpProxyNetwork = core.getBooleanInput('buildkit-proxy-network');
-
-            let runnerConfig;
-            try {
-              runnerConfig = RunnerMapping.parse(inpRunner);
-            } catch (error) {
-              core.setFailed(error.message);
-              return;
-            }
-            await core.group(`Set runner config`, async () => {
-              core.info(JSON.stringify(runnerConfig, null, 2));
-            });
-
-            const sign =
-              inpSign === 'auto'
-              ? (inpOutput === 'image' && inpPush) || (inpOutput === 'local' && inpArtifactUpload)
-              : inpSign === 'true';
-
-            if (inpOutput === 'local' && inpPush) {
-              core.warning(`push is ignored when output is local`);
-            } else if (inpOutput === 'image' && inpArtifactUpload) {
-              core.warning(`artifact-upload is ignored when output is image`);
-            }
-            if (inpOutput === 'image' && !inpPush && sign) {
-              core.setFailed(`signing attestation manifests requires push to be enabled`);
-              return;
-            }
-
-            if (!['auto', 'true', 'false'].includes(inpRegistryLogin)) {
-              core.setFailed(`Invalid registry-login input: ${inpRegistryLogin}`);
-              return;
-            }
-            const registryLogin = inpRegistryLogin === 'auto' ? inpOutput === 'image' && inpPush : inpRegistryLogin === 'true';
-
-            if (inpDistribute && inpPlatforms.length > inpMatrixSizeLimit) {
-              core.setFailed(`Platforms to build exceed matrix size limit of ${inpMatrixSizeLimit}`);
-              return;
-            }
-
-            const privateRepo = GitHub.context.payload.repository?.private ?? false;
-            await core.group(`Set privateRepo output`, async () => {
-              core.info(`privateRepo: ${privateRepo}`);
-              core.setOutput('privateRepo', privateRepo);
-            });
-
-            await core.group(`Set proxyNetwork output`, async () => {
-              const proxyNetwork = inpProxyNetwork ? 'true' : 'false';
-              core.info(`proxyNetwork: ${proxyNetwork}`);
-              core.setOutput('proxyNetwork', proxyNetwork);
-            });
-
-            const metaImages = inpMetaImages.map(image => image.toLowerCase());
-            await core.group(`Set metaImages output`, async () => {
-              core.info(JSON.stringify(metaImages, null, 2));
-              core.setOutput('metaImages', metaImages.join('\n'));
-            });
-
-            await core.group(`Set includes output`, async () => {
-              const withJobNamePrefix = include => {
-                if (inpJobNamePrefix) {
-                  return {name: inpJobNamePrefix, ...include};
-                }
-                return include;
-              };
-              let includes = [];
-              if (!inpDistribute || inpPlatforms.length === 0) {
-                includes.push(withJobNamePrefix({
-                  index: 0,
-                  runner: RunnerMapping.resolve(runnerConfig)
-                }));
-              } else {
-                inpPlatforms.forEach((platform, index) => {
-                  includes.push(withJobNamePrefix({
-                    index: index,
-                    platform: platform,
-                    runner: RunnerMapping.resolve(runnerConfig, platform)
-                  }));
-                });
-              }
-              core.info(JSON.stringify(includes, null, 2));
-              core.setOutput('includes', JSON.stringify(includes));
-            });
-            await core.group(`Set sign output`, async () => {
-              core.info(`sign: ${sign}`);
-              core.setOutput('sign', sign);
-            });
-            await core.group(`Set ghaCacheSign output`, async () => {
-              const ghaCacheSign = actionsIdTokenSet ? 'true' : 'false';
-              core.info(`ghaCacheSign: ${ghaCacheSign}`);
-              core.setOutput('ghaCacheSign', ghaCacheSign);
-            });
-            await core.group(`Set registryLogin output`, async () => {
-              core.info(`registryLogin: ${registryLogin}`);
-              core.setOutput('registryLogin', registryLogin);
-            });
-
   build:
-    runs-on: ${{ matrix.runner }}
-    needs:
-      - registry-identities
-      - prepare
-    env:
-      DOCKER_BUILD_SUMMARY: false
-      REGISTRY_AUTHS_PRESENT: ${{ secrets.registry-auths != '' }}
+    name: Build ${{ matrix.arch }} image
+    if: inputs.phase == 'build'
+    runs-on: ${{ format('blacksmith-{0}vcpu-ubuntu-2404{1}', inputs.cpus, matrix.arch == 'arm64' && '-arm' || '') }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     strategy:
-      fail-fast: ${{ inputs.fail-fast }}
+      fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.prepare.outputs.includes) }}
-    outputs:
-      # needs predefined outputs as we can't use dynamic ones atm: https://github.com/actions/runner/pull/2477
-      # 20 is the maximum number of platforms supported by our matrix strategy
-      result_0: ${{ steps.result.outputs.result_0 }}
-      result_1: ${{ steps.result.outputs.result_1 }}
-      result_2: ${{ steps.result.outputs.result_2 }}
-      result_3: ${{ steps.result.outputs.result_3 }}
-      result_4: ${{ steps.result.outputs.result_4 }}
-      result_5: ${{ steps.result.outputs.result_5 }}
-      result_6: ${{ steps.result.outputs.result_6 }}
-      result_7: ${{ steps.result.outputs.result_7 }}
-      result_8: ${{ steps.result.outputs.result_8 }}
-      result_9: ${{ steps.result.outputs.result_9 }}
-      result_10: ${{ steps.result.outputs.result_10 }}
-      result_11: ${{ steps.result.outputs.result_11 }}
-      result_12: ${{ steps.result.outputs.result_12 }}
-      result_13: ${{ steps.result.outputs.result_13 }}
-      result_14: ${{ steps.result.outputs.result_14 }}
-      result_15: ${{ steps.result.outputs.result_15 }}
-      result_16: ${{ steps.result.outputs.result_16 }}
-      result_17: ${{ steps.result.outputs.result_17 }}
-      result_18: ${{ steps.result.outputs.result_18 }}
-      result_19: ${{ steps.result.outputs.result_19 }}
+        arch: [amd64, arm64]
     steps:
-      -
-        name: Require supported Linux runner
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_RUNNER-ENVIRONMENT: ${{ runner.environment }}
-          INPUT_RUNNER-OS: ${{ runner.os }}
-          INPUT_BLACKSMITH-CACHE: ${{ inputs.blacksmith-cache }}
-        with:
-          script: |
-            const runnerEnvironment = core.getInput('runner-environment');
-            const runnerOS = core.getInput('runner-os');
-            const blacksmith = core.getBooleanInput('blacksmith-cache') && !!process.env.BLACKSMITH_VM_ID;
-            if ((runnerEnvironment !== 'github-hosted' && !blacksmith) || runnerOS !== 'Linux') {
-              core.setFailed(`This workflow requires a GitHub-hosted or Blacksmith Linux runner, got: environment=${runnerEnvironment || 'unknown'}, os=${runnerOS || 'unknown'}`);
-            }
-      -
-        name: Install dependencies
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_RUNTIME-MODULE: ${{ env.RUNTIME_MODULE }}
-          INPUT_RUNTIME-INSTALL-ARGS: ${{ env.RUNTIME_INSTALL_ARGS }}
-        with:
-          script: |
-            const npmArgs = ['install', ...core.getMultilineInput('runtime-install-args'), core.getInput('runtime-module')];
-            const maxAttempts = 3;
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              const exitCode = await exec.exec('npm', npmArgs, {ignoreReturnCode: true});
-              if (exitCode === 0) {
-                return;
-              }
-              if (attempt === maxAttempts) {
-                core.setFailed(`npm install failed after ${maxAttempts} attempts`);
-                return;
-              }
-              const retryDelayMs = attempt * 50;
-              core.info(`npm install failed with exit code ${exitCode}; retrying in ${retryDelayMs}ms`);
-              await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-            }
-      -
-        name: Docker meta
-        id: meta
-        if: ${{ inputs.output == 'image' }}
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ needs.prepare.outputs.metaImages }}
-          tags: ${{ inputs.meta-tags }}
-          flavor: ${{ inputs.meta-flavor }}
-          labels: ${{ inputs.meta-labels }}
-          annotations: ${{ inputs.meta-annotations }}
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-        if: ${{ inputs.setup-qemu }}
-        with:
-          image: ${{ env.BINFMT_IMAGE }}
-          cache-image: false
-      -
-        name: Set GitHub runtime outputs
-        id: github-runtime
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const idTokenRequestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN || '';
-            const idTokenRequestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL || '';
-            if (idTokenRequestToken) {
-              core.setSecret(idTokenRequestToken);
-            }
-            if (idTokenRequestUrl) {
-              core.setSecret(idTokenRequestUrl);
-            }
-            core.setOutput('actions-id-token-request-token', idTokenRequestToken);
-            core.setOutput('actions-id-token-request-url', idTokenRequestUrl);
-      -
-        name: Restore persistent Docker layers
-        if: ${{ inputs.blacksmith-cache }}
+      - name: Restore persistent Docker layers
         uses: useblacksmith/stickydisk@58353272695835d240e918fd2a15b3900d340753
         env:
-          BLACKSMITH_METRICS_HTTP_PORT: ''
+          BLACKSMITH_METRICS_HTTP_PORT: ""
         with:
-          key: github-builder-${{ inputs.cache-scope || inputs.file || inputs.context }}-${{ matrix.platform }}
+          key: github-builder-${{ inputs.cache-scope || inputs.file || inputs.context }}-linux/${{ matrix.arch }}
           path: /mnt/github-builder-cache
-      -
-        name: Attach persistent BuildKit state
-        if: ${{ inputs.blacksmith-cache }}
+
+      - name: Attach persistent BuildKit state
         run: docker volume create --driver local --opt type=none --opt device=/mnt/github-builder-cache --opt o=bind buildx_buildkit_github-builder0_state
-      -
-        name: Set up Docker Buildx
-        id: buildx
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          name: ${{ inputs.blacksmith-cache && 'github-builder' || '' }}
-          keep-state: ${{ inputs.blacksmith-cache }}
-          version: ${{ env.BUILDX_VERSION }}
+          name: github-builder
+          keep-state: true
+          version: v0.38.0
           cache-binary: false
-          buildkitd-flags: --debug
-          driver-opts: |
-            image=${{ env.BUILDKIT_IMAGE }}
-            env.ACTIONS_ID_TOKEN_REQUEST_TOKEN=${{ steps.github-runtime.outputs.actions-id-token-request-token }}
-            env.ACTIONS_ID_TOKEN_REQUEST_URL=${{ steps.github-runtime.outputs.actions-id-token-request-url }}
-          buildkitd-config-inline: |
-            proxyNetwork = ${{ needs.prepare.outputs.proxyNetwork }}
+          driver-opts: image=moby/buildkit:v0.34.0@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c
 
-            [cache]
-              [cache.gha]
-                [cache.gha.sign]
-                  command = [${{ needs.prepare.outputs.ghaCacheSign == 'true' && '"ghacache-sign-script.sh"' || '' }}]
-                [cache.gha.verify]
-                  required = ${{ needs.prepare.outputs.ghaCacheSign }}
-                  [cache.gha.verify.policy]
-                    timestampThreshold = 1
-                    tlogThreshold = ${{ needs.prepare.outputs.privateRepo == 'true' && '0' || '1' }}
-                    subjectAlternativeName = "https://github.com/AstralBeamAI/astralbeam/.github/workflows/build-image.yml*"
-                    githubWorkflowRepository = "${{ github.repository }}"
-                    issuer = "https://token.actions.githubusercontent.com"
-                    runnerEnvironment = "github-hosted"
-                    sourceRepositoryURI = "${{ github.server_url }}/${{ github.repository }}"
-      -
-        name: Install Cosign
-        if: ${{ needs.prepare.outputs.sign == 'true' || inputs.cache }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
-          INPUT_BUILDER-NAME: ${{ steps.buildx.outputs.name }}
-          INPUT_GHA-CACHE-SIGN-SCRIPT: |
-            #!/bin/sh
-            set -e
-
-            # Create temporary files
-            tmp_dir=$(mktemp -d)
-            out_file="$tmp_dir/bundle"
-            in_file="$tmp_dir/blob"
-            signing_config="$tmp_dir/signing-config.json"
-            trap 'rm -rf "$tmp_dir"' EXIT
-            cat > "$in_file"
-
-            no_default_rekor=
-            if [ "${{ needs.prepare.outputs.privateRepo }}" = "true" ]; then
-              no_default_rekor="--no-default-rekor=true"
-            fi
-
-            set -x
-
-            # Create signing config
-            COSIGN_EXPERIMENTAL=1 cosign signing-config create \
-              --with-default-services=true \
-              ${no_default_rekor:+$no_default_rekor} \
-              --out="$signing_config"
-
-            # Sign with cosign
-            cosign sign-blob \
-              --yes \
-              --oidc-provider github-actions \
-              --new-bundle-format \
-              --signing-config "$signing_config" \
-              --bundle "$out_file" \
-              "$in_file"
-
-            # Output bundle to stdout
-            cat "$out_file"
-        with:
-          script: |
-            const fs = require('fs');
-            const os = require('os');
-            const path = require('path');
-
-            const { Buildx } = require('@docker/github-builder-runtime/lib/buildx/buildx');
-            const { Cosign } = require('@docker/github-builder-runtime/lib/cosign/cosign');
-            const { Install } = require('@docker/github-builder-runtime/lib/cosign/install');
-
-            const inpCosignVersion = core.getInput('cosign-version');
-            const inpBuilderName = core.getInput('builder-name');
-            const inpGHACacheSignScript = core.getInput('gha-cache-sign-script');
-
-            const cosignInstall = new Install();
-            const cosignBinPath = await cosignInstall.download({
-              version: core.getInput('cosign-version'),
-              ghaNoCache: true,
-              skipState: true,
-              verifySignature: true
-            });
-            const cosignPath = await cosignInstall.install(cosignBinPath);
-
-            const cosign = new Cosign();
-            await cosign.printVersion();
-
-            const containerName = `${Buildx.containerNamePrefix}${inpBuilderName}0`;
-
-            const ghaCacheSignScriptPath = path.join(os.tmpdir(), `ghacache-sign-script.sh`);
-            core.info(`Writing GitHub Actions cache sign script to ${ghaCacheSignScriptPath}`);
-            await fs.writeFileSync(ghaCacheSignScriptPath, inpGHACacheSignScript, {mode: 0o700});
-
-            core.info(`Copying GitHub Actions cache sign script to BuildKit container ${containerName}`);
-            await exec.exec('docker', [
-              'cp',
-              ghaCacheSignScriptPath,
-              `${containerName}:/usr/bin/ghacache-sign-script.sh`
-            ]);
-
-            core.info(`Copying cosign binary to BuildKit container ${containerName}`);
-            await exec.exec('docker', [
-              'cp',
-              cosignPath,
-              `${containerName}:/usr/bin/cosign`
-            ]);
-      -
-        name: Configure AWS credentials
-        if: ${{ needs.registry-identities.outputs.aws-ecr-enabled == 'true' }}
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ needs.registry-identities.outputs.aws-ecr-role-to-assume }}
-          aws-region: ${{ needs.registry-identities.outputs.aws-ecr-region }}
-      -
-        name: Login to Amazon ECR
-        if: ${{ needs.registry-identities.outputs.aws-ecr-enabled == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        env:
-          AWS_ACCOUNT_IDS: ${{ needs.registry-identities.outputs.aws-ecr-account-ids }}
-        with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.aws-ecr-registry }}
-      -
-        name: Authenticate to Google Cloud
-        id: gcp-wif-auth
-        if: ${{ needs.registry-identities.outputs.gcp-wif-enabled == 'true' }}
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          token_format: access_token
-          workload_identity_provider: ${{ needs.registry-identities.outputs.gcp-wif-workload-identity-provider }}
-          service_account: ${{ needs.registry-identities.outputs.gcp-wif-service-account }}
-          project_id: ${{ needs.registry-identities.outputs.gcp-wif-project-id }}
-          create_credentials_file: false
-          export_environment_variables: false
-      -
-        name: Login to Google Artifact Registry
-        if: ${{ needs.registry-identities.outputs.gcp-wif-enabled == 'true' }}
+      - name: Log in to GHCR for digest staging
+        if: inputs.push
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.gcp-wif-registry }}
-              username: oauth2accesstoken
-              password: ${{ steps.gcp-wif-auth.outputs.access_token }}
-      -
-        name: Login to Docker Hub with OIDC
-        if: ${{ needs.registry-identities.outputs.dockerhub-oidc-enabled == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        env:
-          DOCKERHUB_OIDC_CONNECTIONID: ${{ needs.registry-identities.outputs.dockerhub-oidc-connection-id }}
-        with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.dockerhub-oidc-registry }}
-              username: ${{ needs.registry-identities.outputs.dockerhub-oidc-username }}
-              scope: ${{ needs.registry-identities.outputs.dockerhub-oidc-scope }}
-      -
-        name: Authenticate to Azure
-        if: ${{ needs.registry-identities.outputs.azure-acr-enabled == 'true' }}
-        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
-        with:
-          client-id: ${{ needs.registry-identities.outputs.azure-acr-client-id }}
-          tenant-id: ${{ needs.registry-identities.outputs.azure-acr-tenant-id }}
-          subscription-id: ${{ needs.registry-identities.outputs.azure-acr-subscription-id }}
-      -
-        name: Login to Azure Container Registry
-        if: ${{ needs.registry-identities.outputs.azure-acr-enabled == 'true' }}
-        env:
-          ACR_REGISTRY: ${{ needs.registry-identities.outputs.azure-acr-registry }}
-          AZURE_CORE_OUTPUT: none
-        run: az acr login --name "${ACR_REGISTRY%.azurecr.io}"
-      -
-        name: Set up chainctl
-        if: ${{ needs.registry-identities.outputs.chainguard-enabled == 'true' }}
-        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28 # v0.5.1
-        with:
-          identity: ${{ needs.registry-identities.outputs.chainguard-identity }}
-          apk-host: ${{ needs.registry-identities.outputs.chainguard-apk-host }}
-          libraries-host: ${{ needs.registry-identities.outputs.chainguard-libraries-host }}
-      -
-        name: Login to registry
-        if: ${{ needs.prepare.outputs.registryLogin == 'true' && env.REGISTRY_AUTHS_PRESENT == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry-auth: ${{ secrets.registry-auths }}
-      -
-        name: Prepare
-        id: prepare
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_PLATFORM: ${{ matrix.platform }}
-          INPUT_SBOM-IMAGE: ${{ env.SBOM_IMAGE }}
-          INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
-          INPUT_DISTRIBUTE: ${{ inputs.distribute }}
-          INPUT_ANNOTATIONS: ${{ inputs.annotations }}
-          INPUT_BUILD-ARGS: ${{ inputs.build-args }}
-          INPUT_CACHE: ${{ inputs.cache }}
-          INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
-          INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
-          INPUT_BUILDKIT-PROXY-NETWORK: ${{ inputs.buildkit-proxy-network }}
-          INPUT_BUILD-SECRETS: ${{ secrets.build-secrets }}
-          INPUT_LABELS: ${{ inputs.labels }}
-          INPUT_CONTEXT: ${{ inputs.context }}
-          INPUT_OUTPUT: ${{ inputs.output }}
-          INPUT_PLATFORMS: ${{ inputs.platforms }}
-          INPUT_PUSH: ${{ inputs.push }}
-          INPUT_SBOM: ${{ inputs.sbom }}
-          INPUT_TARGET: ${{ inputs.target }}
-          INPUT_META-IMAGES: ${{ needs.prepare.outputs.metaImages }}
-          INPUT_META-VERSION: ${{ steps.meta.outputs.version }}
-          INPUT_META-TAGS: ${{ steps.meta.outputs.tags }}
-          INPUT_SET-META-ANNOTATIONS: ${{ inputs.set-meta-annotations }}
-          INPUT_META-ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
-          INPUT_SET-META-LABELS: ${{ inputs.set-meta-labels }}
-          INPUT_META-LABELS: ${{ steps.meta.outputs.labels }}
-        with:
-          script: |
-            const { Build } = require('@docker/github-builder-runtime/lib/buildx/build');
-            const { BuildSecrets } = require('@docker/github-builder-runtime/lib/github-builder/build-secrets');
-            const { GitHub } = require('@docker/github-builder-runtime/lib/github/github');
-            const { Util } = require('@docker/github-builder-runtime/lib/util');
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-            const inpPlatform = core.getInput('platform');
-            const platformPairSuffix = inpPlatform ? `-${inpPlatform.replace(/\//g, '-')}` : '';
-            core.setOutput('platform-pair-suffix', platformPairSuffix);
-
-            const inpSbomImage = core.getInput('sbom-image');
-            const inpLocalExportDir = core.getInput('local-export-dir');
-            const inpDistribute = core.getBooleanInput('distribute');
-
-            const inpAnnotations = core.getInput('annotations');
-            const inpBuildArgs = core.getInput('build-args');
-            const inpCache = core.getBooleanInput('cache');
-            const inpCacheScope = core.getInput('cache-scope');
-            const inpCacheMode = core.getInput('cache-mode');
-            const inpBuildSecrets = core.getInput('build-secrets', {trimWhitespace: false});
-            const inpContext = core.getInput('context');
-            const inpLabels = core.getInput('labels');
-            const inpOutput = core.getInput('output');
-            const inpPlatforms = core.getInput('platforms');
-            const inpPush = core.getBooleanInput('push');
-            const inpSbom = core.getBooleanInput('sbom');
-            const inpTarget = core.getInput('target');
-            const inpBuildkitProxyNetwork = core.getBooleanInput('buildkit-proxy-network');
-
-            const inpMetaImages = core.getMultilineInput('meta-images');
-            const inpMetaVersion = core.getInput('meta-version');
-            const inpMetaTags = core.getMultilineInput('meta-tags');
-            const inpSetMetaAnnotations = core.getBooleanInput('set-meta-annotations');
-            const inpMetaAnnotations = core.getMultilineInput('meta-annotations');
-            const inpSetMetaLabels = core.getBooleanInput('set-meta-labels');
-            const inpMetaLabels = core.getMultilineInput('meta-labels');
-
-            const meta = {
-              version: inpMetaVersion,
-              tags: inpMetaTags
-            };
-            const renderTemplate = value => Util.compileHandlebars(value, {noEscape: true}, {meta});
-
-            const gitContextAttrs = GitHub.context.ref.startsWith('refs/tags/') ? {checksum: GitHub.context.sha} : {'fetch-by-commit': 'true'};
-            const buildContext = await new Build().gitContext({subdir: inpContext, attrs: gitContextAttrs});
-            core.setOutput('context', buildContext);
-
-            switch (inpOutput) {
-              case 'image':
-                if (inpMetaImages.length == 0) {
-                  core.setFailed('meta-images is required when output is image');
-                  return;
-                }
-                core.setOutput('output', `type=image,"name=${inpMetaImages.join(',')}",oci-artifact=true,push-by-digest=true,name-canonical=true,push=${inpPush}`);
-                break;
-              case 'local':
-                core.setOutput('output', `type=local,platform-split=true,dest=${inpLocalExportDir}`);
-                break;
-              default:
-                core.setFailed(`Invalid output: ${inpOutput}`);
-                return;
-            }
-
-            if (inpPlatform) {
-              core.setOutput('platform', inpPlatform);
-            } else if (!inpDistribute && inpPlatforms) {
-              core.setOutput('platform', inpPlatforms);
-            }
-
-            core.setOutput('sbom', inpSbom ? `generator=${inpSbomImage}` : 'false');
-
-            if (inpCache) {
-              const proxyNetworkSuffix = inpBuildkitProxyNetwork ? '-proxy-network' : '';
-              core.setOutput('cache-from', `type=gha,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix}${proxyNetworkSuffix}`);
-              core.setOutput('cache-to', `type=gha,ignore-error=true,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix}${proxyNetworkSuffix},mode=${inpCacheMode}`);
-            }
-
-            let annotations;
-            let labels;
-            let buildArgs;
-            try {
-              const toMultilineInput = value => value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-              annotations = toMultilineInput(renderTemplate(inpAnnotations));
-              labels = toMultilineInput(renderTemplate(inpLabels));
-              buildArgs = renderTemplate(inpBuildArgs);
-            } catch (err) {
-              core.setFailed(`Failed to render Handlebars template: ${err.message}`);
-              return;
-            }
-
-            if (inpSetMetaAnnotations && inpMetaAnnotations.length > 0) {
-              annotations.push(...inpMetaAnnotations);
-            }
-            core.setOutput('annotations', annotations.join('\n'));
-
-            if (inpSetMetaLabels && inpMetaLabels.length > 0) {
-              labels.push(...inpMetaLabels);
-            }
-            core.setOutput('labels', labels.join('\n'));
-            core.setOutput('build-args', buildArgs);
-
-            let buildSecrets;
-            try {
-              buildSecrets = BuildSecrets.prepareBuild(inpBuildSecrets);
-            } catch (err) {
-              core.setFailed(err.message);
-              return;
-            }
-            core.setOutput('secret-dir', buildSecrets.directory);
-            core.setOutput('secret-files', buildSecrets.inputs.join('\n'));
-
-            if (GitHub.context.payload.repository?.private ?? false) {
-              // if this is a private repository, we set min provenance mode
-              core.setOutput('provenance', Build.resolveProvenanceAttrs(`mode=min,version=v1`));
-            } else {
-              // for a public repository, we set max provenance mode
-              core.setOutput('provenance', Build.resolveProvenanceAttrs(`mode=max,version=v1`));
-            }
-      -
-        name: Build
+      - name: Build the image without release tags
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          annotations: ${{ steps.prepare.outputs.annotations }}
-          build-args: ${{ steps.prepare.outputs.build-args }}
-          cache-from: ${{ steps.prepare.outputs.cache-from }}
-          cache-to: ${{ steps.prepare.outputs.cache-to }}
-          context: ${{ steps.prepare.outputs.context }}
+          context: ${{ github.server_url }}/${{ github.repository }}.git#${{ github.sha }}:${{ inputs.context }}
           file: ${{ inputs.file }}
-          labels: ${{ steps.prepare.outputs.labels }}
-          outputs: ${{ steps.prepare.outputs.output }}
-          platforms: ${{ steps.prepare.outputs.platform }}
-          provenance: ${{ steps.prepare.outputs.provenance }}
-          sbom: ${{ steps.prepare.outputs.sbom }}
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            BUILDKIT_MULTI_PLATFORM=1
+            ${{ inputs.build-args }}
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},oci-artifact=true,push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
+          provenance: mode=max,version=v1
+          sbom: generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
           secret-envs: GIT_AUTH_TOKEN=GIT_AUTH_TOKEN
-          secret-files: ${{ steps.prepare.outputs.secret-files }}
-          shm-size: ${{ inputs.shm-size }}
-          target: ${{ inputs.target }}
-          ulimit: ${{ inputs.ulimit }}
         env:
-          BUILDKIT_MULTI_PLATFORM: 1
-          GIT_AUTH_TOKEN: ${{ secrets.github-token || github.token }}
-      -
-        name: Remove build secrets
-        if: ${{ always() && steps.prepare.outputs.secret-dir != '' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+          GIT_AUTH_TOKEN: ${{ github.token }}
+
+      - name: Record the image digest
         env:
-          INPUT_SECRET-DIR: ${{ steps.prepare.outputs.secret-dir }}
-        with:
-          script: |
-            const { BuildSecrets } = require('@docker/github-builder-runtime/lib/github-builder/build-secrets');
-            BuildSecrets.cleanup(core.getInput('secret-dir', {required: true}));
-      -
-        name: Login to registry for signing
-        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'image' && env.REGISTRY_AUTHS_PRESENT == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry-auth: ${{ secrets.registry-auths }}
-        env:
-          DOCKER_LOGIN_SCOPE_DISABLED: true # make sure the scope feature is disabled to avoid interfering with cosign OIDC login
-      -
-        name: Signing attestation manifests
-        id: signing-attestation-manifests
-        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'image' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_IMAGE-NAMES: ${{ needs.prepare.outputs.metaImages }}
-          INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
-        with:
-          script: |
-            const { Sigstore } = require('@docker/github-builder-runtime/lib/sigstore/sigstore');
-
-            const inpImageNames = core.getMultilineInput('image-names');
-            const inpImageDigest = core.getInput('image-digest');
-
-            const sigstore = new Sigstore();
-            const signResults = await sigstore.signAttestationManifests({
-              imageNames: inpImageNames,
-              imageDigest: inpImageDigest,
-              retryOnManifestUnknown: true
-            });
-
-            const verifyResults = await sigstore.verifySignedManifests(signResults, {
-              certificateIdentityRegexp: `^https://github.com/AstralBeamAI/astralbeam/.github/workflows/build-image.yml.*$`,
-              retryOnManifestUnknown: true
-            });
-
-            await core.group(`Verify commands`, async () => {
-              const verifyCommands = [];
-              for (const [attestationRef, verifyResult] of Object.entries(verifyResults)) {
-                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} ${attestationRef}`;
-                core.info(cmd);
-                verifyCommands.push(cmd);
-              }
-              core.setOutput('verify-commands', verifyCommands.join('\n'));
-            });
-      -
-        name: Signing local artifacts
-        id: signing-local-artifacts
-        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'local' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
-        with:
-          script: |
-            const path = require('path');
-            const { Sigstore } = require('@docker/github-builder-runtime/lib/sigstore/sigstore');
-            const inplocalExportDir = core.getInput('local-output-dir');
-
-            const sigstore = new Sigstore();
-            const signResults = await sigstore.signProvenanceBlobs({
-              localExportDir: inplocalExportDir
-            });
-
-            const verifyResults = await sigstore.verifySignedArtifacts(signResults, {
-              certificateIdentityRegexp: `^https://github.com/AstralBeamAI/astralbeam/.github/workflows/build-image.yml.*$`
-            });
-
-            await core.group(`Verify commands`, async () => {
-              const verifyCommands = [];
-              for (const [artifactPath, verifyResult] of Object.entries(verifyResults)) {
-                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} --bundle ${path.relative(inplocalExportDir, verifyResult.bundlePath)} ${path.relative(inplocalExportDir, artifactPath)}`;
-                core.info(cmd);
-                verifyCommands.push(cmd);
-              }
-              core.setOutput('verify-commands', verifyCommands.join('\n'));
-            });
-      -
-        name: List local output
-        if: ${{ inputs.output == 'local' }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          tree -nh ${{ env.LOCAL_EXPORT_DIR }}
-      -
-        name: Upload artifact
-        if: ${{ inputs.output == 'local' && inputs.artifact-upload }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          test -n "$DIGEST"
+          mkdir -p "$RUNNER_TEMP/image-digest"
+          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/image-digest/${{ matrix.arch }}"
+
+      - name: Upload the image digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ inputs.artifact-name }}${{ steps.prepare.outputs.platform-pair-suffix || '0' }}
-          path: ${{ env.LOCAL_EXPORT_DIR }}
+          name: image-digest-${{ inputs.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/image-digest/${{ matrix.arch }}
           if-no-files-found: error
-          retention-days: ${{ inputs.artifact-retention-days }}
-      -
-        name: Set result output
-        id: result
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_INDEX: ${{ matrix.index }}
-          INPUT_VERIFY-COMMANDS: ${{ steps.signing-attestation-manifests.outputs.verify-commands || steps.signing-local-artifacts.outputs.verify-commands }}
-          INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
-          INPUT_ARTIFACT-NAME: ${{ inputs.artifact-name }}${{ steps.prepare.outputs.platform-pair-suffix }}
-          INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
-          INPUT_SIGNED: ${{ needs.prepare.outputs.sign }}
-        with:
-          script: |
-            const inpIndex = core.getInput('index');
-            const inpVerifyCommands = core.getInput('verify-commands');
-            const inpImageDigest = core.getInput('image-digest');
-            const inpArtifactName = core.getInput('artifact-name');
-            const inpArtifactUpload = core.getBooleanInput('artifact-upload');
-            const inpSigned = core.getBooleanInput('signed');
 
-            const result = {
-              verifyCommands: inpVerifyCommands,
-              imageDigest: inpImageDigest,
-              artifactName: inpArtifactUpload ? inpArtifactName : '',
-              signed: inpSigned
-            }
-            core.info(JSON.stringify(result, null, 2));
-
-            core.setOutput(`result_${inpIndex}`, JSON.stringify(result));
-
-  finalize:
-    runs-on: ubuntu-26.04
-    strategy:
-      matrix:
-        include:
-          - name: ${{ inputs.job-name-prefix }}
-    outputs:
-      meta-json: ${{ steps.meta.outputs.json }}
-      cosign-version: ${{ env.COSIGN_VERSION }}
-      cosign-verify-commands: ${{ steps.set.outputs.cosign-verify-commands }}
-      artifact-name: ${{ inputs.artifact-upload && inputs.artifact-name || '' }}
-      digest: ${{ steps.manifest.outputs.digest || steps.artifact.outputs.artifact-digest }}
-      output-type: ${{ inputs.output }}
-      signed: ${{ needs.prepare.outputs.sign }}
-    needs:
-      - registry-identities
-      - prepare
-      - build
+  publish:
+    name: Publish the verified image
+    if: inputs.phase == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     env:
-      REGISTRY_AUTHS_PRESENT: ${{ secrets.registry-auths != '' }}
+      CERTIFICATE_IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/build-image.yml@${{ github.ref }}
+      COSIGN_EXPERIMENTAL: "1"
     steps:
-      -
-        name: Install dependencies
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_RUNTIME-MODULE: ${{ env.RUNTIME_MODULE }}
-          INPUT_RUNTIME-INSTALL-ARGS: ${{ env.RUNTIME_INSTALL_ARGS }}
+      - name: Download both image digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          script: |
-            const npmArgs = ['install', ...core.getMultilineInput('runtime-install-args'), core.getInput('runtime-module')];
-            const maxAttempts = 3;
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              const exitCode = await exec.exec('npm', npmArgs, {ignoreReturnCode: true});
-              if (exitCode === 0) {
-                return;
-              }
-              if (attempt === maxAttempts) {
-                core.setFailed(`npm install failed after ${maxAttempts} attempts`);
-                return;
-              }
-              const retryDelayMs = attempt * 50;
-              core.info(`npm install failed with exit code ${exitCode}; retrying in ${retryDelayMs}ms`);
-              await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-            }
-      -
-        name: Docker meta
+          pattern: image-digest-${{ inputs.image }}-*
+          merge-multiple: true
+          path: digests
+
+      - name: Validate both image digests
+        run: |
+          for arch in amd64 arm64; do
+            digest="$(cat "digests/$arch")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          done
+
+      - name: Generate release tag metadata
         id: meta
-        if: ${{ inputs.output == 'image' }}
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ needs.prepare.outputs.metaImages }}
-          tags: ${{ inputs.meta-tags }}
-          flavor: ${{ inputs.meta-flavor }}
-          labels: ${{ inputs.meta-labels }}
-          annotations: ${{ inputs.meta-annotations }}
-      -
-        name: Configure AWS credentials
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.aws-ecr-enabled == 'true' }}
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ needs.registry-identities.outputs.aws-ecr-role-to-assume }}
-          aws-region: ${{ needs.registry-identities.outputs.aws-ecr-region }}
-      -
-        name: Login to Amazon ECR
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.aws-ecr-enabled == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        env:
-          AWS_ACCOUNT_IDS: ${{ needs.registry-identities.outputs.aws-ecr-account-ids }}
-        with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.aws-ecr-registry }}
-      -
-        name: Authenticate to Google Cloud
-        id: gcp-wif-auth
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.gcp-wif-enabled == 'true' }}
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          token_format: access_token
-          workload_identity_provider: ${{ needs.registry-identities.outputs.gcp-wif-workload-identity-provider }}
-          service_account: ${{ needs.registry-identities.outputs.gcp-wif-service-account }}
-          project_id: ${{ needs.registry-identities.outputs.gcp-wif-project-id }}
-          create_credentials_file: false
-          export_environment_variables: false
-      -
-        name: Login to Google Artifact Registry
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.gcp-wif-enabled == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.gcp-wif-registry }}
-              username: oauth2accesstoken
-              password: ${{ steps.gcp-wif-auth.outputs.access_token }}
-      -
-        name: Login to Docker Hub with OIDC
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.dockerhub-oidc-enabled == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        env:
-          DOCKERHUB_OIDC_CONNECTIONID: ${{ needs.registry-identities.outputs.dockerhub-oidc-connection-id }}
-        with:
-          registry-auth: |
-            - registry: ${{ needs.registry-identities.outputs.dockerhub-oidc-registry }}
-              username: ${{ needs.registry-identities.outputs.dockerhub-oidc-username }}
-              scope: ${{ needs.registry-identities.outputs.dockerhub-oidc-scope }}
-      -
-        name: Authenticate to Azure
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.azure-acr-enabled == 'true' }}
-        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
-        with:
-          client-id: ${{ needs.registry-identities.outputs.azure-acr-client-id }}
-          tenant-id: ${{ needs.registry-identities.outputs.azure-acr-tenant-id }}
-          subscription-id: ${{ needs.registry-identities.outputs.azure-acr-subscription-id }}
-      -
-        name: Login to Azure Container Registry
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.azure-acr-enabled == 'true' }}
-        env:
-          ACR_REGISTRY: ${{ needs.registry-identities.outputs.azure-acr-registry }}
-          AZURE_CORE_OUTPUT: none
-        run: az acr login --name "${ACR_REGISTRY%.azurecr.io}"
-      -
-        name: Set up chainctl
-        if: ${{ inputs.push && inputs.output == 'image' && needs.registry-identities.outputs.chainguard-enabled == 'true' }}
-        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28 # v0.5.1
-        with:
-          identity: ${{ needs.registry-identities.outputs.chainguard-identity }}
-          apk-host: ${{ needs.registry-identities.outputs.chainguard-apk-host }}
-          libraries-host: ${{ needs.registry-identities.outputs.chainguard-libraries-host }}
-      -
-        name: Login to registry
-        if: ${{ inputs.push && inputs.output == 'image' && env.REGISTRY_AUTHS_PRESENT == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry-auth: ${{ secrets.registry-auths }}
-        env:
-          DOCKER_LOGIN_SCOPE_DISABLED: true # FIXME: scope feature is not yet supported by Buildx imagetools command
-      -
-        name: Set up Docker Buildx
-        if: ${{ inputs.push && inputs.output == 'image' }}
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest,enable=${{ inputs.latest }}
+
+      - name: Set up Docker Buildx for manifest commands
+        if: inputs.push
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          version: ${{ env.BUILDX_VERSION }}
-          buildkitd-flags: --debug
-          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
-          cache-binary: false
-      -
-        name: Create manifest
-        id: manifest
-        if: ${{ inputs.output == 'image' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+          version: v0.38.0
+          driver: docker
+
+      - name: Log in to GHCR
+        if: inputs.push
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Merge architecture digests and publish release tags
+        if: inputs.push
+        id: merge
         env:
-          INPUT_PUSH: ${{ inputs.push }}
-          INPUT_IMAGE-NAMES: ${{ needs.prepare.outputs.metaImages }}
-          INPUT_TAG-NAMES: ${{ steps.meta.outputs.tag-names }}
-          INPUT_BUILD-OUTPUTS: ${{ toJSON(needs.build.outputs) }}
-          INPUT_ANNOTATIONS: ${{ inputs.annotations }}
-          INPUT_SET-META-ANNOTATIONS: ${{ inputs.set-meta-annotations }}
-          INPUT_META-ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          VERSION: ${{ inputs.version }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          sources=()
+          for arch in amd64 arm64; do
+            digest="$(cat "digests/$arch")"
+            sources+=("$IMAGE_NAME@$digest")
+          done
+          args=()
+          while IFS= read -r tag; do args+=(--tag "$tag"); done <<< "$TAGS"
+          docker buildx imagetools create "${args[@]}" "${sources[@]}" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --annotation "index:org.opencontainers.image.source=$SOURCE" \
+            --metadata-file "$RUNNER_TEMP/image-metadata.json"
+          digest="$(jq -er '."containerimage.digest" // ."containerimage.descriptor".digest' "$RUNNER_TEMP/image-metadata.json")"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Install Cosign
+        if: inputs.push
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
-          script: |
-            const { ImageTools } = require('@docker/github-builder-runtime/lib/buildx/imagetools');
+          cosign-release: v3.1.3
 
-            const inpPush = core.getBooleanInput('push');
-            const inpImageNames = core.getMultilineInput('image-names');
-            const inpTagNames = core.getMultilineInput('tag-names');
-            const inpBuildOutputs = JSON.parse(core.getInput('build-outputs'));
-            const inpAnnotations = core.getMultilineInput('annotations');
-            const inpSetMetaAnnotations = core.getBooleanInput('set-meta-annotations');
-            const inpMetaAnnotations = core.getMultilineInput('meta-annotations');
-
-            if (inpSetMetaAnnotations && inpMetaAnnotations.length > 0) {
-              inpAnnotations.push(...inpMetaAnnotations);
-            }
-            const indexAnnotations = inpAnnotations.filter(annotation => annotation.length > 0).map(ImageTools.toIndexAnnotation);
-
-            const digests = [];
-            for (const key of Object.keys(inpBuildOutputs)) {
-              const output = JSON.parse(inpBuildOutputs[key]);
-              if (output.imageDigest) {
-                digests.push(output.imageDigest);
-              }
-            }
-            if (digests.length === 0) {
-              core.setFailed('No image digests found from build outputs');
-              return;
-            }
-
-            let digest;
-            for (const imageName of inpImageNames) {
-              const tags = [];
-              for (const tag of inpTagNames) {
-                tags.push(`${imageName}:${tag}`);
-              }
-              const result = await new ImageTools().create({
-                sources: digests,
-                tags: tags,
-                annotations: indexAnnotations,
-                skipExec: !inpPush
-              });
-              if (inpPush) {
-                if (!result.digest) {
-                  core.setFailed('Failed to create manifest, no digest returned');
-                  return;
-                }
-                digest = result.digest;
-                core.info(`Manifest created: ${imageName}@${result.digest}`);
-              }
-            }
-            if (digest) {
-              core.setOutput('digest', digest);
-            }
-      -
-        name: Merge artifacts
-        id: artifact
-        if: ${{ inputs.output == 'local' && inputs.artifact-upload }}
-        uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ inputs.artifact-name }}
-          pattern: ${{ inputs.artifact-name }}*
-          delete-merged: true
-          retention-days: ${{ inputs.artifact-retention-days }}
-      -
-        name: Set outputs
-        id: set
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - name: Sign and verify both architecture attestations
+        if: inputs.push
         env:
-          INPUT_BUILD-OUTPUTS: ${{ toJSON(needs.build.outputs) }}
-          INPUT_SIGNED: ${{ needs.prepare.outputs.sign }}
-        with:
-          script: |
-            const inpBuildOutputs = JSON.parse(core.getInput('build-outputs'));
-            const inpSigned = core.getBooleanInput('signed');
+          DIGEST: ${{ steps.merge.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE_NAME@$DIGEST" --raw > "$RUNNER_TEMP/image-index.json"
+          jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest") | .digest' \
+            "$RUNNER_TEMP/image-index.json" > "$RUNNER_TEMP/attestation-digests"
+          test "$(wc -l < "$RUNNER_TEMP/attestation-digests")" -eq 2
+          while IFS= read -r digest; do
+            cosign sign --yes --oidc-provider github-actions --registry-referrers-mode oci-1-1 \
+              --new-bundle-format "$IMAGE_NAME@$digest"
+            cosign verify --experimental-oci11 --new-bundle-format \
+              --certificate-identity "$CERTIFICATE_IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE_NAME@$digest"
+          done < "$RUNNER_TEMP/attestation-digests"
 
-            if (inpSigned) {
-              const verifyCommands = [];
-              for (const key of Object.keys(inpBuildOutputs)) {
-                const output = JSON.parse(inpBuildOutputs[key]);
-                if (output.verifyCommands) {
-                  verifyCommands.push(output.verifyCommands);
-                }
-              }
-              core.setOutput('cosign-verify-commands', verifyCommands.join('\n'));
-            }
+      - name: Remove redundant build indexes
+        if: inputs.push
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          token: ${{ github.token }}
+          package: ${{ inputs.image }}
+          delete-untagged: true
+          validate: true
+
+      - name: Verify both architectures and signatures after cleanup
+        if: inputs.push
+        env:
+          DIGEST: ${{ steps.merge.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE_NAME@$DIGEST" \
+            --format '{{json .Image}}' | jq -e 'keys == ["linux/amd64", "linux/arm64"]'
+          while IFS= read -r digest; do
+            cosign verify --experimental-oci11 --new-bundle-format \
+              --certificate-identity "$CERTIFICATE_IDENTITY" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE_NAME@$digest"
+          done < "$RUNNER_TEMP/attestation-digests"
