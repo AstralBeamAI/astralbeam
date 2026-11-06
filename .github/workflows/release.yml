@@ -10,7 +10,7 @@ on:
         type: boolean
         default: true
       minimal:
-        description: Skip verification, source maps, and smoke tests, and stage the SDK and release the Platform binaries in one job. Ignores dry-run.
+        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and release in one job. Ignores dry-run.
         type: boolean
         default: false
 
@@ -391,32 +391,43 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Build the SDK and Platform for every release target
-        run: |
-          bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
-          bun run --cwd sdk build
-          bun run --cwd platform build
+      - name: Cache Bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-minimal-release-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
 
-      - name: Cross-compile the Platform binaries
-        shell: bash
-        run: |
-          mkdir platform-binaries
-          mv platform/.output/astralbeam-platform platform-binaries/astralbeam-platform-linux-x86_64
-          for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
-            bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
-            bun run --cwd platform compile --target "${pair%%:*}" \
-              --outfile "$GITHUB_WORKSPACE/platform-binaries/astralbeam-platform-${pair#*:}"
-          done
-          cd platform-binaries
-          sha256sum astralbeam-* > SHA256SUMS
+      - name: Install dependencies for the Linux and Apple Silicon targets
+        run: bun install --frozen-lockfile --os=linux --os=darwin --cpu=x64 --cpu=arm64 --libc=glibc
 
-      # Stages before releasing so a failed npm step does not leave a release pointing at unstaged packages.
-      - name: Stage the SDK
+      - name: Build the SDK
+        # Skips the build task's `pack --dry-run`, since the next step packs it for real.
+        run: |
+          bun run --cwd sdk generate:styles
+          bun run --cwd sdk tsdown
+
+      # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
+      - name: Stage the SDK while building the Platform binaries
         shell: bash
         run: |
           set -o pipefail
-          bun pm --cwd sdk pack --filename "$RUNNER_TEMP/sdk.tgz"
-          npm stage publish --ignore-scripts "$RUNNER_TEMP/sdk.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
+          (bun pm --cwd sdk pack --filename "$RUNNER_TEMP/sdk.tgz" &&
+            npm stage publish --ignore-scripts "$RUNNER_TEMP/sdk.tgz" | tee -a "$GITHUB_STEP_SUMMARY") \
+            > "$RUNNER_TEMP/npm-stage.log" 2>&1 &
+          stage=$!
+          bun run --cwd platform build
+          mkdir platform-binaries
+          mv platform/.output/astralbeam-platform platform-binaries/astralbeam-platform-linux-x86_64
+          for pair in bun-linux-arm64:linux-arm64 bun-darwin-arm64:macos-arm64; do
+            bun run --cwd platform compile --target "${pair%%:*}" \
+              --outfile "$GITHUB_WORKSPACE/platform-binaries/astralbeam-platform-${pair#*:}"
+          done
+          (cd platform-binaries && sha256sum astralbeam-* > SHA256SUMS)
+          # Waits before releasing so a failed npm step does not leave a release pointing at unstaged packages.
+          status=0
+          wait "$stage" || status=$?
+          cat "$RUNNER_TEMP/npm-stage.log"
+          exit "$status"
 
       - name: Create the GitHub release
         shell: bash
