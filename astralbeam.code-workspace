@@ -5,10 +5,6 @@
       "path": ".",
     },
     {
-      "name": "cli",
-      "path": "cli",
-    },
-    {
       "name": "docs",
       "path": "docs",
     },
@@ -39,7 +35,6 @@
   ],
   "settings": {
     "files.exclude": {
-      "cli": true,
       "docs": true,
       "examples": true,
       "sdk": true,
