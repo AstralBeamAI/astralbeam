@@ -24,9 +24,9 @@ See [other installations](#other-binary-installations) for other hosts, or `astr
 
 1. Sign in at `/configure` with the active encryption key. For a fresh standalone installation, use `encryptionKey` from `embedded-postgres.json` in the [data directory](./operations.md#data-directory). If you supplied `DATABASE_ENCRYPTION_KEY`, use its first entry instead.
 2. Review and apply any pending migrations.
-3. Configure and test [email delivery](./configuration.md#email-delivery). Review the required authentication and storage settings, then choose **Save**.
+3. Configure and test [email delivery](./configuration.md#email-delivery). Enter the [default OpenAI API key](./configuration.md#models) that new organizations start with, review the required authentication and storage settings, then choose **Save**.
 4. Under **Owner onboarding**, choose **Invite owner** and follow the email to set the owner's password.
-5. Choose **Go to app**. Add a provider under [Models](/docs/dashboard/models), assign its model to an [agent](/docs/dashboard/agents), and follow the [Quickstart](/docs/start/quickstart) to embed chat.
+5. Choose **Go to app** and follow the dashboard's integration guide, or the [Quickstart](/docs/start/quickstart), to embed chat.
 
 Operator sessions last 15 minutes. Keep the encryption key private and back it up separately. If the invitation fails, fix email delivery and retry **Invite owner**.
 
@@ -146,12 +146,12 @@ This stack creates a local evaluation with PostgreSQL and persistent File System
 In an empty directory, download the Compose file and create a private `.env` once. The command refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.27.0/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.28.0/docker-compose.production.yml
 (
   umask 077
   set -C
   printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.27.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    "${ASTRALBEAM_VERSION:-0.28.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 docker compose -f docker-compose.production.yml up --detach --wait

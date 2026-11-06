@@ -30,6 +30,7 @@ const COMPLETE_VALUES = {
   better_auth_secret: SECRET,
   turnstile_site_key: "turnstile-site-key",
   turnstile_secret_key: "turnstile-secret-key",
+  default_openai_api_key: "sk-test-default-openai-key",
   support_email_address: "support@example.com",
   s3_endpoint: "http://127.0.0.1:9000",
   s3_region: "us-east-1",

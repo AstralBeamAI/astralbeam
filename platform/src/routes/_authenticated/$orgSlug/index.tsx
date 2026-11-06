@@ -35,6 +35,7 @@ function DashboardPage() {
         key={orgSlug}
         organizationId={organization.organizationId}
         organizationSlug={orgSlug}
+        apiUrl={data.apiUrl}
         modelSetup={data.modelSetup}
         usableApiKeyCount={data.counts.usableApiKeys}
         hasAppReply={data.hasAppReply}

@@ -1,9 +1,13 @@
 import type { BetterAuthPlugin } from "better-auth"
 import { APIError, createAuthMiddleware, freshSessionMiddleware } from "better-auth/api"
 import type { OrganizationOptions } from "better-auth/plugins"
-import { Effect, Schema } from "effect"
+import { type Cause, Effect, Schema } from "effect"
 
 import { Agents } from "@/lib/agents/agents.server"
+import { Config } from "@/lib/config/config"
+import { ModelProviders } from "@/lib/model-providers/model-providers.server"
+import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
+import type { UsageLimitFields } from "@/lib/usage-limits/schemas"
 import { reportFailure } from "@/lib/runtime/failure-report.server"
 import { runAppEffect } from "@/lib/runtime/app-effect.server"
 import { SLUG_VALIDATION_MESSAGE, SlugSchema } from "@/lib/organizations/slug"
@@ -79,24 +83,77 @@ export const organizationRoleHooks = {
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
 
+/** The model each new organization's starter agent uses through the deployment's OpenAI key. */
+const STARTER_MODEL = { modelId: "gpt-6-luna", name: "GPT-6 Luna" } as const
+
+const STARTER_USAGE_LIMIT = {
+  name: "Monthly spend",
+  enabled: true,
+  appliesByDefault: true,
+  scope: "global",
+  metric: "spend",
+  amount: "10",
+  windowType: "fixed",
+  windowCount: 1,
+  windowUnit: "month",
+  timeZone: "UTC",
+} as const satisfies UsageLimitFields
+
+/** Connects OpenAI with the deployment's default key and returns the enabled model's ID. */
+const provisionStarterModel = Effect.fn("provisionStarterModel")(function* (
+  organizationId: string,
+) {
+  const apiKey = yield* Effect.flatMap(Config, (config) => config.get("default_openai_api_key"))
+  if (!apiKey) return yield* Effect.die(new Error("The default OpenAI API key is not configured"))
+  const modelProviders = yield* ModelProviders
+  const id = yield* modelProviders.save({
+    organizationId,
+    id: null,
+    lockVersion: null,
+    name: "OpenAI",
+    providerType: "openai",
+    api: "responses",
+    baseUrl: "https://api.openai.com/v1",
+    apiKey,
+    models: [STARTER_MODEL],
+  })
+  const provider = yield* modelProviders.get({ organizationId, id })
+  return provider!.models[0]!.id
+})
+
 /**
  * Kept apart from the validation hooks above, which stay usable without a database, so a new
- * organization starts with an agent that can be configured after adding a model provider.
+ * organization starts with an agent that replies through the deployment's OpenAI key, capped by a
+ * monthly spend limit its owner can change.
  */
 export const organizationProvisioningHooks = {
   afterCreateOrganization: async ({ organization }) => {
+    // The organization already exists and its owner can finish setup by hand, so a failure here
+    // must not fail the request that created it.
+    const report = (cause: Cause.Cause<unknown>) => reportFailure("afterCreateOrganization", cause)
     await runAppEffect(
       Effect.gen(function* () {
-        const agents = yield* Agents
-        yield* agents.provisionDefault({
-          organizationId: organization.id,
-          organizationName: organization.name,
-        })
-      }).pipe(
-        // The organization already exists and its owner can add an agent by hand, so a failure
-        // here must not fail the request that created it.
-        Effect.catchCause((cause) => reportFailure("afterCreateOrganization", cause)),
-      ),
+        // The shared key is connected only after its spend limit exists. Without a model the agent
+        // is still created, and the dashboard asks for one.
+        const limited = yield* Effect.flatMap(UsageLimits, (usageLimits) =>
+          usageLimits.create({ organizationId: organization.id, fields: STARTER_USAGE_LIMIT }),
+        ).pipe(
+          Effect.as(true),
+          Effect.catchCause((cause) => Effect.as(report(cause), false)),
+        )
+        const modelId = limited
+          ? yield* provisionStarterModel(organization.id).pipe(
+              Effect.catchCause((cause) => Effect.as(report(cause), null)),
+            )
+          : null
+        yield* Effect.flatMap(Agents, (agents) =>
+          agents.provisionDefault({
+            organizationId: organization.id,
+            organizationName: organization.name,
+            modelIds: modelId ? [modelId] : [],
+          }),
+        )
+      }).pipe(Effect.catchCause(report)),
     )
   },
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>

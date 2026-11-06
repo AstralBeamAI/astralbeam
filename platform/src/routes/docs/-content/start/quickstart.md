@@ -1,21 +1,21 @@
 # Quickstart
 
-Add a chat assistant to your React app using your existing login. You'll connect a model, add a token endpoint, and send your first message.
+Add a chat assistant to your React app using your existing login. You'll create an API key, add a token endpoint, and send your first message.
 
 Using another stack? Follow the same model and backend setup below, then [mount with JavaScript](/docs/sdk/getting-started) or a [script tag](/docs/sdk/script-tag). For help from Cursor, Claude Code, or Codex, start with the [coding-agent guide](/docs/cli/coding-agents#integrate-your-app).
 
 [![Acme Assistant beside a sample app, showing a greeting and reply.](/docs/quickstart-preview.png)](/docs/quickstart-preview.png)
 
-You'll need a React app with an authenticated backend and a model-provider API key. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
+You'll need a React app with an authenticated backend. For self-hosting, complete [Deploy](/docs/self-hosting/deploy) first.
 
-## 1. Prepare your agent
+**TIP**: Your dashboard's home page walks through these steps with code for Next.js, TanStack Start, Express, and Rails, and shows when your first reply arrives.
 
-Use your existing organization, [join your team's](/docs/dashboard/members#accepting-an-invitation), or [sign up](/auth/sign-up) and create one.
+## 1. Create an API key
 
-1. Open **[Models](/docs/dashboard/models)**, add your provider's API key, enable a model, and choose **Save provider**.
-2. Choose **Test model** and wait for **replied successfully**. Your provider may charge for the test.
-3. Open **[Agents](/docs/dashboard/agents)**, assign that model to the starter agent, and choose **Save changes**.
-4. Open **[API keys](/docs/dashboard/api-keys)** and create a key. Copy the full key now. You won't see it again.
+Use your existing organization, [join your team's](/docs/dashboard/members#accepting-an-invitation), or [sign up](/auth/sign-up) and create one. New organizations come with an agent that is ready to reply, so we only need a key for our server.
+
+1. Open **[API keys](/docs/dashboard/api-keys)** and choose **Create API key**.
+2. Copy the full key now. You won't see it again.
 
 ## 2. Install and configure
 
@@ -155,4 +155,4 @@ If chat cannot connect, check the token endpoint in your browser's Network panel
 
 ## Next
 
-[Add tools and widgets](/docs/sdk/tools-and-widgets) to let the assistant work with your app's data, or follow the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before connecting production actions.
+[Customize your setup](./customize.md) to shape your agent, control spend, and match your brand. [Add tools and widgets](/docs/sdk/tools-and-widgets) to let the assistant work with your app's data, or follow the [Todos tutorial](./todos-tutorial.md). Read the [security model](/docs/sdk/security) before connecting production actions.

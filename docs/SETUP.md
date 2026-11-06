@@ -28,7 +28,7 @@ Setup installs frozen dependencies, applies migrations, seeds an uninitialized d
 
 Optional Linux helpers use `INSTALL_EXTRA`, such as `linux-tools`. `linux-tools` installs development tools and the `psql` client, without database servers. System-package installation requires root or sudo.
 
-The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentials and creates missing Todos example `.env` files. To seed a Development OpenAI connection, put `OPENAI_API_KEY` in ignored `platform/.env.local` before setup. Existing providers and model choices are preserved. For an initialized database, rerun the seed explicitly. Manage connections under **Models**, enable models, and assign them to agents.
+The [seed](../platform/src/db/README.md#seed-sample-data) prints local credentials and creates missing Todos example `.env` files. To seed a Development OpenAI connection, put `OPENAI_API_KEY` in ignored `platform/.env.local` before setup. The seed also stores it as the default OpenAI key that new organizations copy, so organizations you create locally can chat. Existing providers and model choices are preserved. For an initialized database, rerun the seed explicitly. Manage connections under **Models**, enable models, and assign them to agents.
 
 ### Local services
 

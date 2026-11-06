@@ -170,10 +170,14 @@ export class Agents extends Context.Service<
       readonly organizationId: string
       readonly agentId: unknown
     }) => Effect.Effect<ChatAgent, AgentNotFound>
-    /** Recovers a missing default agent without replacing one or creating duplicates. */
+    /**
+     * Recovers a missing default agent without replacing one or creating duplicates. Only a newly
+     * created agent receives `modelIds`.
+     */
     readonly provisionDefault: (input: {
       readonly organizationId: string
       readonly organizationName: string
+      readonly modelIds?: readonly string[]
     }) => Effect.Effect<string>
   }
 >()("astralbeam/agents/Agents") {
@@ -462,6 +466,15 @@ export class Agents extends Context.Service<
                     systemPrompt: defaultAgentSystemPrompt(input.organizationName),
                   })
                   .returning({ id: agent.id })
+            if (!existing && input.modelIds?.length)
+              yield* transaction.insert(agentModel).values(
+                input.modelIds.map((providerModelId, position) => ({
+                  organizationId: input.organizationId,
+                  agentId: selected!.id,
+                  providerModelId,
+                  position,
+                })),
+              )
             yield* transaction
               .update(organizationConfiguration)
               .set({

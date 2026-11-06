@@ -389,7 +389,7 @@ function DogfoodChatPanel({
 const integrationChecklistWidget: WidgetDefinition = {
   parameters: emptyToolParameters,
   description:
-    "Show the existing dashboard integration checklist with its current setup state and controls. Enabled models do not prove connectivity or embedding.",
+    "Show the dashboard integration guide: API key creation, copyable token endpoint and widget code for this deployment, and live first-reply status. A configured model does not prove the app is connected.",
   render: () => <IntegrationChecklistWidget />,
 }
 
@@ -433,6 +433,7 @@ function IntegrationChecklistWidget() {
       key={organizationId}
       organizationId={organizationId}
       organizationSlug={organizationSlug}
+      apiUrl={page.apiUrl}
       modelSetup={page.modelSetup}
       usableApiKeyCount={page.counts.usableApiKeys}
       hasAppReply={page.hasAppReply}

@@ -403,6 +403,19 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     schema: NonEmptyStringSchema,
   },
   {
+    key: "default_openai_api_key",
+    group: "Models",
+    label: "Default OpenAI API Key",
+    description:
+      "Copied into the OpenAI connection of each new organization, so its starter agent can reply right away. Each organization also starts with a $10 monthly spend limit. Changing this key does not update existing organizations.",
+    kind: "secret",
+    required: true,
+    schema: Schema.String.pipe(
+      Schema.decode(SchemaTransformation.trim()),
+      Schema.decodeTo(NonEmptyStringSchema),
+    ),
+  },
+  {
     key: "email_provider",
     group: "Email Delivery",
     label: "Email Provider",
