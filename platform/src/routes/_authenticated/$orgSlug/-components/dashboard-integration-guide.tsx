@@ -95,21 +95,32 @@ function defaultAgentLink(organizationSlug: string, defaultAgentId: string | nul
 function CustomizeLinks({
   organizationSlug,
   defaultAgentId,
+  canConfigure,
 }: {
   organizationSlug: string
   defaultAgentId: string | null
+  canConfigure: boolean
 }) {
+  // Viewers cannot open Agents or Usage Limits, so they see only the guides.
+  const configurationItems = canConfigure
+    ? [
+        {
+          title: "Shape your agent",
+          description: "Edit its instructions, model, and tools.",
+          link: defaultAgentLink(organizationSlug, defaultAgentId),
+        },
+        {
+          title: "Review usage limits",
+          description: "Cap tokens or spend for your organization, customers, and users.",
+          link: linkOptions({
+            to: "/$orgSlug/usage-limits",
+            params: { orgSlug: organizationSlug },
+          }),
+        },
+      ]
+    : []
   const items = [
-    {
-      title: "Shape your agent",
-      description: "Edit its instructions, model, and tools.",
-      link: defaultAgentLink(organizationSlug, defaultAgentId),
-    },
-    {
-      title: "Set usage limits",
-      description: "Your organization starts with a $10 monthly spend limit.",
-      link: linkOptions({ to: "/$orgSlug/usage-limits", params: { orgSlug: organizationSlug } }),
-    },
+    ...configurationItems,
     {
       title: "Match your brand",
       description: "Set the widget's title, colors, and theme.",
@@ -179,7 +190,10 @@ export function DashboardIntegrationGuide({
   modelSetup: { defaultAgentModelCount: number; defaultAgentId: string | null } | null
   usableApiKeyCount: number | null
   hasAppReply: boolean | null
-  permissions: Pick<OrganizationPermissions, "updateConfiguration" | "createApiKey" | "readApiKey">
+  permissions: Pick<
+    OrganizationPermissions,
+    "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
+  >
 }) {
   const router = useRouter()
   const titleId = useId()
@@ -222,7 +236,11 @@ export function DashboardIntegrationGuide({
   const defaultAgentId = modelSetup?.defaultAgentId ?? null
   const hasKey = usableApiKeyCount !== null && usableApiKeyCount > 0
   const customize = (
-    <CustomizeLinks organizationSlug={organizationSlug} defaultAgentId={defaultAgentId} />
+    <CustomizeLinks
+      organizationSlug={organizationSlug}
+      defaultAgentId={defaultAgentId}
+      canConfigure={permissions.readConfiguration}
+    />
   )
 
   if (connectedOnLoad)
@@ -341,7 +359,9 @@ export function DashboardIntegrationGuide({
             <GuideStep number={2} title="Install the SDK">
               <IntegrationCode markdown={snippets.install} />
               <Note>
-                No bundler? Skip this step and use the <strong>Script tag</strong> option in step 4.
+                A JavaScript token endpoint in step 3 needs this package on your server. Using Rails
+                or another backend without a bundler? Skip this step and use the{" "}
+                <strong>Script tag</strong> option in step 4.
               </Note>
             </GuideStep>
             <GuideStep number={3} title="Create the token endpoint">

@@ -133,19 +133,25 @@ export const organizationProvisioningHooks = {
     const report = (cause: Cause.Cause<unknown>) => reportFailure("afterCreateOrganization", cause)
     await runAppEffect(
       Effect.gen(function* () {
-        // Without a model the agent is still created, and the dashboard asks for one.
-        const modelId = yield* provisionStarterModel(organization.id).pipe(
-          Effect.catchCause((cause) => Effect.as(report(cause), null)),
+        // The shared key is connected only after its spend limit exists. Without a model the agent
+        // is still created, and the dashboard asks for one.
+        const limited = yield* Effect.flatMap(UsageLimits, (usageLimits) =>
+          usageLimits.create({ organizationId: organization.id, fields: STARTER_USAGE_LIMIT }),
+        ).pipe(
+          Effect.as(true),
+          Effect.catchCause((cause) => Effect.as(report(cause), false)),
         )
+        const modelId = limited
+          ? yield* provisionStarterModel(organization.id).pipe(
+              Effect.catchCause((cause) => Effect.as(report(cause), null)),
+            )
+          : null
         yield* Effect.flatMap(Agents, (agents) =>
           agents.provisionDefault({
             organizationId: organization.id,
             organizationName: organization.name,
             modelIds: modelId ? [modelId] : [],
           }),
-        )
-        yield* Effect.flatMap(UsageLimits, (usageLimits) =>
-          usageLimits.create({ organizationId: organization.id, fields: STARTER_USAGE_LIMIT }),
         )
       }).pipe(Effect.catchCause(report)),
     )
