@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     name: Check ${{ matrix.leg || matrix.project }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     strategy:
       # Every project reports its own result, so one failing leg does not hide the others.
@@ -36,7 +36,7 @@ jobs:
           - { project: examples/linearity-react, tasks: ready }
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: useblacksmith/checkout@v1 # v7
         with:
           persist-credentials: false
 
@@ -117,14 +117,14 @@ jobs:
 
   todos-rails:
     name: Check examples/todos-rails
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     defaults:
       run:
         working-directory: examples/todos-rails
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: useblacksmith/checkout@v1 # v7
         with:
           persist-credentials: false
 

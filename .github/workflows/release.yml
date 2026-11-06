@@ -25,13 +25,13 @@ jobs:
   verify:
     name: Verify version
     if: ${{ !inputs.minimal || inputs.dry-run }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: useblacksmith/checkout@v1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -88,7 +88,7 @@ jobs:
       RELEASE_VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: useblacksmith/checkout@v1 # v7
         with:
           persist-credentials: false
 
@@ -197,7 +197,7 @@ jobs:
         && (inputs.dry-run || needs.stage-npm.result == 'success') && needs.docker-image.result == 'success'
         && needs.sandbox-image.result == 'success'
         && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       contents: write
@@ -314,7 +314,7 @@ jobs:
     name: Remove redundant Docker build indexes (${{ matrix.package }})
     needs: [docker-image, sandbox-image]
     if: ${{ !inputs.dry-run }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -372,7 +372,7 @@ jobs:
     name: Stage the SDK and CLI on npm
     needs: [verify, build]
     if: ${{ !inputs.dry-run }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       # Trusted publishing exchanges this OIDC token for a short-lived npm credential. https://docs.npmjs.com/trusted-publishers
@@ -417,7 +417,7 @@ jobs:
   minimal-release:
     name: Stage the SDK and CLI and release binaries (minimal)
     if: ${{ inputs.minimal && !inputs.dry-run }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
     # One job skips artifact transfers, so build code shares the npm and release credentials.
     permissions:
@@ -425,7 +425,7 @@ jobs:
       id-token: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: useblacksmith/checkout@v1 # v7
         with:
           persist-credentials: false
 
