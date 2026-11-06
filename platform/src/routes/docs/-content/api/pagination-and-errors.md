@@ -91,7 +91,7 @@ Endpoint descriptions specify exceptions to these shared error conventions:
 | 401 / 403 | Invalid credentials / insufficient authority                 |
 | 404       | Missing or out-of-scope record                               |
 | 409       | Duplicate identity, stale revision, or conflicting operation |
-| 413       | Chat request exceeds 32 MiB                                  |
+| 413       | Request body exceeds 32 MiB                                  |
 | 415       | Unsupported media type or encoding                           |
 | 422       | Malformed JSON, invalid write fields or empty PATCH          |
 | 429       | Rate or usage limit reached, observe Retry-After             |
