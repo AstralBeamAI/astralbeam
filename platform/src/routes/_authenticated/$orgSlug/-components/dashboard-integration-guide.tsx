@@ -64,7 +64,7 @@ function GuideStep({
   detected?: boolean
   marked: boolean
   saving: boolean
-  onMarkedChange: ((marked: boolean) => void) | undefined
+  onMarkedChange: ((marked: boolean) => Promise<boolean>) | undefined
   children: ReactNode
 }) {
   const complete = detected || marked
@@ -72,6 +72,13 @@ function GuideStep({
   // Detection during this visit keeps the step open, so new keys and first replies stay visible.
   const [detectedOnLoad] = useState(detected)
   const [openOverride, setOpenOverride] = useState<boolean>()
+  const open = openOverride ?? !(marked || detectedOnLoad)
+
+  async function toggleMark(save: (marked: boolean) => Promise<boolean>) {
+    // Hold the open state until the save returns, then collapse marked steps.
+    setOpenOverride(open)
+    if (await save(!marked)) setOpenOverride(undefined)
+  }
   return (
     <li className="relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-4 pb-8 last:pb-0">
       <span
@@ -81,18 +88,9 @@ function GuideStep({
       <span aria-hidden="true" className={cn(stepCircle, complete && completeStepCircle)}>
         {complete ? <CheckIcon /> : number}
       </span>
-      <Collapsible
-        open={openOverride ?? !(marked || detectedOnLoad)}
-        onOpenChange={setOpenOverride}
-        className="min-w-0"
-      >
+      <Collapsible open={open} onOpenChange={setOpenOverride} className="min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="flex-1 font-sans text-sm font-medium">
-            <CollapsibleTrigger className="w-full cursor-pointer py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-              {title}
-              {complete && <span className="sr-only"> (complete)</span>}
-            </CollapsibleTrigger>
-          </h3>
+          <h3 className="flex-1 py-1 font-sans text-sm font-medium">{title}</h3>
           {!detected && onMarkedChange && (
             <Tooltip>
               <TooltipTrigger
@@ -101,10 +99,7 @@ function GuideStep({
                     variant="outline"
                     size="sm"
                     disabled={saving}
-                    onClick={() => {
-                      onMarkedChange(!marked)
-                      setOpenOverride(undefined)
-                    }}
+                    onClick={() => void toggleMark(onMarkedChange)}
                   />
                 }
               >
@@ -119,14 +114,22 @@ function GuideStep({
               <TooltipContent className="sm:hidden">{markLabel}</TooltipContent>
             </Tooltip>
           )}
-          {/* A pointer shortcut for the title button, which carries the accessible state. */}
-          <CollapsibleTrigger
-            aria-hidden="true"
-            tabIndex={-1}
-            className="group cursor-pointer p-1 text-muted-foreground"
-          >
-            <CaretDownIcon className="size-4 transition-transform group-aria-expanded:rotate-180" />
-          </CollapsibleTrigger>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <CollapsibleTrigger
+                  aria-label={complete ? `${title} (complete)` : title}
+                  className="group cursor-pointer p-1 text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                />
+              }
+            >
+              <CaretDownIcon
+                aria-hidden="true"
+                className="size-4 transition-transform group-aria-expanded:rotate-180"
+              />
+            </TooltipTrigger>
+            <TooltipContent>{open ? "Collapse" : "Expand"}</TooltipContent>
+          </Tooltip>
         </div>
         <CollapsibleContent className="space-y-3 pt-3">{children}</CollapsibleContent>
       </Collapsible>
@@ -283,9 +286,7 @@ export function DashboardIntegrationGuide({
   const titleId = useId()
   const [createApiKeyOpen, setCreateApiKeyOpen] = useState(false)
   const [promptCopyFailed, setPromptCopyFailed] = useState(false)
-  const [pendingMarks, setPendingMarks] = useState<
-    Partial<Record<IntegrationGuideStep, boolean | undefined>>
-  >({})
+  const [savingSteps, setSavingSteps] = useState<Partial<Record<IntegrationGuideStep, boolean>>>({})
   const [replied, setReplied] = useState(hasAppReply === true)
   const snippets = useMemo(() => integrationSnippets(apiUrl), [apiUrl])
   // Fixed at mount, so a reply detected here keeps the full guide and its success state visible.
@@ -293,23 +294,26 @@ export function DashboardIntegrationGuide({
   const waitingForReply = hasAppReply !== null && !replied
 
   async function saveMark(step: IntegrationGuideStep, marked: boolean) {
-    setPendingMarks((pending) => ({ ...pending, [step]: marked }))
+    setSavingSteps((saving) => ({ ...saving, [step]: true }))
+    let saved = true
     try {
       await markIntegrationGuideStep({ data: { organizationSlug, step, marked } })
       await router.invalidate()
     } catch {
+      saved = false
       toast.add({ title: "Couldn’t save your progress. Try again.", type: "error" })
     }
-    setPendingMarks((pending) => ({ ...pending, [step]: undefined }))
+    setSavingSteps((saving) => ({ ...saving, [step]: false }))
+    return saved
   }
 
   function stepMark(step: IntegrationGuideStep) {
     return {
-      marked: pendingMarks[step] ?? markedSteps.includes(step),
+      marked: markedSteps.includes(step),
       // One save per step at a time, so an earlier insert cannot commit after a later removal.
-      saving: pendingMarks[step] !== undefined,
+      saving: savingSteps[step] === true,
       onMarkedChange: permissions.updateConfiguration
-        ? (marked: boolean) => void saveMark(step, marked)
+        ? (marked: boolean) => saveMark(step, marked)
         : undefined,
     }
   }
