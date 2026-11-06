@@ -17,6 +17,7 @@ import { fileObject } from "@/db/schema/files.ts"
 import { ObjectStorage } from "../storage/object-storage.server.ts"
 import { filePreviewObjectKey } from "../storage/file-previews.server.ts"
 import { deleteTenant } from "../tenants/deletion.ts"
+import { INTEGRATION_GUIDE_CACHE_NAMESPACE } from "./schemas.ts"
 
 /** Ends dashboard, REST, and SDK access at once and returns the owners' user IDs to notify. */
 export const revokeOrganizationAccess = Effect.fn("revokeOrganizationAccess")(function* (
@@ -72,7 +73,7 @@ export const deleteOrganization = Effect.fn("deleteOrganization")(function* (
         .delete(cacheEntry)
         .where(
           and(
-            inArray(cacheEntry.namespace, ["chat", "mcp-oauth"]),
+            inArray(cacheEntry.namespace, ["chat", "mcp-oauth", INTEGRATION_GUIDE_CACHE_NAMESPACE]),
             like(cacheEntry.key, `${organizationId}:%`),
           ),
         )

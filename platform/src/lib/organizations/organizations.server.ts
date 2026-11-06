@@ -1,22 +1,20 @@
-import { and, asc, count, eq, gt, isNull, or, sql, type SQL } from "drizzle-orm"
+import { and, asc, count, eq, gt, isNull, like, or, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Database } from "@/db/database"
-import { chatThread } from "@/db/schema/chat"
+import { cacheEntry } from "@/db/schema/cache"
 import { Auth } from "@/lib/auth/auth.server"
 import { ORGANIZATION_API_KEY_CONFIG_ID } from "@/lib/api-keys/schemas"
 import { Config } from "@/lib/config/config"
 import { UuidV7Schema } from "@/lib/schemas"
 import type { OrganizationId } from "@/db/schema/organizations"
-import {
-  agent,
-  apiKey,
-  member,
-  organization,
-  sandboxProvider,
-  OrganizationIdSchema,
-} from "@/db/schema/organizations"
+import { apiKey, member, organization, OrganizationIdSchema } from "@/db/schema/organizations"
 import { SlugSchema } from "./slug.ts"
+import {
+  INTEGRATION_GUIDE_CACHE_NAMESPACE,
+  type IntegrationGuideStep,
+  IntegrationGuideStepSchema,
+} from "./schemas.ts"
 import {
   authorizeOrganizationRole,
   deriveOrganizationPermissions,
@@ -40,18 +38,6 @@ const decodeOrganizationMembership = Schema.decodeUnknownEffect(
 
 export type OrganizationMembership = Effect.Success<ReturnType<typeof decodeOrganizationMembership>>
 
-/** `null` where the reader's role does not permit the resource, so the payload leaks no count. */
-export interface OrganizationResourceCounts {
-  readonly agents: number | null
-  readonly sandboxProviders: number | null
-  readonly apiKeys: number | null
-  readonly usableApiKeys: number | null
-  readonly hasConversations: boolean | null
-  readonly members: number
-}
-
-type OrganizationOwnedTable = typeof agent | typeof apiKey | typeof member | typeof sandboxProvider
-
 type AccessFailure = SignInRequired | OrganizationNotFound | OrganizationAccessDenied
 
 export class Organizations extends Context.Service<
@@ -73,11 +59,20 @@ export class Organizations extends Context.Service<
     readonly summary: (
       organizationId: string,
     ) => Effect.Effect<{ readonly id: string; readonly name: string; readonly slug: string } | null>
-    /** The dashboard's one read: how much of each resource the organization has configured. */
-    readonly resourceCounts: (input: {
+    /** Enabled, unexpired dashboard keys, or `null` when the reader's role cannot see keys. */
+    readonly usableApiKeyCount: (input: {
       readonly organizationId: OrganizationId
-      readonly permissions: OrganizationPermissions
-    }) => Effect.Effect<OrganizationResourceCounts>
+      readonly permissions: Pick<OrganizationPermissions, "readApiKey">
+    }) => Effect.Effect<number | null>
+    /** Integration guide steps that members marked complete, shared across the organization. */
+    readonly markedGuideSteps: (
+      organizationId: OrganizationId,
+    ) => Effect.Effect<ReadonlyArray<IntegrationGuideStep>>
+    readonly markGuideStep: (input: {
+      readonly organizationId: OrganizationId
+      readonly step: IntegrationGuideStep
+      readonly marked: boolean
+    }) => Effect.Effect<void>
   }
 >()("astralbeam/organizations/Organizations") {
   static readonly layerNoDeps = Layer.effect(
@@ -161,56 +156,73 @@ export class Organizations extends Context.Service<
         return row ?? null
       }, Effect.orDie)
 
-      const resourceCounts = Effect.fn("Organizations.resourceCounts")(function* (
-        input: Parameters<typeof Organizations.Service.resourceCounts>[0],
+      const usableApiKeyCount = Effect.fn("Organizations.usableApiKeyCount")(function* (
+        input: Parameters<typeof Organizations.Service.usableApiKeyCount>[0],
       ) {
-        const countRows = (table: OrganizationOwnedTable, filter?: SQL) =>
-          db
-            .select({ value: count() })
-            .from(table)
-            .where(and(eq(table.organizationId, input.organizationId), filter))
-            .pipe(
-              Effect.map((rows) => rows[0]?.value ?? 0),
-              Effect.orDie,
-            )
-        const countIf = (allowed: boolean, table: OrganizationOwnedTable, filter?: SQL) =>
-          allowed ? countRows(table, filter) : Effect.succeed(null)
-        return yield* Effect.all(
-          {
-            agents: countIf(input.permissions.readConfiguration, agent),
-            sandboxProviders: countIf(input.permissions.readConfiguration, sandboxProvider),
-            apiKeys: countIf(input.permissions.readApiKey, apiKey),
-            usableApiKeys: countIf(
-              input.permissions.readApiKey,
-              apiKey,
-              and(
-                eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
-                eq(apiKey.enabled, true),
-                or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
-              ),
+        if (!input.permissions.readApiKey) return null
+        const [row] = yield* db
+          .select({ value: count() })
+          .from(apiKey)
+          .where(
+            and(
+              eq(apiKey.organizationId, input.organizationId),
+              eq(apiKey.configId, ORGANIZATION_API_KEY_CONFIG_ID),
+              eq(apiKey.enabled, true),
+              or(isNull(apiKey.expiresAt), gt(apiKey.expiresAt, sql`now()`)),
             ),
-            members: countRows(member),
-            hasConversations: input.permissions.readTenants
-              ? db
-                  .select({ id: chatThread.id })
-                  .from(chatThread)
-                  .where(eq(chatThread.organizationId, input.organizationId))
-                  .limit(1)
-                  .pipe(
-                    Effect.map((rows) => rows.length > 0),
-                    Effect.orDie,
-                  )
-              : Effect.succeed(null),
-          },
-          { concurrency: "unbounded" },
+          )
+        return row?.value ?? 0
+      }, Effect.orDie)
+
+      // Durable cache rows without TTL, one per marked step, so concurrent toggles never conflict.
+      const guideMarkKey = (organizationId: OrganizationId, step: IntegrationGuideStep) =>
+        `${organizationId}:${step}`
+
+      const markedGuideSteps = Effect.fn("Organizations.markedGuideSteps")(function* (
+        organizationId: OrganizationId,
+      ) {
+        const rows = yield* db
+          .select({ key: cacheEntry.key })
+          .from(cacheEntry)
+          .where(
+            and(
+              eq(cacheEntry.namespace, INTEGRATION_GUIDE_CACHE_NAMESPACE),
+              like(cacheEntry.key, `${organizationId}:%`),
+            ),
+          )
+        const keys = new Set(rows.map((row) => row.key))
+        return IntegrationGuideStepSchema.literals.filter((step) =>
+          keys.has(guideMarkKey(organizationId, step)),
         )
-      })
+      }, Effect.orDie)
+
+      const markGuideStep = Effect.fn("Organizations.markGuideStep")(function* (
+        input: Parameters<typeof Organizations.Service.markGuideStep>[0],
+      ) {
+        const key = guideMarkKey(input.organizationId, input.step)
+        if (input.marked)
+          yield* db
+            .insert(cacheEntry)
+            .values({ namespace: INTEGRATION_GUIDE_CACHE_NAMESPACE, key, value: "true" })
+            .onConflictDoNothing()
+        else
+          yield* db
+            .delete(cacheEntry)
+            .where(
+              and(
+                eq(cacheEntry.namespace, INTEGRATION_GUIDE_CACHE_NAMESPACE),
+                eq(cacheEntry.key, key),
+              ),
+            )
+      }, Effect.orDie)
 
       return Organizations.of({
         membership,
         access,
         summary,
-        resourceCounts,
+        usableApiKeyCount,
+        markedGuideSteps,
+        markGuideStep,
       })
     }),
   )

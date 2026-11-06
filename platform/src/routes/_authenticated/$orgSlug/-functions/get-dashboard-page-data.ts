@@ -18,36 +18,41 @@ export const getDashboardPageData = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         // Counting only what this role may read makes the serialized payload the authorization
         // boundary, rather than the cards the browser chooses to render.
-        const { counts, modelSetup, hasAppReply, appBaseUrl } = yield* Effect.all(
-          {
-            appBaseUrl: Effect.flatMap(Config, (config) => config.get("app_base_url")),
-            hasAppReply: context.permissions.readTenants
-              ? Effect.flatMap(ChatThreads, (threads) =>
-                  threads.hasCompletedReply({ organizationId: context.organizationId }),
-                )
-              : Effect.succeed(null),
-            counts: Effect.flatMap(Organizations, (organizations) =>
-              organizations.resourceCounts({
-                organizationId: context.organizationId,
-                permissions: context.permissions,
-              }),
-            ),
-            modelSetup: context.permissions.readConfiguration
-              ? Effect.flatMap(ModelProviders, (providers) =>
-                  providers.setupState({ organizationId: context.organizationId }),
-                )
-              : Effect.succeed(null),
-          },
-          { concurrency: "unbounded" },
-        )
+        const { usableApiKeyCount, modelSetup, hasAppReply, markedGuideSteps, appBaseUrl } =
+          yield* Effect.all(
+            {
+              appBaseUrl: Effect.flatMap(Config, (config) => config.get("app_base_url")),
+              hasAppReply: context.permissions.readTenants
+                ? Effect.flatMap(ChatThreads, (threads) =>
+                    threads.hasCompletedReply({ organizationId: context.organizationId }),
+                  )
+                : Effect.succeed(null),
+              markedGuideSteps: Effect.flatMap(Organizations, (organizations) =>
+                organizations.markedGuideSteps(context.organizationId),
+              ),
+              usableApiKeyCount: Effect.flatMap(Organizations, (organizations) =>
+                organizations.usableApiKeyCount({
+                  organizationId: context.organizationId,
+                  permissions: context.permissions,
+                }),
+              ),
+              modelSetup: context.permissions.readConfiguration
+                ? Effect.flatMap(ModelProviders, (providers) =>
+                    providers.setupState({ organizationId: context.organizationId }),
+                  )
+                : Effect.succeed(null),
+            },
+            { concurrency: "unbounded" },
+          )
         return {
           data: {
             organizationName: context.organizationName,
             // The snippets name this deployment, so self-hosted code works when pasted.
             apiUrl: new URL("/api", appBaseUrl).href,
-            counts,
+            usableApiKeyCount,
             modelSetup,
             hasAppReply,
+            markedGuideSteps,
           },
           permissions: context.permissions,
         }
