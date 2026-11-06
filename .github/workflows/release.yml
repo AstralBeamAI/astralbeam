@@ -117,17 +117,18 @@ jobs:
       - name: Build the Platform
         # Builds `.output` once and compiles the host binary from it.
         working-directory: platform
-        run: bun run build
+        run: |
+          bun run build
+          test -n "$(find .output/sourcemaps -type f -name '*.map' -print -quit)"
 
-      - name: Pack the Platform source maps
-        run: tar --use-compress-program='zstd -T0' -cf platform-source-maps.tar.zst -C platform/.output sourcemaps
-
-      - name: Upload the Platform source maps
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          path: platform-source-maps.tar.zst
-          archive: false
-          if-no-files-found: error
+      - name: Upload the Platform source maps to PostHog
+        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
+        working-directory: platform
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
+        run: bun run sourcemaps:posthog --directory .output/sourcemaps
 
       - name: Cache binary-check PostgreSQL runtime
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -145,7 +146,6 @@ jobs:
           bun run binary:check &
           smoke_pid=$!
           (
-            set -e
             cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
             for pair in bun-linux-x64:linux-x86_64 bun-darwin-x64:macos-x86_64 \
               bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
@@ -155,7 +155,6 @@ jobs:
           ) &
           compile_pid=$!
           (
-            set -e
             cd ../cli
             bun run build
             test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
@@ -201,57 +200,14 @@ jobs:
           archive: false
           if-no-files-found: error
 
-  source-maps:
-    name: Verify source maps and upload to PostHog
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Set up Bun
-        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: .bun-version
-
-      - name: Install workspace dependencies
-        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
-        run: bun install --frozen-lockfile
-
-      - name: Download the Platform source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: platform-source-maps.tar.zst
-
-      - name: Extract and verify the source maps
-        run: |
-          mkdir -p platform/.output
-          tar --zstd -xf platform-source-maps.tar.zst -C platform/.output
-          test -n "$(find platform/.output/sourcemaps -type f -name '*.map' -print -quit)"
-
-      - name: Upload the Platform source maps to PostHog
-        if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
-        working-directory: platform
-        env:
-          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
-          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
-        run: bun run sourcemaps:posthog --directory .output/sourcemaps --release-version "${{ github.sha }}"
-
   github-release:
     name: Verify artifacts and create the GitHub release
     # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
-    needs: [verify, build, stage-npm, docker-image, sandbox-image, docker-cleanup, source-maps]
+    needs: [verify, build, stage-npm, docker-image, sandbox-image, docker-cleanup]
     if: >-
       ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success'
         && needs.stage-npm.result == 'success' && needs.docker-image.result == 'success'
-        && needs.sandbox-image.result == 'success' && needs.source-maps.result == 'success'
+        && needs.sandbox-image.result == 'success'
         && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -272,14 +228,7 @@ jobs:
             test -s "astralbeam-platform-${target}"
             test -s "astralbeam-${target}"
           done
-          sha256sum astralbeam-* > SHA256SUMS
-
-      - name: Upload the release checksums
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          path: SHA256SUMS
-          archive: false
-          if-no-files-found: error
+          sha256sum astralbeam-* | tee SHA256SUMS
 
       - name: Create the release
         if: ${{ !inputs.dry-run }}
