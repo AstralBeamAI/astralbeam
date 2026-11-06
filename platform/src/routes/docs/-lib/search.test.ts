@@ -25,7 +25,7 @@ test("code identifiers remain searchable and pages readable by Astro", async () 
 
 test("reading an unknown page lists the readable paths", async () => {
   expect((await readDocsPage("sdk/theming")).markdown).toMatch(/^# Theming/)
-  expect((await readDocsPage("sdk/missing")).paths).toContain("start/coding-agents")
+  expect((await readDocsPage("sdk/missing")).paths).toContain("cli/commands")
 })
 
 test("identifier tokenization ranks the owning guide for option questions", async () => {

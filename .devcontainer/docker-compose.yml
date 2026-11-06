@@ -19,6 +19,7 @@ services:
       - platform-node-modules:/workspaces/astralbeam/platform/node_modules
       - website-node-modules:/workspaces/astralbeam/website/node_modules
       - sdk-node-modules:/workspaces/astralbeam/sdk/node_modules
+      - cli-node-modules:/workspaces/astralbeam/cli/node_modules
       - linearity-node-modules:/workspaces/astralbeam/examples/linearity-react/node_modules
       - todos-node-modules:/workspaces/astralbeam/examples/todos/node_modules
       - bun-cache:/root/.bun/install/cache
@@ -40,6 +41,7 @@ volumes:
   platform-node-modules:
   website-node-modules:
   sdk-node-modules:
+  cli-node-modules:
   linearity-node-modules:
   todos-node-modules:
   bun-cache:

@@ -10,7 +10,7 @@ on:
         type: boolean
         default: true
       minimal:
-        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and release in one job. Ignores dry-run.
+        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Ignores dry-run.
         type: boolean
         default: false
 
@@ -36,17 +36,19 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Verify the tag matches the SDK and Platform versions
+      - name: Verify the tag matches the SDK, CLI, and Platform versions
         id: version
-        # `sdk` and `platform` are the versioned projects and move in lockstep: examples/todos
+        # `sdk`, `cli`, and `platform` are the versioned projects and move in lockstep: examples/todos
         # declares no version and website is a private placeholder at 0.0.0.
         run: |
           version="$(jq -r .version sdk/package.json)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "$(jq -r .version platform/package.json)" != "$version" ]; then
-            echo "::error::platform/package.json must match sdk/package.json version ${version}"
-            exit 1
-          fi
+          for project in cli platform; do
+            if [ "$(jq -r .version "$project/package.json")" != "$version" ]; then
+              echo "::error::$project/package.json must match sdk/package.json version ${version}"
+              exit 1
+            fi
+          done
           if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v${version}" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} does not match sdk/package.json version ${version}"
             exit 1
@@ -82,6 +84,7 @@ jobs:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
       # https://docs.github.com/repositories/releasing-projects-on-github/linking-to-releases
       PLATFORM_ASSET_PREFIX: astralbeam-platform
+      CLI_ASSET_PREFIX: astralbeam
       RELEASE_VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
@@ -133,12 +136,43 @@ jobs:
               --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
           done
 
-      - name: Pack the SDK without publishing credentials
+      - name: Build the CLI
+        working-directory: cli
+        run: bun run build
+
+      - name: Compile and smoke-test the CLI binaries
+        # Bun cross-compiles the same bundled npm entry for every release target.
+        # https://bun.sh/docs/bundler/executables
+        working-directory: cli
+        shell: bash
+        run: |
+          test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
+          mkdir ../cli-binaries
+          for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
+            bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
+            bun-windows-x64:windows-x86_64.exe; do
+            bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+              --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+          done
+          binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+          test "$("$binary" --version)" = "$RELEASE_VERSION"
+          "$binary" skill | grep -q '^name: astralbeam$'
+
+      - name: Upload the CLI binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-binaries
+          path: cli-binaries
+          if-no-files-found: error
+
+      - name: Pack the SDK and CLI without publishing credentials
         run: |
           mkdir npm-packages
-          bun pm --cwd sdk pack --filename "$GITHUB_WORKSPACE/npm-packages/sdk.tgz"
+          for project in sdk cli; do
+            bun pm --cwd "$project" pack --filename "$GITHUB_WORKSPACE/npm-packages/$project.tgz"
+          done
 
-      - name: Upload the SDK package output
+      - name: Upload the SDK and CLI packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-packages
@@ -167,11 +201,17 @@ jobs:
         with:
           name: platform-binaries
 
+      - name: Download the CLI binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli-binaries
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        # The glob matches both the platform and the CLI binaries downloaded above.
         run: |
           sha256sum astralbeam-* > SHA256SUMS
           tag="v$RELEASE_VERSION"
@@ -320,7 +360,7 @@ jobs:
           bash -euo pipefail -c "$VERIFY_COMMANDS"
 
   stage-npm:
-    name: Stage the SDK on npm
+    name: Stage the SDK and CLI on npm
     needs: [verify, build]
     if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
@@ -343,20 +383,22 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Stage the SDK
+      - name: Stage the SDK and CLI
         # Staging never makes a package public, so no token or 2FA is needed here. A maintainer
-        # approves it with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
+        # approves each with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
         shell: bash
         run: |
           set -o pipefail
-          npm stage publish --ignore-scripts ./npm-packages/sdk.tgz | tee -a "$RUNNER_TEMP/npm-stage.log"
+          for project in sdk cli; do
+            npm stage publish --ignore-scripts "./npm-packages/$project.tgz" | tee -a "$RUNNER_TEMP/npm-stage.log"
+          done
 
-      - name: Report the staged package
+      - name: Report the staged packages
         run: |
           {
-            echo "## SDK staged on npm"
+            echo "## SDK and CLI staged on npm"
             echo
-            echo "Approve it with \`npm stage approve <stage-id>\` or from the Staged Packages tab of [@astralbeam/sdk](https://www.npmjs.com/package/@astralbeam/sdk). Approval prompts for 2FA."
+            echo "Approve each with \`npm stage approve <stage-id>\` or from the Staged Packages tab of [@astralbeam/sdk](https://www.npmjs.com/package/@astralbeam/sdk) and [@astralbeam/cli](https://www.npmjs.com/package/@astralbeam/cli). Approval prompts for 2FA."
             echo
             echo '```'
             cat "$RUNNER_TEMP/npm-stage.log"
@@ -364,7 +406,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   minimal-release:
-    name: Stage the SDK and release the Platform binaries (minimal)
+    name: Stage the SDK and CLI and release binaries (minimal)
     if: ${{ inputs.minimal }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -400,14 +442,28 @@ jobs:
           bun run --cwd sdk generate:styles
           bun run --cwd sdk tsdown
 
+      - name: Build the CLI and compile the Linux and Apple Silicon binaries
+        working-directory: cli
+        shell: bash
+        run: |
+          bun run build
+          mkdir ../cli-binaries
+          for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 bun-darwin-arm64:macos-arm64; do
+            bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+              --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/astralbeam-${pair#*:}" dist/astralbeam.js
+          done
+
       # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
-      - name: Stage the SDK while building the Platform binaries
+      - name: Stage the SDK and CLI while building the Platform binaries
         shell: bash
         run: |
           set -o pipefail
-          (bun pm --cwd sdk pack --filename "$RUNNER_TEMP/sdk.tgz" &&
-            npm stage publish --ignore-scripts "$RUNNER_TEMP/sdk.tgz" | tee -a "$GITHUB_STEP_SUMMARY") \
-            > "$RUNNER_TEMP/npm-stage.log" 2>&1 &
+          (
+            for project in sdk cli; do
+              bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
+              npm stage publish --ignore-scripts "$RUNNER_TEMP/$project.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
+            done
+          ) > "$RUNNER_TEMP/npm-stage.log" 2>&1 &
           stage=$!
           bun run --cwd platform build
           mkdir platform-binaries
@@ -416,6 +472,7 @@ jobs:
             bun run --cwd platform compile --target "${pair%%:*}" \
               --outfile "$GITHUB_WORKSPACE/platform-binaries/astralbeam-platform-${pair#*:}"
           done
+          mv cli-binaries/astralbeam-* platform-binaries/
           (cd platform-binaries && sha256sum astralbeam-* > SHA256SUMS)
           # Waits before releasing so a failed npm step does not leave a release pointing at unstaged packages.
           status=0

@@ -19,4 +19,4 @@ command = "bun run --cwd website dev"
 [[actions]]
 name = "Ready"
 icon = "tool"
-command = "bun run --cwd sdk ready && bun run --cwd platform ready && bun run --cwd website ready && bun run --cwd examples/todos ready && bun run --cwd examples/linearity-react ready"
+command = "bun run --cwd sdk ready && bun run --cwd platform ready && bun run --cwd website ready && bun run --cwd examples/todos ready && bun run --cwd cli ready && bun run --cwd examples/linearity-react ready"
