@@ -391,12 +391,6 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Cache Bun packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-minimal-release-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
-
       - name: Install dependencies for the Linux and Apple Silicon targets
         run: bun install --frozen-lockfile --os=linux --os=darwin --cpu=x64 --cpu=arm64 --libc=glibc
 
