@@ -28,9 +28,7 @@ git fetch --quiet --tags origin main
 
 version=$(package_version sdk)
 [ -n "$version" ] || fail "could not read the version from sdk/package.json"
-for project in cli platform; do
-  [ "$(package_version "$project")" = "$version" ] || fail "$project/package.json must match sdk/package.json version $version"
-done
+[ "$(package_version platform)" = "$version" ] || fail "platform/package.json must match sdk/package.json version $version"
 
 tag="v$version"
 ! git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || fail "$tag already exists, bump the versions first"

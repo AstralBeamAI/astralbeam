@@ -21,8 +21,7 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        # The platform splits `ready` across four legs so its checks, tests, and build overlap. The CLI's
-        # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
+        # The platform splits `ready` across four legs so its checks, tests, and build overlap.
         include:
           - { project: platform, leg: platform checks, tasks: check }
           - { project: platform, leg: platform unit tests, tasks: test --project=unit }
@@ -30,7 +29,6 @@ jobs:
           - { project: platform, leg: platform build, tasks: build && bun run binary:check, database: true }
           - { project: website, tasks: ready }
           - { project: sdk, tasks: ready }
-          - { project: cli, tasks: check && bun run test && bun run binary:check }
           - { project: examples/todos, tasks: ready }
           - { project: examples/linearity-react, tasks: ready }
     steps:
@@ -63,7 +61,7 @@ jobs:
 
       - name: Cache SDK build
         id: sdk-build
-        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
+        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: sdk/dist
@@ -71,8 +69,8 @@ jobs:
           key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/package.json', 'bun.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
-        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
-        # The platform, CLI, and examples consume `sdk/dist` through workspace links, so their
+        if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform'
+        # The platform and examples consume `sdk/dist` through workspace links, so their
         # typecheck and build cannot run before the SDK is installed and built.
         working-directory: sdk
         env:

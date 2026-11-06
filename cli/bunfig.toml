@@ -1,6 +1,0 @@
-# Vite and standalone tools own environment loading. https://bun.sh/docs/runtime/bunfig#env
-env = false
-
-[run]
-# Run package executables and their child processes with Bun.
-bun = true
