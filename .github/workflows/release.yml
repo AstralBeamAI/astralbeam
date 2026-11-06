@@ -31,7 +31,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out repository
-        uses: useblacksmith/checkout@v1 # v7
+        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -88,7 +88,7 @@ jobs:
       RELEASE_VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
-        uses: useblacksmith/checkout@v1 # v7
+        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           persist-credentials: false
 
@@ -425,7 +425,7 @@ jobs:
       id-token: write
     steps:
       - name: Check out repository
-        uses: useblacksmith/checkout@v1 # v7
+        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           persist-credentials: false
 

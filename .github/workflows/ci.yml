@@ -36,7 +36,7 @@ jobs:
           - { project: examples/linearity-react, tasks: ready }
     steps:
       - name: Check out repository
-        uses: useblacksmith/checkout@v1 # v7
+        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           persist-credentials: false
 
@@ -124,7 +124,7 @@ jobs:
         working-directory: examples/todos-rails
     steps:
       - name: Check out repository
-        uses: useblacksmith/checkout@v1 # v7
+        uses: useblacksmith/checkout@2b9fe87d796feea153b455ec2f3125b471a7b0e7 # v1.8.2
         with:
           persist-credentials: false
 
