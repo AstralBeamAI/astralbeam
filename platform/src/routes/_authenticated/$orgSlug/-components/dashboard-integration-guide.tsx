@@ -1,4 +1,5 @@
 import {
+  ArrowCounterClockwiseIcon,
   ArrowRightIcon,
   CaretDownIcon,
   CheckCircleIcon,
@@ -24,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
 import type { IntegrationGuideStep } from "@/lib/organizations/schemas"
 import { getAppReplyStatus } from "../-functions/get-app-reply-status"
@@ -64,6 +66,7 @@ function GuideStep({
   children: ReactNode
 }) {
   const complete = detected || marked
+  const markLabel = marked ? "Mark as not done" : "Mark as done"
   // Detection during this visit keeps the step open, so new keys and first replies stay visible.
   const [detectedOnLoad] = useState(detected)
   const [openOverride, setOpenOverride] = useState<boolean>()
@@ -89,18 +92,30 @@ function GuideStep({
             </CollapsibleTrigger>
           </h3>
           {!detected && onMarkedChange && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => {
-                onMarkedChange(!marked)
-                setOpenOverride(undefined)
-              }}
-            >
-              <CheckIcon aria-hidden="true" data-icon="inline-start" />
-              {marked ? "Mark as not done" : "Mark as done"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => {
+                      onMarkedChange(!marked)
+                      setOpenOverride(undefined)
+                    }}
+                  />
+                }
+              >
+                {marked ? (
+                  <ArrowCounterClockwiseIcon aria-hidden="true" data-icon="inline-start" />
+                ) : (
+                  <CheckIcon aria-hidden="true" data-icon="inline-start" />
+                )}
+                <span className="max-sm:sr-only">{markLabel}</span>
+              </TooltipTrigger>
+              {/* Narrow screens show only the icon, so the tooltip names the action there. */}
+              <TooltipContent className="sm:hidden">{markLabel}</TooltipContent>
+            </Tooltip>
           )}
           {/* A pointer shortcut for the title button, which carries the accessible state. */}
           <CollapsibleTrigger

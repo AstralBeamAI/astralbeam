@@ -34,6 +34,10 @@ test("integration guide steps collapse and keep manual completion across reloads
   await step("Create the token endpoint").click()
   await expect(step("Create the token endpoint")).toHaveAttribute("aria-expanded", "false")
   await captureMilestone(page, "guide-collapsed")
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(undo).toBeVisible()
+  await captureMilestone(page, "guide-mobile")
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.getByRole("link", { name: /^Invite teammates/ }).scrollIntoViewIfNeeded()
   await captureMilestone(page, "guide-customize")
 
