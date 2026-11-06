@@ -2,7 +2,7 @@
 
 Connect a model provider so your agents can reply. Each organization manages its own credentials and billing.
 
-New organizations start with an **OpenAI** connection that has GPT-6.1 Terra enabled and assigned to the starter agent, so chat works right away. To use your own OpenAI account, edit that connection and enter your key. To use another provider or a gateway, add a provider with an API key that can access the model you want.
+New organizations start with an **OpenAI** connection that has GPT-6 Luna enabled and assigned to the starter agent, so chat works right away. To use your own OpenAI account, edit that connection and enter your key. To use another provider or a gateway, add a provider with an API key that can access the model you want.
 
 ## Add a provider
 

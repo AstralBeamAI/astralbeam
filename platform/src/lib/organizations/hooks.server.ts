@@ -84,7 +84,7 @@ export const organizationRoleHooks = {
 } satisfies NonNullable<OrganizationOptions["organizationHooks"]>
 
 /** The model each new organization's starter agent uses through the deployment's OpenAI key. */
-const STARTER_MODEL = { modelId: "gpt-6.1-terra", name: "GPT-6.1 Terra" } as const
+const STARTER_MODEL = { modelId: "gpt-6-luna", name: "GPT-6 Luna" } as const
 
 const STARTER_USAGE_LIMIT = {
   name: "Monthly spend",

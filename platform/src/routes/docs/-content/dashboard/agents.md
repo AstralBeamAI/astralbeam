@@ -56,7 +56,7 @@ Workspaces are temporary. Published files remain available after cleanup. If the
 
 ## The default agent
 
-New organizations start with a default starter agent that replies with GPT-6.1 Terra through the organization's **OpenAI** connection. Rewrite its system prompt to describe your product.
+New organizations start with a default starter agent that replies with GPT-6 Luna through the organization's **OpenAI** connection. Rewrite its system prompt to describe your product.
 
 Changing the default affects new conversations that omit `agentId`. Existing conversations retain their agent. Deleting the default clears it, so choose a replacement before starting more conversations.
 

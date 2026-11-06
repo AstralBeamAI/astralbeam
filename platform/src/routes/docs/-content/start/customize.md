@@ -5,7 +5,7 @@ Once your first message gets a reply, it's time to make the assistant your own. 
 Your organization starts with a working setup:
 
 - A starter agent with general-purpose instructions.
-- An **OpenAI** connection with GPT-6.1 Terra, assigned to that agent.
+- An **OpenAI** connection with GPT-6 Luna, assigned to that agent.
 - An enabled **Monthly spend** limit of $10 per calendar month, shared by the whole organization.
 
 ## Identify your real users

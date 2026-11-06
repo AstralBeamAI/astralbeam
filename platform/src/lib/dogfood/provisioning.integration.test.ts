@@ -193,7 +193,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       const [model] = await db.select().from(providerModel)
       expect(model).toMatchObject({
         modelProviderId: provider!.id,
-        modelId: "gpt-6.1-terra",
+        modelId: "gpt-6-luna",
         configuration: { pricingSource: { kind: "catalog" } },
       })
       expect(await db.select().from(agentModel)).toMatchObject([

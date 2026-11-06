@@ -150,7 +150,7 @@ If storage fails, repair its settings and run the connection test. Pending file 
 | --- | --- | --- | --- |
 | `default_openai_api_key` | Yes | none | OpenAI API key copied into each new organization's **OpenAI** connection |
 
-Every new organization starts ready to chat. It gets an **OpenAI** connection that uses this key, GPT-6.1 Terra assigned to its starter agent, and an enabled **Monthly spend** limit of $10 per calendar month in UTC, shared by the whole organization. Owners can replace the key, change models, or edit the limit in their dashboard. Changing this setting affects only organizations created afterward.
+Every new organization starts ready to chat. It gets an **OpenAI** connection that uses this key, GPT-6 Luna assigned to its starter agent, and an enabled **Monthly spend** limit of $10 per calendar month in UTC, shared by the whole organization. Owners can replace the key, change models, or edit the limit in their dashboard. Changing this setting affects only organizations created afterward.
 
 **NOTE**: Organizations spend against your OpenAI account until their owners replace the key, and owners can raise or disable the starter limit. On a deployment open to sign-ups, also set [usage limits](https://platform.openai.com/settings/organization/limits) in your OpenAI organization.
 

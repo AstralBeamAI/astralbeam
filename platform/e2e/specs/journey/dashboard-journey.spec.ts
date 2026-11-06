@@ -178,7 +178,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await expect(agents.defaultBadge()).toBeVisible()
     // The organization starts with the deployment's OpenAI connection and its model assigned.
     await expect(
-      page.getByRole("checkbox", { name: "GPT-6.1 Terra (OpenAI)", exact: true }),
+      page.getByRole("checkbox", { name: "GPT-6 Luna (OpenAI)", exact: true }),
     ).toBeChecked()
     await agents.fillForm({
       name: starterAgent,
