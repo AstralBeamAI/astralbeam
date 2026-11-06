@@ -1,6 +1,6 @@
+import { chat } from "@tanstack/ai-effect"
 import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
-  chat,
   EventType,
   maxIterations,
   toolDefinition,
@@ -9,12 +9,12 @@ import {
   type TokenUsage,
 } from "@tanstack/ai"
 import { fakeText } from "@tanstack/ai/testing"
-import { Effect } from "effect"
+import { Effect, Stream } from "effect"
 import { expect, it } from "vitest"
 
 import { UsageLimitReached } from "@/lib/usage-limits/errors"
 import type { UsageLimit, UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits.ts"
+import { chatUsageLimitGuard } from "./usage-limits.ts"
 
 it("stops before the next model call and announces the limit once before the run finishes", async () => {
   const adapter = fakeText()
@@ -51,10 +51,6 @@ it("stops before the next model call and announces the limit once before the run
     onChunk: (_ctx, chunk) =>
       chunk.type === EventType.RUN_FINISHED ? (held.push(chunk), null) : undefined,
   }
-  async function* deliver(source: AsyncIterable<StreamChunk>) {
-    yield* source
-    yield* held
-  }
   const source = chat({
     threadId: "usage-test",
     adapter,
@@ -69,7 +65,14 @@ it("stops before the next model call and announces the limit once before the run
   })
 
   const types: string[] = []
-  for await (const chunk of guard.announce(deliver(source)))
+  for await (const chunk of Stream.toAsyncIterable(
+    guard.announce(
+      Stream.concat(
+        source,
+        Stream.suspend(() => Stream.fromIterable(held)),
+      ),
+    ),
+  ))
     types.push(chunk.type === EventType.CUSTOM ? `CUSTOM ${chunk.name}` : chunk.type)
 
   expect(adapter.state.callCount).toBe(1)
@@ -111,9 +114,11 @@ it.each([
       adapter,
       messages: [{ role: "user", content: "Look up" }],
       tools: [toolDefinition({ name: "lookup", description: "Look up" }).server(() => "42")],
-      middleware: [chatFailedUsageMiddleware([consumer]), consumer],
+      middleware: [consumer],
     })
-    expect((await Array.fromAsync(source)).at(-1)?.type).toBe(EventType.RUN_ERROR)
+    expect((await Effect.runPromise(Stream.runCollect(source))).at(-1)?.type).toBe(
+      EventType.RUN_ERROR,
+    )
     expect(recorded).toHaveLength(usage ? 2 : 1)
     expect(recorded[1]?.totalTokens).toBe(expected)
   },

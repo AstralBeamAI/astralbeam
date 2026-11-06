@@ -6,8 +6,14 @@ import {
   chatParamsFromRequestBody,
   EventType,
   type AnyServerTool,
+  type AnyTextAdapter,
+  type AdapterYieldChunk,
+  type TextOptions,
   type ChatMiddleware,
   type DebugOption,
+  type ModelMessage,
+  type StreamChunk,
+  type Tool,
 } from "@tanstack/ai"
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect"
 import { TestConsole } from "effect/testing"
@@ -17,42 +23,57 @@ import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 
 const chatRunTest = vi.hoisted(() => ({
   options: [] as Array<{
-    messages: unknown[]
+    threadId: string
+    messages: ModelMessage[]
     systemPrompts: string[]
-    tools: Array<{ name: string }>
-    adapter: { model: string }
-    abortController: AbortController
-    reasoning?: unknown
-    toolExecution?: string
+    tools: Tool[]
+    adapter: AnyTextAdapter
+    reasoning?: "high"
+    toolExecution?: "sequential"
     debug: DebugOption
     middleware: ChatMiddleware[]
   }>,
   hydrated: undefined as unknown,
+  started: Promise.withResolvers<void>(),
+  closed: Promise.withResolvers<void>(),
   order: [] as string[],
-  runError: undefined as object | undefined,
+  runError: undefined as Extract<StreamChunk, { type: "RUN_ERROR" }> | undefined,
 }))
 
-// TanStack's `chat()` is the vendor boundary: it would call the model provider.
-vi.mock("@tanstack/ai", async (original) => ({
-  ...(await original<typeof import("@tanstack/ai")>()),
-  chat: (options: (typeof chatRunTest.options)[number]) => {
-    chatRunTest.options.push(options)
-    return (async function* () {
-      try {
-        yield { type: "RUN_STARTED", threadId: "thread", runId: "run" }
-        if (chatRunTest.runError) yield chatRunTest.runError
-        await new Promise<void>((resolve) =>
-          options.abortController.signal.addEventListener("abort", () => {
-            chatRunTest.order.push("aborted")
-            resolve()
-          }),
-        )
-      } finally {
-        chatRunTest.order.push("closed")
+// Keep the native Effect lifecycle, replacing only provider work and persistence callbacks.
+vi.mock("@tanstack/ai-effect", async (original) => {
+  const actual = await original<typeof import("@tanstack/ai-effect")>()
+  return {
+    ...actual,
+    chat: (options: (typeof chatRunTest.options)[number]) => {
+      chatRunTest.options.push(options)
+      options.adapter.chatStream = async function* (
+        input: TextOptions,
+      ): AsyncGenerator<AdapterYieldChunk> {
+        try {
+          if (chatRunTest.runError) yield chatRunTest.runError
+          else
+            yield { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "partial", delta: "Partial" }
+          await new Promise<void>((resolve) => {
+            input.request?.signal?.addEventListener(
+              "abort",
+              () => {
+                chatRunTest.order.push("aborted")
+                resolve()
+              },
+              { once: true },
+            )
+            chatRunTest.started.resolve()
+          })
+        } finally {
+          chatRunTest.order.push("closed")
+          chatRunTest.closed.resolve()
+        }
       }
-    })()
-  },
-}))
+      return actual.chat({ ...options, middleware: [] })
+    },
+  }
+})
 
 import {
   ModelProviders,
@@ -192,6 +213,8 @@ const runChat = (body?: Record<string, unknown>) =>
 
 beforeEach(() => {
   chatRunTest.hydrated = undefined
+  chatRunTest.started = Promise.withResolvers<void>()
+  chatRunTest.closed = Promise.withResolvers<void>()
   chatRunTest.options = []
   chatRunTest.order = []
   chatRunTest.runError = undefined
@@ -443,12 +466,12 @@ describe("Chat.run", () => {
       const events = yield* Stream.runCollect(Stream.take(yield* runChat(), 2))
       assert.deepStrictEqual(events[1], {
         type: EventType.RUN_ERROR,
-        runId: "run",
         ...expected,
       })
       const output = (yield* TestConsole.logLines).map(String).join("\n")
       assert.notInclude(output, CHAT_TEST_MODEL.apiKey)
-      assert.include(output, "Incorrect API key provided:")
+      assert.notInclude(output, "Incorrect API key provided:")
+      assert.include(output, "Chat model request failed")
     }).pipe(
       Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL })),
       Effect.provide(serverLoggerLayer),
@@ -565,25 +588,30 @@ describe("Chat.run", () => {
     }),
   )
 
-  it.effect("releases the sandbox after aborting a disconnected run", () =>
+  it.effect("aborts a disconnected provider request before releasing the sandbox", () =>
     Effect.gen(function* () {
       const events = yield* runChat()
       assert.isEmpty(chatRunTest.order)
       const iterable = yield* Stream.toAsyncIterableEffect(events)
       const iterator = iterable[Symbol.asyncIterator]()
       const first = yield* Effect.promise(() => iterator.next())
-      assert.strictEqual((first.value as { type: string }).type, "RUN_STARTED")
+      assert.strictEqual((first.value as { type: string }).type, "TEXT_MESSAGE_CONTENT")
       // The run now waits on the provider, so closing must abort it rather than wait for it.
       const pending = iterator.next()
+      yield* Effect.promise(() => chatRunTest.started.promise)
       yield* Effect.promise(() => iterator.return!())
       yield* Effect.promise(() => pending)
-      assert.deepStrictEqual(chatRunTest.order, [
-        "sandbox-created",
+      yield* Effect.promise(() => chatRunTest.closed.promise)
+      assert.includeMembers(chatRunTest.order, [
         "aborted",
         "closed",
         "sandbox-released",
         "interrupted",
       ])
+      assert.isBelow(
+        chatRunTest.order.indexOf("aborted"),
+        chatRunTest.order.indexOf("sandbox-released"),
+      )
     }).pipe(
       Effect.provide(
         chatTestLayer({

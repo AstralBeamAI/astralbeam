@@ -1,6 +1,7 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 import { ArrowClockwiseIcon, ClockCounterClockwiseIcon, TrashIcon } from "@phosphor-icons/react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
+import { useScrollPagination } from "../lib/use-scroll-pagination.ts"
 import { QueryClient, useInfiniteQuery } from "@tanstack/react-query"
 import { type SyntheticEvent, useEffect, useRef, useState } from "react"
 import { cn } from "cn"
@@ -115,19 +116,7 @@ export function ThreadHistory({
   }, [client, currentId, version, writing])
   const searching = !accessDenied && (text.trim() !== search || query.isPending)
   const failed = accessDenied || (!searching && query.isError)
-  const { hasNextPage, isFetching, isError, fetchNextPage } = query
-  useEffect(() => {
-    const element = list.current
-    if (!open || !element || searching || !hasNextPage || isFetching || isError) return
-    const loadNextPage = () => {
-      if (element.scrollHeight - element.scrollTop - element.clientHeight < 48)
-        void fetchNextPage({ cancelRefetch: false })
-    }
-    // Short pages must load the next page even when there is no overflow to scroll yet.
-    loadNextPage()
-    element.addEventListener("scroll", loadNextPage)
-    return () => element.removeEventListener("scroll", loadNextPage)
-  }, [open, searching, hasNextPage, isFetching, isError, fetchNextPage, query.data])
+  useScrollPagination({ list, enabled: open && !searching, query })
   const groups =
     !authenticated || accessDenied || searching
       ? []

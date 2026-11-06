@@ -4,9 +4,9 @@ import { NonEmptyStringSchema } from "@/lib/schemas.ts"
 
 import { CHAT_ATTACHMENT_READ_MAX_CHARACTERS, CHAT_ATTACHMENT_UPLOAD_DIRECTORY } from "./constants"
 import type { ChatAttachmentFile } from "./types"
-import { chatToolInputSchema } from "../tool-schema"
+import { toolSchema } from "@tanstack/ai-effect"
 
-const ReadAttachmentInputSchema = chatToolInputSchema(
+const ReadAttachmentInputSchema = toolSchema(
   Schema.Struct({
     file: NonEmptyStringSchema.annotate({
       description: "Name of the attached file, exactly as the user's message gives it.",

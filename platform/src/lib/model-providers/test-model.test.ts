@@ -50,7 +50,15 @@ function textResponse(text = "OK", finish: string | null = "stop", api = configu
               },
               { type: "message_stop" },
             ]
-          : [{ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] }]
+          : [
+              {
+                id: "completion",
+                object: "chat.completion.chunk",
+                created: 1,
+                model: "saved-model",
+                choices: [{ index: 0, delta: { content: text }, finish_reason: finish }],
+              },
+            ]
   return new Response(
     events
       .map(
@@ -79,9 +87,9 @@ describe("testProviderModel", () => {
             ...configuration,
             api,
             providerType,
-            fetch: (_input, init) => {
-              request = JSON.parse(init?.body as string) as Record<string, unknown>
-              return Promise.resolve(textResponse("OK", "stop", api))
+            fetch: async (input, init) => {
+              request = (await new Request(input, init).json()) as Record<string, unknown>
+              return textResponse("OK", "stop", api)
             },
           }),
         )
