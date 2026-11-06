@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -254,7 +254,7 @@ jobs:
 
   docker-image:
     name: Publish the astralbeam-platform image
-    needs: [verify, build, docker-image-build]
+    needs: [verify, docker-image-build]
     uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
@@ -284,7 +284,7 @@ jobs:
 
   sandbox-image:
     name: Publish the sandbox image
-    needs: [verify, build, sandbox-image-build]
+    needs: [verify, sandbox-image-build]
     uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
