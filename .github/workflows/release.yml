@@ -100,7 +100,7 @@ jobs:
       - name: Install workspace dependencies for every release target
         # Include native Sharp packages for the cross-compiled executables.
         # https://bun.sh/docs/pm/cli/install#platform-specific-dependencies
-        run: bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
+        run: bun install --frozen-lockfile --filter ./platform --filter ./sdk --filter ./platform/packages/sandbox --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
 
       - name: Cache SDK build
         id: sdk-build
