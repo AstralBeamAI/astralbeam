@@ -21,7 +21,6 @@ Docs: https://astralbeam.ai/docs/cli/getting-started`
 
 /** Runs the CLI with Node-style argv and returns the process exit code. */
 export async function run(argv: readonly string[]): Promise<number> {
-  const json = argv.includes("--json")
   const debug = argv.includes("--debug")
   const program = yargs(argv.slice(2))
     .scriptName("astralbeam")
@@ -40,7 +39,11 @@ export async function run(argv: readonly string[]): Promise<number> {
     .demandCommand(1)
     .help()
     .exitProcess(false)
-    .fail((message, error) => {
+    .middleware((options) => {
+      runState.json = options.json
+    }, true)
+    .fail((message, error, parser) => {
+      if (parser.parsed) runState.json = parser.parsed.argv["json"] === true
       throw new UsageError(message || error?.message || "Invalid command.")
     })
     .epilog(HELP_FOOTER)
@@ -58,16 +61,16 @@ export async function run(argv: readonly string[]): Promise<number> {
     )
     .command("skill", "Print or install the AstralBeam integration skill", registerSkillCommands)
   registerChatCommand(program)
-  Object.assign(runState, { json, context: undefined, failedRequest: undefined })
+  Object.assign(runState, { json: false, context: undefined, failedRequest: undefined })
   const originalFetch = globalThis.fetch
   globalThis.fetch = tracedFetch(originalFetch, debug)
   try {
-    await program.parseAsync()
-    if (json) stderr.write(`${JSON.stringify({ context: runState.context ?? null })}\n`)
+    const options = await program.parseAsync()
+    if (options.json) stderr.write(`${JSON.stringify({ context: runState.context ?? null })}\n`)
     return 0
   } catch (error) {
     if (debug && error instanceof Error) stderr.write(`[debug] ${error.stack}\n`)
-    printError(error, json, runState.context, runState.failedRequest)
+    printError(error, runState.json, runState.context, runState.failedRequest)
     return error instanceof UsageError ? 2 : 1
   } finally {
     globalThis.fetch = originalFetch

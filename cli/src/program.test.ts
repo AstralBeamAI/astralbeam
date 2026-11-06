@@ -37,6 +37,48 @@ const cli = (...args: string[]) => run(["node", "astralbeam", ...args])
 const respondWith = (body: unknown, status = 200) =>
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(body, { status })))
 
+test.each([{ flags: ["--json"] }, { flags: ["--json=true"] }, { flags: ["--no-json", "--json"] }])(
+  "$flags uses JSON for success, API errors, and usage errors",
+  async ({ flags }) => {
+    respondWith({ items: [{ id: "tenant" }], page_after: null })
+    expect(await cli(...flags, "tenants", "list")).toBe(0)
+    expect(JSON.parse(stdout)).toEqual({ items: [{ id: "tenant" }], page_after: null })
+    expect(JSON.parse(stderr)).toEqual({ context })
+
+    stdout = ""
+    stderr = ""
+    const problem = { type: "about:blank", title: "Forbidden", status: 403, detail: "Denied." }
+    respondWith(problem, 403)
+    expect(await cli(...flags, "tenants", "list")).toBe(1)
+    expect(stdout).toBe("")
+    expect(JSON.parse(stderr)).toEqual({ error: problem, context })
+
+    stderr = ""
+    expect(await cli(...flags, "tenant-users", "get", "user")).toBe(2)
+    expect(JSON.parse(stderr)).toMatchObject({
+      error: { detail: "Missing required argument: tenant-id" },
+    })
+  },
+)
+
+test.each([{ flags: ["--json=false"] }, { flags: ["--json", "--no-json"] }])(
+  "$flags disables JSON for success, API errors, and usage errors",
+  async ({ flags }) => {
+    respondWith({ items: [{ id: "tenant" }], page_after: null })
+    expect(await cli(...flags, "tenants", "list")).toBe(0)
+    expect(stdout).toBe("ID\ntenant\n")
+    expect(stderr).toContain(`org ${ORGANIZATION_ID}`)
+
+    respondWith({ type: "about:blank", title: "Forbidden", status: 403, detail: "Denied." }, 403)
+    expect(await cli(...flags, "tenants", "list")).toBe(1)
+    expect(stderr).toContain("Error: Denied.")
+
+    stderr = ""
+    expect(await cli(...flags, "tenant-users", "get", "user")).toBe(2)
+    expect(stderr).toContain("Error: Missing required argument: tenant-id")
+  },
+)
+
 test("skill installation defaults to the project and honors --dir", async () => {
   const project = await mkdtemp(join(tmpdir(), "astralbeam-cli-skill-"))
   const content = await readFile(
