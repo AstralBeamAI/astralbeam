@@ -9,7 +9,7 @@ usage() {
   cat <<'EOF'
 Usage: curl -fsSL https://astralbeam.ai/install.sh | sh -s -- [options]
 
-  --version VERSION   Release to install, e.g. 0.29.0 or v0.29.0 (default: latest)
+  --version VERSION   Release to install, e.g. 0.29.1 or v0.29.1 (default: latest)
   --install-dir DIR   Absolute binary directory (default: $HOME/.local/bin)
   -h, --help          Show this help
 EOF
