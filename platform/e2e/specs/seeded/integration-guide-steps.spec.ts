@@ -30,8 +30,18 @@ test("integration guide steps collapse and keep manual completion across reloads
   await expect(install).toHaveAttribute("aria-expanded", "true")
   await captureMilestone(page, "guide-initial")
 
+  // Hold the save so the button stays disabled until the server function returns.
+  let releaseSave = () => {}
+  const saveHeld = new Promise<void>((resolve) => (releaseSave = resolve))
+  await page.route("**/_serverFn/**", async (route) => {
+    if (route.request().postData()?.includes('"marked"')) await saveHeld
+    await route.fallback()
+  })
   await done.click()
+  await expect(done).toBeDisabled()
+  releaseSave()
   await expect(undo).toBeVisible()
+  await expect(undo).toBeEnabled()
   const installComplete = step("Install the SDK (complete)")
   await expect(installComplete).toHaveAttribute("aria-expanded", "false")
   await step("Create the token endpoint").click()
