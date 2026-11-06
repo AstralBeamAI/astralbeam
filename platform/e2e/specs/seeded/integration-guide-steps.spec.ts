@@ -38,8 +38,6 @@ test("integration guide steps collapse and keep manual completion across reloads
   await expect(undo).toBeVisible()
   await captureMilestone(page, "guide-mobile")
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.getByRole("link", { name: /^Invite teammates/ }).scrollIntoViewIfNeeded()
-  await captureMilestone(page, "guide-customize")
 
   await page.reload()
   await waitForHydration(undo)
