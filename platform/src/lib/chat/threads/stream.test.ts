@@ -1,19 +1,18 @@
 import { OrganizationIdSchema, TenantIdSchema, TenantUserIdSchema } from "@/db/schema/organizations"
 import {
-  chat,
   EventType,
+  modelMessagesToUIMessages,
   toolDefinition,
   type ChatMiddleware,
   type ModelMessage,
   type StreamChunk,
   type Tool,
 } from "@tanstack/ai"
-import { Effect, Schema } from "effect"
+import { Effect, Schema, Stream } from "effect"
 import { describe, expect, test } from "vitest"
 
 import { createChatAdapter } from "../adapter"
-import { chatToolInputSchema } from "../tool-schema"
-import { chatFailedUsageMiddleware } from "../usage-limits"
+import { chat, toolSchema } from "@tanstack/ai-effect"
 import type { ChatThreads } from "./threads"
 import type { ChatMessagePayload, ChatToolResolution, ChatWriterClaim } from "./schemas"
 import { managedChatDelivery, managedChatMiddleware } from "./stream"
@@ -81,7 +80,6 @@ async function exerciseManagedStream(options: {
   const nextAssistantId = crypto.randomUUID()
   let requests = 0
   let executed = 0
-  let snapshotVersion = 0
   let bufferedSnapshots = 0
   const model = {
     providerId: "provider",
@@ -103,7 +101,7 @@ async function exerciseManagedStream(options: {
     description: "Test action",
     inputSchema:
       options.invalidInput || options.transformInput !== undefined
-        ? chatToolInputSchema(Schema.Struct({ required: Schema.String }))
+        ? toolSchema(Schema.Struct({ required: Schema.String }))
         : { type: "object", properties: {} },
   })
   const tool = options.browser
@@ -168,6 +166,7 @@ async function exerciseManagedStream(options: {
     managed,
     threads,
     history,
+    publicHistory: modelMessagesToUIMessages(history),
     tools: options.refresh ? [] : [tool],
     model,
     pricing: {
@@ -194,6 +193,7 @@ async function exerciseManagedStream(options: {
               ],
               tools: [tool] as unknown as Tool[],
               systemPrompts: [],
+              publicHistory: modelMessagesToUIMessages(history),
             }),
         }
       : {}),
@@ -216,7 +216,6 @@ async function exerciseManagedStream(options: {
     threadId: managed.claim.threadId,
     runId: "run",
     middleware: [
-      chatFailedUsageMiddleware(bridge.middleware),
       ...(options.snapshots
         ? [
             {
@@ -231,7 +230,6 @@ async function exerciseManagedStream(options: {
                 if (!chunk.type.startsWith("TOOL_CALL_")) return
                 const snapshot = (): StreamChunk => ({
                   type: EventType.MESSAGES_SNAPSHOT,
-                  timestamp: ++snapshotVersion,
                   messages: [{ id: "snapshot", role: "user", content: "Saved upload context" }],
                 })
                 return [snapshot(), chunk, snapshot()]
@@ -252,7 +250,9 @@ async function exerciseManagedStream(options: {
   const chunks: StreamChunk[] = []
   let failed = false
   try {
-    for await (const chunk of managedChatDelivery({ source, managed, state: bridge.state })) {
+    for await (const chunk of Stream.toAsyncIterable(
+      managedChatDelivery({ source, managed, state: bridge.state }),
+    )) {
       if (chunk.type === EventType.TOOL_CALL_END) order.push("delivered")
       chunks.push(chunk)
     }
@@ -269,7 +269,6 @@ async function exerciseManagedStream(options: {
     failed,
     nextAssistantId,
     prompts,
-    snapshotVersion,
     bufferedSnapshots,
   }
 }
@@ -401,13 +400,16 @@ describe("managed TanStack persistence boundaries", () => {
     expect(targets[0]!.tenantUserId).toBe(managedStreamClaim.scope.tenantUserId)
   })
 
-  test("retains only the latest deferred snapshot while preserving tool-event order", async () => {
+  test("replaces deferred snapshots with canonical history while preserving tool-event order", async () => {
     const result = await exerciseManagedStream({ snapshots: true })
     expect(result.failed).toBe(false)
     expect(result.bufferedSnapshots).toBe(1)
     const snapshots = result.chunks.filter((chunk) => chunk.type === EventType.MESSAGES_SNAPSHOT)
-    expect(snapshots).toHaveLength(1)
-    expect(snapshots[0]!.timestamp).toBe(result.snapshotVersion)
+    expect(snapshots).toHaveLength(2)
+    expect(
+      snapshots.every((snapshot) => snapshot.messages[0]?.id === managedStreamClaim.inputMessageId),
+    ).toBe(true)
+    expect(JSON.stringify(snapshots)).not.toContain("Saved upload context")
     expect(
       result.chunks
         .filter((chunk) => chunk.type.startsWith("TOOL_CALL_"))
@@ -418,7 +420,7 @@ describe("managed TanStack persistence boundaries", () => {
       EventType.TOOL_CALL_END,
       EventType.TOOL_CALL_RESULT,
     ])
-    expect(result.chunks.indexOf(snapshots[0]!)).toBeGreaterThan(
+    expect(result.chunks.indexOf(snapshots.at(-1)!)).toBeGreaterThan(
       result.chunks.findIndex((chunk) => chunk.type === EventType.TOOL_CALL_RESULT),
     )
   })

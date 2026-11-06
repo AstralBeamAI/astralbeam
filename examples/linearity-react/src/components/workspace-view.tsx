@@ -42,34 +42,18 @@ export function WorkspaceView({ view }: { view: View }) {
     void route({ href: workspaceUrl(workspace.id, next.toLowerCase()) })
   const selectProject = (id: string) =>
     void route({ href: workspaceUrl(workspace.id, `projects/${id}`) })
-  const setQuery = (q: string) =>
+  const updateSearch = (patch: Partial<Record<keyof typeof search, string | undefined>>) =>
     void route({
       to: ".",
-      search: (old) => searchSchema.parse({ ...old, q: q || undefined }),
+      search: (old) => searchSchema.parse({ ...old, ...patch }),
       replace: true,
     })
-  const setStatus = (status: string) =>
-    void route({
-      to: ".",
-      search: (old) => searchSchema.parse({ ...old, status: status || undefined }),
-      replace: true,
-    })
-  const setPriority = (priority: string) =>
-    void route({
-      to: ".",
-      search: (old) => searchSchema.parse({ ...old, priority: priority || undefined }),
-      replace: true,
-    })
-  const setScope = (scope: string) =>
-    void route({ to: ".", search: (old) => searchSchema.parse({ ...old, scope }), replace: true })
-  const setBoard = (board: boolean) =>
-    void route({
-      to: ".",
-      search: (old) => searchSchema.parse({ ...old, layout: board ? "board" : "list" }),
-      replace: true,
-    })
-  const setCycle = (cycle: string) =>
-    void route({ to: ".", search: (old) => searchSchema.parse({ ...old, cycle }), replace: true })
+  const setQuery = (q: string) => updateSearch({ q: q || undefined })
+  const setStatus = (status: string) => updateSearch({ status: status || undefined })
+  const setPriority = (priority: string) => updateSearch({ priority: priority || undefined })
+  const setScope = (scope: string) => updateSearch({ scope })
+  const setBoard = (board: boolean) => updateSearch({ layout: board ? "board" : "list" })
+  const setCycle = (cycle: string) => updateSearch({ cycle })
   const project = workspace.projects.find((entry) => entry.id === projectId)
   if (projectId && !project)
     return (

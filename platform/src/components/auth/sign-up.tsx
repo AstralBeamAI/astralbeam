@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
+// Local changes: Share native field validation. Show invitation context and prefill the invited email. Add the legal gate for email/OAuth signup and configured CAPTCHA, preserve the verification return path when browser storage is unavailable, remove generic additional fields and unconfigured plugin buttons, send only a boolean assertion, use Phosphor/Base UI Toast and domain-specific function names, repair strict typing, and read legal URLs from the runtime public config instead of build-time constants. Share password visibility controls. Wait for hydration, prevent duplicate submissions, and trim and require visible names. Use TanStack hydration readiness. Improve onboarding copy, layout, and form guidance. Remove the password-length helper text.
 
 "use client"
 
@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
+import { useAuthFieldErrors } from "./use-auth-field-errors"
 import { usePublicConfig } from "@/components/public-config-provider"
 import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
@@ -133,12 +134,7 @@ export function SignUp({
   })
   const isPending = !hydrated || signUpEmailPending || signInMutating > 0
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string | undefined
-    email?: string | undefined
-    password?: string | undefined
-    confirmPassword?: string | undefined
-  }>({})
+  const { fieldErrors, setFieldErrors, fieldValidation } = useAuthFieldErrors()
 
   const submitSignUp = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -232,20 +228,7 @@ export function SignUp({
                       required
                       pattern=".*\S.*"
                       disabled={isPending}
-                      onChange={() => {
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          name: undefined,
-                        }))
-                      }}
-                      onInvalid={(e) => {
-                        e.preventDefault()
-
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          name: localization.auth.fieldRequired,
-                        }))
-                      }}
+                      {...fieldValidation({ name: "name" })}
                       aria-invalid={!!fieldErrors.name}
                       aria-describedby={fieldErrors.name ? "signup-name-error" : undefined}
                     />
@@ -266,24 +249,7 @@ export function SignUp({
                     placeholder={localization.auth.emailPlaceholder}
                     required
                     disabled={isPending}
-                    onChange={() => {
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        email: undefined,
-                      }))
-                    }}
-                    onInvalid={(e) => {
-                      e.preventDefault()
-                      const el = e.target as HTMLInputElement
-                      const msg = el.validity.valueMissing
-                        ? localization.auth.fieldRequired
-                        : localization.auth.invalidEmail
-
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        email: msg,
-                      }))
-                    }}
+                    {...fieldValidation({ name: "email" })}
                     aria-invalid={!!fieldErrors.email}
                     aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
                   />
@@ -299,34 +265,15 @@ export function SignUp({
                     name="password"
                     autoComplete="new-password"
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        password: undefined,
-                      }))
-                    }}
+                    {...fieldValidation({
+                      name: "password",
+                      onChange: (event) => setPassword(event.currentTarget.value),
+                    })}
                     placeholder={localization.auth.passwordPlaceholder}
                     required
                     minLength={emailAndPassword.minPasswordLength}
                     maxLength={emailAndPassword.maxPasswordLength}
                     disabled={isPending}
-                    onInvalid={(e) => {
-                      e.preventDefault()
-                      const el = e.target as HTMLInputElement
-                      const min = emailAndPassword?.minPasswordLength
-                      const max = emailAndPassword?.maxPasswordLength
-                      const msg = el.validity.valueMissing
-                        ? localization.auth.fieldRequired
-                        : el.validity.tooShort
-                          ? localization.auth.tooShort.replace("{{min}}", String(min))
-                          : localization.auth.tooLong.replace("{{max}}", String(max))
-
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        password: msg,
-                      }))
-                    }}
                     aria-invalid={!!fieldErrors.password}
                     aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
                   />
@@ -347,35 +294,15 @@ export function SignUp({
                       name="confirmPassword"
                       autoComplete="new-password"
                       value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value)
-
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          confirmPassword: undefined,
-                        }))
-                      }}
+                      {...fieldValidation({
+                        name: "confirmPassword",
+                        onChange: (event) => setConfirmPassword(event.currentTarget.value),
+                      })}
                       placeholder={localization.auth.confirmPasswordPlaceholder}
                       required
                       minLength={emailAndPassword.minPasswordLength}
                       maxLength={emailAndPassword.maxPasswordLength}
                       disabled={isPending}
-                      onInvalid={(e) => {
-                        e.preventDefault()
-                        const el = e.target as HTMLInputElement
-                        const min = emailAndPassword?.minPasswordLength
-                        const max = emailAndPassword?.maxPasswordLength
-                        const msg = el.validity.valueMissing
-                          ? localization.auth.fieldRequired
-                          : el.validity.tooShort
-                            ? localization.auth.tooShort.replace("{{min}}", String(min))
-                            : localization.auth.tooLong.replace("{{max}}", String(max))
-
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          confirmPassword: msg,
-                        }))
-                      }}
                       aria-invalid={!!fieldErrors.confirmPassword}
                       aria-describedby={
                         fieldErrors.confirmPassword ? "signup-confirm-password-error" : undefined

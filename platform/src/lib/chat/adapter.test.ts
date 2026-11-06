@@ -70,16 +70,16 @@ describe("chat provider request routing", () => {
       vi.stubEnv("OPENROUTER_API_KEY", "unused-environment-openrouter-key")
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "unused-environment-anthropic-token")
       vi.stubEnv("OPENAI_ORG_ID", "unused-environment-openai-organization")
-      const configuredFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> = (
-        input,
-        init,
-      ) => {
-        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body")
+      const configuredFetch: (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ) => Promise<Response> = async (input, init) => {
+        const request = new Request(input, init)
         requests.push({
-          url: new URL(input instanceof Request ? input.url : input),
-          headers: new Headers(init.headers),
+          url: new URL(request.url),
+          headers: request.headers,
           body: Schema.decodeUnknownSync(Schema.Struct({ model: Schema.optional(Schema.String) }))(
-            JSON.parse(init.body),
+            await request.json(),
           ),
         })
         return Promise.resolve(

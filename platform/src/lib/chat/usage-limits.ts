@@ -1,5 +1,5 @@
-import { fromSpecTokenUsage, EventType, type ChatMiddleware, type StreamChunk } from "@tanstack/ai"
-import { Effect, Exit } from "effect"
+import { EventType, type ChatMiddleware, type StreamChunk } from "@tanstack/ai"
+import { Effect, Exit, Stream } from "effect"
 
 import { APP_HANDLE } from "@/lib/constants"
 import type { ModelConfiguration } from "@/lib/model-providers/schemas"
@@ -51,7 +51,7 @@ export function chatUsageLimitGuard(options: {
    * Announces the limit on the delivered stream. The engine reports a model call's finish before it
    * consults `onShouldContinue`, and managed delivery holds the run's own finish until the end.
    */
-  async function* announce(source: AsyncIterable<StreamChunk>): AsyncGenerator<StreamChunk> {
+  function announce<E, R>(source: Stream.Stream<StreamChunk, E, R>) {
     const notice = (): StreamChunk[] => {
       if (!reached) return []
       const event: StreamChunk = {
@@ -62,36 +62,17 @@ export function chatUsageLimitGuard(options: {
       reached = undefined
       return [event]
     }
-    for await (const chunk of source) {
-      if (chunk.type === EventType.RUN_FINISHED) yield* notice()
-      yield chunk
-    }
-    yield* notice()
+    return Stream.concat(
+      source.pipe(
+        Stream.flatMap((chunk) =>
+          Stream.fromIterable(
+            chunk.type === EventType.RUN_FINISHED ? [...notice(), chunk] : [chunk],
+          ),
+        ),
+      ),
+      Stream.suspend(() => Stream.fromIterable(notice())),
+    )
   }
 
   return { middleware, announce }
-}
-
-/** Core reports successful-call usage, but usage-bearing failed streams bypass that hook.
- * https://github.com/TanStack/ai/pull/1793 */
-export function chatFailedUsageMiddleware(consumers: readonly ChatMiddleware[]): ChatMiddleware {
-  let settled = false
-  return {
-    name: "failed-call-usage",
-    onIteration() {
-      settled = false
-    },
-    onUsage() {
-      settled = true
-    },
-    async onChunk(ctx, chunk) {
-      if (chunk.type !== EventType.RUN_ERROR || settled) return
-      const usage = Array.isArray(chunk.usage)
-        ? fromSpecTokenUsage(chunk.usage, chunk.metadata?.tanstack?.usage)
-        : (chunk.usage ?? fromSpecTokenUsage(undefined, chunk.metadata?.tanstack?.usage))
-      if (!usage) return
-      settled = true
-      for (const consumer of consumers) await consumer.onUsage?.(ctx, usage)
-    },
-  }
 }

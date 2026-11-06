@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/auth
-// Local changes: Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA and last-login hints while removing unconfigured passkey, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration. Improve onboarding copy, layout, and form guidance.
+// Local changes: Share native field validation. Show invitation context and prefill the invited email. Use Phosphor icons, browser-safe globals, and domain-specific function names; add configured CAPTCHA and last-login hints while removing unconfigured passkey, two-factor, and plugin buttons; preserve return paths when browser storage is unavailable, strict typing, and a semantic heading. Share password visibility controls. Disable credential inputs and submission until hydration. Improve onboarding copy, layout, and form guidance.
 
 "use client"
 
@@ -29,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Spinner } from "@/components/ui/spinner"
+import { useAuthFieldErrors } from "./use-auth-field-errors"
 import { getInvitationContext } from "@/lib/auth/redirect"
 import { cn } from "cn"
 import { ProviderButtons, type SocialLayout } from "./provider-buttons"
@@ -98,10 +99,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
   })
   const isPending = !hydrated || signInMutating + signUpMutating > 0
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    email: string | undefined
-    password: string | undefined
-  }>({ email: undefined, password: undefined })
+  const { fieldErrors, fieldValidation } = useAuthFieldErrors()
 
   const providerButtonsProps = socialLayout === undefined ? {} : { socialLayout }
   const captchaComponent = plugins?.find((plugin) => plugin.id === "captcha")?.captchaComponent
@@ -171,24 +169,7 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                     placeholder={localization.auth.emailPlaceholder}
                     required
                     disabled={isPending}
-                    onChange={() => {
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        email: undefined,
-                      }))
-                    }}
-                    onInvalid={(e) => {
-                      e.preventDefault()
-                      const el = e.target as HTMLInputElement
-                      const msg = el.validity.valueMissing
-                        ? localization.auth.fieldRequired
-                        : localization.auth.invalidEmail
-
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        email: msg,
-                      }))
-                    }}
+                    {...fieldValidation({ name: "email" })}
                     aria-invalid={!!fieldErrors.email}
                     aria-describedby={fieldErrors.email ? "signin-email-error" : undefined}
                   />
@@ -204,35 +185,15 @@ export function SignIn({ className, socialLayout, socialPosition = "bottom" }: S
                     name="password"
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        password: undefined,
-                      }))
-                    }}
+                    {...fieldValidation({
+                      name: "password",
+                      onChange: (event) => setPassword(event.currentTarget.value),
+                    })}
                     placeholder={localization.auth.passwordPlaceholder}
                     required
                     minLength={emailAndPassword.minPasswordLength}
                     maxLength={emailAndPassword.maxPasswordLength}
                     disabled={isPending}
-                    onInvalid={(e) => {
-                      e.preventDefault()
-                      const el = e.target as HTMLInputElement
-                      const min = emailAndPassword?.minPasswordLength
-                      const max = emailAndPassword?.maxPasswordLength
-                      const msg = el.validity.valueMissing
-                        ? localization.auth.fieldRequired
-                        : el.validity.tooShort
-                          ? localization.auth.tooShort.replace("{{min}}", String(min))
-                          : localization.auth.tooLong.replace("{{max}}", String(max))
-
-                      setFieldErrors((prev) => ({
-                        ...prev,
-                        password: msg,
-                      }))
-                    }}
                     aria-invalid={!!fieldErrors.password}
                     aria-describedby={fieldErrors.password ? "signin-password-error" : undefined}
                   />

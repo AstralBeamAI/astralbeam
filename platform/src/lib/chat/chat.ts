@@ -1,14 +1,14 @@
 import {
-  chat,
   convertMessagesToModelMessages,
   EventType,
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
 } from "@tanstack/ai"
+import { chat } from "@tanstack/ai-effect"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import * as OtelTracer from "@effect/opentelemetry/OtelTracer"
-import { Context, Effect, identity, Layer, Option, Stream } from "effect"
+import { Context, Effect, Layer, Option, Stream } from "effect"
 
 import { McpTools } from "@/lib/mcp/tools.server"
 import { redactSensitiveValue } from "@/lib/redaction"
@@ -26,7 +26,7 @@ import {
 } from "@/lib/model-providers/model-providers.server"
 import { Agents } from "@/lib/agents/agents.server"
 import { createChatAdapter } from "./adapter"
-import { chatWebTools, chatWebState } from "./web"
+import { chatWebTools } from "./web"
 import { createChatAttachmentTools } from "./attachments/tools"
 import {
   createChatAttachmentSnapshotMiddleware,
@@ -59,12 +59,10 @@ import type { ChatParams, ChatPrincipal } from "./types"
 import { IS_DEVELOPMENT_SERVER } from "@/lib/runtime/environment.server"
 import { errorReason } from "@/lib/runtime/failure-report.server"
 import { UsageLimits } from "@/lib/usage-limits/usage-limits.server"
-import { chatFailedUsageMiddleware, chatUsageLimitGuard } from "./usage-limits"
+import { chatUsageLimitGuard } from "./usage-limits"
 
 // Only recognized provider codes get actionable copy. Provider messages can contain credentials.
 const modelErrorMessages: Readonly<Record<string, string>> = {
-  web_access_unavailable:
-    "The provider rejected web access. Ask the site owner to check the model and provider web-tool permissions.",
   invalid_api_key: "The model provider rejected its API key. Ask the site owner to update it.",
   authentication_error:
     "The model provider rejected its credentials. Ask the site owner to check them.",
@@ -74,22 +72,6 @@ const modelErrorMessages: Readonly<Record<string, string>> = {
   rate_limit_error: "The model provider is receiving too many requests. Please try again later.",
   model_not_found:
     "The configured model is unavailable or access is denied. Ask the site owner to check the model.",
-}
-
-/** Dropping the client stream aborts the provider request before closing TanStack's iterator. */
-function chatEventStream(start: (abortController: AbortController) => AsyncIterable<StreamChunk>) {
-  return Stream.unwrap(
-    Effect.gen(function* () {
-      const abortController = new AbortController()
-      const iterator = start(abortController)[Symbol.asyncIterator]()
-      // Finalizers run last in, first out, and closing the iterator waits for the in-flight
-      // provider call, so the abort is registered last and the stream sees no `return` of its own.
-      yield* Effect.addFinalizer(() => Effect.promise(() => Promise.resolve(iterator.return?.())))
-      yield* Effect.addFinalizer(() => Effect.sync(() => abortController.abort()))
-      const events = { [Symbol.asyncIterator]: () => ({ next: () => iterator.next() }) }
-      return Stream.fromAsyncIterable(events, identity).pipe(Stream.orDie)
-    }),
-  )
 }
 
 const prepareChatHistory = Effect.fnUntraced(function* ({
@@ -201,7 +183,6 @@ export class Chat extends Context.Service<
             ),
           )
         if (!model) return yield* new ChatModelMissing()
-        const web = agent.webAccessEnabled ? chatWebState() : undefined
         const webTools = yield* Effect.try({
           try: () => chatWebTools(model, agent.webAccessEnabled, params.tools),
           catch: () => new ChatWebAccessUnavailable(),
@@ -304,10 +285,10 @@ export class Chat extends Context.Service<
             if (log && sandboxTools.length > 0) {
               yield* log("sandbox", `${sandboxTools.length} sandbox tools declared`)
             }
-            const tools = unknownOutcome
-              ? webTools
-              : [
-                  ...mergeAgentTools(
+            const collectTools = () =>
+              unknownOutcome
+                ? webTools
+                : mergeAgentTools(
                     [
                       ...webTools,
                       ...mcp.tools,
@@ -315,8 +296,8 @@ export class Chat extends Context.Service<
                       ...createChatAttachmentTools(files, { sandbox: Boolean(session) }),
                     ],
                     params.tools,
-                  ),
-                ]
+                  )
+            const tools = [...collectTools()]
             const managed = managedChatMiddleware({
               managed: input.managed,
               threads,
@@ -324,14 +305,7 @@ export class Chat extends Context.Service<
               tools,
               model,
               pricing,
-              web,
-              publicHistory:
-                web ||
-                history.some((record) =>
-                  record.payload.parts.some((part) => part.executionLocation === "provider"),
-                )
-                  ? projectChatPublicHistory(history)
-                  : undefined,
+              publicHistory: projectChatPublicHistory(history),
               agentId: `agent_${input.principal.organization.id}_${agent.id}`,
               execute: Effect.runPromiseWith(services),
               refreshContext: (claim) =>
@@ -352,33 +326,12 @@ export class Chat extends Context.Service<
                     files.splice(0, files.length, ...normalized.files)
                     inputMessages.splice(0, inputMessages.length, ...normalized.projected)
                     if (session) yield* session.prepareUploads(files)
-                    if (!unknownOutcome)
-                      tools.splice(
-                        0,
-                        tools.length,
-                        ...mergeAgentTools(
-                          [
-                            ...chatWebTools(model, agent.webAccessEnabled, params.tools),
-                            ...mcp.tools,
-                            ...sandboxTools,
-                            ...createChatAttachmentTools(files, { sandbox: Boolean(session) }),
-                          ],
-                          params.tools,
-                        ),
-                      )
+                    tools.splice(0, tools.length, ...collectTools())
                     if (files.length && !systemPrompts.includes(CHAT_ATTACHMENT_SYSTEM_PROMPT))
                       systemPrompts.splice(1, 0, CHAT_ATTACHMENT_SYSTEM_PROMPT)
                     return {
                       providerMessages: convertMessagesToModelMessages(normalized.messages),
-                      publicHistory:
-                        web ||
-                        saved.some((record) =>
-                          record.payload.parts.some(
-                            (part) => part.executionLocation === "provider",
-                          ),
-                        )
-                          ? projectChatPublicHistory(saved)
-                          : undefined,
+                      publicHistory: projectChatPublicHistory(saved),
                       tools,
                       systemPrompts,
                     }
@@ -401,50 +354,46 @@ export class Chat extends Context.Service<
               ...managed.middleware,
               ...(usageLimitGuard ? [usageLimitGuard.middleware] : []),
             ]
-            return chatEventStream((abortController) => {
-              const source = chat({
-                adapter: createChatAdapter(model, web),
-                // Undefined still enables TanStack's default error logger.
-                debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
-                messages,
-                systemPrompts,
-                // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
-                // drops a client tool named like a server tool.
-                tools,
-                // A sandbox command or publication can depend on an earlier tool's file write.
-                // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
-                toolExecution: "sequential",
-                repairToolInput: false,
-                // Interrupt snapshots preserve original uploads after provider normalization.
-                middleware: [
-                  chatFailedUsageMiddleware(accounting),
-                  createChatAttachmentSnapshotMiddleware(inputMessages, history),
-                  ...accounting,
-                  {
-                    name: "mcp-presentation",
-                    onStart: (ctx) =>
-                      ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
-                        tools: mcp.presentation,
-                        unavailable: mcp.unavailable,
-                      }),
-                  },
-                ],
-                agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
-                threadId: params.threadId,
-                runId: params.runId,
-                parentRunId: params.parentRunId,
-                resume: params.resume,
-                ...(model.providerType === "openai" &&
-                  model.api === "responses" && { reasoning: "high" }),
-                abortController,
-              })
-              const delivered = managedChatDelivery({
-                source,
-                managed: input.managed,
-                state: managed.state,
-              })
-              return usageLimitGuard ? usageLimitGuard.announce(delivered) : delivered
+            const source = chat({
+              adapter: createChatAdapter(model),
+              // Undefined still enables TanStack's default error logger.
+              debug: log ? { logger: chatDebugLogger({ runId: params.runId }) } : false,
+              messages,
+              systemPrompts,
+              // Host tools arrive declared in the request body and run in the page. `mergeAgentTools`
+              // drops a client tool named like a server tool.
+              tools,
+              // A sandbox command or publication can depend on an earlier tool's file write.
+              // https://github.com/TanStack/ai/blob/main/packages/ai/CHANGELOG.md#0640
+              toolExecution: "sequential",
+              repairToolInput: false,
+              // Interrupt snapshots preserve original uploads after provider normalization.
+              middleware: [
+                createChatAttachmentSnapshotMiddleware(inputMessages, history),
+                ...accounting,
+                {
+                  name: "mcp-presentation",
+                  onStart: (ctx) =>
+                    ctx.emitCustomEvent(CHAT_MCP_PRESENTATION_EVENT, {
+                      tools: mcp.presentation,
+                      unavailable: mcp.unavailable,
+                    }),
+                },
+              ],
+              agentLoopStrategy: maxIterations(CHAT_MAX_MODEL_TURNS),
+              threadId: params.threadId,
+              runId: params.runId,
+              parentRunId: params.parentRunId,
+              resume: params.resume,
+              ...(model.providerType === "openai" &&
+                model.api === "responses" && { reasoning: "high" }),
+            }).pipe(Stream.orDie)
+            const delivered = managedChatDelivery({
+              source,
+              managed: input.managed,
+              state: managed.state,
             })
+            return usageLimitGuard ? usageLimitGuard.announce(delivered) : delivered
           }),
         ).pipe(
           Stream.mapEffect((chunk): Effect.Effect<StreamChunk> => {
@@ -469,9 +418,6 @@ export class Chat extends Context.Service<
                 Effect.annotateLogs({
                   organizationId: principal.organization.id,
                   providerId: model.providerId,
-                  message: model.apiKey
-                    ? chunk.message.replaceAll(model.apiKey, "[REDACTED]")
-                    : chunk.message,
                   code: errorReason(chunk),
                   ...(typeof chunk.metadata?.tanstack?.errorType === "string"
                     ? { errorType: chunk.metadata.tanstack.errorType.slice(0, 128) }

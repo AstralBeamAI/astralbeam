@@ -270,7 +270,7 @@ export function chatPublicParts(parts: ChatMessagePayload["parts"]) {
           fileId: part.source.id,
         }
       : {}),
-    ...(part.type === "tool-call" && part.executionLocation !== "provider"
+    ...(part.type === "tool-call"
       ? { id: Schema.decodeUnknownSync(Schema.String)(part.toolCallId), applicationPartId: part.id }
       : {}),
   }))
