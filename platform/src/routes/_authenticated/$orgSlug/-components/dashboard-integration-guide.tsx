@@ -1,5 +1,5 @@
 import {
-  ArrowCounterClockwiseIcon,
+  XIcon,
   ArrowRightIcon,
   CaretDownIcon,
   CheckCircleIcon,
@@ -68,7 +68,7 @@ function GuideStep({
   children: ReactNode
 }) {
   const complete = detected || marked
-  const markLabel = marked ? "Mark as not done" : "Mark as done"
+  const markLabel = marked ? "Mark not done" : "Mark as done"
   // Detection during this visit keeps the step open, so new keys and first replies stay visible.
   const [detectedOnLoad] = useState(detected)
   const [openOverride, setOpenOverride] = useState<boolean>()
@@ -98,9 +98,8 @@ function GuideStep({
               <TooltipTrigger
                 render={
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-muted-foreground"
                     disabled={saving}
                     onClick={() => {
                       onMarkedChange(!marked)
@@ -110,7 +109,7 @@ function GuideStep({
                 }
               >
                 {marked ? (
-                  <ArrowCounterClockwiseIcon aria-hidden="true" data-icon="inline-start" />
+                  <XIcon aria-hidden="true" data-icon="inline-start" />
                 ) : (
                   <CheckIcon aria-hidden="true" data-icon="inline-start" />
                 )}

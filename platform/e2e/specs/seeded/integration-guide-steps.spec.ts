@@ -21,7 +21,7 @@ test("integration guide steps collapse and keep manual completion across reloads
   const undo = page
     .getByRole("listitem")
     .filter({ has: step("Install the SDK (complete)") })
-    .getByRole("button", { name: "Mark as not done", exact: true })
+    .getByRole("button", { name: "Mark not done", exact: true })
   await waitForHydration(done)
   await expect(step("Create an API key (complete)")).toHaveAttribute("aria-expanded", "false")
   await expect(install).toHaveAttribute("aria-expanded", "true")
