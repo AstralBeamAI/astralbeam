@@ -371,8 +371,9 @@ export function DashboardIntegrationGuide({
               </Note>
               <IntegrationCode markdown={snippets.endpoint} />
               <Note>
-                The test IDs let you chat right away. Before going live, read them from your
-                session: <code className={inlineCode}>user.id</code> is the signed-in person and{" "}
+                The test IDs let you chat right away in development, and the endpoint refuses
+                production until you replace them. Read them from your session:{" "}
+                <code className={inlineCode}>user.id</code> is the signed-in person and{" "}
                 <code className={inlineCode}>tenant.id</code> is the customer account they belong
                 to. Never take them from the request body.{" "}
                 <DocsLink href="/docs/sdk/authentication">

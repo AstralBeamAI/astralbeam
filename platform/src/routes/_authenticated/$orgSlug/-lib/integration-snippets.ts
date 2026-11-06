@@ -39,6 +39,8 @@ export function integrationSnippets(apiUrl: string) {
 import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
 export async function POST() {
+  // The test IDs below are not authenticated, so this refuses production until you replace them
+  if (process.env.NODE_ENV === "production") return new Response(null, { status: 401 })
   const token = await createAstralBeamToken({${tokenOptions}
   })
   return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
@@ -56,6 +58,8 @@ export const Route = createFileRoute("/api/astralbeam/token")({
   server: {
     handlers: {
       POST: async () => {
+        // The test IDs below are not authenticated, so this refuses production until you replace them
+        if (process.env.NODE_ENV === "production") return new Response(null, { status: 401 })
         const token = await createAstralBeamToken({${tokenOptions.replaceAll("\n", "\n      ")}
         })
         return Response.json({ token }, { headers: { "Cache-Control": "no-store" } })
@@ -73,6 +77,8 @@ import { createAstralBeamToken } from "@astralbeam/sdk/server"
 
 // Add this route to your existing Express app
 app.post("/api/astralbeam/token", async (req, res) => {
+  // The test IDs below are not authenticated, so this refuses production until you replace them
+  if (process.env.NODE_ENV === "production") return res.sendStatus(401)
   const token = await createAstralBeamToken({${tokenOptions}
   })
   res.set("Cache-Control", "no-store").json({ token })
@@ -95,6 +101,9 @@ require "base64"
 
 class AstralbeamTokensController < ApplicationController
   def create
+    # The test IDs below are not authenticated, so this refuses production until you replace them
+    return head :unauthorized if Rails.env.production?
+
     key_id, _, secret = ENV.fetch("ASTRALBEAM_API_KEY").rpartition("_abo_")
     signing_key = Base64.urlsafe_encode64(Digest::SHA256.digest("abo_#{secret}"), padding: false)
     claims = {

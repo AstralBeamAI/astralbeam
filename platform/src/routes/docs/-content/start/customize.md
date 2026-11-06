@@ -10,11 +10,11 @@ Your organization starts with a working setup:
 
 ## Identify your real users
 
-The dashboard guide signs every token with the test IDs `test-user` and `test-org`, so everyone shares one conversation history. Before going live, let's read both from your signed-in session:
+The dashboard guide signs every token with the test IDs `test-user` and `test-org`, so everyone shares one conversation history. Its examples refuse requests in production until you change them. Before going live, let's read both IDs from your signed-in session:
 
 1. Set `user.id` to the signed-in person's stable ID from your database.
 2. Set `tenant.id` to the customer account, workspace, or organization they belong to. Users with the same tenant share its directory and usage limits.
-3. Return an authentication error when there is no valid session.
+3. Return an authentication error when there is no valid session, then remove the example's production check.
 
 Never read these IDs from the request body, because anyone could then chat as anyone else. See [Authentication](/docs/sdk/authentication) for complete examples, other languages, and switching workspaces.
 
