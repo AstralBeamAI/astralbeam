@@ -146,7 +146,7 @@ mountAstralBeamChat(container, { apiUrl: "${apiUrl}" })`,
         `
 <div id="sidebar" style="height: 100dvh"></div>
 <script type="module">
-  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.27.0/dist/client.js"
+  import { mountAstralBeamChat } from "https://cdn.jsdelivr.net/npm/@astralbeam/sdk@0.28.0/dist/client.js"
 
   mountAstralBeamChat(document.getElementById("sidebar"), { apiUrl: "${apiUrl}" })
 </script>`,
