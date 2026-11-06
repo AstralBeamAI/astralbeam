@@ -198,6 +198,7 @@ async function checkEmbeddedPostgresBinary(options: {
     ASTRALBEAM_DATA_DIR: directory,
     DATABASE_URL: undefined,
     DATABASE_ENCRYPTION_KEY: undefined,
+    WORKERS: "1",
     MICROSANDBOX_DISABLED: "true",
     DOCKERSANDBOX_DISABLED: "true",
     LOCAL_SANDBOX_IMAGE: undefined,

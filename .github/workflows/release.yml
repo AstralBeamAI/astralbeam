@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -135,23 +135,30 @@ jobs:
           path: ${{ runner.temp }}/postgres-runtime
           key: postgres-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('platform/src/db/embedded-postgres.json') }}
 
-      - name: Smoke-test the Platform binary
-        working-directory: platform
-        env:
-          BINARY_CHECK_POSTGRES_CACHE: ${{ runner.temp }}/postgres-runtime
-        run: bun run binary:check
-
-      - name: Cross-compile the other Platform binaries
+      - name: Smoke-test and pack the Platform binaries
         working-directory: platform
         shell: bash
+        env:
+          BINARY_CHECK_POSTGRES_CACHE: ${{ runner.temp }}/postgres-runtime
         run: |
-          mkdir ../platform-binaries
-          mv .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
-          for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
-            bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
-            bun run compile --target "${pair%%:*}" \
-              --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
-          done
+          bun run binary:check &
+          smoke_pid=$!
+          (
+            set -e
+            mkdir ../platform-binaries
+            cp --reflink=auto .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
+            for pair in bun-linux-x64:linux-x86_64 bun-darwin-x64:macos-x86_64 \
+              bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
+              bun run compile --target "${pair%%:*}" \
+                --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
+            done
+            tar --use-compress-program='zstd -T0' -cf ../platform-binaries.tar.zst -C ../platform-binaries .
+          ) &
+          compile_pid=$!
+          status=0
+          wait "$smoke_pid" || status=$?
+          wait "$compile_pid" || status=$?
+          exit "$status"
 
       - name: Build the CLI
         working-directory: cli
@@ -195,9 +202,6 @@ jobs:
           name: npm-packages
           path: npm-packages/*.tgz
           if-no-files-found: error
-
-      - name: Pack the Platform binaries
-        run: tar --use-compress-program='zstd -T0' -cf platform-binaries.tar.zst -C platform-binaries .
 
       - name: Upload the Platform binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
