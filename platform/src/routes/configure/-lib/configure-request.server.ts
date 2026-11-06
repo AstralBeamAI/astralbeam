@@ -1,8 +1,9 @@
+import { redirect } from "@tanstack/react-router"
 import { Effect, Option, Result } from "effect"
 
 import { Config, readEnvironmentConfig } from "@/lib/config/config"
 import { allowInsecure } from "@/lib/runtime/environment.server"
-import { ServerRedirect, ServerRequest } from "@/lib/runtime/server-request.server"
+import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { isTrustedProxyAddress, proxySettingsFromValues } from "@/lib/utils.server"
 import { ConfigureHttpsRequired, ConfigureRequestForbidden } from "./errors.ts"
 
@@ -46,7 +47,7 @@ export const checkConfigureRequest = Effect.fn("checkConfigureRequest")(function
     if (["GET", "HEAD"].includes(request.method.toUpperCase())) {
       const httpsUrl = new URL(requestUrl)
       httpsUrl.protocol = "https:"
-      return yield* new ServerRedirect({ href: httpsUrl.href, status: 307 })
+      return yield* Effect.fail(redirect({ href: httpsUrl.href, statusCode: 307 }))
     }
     return yield* new ConfigureHttpsRequired()
   }

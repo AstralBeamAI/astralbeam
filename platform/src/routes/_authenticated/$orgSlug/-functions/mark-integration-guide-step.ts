@@ -7,7 +7,7 @@ import {
   IntegrationGuideStepSchema,
   OrganizationRouteInputSchema,
 } from "@/lib/organizations/schemas"
-import { runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema } from "@/lib/schemas"
 
 export const markIntegrationGuideStep = createServerFn({ method: "POST" })
@@ -21,8 +21,8 @@ export const markIntegrationGuideStep = createServerFn({ method: "POST" })
       }),
     ),
   )
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.flatMap(Organizations, (organizations) =>
         organizations.markGuideStep({
           organizationId: context.organizationId,
@@ -30,6 +30,5 @@ export const markIntegrationGuideStep = createServerFn({ method: "POST" })
           marked: data.marked,
         }),
       ),
-      serverFnMeta.name,
     ),
   )

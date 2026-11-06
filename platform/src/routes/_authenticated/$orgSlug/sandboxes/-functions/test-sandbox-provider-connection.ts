@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { Effect } from "effect"
 
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { SandboxProviders } from "@/lib/sandboxes/providers.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
@@ -11,8 +11,8 @@ import { SandboxProviderInputSchema } from "../-lib/schemas.ts"
 export const testSandboxProviderConnection = createServerFn({ method: "POST" })
   .middleware([organizationAccessMiddleware({ organizationConfiguration: ["test"] })])
   .validator(toValidationSchema(SandboxProviderInputSchema))
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.flatMap(SandboxProviders, (providers) =>
         providers.testConnection({
           organizationId: context.organizationId,
@@ -20,6 +20,5 @@ export const testSandboxProviderConnection = createServerFn({ method: "POST" })
           lockVersion: data.lockVersion,
         }),
       ).pipe(Effect.catchTag(["SandboxProviderChanged", "SandboxProviderUnreadable"], exposeError)),
-      serverFnMeta.name,
     ),
   )

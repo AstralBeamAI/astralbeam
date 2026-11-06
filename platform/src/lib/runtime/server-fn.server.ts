@@ -1,4 +1,4 @@
-import { redirect } from "@tanstack/react-router"
+import { isRedirect, redirect } from "@tanstack/react-router"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { Cause, Data, Effect, Exit, type ManagedRuntime, Option } from "effect"
 
@@ -7,8 +7,7 @@ import { serverLoggerLayer } from "./logging.server.ts"
 import { declaredHttpApiStatus } from "./http-api-status.ts"
 import { type AppServices, getAppRuntime } from "./runtime.server.ts"
 import { INTERNAL_ERROR_TAG } from "./server-fn-error.ts"
-import { captureServerRequest, ServerRedirect, ServerRequest } from "./server-request.server.ts"
-import { withActiveSpan } from "./tracing-context.server.ts"
+import { captureServerRequest, ServerRequest } from "./server-request.server.ts"
 
 /** A failure a server function chose to show, carrying its original tag and user-safe message. */
 class ExposedError extends Data.TaggedError("ExposedError")<{
@@ -43,6 +42,13 @@ export function runEffect<A, E>(
   return runServerFnEffect(getAppRuntime(), effect, operation)
 }
 
+/** Adapts an Effect handler while preserving Start's validated input and middleware context. */
+export function effectHandler<Input extends { serverFnMeta: { name: string } }, A, E>(
+  handler: (input: Input) => Effect.Effect<A, E, AppServices | ServerRequest>,
+): (input: Input) => Promise<A> {
+  return Effect.fn(handler, (effect, input) => runEffect(effect, input.serverFnMeta.name))
+}
+
 /** Like `runEffect` for an Effect that needs only its request, while the app runtime cannot start. */
 export function runRequestEffect<A, E>(
   effect: Effect.Effect<A, E, ServerRequest>,
@@ -59,9 +65,7 @@ async function runServerFnEffect<A, E, R>(
   const request = captureServerRequest()
   const annotations = { requestId: request.request.headers.get("x-request-id"), operation }
   const exit = await runtime.runPromiseExit(
-    withActiveSpan(Effect.provideService(effect, ServerRequest, request)).pipe(
-      Effect.annotateLogs(annotations),
-    ),
+    Effect.provideService(effect, ServerRequest, request).pipe(Effect.annotateLogs(annotations)),
     { signal: request.request.signal },
   )
   if (Exit.isSuccess(exit)) return exit.value
@@ -69,9 +73,7 @@ async function runServerFnEffect<A, E, R>(
   if (Cause.hasInterruptsOnly(exit.cause)) request.request.signal.throwIfAborted()
   const failure = Cause.findErrorOption(exit.cause)
   if (Option.isSome(failure) && !Cause.hasDies(exit.cause)) {
-    if (failure.value instanceof ServerRedirect) {
-      throw redirect({ href: failure.value.href, statusCode: failure.value.status })
-    }
+    if (isRedirect(failure.value)) throw redirect(failure.value.options)
     if (failure.value instanceof ExposedError) {
       setResponseStatus(failure.value.status)
       throw failure.value
@@ -94,7 +96,7 @@ export function runRouteEffect<A>(
 ): Promise<A> {
   const request = captureServerRequest()
   return getAppRuntime().runPromise(
-    withActiveSpan(Effect.provideService(effect, ServerRequest, request)).pipe(
+    Effect.provideService(effect, ServerRequest, request).pipe(
       Effect.annotateLogs({ requestId: request.request.headers.get("x-request-id") }),
     ),
     { signal: request.request.signal },

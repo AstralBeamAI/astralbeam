@@ -5,7 +5,7 @@ import { DatabaseRateLimiter } from "@/db/lib/rate-limiter"
 import { Auth } from "@/lib/auth/auth.server"
 import { Config } from "@/lib/config/config"
 import { Mailer } from "@/lib/email/email.server"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { toValidationSchema } from "@/lib/schemas"
 import { SupportRequestRateLimited } from "../-lib/errors"
@@ -14,8 +14,8 @@ import { SupportRequestSchema } from "../-lib/schemas"
 /** Emails the signed-in user a copy of their support request, with the support address copied. */
 export const sendSupportRequest = createServerFn({ method: "POST" })
   .validator(toValidationSchema(SupportRequestSchema))
-  .handler(({ data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ data }) =>
       Effect.gen(function* () {
         const { headers } = (yield* ServerRequest).request
         const session = yield* Effect.flatMap(Auth, (auth) => auth.requireSession({ headers }))
@@ -60,6 +60,5 @@ export const sendSupportRequest = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

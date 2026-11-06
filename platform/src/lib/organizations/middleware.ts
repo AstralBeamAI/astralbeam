@@ -1,4 +1,4 @@
-import { createMiddleware, createServerOnlyFn } from "@tanstack/react-start"
+import { createMiddleware } from "@tanstack/react-start"
 import { Effect, Option, Schema } from "effect"
 
 import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
@@ -10,20 +10,22 @@ import { OrganizationRouteInputSchema } from "./schemas.ts"
 
 const decodeOrganizationSlugInput = Schema.decodeUnknownOption(OrganizationRouteInputSchema)
 
-const authorizeOrganizationRequest = createServerOnlyFn(
-  (input: { operation: string; data: unknown; permissions?: OrganizationPermissionRequest }) =>
-    runEffect(
+/** Resolves the organization from the function's own `organizationSlug` input, never an ID, and
+ * enforces membership plus one permission when given. Route guards never stand in for this. */
+export function organizationAccessMiddleware(permissions?: OrganizationPermissionRequest) {
+  return createMiddleware({ type: "function" }).server(async ({ data, next, serverFnMeta }) => {
+    const access = await runEffect(
       Effect.gen(function* () {
         const server = yield* ServerRequest
         // Access depends on the caller's session, so no cache may keep the response.
         yield* server.setHeaders({ "Cache-Control": "no-store" })
-        const slugInput = decodeOrganizationSlugInput(input.data)
+        const slugInput = decodeOrganizationSlugInput(data)
         if (Option.isNone(slugInput)) return yield* new OrganizationNotFound()
         const organizations = yield* Organizations
         return yield* organizations.access({
           headers: server.request.headers,
           organizationSlug: slugInput.value.organizationSlug,
-          permissions: input.permissions,
+          permissions,
         })
       }).pipe(
         Effect.catchTag(
@@ -31,19 +33,8 @@ const authorizeOrganizationRequest = createServerOnlyFn(
           exposeError,
         ),
       ),
-      input.operation,
-    ),
-)
-
-/** Resolves the organization from the function's own `organizationSlug` input, never an ID, and
- * enforces membership plus one permission when given. Route guards never stand in for this. */
-export function organizationAccessMiddleware(permissions?: OrganizationPermissionRequest) {
-  return createMiddleware({ type: "function" }).server(async ({ data, next, serverFnMeta }) => {
-    const access = await authorizeOrganizationRequest({
-      operation: serverFnMeta.name,
-      data,
-      ...(permissions ? { permissions } : {}),
-    })
+      serverFnMeta.name,
+    )
     return next({ context: access })
   })
 }

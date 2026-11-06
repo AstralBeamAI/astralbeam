@@ -12,7 +12,7 @@ import {
 } from "@/lib/organizations/errors"
 import { organizationAccessMiddleware } from "@/lib/organizations/middleware"
 import { SlugSchema } from "@/lib/organizations/slug"
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { toValidationSchema, UuidV7Schema } from "@/lib/schemas"
 import deleteOrganization from "@/lib/workflows/delete-organization"
 
@@ -23,8 +23,8 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
       Schema.Struct({ organizationSlug: SlugSchema, organizationId: UuidV7Schema }),
     ),
   )
-  .handler(({ context, data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ context, data }) =>
       Effect.gen(function* () {
         const { organizationId, organizationName } = context
         // The slug may have moved to another organization since the dialog rendered.
@@ -66,6 +66,5 @@ export const requestOrganizationDeletion = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

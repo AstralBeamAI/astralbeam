@@ -5,6 +5,7 @@ import { AUTH_EMAIL_DELIVERY_FAILED_CODE } from "@/lib/auth/email-delivery"
 import {
   assertAuthEmailDelivered,
   deliverBlockingAuthEmail,
+  withBlockingAuthEmailDelivery,
 } from "@/lib/auth/email-delivery.server"
 import { EmailDeliveryError } from "@/lib/email/errors"
 
@@ -59,5 +60,16 @@ describe("authentication email delivery boundary", () => {
   test("a send outside a request still rejects", async () => {
     await expect(deliveryFailure(undefined, "provider down")).rejects.toThrow()
     expect(() => assertAuthEmailDelivered(undefined)).not.toThrow()
+  })
+
+  test("a requestless swallowed send failure is still reported to the caller", async () => {
+    await expect(
+      Effect.runPromise(
+        withBlockingAuthEmailDelivery(async () => {
+          await deliveryFailure(undefined, "provider down").catch(() => undefined)
+          return "Better Auth swallowed the rejection"
+        }),
+      ),
+    ).rejects.toMatchObject({ _tag: "AuthEmailNotDelivered" })
   })
 })

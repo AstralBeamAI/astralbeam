@@ -1,6 +1,6 @@
 import { NonEmptyStringSchema, enumSchema } from "@/lib/schemas.ts"
 import { Context, Predicate, Schema, SchemaGetter } from "effect"
-import { HttpServerResponse } from "effect/http"
+import { HttpServerResponse, ProblemDetails } from "effect/http"
 import { HttpApiMiddleware, HttpApiSchema } from "effect/http-api"
 import type { OrganizationCurrentUser } from "@/lib/auth/organization-token.server"
 import type { TenantScope } from "@/lib/tenants/tenants"
@@ -105,11 +105,7 @@ function restProblem(error: RestError) {
 
 export function restProblemResponse(error: RestError): HttpServerResponse.HttpServerResponse {
   const { body, headers } = restProblem(error)
-  return HttpServerResponse.jsonUnsafe(body, {
-    status: body.status,
-    headers,
-    contentType: "application/problem+json",
-  })
+  return HttpServerResponse.setHeaders(ProblemDetails.toResponse(body), headers)
 }
 
 export function isRestError(error: unknown): error is RestError {

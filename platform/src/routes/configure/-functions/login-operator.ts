@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { Effect, Schema } from "effect"
 
-import { exposeError, runEffect } from "@/lib/runtime/server-fn.server"
+import { effectHandler, exposeError } from "@/lib/runtime/server-fn.server"
 import { ServerRequest } from "@/lib/runtime/server-request.server"
 import { NonEmptyStringSchema, toValidationSchema } from "@/lib/schemas"
 import { checkConfigureRequest } from "../-lib/configure-request.server"
@@ -19,8 +19,8 @@ const OperatorLoginInput = Schema.Struct({
 
 export const loginOperator = createServerFn({ method: "POST" })
   .validator(toValidationSchema(OperatorLoginInput))
-  .handler(({ data, serverFnMeta }) =>
-    runEffect(
+  .handler(
+    effectHandler(({ data }) =>
       Effect.gen(function* () {
         yield* checkConfigureRequest()
         const decision = yield* consumeOperatorLoginRateLimit().pipe(Effect.orDie)
@@ -45,6 +45,5 @@ export const loginOperator = createServerFn({ method: "POST" })
           exposeError,
         ),
       ),
-      serverFnMeta.name,
     ),
   )

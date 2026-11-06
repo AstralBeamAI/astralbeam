@@ -14,7 +14,7 @@ import {
 import { parseSetCookieHeader } from "better-auth/cookies"
 import { captcha, haveIBeenPwned, lastLoginMethod, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { Context, Effect, Layer, Predicate, Ref } from "effect"
+import { Context, Effect, identity, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database"
 import { tables } from "@/db/schema"
@@ -35,7 +35,6 @@ import { organizationImageHooks } from "@/lib/organizations/image-hooks.server"
 import { organizationApiKeyPlugin } from "@/lib/organizations/hooks.server"
 import { forkAppEffect, runAppEffect } from "@/lib/runtime/app-effect.server"
 import { IS_TEST_RUNTIME, skipEmailVerification } from "@/lib/runtime/environment.server"
-import { tryPromiseInServerRequest } from "@/lib/runtime/server-request.server"
 import {
   assertNoGlobalAvatar,
   enqueueGravatar,
@@ -631,7 +630,9 @@ export class Auth extends Context.Service<
       const instance = Effect.map(configured, ({ auth }) => auth)
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
-        Effect.flatMap(instance, (auth) => tryPromiseInServerRequest(() => call(auth.api)))
+        Effect.flatMap(instance, (auth) =>
+          Effect.tryPromise({ try: () => call(auth.api), catch: identity }),
+        )
 
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
       const api = <A>(call: (api: AppAuth["api"]) => Promise<A>) => callApi(call).pipe(Effect.orDie)
@@ -675,9 +676,9 @@ export class Auth extends Context.Service<
         peerAddress: string | undefined,
       ) {
         const { auth, config } = yield* configured
-        return yield* tryPromiseInServerRequest(() =>
+        return yield* Effect.promise(() =>
           auth.handler(withTrustedProxyHeaders(request, peerAddress, config.proxy)),
-        ).pipe(Effect.orDie)
+        )
       })
 
       const updateOrganization = Effect.fn("Auth.updateOrganization")(function* (input: {
