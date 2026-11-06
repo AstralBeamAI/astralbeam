@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { APP_NAME } from "@/lib/constants"
 import { throwOrganizationRouteError } from "./-lib/route-errors"
 import { DashboardIntegrationGuide } from "./-components/dashboard-integration-guide"
-import { DashboardResourceCards } from "./-components/dashboard-resource-cards"
 import { getDashboardPageData } from "./-functions/get-dashboard-page-data"
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/")({
@@ -37,11 +36,11 @@ function DashboardPage() {
         organizationSlug={orgSlug}
         apiUrl={data.apiUrl}
         modelSetup={data.modelSetup}
-        usableApiKeyCount={data.counts.usableApiKeys}
+        usableApiKeyCount={data.usableApiKeyCount}
         hasAppReply={data.hasAppReply}
+        markedSteps={data.markedGuideSteps}
         permissions={permissions}
       />
-      <DashboardResourceCards organizationSlug={orgSlug} counts={data.counts} />
     </div>
   )
 }
@@ -53,13 +52,7 @@ function DashboardPageSkeleton() {
         <Skeleton className="h-9 w-56" />
         <Skeleton className="h-5 w-full max-w-md" />
       </div>
-      <Skeleton className="h-96" />
-      <div className="grid max-w-4xl gap-4 sm:grid-cols-2">
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-      </div>
+      <Skeleton className="h-96 max-w-4xl" />
     </div>
   )
 }

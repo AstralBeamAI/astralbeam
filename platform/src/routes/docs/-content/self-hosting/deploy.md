@@ -146,12 +146,12 @@ This stack creates a local evaluation with PostgreSQL and persistent File System
 In an empty directory, download the Compose file and create a private `.env` once. The command refuses to overwrite an existing file:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.28.0/docker-compose.production.yml
+curl -fsSLO https://raw.githubusercontent.com/AstralBeamAI/astralbeam/v0.28.1/docker-compose.production.yml
 (
   umask 077
   set -C
   printf 'ASTRALBEAM_VERSION=%s\nPOSTGRES_PASSWORD=%s\nDATABASE_ENCRYPTION_KEY=%s\nBETTER_AUTH_SECRET=%s\nALLOW_INSECURE=true\nSKIP_EMAIL_VERIFICATION=true\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nTURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA\n' \
-    "${ASTRALBEAM_VERSION:-0.28.0}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
+    "${ASTRALBEAM_VERSION:-0.28.1}" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" \
     > .env
 )
 docker compose -f docker-compose.production.yml up --detach --wait

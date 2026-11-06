@@ -1,5 +1,6 @@
 import {
   ArrowRightIcon,
+  CaretDownIcon,
   CheckCircleIcon,
   CheckIcon,
   CopyIcon,
@@ -19,11 +20,15 @@ import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { OrganizationPermissions } from "@/lib/organizations/access"
+import type { IntegrationGuideStep } from "@/lib/organizations/schemas"
 import { getAppReplyStatus } from "../-functions/get-app-reply-status"
+import { markIntegrationGuideStep } from "../-functions/mark-integration-guide-step"
 import { integrationSnippets } from "../-lib/integration-snippets"
 
 const REPLY_POLL_INTERVAL_MS = 3000
@@ -40,39 +45,82 @@ function IntegrationCode({ markdown }: { markdown: string }) {
   )
 }
 
+const stepCircle =
+  "flex size-7 items-center justify-center rounded-full border bg-background text-xs font-medium"
+const completeStepCircle = "border-primary bg-primary text-primary-foreground"
+
 function GuideStep({
   number,
   title,
-  complete,
+  detected = false,
+  marked,
+  onMarkedChange,
   children,
 }: {
   number: number
   title: string
-  complete?: boolean
+  detected?: boolean
+  marked: boolean
+  onMarkedChange: ((marked: boolean) => void) | undefined
   children: ReactNode
 }) {
+  const complete = detected || marked
+  // Detection during this visit keeps the step open, so new keys and first replies stay visible.
+  const [detectedOnLoad] = useState(detected)
+  const [openOverride, setOpenOverride] = useState<boolean>()
   return (
     <li className="relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-4 pb-8 last:pb-0">
       <span
         aria-hidden="true"
         className="absolute top-9 bottom-1 start-3.5 w-px -translate-x-1/2 bg-border in-[li:last-child]:hidden"
       />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex size-7 items-center justify-center rounded-full border bg-background text-xs font-medium",
-          complete && "border-primary bg-primary text-primary-foreground",
-        )}
+      {detected || !onMarkedChange ? (
+        <span aria-hidden="true" className={cn(stepCircle, complete && completeStepCircle)}>
+          {complete ? <CheckIcon /> : number}
+        </span>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={marked}
+                aria-label={`${title} complete`}
+                onClick={() => {
+                  onMarkedChange(!marked)
+                  setOpenOverride(undefined)
+                }}
+                className={cn(
+                  stepCircle,
+                  "cursor-pointer transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  marked && completeStepCircle,
+                )}
+              />
+            }
+          >
+            {marked ? <CheckIcon aria-hidden="true" /> : number}
+          </TooltipTrigger>
+          <TooltipContent>{marked ? "Mark incomplete" : "Mark complete"}</TooltipContent>
+        </Tooltip>
+      )}
+      <Collapsible
+        open={openOverride ?? !(marked || detectedOnLoad)}
+        onOpenChange={setOpenOverride}
+        className="min-w-0"
       >
-        {complete ? <CheckIcon /> : number}
-      </span>
-      <div className="min-w-0 space-y-3">
-        <h3 className="pt-1 font-sans text-sm font-medium">
-          {title}
-          {complete && <span className="sr-only"> (complete)</span>}
+        <h3 className="font-sans text-sm font-medium">
+          <CollapsibleTrigger className="group flex cursor-pointer items-center gap-2 pt-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            {title}
+            {complete && <span className="sr-only"> (complete)</span>}
+            <CaretDownIcon
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-aria-expanded:rotate-180"
+            />
+          </CollapsibleTrigger>
         </h3>
-        {children}
-      </div>
+        <CollapsibleContent className="space-y-3 pt-3">{children}</CollapsibleContent>
+      </Collapsible>
     </li>
   )
 }
@@ -96,12 +144,15 @@ function CustomizeLinks({
   organizationSlug,
   defaultAgentId,
   canConfigure,
+  canInvite,
 }: {
   organizationSlug: string
   defaultAgentId: string | null
   canConfigure: boolean
+  canInvite: boolean
 }) {
-  // Viewers cannot open Agents or Usage Limits, so they see only the guides.
+  const params = { orgSlug: organizationSlug }
+  // Viewers cannot open configuration pages, so they see only the guides.
   const configurationItems = canConfigure
     ? [
         {
@@ -110,17 +161,39 @@ function CustomizeLinks({
           link: defaultAgentLink(organizationSlug, defaultAgentId),
         },
         {
+          title: "Connect model providers",
+          description: "Add provider keys and choose the models your agents use.",
+          link: linkOptions({ to: "/$orgSlug/models", params }),
+        },
+        {
+          title: "Add a sandbox",
+          description: "Let agents run code and work with files.",
+          link: linkOptions({ to: "/$orgSlug/sandboxes", params }),
+        },
+        {
+          title: "Connect MCP servers",
+          description: "Give agents tools from external services.",
+          link: linkOptions({ to: "/$orgSlug/mcp", params }),
+        },
+        {
           title: "Review usage limits",
           description: "Cap tokens or spend for your organization, customers, and users.",
-          link: linkOptions({
-            to: "/$orgSlug/usage-limits",
-            params: { orgSlug: organizationSlug },
-          }),
+          link: linkOptions({ to: "/$orgSlug/usage-limits", params }),
+        },
+      ]
+    : []
+  const inviteItems = canInvite
+    ? [
+        {
+          title: "Invite teammates",
+          description: "Add developers and viewers to this organization.",
+          link: linkOptions({ to: "/$orgSlug/members", params }),
         },
       ]
     : []
   const items = [
     ...configurationItems,
+    ...inviteItems,
     {
       title: "Match your brand",
       description: "Set the widget's title, colors, and theme.",
@@ -182,6 +255,7 @@ export function DashboardIntegrationGuide({
   modelSetup,
   usableApiKeyCount,
   hasAppReply,
+  markedSteps,
   permissions,
 }: {
   organizationId: string
@@ -190,20 +264,44 @@ export function DashboardIntegrationGuide({
   modelSetup: { defaultAgentModelCount: number; defaultAgentId: string | null } | null
   usableApiKeyCount: number | null
   hasAppReply: boolean | null
+  markedSteps: ReadonlyArray<IntegrationGuideStep>
   permissions: Pick<
     OrganizationPermissions,
-    "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey"
+    "readConfiguration" | "updateConfiguration" | "createApiKey" | "readApiKey" | "createInvitation"
   >
 }) {
   const router = useRouter()
   const titleId = useId()
   const [createApiKeyOpen, setCreateApiKeyOpen] = useState(false)
   const [promptCopyFailed, setPromptCopyFailed] = useState(false)
+  const [pendingMarks, setPendingMarks] = useState<
+    Partial<Record<IntegrationGuideStep, boolean | undefined>>
+  >({})
   const [replied, setReplied] = useState(hasAppReply === true)
   const snippets = useMemo(() => integrationSnippets(apiUrl), [apiUrl])
   // Fixed at mount, so a reply detected here keeps the full guide and its success state visible.
   const [connectedOnLoad] = useState(hasAppReply === true)
   const waitingForReply = hasAppReply !== null && !replied
+
+  async function saveMark(step: IntegrationGuideStep, marked: boolean) {
+    setPendingMarks((pending) => ({ ...pending, [step]: marked }))
+    try {
+      await markIntegrationGuideStep({ data: { organizationSlug, step, marked } })
+      await router.invalidate()
+    } catch {
+      toast.add({ title: "Couldn’t save your progress. Try again.", type: "error" })
+    }
+    setPendingMarks((pending) => ({ ...pending, [step]: undefined }))
+  }
+
+  function stepMark(step: IntegrationGuideStep) {
+    return {
+      marked: pendingMarks[step] ?? markedSteps.includes(step),
+      onMarkedChange: permissions.updateConfiguration
+        ? (marked: boolean) => void saveMark(step, marked)
+        : undefined,
+    }
+  }
 
   useEffect(() => {
     if (!waitingForReply) return
@@ -240,6 +338,7 @@ export function DashboardIntegrationGuide({
       organizationSlug={organizationSlug}
       defaultAgentId={defaultAgentId}
       canConfigure={permissions.readConfiguration}
+      canInvite={permissions.createInvitation}
     />
   )
 
@@ -272,10 +371,6 @@ export function DashboardIntegrationGuide({
           <h2 id={titleId} className="font-sans text-base font-semibold">
             Add the assistant to your app
           </h2>
-          <CardDescription className="max-w-prose text-sm">
-            Your agent is ready to reply. Connect it to your app in five steps, then send your first
-            message.
-          </CardDescription>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground">
             <span>Using a coding agent?</span>
             <Button variant="outline" size="sm" onClick={() => void copySetupPrompt()}>
@@ -321,10 +416,15 @@ export function DashboardIntegrationGuide({
         </CardHeader>
         <CardContent>
           <ol>
-            <GuideStep number={1} title="Create an API key" complete={hasKey}>
+            <GuideStep
+              number={1}
+              title="Create an API key"
+              detected={hasKey}
+              {...stepMark("api-key")}
+            >
               <Note>
-                Your server uses the key to sign chat tokens for your signed-in users. Keep it out
-                of browser code and version control.
+                Your server signs chat tokens with this key. Keep it out of browser code and version
+                control.
               </Note>
               {permissions.createApiKey ? (
                 <div className="flex flex-wrap items-center gap-3">
@@ -356,45 +456,42 @@ export function DashboardIntegrationGuide({
               <Note>Add the key to your server’s environment, then restart your server:</Note>
               <IntegrationCode markdown={snippets.environment} />
             </GuideStep>
-            <GuideStep number={2} title="Install the SDK">
+            <GuideStep number={2} title="Install the SDK" {...stepMark("install")}>
               <IntegrationCode markdown={snippets.install} />
               <Note>
-                A JavaScript token endpoint in step 3 needs this package on your server. Using Rails
-                or another backend without a bundler? Skip this step and use the{" "}
+                Using Rails or a backend without a bundler? Skip this step and use the{" "}
                 <strong>Script tag</strong> option in step 4.
               </Note>
             </GuideStep>
-            <GuideStep number={3} title="Create the token endpoint">
+            <GuideStep number={3} title="Create the token endpoint" {...stepMark("endpoint")}>
               <Note>
-                The chat widget calls <code className={inlineCode}>POST /api/astralbeam/token</code>{" "}
-                on your server to get a short-lived token for the signed-in user.
+                The widget calls <code className={inlineCode}>POST /api/astralbeam/token</code> to
+                get a short-lived token for the signed-in user.
               </Note>
               <IntegrationCode markdown={snippets.endpoint} />
               <Note>
-                The test IDs let you chat right away in development, and the endpoint refuses
-                production until you replace them. Read them from your session:{" "}
-                <code className={inlineCode}>user.id</code> is the signed-in person and{" "}
-                <code className={inlineCode}>tenant.id</code> is the customer account they belong
-                to. Never take them from the request body.{" "}
-                <DocsLink href="/docs/sdk/authentication">
-                  Identify users in other frameworks and languages
-                </DocsLink>
+                Don’t use test IDs in production. Set <code className={inlineCode}>user.id</code>{" "}
+                and <code className={inlineCode}>tenant.id</code> from your session, never the
+                request body. <DocsLink href="/docs/sdk/authentication">Identify users</DocsLink>
               </Note>
             </GuideStep>
-            <GuideStep number={4} title="Mount the chat widget">
+            <GuideStep number={4} title="Mount the chat widget" {...stepMark("mount")}>
               <Note>Render the widget in a container with a set height.</Note>
               <IntegrationCode markdown={snippets.mount} />
               <Note>
-                The widget requests tokens from{" "}
-                <code className={inlineCode}>/api/astralbeam/token</code> on your app’s origin. If
-                your endpoint has another URL or needs headers, such as Rails’ CSRF token, pass{" "}
+                Does your endpoint use another URL or headers, such as Rails’ CSRF token? Pass{" "}
                 <code className={inlineCode}>fetchAstralBeamToken</code>.{" "}
                 <DocsLink href="/docs/sdk/authentication#where-the-token-comes-from">
                   Customize token requests
                 </DocsLink>
               </Note>
             </GuideStep>
-            <GuideStep number={5} title="Send your first message" complete={replied}>
+            <GuideStep
+              number={5}
+              title="Send your first message"
+              detected={replied}
+              {...stepMark("reply")}
+            >
               <Note>
                 Open your app and send <strong>“Say hello in one sentence.”</strong> A reply should
                 stream into the chat.

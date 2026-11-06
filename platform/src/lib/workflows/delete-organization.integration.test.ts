@@ -647,7 +647,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
       await createDeletionChat(scope)
       await createDeletionChat(kept)
       await db.insert(cacheEntry).values(
-        ["chat", "mcp-oauth"].flatMap((namespace) =>
+        ["chat", "mcp-oauth", "integration-guide"].flatMap((namespace) =>
           [scope, kept].map(({ organizationId, tenantId }) => ({
             namespace,
             key: `${organizationId}:${tenantId}:pending`,
@@ -681,7 +681,7 @@ describe.skipIf(!deleteOrganizationIntegration.url)("organization deletion workf
           .from(cacheEntry)
           .orderBy(cacheEntry.namespace),
       ).toEqual(
-        ["chat", "mcp-oauth"].map((namespace) => ({
+        ["chat", "mcp-oauth", "integration-guide"].map((namespace) => ({
           namespace,
           key: `${kept.organizationId}:${kept.tenantId}:pending`,
         })),

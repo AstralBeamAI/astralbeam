@@ -122,10 +122,9 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await captureMilestone(page, "04-dashboard")
   })
 
-  await test.step("the dashboard counts the resources a new organization starts with", async () => {
-    // Creating an organization provisions its starter agent, so Agents starts at one.
-    await expect(page.getByRole("link", { name: /^Agents 1/ })).toBeVisible()
-    await expect(page.getByRole("link", { name: /^Members 1/ })).toBeVisible()
+  await test.step("the owner sees every section and the setup customization links", async () => {
+    for (const name of ["Connect model providers", "Connect MCP servers", "Invite teammates"])
+      await expect(page.getByRole("link", { name: new RegExp(`^${name}`) })).toBeVisible()
     expect(await shell.visibleSections()).toEqual([
       "Dashboard",
       "Agents",
