@@ -29,8 +29,6 @@ test("integration guide steps collapse and keep manual completion across reloads
   await step("Create the token endpoint").click()
   await expect(step("Create the token endpoint")).toHaveAttribute("aria-expanded", "false")
   await captureMilestone(page, "guide-collapsed")
-  await page.getByRole("link", { name: /^Invite teammates/ }).scrollIntoViewIfNeeded()
-  await captureMilestone(page, "guide-customize")
 
   await page.reload()
   await waitForHydration(done)
