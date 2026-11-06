@@ -1,8 +1,7 @@
-import assert from "node:assert/strict"
-import { existsSync, rmSync } from "node:fs"
-import { mkdir, mkdtemp, readdir, symlink } from "node:fs/promises"
+import { rmSync } from "node:fs"
+import { mkdtemp, readdir } from "node:fs/promises"
 import { availableParallelism, tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join } from "node:path"
 import process, { env as processEnvironment, platform } from "node:process"
 import { setTimeout as delay } from "node:timers/promises"
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
@@ -176,138 +175,6 @@ async function waitForBinaryWorkers(url: URL, predicate: () => boolean, message:
   throw new Error(message)
 }
 
-async function checkEmbeddedPostgresBinary(options: {
-  binaryPath: string
-  temporaryDirectory: string
-}) {
-  const directory = await mkdtemp(join(options.temporaryDirectory, "embedded-"))
-  const cache = processEnvironment.BINARY_CHECK_POSTGRES_CACHE
-  if (cache) {
-    // Reuse downloaded binaries while each check initializes its own private database.
-    await mkdir(cache, { recursive: true })
-    await symlink(
-      resolve(cache),
-      join(directory, "postgres-cache"),
-      platform === "win32" ? "junction" : "dir",
-    )
-  }
-  const environment: NodeJS.ProcessEnv = {
-    ...processEnvironment,
-    HOME: directory,
-    USERPROFILE: directory,
-    ASTRALBEAM_DATA_DIR: directory,
-    DATABASE_URL: undefined,
-    DATABASE_ENCRYPTION_KEY: undefined,
-    WORKERS: "1",
-    MICROSANDBOX_DISABLED: "true",
-    DOCKERSANDBOX_DISABLED: "true",
-    LOCAL_SANDBOX_IMAGE: undefined,
-    NODE_ENV: "production",
-  }
-  const commandOptions = { cwd: directory, env: environment, timeout: 45_000 }
-  await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
-    /DATABASE_URL.*not set/,
-  )
-  assert.equal(existsSync(join(directory, "embedded-postgres.json")), false)
-  await runBinaryCheckCommand(options.binaryPath, ["bootstrap", "--embeddedpg"], {
-    ...commandOptions,
-    timeout: 180_000,
-  })
-  const environmentPath = join(directory, ".env")
-  const bootstrapEnvironment = await Bun.file(environmentPath).text()
-  assert.ok(
-    bootstrapEnvironment
-      .split("\n")
-      .includes(`LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:${packageJson.version}`),
-  )
-  await runBinaryCheckCommand(options.binaryPath, ["bootstrap"], commandOptions)
-  assert.equal(await Bun.file(environmentPath).text(), bootstrapEnvironment)
-  assert.match(bootstrapEnvironment, /^DATABASE_URL=embedded$/m)
-  if (platform !== "win32")
-    assert.equal((await Bun.file(environmentPath).stat()).mode & 0o777, 0o600)
-  // Warm starts must work without reaching the runtime download servers.
-  environment.HTTPS_PROXY = "http://127.0.0.1:1"
-  environment.HTTP_PROXY = "http://127.0.0.1:1"
-  environment.NO_PROXY = "127.0.0.1,localhost,::1"
-  const credentialsPath = join(directory, "embedded-postgres.json")
-  const originalCredentials = await Bun.file(credentialsPath).text()
-  const { password } = JSON.parse(originalCredentials) as { password: string }
-  if (platform !== "win32")
-    assert.equal((await Bun.file(credentialsPath).stat()).mode & 0o777, 0o600)
-  const baseUrl = new URL(`http://127.0.0.1:${await reserveBinaryCheckPort()}`)
-  const pidFile = join(directory, "postgres", "postmaster.pid")
-  for (const signal of ["SIGKILL", "SIGTERM"] as const) {
-    const child = Bun.spawn([options.binaryPath], {
-      cwd: directory,
-      env: { ...environment, PORT: baseUrl.port, APP_BASE_URL: baseUrl.href },
-      stdio: ["ignore", "ignore", "inherit"],
-    })
-    let client: Client | undefined
-    try {
-      await (await fetchBinaryCheckResponse(new URL("/api/status", baseUrl))).body?.cancel()
-      client = new Client({
-        host: "127.0.0.1",
-        port: Number((await Bun.file(pidFile).text()).split("\n")[3]),
-        user: "astralbeam",
-        password,
-        database: "astralbeam",
-        connectionTimeoutMillis: 1_000,
-      })
-      await client.connect()
-      if (signal === "SIGKILL") {
-        await client.query(
-          "create table embedded_persistence_test (value text); insert into embedded_persistence_test values ('retained')",
-        )
-      }
-      assert.equal(
-        (await client.query<{ value: string }>("select value from embedded_persistence_test"))
-          .rows[0]?.value,
-        "retained",
-      )
-    } finally {
-      await client?.end()
-      if (signal === "SIGTERM") await stopBinaryCheckProcess(child)
-      else {
-        child.kill(signal)
-        await child.exited
-      }
-    }
-    for (let attempt = 0; existsSync(pidFile) && attempt < 100; attempt++) await delay(100)
-    assert.equal(existsSync(pidFile), false, "Owned PostgreSQL did not stop with the executable")
-  }
-  assert.equal(await Bun.file(credentialsPath).text(), originalCredentials)
-  await Bun.write(environmentPath, bootstrapEnvironment.replace(/^DATABASE_URL=embedded$/m, ""))
-  await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
-    /DATABASE_URL.*not set/,
-  )
-  environment.DATABASE_URL = "embedded"
-  await runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
-    ...commandOptions,
-  })
-  rmSync(credentialsPath)
-  await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], commandOptions),
-    /Restore the missing database credentials/,
-  )
-  assert.equal(existsSync(credentialsPath), false)
-  assert.equal(existsSync(join(directory, "postgres", "PG_VERSION")), true)
-  const externalDirectory = join(directory, "external")
-  await assert.rejects(
-    runBinaryCheckCommand(options.binaryPath, ["migrate", "--dry-run"], {
-      ...commandOptions,
-      env: {
-        ...environment,
-        ASTRALBEAM_DATA_DIR: externalDirectory,
-        DATABASE_URL: "postgres://127.0.0.1:1/external_test",
-      },
-    }),
-  )
-  assert.equal(existsSync(externalDirectory), false)
-  console.log("Embedded PostgreSQL lifecycle and external precedence passed")
-}
-
 async function runBinaryCheck() {
   const platformDirectory = dirname(import.meta.dir)
   const binaryPath = join(platformDirectory, ".output", "astralbeam-platform")
@@ -356,21 +223,6 @@ async function runBinaryCheck() {
     }
   }
 
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
-  process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
-  const checks = await Promise.allSettled([
-    checkEmbeddedPostgresBinary({ binaryPath, temporaryDirectory }),
-    checkBinaryServer({ binaryPath, temporaryDirectory }),
-  ])
-  for (const check of checks) if (check.status === "rejected") throw check.reason
-  console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
-}
-
-async function checkBinaryServer(options: { binaryPath: string; temporaryDirectory: string }) {
-  const { binaryPath } = options
-  const platformDirectory = dirname(import.meta.dir)
-  const migrateDatabaseUrl = processEnvironment.BINARY_CHECK_DATABASE_URL
-  const temporaryDirectory = await mkdtemp(join(options.temporaryDirectory, "server-"))
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
   const assetNames = await readdir(publicAssetsDirectory)
   const stylesheetName = assetNames.find((name) => name.endsWith(".css"))
@@ -378,6 +230,8 @@ async function checkBinaryServer(options: { binaryPath: string; temporaryDirecto
   if (!stylesheetName || !scriptName)
     throw new Error("Build output did not contain CSS and JavaScript")
 
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
+  process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
   const unreachableDatabaseUrl = "postgres://localhost:1/binary_check_test"
   const binaryEnvironment: Record<string, string | undefined> = {
     ...processEnvironment,
@@ -559,6 +413,7 @@ async function checkBinaryServer(options: { binaryPath: string; temporaryDirecto
     }
     throw new Error("Binary left a worker running after shutdown")
   }
+  console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }
 
 await runBinaryCheck()

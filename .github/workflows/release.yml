@@ -8,7 +8,7 @@ on:
       dry-run:
         description: Build and verify everything without publishing images, creating the release, or staging npm packages
         type: boolean
-        default: true
+        default: false
       minimal:
         description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Dry runs use the full verification path.
         type: boolean
@@ -112,9 +112,11 @@ jobs:
         run: |
           bun run build
           test -n "$(find .output/sourcemaps -type f -name '*.map' -print -quit)"
+          mkdir ../release-binaries
 
       - name: Upload the Platform source maps to PostHog
         if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
+        background: true
         working-directory: platform
         env:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
@@ -122,54 +124,45 @@ jobs:
           POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
         run: bun run sourcemaps:posthog --directory .output/sourcemaps
 
-      - name: Cache binary-check PostgreSQL runtime
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ${{ runner.temp }}/postgres-runtime
-          key: postgres-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('platform/src/db/embedded-postgres.json') }}
+      - parallel:
+          - name: Smoke-test the Platform binary
+            working-directory: platform
+            run: bun run binary:check
 
-      - name: Smoke-test and pack the release binaries
-        working-directory: platform
+          - name: Cross-compile the other Platform binaries
+            working-directory: platform
+            shell: bash
+            run: |
+              cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
+              for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
+                bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
+                bun run compile --target "${pair%%:*}" \
+                  --outfile "../release-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
+              done
+
+          - name: Build, compile, and smoke-test the CLI binaries
+            working-directory: cli
+            shell: bash
+            run: |
+              bun run build
+              test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
+              for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
+                bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
+                bun-windows-x64:windows-x86_64.exe; do
+                bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+                  --asset dist/skills --target "${pair%%:*}" --outfile "../release-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+              done
+              binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+              test "$("$binary" --version)" = "$RELEASE_VERSION"
+              "$binary" skill | grep -q '^name: astralbeam$'
+
+      - name: Pack the release binaries
         shell: bash
-        env:
-          BINARY_CHECK_POSTGRES_CACHE: ${{ runner.temp }}/postgres-runtime
         run: |
-          mkdir ../release-binaries
-          bun run binary:check &
-          smoke_pid=$!
-          (
-            cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
-            for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
-              bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
-              bun run compile --target "${pair%%:*}" \
-                --outfile "../release-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
-            done
-          ) &
-          compile_pid=$!
-          (
-            cd ../cli
-            bun run build
-            test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
-            for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
-              bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
-              bun-windows-x64:windows-x86_64.exe; do
-              bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
-                --asset dist/skills --target "${pair%%:*}" --outfile "../release-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
-            done
-            binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
-            test "$("$binary" --version)" = "$RELEASE_VERSION"
-            "$binary" skill | grep -q '^name: astralbeam$'
-          ) &
-          cli_pid=$!
-          status=0
-          wait "$smoke_pid" || status=$?
-          wait "$compile_pid" || status=$?
-          wait "$cli_pid" || status=$?
-          if [ "$status" -ne 0 ]; then exit "$status"; fi
           # Pair matching targets so zstd can reuse the Bun runtime across CLI and Platform binaries.
           for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 windows-x86_64.exe; do
             printf '%s\n' "${CLI_ASSET_PREFIX}-${target}" "${PLATFORM_ASSET_PREFIX}-${target}"
-          done | tar --use-compress-program='zstd -T0 --long=29' -cf ../release-binaries.tar.zst -C ../release-binaries -T -
+          done | tar --use-compress-program='zstd -T0 --long=29' -cf release-binaries.tar.zst -C release-binaries -T -
 
       - name: Pack the SDK and CLI without publishing credentials
         run: |
@@ -179,6 +172,7 @@ jobs:
           done
 
       - name: Upload the SDK and CLI packages
+        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-packages
@@ -186,11 +180,14 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the release binaries
+        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           path: release-binaries.tar.zst
           archive: false
           if-no-files-found: error
+
+      - wait-all:
 
   github-release:
     name: Verify artifacts and create the GitHub release
@@ -491,18 +488,19 @@ jobs:
               --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/astralbeam-${pair#*:}" dist/astralbeam.js
           done
 
-      # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
-      - name: Stage the SDK and CLI while building the Platform binaries
+      - name: Stage the SDK and CLI
+        background: true
         shell: bash
         run: |
-          set -o pipefail
-          (
-            for project in sdk cli; do
-              bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
-              npm stage publish --ignore-scripts "$RUNNER_TEMP/$project.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
-            done
-          ) > "$RUNNER_TEMP/npm-stage.log" 2>&1 &
-          stage=$!
+          for project in sdk cli; do
+            bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
+            npm stage publish --ignore-scripts "$RUNNER_TEMP/$project.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
+      - name: Build the Platform binaries
+        shell: bash
+        run: |
           bun run --cwd platform build
           mkdir platform-binaries
           mv platform/.output/astralbeam-platform platform-binaries/astralbeam-platform-linux-x86_64
@@ -512,11 +510,8 @@ jobs:
           done
           mv cli-binaries/astralbeam-* platform-binaries/
           (cd platform-binaries && sha256sum astralbeam-* > SHA256SUMS)
-          # Waits before releasing so a failed npm step does not leave a release pointing at unstaged packages.
-          status=0
-          wait "$stage" || status=$?
-          cat "$RUNNER_TEMP/npm-stage.log"
-          exit "$status"
+
+      - wait-all:
 
       - name: Create the GitHub release
         shell: bash
