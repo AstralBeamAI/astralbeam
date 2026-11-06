@@ -8,15 +8,16 @@ Questions and ideas are welcome on [Discord](https://discord.gg/suehFycUvW). Vul
 
 Follow [SETUP.md](docs/SETUP.md) to install prerequisites, start local services, seed the database, and run the applications.
 
-Bun is the runtime and package manager for the five JavaScript/TypeScript projects. The Rails example uses Ruby and its own tooling.
+Bun is the runtime and package manager for the six JavaScript/TypeScript projects. The Rails example uses Ruby and its own tooling.
 
 ## Codebase structure
 
-The repository holds five Bun projects in one workspace:
+The repository holds six Bun projects in one workspace:
 
 - `platform`, the TanStack Start product application, database, theme, and dashboard UI with app-local shadcn/ui components.
 - `website`, the public website, a prerendered TanStack Start application.
 - `sdk`, the frontend SDK published to npm as `@astralbeam/sdk`.
+- `cli`, the organization admin CLI published to npm as `@astralbeam/cli` and as Bun binaries.
 - `examples/linearity-react`, [Linearity](examples/linearity-react), a multi-workspace project tracker with an embedded Astro assistant that consumes the built SDK.
 - `examples/todos`, a minimal standalone application that consumes the built SDK.
 
@@ -36,6 +37,7 @@ Each Bun project defines `check` for static validation, `test` for Vitest, and `
 bun run --cwd platform ready
 bun run --cwd website ready
 bun run --cwd sdk ready
+bun run --cwd cli ready
 bun run --cwd examples/todos ready
 bun run --cwd examples/linearity-react ready
 ```
@@ -44,7 +46,7 @@ Documentation-only changes need source review and `git diff --check`, not a full
 
 Browser suites have separate `e2e` tasks and stay out of `check`, `test`, `ready`, and CI. Follow the [PR validation workflow](.agents/skills/create-github-pr/SKILL.md#post-pr-checks) after creating or pushing a PR. Website-only changes skip these suites.
 
-CI runs checks, tests, and builds for all five projects and compiles and smoke-tests the platform binary.
+CI runs checks, tests, and builds for all six projects and compiles and smoke-tests the platform and CLI binaries.
 
 ## Pull requests
 
@@ -55,7 +57,7 @@ CI runs checks, tests, and builds for all five projects and compiles and smoke-t
 
 ## Licensing of contributions
 
-Different parts of this repository carry different licenses. Files under [`website`](website), [`sdk`](sdk), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
+Different parts of this repository carry different licenses. Files under [`website`](website), [`sdk`](sdk), [`cli`](cli), and [`examples`](examples) are under the [MIT License](LICENSE-MIT), and all other files are under the [GNU Affero General Public License v3.0 only](LICENSE-AGPL). Your contribution lands under the license that applies to the files you touch.
 
 AstralBeam also asks contributors to agree to the [Contributor License Agreement](docs/legal/CLA.md). It grants AstralBeam Inc. a copyright and patent license to your contribution and lets AstralBeam license that contribution onward under any terms, expressly including AGPL-3.0-only, the MIT License, and proprietary or commercial terms. That is what makes separate proprietary licensing and closed distributions possible alongside the open source releases. You keep ownership of your contribution and every right to use it yourself.
 
@@ -65,12 +67,12 @@ Agreement is collected through the versioned CLA acknowledgement in the pull req
 
 ## Releasing
 
-Releases are maintainer-only. One tag `vX.Y.Z` releases the platform and the SDK together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put the SDK on npm.
+Releases are maintainer-only. One tag `vX.Y.Z` releases the platform, the SDK, and the CLI together, and [`.github/workflows/release.yml`](.github/workflows/release.yml) does the work. A tag alone does not put either package on npm.
 
-1. Make sure `sdk/package.json` and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if the versions disagree.
-2. Push the tag by running `bun run release` from the repository root on an up-to-date `main`. It checks that the two versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
-3. The workflow builds the SDK, cross-compiles platform binaries for five targets, smoke-tests the Linux x86_64 build, and stages the SDK npm package. It then publishes the AMD64/ARM64 image to GHCR, verifies signatures and cleanup, and creates the GitHub release with generated notes, binaries, and `SHA256SUMS`. Version-free asset names keep `releases/latest/download/<asset>` URLs stable.
-4. A maintainer approves the staged package with `npm stage approve <stage-id>` or from npmjs.com's **Staged Packages** tab. Approval requires 2FA, and only then is the package public. The run summary identifies the stage.
+1. Make sure `sdk/package.json`, `cli/package.json`, and `platform/package.json` already match the version you are about to tag. These projects move in lockstep, and the workflow fails if any version disagrees.
+2. Push the tag by running `bun run release` from the repository root on an up-to-date `main`. It checks that the three versions match and the tag is new, lists the commits since the previous tag, tags and pushes `HEAD` after you confirm, or without asking when you pass `-y`, and links the Actions page and npm Staged Packages page for the next steps.
+3. The workflow builds the SDK and CLI, cross-compiles platform and CLI binaries for five targets, smoke-tests their Linux x86_64 builds, and stages both npm packages. It then publishes the AMD64/ARM64 image to GHCR, verifies signatures and cleanup, and creates the GitHub release with generated notes, binaries, and `SHA256SUMS`. Version-free asset names keep `releases/latest/download/<asset>` URLs stable.
+4. A maintainer approves each staged package with `npm stage approve <stage-id>` or from npmjs.com's **Staged Packages** tab. Approval requires 2FA, and only then are the packages public. The run summary identifies both stages.
 
 Before approving, inspect the staged package with `npm stage list`, `npm stage view <stage-id>`, and `npm stage download <stage-id>`.
 

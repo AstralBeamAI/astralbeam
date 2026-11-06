@@ -60,12 +60,6 @@ export const DOCS_SECTIONS: DocsSection[] = [
         title: "Todos tutorial",
         description: "Connect an assistant to a todo list with tools and live cards in chat.",
       },
-      {
-        slug: "coding-agents",
-        updated: "2026-11-06",
-        title: "Coding agents",
-        description: "Add AstralBeam to your app with a coding agent and the AstralBeam skill.",
-      },
     ],
   },
   {
@@ -180,6 +174,34 @@ export const DOCS_SECTIONS: DocsSection[] = [
       "tenant-users": "tag/tenant_users",
     },
     pages: [],
+  },
+  {
+    slug: "cli",
+    title: "CLI",
+    description: "Manage customers and test agents from your terminal.",
+    pages: [
+      {
+        slug: "getting-started",
+        updated: "2026-11-06",
+        title: "Getting started",
+        description:
+          "Install the CLI, authenticate with an organization API key, and manage your first Tenant and TenantUser.",
+      },
+      {
+        slug: "commands",
+        updated: "2026-11-05",
+        title: "Commands",
+        description:
+          "Look up CLI commands, flags, output formats, and exit codes for organization administration and automation.",
+      },
+      {
+        slug: "coding-agents",
+        updated: "2026-11-05",
+        title: "Coding agents",
+        description:
+          "Add AstralBeam to your app with a coding agent, or use the CLI for organization administration.",
+      },
+    ],
   },
   {
     slug: "dashboard",
