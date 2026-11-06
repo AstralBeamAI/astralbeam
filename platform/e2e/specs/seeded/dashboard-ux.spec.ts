@@ -39,11 +39,10 @@ test("UX evidence: mobile Astro preserves drafts and confirms conversation delet
   await expect(astro.panel).toBeHidden()
 })
 
-test("UX evidence: a restricted member sees permitted navigation and setup guidance", async ({
+test("UX evidence: a viewer sees permitted navigation and guide-only customization", async ({
   page,
   auth,
   shell,
-  apiKeys,
 }) => {
   await page.context().clearCookies()
   await auth.open("sign-in")
@@ -52,12 +51,25 @@ test("UX evidence: a restricted member sees permitted navigation and setup guida
   await page.goto(`/${SEED_ORGANIZATIONS[0].slug}`)
   await expect(shell.navigation).toBeVisible()
   await expect(shell.sectionLink("Settings")).toHaveCount(0)
-  const integration = page.getByRole("button", { name: /^Embed and verify in your app/ })
-  await waitForHydration(integration)
-  await integration.click()
-  await expect(page.getByRole("link", { name: "Follow the quickstart", exact: true })).toBeVisible()
-  const copyPrompt = page.getByRole("button", { name: "Copy prompt", exact: true })
-  await captureMilestone(page, "integration-prompt-desktop")
+  await expect(page.getByRole("heading", { name: "Customize your setup" })).toBeVisible()
+  await expect(page.getByRole("link", { name: /^Match your brand/ })).toBeVisible()
+  await expect(page.getByRole("link", { name: /^Shape your agent/ })).toHaveCount(0)
+  await captureMilestone(page, "viewer-customize")
+})
+
+test("UX evidence: the setup prompt copies or falls back to a selectable field", async ({
+  page,
+  auth,
+  apiKeys,
+}) => {
+  const globex = SEED_ORGANIZATIONS[1]
+  await page.context().clearCookies()
+  await auth.open("sign-in")
+  await auth.signIn(globex.members[0].email, SEED_PASSWORD)
+  await page.waitForURL((url) => !url.pathname.startsWith("/auth/"))
+  await page.goto(`/${globex.slug}`)
+  const copyPrompt = page.getByRole("button", { name: "Copy setup prompt", exact: true })
+  await waitForHydration(copyPrompt)
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
   await copyPrompt.click()
   await expect(page.getByText("Prompt copied. Paste it into your coding agent.")).toBeVisible()
