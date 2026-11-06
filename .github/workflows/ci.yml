@@ -51,13 +51,6 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Restore Bun packages
-        id: bun-packages
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
-
       - name: Install workspace dependencies
         run: bun install --frozen-lockfile
 
@@ -111,13 +104,6 @@ jobs:
           BINARY_CHECK_POSTGRES_CACHE: ${{ runner.temp }}/postgres-runtime
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: bun run ${{ matrix.tasks }}
-
-      - name: Save Bun packages
-        if: matrix.project == 'sdk' && steps.bun-packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ steps.bun-packages.outputs.cache-primary-key }}
 
       - name: Upload the website source maps to PostHog
         if: matrix.project == 'website' && github.event_name == 'push' && vars.POSTHOG_PROJECT_ID != ''
