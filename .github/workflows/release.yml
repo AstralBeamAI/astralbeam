@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
