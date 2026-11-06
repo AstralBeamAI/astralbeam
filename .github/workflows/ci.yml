@@ -21,12 +21,13 @@ jobs:
       # Every project reports its own result, so one failing leg does not hide the others.
       fail-fast: false
       matrix:
-        # The platform splits `ready` across four legs so its checks, tests, and build overlap. The CLI's
+        # The platform splits `ready` across five legs so its checks, tests, and build overlap. The CLI's
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
         include:
           - { project: platform, leg: platform checks, tasks: check }
           - { project: platform, leg: platform unit tests, tasks: test --project=unit }
-          - { project: platform, leg: platform integration tests, tasks: test --project=integration, database: true }
+          - { project: platform, leg: platform integration tests, tasks: "test --project=integration $(git ls-files '**/*.integration.test.*' ':!:src/lib/dogfood/provisioning.integration.test.ts')", database: true }
+          - { project: platform, leg: platform provisioning tests, tasks: test --project=integration src/lib/dogfood/provisioning.integration.test.ts, database: true }
           - { project: platform, leg: platform build, tasks: build && bun run binary:check, database: true }
           - { project: website, tasks: ready }
           - { project: sdk, tasks: ready }
@@ -41,8 +42,10 @@ jobs:
 
       - name: Pull Platform test database images
         if: matrix.database
-        # Runs in the background so the images download while Bun and the dependencies install.
-        run: docker compose pull --quiet postgres pgbouncer > /dev/null 2>&1 &
+        background: true
+        continue-on-error: true
+        # Prefetch while dependencies install; database preparation retries if needed.
+        run: docker compose pull --quiet postgres pgbouncer
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -79,6 +82,8 @@ jobs:
           SDK_BUILD_CACHED: ${{ steps.sdk-build.outputs.cache-hit }}
         run: |
           if [ "$SDK_BUILD_CACHED" != true ]; then bun run build; fi
+
+      - wait-all:
 
       - name: Prepare Platform test database
         if: matrix.database

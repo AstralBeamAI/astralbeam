@@ -8,9 +8,9 @@ on:
       dry-run:
         description: Build and verify everything without publishing images, creating the release, or staging npm packages
         type: boolean
-        default: true
+        default: false
       minimal:
-        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Ignores dry-run.
+        description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Dry runs use the full verification path.
         type: boolean
         default: false
 
@@ -19,12 +19,12 @@ permissions:
 
 concurrency:
   # Serialize publishing and cleanup across releases from different refs.
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}${{ inputs.dry-run && format('-dry-run-{0}', github.ref) || '' }}
 
 jobs:
   verify:
     name: Verify version
-    if: ${{ !inputs.minimal }}
+    if: ${{ !inputs.minimal || inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -113,6 +113,7 @@ jobs:
 
       - name: Upload the Platform source maps to PostHog
         if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
+        background: true
         working-directory: platform
         env:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
@@ -120,45 +121,42 @@ jobs:
           POSTHOG_CLI_HOST: ${{ vars.POSTHOG_HOST || 'https://us.posthog.com' }}
         run: bun run sourcemaps:posthog --directory .output/sourcemaps
 
-      - name: Smoke-test the Platform binary
-        working-directory: platform
-        run: bun run binary:check
+      - parallel:
+          - name: Smoke-test the Platform binary
+            working-directory: platform
+            run: bun run binary:check
 
-      - name: Cross-compile the other Platform binaries
-        working-directory: platform
-        shell: bash
-        run: |
-          mkdir ../platform-binaries
-          mv .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
-          for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
-            bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
-            bun run compile --target "${pair%%:*}" \
-              --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
-          done
+          - name: Cross-compile the other Platform binaries
+            working-directory: platform
+            shell: bash
+            run: |
+              mkdir ../platform-binaries
+              cp .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
+              for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
+                bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
+                bun run compile --target "${pair%%:*}" \
+                  --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
+              done
 
-      - name: Build the CLI
-        working-directory: cli
-        run: bun run build
-
-      - name: Compile and smoke-test the CLI binaries
-        # Bun cross-compiles the same bundled npm entry for every release target.
-        # https://bun.sh/docs/bundler/executables
-        working-directory: cli
-        shell: bash
-        run: |
-          test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
-          mkdir ../cli-binaries
-          for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
-            bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
-            bun-windows-x64:windows-x86_64.exe; do
-            bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
-              --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
-          done
-          binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
-          test "$("$binary" --version)" = "$RELEASE_VERSION"
-          "$binary" skill | grep -q '^name: astralbeam$'
+          - name: Build, compile, and smoke-test the CLI binaries
+            working-directory: cli
+            shell: bash
+            run: |
+              bun run build
+              test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
+              mkdir ../cli-binaries
+              for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
+                bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
+                bun-windows-x64:windows-x86_64.exe; do
+                bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+                  --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+              done
+              binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+              test "$("$binary" --version)" = "$RELEASE_VERSION"
+              "$binary" skill | grep -q '^name: astralbeam$'
 
       - name: Upload the CLI binaries
+        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-binaries
@@ -173,6 +171,7 @@ jobs:
           done
 
       - name: Upload the SDK and CLI packages
+        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-packages
@@ -180,17 +179,24 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the Platform binaries
+        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: platform-binaries
           path: platform-binaries
           if-no-files-found: error
 
+      - wait-all:
+
   github-release:
     name: Create the GitHub release
     # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
     needs: [verify, build, stage-npm, docker-image, sandbox-image, docker-cleanup]
-    if: ${{ !inputs.dry-run }}
+    if: >-
+      ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success'
+        && (inputs.dry-run || needs.stage-npm.result == 'success') && needs.docker-image.result == 'success'
+        && needs.sandbox-image.result == 'success'
+        && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -206,14 +212,17 @@ jobs:
         with:
           name: cli-binaries
 
+      - name: Generate release checksums
+        run: sha256sum astralbeam-* > SHA256SUMS
+
       - name: Create the release
+        if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
         # The glob matches both the platform and the CLI binaries downloaded above.
         run: |
-          sha256sum astralbeam-* > SHA256SUMS
           tag="v$RELEASE_VERSION"
           refs="$(gh api "repos/$GH_REPO/git/matching-refs/tags/$tag" --jq '.[].ref')"
           if ! grep -Fxq "refs/tags/$tag" <<< "$refs"; then
@@ -228,8 +237,7 @@ jobs:
 
   docker-image:
     name: Build and publish the Docker image
-    needs: [verify, build, stage-npm]
-    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.stage-npm.result == 'success') }}
+    needs: verify
     uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
     permissions:
       contents: read
@@ -266,8 +274,7 @@ jobs:
 
   sandbox-image:
     name: Build and publish the sandbox image
-    needs: [verify, build, stage-npm]
-    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry-run || needs.stage-npm.result == 'success') }}
+    needs: verify
     uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
     permissions:
       contents: read
@@ -278,6 +285,8 @@ jobs:
       push: ${{ !inputs.dry-run }}
       context: platform/packages/sandbox/image
       platforms: linux/amd64,linux/arm64
+      cache: true
+      cache-scope: sandbox
       meta-images: ghcr.io/astralbeamai/sandbox
       meta-tags: |
         type=raw,value=${{ needs.verify.outputs.version }}
@@ -407,7 +416,7 @@ jobs:
 
   minimal-release:
     name: Stage the SDK and CLI and release binaries (minimal)
-    if: ${{ inputs.minimal }}
+    if: ${{ inputs.minimal && !inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # One job skips artifact transfers, so build code shares the npm and release credentials.
@@ -453,18 +462,19 @@ jobs:
               --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/astralbeam-${pair#*:}" dist/astralbeam.js
           done
 
-      # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
-      - name: Stage the SDK and CLI while building the Platform binaries
+      - name: Stage the SDK and CLI
+        background: true
         shell: bash
         run: |
-          set -o pipefail
-          (
-            for project in sdk cli; do
-              bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
-              npm stage publish --ignore-scripts "$RUNNER_TEMP/$project.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
-            done
-          ) > "$RUNNER_TEMP/npm-stage.log" 2>&1 &
-          stage=$!
+          for project in sdk cli; do
+            bun pm --cwd "$project" pack --filename "$RUNNER_TEMP/$project.tgz"
+            npm stage publish --ignore-scripts "$RUNNER_TEMP/$project.tgz" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      # Minimal releases ship no Intel macOS or Windows binaries. Full releases still build them.
+      - name: Build the Platform binaries
+        shell: bash
+        run: |
           bun run --cwd platform build
           mkdir platform-binaries
           mv platform/.output/astralbeam-platform platform-binaries/astralbeam-platform-linux-x86_64
@@ -474,11 +484,8 @@ jobs:
           done
           mv cli-binaries/astralbeam-* platform-binaries/
           (cd platform-binaries && sha256sum astralbeam-* > SHA256SUMS)
-          # Waits before releasing so a failed npm step does not leave a release pointing at unstaged packages.
-          status=0
-          wait "$stage" || status=$?
-          cat "$RUNNER_TEMP/npm-stage.log"
-          exit "$status"
+
+      - wait-all:
 
       - name: Create the GitHub release
         shell: bash

@@ -188,6 +188,7 @@ async function checkEmbeddedPostgresBinary(options: {
     ASTRALBEAM_DATA_DIR: directory,
     DATABASE_URL: undefined,
     DATABASE_ENCRYPTION_KEY: undefined,
+    WORKERS: "1",
     MICROSANDBOX_DISABLED: "true",
     DOCKERSANDBOX_DISABLED: "true",
     LOCAL_SANDBOX_IMAGE: undefined,
@@ -354,7 +355,6 @@ async function runBinaryCheck() {
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
   process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
-  await checkEmbeddedPostgresBinary({ binaryPath, temporaryDirectory })
   const unreachableDatabaseUrl = "postgres://localhost:1/binary_check_test"
   const binaryEnvironment: Record<string, string | undefined> = {
     ...processEnvironment,
@@ -539,4 +539,18 @@ async function runBinaryCheck() {
   console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }
 
-await runBinaryCheck()
+const embeddedTemporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-embedded-check-"))
+try {
+  const results = await Promise.allSettled([
+    runBinaryCheck(),
+    checkEmbeddedPostgresBinary({
+      binaryPath: join(dirname(import.meta.dir), ".output", "astralbeam-platform"),
+      temporaryDirectory: embeddedTemporaryDirectory,
+    }),
+  ])
+  for (const result of results) {
+    if (result.status === "rejected") throw result.reason
+  }
+} finally {
+  rmSync(embeddedTemporaryDirectory, { recursive: true, force: true })
+}
