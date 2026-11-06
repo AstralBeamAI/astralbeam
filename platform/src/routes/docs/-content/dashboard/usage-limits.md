@@ -2,6 +2,8 @@
 
 Set a token allowance or model-spend budget for your customers. Start with a default limit for everyone, then add plan-specific limits when your product needs them.
 
+New organizations start with an enabled **Monthly spend** limit of $10 per calendar month in UTC, shared by the whole organization. Raise, edit, or disable it to fit your plans.
+
 ## Create a limit
 
 1. Open **Usage Limits** as an owner or developer and choose **Add limit**.

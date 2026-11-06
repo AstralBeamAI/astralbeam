@@ -6,9 +6,9 @@ Open `/configure` to set up authentication, email, and file storage. Most instal
 
 1. Sign in with the active `DATABASE_ENCRYPTION_KEY`.
 2. Set the public base URL for public hosting and an optional support address under **General**.
-3. Configure **Authentication**, **Email Delivery**, and **File storage**. Test email connectivity and storage before saving.
+3. Configure **Authentication**, **Models**, **Email Delivery**, and **File storage**. Test email connectivity and storage before saving.
 4. Choose **Save**, resolve any field errors, and complete the owner invitation.
-5. Choose **Go to app**. Configure organization model providers in the dashboard.
+5. Choose **Go to app**. New organizations can chat right away through the [default OpenAI key](#models).
 
 Add social sign-in or telemetry export when you need them.
 
@@ -144,9 +144,17 @@ Follow [Backups and restore](./operations.md#backups-and-restore) for coordinate
 
 If storage fails, repair its settings and run the connection test. Pending file deletions retry after recovery.
 
-## Model providers
+## Models
 
-Add and test providers under [Models](/docs/dashboard/models), then assign a model to an agent. Each organization, including the one running Astro, manages its own credentials. Deployment configuration does not copy model keys from the environment.
+| Setting | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `default_openai_api_key` | Yes | none | OpenAI API key copied into each new organization's **OpenAI** connection |
+
+Every new organization starts ready to chat. It gets an **OpenAI** connection that uses this key, GPT-6.1 Terra assigned to its starter agent, and an enabled **Monthly spend** limit of $10 per calendar month in UTC, shared by the whole organization. Owners can replace the key, change models, or edit the limit in their dashboard. Changing this setting affects only organizations created afterward.
+
+**NOTE**: Organizations spend against your OpenAI account until their owners replace the key, and owners can raise or disable the starter limit. On a deployment open to sign-ups, also set [usage limits](https://platform.openai.com/settings/organization/limits) in your OpenAI organization.
+
+Owners add and test other providers under [Models](/docs/dashboard/models). Each organization, including the one running Astro, manages its own credentials after it is created.
 
 Endpoints require public HTTPS and cannot redirect by default. Enable `allow_private_model_endpoints` only for trusted organizations that need a private gateway such as Ollama. Its endpoint receives provider keys, conversations, and tool calls, so keep private access disabled on deployments shared by untrusted organizations.
 

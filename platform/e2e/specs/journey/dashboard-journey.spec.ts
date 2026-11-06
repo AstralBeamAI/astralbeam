@@ -47,6 +47,8 @@ test("an operator configures the deployment and an owner runs the dashboard end 
       await configure.generateSecret("better_auth_secret")
     }
 
+    // New organizations copy this key into their OpenAI connection. The suite makes no model calls.
+    await configure.setValue("default_openai_api_key", "sk-e2e-default-openai-key")
     // Points the deployment at the suite's mail sink, which every later email step depends on.
     await configure.setValue("smtp_port", String(mailboxSmtpPort))
     await configure.openSection("File storage")
@@ -103,7 +105,7 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await organizationDialog.create(identity.organizationName, identity.organizationSlug)
     await page.waitForURL(`**/${identity.organizationSlug}`)
     await expect(
-      page.getByRole("heading", { name: "Set up your first agent", exact: true }),
+      page.getByRole("heading", { name: "Add the assistant to your app", exact: true }),
     ).toBeVisible()
     await captureMilestone(page, "04-organization-setup")
   })
@@ -174,6 +176,10 @@ test("an operator configures the deployment and an owner runs the dashboard end 
     await agents.openAgent(starterAgent)
     await expect(agents.publicId()).toHaveText(/^agent_[0-9a-f-]{36}_[0-9a-f-]{36}$/)
     await expect(agents.defaultBadge()).toBeVisible()
+    // The organization starts with the deployment's OpenAI connection and its model assigned.
+    await expect(
+      page.getByRole("checkbox", { name: "GPT-6.1 Terra (OpenAI)", exact: true }),
+    ).toBeChecked()
     await agents.fillForm({
       name: starterAgent,
       systemPrompt: "You answer questions about this end-to-end run and nothing else.",

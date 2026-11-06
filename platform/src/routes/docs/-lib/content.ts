@@ -42,10 +42,17 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "quickstart",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Quickstart",
         description:
           "Add chat to your React app with your existing login and send your first message.",
+      },
+      {
+        slug: "customize",
+        updated: "2026-11-06",
+        title: "Customize your setup",
+        description:
+          "Identify real users, shape your agent, choose models, control spend, and match your brand.",
       },
       {
         slug: "todos-tutorial",
@@ -175,7 +182,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "getting-started",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Getting started",
         description:
           "Install the CLI, authenticate with an organization API key, and manage your first Tenant and TenantUser.",
@@ -204,7 +211,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
     pages: [
       {
         slug: "models",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Models",
         description:
           "Connect model providers, enable their models, and assign them to agents in your organization.",
@@ -218,7 +225,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "agents",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Agents",
         description:
           "Configure agent instructions, models, attachments, and tools, then select an agent in your application.",
@@ -232,7 +239,7 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "usage-limits",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Usage limits",
         description:
           "Set token and model-spend allowances by tenant, user, or conversation, with examples for subscription plans.",
@@ -275,13 +282,13 @@ export const DOCS_SECTIONS: DocsSection[] = [
       },
       {
         slug: "deploy",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Deploy",
         description: "Install the standalone binary or run AstralBeam with Docker Compose.",
       },
       {
         slug: "configuration",
-        updated: "2026-11-05",
+        updated: "2026-11-06",
         title: "Configuration",
         description:
           "Configure database-backed application settings and environment overrides for your self-hosted deployment.",

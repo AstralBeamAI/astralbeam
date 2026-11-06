@@ -1,6 +1,8 @@
 # Models
 
-Connect a model provider so your agents can reply. You'll need a provider API key with access to the model you want to use. Each organization manages its own credentials and billing.
+Connect a model provider so your agents can reply. Each organization manages its own credentials and billing.
+
+New organizations start with an **OpenAI** connection that has GPT-6.1 Terra enabled and assigned to the starter agent, so chat works right away. To use your own OpenAI account, edit that connection and enter your key. To use another provider or a gateway, add a provider with an API key that can access the model you want.
 
 ## Add a provider
 
@@ -41,6 +43,6 @@ Remove models from their agents before disabling them or deleting their provider
 ## Troubleshooting
 
 - If a model request fails, check the provider's API URL, API format, key access, and exact model ID. Tenant users see only that the assistant is unavailable, so the provider's own error never reaches them.
-- If saving refuses the API URL with `Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints`, the deployment accepts only public HTTPS endpoints. A self-hosted deployment's operator can allow private endpoints in [Configuration](/docs/self-hosting/configuration#model-providers).
+- If saving refuses the API URL with `Use a public HTTPS API URL. This server does not allow HTTP or private network endpoints`, the deployment accepts only public HTTPS endpoints. A self-hosted deployment's operator can allow private endpoints in [Configuration](/docs/self-hosting/configuration#models).
 - If the stored key cannot be read, enter it again in the provider editor and save.
 - If an agent has no model choices, enable a model on a provider first.

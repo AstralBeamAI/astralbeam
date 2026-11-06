@@ -139,7 +139,7 @@
         "@opentelemetry/sdk-trace-base": "^2.12.0",
         "@phosphor-icons/react": "^2.1.10",
         "@posthog/react": "^1.11.3",
-        "@pydantic/genai-prices": "^0.1.12",
+        "@pydantic/genai-prices": "^0.2.1",
         "@react-email/render": "^2.2.0",
         "@scalar/api-reference-react": "^0.9.81",
         "@tanstack/ai": "^1.0.0",
@@ -1233,7 +1233,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
 
-    "@pydantic/genai-prices": ["@pydantic/genai-prices@0.1.12", "", { "bin": { "genai-prices": "dist/cli.js" } }, "sha512-luI1Z29BYxizFiFHKgYEjSZTrZ1SxAVXu6ZZYy4aDoqfKZztosEQBuXuQOziYHvzZrk8aBcVVQGAAt+yOjmHQQ=="],
+    "@pydantic/genai-prices": ["@pydantic/genai-prices@0.2.1", "", { "bin": { "genai-prices": "dist/cli.js" } }, "sha512-XmcwPrPJ142jP+JdAqoVfGBSrThTFaZfXrXUvomLUGBDtc6er62cx7hewKMtvgJhNeLoZEA8APmIaz1BENMsAg=="],
 
     "@quansync/fs": ["@quansync/fs@1.1.0", "", { "dependencies": { "quansync": "^1.0.0" } }, "sha512-qAPG/t3HqML1TlN7sY/pTbEjzFVAKsMjNNMGheyDosro+kT4iw2KCUoHcVdmliwWjorm4elZbgNQyU2eD97eDg=="],
 

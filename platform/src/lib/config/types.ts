@@ -41,6 +41,7 @@ export type ConfigKey =
   | "support_email_address"
   | "website_url"
   | "allow_private_model_endpoints"
+  | "default_openai_api_key"
   | "storage_provider"
   | "storage_directory"
   | "s3_endpoint"
@@ -60,7 +61,13 @@ export interface ConfigDefinition {
   /** System-managed database-only value, never editable or revealable through generic configuration. */
   systemManaged?: true
   key: ConfigKey
-  group: "General" | "Authentication" | "Email Delivery" | "File storage" | "Observability"
+  group:
+    | "General"
+    | "Authentication"
+    | "Models"
+    | "Email Delivery"
+    | "File storage"
+    | "Observability"
   label: string
   description: string
   kind: "text" | "url" | "secret" | "enum"

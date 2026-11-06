@@ -62,6 +62,8 @@ export async function seedConfig(
     .slice(0, 19)}-${Bun.CryptoHasher.hash("sha256", databaseName, "hex").slice(0, 32)}`
   const values: Record<string, string> = {
     ...SEED_CONFIG_VALUES,
+    default_openai_api_key:
+      process.env.OPENAI_API_KEY?.trim() || SEED_CONFIG_VALUES.default_openai_api_key,
     s3_endpoint: seedStorageEndpoint(),
     s3_bucket: bucket,
     s3_access_key_id: process.env.RUSTFS_ACCESS_KEY || SEED_CONFIG_VALUES.s3_access_key_id,

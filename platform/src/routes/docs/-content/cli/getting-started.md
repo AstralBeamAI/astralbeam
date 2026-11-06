@@ -77,7 +77,7 @@ astralbeam tenants list --external-id customer-42
 
 ## 4. Chat as that user
 
-Assign a model to the [default agent](/docs/dashboard/agents#the-default-agent), then send a message as Alex:
+Send a message as Alex. The [default agent](/docs/dashboard/agents#the-default-agent) replies with its assigned model:
 
 ```sh
 astralbeam chat --tenant customer-42 --user user-7 "What can you help me with?"

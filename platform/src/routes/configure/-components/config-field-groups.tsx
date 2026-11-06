@@ -18,6 +18,7 @@ import type { StorageConnection } from "@/lib/storage/schemas"
 const configGroupOrder = [
   "General",
   "Authentication",
+  "Models",
   "Email Delivery",
   "File storage",
   "Observability",
@@ -389,6 +390,7 @@ function summarizeConfigGroup(group: ConfigureField["group"], fields: ConfigureF
       isSet("google_client_id") && isSet("google_client_secret") && "Google",
       isSet("github_client_id") && isSet("github_client_secret") && "GitHub",
     ],
+    Models: [isSet("default_openai_api_key") && "Default OpenAI key"],
     "Email Delivery": [
       provider === "smtp" ? "SMTP" : provider === "ses" ? "Amazon SES" : "Resend",
       provider === "smtp"

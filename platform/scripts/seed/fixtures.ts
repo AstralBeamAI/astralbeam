@@ -82,6 +82,8 @@ export const SEED_CONFIG_VALUES = {
   better_auth_secret: "onlyForDevelopmentNotASecretSeedBetterAuthKey",
   turnstile_site_key: "1x00000000000000000000AA",
   turnstile_secret_key: "1x0000000000000000000000000000000AA",
+  // Replaced by `OPENAI_API_KEY` when set, so organizations created locally can chat.
+  default_openai_api_key: "sk-development-placeholder-not-a-real-key",
   support_email_address: "support@example.com",
   s3_endpoint: "http://127.0.0.1:9000",
   s3_region: "us-east-1",

@@ -11,12 +11,19 @@ test("dashboard guidance and agent drafts work across screen sizes", async ({
   agents,
 }) => {
   await page.goto(`/${baseline.organizationSlug}`)
-  await expect(page.getByRole("heading", { name: "Connect your app", exact: true })).toBeVisible()
-  const setup = page.getByRole("button", { name: "Connect a model provider", exact: false })
-  await waitForHydration(setup)
-  await expect(setup).toHaveAttribute("aria-expanded", "false")
-  await setup.click()
-  await expect(page.getByRole("link", { name: "Manage models", exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Add the assistant to your app", exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText("Waiting for your first reply…")).toBeVisible()
+  const rails = page.getByRole("tab", { name: "Rails", exact: true })
+  await waitForHydration(rails)
+  await rails.click()
+  await expect(
+    page.getByRole("region", { name: "app/controllers/astralbeam_tokens_controller.rb" }),
+  ).toBeVisible()
+  await expect(page.getByRole("region", { name: "src/components/sidebar.tsx" })).toContainText(
+    `apiUrl="${new URL("/api", page.url()).href}"`,
+  )
   await captureMilestone(page, "dashboard-desktop")
   await shell.openSection("Agents", "Agents")
   await agents.cards().first().getByRole("link").click()

@@ -73,6 +73,7 @@ import {
   providerModel,
   tenant,
   tenantUser,
+  usageLimit,
   user,
 } from "@/db/schema"
 import { parseDatabaseEncryptionKeyring } from "@/db/lib/database-credentials"
@@ -162,6 +163,7 @@ describe.skipIf(!dogfoodIntegration.url)(
       process.env.APP_BASE_URL = "http://localhost:4500"
       process.env.BETTER_AUTH_SECRET = "dogfood-integration-auth-key-not-for-production"
       process.env.OPENAI_API_KEY = "sk-development-provisioning-test-only"
+      process.env.DEFAULT_OPENAI_API_KEY = "sk-default-provisioning-test-only"
       process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
       process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
       process.env.SUPPORT_EMAIL_ADDRESS = "support@example.com"
@@ -175,14 +177,39 @@ describe.skipIf(!dogfoodIntegration.url)(
       await invalidateGlobalConfig()
     })
 
-    test("dogfood provisioning leaves model setup to its owner", async () => {
+    test("a new organization's starter agent replies through the default OpenAI key within a monthly spend limit", async () => {
       await provisionDogfood()
       const organizationId = (await getDatabaseConfig()).values.dogfood_organization_id!
       const [configuration] = await db.select().from(organizationConfiguration)
       const [defaultAgent] = await db.select().from(agent)
       expect(configuration).toMatchObject({ organizationId })
       expect(defaultAgent).toMatchObject({ organizationId, id: configuration!.defaultAgentId })
-      expect(await db.select().from(modelProvider)).toHaveLength(0)
+      const [provider] = await db.select().from(modelProvider)
+      expect(provider).toMatchObject({
+        organizationId,
+        providerType: "openai",
+        credentials: { modelProviderId: provider!.id, apiKey: "sk-default-provisioning-test-only" },
+      })
+      const [model] = await db.select().from(providerModel)
+      expect(model).toMatchObject({
+        modelProviderId: provider!.id,
+        modelId: "gpt-6.1-terra",
+        configuration: { pricingSource: { kind: "catalog" } },
+      })
+      expect(await db.select().from(agentModel)).toMatchObject([
+        { agentId: defaultAgent!.id, providerModelId: model!.id },
+      ])
+      expect(await db.select().from(usageLimit)).toMatchObject([
+        {
+          organizationId,
+          enabled: true,
+          appliesByDefault: true,
+          scope: "global",
+          metric: "spend",
+          amount: "10",
+          windowUnit: "month",
+        },
+      ])
     })
 
     test("development seeds assign models and preserve edited providers", async () => {

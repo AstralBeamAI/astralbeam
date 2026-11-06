@@ -24,9 +24,9 @@ See [other installations](#other-binary-installations) for other hosts, or `astr
 
 1. Sign in at `/configure` with the active encryption key. For a fresh standalone installation, use `encryptionKey` from `embedded-postgres.json` in the [data directory](./operations.md#data-directory). If you supplied `DATABASE_ENCRYPTION_KEY`, use its first entry instead.
 2. Review and apply any pending migrations.
-3. Configure and test [email delivery](./configuration.md#email-delivery). Review the required authentication and storage settings, then choose **Save**.
+3. Configure and test [email delivery](./configuration.md#email-delivery). Enter the [default OpenAI API key](./configuration.md#models) that new organizations start with, review the required authentication and storage settings, then choose **Save**.
 4. Under **Owner onboarding**, choose **Invite owner** and follow the email to set the owner's password.
-5. Choose **Go to app**. Add a provider under [Models](/docs/dashboard/models), assign its model to an [agent](/docs/dashboard/agents), and follow the [Quickstart](/docs/start/quickstart) to embed chat.
+5. Choose **Go to app** and follow the dashboard's integration guide, or the [Quickstart](/docs/start/quickstart), to embed chat.
 
 Operator sessions last 15 minutes. Keep the encryption key private and back it up separately. If the invitation fails, fix email delivery and retry **Invite owner**.
 
