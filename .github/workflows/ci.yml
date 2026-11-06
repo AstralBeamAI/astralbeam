@@ -52,6 +52,12 @@ jobs:
         with:
           bun-version-file: .bun-version
 
+      - name: Cache Bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
+
       - name: Install workspace dependencies
         run: bun install --frozen-lockfile
 
@@ -65,7 +71,7 @@ jobs:
         with:
           path: sdk/dist
           # Only build inputs, so a test or documentation change keeps the cached build.
-          key: sdk-dist-${{ runner.os }}-${{ hashFiles('.bun-version', 'tsconfig.base.json', 'sdk/package.json', 'bun.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
+          key: sdk-dist-${{ runner.os }}-${{ hashFiles('tsconfig.base.json', 'sdk/package.json', 'bun.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
         if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'

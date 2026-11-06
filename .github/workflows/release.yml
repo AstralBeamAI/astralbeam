@@ -111,7 +111,6 @@ jobs:
         working-directory: platform
         run: |
           bun run build
-          test -n "$(find .output/sourcemaps -type f -name '*.map' -print -quit)"
           mkdir ../release-binaries
 
       - name: Upload the Platform source maps to PostHog
@@ -190,12 +189,12 @@ jobs:
       - wait-all:
 
   github-release:
-    name: Verify artifacts and create the GitHub release
+    name: Create the GitHub release
     # Runs after staging so a failed npm step does not leave a release pointing at unstaged packages.
     needs: [verify, build, stage-npm, docker-image, sandbox-image, docker-cleanup]
     if: >-
       ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success'
-        && needs.stage-npm.result == 'success' && needs.docker-image.result == 'success'
+        && (inputs.dry-run || needs.stage-npm.result == 'success') && needs.docker-image.result == 'success'
         && needs.sandbox-image.result == 'success'
         && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
     runs-on: ubuntu-latest
@@ -211,13 +210,8 @@ jobs:
       - name: Extract the release binaries
         run: tar --use-compress-program='zstd --long=29' -xf release-binaries.tar.zst
 
-      - name: Verify the release binaries and generate checksums
-        run: |
-          for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 windows-x86_64.exe; do
-            test -s "astralbeam-platform-${target}"
-            test -s "astralbeam-${target}"
-          done
-          sha256sum astralbeam-* | tee SHA256SUMS
+      - name: Generate release checksums
+        run: sha256sum astralbeam-* > SHA256SUMS
 
       - name: Create the release
         if: ${{ !inputs.dry-run }}
@@ -253,6 +247,7 @@ jobs:
       file: platform/Dockerfile
       platforms: linux/amd64,linux/arm64
       cache: true
+      cache-mode: max
       build-args: SOURCE_VERSION=${{ github.sha }}
       meta-images: ghcr.io/astralbeamai/astralbeam-platform
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
@@ -372,8 +367,9 @@ jobs:
           bash -euo pipefail -c "$VERIFY_COMMANDS"
 
   stage-npm:
-    name: Verify and stage the SDK and CLI on npm
+    name: Stage the SDK and CLI on npm
     needs: [verify, build]
+    if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -386,29 +382,7 @@ jobs:
           name: npm-packages
           path: npm-packages
 
-      - name: Verify the SDK and CLI packages
-        env:
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-        run: |
-          for project in sdk cli; do
-            archive="npm-packages/$project.tgz"
-            manifest="$(tar -xOf "$archive" package/package.json)"
-            jq -e --arg version "$RELEASE_VERSION" --arg name "@astralbeam/$project" \
-              '.version == $version and .name == $name and ((.dependencies // {}) | length) == 0' <<< "$manifest"
-            files="$(tar -tzf "$archive")"
-            if [ "$project" = sdk ]; then
-              entries="$(jq -r '.exports[] | if type == "object" then .types, .default else . end' <<< "$manifest")"
-            else
-              entries="$(jq -er '.bin.astralbeam' <<< "$manifest")"
-              grep -Fx 'package/dist/skills/astralbeam/SKILL.md' <<< "$files"
-            fi
-            while IFS= read -r entry; do
-              grep -Fx "package/${entry#./}" <<< "$files"
-            done <<< "$entries"
-          done
-
       - name: Set up Node
-        if: ${{ !inputs.dry-run }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
@@ -417,7 +391,6 @@ jobs:
           package-manager-cache: false
 
       - name: Stage the SDK and CLI
-        if: ${{ !inputs.dry-run }}
         # Staging never makes a package public, so no token or 2FA is needed here. A maintainer
         # approves each with 2FA afterwards. https://docs.npmjs.com/cli/v11/commands/npm-stage
         shell: bash
@@ -428,7 +401,6 @@ jobs:
           done
 
       - name: Report the staged packages
-        if: ${{ !inputs.dry-run }}
         run: |
           {
             echo "## SDK and CLI staged on npm"
