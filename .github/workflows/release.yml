@@ -135,59 +135,50 @@ jobs:
           path: ${{ runner.temp }}/postgres-runtime
           key: postgres-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('platform/src/db/embedded-postgres.json') }}
 
-      - name: Smoke-test and pack the Platform binaries
+      - name: Smoke-test and pack the release binaries
         working-directory: platform
         shell: bash
         env:
           BINARY_CHECK_POSTGRES_CACHE: ${{ runner.temp }}/postgres-runtime
         run: |
+          mkdir ../release-binaries
           bun run binary:check &
           smoke_pid=$!
           (
             set -e
-            mkdir ../platform-binaries
-            cp --reflink=auto .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
+            cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
             for pair in bun-linux-x64:linux-x86_64 bun-darwin-x64:macos-x86_64 \
               bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
               bun run compile --target "${pair%%:*}" \
-                --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
+                --outfile "../release-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
             done
-            tar --use-compress-program='zstd -T0' -cf ../platform-binaries.tar.zst -C ../platform-binaries .
           ) &
           compile_pid=$!
+          (
+            set -e
+            cd ../cli
+            bun run build
+            test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
+            for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
+              bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
+              bun-windows-x64:windows-x86_64.exe; do
+              bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
+                --asset dist/skills --target "${pair%%:*}" --outfile "../release-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+            done
+            binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-arm64"
+            test "$("$binary" --version)" = "$RELEASE_VERSION"
+            "$binary" skill | grep -q '^name: astralbeam$'
+          ) &
+          cli_pid=$!
           status=0
           wait "$smoke_pid" || status=$?
           wait "$compile_pid" || status=$?
-          exit "$status"
-
-      - name: Build the CLI
-        working-directory: cli
-        run: bun run build
-
-      - name: Compile and smoke-test the CLI binaries
-        # Bun cross-compiles the same bundled npm entry for every release target.
-        # https://bun.sh/docs/bundler/executables
-        working-directory: cli
-        shell: bash
-        run: |
-          test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
-          mkdir ../cli-binaries
-          for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
-            bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
-            bun-windows-x64:windows-x86_64.exe; do
-            bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
-              --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
-          done
-          binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
-          test "$("$binary" --version)" = "$RELEASE_VERSION"
-          "$binary" skill | grep -q '^name: astralbeam$'
-
-      - name: Upload the CLI binaries
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: cli-binaries
-          path: cli-binaries
-          if-no-files-found: error
+          wait "$cli_pid" || status=$?
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          # Pair matching targets so zstd can reuse the Bun runtime across CLI and Platform binaries.
+          for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 windows-x86_64.exe; do
+            printf '%s\n' "${CLI_ASSET_PREFIX}-${target}" "${PLATFORM_ASSET_PREFIX}-${target}"
+          done | tar --use-compress-program='zstd -T0 --long=29' -cf ../release-binaries.tar.zst -C ../release-binaries -T -
 
       - name: Pack the SDK and CLI without publishing credentials
         run: |
@@ -203,10 +194,10 @@ jobs:
           path: npm-packages/*.tgz
           if-no-files-found: error
 
-      - name: Upload the Platform binaries
+      - name: Upload the release binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: platform-binaries.tar.zst
+          path: release-binaries.tar.zst
           archive: false
           if-no-files-found: error
 
@@ -270,15 +261,10 @@ jobs:
       - name: Download the release binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: platform-binaries.tar.zst
+          name: release-binaries.tar.zst
 
       - name: Extract the release binaries
-        run: tar --zstd -xf platform-binaries.tar.zst
-
-      - name: Download the CLI binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: cli-binaries
+        run: tar --use-compress-program='zstd --long=29' -xf release-binaries.tar.zst
 
       - name: Verify the release binaries and generate checksums
         run: |
