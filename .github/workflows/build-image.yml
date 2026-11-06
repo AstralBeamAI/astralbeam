@@ -3,7 +3,6 @@ name: Build and publish images
 on:
   workflow_call:
     inputs:
-      phase: { type: string, required: true }
       image: { type: string, required: true }
       version: { type: string, required: true }
       context: { type: string, default: "." }
@@ -25,7 +24,6 @@ env:
 jobs:
   build:
     name: Build ${{ matrix.arch }} image
-    if: inputs.phase == 'build'
     runs-on: ${{ format('blacksmith-{0}vcpu-ubuntu-2404{1}', inputs.cpus, matrix.arch == 'arm64' && '-arm' || '') }}
     timeout-minutes: 30
     permissions:
@@ -80,28 +78,22 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE_NAME }},oci-artifact=true,push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
           provenance: mode=max,version=v1
           sbom: generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
-          secret-envs: GIT_AUTH_TOKEN=GIT_AUTH_TOKEN
-        env:
-          GIT_AUTH_TOKEN: ${{ github.token }}
 
       - name: Record the image digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          test -n "$DIGEST"
-          mkdir -p "$RUNNER_TEMP/image-digest"
-          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/image-digest/${{ matrix.arch }}"
+        run: printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/${{ matrix.arch }}"
 
       - name: Upload the image digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-digest-${{ inputs.image }}-${{ matrix.arch }}
-          path: ${{ runner.temp }}/image-digest/${{ matrix.arch }}
+          path: ${{ runner.temp }}/${{ matrix.arch }}
           if-no-files-found: error
 
   publish:
     name: Publish the verified image
-    if: inputs.phase == 'publish'
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -158,14 +150,10 @@ jobs:
           VERSION: ${{ inputs.version }}
           SOURCE: ${{ github.server_url }}/${{ github.repository }}
         run: |
-          sources=()
-          for arch in amd64 arm64; do
-            digest="$(cat "digests/$arch")"
-            sources+=("$IMAGE_NAME@$digest")
-          done
           args=()
           while IFS= read -r tag; do args+=(--tag "$tag"); done <<< "$TAGS"
-          docker buildx imagetools create "${args[@]}" "${sources[@]}" \
+          docker buildx imagetools create "${args[@]}" \
+            "$IMAGE_NAME@$(cat digests/amd64)" "$IMAGE_NAME@$(cat digests/arm64)" \
             --annotation "index:org.opencontainers.image.version=$VERSION" \
             --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
             --annotation "index:org.opencontainers.image.source=$SOURCE" \
@@ -179,22 +167,19 @@ jobs:
         with:
           cosign-release: v3.1.3
 
-      - name: Sign and verify both architecture attestations
+      - name: Sign both architecture attestations
         if: inputs.push
         env:
           DIGEST: ${{ steps.merge.outputs.digest }}
         run: |
           docker buildx imagetools inspect "$IMAGE_NAME@$DIGEST" --raw > "$RUNNER_TEMP/image-index.json"
-          jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest") | .digest' \
+          jq -r --arg image "$IMAGE_NAME" \
+            '.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest") | "\($image)@\(.digest)"' \
             "$RUNNER_TEMP/image-index.json" > "$RUNNER_TEMP/attestation-digests"
-          test "$(wc -l < "$RUNNER_TEMP/attestation-digests")" -eq 2
-          while IFS= read -r digest; do
-            cosign sign --yes --oidc-provider github-actions --registry-referrers-mode oci-1-1 \
-              --new-bundle-format "$IMAGE_NAME@$digest"
-            cosign verify --experimental-oci11 --new-bundle-format \
-              --certificate-identity "$CERTIFICATE_IDENTITY" \
-              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE_NAME@$digest"
-          done < "$RUNNER_TEMP/attestation-digests"
+          mapfile -t attestations < "$RUNNER_TEMP/attestation-digests"
+          test "${#attestations[@]}" -eq 2
+          cosign sign --yes --oidc-provider github-actions --registry-referrers-mode oci-1-1 \
+            --new-bundle-format "${attestations[@]}"
 
       - name: Remove redundant build indexes
         if: inputs.push
@@ -212,8 +197,7 @@ jobs:
         run: |
           docker buildx imagetools inspect "$IMAGE_NAME@$DIGEST" \
             --format '{{json .Image}}' | jq -e 'keys == ["linux/amd64", "linux/arm64"]'
-          while IFS= read -r digest; do
-            cosign verify --experimental-oci11 --new-bundle-format \
-              --certificate-identity "$CERTIFICATE_IDENTITY" \
-              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE_NAME@$digest"
-          done < "$RUNNER_TEMP/attestation-digests"
+          mapfile -t attestations < "$RUNNER_TEMP/attestation-digests"
+          cosign verify --experimental-oci11 --new-bundle-format \
+            --certificate-identity "$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "${attestations[@]}"

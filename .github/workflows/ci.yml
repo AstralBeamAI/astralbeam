@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     name: Check ${{ matrix.leg || matrix.project }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ format('blacksmith-{0}vcpu-ubuntu-2404', matrix.cpus || 2) }}
     timeout-minutes: 15
     strategy:
       # Every project reports its own result, so one failing leg does not hide the others.
@@ -24,13 +24,13 @@ jobs:
         # The platform splits `ready` across five legs so its checks, tests, and build overlap. The CLI's
         # `binary:check` builds before compiling and smoke-testing, so it replaces the `build` in `ready`.
         include:
-          - { project: platform, leg: platform checks, tasks: check }
-          - { project: platform, leg: platform unit tests, tasks: test --project=unit }
-          - { project: platform, leg: platform integration tests, tasks: "test --project=integration $(git ls-files '**/*.integration.test.*' ':!:src/lib/dogfood/provisioning.integration.test.ts')", database: true }
+          - { project: platform, leg: platform checks, cpus: 4, tasks: check }
+          - { project: platform, leg: platform unit tests, cpus: 4, tasks: test --project=unit }
+          - { project: platform, leg: platform integration tests, cpus: 8, tasks: "test --project=integration $(git ls-files '**/*.integration.test.*' ':!:src/lib/dogfood/provisioning.integration.test.ts')", database: true }
           - { project: platform, leg: platform provisioning tests, tasks: test --project=integration src/lib/dogfood/provisioning.integration.test.ts, database: true }
-          - { project: platform, leg: platform build, tasks: build && bun run binary:check, database: true }
+          - { project: platform, leg: platform build, cpus: 8, tasks: build && bun run binary:check, database: true }
           - { project: website, tasks: ready }
-          - { project: sdk, tasks: ready }
+          - { project: sdk, cpus: 4, tasks: ready }
           - { project: cli, tasks: check && bun run test && bun run binary:check }
           - { project: examples/todos, tasks: ready }
           - { project: examples/linearity-react, tasks: ready }

@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -160,6 +160,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-binaries
+          compression-level: 1
           path: cli-binaries
           if-no-files-found: error
 
@@ -183,6 +184,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: platform-binaries
+          compression-level: 1
           path: platform-binaries
           if-no-files-found: error
 
@@ -235,8 +237,8 @@ jobs:
           fi
           gh release create "$tag" --verify-tag --latest --generate-notes astralbeam-* SHA256SUMS
 
-  docker-image-build:
-    name: Build the astralbeam-platform image
+  docker-image:
+    name: Build and publish the Docker image
     needs: verify
     uses: ./.github/workflows/build-image.yml
     permissions:
@@ -244,30 +246,15 @@ jobs:
       packages: write
       id-token: write
     with:
-      phase: build
-      cpus: 4
+      cpus: 8
       image: astralbeam-platform
       version: ${{ needs.verify.outputs.version }}
       push: ${{ !inputs.dry-run }}
       file: platform/Dockerfile
       build-args: SOURCE_VERSION=${{ github.sha }}
 
-  docker-image:
-    name: Publish the astralbeam-platform image
-    needs: [verify, docker-image-build]
-    uses: ./.github/workflows/build-image.yml
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    with:
-      phase: publish
-      image: astralbeam-platform
-      version: ${{ needs.verify.outputs.version }}
-      push: ${{ !inputs.dry-run }}
-
-  sandbox-image-build:
-    name: Build the sandbox image
+  sandbox-image:
+    name: Build and publish the sandbox image
     needs: verify
     uses: ./.github/workflows/build-image.yml
     permissions:
@@ -275,26 +262,11 @@ jobs:
       packages: write
       id-token: write
     with:
-      phase: build
       image: sandbox
       version: ${{ needs.verify.outputs.version }}
       push: ${{ !inputs.dry-run }}
       context: platform/packages/sandbox/image
       cache-scope: sandbox
-
-  sandbox-image:
-    name: Publish the sandbox image
-    needs: [verify, sandbox-image-build]
-    uses: ./.github/workflows/build-image.yml
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    with:
-      phase: publish
-      image: sandbox
-      version: ${{ needs.verify.outputs.version }}
-      push: ${{ !inputs.dry-run }}
       latest: true
 
   stage-npm:
