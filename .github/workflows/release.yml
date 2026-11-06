@@ -197,7 +197,7 @@ jobs:
         && (inputs.dry-run || needs.stage-npm.result == 'success') && needs.docker-image.result == 'success'
         && needs.sandbox-image.result == 'success'
         && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
@@ -238,18 +238,20 @@ jobs:
   docker-image:
     name: Build and publish the Docker image
     needs: verify
-    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
+    uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
       packages: write
       id-token: write
     with:
       output: image
+      runner: |
+        default=blacksmith-2vcpu-ubuntu-2404
+        linux/arm64=blacksmith-2vcpu-ubuntu-2404-arm
+      blacksmith-cache: true
       push: ${{ !inputs.dry-run }}
       file: platform/Dockerfile
       platforms: linux/amd64,linux/arm64
-      cache: true
-      cache-mode: max
       build-args: SOURCE_VERSION=${{ github.sha }}
       meta-images: ghcr.io/astralbeamai/astralbeam-platform
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
@@ -275,17 +277,20 @@ jobs:
   sandbox-image:
     name: Build and publish the sandbox image
     needs: verify
-    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
+    uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
       packages: write
       id-token: write
     with:
       output: image
+      runner: |
+        default=blacksmith-2vcpu-ubuntu-2404
+        linux/arm64=blacksmith-2vcpu-ubuntu-2404-arm
+      blacksmith-cache: true
       push: ${{ !inputs.dry-run }}
       context: platform/packages/sandbox/image
       platforms: linux/amd64,linux/arm64
-      cache: true
       cache-scope: sandbox
       meta-images: ghcr.io/astralbeamai/sandbox
       meta-tags: |
@@ -372,7 +377,7 @@ jobs:
     name: Stage the SDK and CLI on npm
     needs: [verify, build]
     if: ${{ !inputs.dry-run }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       # Trusted publishing exchanges this OIDC token for a short-lived npm credential. https://docs.npmjs.com/trusted-publishers
@@ -417,7 +422,7 @@ jobs:
   minimal-release:
     name: Stage the SDK and CLI and release binaries (minimal)
     if: ${{ inputs.minimal && !inputs.dry-run }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     # One job skips artifact transfers, so build code shares the npm and release credentials.
     permissions:
