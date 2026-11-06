@@ -25,6 +25,9 @@ test("integration guide steps collapse and keep manual completion across reloads
   await waitForHydration(done)
   await expect(step("Create an API key (complete)")).toHaveAttribute("aria-expanded", "false")
   await expect(install).toHaveAttribute("aria-expanded", "true")
+  // Only the caret toggles a step, so clicking its title leaves it open.
+  await installItem.getByRole("heading", { name: "Install the SDK" }).click()
+  await expect(install).toHaveAttribute("aria-expanded", "true")
   await captureMilestone(page, "guide-initial")
 
   await done.click()
