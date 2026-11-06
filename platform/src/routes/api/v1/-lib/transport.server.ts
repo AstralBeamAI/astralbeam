@@ -68,12 +68,11 @@ function restValidationError(error: HttpApiError.HttpApiSchemaError) {
  */
 function restBoundaryFailure(cause: Cause.Cause<unknown>, operation: string) {
   if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
-  const defect = Cause.findDefect(cause)
+  const defect = Result.getOrUndefined(Cause.findDefect(cause))
   if (
-    Result.isSuccess(defect) &&
-    HttpServerError.isHttpServerError(defect.success) &&
-    defect.success.reason._tag === "RequestParseError" &&
-    defect.success.reason.reason === "BodyTooLarge"
+    HttpServerError.isHttpServerError(defect) &&
+    defect.reason._tag === "RequestParseError" &&
+    defect.reason.reason === "BodyTooLarge"
   )
     return Effect.fail(new RestProblem({ status: 413, message: "Request body is too large." }))
   const failure = Cause.findErrorOption(cause)
