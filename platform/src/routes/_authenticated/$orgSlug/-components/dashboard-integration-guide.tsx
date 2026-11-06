@@ -55,6 +55,7 @@ function GuideStep({
   title,
   detected = false,
   marked,
+  saving,
   onMarkedChange,
   children,
 }: {
@@ -62,6 +63,7 @@ function GuideStep({
   title: string
   detected?: boolean
   marked: boolean
+  saving: boolean
   onMarkedChange: ((marked: boolean) => void) | undefined
   children: ReactNode
 }) {
@@ -99,6 +101,7 @@ function GuideStep({
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground"
+                    disabled={saving}
                     onClick={() => {
                       onMarkedChange(!marked)
                       setOpenOverride(undefined)
@@ -304,6 +307,8 @@ export function DashboardIntegrationGuide({
   function stepMark(step: IntegrationGuideStep) {
     return {
       marked: pendingMarks[step] ?? markedSteps.includes(step),
+      // One save per step at a time, so an earlier insert cannot commit after a later removal.
+      saving: pendingMarks[step] !== undefined,
       onMarkedChange: permissions.updateConfiguration
         ? (marked: boolean) => void saveMark(step, marked)
         : undefined,
