@@ -109,9 +109,7 @@ jobs:
       - name: Build the Platform
         # Builds `.output` once and compiles the host binary from it.
         working-directory: platform
-        run: |
-          bun run build
-          mkdir ../release-binaries
+        run: bun run build
 
       - name: Upload the Platform source maps to PostHog
         if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
@@ -132,11 +130,12 @@ jobs:
             working-directory: platform
             shell: bash
             run: |
-              cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
+              mkdir ../platform-binaries
+              cp .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
               for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
                 bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
                 bun run compile --target "${pair%%:*}" \
-                  --outfile "../release-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
+                  --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
               done
 
           - name: Build, compile, and smoke-test the CLI binaries
@@ -145,23 +144,24 @@ jobs:
             run: |
               bun run build
               test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
+              mkdir ../cli-binaries
               for pair in bun-linux-x64:linux-x86_64 bun-linux-arm64:linux-arm64 \
                 bun-darwin-x64:macos-x86_64 bun-darwin-arm64:macos-arm64 \
                 bun-windows-x64:windows-x86_64.exe; do
                 bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
-                  --asset dist/skills --target "${pair%%:*}" --outfile "../release-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
+                  --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
               done
-              binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+              binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
               test "$("$binary" --version)" = "$RELEASE_VERSION"
               "$binary" skill | grep -q '^name: astralbeam$'
 
-      - name: Pack the release binaries
-        shell: bash
-        run: |
-          # Pair matching targets so zstd can reuse the Bun runtime across CLI and Platform binaries.
-          for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 windows-x86_64.exe; do
-            printf '%s\n' "${CLI_ASSET_PREFIX}-${target}" "${PLATFORM_ASSET_PREFIX}-${target}"
-          done | tar --use-compress-program='zstd -T0 --long=29' -cf release-binaries.tar.zst -C release-binaries -T -
+      - name: Upload the CLI binaries
+        background: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-binaries
+          path: cli-binaries
+          if-no-files-found: error
 
       - name: Pack the SDK and CLI without publishing credentials
         run: |
@@ -178,12 +178,12 @@ jobs:
           path: npm-packages/*.tgz
           if-no-files-found: error
 
-      - name: Upload the release binaries
+      - name: Upload the Platform binaries
         background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: release-binaries.tar.zst
-          archive: false
+          name: platform-binaries
+          path: platform-binaries
           if-no-files-found: error
 
       - wait-all:
@@ -202,13 +202,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download the release binaries
+      - name: Download the Platform binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-binaries.tar.zst
+          name: platform-binaries
 
-      - name: Extract the release binaries
-        run: tar --use-compress-program='zstd --long=29' -xf release-binaries.tar.zst
+      - name: Download the CLI binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cli-binaries
 
       - name: Generate release checksums
         run: sha256sum astralbeam-* > SHA256SUMS
