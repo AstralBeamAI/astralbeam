@@ -1,4 +1,4 @@
-# Copied from https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml (Apache-2.0, ../LICENSE.github-builder).
+# Copied from https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml (Apache-2.0, ../../docs/legal/LICENSES/Apache-2.0.txt).
 # Local changes: Blacksmith cache and runner support, local signing identity, pinned registry helper.
 name: build
 
