@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   # Serialize publishing and cleanup across releases from different refs.
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}${{ inputs.dry-run && format('-dry-run-{0}', github.ref) || '' }}
 
 jobs:
   verify:
