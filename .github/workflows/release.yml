@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     needs: verify
-    runs-on: ubuntu-26.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -102,15 +102,7 @@ jobs:
         # https://bun.sh/docs/pm/cli/install#platform-specific-dependencies
         run: bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
 
-      - name: Cache SDK build
-        id: sdk-build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: sdk/dist
-          key: sdk-dist-${{ runner.os }}-${{ hashFiles('.bun-version', 'tsconfig.base.json', 'sdk/package.json', 'bun.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
-
       - name: Build the SDK
-        if: steps.sdk-build.outputs.cache-hit != 'true'
         working-directory: sdk
         run: bun run build
 
@@ -146,8 +138,8 @@ jobs:
           bun run binary:check &
           smoke_pid=$!
           (
-            cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
-            for pair in bun-linux-x64:linux-x86_64 bun-darwin-x64:macos-x86_64 \
+            cp --reflink=auto .output/astralbeam-platform "../release-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
+            for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
               bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
               bun run compile --target "${pair%%:*}" \
                 --outfile "../release-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
@@ -164,7 +156,7 @@ jobs:
               bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
                 --asset dist/skills --target "${pair%%:*}" --outfile "../release-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
             done
-            binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-arm64"
+            binary="../release-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
             test "$("$binary" --version)" = "$RELEASE_VERSION"
             "$binary" skill | grep -q '^name: astralbeam$'
           ) &
