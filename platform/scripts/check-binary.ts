@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { existsSync, rmSync } from "node:fs"
-import { mkdtemp, readdir } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, symlink } from "node:fs/promises"
 import { availableParallelism, tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import process, { env as processEnvironment, platform } from "node:process"
 import { setTimeout as delay } from "node:timers/promises"
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
@@ -181,6 +181,16 @@ async function checkEmbeddedPostgresBinary(options: {
   temporaryDirectory: string
 }) {
   const directory = await mkdtemp(join(options.temporaryDirectory, "embedded-"))
+  const cache = processEnvironment.BINARY_CHECK_POSTGRES_CACHE
+  if (cache) {
+    // Reuse downloaded binaries while each check initializes its own private database.
+    await mkdir(cache, { recursive: true })
+    await symlink(
+      resolve(cache),
+      join(directory, "postgres-cache"),
+      platform === "win32" ? "junction" : "dir",
+    )
+  }
   const environment: NodeJS.ProcessEnv = {
     ...processEnvironment,
     HOME: directory,
@@ -345,6 +355,21 @@ async function runBinaryCheck() {
     }
   }
 
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
+  process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
+  const checks = await Promise.allSettled([
+    checkEmbeddedPostgresBinary({ binaryPath, temporaryDirectory }),
+    checkBinaryServer({ binaryPath, temporaryDirectory }),
+  ])
+  for (const check of checks) if (check.status === "rejected") throw check.reason
+  console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
+}
+
+async function checkBinaryServer(options: { binaryPath: string; temporaryDirectory: string }) {
+  const { binaryPath } = options
+  const platformDirectory = dirname(import.meta.dir)
+  const migrateDatabaseUrl = processEnvironment.BINARY_CHECK_DATABASE_URL
+  const temporaryDirectory = await mkdtemp(join(options.temporaryDirectory, "server-"))
   const publicAssetsDirectory = join(platformDirectory, ".output", "public", "assets")
   const assetNames = await readdir(publicAssetsDirectory)
   const stylesheetName = assetNames.find((name) => name.endsWith(".css"))
@@ -352,9 +377,6 @@ async function runBinaryCheck() {
   if (!stylesheetName || !scriptName)
     throw new Error("Build output did not contain CSS and JavaScript")
 
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), "astralbeam-binary-check-"))
-  process.once("exit", () => rmSync(temporaryDirectory, { recursive: true, force: true }))
-  await checkEmbeddedPostgresBinary({ binaryPath, temporaryDirectory })
   const unreachableDatabaseUrl = "postgres://localhost:1/binary_check_test"
   const binaryEnvironment: Record<string, string | undefined> = {
     ...processEnvironment,
@@ -536,7 +558,6 @@ async function runBinaryCheck() {
     }
     throw new Error("Binary left a worker running after shutdown")
   }
-  console.log(`Binary smoke check passed (${binarySizeMiB.toFixed(1)} MiB)`)
 }
 
 await runBinaryCheck()

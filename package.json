@@ -29,7 +29,7 @@
     "dev": "bun run --parallel dev:platform dev:website dev:sdk dev:todos dev:linearity",
     "build": "bun run build:sdk && bun run build:platform && bun run build:website && bun run build:cli && bun run build:todos && bun run build:linearity",
     "release": "scripts/release.sh",
-    "release:manual": "gh workflow run release.yml --ref main -f minimal=true"
+    "release:manual": "gh workflow run release.yml --ref main -f minimal=true -f dry-run=false"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
