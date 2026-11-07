@@ -38,7 +38,6 @@ import {
   selectChatCompaction,
   createChatCompactionMiddleware,
   chatCompactionOutputOptions,
-  fetchChatCompactionUsage,
   type ChatCompactionState,
 } from "./compaction-middleware"
 import { createChatAdapter } from "./adapter"
@@ -378,18 +377,8 @@ export class Chat extends Context.Service<
                 }),
               )
             const adapter = createChatAdapter(
-              agent.compactionEnabled
-                ? {
-                    ...model,
-                    fetch: (input, init) =>
-                      fetchChatCompactionUsage({
-                        model,
-                        input,
-                        init,
-                        record: recordCompactionUsage,
-                      }),
-                  }
-                : model,
+              model,
+              agent.compactionEnabled ? recordCompactionUsage : undefined,
             )
             const summaryAccounting: ChatMiddleware = {
               name: "compaction-accounting",
@@ -405,19 +394,18 @@ export class Chat extends Context.Service<
                     modelId: model.modelId,
                     native:
                       !agent.webAccessEnabled &&
-                      model.providerType === "openai" &&
-                      model.api === "responses" &&
-                      new URL(model.baseUrl).origin === "https://api.openai.com",
+                      ((model.providerType === "openai" &&
+                        model.api === "responses" &&
+                        new URL(model.baseUrl).origin === "https://api.openai.com") ||
+                        (model.providerType === "anthropic" &&
+                          model.api === "anthropic-messages" &&
+                          new URL(model.baseUrl).origin === "https://api.anthropic.com")),
                     configuration: pricing,
                     summaryOptions: chatCompactionOutputOptions(
                       model,
                       Math.min(pricing.outputCap, 4096),
-                      false,
                     ),
-                    summaryMiddleware: [
-                      chatFailedUsageMiddleware([summaryAccounting]),
-                      summaryAccounting,
-                    ],
+                    summaryMiddleware: [summaryAccounting],
                     beforeCall: beforeModelCall,
                     projectSuffix: projectCompactionSuffix,
                     save: (anchor, payload) =>
@@ -532,7 +520,6 @@ export class Chat extends Context.Service<
               repairToolInput: false,
               // Interrupt snapshots preserve original uploads after provider normalization.
               middleware: [
-                chatFailedUsageMiddleware(accounting),
                 createChatAttachmentSnapshotMiddleware(inputMessages, history),
                 ...accounting,
                 ...(compaction ? [compaction] : []),
@@ -552,12 +539,22 @@ export class Chat extends Context.Service<
               resume: params.resume,
               ...(model.providerType === "openai" &&
                 model.api === "responses" && { reasoning: "high" }),
-            }).pipe(Stream.orDie)
+            })
             const delivered = managedChatDelivery({
               source,
               managed: input.managed,
               state: managed.state,
-            })
+            }).pipe(
+              Stream.catchTag("AIError", (error) =>
+                error.cause instanceof ChatCompactionError
+                  ? Stream.succeed<StreamChunk>({
+                      type: EventType.RUN_ERROR,
+                      code: error.cause.code,
+                      message: error.cause.code,
+                    })
+                  : Stream.die(error),
+              ),
+            )
             return usageLimitGuard ? usageLimitGuard.announce(delivered) : delivered
           }),
         ).pipe(
