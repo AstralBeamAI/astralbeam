@@ -138,6 +138,16 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   modelId: "gpt-5.6-terra",
   fetch,
 }
+const CHAT_TEST_PRICING: ModelConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "1", outputPerMillion: "1" },
+  contextTiers: [],
+  contextWindowTokens: 16000,
+  maxInputTokens: null,
+  maxOutputTokens: 1000,
+  outputCap: 1000,
+}
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
@@ -235,10 +245,6 @@ describe("Chat.run", () => {
     (configured) =>
       Effect.gen(function* () {
         const events = yield* Stream.runCollect(yield* runChat())
-        assert.include(
-          events.map((event) => event.type),
-          EventType.RUN_ERROR,
-        )
         const error = events.find((event) => event.type === EventType.RUN_ERROR)
         assert.strictEqual(
           error?.message,
@@ -256,12 +262,8 @@ describe("Chat.run", () => {
             ...(configured
               ? {
                   pricing: {
-                    currency: "USD",
-                    pricingSource: { kind: "manual" },
-                    prices: { inputPerMillion: "1", outputPerMillion: "1" },
-                    contextTiers: [],
+                    ...CHAT_TEST_PRICING,
                     contextWindowTokens: 10,
-                    maxInputTokens: null,
                     maxOutputTokens: 1,
                     outputCap: 1,
                   },
@@ -552,7 +554,7 @@ describe("Chat.run", () => {
       ),
   )
 
-  it.effect.each(["removed", "unreadable", "malformed"])("saved attachments: %s", (state) =>
+  it.effect.each(["removed", "unreadable", "malformed", "compacted"])("files: %s", (state) =>
     Effect.gen(function* () {
       if (state === "malformed") {
         const failure = yield* Effect.flip(runChat())
@@ -560,9 +562,10 @@ describe("Chat.run", () => {
         assert.isEmpty(chatRunTest.options)
         return
       }
+      const filename = state === "compacted" ? "sales-2.tsv" : "sales.tsv"
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
-      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv]")
+      assert.include(JSON.stringify(options.messages), `[Attached: ${filename}]`)
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -573,11 +576,13 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
+      assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}]`)
+      if (state === "compacted")
+        assert.notInclude(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
       for (const tools of [options.tools, refreshed?.tools]) {
         const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
         const result = yield* Effect.promise(() =>
-          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+          Promise.resolve(reader.execute?.({ file: filename }) as unknown),
         )
         assert.notProperty(result, "sandboxPath")
         assert.notProperty(result, "content")
@@ -587,9 +592,22 @@ describe("Chat.run", () => {
         chatTestLayer({
           agent: {
             ...sandboxedAgent,
+            compactionEnabled: state === "compacted",
             sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
           },
           model: CHAT_TEST_MODEL,
+          pricing: CHAT_TEST_PRICING,
+          compactions: [
+            {
+              id: "checkpoint",
+              coveredThroughMessageId: "older-reply",
+              payload: {
+                version: 1,
+                kind: "portable",
+                messages: [{ role: "user", content: "Earlier work" }],
+              },
+            },
+          ] as unknown as ChatCompactionArtifact[],
           history: [
             {
               id: chatTestExecution.claim.inputMessageId,
@@ -611,90 +629,24 @@ describe("Chat.run", () => {
                 ],
               },
             },
-          ] as unknown as MessageRecord[],
+          ].flatMap((message) =>
+            state === "compacted"
+              ? [
+                  { ...message, id: "older" },
+                  {
+                    id: "older-reply",
+                    role: "assistant",
+                    state: "complete",
+                    turnMessageId: "older",
+                    payload: { version: 1, parts: [] },
+                  },
+                  message,
+                ]
+              : [message],
+          ) as unknown as MessageRecord[],
         }),
       ),
     ),
-  )
-
-  it.effect.each([false, true])(
-    "keeps saved attachment handles stable after refresh, compaction: %s",
-    (compactionEnabled) =>
-      Effect.gen(function* () {
-        yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
-        const options = chatRunTest.options[0]!
-        assert.isTrue(options.tools.some((tool) => tool.name === "read_attachment"))
-        assert.include(JSON.stringify(options.messages), "[Attached: notes-2.txt]")
-        const gate = options.middleware.find((middleware) => middleware.name === "managed-thread")!
-        const refreshed = yield* Effect.promise(async () =>
-          gate.onConfig!(
-            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[0],
-            {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
-          ),
-        )
-        assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: notes-2.txt]")
-        assert.strictEqual(
-          JSON.stringify(refreshed?.providerMessages).includes("[Attached: notes.txt]"),
-          !compactionEnabled,
-        )
-        assert.isTrue(refreshed?.tools?.some((tool) => tool.name === "read_attachment"))
-      }).pipe(
-        Effect.provide(
-          chatTestLayer({
-            agent: { ...sandboxedAgent, compactionEnabled },
-            model: CHAT_TEST_MODEL,
-            pricing: {
-              currency: "USD",
-              pricingSource: { kind: "manual" },
-              prices: { inputPerMillion: "1", outputPerMillion: "1" },
-              contextTiers: [],
-              contextWindowTokens: 16000,
-              maxInputTokens: null,
-              maxOutputTokens: 1000,
-              outputCap: 1000,
-            },
-            history: ["older", chatTestExecution.claim.inputMessageId].flatMap((id) => [
-              {
-                id,
-                role: "user",
-                state: "complete",
-                payload: {
-                  version: 1,
-                  parts: [
-                    {
-                      id: `${id}-file`,
-                      type: "document",
-                      source: { type: "data", value: btoa(id), mimeType: "text/plain" },
-                      metadata: { filename: "notes.txt" },
-                    },
-                  ],
-                },
-              },
-              {
-                id: `${id}-reply`,
-                role: "assistant",
-                state: "complete",
-                turnMessageId: id,
-                payload: {
-                  version: 1,
-                  parts: [{ id: `${id}-text`, type: "text", content: "Read" }],
-                },
-              },
-            ]) as unknown as MessageRecord[],
-            compactions: [
-              {
-                id: "checkpoint",
-                coveredThroughMessageId: "older-reply",
-                payload: {
-                  version: 1,
-                  kind: "portable",
-                  messages: [{ role: "user", content: "Old history" }],
-                },
-              },
-            ] as unknown as ChatCompactionArtifact[],
-          }),
-        ),
-      ),
   )
 
   it.effect("interrupts the persisted turn when disconnected during MCP discovery", () =>

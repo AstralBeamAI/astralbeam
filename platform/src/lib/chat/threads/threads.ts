@@ -998,7 +998,7 @@ export class ChatThreads extends Context.Service<
       input: ThreadInput & { messageId?: string },
     ) => Effect.Effect<MessageRecord[], ChatThreadError>
     readonly compactions: (
-      input: ThreadInput & { leafMessageId: string },
+      input: ThreadInput,
     ) => Effect.Effect<(typeof chatCompaction.$inferSelect)[], ChatThreadError>
     readonly saveCompaction: (input: {
       claim: ChatWriterClaim
@@ -1294,7 +1294,6 @@ export class ChatThreads extends Context.Service<
           readSnapshot((tx) =>
             Effect.gen(function* () {
               yield* readThread(tx, input)
-              const ancestry = yield* historyIds(tx, input.scope, input.id, input.leafMessageId)
               return yield* tx
                 .select()
                 .from(chatCompaction)
@@ -1303,10 +1302,6 @@ export class ChatThreads extends Context.Service<
                     eq(chatCompaction.organizationId, input.scope.organizationId),
                     eq(chatCompaction.tenantId, input.scope.tenantId),
                     eq(chatCompaction.threadId, input.id),
-                    inArray(
-                      chatCompaction.coveredThroughMessageId,
-                      ancestry.map((node) => node.id),
-                    ),
                   ),
                 )
                 .orderBy(desc(chatCompaction.createdAt), desc(chatCompaction.id))
