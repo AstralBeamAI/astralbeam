@@ -1,0 +1,22 @@
+name: Verify image
+description: Verify both image architectures and signatures after cleanup
+inputs:
+  image:
+    description: GHCR package name
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Verify both architectures and signatures after cleanup
+      shell: bash
+      env:
+        IMAGE_NAME: ghcr.io/astralbeamai/${{ inputs.image }}
+        IMAGE_DIRECTORY: ${{ runner.temp }}/${{ inputs.image }}
+      run: |
+        digest="$(jq -er '."containerimage.digest" // ."containerimage.descriptor".digest' "$IMAGE_DIRECTORY/image-metadata.json")"
+        docker buildx imagetools inspect "$IMAGE_NAME@$digest" \
+          --format '{{json .Image}}' | jq -e 'keys == ["linux/amd64", "linux/arm64"]'
+        mapfile -t attestations < "$IMAGE_DIRECTORY/attestation-digests"
+        cosign verify --experimental-oci11 --new-bundle-format \
+          --certificate-identity "$CERTIFICATE_IDENTITY" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com "${attestations[@]}"
