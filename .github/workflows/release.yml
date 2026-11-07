@@ -221,7 +221,7 @@ jobs:
         && (inputs.dry-run || needs.stage-npm.result == 'success') && needs.docker-image.result == 'success'
         && needs.sandbox-image.result == 'success'
         && (inputs.dry-run || needs.docker-cleanup.result == 'success') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
     permissions:
       contents: write
