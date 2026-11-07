@@ -42,6 +42,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull Platform test database images
+        id: database-images
         if: matrix.database
         background: true
         continue-on-error: true
@@ -76,6 +77,7 @@ jobs:
           key: sdk-dist-${{ runner.os }}-${{ hashFiles('.bun-version', 'bunfig.toml', 'sdk/bunfig.toml', 'tsconfig.base.json', 'sdk/package.json', 'bun.lock', 'sdk/tsconfig.json', 'sdk/tsdown.config.ts', 'sdk/scripts/**', 'sdk/src/**', '!sdk/src/**/*.test.*', '!sdk/src/widget/styles.generated.ts') }}
 
       - name: Build the SDK
+        background: true
         if: matrix.project == 'examples/todos' || matrix.project == 'examples/linearity-react' || matrix.project == 'platform' || matrix.project == 'cli'
         # The platform, CLI, and examples consume `sdk/dist` through workspace links, so their
         # typecheck and build cannot run before the SDK is installed and built.
@@ -85,20 +87,7 @@ jobs:
         run: |
           if [ "$SDK_BUILD_CACHED" != true ]; then bun run build; fi
 
-      - name: Cache release bundle
-        if: matrix.leg == 'platform build' && github.event_name != 'pull_request'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            sdk/dist
-            platform/.output/server
-            platform/.output/public
-            platform/.output/sourcemaps
-            platform/public/api/openapi.json
-            platform/packages/sandbox/dist
-          key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
-
-      - wait-all:
+      - wait: database-images
 
       - name: Prepare Platform test database
         if: matrix.database
@@ -111,6 +100,8 @@ jobs:
           docker compose exec -T postgres createdb -U astralbeam ci_binary_check
           bun run db migrate
 
+      - wait-all:
+
       # Named for each leg's tasks, since the platform legs each run only part of `ready`.
       - name: Run bun run ${{ matrix.tasks }}
         working-directory: ${{ matrix.project }}
@@ -120,6 +111,19 @@ jobs:
           BINARY_CHECK_DATABASE_URL: ${{ matrix.project == 'platform' && 'postgres://astralbeam:astralbeam123@127.0.0.1:5432/ci_binary_check' || '' }}
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: bun run ${{ matrix.tasks }}
+
+      - name: Cache release bundle
+        if: matrix.leg == 'platform build' && github.event_name != 'pull_request'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            sdk/dist
+            platform/.output/server
+            platform/.output/public
+            platform/.output/sourcemaps
+            platform/public/api/openapi.json
+            platform/packages/sandbox/dist
+          key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
 
       - name: Upload the website source maps to PostHog
         if: matrix.project == 'website' && github.event_name == 'push' && vars.POSTHOG_PROJECT_ID != ''
