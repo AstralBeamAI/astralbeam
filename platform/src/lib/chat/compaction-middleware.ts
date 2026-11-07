@@ -5,6 +5,8 @@ import {
   type AnyTextAdapter,
   type ChatMiddleware,
   type ModelMessage,
+  type TextCompactOptions,
+  type TokenUsage,
   type Tool,
 } from "@tanstack/ai"
 import {
@@ -15,6 +17,7 @@ import {
   estimateMessageTokens,
   summarizeOldest,
   withCompaction,
+  type CompactionContext,
 } from "@tanstack/ai-compaction"
 import { Schema } from "effect"
 import type { chatCompaction } from "@/db/schema/chat"
@@ -135,11 +138,10 @@ export function createChatCompactionMiddleware(options: {
   state: ChatCompactionState
   adapter: AnyTextAdapter
   summaryAdapter: AnyTextAdapter
-  modelId: string
   native: boolean
   configuration: ModelConfiguration
   summaryOptions: Record<string, unknown>
-  summaryMiddleware: ChatMiddleware[]
+  onUsage: (usage: TokenUsage) => Promise<void>
   beforeCall: () => Promise<void>
   save: (
     anchor: string,
@@ -149,15 +151,14 @@ export function createChatCompactionMiddleware(options: {
 }): ChatMiddleware {
   const { state, adapter } = options
   let budget = modelInputAllowance(options.configuration)
-  let systemPrompts: string[] = []
   let tools: Tool[] = []
   const summarize = conversationSummarizer({
     adapter: options.summaryAdapter,
     modelOptions: options.summaryOptions,
     middleware: [
-      ...options.summaryMiddleware,
       {
         name: "compaction-summary-completion",
+        onUsage: (_ctx, usage) => options.onUsage(usage),
         onFinish(_ctx, info) {
           if (info.finishReason === "length" || info.finishReason === "max_tokens")
             throw new ChatCompactionError({ code: "compaction_failed" })
@@ -167,9 +168,9 @@ export function createChatCompactionMiddleware(options: {
   })
   const compact = async (
     messages: readonly ModelMessage[],
-    ctx: { signal?: AbortSignal | undefined },
-    native: boolean,
+    ctx: CompactionContext | TextCompactOptions,
   ) => {
+    const native = "model" in ctx
     await options.beforeCall()
     state.usage = undefined
     if (!native && state.artifact?.payload.kind === "native") {
@@ -188,10 +189,8 @@ export function createChatCompactionMiddleware(options: {
       )
         throw new ChatCompactionError({ code: "compaction_context_full" })
       const input = {
+        ...ctx,
         messages: messages.slice(0, cut.offset),
-        model: options.modelId,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
-        systemPrompts,
         tools,
         maxTokens: Math.min(options.configuration.outputCap, 4096),
       }
@@ -202,13 +201,7 @@ export function createChatCompactionMiddleware(options: {
         summaryRole: "user",
         keepRecentTokens: suffix.reduce((sum, message) => sum + estimateChatContext(message), 0),
       })
-      const next = await strategy(messages, {
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
-        maxTokens: budget,
-        estimate: estimateChatContext,
-        threadId: state.claim.threadId,
-        addUsage() {}, // Summary middleware records each call's usage.
-      })
+      const next = await strategy(messages, ctx)
       if (!next) throw new ChatCompactionError({ code: "compaction_context_full" })
       head = next.slice(0, 1)
     }
@@ -231,11 +224,11 @@ export function createChatCompactionMiddleware(options: {
   const middleware = withCompaction({
     maxTokens: () => Math.floor(budget * 0.8),
     estimateTokens: estimateChatContext,
-    strategy: (messages, ctx) => compact(messages, ctx, false),
+    strategy: compact,
     ...(options.native && adapter.compact
       ? {
           native: {
-            compact: (input) => compact(input.messages, input, true),
+            compact: (input) => compact(input.messages, input),
           },
         }
       : {}),
@@ -245,9 +238,6 @@ export function createChatCompactionMiddleware(options: {
     async onConfig(ctx, config) {
       if (ctx.phase === "init") return
       tools = config.tools
-      systemPrompts = config.systemPrompts.map((prompt) =>
-        typeof prompt === "string" ? prompt : prompt.content,
-      )
       const fixed = Math.ceil(
         JSON.stringify({
           systemPrompts: config.systemPrompts,

@@ -4,7 +4,6 @@ import {
   maxIterations,
   mergeAgentTools,
   type StreamChunk,
-  type ChatMiddleware,
   type TokenUsage,
 } from "@tanstack/ai"
 import { chat } from "@tanstack/ai-effect"
@@ -380,18 +379,12 @@ export class Chat extends Context.Service<
               model,
               agent.compactionEnabled ? recordCompactionUsage : undefined,
             )
-            const summaryAccounting: ChatMiddleware = {
-              name: "compaction-accounting",
-              onConfig: beforeModelCall,
-              onUsage: (_ctx, usage) => recordCompactionUsage(usage),
-            }
             const compaction =
               agent.compactionEnabled && pricing
                 ? createChatCompactionMiddleware({
                     state: compactionState,
                     adapter,
                     summaryAdapter: createChatAdapter(model),
-                    modelId: model.modelId,
                     native:
                       !agent.webAccessEnabled &&
                       ((model.providerType === "openai" &&
@@ -405,7 +398,7 @@ export class Chat extends Context.Service<
                       model,
                       Math.min(pricing.outputCap, 4096),
                     ),
-                    summaryMiddleware: [summaryAccounting],
+                    onUsage: recordCompactionUsage,
                     beforeCall: beforeModelCall,
                     projectSuffix: projectCompactionSuffix,
                     save: (anchor, payload) =>
