@@ -1,4 +1,4 @@
-import { canonicalInterruptJson, type SchemaInput, toolDefinition } from "@tanstack/ai/client"
+import { cloneAndDeepFreezeJson, type SchemaInput, toolDefinition } from "@tanstack/ai/client"
 import type {
   JsonSchemaObject,
   ToolDefinition as HostToolDefinition,
@@ -162,9 +162,9 @@ function buildHostTools(
         context?.abortSignal?.throwIfAborted()
         const current = resolve?.() ?? tool
         started = true
-        const output = await current.execute(validated)
+        let output = await current.execute(validated)
         try {
-          canonicalInterruptJson(output)
+          output = cloneAndDeepFreezeJson(output)
         } catch {
           throw new Error(
             `Tool "${name}" ran, but its result is not JSON-compatible. Its changes may already be applied. Read current state before retrying. Return plain JSON values and omit undefined fields.`,
@@ -174,9 +174,9 @@ function buildHostTools(
         return output
       } catch (error) {
         debug?.("error", `host tool "${name}" threw`, { error })
-        if (!started && error instanceof Error)
-          Object.assign(error, { [HOST_TOOL_NOT_EXECUTED]: true })
-        throw error
+        const failure = error instanceof Error ? error : new Error(String(error))
+        if (!started) Object.assign(failure, { [HOST_TOOL_NOT_EXECUTED]: true })
+        throw failure
       }
     }),
   )
