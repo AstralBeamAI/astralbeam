@@ -18,12 +18,12 @@ export type McpCatalog = Awaited<ReturnType<typeof personalMcpGetCatalog>>
 export async function manageMcpConnection(operation: McpConnectionOperation, options: JwtOptions) {
   switch (operation.action) {
     case "connect":
-      return personalMcpCreateConnection({ mcp_server_id: operation.mcpServerId }, options)
     case "headers": {
       const connection = await personalMcpCreateConnection(
         { mcp_server_id: operation.mcpServerId },
         options,
       )
+      if (operation.action === "connect") return connection
       await personalMcpSetHeaders(
         connection.id,
         { lock_version: connection.lock_version, headers: operation.headers },
@@ -62,88 +62,96 @@ export async function authorizeMcpConnection(
     }
     const url = new URL(response.popup_url)
     url.searchParams.set("origin", window.location.origin)
-    await new Promise<void>((resolve, reject) => {
-      let challenge: string | undefined
-      let bound = false
-      let finished = false
-      let completing = false
-      const cleanup = () => {
-        finished = true
-        window.removeEventListener("message", receive)
-        clearInterval(poll)
-        clearTimeout(expiry)
+    const { promise, resolve, reject } = Promise.withResolvers<void>()
+    let phase:
+      | { state: "waiting" }
+      | { state: "binding"; challenge: string }
+      | { state: "completing" } = { state: "waiting" }
+    const controller = new AbortController()
+    let completing = false
+    const fail = (error: unknown) =>
+      reject(error instanceof Error ? error : new Error("Authorization failed."))
+    const authorizationOptions = async () => {
+      const options = await requestOptions()
+      controller.signal.throwIfAborted()
+      return {
+        ...options,
+        signal: AbortSignal.any([controller.signal, ...(options.signal ? [options.signal] : [])]),
       }
-      const fail = (error: unknown) => {
-        cleanup()
-        reject(error instanceof Error ? error : new Error("Authorization failed."))
-      }
-      const complete = async () => {
-        if (completing || finished) return
-        completing = true
-        try {
-          if (challenge) {
-            if (!bound) {
-              await personalMcpBindBrowser(
-                id,
-                { attempt_id: attempt.id, challenge },
-                await requestOptions(),
-              )
-              bound = true
-            }
-            if (finished) return
-            const connected = await personalMcpCompleteAuthorization(
-              id,
-              { attempt_id: attempt.id },
-              await requestOptions(),
-            )
-            if (finished) return
-            if (connected) {
-              cleanup()
-              resolve()
-              return
-            }
+    }
+    const complete = async () => {
+      if (completing || controller.signal.aborted) return
+      completing = true
+      try {
+        if (phase.state === "binding") {
+          await personalMcpBindBrowser(
+            id,
+            { attempt_id: attempt.id, challenge: phase.challenge },
+            await authorizationOptions(),
+          )
+          controller.signal.throwIfAborted()
+          phase = { state: "completing" }
+        }
+        if (phase.state === "completing") {
+          const connected = await personalMcpCompleteAuthorization(
+            id,
+            { attempt_id: attempt.id },
+            await authorizationOptions(),
+          )
+          controller.signal.throwIfAborted()
+          if (connected) {
+            resolve()
+            return
           }
-          if (popup.closed) fail(new Error("Authorization window closed."))
-        } catch (error) {
-          const status =
-            error instanceof Error ? (error as Error & { status?: number }).status : undefined
-          if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500) fail(error)
-        } finally {
-          completing = false
         }
+        if (popup.closed) fail(new Error("Authorization window closed."))
+      } catch (error) {
+        const status =
+          error instanceof Error ? (error as Error & { status?: number }).status : undefined
+        if (!(error instanceof TypeError) && status !== 429 && (status ?? 0) < 500) fail(error)
+      } finally {
+        completing = false
       }
-      const receive = (event: MessageEvent) => {
-        if (event.source !== popup || event.origin !== url.origin) return
-        const data = event.data as {
-          type?: string
-          attempt?: typeof attempt
-          challenge?: string
-        } | null
-        if (
-          !data?.attempt ||
-          data.attempt.id !== attempt.id ||
-          data.attempt.organizationId !== attempt.organizationId ||
-          data.attempt.tenantId !== attempt.tenantId ||
-          data.attempt.connectionId !== attempt.connectionId
-        )
-          return
-        if (
-          data.type === "mcp-browser-challenge" &&
-          !challenge &&
-          typeof data.challenge === "string"
-        ) {
-          challenge = data.challenge
-          void complete()
-        }
-      }
-      const poll = setInterval(() => void complete(), 5_000)
-      const expiry = setTimeout(
-        () => fail(new Error("Authorization expired. Try connecting again.")),
-        600_000,
+    }
+    const receive = (event: MessageEvent) => {
+      if (event.source !== popup || event.origin !== url.origin) return
+      const data = event.data as {
+        type?: string
+        attempt?: typeof attempt
+        challenge?: string
+      } | null
+      if (
+        !data?.attempt ||
+        data.attempt.id !== attempt.id ||
+        data.attempt.organizationId !== attempt.organizationId ||
+        data.attempt.tenantId !== attempt.tenantId ||
+        data.attempt.connectionId !== attempt.connectionId
       )
+        return
+      if (
+        data.type === "mcp-browser-challenge" &&
+        phase.state === "waiting" &&
+        typeof data.challenge === "string"
+      ) {
+        phase = { state: "binding", challenge: data.challenge }
+        void complete()
+      }
+    }
+    const poll = setInterval(() => void complete(), 5_000)
+    const expiry = setTimeout(
+      () => fail(new Error("Authorization expired. Try connecting again.")),
+      600_000,
+    )
+    try {
       window.addEventListener("message", receive)
       popup.location.replace(url.href)
-    })
+      await promise
+    } finally {
+      controller.abort()
+      window.removeEventListener("message", receive)
+      clearInterval(poll)
+      clearTimeout(expiry)
+    }
     return id
   } finally {
     popup.close()

@@ -19,7 +19,7 @@ import { Config } from "@/lib/config/config"
 import {
   McpConnections,
   mcpConnectionOwner,
-  mcpDecodeCredential,
+  mcpCredentialState,
   type McpStoredConnection,
 } from "./mcp.server.ts"
 import {
@@ -32,7 +32,6 @@ import {
   McpUnavailable,
   MCP_ATTEMPT_LIFETIME_MS,
   MCP_REFRESH_LEASE_MS,
-  MCP_REFRESH_MARGIN_MS,
   McpAttemptEnvelopeSchema,
   McpAttemptReferenceSchema,
   mcpActorEquals,
@@ -106,9 +105,7 @@ const makeMcpAuthorization = Effect.gen(function* () {
     const payload = decoded.success.value
     if (
       payload.attempt.id !== reference.id ||
-      payload.attempt.organizationId !== reference.organizationId ||
-      payload.attempt.tenantId !== reference.tenantId ||
-      payload.attempt.connectionId !== reference.connectionId ||
+      mcpAttemptKey(payload.attempt) !== mcpAttemptKey(reference) ||
       payload.expiresAt <= (yield* Clock.currentTimeMillis)
     )
       return yield* new McpAuthorizationRequired()
@@ -292,12 +289,8 @@ const makeMcpAuthorization = Effect.gen(function* () {
           !pending.discovery
         )
           return yield* new McpForbidden()
-        if (input.params.has("error") || !input.params.get("code")) {
-          pending.status = "failed"
-          yield* writeAttempt(pending)
-          return pending
-        }
-        pending.status = "exchanging"
+        pending.status =
+          input.params.has("error") || !input.params.get("code") ? "failed" : "exchanging"
         yield* writeAttempt(pending)
         return pending
       }),
@@ -320,16 +313,15 @@ const makeMcpAuthorization = Effect.gen(function* () {
         }),
       catch: () => new McpAuthorizationRequired(),
     }).pipe(
+      Effect.filterOrFail(
+        () => payload.pendingCredential !== null,
+        () => new McpAuthorizationRequired(),
+      ),
       Effect.catch((error) => {
         payload.status = "failed"
         return persistAttempt(payload, "exchanging").pipe(Effect.andThen(Effect.fail(error)))
       }),
     )
-    if (!payload.pendingCredential) {
-      payload.status = "failed"
-      yield* persistAttempt(payload, "exchanging")
-      return yield* new McpAuthorizationRequired()
-    }
     payload.status = "awaiting_completion"
     yield* persistAttempt(payload, "exchanging")
     return reference
@@ -385,7 +377,6 @@ const makeMcpAuthorization = Effect.gen(function* () {
   ) {
     if (envelope.credential.kind !== "oauth") return yield* new McpAuthorizationRequired()
     const credential = envelope.credential
-    if (envelope.refreshStartedAt !== undefined) return null
     const predicate = and(
       mcpConnectionOwner(input.actor),
       eq(mcpConnection.id, connection.id),
@@ -395,28 +386,22 @@ const makeMcpAuthorization = Effect.gen(function* () {
       predicate,
       sql`${mcpConnection.credentials} = ${connection.storedCredentials}`,
     )
-    if (!credential.tokens.refresh_token) {
-      yield* db
-        .update(mcpConnection)
-        .set({ credentials: { ...envelope, refreshStartedAt: 0 } })
-        .where(unchanged)
-        .pipe(Effect.orDie)
-      return yield* new McpAuthorizationRequired()
-    }
     const started = yield* Clock.currentTimeMillis
+    const refreshStartedAt = credential.tokens.refresh_token ? started : 0
     const claimed = yield* db
       .update(mcpConnection)
-      .set({ credentials: { ...envelope, refreshStartedAt: started } })
+      .set({ credentials: { ...envelope, refreshStartedAt } })
       .where(unchanged)
       .returning({ credentials: sql<string>`${mcpConnection.credentials}::text` })
       .pipe(Effect.orDie)
+    if (!credential.tokens.refresh_token) return yield* new McpAuthorizationRequired()
     if (!claimed.length) return null
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
     const discovery = credential.discovery
     const binding = mcpDiscoveryBinding(discovery)
     const refreshed = yield* Effect.tryPromise({
-      try: () =>
-        refreshAuthorization(binding.issuer, {
+      try: async () => {
+        const tokens = await refreshAuthorization(binding.issuer, {
           ...(discovery.authorizationServerMetadata
             ? { metadata: discovery.authorizationServerMetadata }
             : {}),
@@ -424,56 +409,45 @@ const makeMcpAuthorization = Effect.gen(function* () {
           refreshToken: credential.tokens.refresh_token!,
           resource: binding.resource,
           fetchFn: guardedAuthFetch,
-        }),
+        })
+        return mcpOAuthCredential({
+          tokens: { ...tokens, issuer: binding.issuer },
+          discovery,
+          clientInformation: credential.clientInformation,
+          now: started,
+          previous: credential,
+        })
+      },
       catch: (error) => error,
     }).pipe(
-      Effect.flatMap((tokens) =>
-        Effect.try({
-          try: () =>
-            mcpOAuthCredential({
-              tokens: { ...tokens, issuer: binding.issuer },
-              discovery,
-              clientInformation: credential.clientInformation,
-              now: started,
-              previous: credential,
-            }),
-          catch: () => new McpAuthorizationRequired(),
+      Effect.catch(
+        Effect.fnUntraced(function* (error: unknown) {
+          const outcome = !(error instanceof OAuthError)
+            ? "refresh_uncertain"
+            : ["server_error", "temporarily_unavailable", "too_many_requests"].includes(error.code)
+              ? "transient"
+              : "reauthorization_required"
+          const uncertain = { ...envelope, refreshStartedAt: started - MCP_REFRESH_LEASE_MS }
+          yield* db
+            .update(mcpConnection)
+            .set(
+              outcome === "reauthorization_required"
+                ? { credentials: null, lockVersion: sql`${mcpConnection.lockVersion} + 1` }
+                : outcome === "transient"
+                  ? { credentials: envelope }
+                  : { credentials: uncertain },
+            )
+            .where(claim)
+            .pipe(Effect.orDie)
+          yield* Effect.logWarning("MCP refresh failed", {
+            connectionId: connection.id,
+            category: outcome,
+          })
+          return yield* outcome === "transient"
+            ? new McpUnavailable()
+            : new McpAuthorizationRequired()
         }),
       ),
-      Effect.catch((error) => {
-        const definite = error instanceof OAuthError
-        const reauthorize =
-          definite &&
-          !["server_error", "temporarily_unavailable", "too_many_requests"].includes(error.code)
-        return db
-          .update(mcpConnection)
-          .set(
-            definite
-              ? reauthorize
-                ? { credentials: null, lockVersion: sql`${mcpConnection.lockVersion} + 1` }
-                : { credentials: envelope }
-              : { credentials: { ...envelope, refreshStartedAt: started - MCP_REFRESH_LEASE_MS } },
-          )
-          .where(claim)
-          .pipe(
-            Effect.orDie,
-            Effect.tap(() =>
-              Effect.logWarning("MCP refresh failed", {
-                connectionId: connection.id,
-                category: reauthorize
-                  ? "reauthorization_required"
-                  : definite
-                    ? "transient"
-                    : "refresh_uncertain",
-              }),
-            ),
-            Effect.andThen(
-              Effect.fail(
-                definite && !reauthorize ? new McpUnavailable() : new McpAuthorizationRequired(),
-              ),
-            ),
-          )
-      }),
     )
     const updated = yield* db
       .update(mcpConnection)
@@ -492,34 +466,23 @@ const makeMcpAuthorization = Effect.gen(function* () {
       const { connection, server } = yield* connections.getConnection(input)
       if (input.expectedVersion !== undefined && input.expectedVersion !== connection.lockVersion)
         return yield* new McpChanged()
-      if (server.authConfig.kind === "none") return Redacted.make({ kind: "none" } as const)
-      const envelope = mcpDecodeCredential(connection)
-      if (
-        !envelope ||
-        (envelope.refreshStartedAt !== undefined &&
-          envelope.refreshStartedAt + MCP_REFRESH_LEASE_MS <= (yield* Clock.currentTimeMillis))
-      )
+      const credential = mcpCredentialState({
+        connection,
+        authConfig: server.authConfig,
+        now: yield* Clock.currentTimeMillis,
+        rejectedToken: input.rejectedToken,
+      })
+      if (credential.state === "reauthorization-required")
         return yield* new McpAuthorizationRequired()
-      const value = envelope.credential
-      if (
-        server.authConfig.kind === "oauth" &&
-        (value.kind !== "oauth" ||
-          !mcpOAuthBindingIsValid(server.authConfig, value.clientInformation, value.discovery))
-      )
-        return yield* new McpAuthorizationRequired()
-      if (
-        value.kind !== "oauth" ||
-        (input.rejectedToken !== value.tokens.access_token &&
-          (value.expiresAt === null ||
-            value.expiresAt > (yield* Clock.currentTimeMillis) + MCP_REFRESH_MARGIN_MS))
-      )
-        return Redacted.make(value)
-      const refreshed = yield* refresh(input, connection, envelope)
-      if (refreshed) {
-        const current = yield* connections.getConnection(input)
-        if (current.connection.lockVersion !== connection.lockVersion)
-          return yield* new McpChanged()
-        return Redacted.make(refreshed)
+      if (credential.state === "ready") return Redacted.make(credential.credential)
+      if (credential.state === "refresh-needed") {
+        const refreshed = yield* refresh(input, connection, credential.envelope)
+        if (refreshed) {
+          const current = yield* connections.getConnection(input)
+          if (current.connection.lockVersion !== connection.lockVersion)
+            return yield* new McpChanged()
+          return Redacted.make(refreshed)
+        }
       }
       yield* Effect.sleep("100 millis")
     }
