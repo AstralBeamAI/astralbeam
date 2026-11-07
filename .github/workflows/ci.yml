@@ -48,8 +48,8 @@ jobs:
         # Prefetch while dependencies install; database preparation retries if needed.
         run: docker compose pull --quiet postgres pgbouncer
 
-      - name: Set up build dependencies
-        uses: ./.github/actions/setup-build
+      - name: Bun build
+        uses: ./.github/actions/bun-build
 
       - name: Check root formatting
         run: bun run format:check

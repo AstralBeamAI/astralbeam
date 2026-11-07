@@ -92,8 +92,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up build dependencies
-        uses: ./.github/actions/setup-build
+      - name: Bun build
+        uses: ./.github/actions/bun-build
 
       - name: Cache release bundle
         id: release-bundle

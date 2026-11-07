@@ -1,4 +1,4 @@
-name: Set up build dependencies
+name: Bun build
 description: Set up Bun and install locked dependencies for every release target
 runs:
   using: composite
