@@ -99,9 +99,9 @@ jobs:
         # The platform's `build` compiles the binary that `binary:check` smoke-tests.
         run: bun run ${{ matrix.tasks }}
 
-      - name: Cache release bundle
+      - name: Cache release output
         if: matrix.leg == 'platform build' && github.event_name != 'pull_request'
-        uses: ./.github/actions/cache-release-bundle
+        uses: ./.github/actions/cache-release-output
         with:
           lookup-only: true
 

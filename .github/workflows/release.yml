@@ -95,9 +95,9 @@ jobs:
       - name: Bun build
         uses: ./.github/actions/bun-build
 
-      - name: Cache release bundle
+      - name: Cache release output
         id: release-bundle
-        uses: ./.github/actions/cache-release-bundle
+        uses: ./.github/actions/cache-release-output
 
       - name: Build the SDK
         if: steps.release-bundle.outputs.cache-hit != 'true'

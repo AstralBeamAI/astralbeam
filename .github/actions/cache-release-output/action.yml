@@ -1,4 +1,4 @@
-name: Cache release bundle
+name: Cache release output
 description: Reuse generated build outputs from the same commit and architecture
 inputs:
   lookup-only:
