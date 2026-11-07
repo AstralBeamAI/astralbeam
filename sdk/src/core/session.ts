@@ -58,6 +58,8 @@ import {
   ASK_QUESTIONNAIRE_TOOL,
   RENDER_WIDGET_TOOL,
   SANDBOX_STATUS_EVENT,
+  COMPACTION_STARTED_EVENT,
+  COMPACTION_ENDED_EVENT,
   USAGE_LIMIT_REACHED_EVENT,
 } from "./protocol.ts"
 import { collectSandboxActivity } from "./sandbox.ts"
@@ -190,6 +192,7 @@ export interface AstralBeamChatState {
   serverToolTitles?: Readonly<Record<string, string>>
   unavailableMcpConnections?: readonly string[]
   agentTools: readonly AgentToolInfo[]
+  preparingContext: boolean
   sandboxStatus: SandboxStatus | undefined
   /** The usage limit that ended the last run, by display name, until another run starts. */
   usageLimitReached: { name: string; resetsAt: string } | undefined
@@ -292,6 +295,7 @@ export function createAstralBeamChat(
     capabilities: { attachments: true },
     agentTools: [],
     sandboxStatus: undefined,
+    preparingContext: false,
     usageLimitReached: undefined,
     sandbox: { files: [], commands: [] },
     thread: undefined,
@@ -1130,6 +1134,10 @@ export function createAstralBeamChat(
           return
         }
         const value = (data as { state?: unknown } | undefined)?.state
+        if (eventType === COMPACTION_STARTED_EVENT || eventType === COMPACTION_ENDED_EVENT) {
+          update({ preparingContext: eventType === COMPACTION_STARTED_EVENT })
+          return
+        }
         if (
           eventType === SANDBOX_STATUS_EVENT &&
           (value === "starting" || value === "ready" || value === "error")
@@ -1173,6 +1181,7 @@ export function createAstralBeamChat(
       snapshotMessages !== snapshot.messages || projectedPresentationVersion !== presentationVersion
     if (!messagesChanged && clientStatus === snapshot.status) return
     const next: Partial<AstralBeamChatState> = {}
+    if (snapshot.status === "ready" || snapshot.status === "error") next.preparingContext = false
     if (clientStatus !== snapshot.status && snapshot.status === "submitted")
       next.usageLimitReached = undefined
     clientStatus = snapshot.status
@@ -1283,6 +1292,7 @@ export function createAstralBeamChat(
       error: undefined,
       sandbox: { files: [], commands: [] },
       sandboxStatus: undefined,
+      preparingContext: false,
       usageLimitReached: undefined,
       pendingInteractions: [],
       serverToolTitles: {},

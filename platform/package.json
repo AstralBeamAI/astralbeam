@@ -34,6 +34,7 @@
     "compile": "bun run scripts/compile.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
     "@astralbeam/sandbox": "workspace:*",
     "@astralbeam/sdk": "workspace:*",
     "@aws-sdk/client-s3": "^3.1151.0",
@@ -65,6 +66,7 @@
     "@scalar/api-reference-react": "^0.9.81",
     "@tanstack/ai": "^1.2.0",
     "@tanstack/ai-anthropic": "^1.0.0",
+    "@tanstack/ai-compaction": "^1.0.0",
     "@tanstack/ai-effect": "^0.1.0",
     "@tanstack/ai-gemini": "^1.0.0",
     "@tanstack/ai-grok": "^1.0.0",

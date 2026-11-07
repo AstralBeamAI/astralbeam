@@ -51,7 +51,12 @@ export type AgentSandboxProvider = typeof AgentSandboxProviderSchema.Type & {
 export type ChatAgent = Readonly<
   Pick<
     typeof agent.$inferSelect,
-    "id" | "systemPrompt" | "attachmentsEnabled" | "webAccessEnabled" | "sandboxProviderId"
+    | "id"
+    | "systemPrompt"
+    | "attachmentsEnabled"
+    | "webAccessEnabled"
+    | "compactionEnabled"
+    | "sandboxProviderId"
   >
 >
 
@@ -409,6 +414,7 @@ export class Agents extends Context.Service<
             systemPrompt: agent.systemPrompt,
             attachmentsEnabled: agent.attachmentsEnabled,
             webAccessEnabled: agent.webAccessEnabled,
+            compactionEnabled: agent.compactionEnabled,
             sandboxProviderId: agent.sandboxProviderId,
           })
           .from(agent)

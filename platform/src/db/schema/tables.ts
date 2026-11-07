@@ -22,6 +22,7 @@ export {
   chatToolResponse,
   chatParticipant,
   chatFile,
+  chatCompaction,
 } from "./chat.ts"
 export { rateLimit } from "./rate-limit.ts"
 export { fileObject } from "./files.ts"

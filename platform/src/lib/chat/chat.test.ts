@@ -70,7 +70,10 @@ vi.mock("@tanstack/ai-effect", async (original) => {
           chatRunTest.closed.resolve()
         }
       }
-      return actual.chat({ ...options, middleware: [] })
+      return actual.chat({
+        ...options,
+        middleware: options.middleware.filter((entry) => entry.name === "compaction"),
+      })
     },
   }
 })
@@ -80,6 +83,7 @@ import {
   type ChatModelConfiguration,
 } from "@/lib/model-providers/model-providers.server"
 import { ModelProviderUnreadable } from "@/lib/model-providers/errors"
+import type { ModelConfiguration } from "@/lib/model-providers/schemas"
 import { Agents, type ChatAgent } from "@/lib/agents/agents.server"
 import { AgentNotFound } from "@/lib/agents/errors"
 import { declaredHttpApiStatus } from "@/lib/runtime/http-api-status"
@@ -92,6 +96,7 @@ import { CHAT_MODEL_UNAVAILABLE_MESSAGE, CHAT_SANDBOX_SYSTEM_PROMPT } from "./co
 import { ChatSandboxConfigurationUnreadable } from "./sandbox/errors.ts"
 import { ChatSandboxes } from "./sandbox/sandbox.ts"
 import type { ChatPrincipal } from "./types.ts"
+import type { ChatCompactionArtifact } from "./compaction-middleware"
 
 const ORGANIZATION_ID = OrganizationIdSchema.make("01990a5d-ac96-774b-b942-6b13c85384ca")
 const chatTestExecution = {
@@ -118,6 +123,7 @@ const sandboxedAgent: ChatAgent = {
   systemPrompt: "Help",
   attachmentsEnabled: false,
   webAccessEnabled: false,
+  compactionEnabled: false,
   sandboxProviderId: "01990a5d-ac96-774b-b942-6b13c85384cc",
 }
 
@@ -132,11 +138,23 @@ const CHAT_TEST_MODEL: ChatModelConfiguration = {
   modelId: "gpt-5.6-terra",
   fetch,
 }
+const CHAT_TEST_PRICING: ModelConfiguration = {
+  currency: "USD",
+  pricingSource: { kind: "manual" },
+  prices: { inputPerMillion: "1", outputPerMillion: "1" },
+  contextTiers: [],
+  contextWindowTokens: 16000,
+  maxInputTokens: null,
+  maxOutputTokens: 1000,
+  outputCap: 1000,
+}
 
 function chatTestLayer(options: {
   readonly agent?: ChatAgent | undefined
   readonly model?: ChatModelConfiguration | typeof undecryptable
   readonly history?: MessageRecord[]
+  readonly pricing?: ModelConfiguration
+  readonly compactions?: ChatCompactionArtifact[]
   readonly acquireMcp?: typeof McpTools.Service.acquire
   readonly sandboxSession?: typeof ChatSandboxes.Service.session
 }) {
@@ -168,7 +186,7 @@ function chatTestLayer(options: {
         test: () => Effect.succeed({ toolCount: 0 }),
       }),
       Layer.succeed(ModelProviders, {
-        pricing: () => Effect.succeed(null),
+        pricing: () => Effect.succeed(options.pricing ?? null),
         resolveForAgent: () =>
           options.model === undecryptable
             ? Effect.fail(new ModelProviderUnreadable())
@@ -180,6 +198,7 @@ function chatTestLayer(options: {
       } as unknown as UsageLimits["Service"]),
       Layer.succeed(ChatThreads, {
         history: () => Effect.succeed(options.history ?? []),
+        compactions: () => Effect.succeed(options.compactions ?? []),
         assertActive: () => Effect.void,
         interrupt: () => Effect.sync(() => chatRunTest.order.push("interrupted")),
       } as unknown as ChatThreads["Service"]),
@@ -221,6 +240,40 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
+  it.effect.each([false, true])(
+    "reports unavailable compaction capacity safely, limits configured: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const events = yield* Stream.runCollect(yield* runChat())
+        const error = events.find((event) => event.type === EventType.RUN_ERROR)
+        assert.strictEqual(
+          error?.message,
+          configured
+            ? "The agent instructions and tools exceed the model’s context limit. Reduce them or select a larger model."
+            : "Set the model token limits in Models to continue long conversations.",
+        )
+        assert.notInclude(chatRunTest.order, "aborted")
+        assert.include(chatRunTest.order, "interrupted")
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, compactionEnabled: true },
+            model: CHAT_TEST_MODEL,
+            ...(configured
+              ? {
+                  pricing: {
+                    ...CHAT_TEST_PRICING,
+                    contextWindowTokens: 10,
+                    maxOutputTokens: 1,
+                    outputCap: 1,
+                  },
+                }
+              : {}),
+          }),
+        ),
+      ),
+  )
+
   it.effect.each([true, undefined])(
     "enables native debug only for an explicit development debug request: %s",
     (debug) =>
@@ -501,7 +554,7 @@ describe("Chat.run", () => {
       ),
   )
 
-  it.effect.each(["removed", "unreadable", "malformed"])("saved attachments: %s", (state) =>
+  it.effect.each(["removed", "unreadable", "malformed", "compacted"])("files: %s", (state) =>
     Effect.gen(function* () {
       if (state === "malformed") {
         const failure = yield* Effect.flip(runChat())
@@ -509,9 +562,10 @@ describe("Chat.run", () => {
         assert.isEmpty(chatRunTest.options)
         return
       }
+      const filename = state === "compacted" ? "sales-2.tsv" : "sales.tsv"
       yield* Stream.runCollect(Stream.take(yield* runChat(), 1))
       const options = chatRunTest.options[0]!
-      assert.include(JSON.stringify(options.messages), "[Attached: sales.tsv]")
+      assert.include(JSON.stringify(options.messages), `[Attached: ${filename}]`)
       assert.isFalse(options.tools.some((tool) => tool.name.startsWith("sandbox_")))
       assert.notInclude(options.systemPrompts, CHAT_SANDBOX_SYSTEM_PROMPT)
       assert.include(options.systemPrompts, sandboxedAgent.systemPrompt)
@@ -522,11 +576,13 @@ describe("Chat.run", () => {
           {} as Parameters<NonNullable<ChatMiddleware["onConfig"]>>[1],
         ),
       )
-      assert.include(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
+      assert.include(JSON.stringify(refreshed?.providerMessages), `[Attached: ${filename}]`)
+      if (state === "compacted")
+        assert.notInclude(JSON.stringify(refreshed?.providerMessages), "[Attached: sales.tsv]")
       for (const tools of [options.tools, refreshed?.tools]) {
         const reader = tools?.find((tool) => tool.name === "read_attachment") as AnyServerTool
         const result = yield* Effect.promise(() =>
-          Promise.resolve(reader.execute?.({ file: "sales.tsv" }) as unknown),
+          Promise.resolve(reader.execute?.({ file: filename }) as unknown),
         )
         assert.notProperty(result, "sandboxPath")
         assert.notProperty(result, "content")
@@ -536,9 +592,22 @@ describe("Chat.run", () => {
         chatTestLayer({
           agent: {
             ...sandboxedAgent,
+            compactionEnabled: state === "compacted",
             sandboxProviderId: state === "unreadable" ? sandboxedAgent.sandboxProviderId : null,
           },
           model: CHAT_TEST_MODEL,
+          pricing: CHAT_TEST_PRICING,
+          compactions: [
+            {
+              id: "checkpoint",
+              coveredThroughMessageId: "older-reply",
+              payload: {
+                version: 1,
+                kind: "portable",
+                messages: [{ role: "user", content: "Earlier work" }],
+              },
+            },
+          ] as unknown as ChatCompactionArtifact[],
           history: [
             {
               id: chatTestExecution.claim.inputMessageId,
@@ -560,7 +629,21 @@ describe("Chat.run", () => {
                 ],
               },
             },
-          ] as unknown as MessageRecord[],
+          ].flatMap((message) =>
+            state === "compacted"
+              ? [
+                  { ...message, id: "older" },
+                  {
+                    id: "older-reply",
+                    role: "assistant",
+                    state: "complete",
+                    turnMessageId: "older",
+                    payload: { version: 1, parts: [] },
+                  },
+                  message,
+                ]
+              : [message],
+          ) as unknown as MessageRecord[],
         }),
       ),
     ),

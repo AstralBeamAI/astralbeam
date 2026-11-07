@@ -19,3 +19,6 @@ export const SANDBOX_STATUS_EVENT = "astralbeam.sandbox.status"
 
 /** CUSTOM stream event naming the usage limit that ended a run between model calls. */
 export const USAGE_LIMIT_REACHED_EVENT = "astralbeam.usage_limit.reached"
+
+export const COMPACTION_STARTED_EVENT = "compaction:started"
+export const COMPACTION_ENDED_EVENT = "compaction:ended"
