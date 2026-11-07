@@ -69,10 +69,8 @@ interface ManagedChatStreamState {
   claim: ChatWriterClaim
   tools: ManagedChatStreamOptions["tools"]
   phaseStart: number
-  phaseCount: number
-  committed: boolean
-  finished: boolean
-  failed: boolean
+  phase: "pending" | "streaming" | "committed"
+  delivery: "streaming" | "waiting" | "saved" | "failed"
   version: number
   payload: ChatMessagePayload
   usage: typeof Schema.JsonObject.Type | undefined
@@ -84,7 +82,7 @@ interface ManagedChatStreamState {
   readonly settledToolCalls: Set<string>
   readonly providerProjection: StreamProcessor
   readonly ready: StreamChunk[]
-  readonly buffered: StreamChunk[]
+  buffered: StreamChunk[]
 }
 
 function managedPartId(ids: Map<string, string>, key: string): string {
@@ -229,7 +227,7 @@ async function saveManagedProjection(
   messages: readonly ModelMessage[],
   complete: boolean,
 ) {
-  if (state.committed) return
+  if (state.phase === "committed") return
   const payload = managedAssistantPayload(options, state, messages)
   if (payload.parts.length === 0 && !state.usage && !complete) return
   await options.execute(
@@ -241,7 +239,7 @@ async function saveManagedProjection(
     }),
   )
   state.payload = payload
-  if (complete) state.committed = true
+  if (complete) state.phase = "committed"
 }
 
 async function saveManagedToolResult(
@@ -316,10 +314,8 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     claim: options.managed.claim,
     tools: options.tools,
     phaseStart: options.history.length,
-    phaseCount: 0,
-    committed: false,
-    finished: false,
-    failed: false,
+    phase: "pending",
+    delivery: "streaming",
     version: options.managed.threadVersion,
     payload: { version: 1, parts: [] },
     usage: undefined,
@@ -368,7 +364,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
   const guardedToolCalls = new Set<string>()
   let completion: Promise<void> | undefined
   const checkpointInterrupted: NonNullable<ChatMiddleware["onAbort"]> = async (ctx) => {
-    state.failed = true
+    state.delivery = "failed"
     await saveManagedProjection(
       options,
       state,
@@ -399,13 +395,12 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       return config
     },
     async onIteration(ctx, info) {
-      if (state.phaseCount > 0) {
+      if (state.phase !== "pending") {
         state.ready.push(...state.buffered.splice(0))
         state.claim = await options.execute(options.threads.nextDraft({ claim: state.claim }))
       }
-      state.phaseCount += 1
       state.phaseStart = ctx.messages.length
-      state.committed = false
+      state.phase = "streaming"
       state.payload = { version: 1, parts: [] }
       state.usage = undefined
       state.partIds.clear()
@@ -448,7 +443,7 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
         info.ok ? (info.result ?? null) : { error: "Tool execution failed", outcome: "unknown" },
       )
       if (!info.ok) {
-        state.failed = true
+        state.delivery = "failed"
         throw new Error("The tool outcome is unconfirmed")
       }
     },
@@ -465,10 +460,14 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
       // The committed snapshot carries completed provider tools without reopening them as pending.
       if (chunk.type.startsWith("TOOL_CALL_") && isProviderExecutedToolCall(chunk)) return null
       // Native persistence waits for terminal completion, which a browser-tool pause never reaches.
-      if (chunk.type === EventType.RUN_FINISHED && chunk.outcome?.type === "interrupt")
-        completion = undefined
+      if (
+        chunk.type === EventType.RUN_FINISHED &&
+        chunk.outcome?.type === "interrupt" &&
+        state.delivery !== "failed"
+      )
+        state.delivery = "waiting"
       const output = managedPublicChunk(state, chunk)
-      if (chunk.type === EventType.RUN_ERROR) state.failed = true
+      if (chunk.type === EventType.RUN_ERROR) state.delivery = "failed"
       if (
         chunk.type === EventType.MESSAGES_SNAPSHOT ||
         chunk.type === EventType.RUN_FINISHED ||
@@ -487,26 +486,22 @@ export function managedChatMiddleware(options: ManagedChatStreamOptions) {
     },
     async onFinish(ctx) {
       try {
-        if (state.failed) throw new Error("Generation did not complete")
-        await completion
+        if (state.delivery === "failed") throw new Error("Generation did not complete")
+        if (state.delivery !== "waiting") await completion
         await saveManagedProjection(options, state, ctx.messages, true)
-        state.buffered.splice(
-          0,
-          state.buffered.length,
-          ...state.buffered.filter((chunk) => chunk.type !== EventType.MESSAGES_SNAPSHOT),
-        )
-        state.buffered.unshift(
+        state.buffered = [
           managedPublicChunk(state, { type: EventType.MESSAGES_SNAPSHOT, messages: [] }),
-        )
+          ...state.buffered.filter((chunk) => chunk.type !== EventType.MESSAGES_SNAPSHOT),
+        ]
         await options.execute(options.threads.finish({ claim: state.claim }))
         state.version = (
           await options.execute(
             options.threads.get({ scope: state.claim.scope, id: state.claim.threadId }),
           )
         ).lockVersion
-        state.finished = true
+        state.delivery = "saved"
       } catch (error) {
-        state.failed = true
+        state.delivery = "failed"
         throw error
       }
     },
@@ -544,7 +539,7 @@ export function managedChatDelivery<E, R>(input: {
         Stream.flatMap((chunk) => Stream.fromIterable([...input.state.ready.splice(0), chunk])),
       ),
       Stream.suspend(() => {
-        if (!input.state.finished || input.state.failed)
+        if (input.state.delivery !== "saved")
           return Stream.die(new Error("Conversation could not be saved"))
         return Stream.fromIterable<StreamChunk>([
           {
