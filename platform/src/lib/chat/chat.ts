@@ -330,51 +330,44 @@ export class Chat extends Context.Service<
                     params.tools,
                   )
             const tools = [...collectTools()]
+            const execute = Effect.runPromiseWith(services)
             const compactionState: ChatCompactionState = {
               history,
               claim: input.managed.claim,
               compatibilityKey: chatCompactionKey(model, systemPrompts, tools),
             }
             const beforeModelCall = async () => {
-              await Effect.runPromiseWith(services)(
-                threads.assertActive({ claim: compactionState.claim }),
-              )
+              await execute(threads.assertActive({ claim: compactionState.claim }))
               if (usageLimitGuard && !(await usageLimitGuard.check()))
                 throw new ChatCompactionError({ code: "compaction_usage_limit" })
             }
             const recordCompactionUsage = async (usage: TokenUsage) => {
               compactionState.usage = chatStoredJson(usage)
               await usageLimitGuard?.record(usage)
-              await Effect.runPromiseWith(services)(
-                Effect.logInfo("Conversation compaction usage", usage),
-              )
+              await execute(Effect.logInfo("Conversation compaction usage", usage))
             }
-            const projectCompactionSuffix = () =>
-              Effect.runPromiseWith(services)(
-                Effect.gen(function* () {
-                  const anchor = compactionState.artifact?.coveredThroughMessageId
-                  const start = anchor
-                    ? compactionState.history.findIndex((message) => message.id === anchor) + 1
-                    : 0
-                  const normalized = yield* prepareChatHistory({
-                    history: compactionState.history,
-                    files: storedFiles,
-                    model,
-                    contextKey: chatCompactionContextKey(compactionState),
-                    sandboxEnabled: agent.sandboxProviderId !== null,
-                    webAccessEnabled: agent.webAccessEnabled,
-                    scope: {
-                      ...compactionState.claim.scope,
-                      threadId: compactionState.claim.threadId,
-                    },
-                  })
-                  // Normalize the full ancestry first so duplicate attachment handles keep their names.
-                  const suffix = new Set(compactionState.history.slice(start).map(({ id }) => id))
-                  return convertMessagesToModelMessages(normalized.messages).filter((message) =>
-                    suffix.has(message.id?.split(":")[0] ?? ""),
-                  )
+            const projectCompactionSuffix = async () => {
+              const start =
+                compactionState.history.findIndex(
+                  (message) => message.id === compactionState.artifact?.coveredThroughMessageId,
+                ) + 1
+              const normalized = await execute(
+                prepareChatHistory({
+                  history: compactionState.history,
+                  files: storedFiles,
+                  model,
+                  contextKey: chatCompactionContextKey(compactionState),
+                  sandboxEnabled: agent.sandboxProviderId !== null,
+                  webAccessEnabled: agent.webAccessEnabled,
+                  scope: { ...input.managed.claim.scope, threadId: input.managed.claim.threadId },
                 }),
               )
+              // Normalize the full ancestry so duplicate attachment handles keep their names.
+              const suffix = new Set(compactionState.history.slice(start).map(({ id }) => id))
+              return convertMessagesToModelMessages(normalized.messages).filter((message) =>
+                suffix.has(message.id?.split(":")[0] ?? ""),
+              )
+            }
             const adapter = createChatAdapter(
               model,
               agent.compactionEnabled ? recordCompactionUsage : undefined,
@@ -402,7 +395,7 @@ export class Chat extends Context.Service<
                     beforeCall: beforeModelCall,
                     projectSuffix: projectCompactionSuffix,
                     save: (anchor, payload) =>
-                      Effect.runPromiseWith(services)(
+                      execute(
                         threads.saveCompaction({
                           claim: compactionState.claim,
                           leafMessageId: compactionState.history.at(-1)!.id,
@@ -426,9 +419,9 @@ export class Chat extends Context.Service<
               publicHistory: projectChatPublicHistory(history),
               contextKey: () => chatCompactionContextKey(compactionState),
               agentId: `agent_${input.principal.organization.id}_${agent.id}`,
-              execute: Effect.runPromiseWith(services),
+              execute,
               refreshContext: (claim) =>
-                Effect.runPromiseWith(services)(
+                execute(
                   Effect.gen(function* () {
                     const saved = yield* threads.history({
                       scope: claim.scope,
@@ -461,7 +454,6 @@ export class Chat extends Context.Service<
                         yield* threads.compactions({
                           scope: claim.scope,
                           id: claim.threadId,
-                          leafMessageId: saved.at(-1)!.id,
                         }),
                       )
                     const providerMessages = compactionState.artifact

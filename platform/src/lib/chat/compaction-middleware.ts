@@ -88,7 +88,7 @@ export function selectChatCompaction(
     )[0]
 }
 
-export function estimateChatContext(message: ModelMessage) {
+function estimateChatContext(message: ModelMessage) {
   const media = Array.isArray(message.content)
     ? message.content.filter((part) => part.type !== "text").length * 4096
     : 0

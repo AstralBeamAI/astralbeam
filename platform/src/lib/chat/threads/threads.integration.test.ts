@@ -162,7 +162,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       }),
     )
 
-  test("compactions are immutable, scoped to ancestry, and published only through settled history", async () => {
+  test("compactions are immutable, participant-scoped, and require settled ancestors", async () => {
     const thread = await create()
     const first = await admit(thread.id)
     const second = await admit(thread.id)
@@ -172,26 +172,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       payload: {
         version: 1 as const,
         kind: "native" as const,
-        messages: [
-          {
-            role: "assistant",
-            content: "Completed history",
-            metadata: {
-              anthropicCompaction: {
-                role: "assistant",
-                stop_reason: "compaction",
-                content: [
-                  {
-                    type: "compaction",
-                    content: "Completed history",
-                    signature: "unchanged-signed-state",
-                    encrypted_content: "opaque-state",
-                  },
-                ],
-              },
-            },
-          },
-        ],
+        messages: [{ role: "assistant", content: "Summary", metadata: { signature: "opaque" } }],
       },
       usage: {},
     }
@@ -208,42 +189,10 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     const saved = await save()
     expect(saved.payload).toEqual(artifact.payload)
     expect((await save()).id).toBe(saved.id)
-    const [sibling] = await db
-      .insert(chatMessage)
-      .values({
-        ...scope,
-        threadId: thread.id,
-        parentMessageId: first.inputMessage.id,
-        role: "assistant",
-        state: "complete",
-        turnMessageId: first.inputMessage.id,
-        metadata: { version: 1 },
-      })
-      .returning()
-    expect(
-      await runtime.runPromise(
-        service.compactions({ scope, id: thread.id, leafMessageId: sibling!.id }),
-      ),
-    ).toEqual([])
-    expect(
-      await runtime.runPromise(
-        service.compactions({
-          scope,
-          id: thread.id,
-          leafMessageId: second.claim!.assistantMessageId,
-        }),
-      ),
-    ).toHaveLength(1)
-    for (const denied of [other, foreign])
-      await expect(
-        runtime.runPromise(
-          service.compactions({
-            scope: denied,
-            id: thread.id,
-            leafMessageId: second.claim!.assistantMessageId,
-          }),
-        ),
-      ).rejects.toBeDefined()
+    const read = (participant = scope) =>
+      runtime.runPromise(service.compactions({ scope: participant, id: thread.id }))
+    expect(await read()).toHaveLength(1)
+    for (const denied of [other, foreign]) await expect(read(denied)).rejects.toBeDefined()
     const third = await admit(thread.id)
     await runtime.runPromise(service.interrupt({ claim: second.claim! }))
     await runtime.runPromise(
