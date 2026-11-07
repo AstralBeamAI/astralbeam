@@ -123,6 +123,14 @@ const authenticateRestApiKey = Effect.fn("authenticateRestApiKey")(function* (cr
   return { organizationId: OrganizationIdSchema.make(row.id) } satisfies RestScope["Service"]
 })
 
+/** Organization service credentials only, without accepting dashboard or Tenant JWTs. */
+export function authenticateOrganizationApiKey(request: Request) {
+  const credential = readRestCredential(
+    request.headers.get("x-api-key") ?? readBearerToken(request),
+  )
+  return credential ? authenticateRestApiKey(credential) : Effect.fail(new RestInvalidCredentials())
+}
+
 /** Resolves the scope a REST credential may reach, rechecking membership and role each time. */
 export const authenticateRestRequest = Effect.fn("authenticateRestRequest")(function* (
   request: Request,

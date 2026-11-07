@@ -24,6 +24,7 @@ test("UX evidence: mobile Astro preserves drafts and confirms conversation delet
   await expect(astro.panel).toHaveCSS("width", "390px")
   await captureMilestone(page, "astro-mobile-draft")
   await astro.openConversation(SEED_CONVERSATIONS.astro[0].title)
+  await expect(astro.panel.getByText(SEED_CONVERSATIONS.astro[0].turns[0][0])).toBeVisible()
   await astro.panel.getByRole("button", { name: "Conversation actions", exact: true }).click()
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
   const confirmation = page.getByRole("alertdialog")

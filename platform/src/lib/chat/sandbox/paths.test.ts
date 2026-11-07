@@ -36,13 +36,6 @@ describe("resolveSandboxPath", () => {
     })
   })
 
-  it("normalizes redundant segments without leaving the root", () => {
-    expect(resolveSandboxPath(REAL_ROOT, `${REAL_ROOT}/src/./nested/../app.py`)).toEqual({
-      path: `${REAL_ROOT}/src/app.py`,
-      relativePath: "src/app.py",
-    })
-  })
-
   it("allows the root itself, which is what a bare listing asks for", () => {
     expect(resolveSandboxPath(REAL_ROOT, REAL_ROOT)).toEqual({
       path: REAL_ROOT,

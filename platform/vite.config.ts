@@ -10,6 +10,7 @@ import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig, type DevEnvironment } from "vite"
 import { configDefaults } from "vitest/config"
+import { servePublicMarkdown } from "../website/scripts/serve-public-markdown.ts"
 
 import { collectSourceMaps, sourceMapDebugIds } from "./source-maps.ts"
 
@@ -74,6 +75,15 @@ const viteConfig = defineConfig(({ mode }) => {
       {
         ...sourceMapDebugIds,
         applyToEnvironment: (environment) => environment.name !== "ssr",
+      },
+      {
+        name: "public-markdown-mime",
+        apply: "serve",
+        configureServer(server) {
+          server.middlewares.use(
+            servePublicMarkdown(new URL("../website/public/", import.meta.url)),
+          )
+        },
       },
       {
         name: "legal-assets",

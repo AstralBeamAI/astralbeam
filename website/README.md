@@ -27,7 +27,7 @@ Production caching follows `public/_headers`: hashed build assets stay fresh for
 
 The Website links in docs and the platform's profile menu always open `https://astralbeam.ai/home` directly, including on self-hosted deployments without `website_url`.
 
-The build publishes the [AstralBeam skill](../skills/astralbeam/SKILL.md) and its discovery index from this single source.
+`public/auth.md` and `public/agents.md` are ordinary static files that link to the [AstralBeam skill](../skills/astralbeam/SKILL.md). The existing build publishes that skill unchanged and generates its discovery index. Cloudflare headers live in `public/_headers`. Development and preview only override the guides' Markdown MIME type so browsers display them inline.
 
 `public/install.sh` is the [Platform installer](../platform/src/routes/docs/-content/self-hosting/deploy.md#standalone-binary). Keep targets aligned with `.github/workflows/release.yml`.
 

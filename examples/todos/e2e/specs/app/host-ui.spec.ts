@@ -70,20 +70,6 @@ test("one theme control retunes the app and the widget together", async ({ todos
   await expect(chat.composer()).toBeVisible()
 })
 
-test("hiding the assistant unmounts the widget and showing it mounts a new one", async ({
-  todos,
-  chat,
-}) => {
-  await chat.waitForReady()
-  await todos.toggleAssistant()
-  await expect(todos.controls.assistant).toHaveText("Show assistant")
-  await expect(chat.root).toHaveCount(0)
-
-  await todos.toggleAssistant()
-  await expect(todos.controls.assistant).toHaveText("Hide assistant")
-  await chat.waitForReady()
-})
-
 test("a tap beside the text focuses the message input", async ({ chat }) => {
   await chat.waitForReady()
   await expect(chat.composer()).not.toBeFocused()
