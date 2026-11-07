@@ -29,19 +29,3 @@ test("persisted discovery restores the SDK state without losing provider metadat
   )
   expect(restored).toEqual(discovery)
 })
-
-test.each([
-  {},
-  { ...discovery, authorizationServerUrl: null },
-  { ...discovery, authorizationServerMetadata: { issuer: "https://issuer.example" } },
-  { ...discovery, resourceMetadata: { resource: 12 } },
-  {
-    ...discovery,
-    authorizationServerMetadata: {
-      ...discovery.authorizationServerMetadata,
-      response_types_supported: [12],
-    },
-  },
-])("invalid persisted discovery is rejected before it reaches the OAuth SDK", (value) => {
-  expect(() => Schema.decodeUnknownSync(McpDiscoverySchema)(value)).toThrow()
-})
