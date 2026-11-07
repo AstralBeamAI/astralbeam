@@ -55,8 +55,7 @@ jobs:
           bun-version-file: .bun-version
 
       - name: Install workspace dependencies
-        run: >-
-          bun install --frozen-lockfile ${{ matrix.leg == 'platform build' && github.event_name != 'pull_request' && '--os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc' || '' }}
+        run: bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
 
       - name: Check root formatting
         run: bun run format:check
