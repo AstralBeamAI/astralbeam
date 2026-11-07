@@ -104,16 +104,7 @@ jobs:
 
       - name: Cache release bundle
         id: release-bundle
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            sdk/dist
-            platform/.output/server
-            platform/.output/public
-            platform/.output/sourcemaps
-            platform/public/api/openapi.json
-            platform/packages/sandbox/dist
-          key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+        uses: ./.github/actions/cache-release-bundle
 
       - name: Build the SDK
         if: steps.release-bundle.outputs.cache-hit != 'true'
@@ -272,16 +263,12 @@ jobs:
       meta-tags: type=raw,value=${{ needs.verify.outputs.version }}
       set-meta-labels: true
       set-meta-annotations: true
-      meta-labels: |
+      meta-labels: &platform-metadata |
         org.opencontainers.image.title=AstralBeam Platform
         org.opencontainers.image.description=Self-hosted AstralBeam Platform for building and running AI agents
         org.opencontainers.image.url=https://astralbeam.ai
         org.opencontainers.image.licenses=AGPL-3.0-only
-      meta-annotations: |
-        org.opencontainers.image.title=AstralBeam Platform
-        org.opencontainers.image.description=Self-hosted AstralBeam Platform for building and running AI agents
-        org.opencontainers.image.url=https://astralbeam.ai
-        org.opencontainers.image.licenses=AGPL-3.0-only
+      meta-annotations: *platform-metadata
       sbom: true
     secrets:
       registry-auths: |
@@ -310,16 +297,12 @@ jobs:
         type=raw,value=latest
       set-meta-labels: true
       set-meta-annotations: true
-      meta-labels: |
+      meta-labels: &sandbox-metadata |
         org.opencontainers.image.title=AstralBeam Sandbox
         org.opencontainers.image.description=General-purpose execution environment for AI agents
         org.opencontainers.image.url=https://astralbeam.ai
         org.opencontainers.image.licenses=AGPL-3.0-only
-      meta-annotations: |
-        org.opencontainers.image.title=AstralBeam Sandbox
-        org.opencontainers.image.description=General-purpose execution environment for AI agents
-        org.opencontainers.image.url=https://astralbeam.ai
-        org.opencontainers.image.licenses=AGPL-3.0-only
+      meta-annotations: *sandbox-metadata
       sbom: true
     secrets:
       registry-auths: |

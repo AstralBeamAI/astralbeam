@@ -107,16 +107,9 @@ jobs:
 
       - name: Cache release bundle
         if: matrix.leg == 'platform build' && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: ./.github/actions/cache-release-bundle
         with:
-          path: |
-            sdk/dist
-            platform/.output/server
-            platform/.output/public
-            platform/.output/sourcemaps
-            platform/public/api/openapi.json
-            platform/packages/sandbox/dist
-          key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          lookup-only: true
 
       - name: Upload the website source maps to PostHog
         if: matrix.project == 'website' && github.event_name == 'push' && vars.POSTHOG_PROJECT_ID != ''
