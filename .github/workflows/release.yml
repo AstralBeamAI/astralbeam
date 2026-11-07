@@ -92,15 +92,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version-file: .bun-version
-
-      - name: Install workspace dependencies for every release target
-        # Include native Sharp packages for the cross-compiled executables.
-        # https://bun.sh/docs/pm/cli/install#platform-specific-dependencies
-        run: bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
+      - name: Set up build dependencies
+        uses: ./.github/actions/setup-build
 
       - name: Cache release bundle
         id: release-bundle
@@ -384,7 +377,8 @@ jobs:
           name: npm-packages
           path: npm-packages
 
-      - name: Set up Node
+      - &setup-node
+        name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
@@ -434,13 +428,7 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          check-latest: true
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
+      - *setup-node
 
       - name: Install dependencies for the Linux and Apple Silicon targets
         run: bun install --frozen-lockfile --os=linux --os=darwin --cpu=x64 --cpu=arm64 --libc=glibc
