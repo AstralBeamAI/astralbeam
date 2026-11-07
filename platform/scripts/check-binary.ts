@@ -186,6 +186,7 @@ async function checkEmbeddedPostgresBinary(options: {
     HOME: directory,
     USERPROFILE: directory,
     ASTRALBEAM_DATA_DIR: directory,
+    HOST: "127.0.0.1",
     DATABASE_URL: undefined,
     DATABASE_ENCRYPTION_KEY: undefined,
     WORKERS: "1",
@@ -209,7 +210,7 @@ async function checkEmbeddedPostgresBinary(options: {
   assert.ok(
     bootstrapEnvironment
       .split("\n")
-      .includes(`LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:${packageJson.version}`),
+      .includes("LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:latest"),
   )
   await runBinaryCheckCommand(options.binaryPath, ["bootstrap"], commandOptions)
   assert.equal(await Bun.file(environmentPath).text(), bootstrapEnvironment)
@@ -360,6 +361,7 @@ async function runBinaryCheck() {
     ...processEnvironment,
     HOME: temporaryDirectory,
     USERPROFILE: temporaryDirectory,
+    HOST: "127.0.0.1",
     NODE_ENV: "production",
     DATABASE_URL: unreachableDatabaseUrl,
     DATABASE_ENCRYPTION_KEY: undefined,

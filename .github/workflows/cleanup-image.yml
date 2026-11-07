@@ -1,0 +1,74 @@
+name: Clean up Docker image
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        required: true
+      digest:
+        type: string
+        required: true
+      cosign-version:
+        type: string
+        required: true
+      verify-commands:
+        type: string
+        required: true
+      signed:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Remove redundant Docker build indexes (${{ inputs.package }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/astralbeamai/${{ inputs.package }}
+      IMAGE_DIGEST: ${{ inputs.digest }}
+      VERIFY_COMMANDS: ${{ inputs.verify-commands }}
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the builder's Cosign version
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ inputs.cosign-version }}
+
+      - name: Verify signatures before cleanup
+        env:
+          IMAGE_SIGNED: ${{ inputs.signed }}
+        # Use the verification commands emitted by the pinned Docker builder.
+        # https://github.com/docker/github-builder/blob/a31d2311da4d55e21b978c1c52bab82ba97d51ee/.github/workflows/build.yml#L179
+        run: |
+          test "$IMAGE_SIGNED" = true
+          test -n "$VERIFY_COMMANDS"
+          bash -euo pipefail -c "$VERIFY_COMMANDS"
+
+      - name: Remove unreferenced build indexes
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          token: ${{ github.token }}
+          package: ${{ inputs.package }}
+          delete-untagged: true
+          validate: true
+
+      - name: Verify both architectures and signatures after cleanup
+        shell: bash
+        # The cleanup action's validation only warns, so make missing manifests or signatures fatal.
+        run: |
+          docker buildx imagetools inspect "$IMAGE_NAME@$IMAGE_DIGEST" \
+            --format '{{json .Image}}' | jq -e 'keys == ["linux/amd64", "linux/arm64"]'
+          bash -euo pipefail -c "$VERIFY_COMMANDS"
