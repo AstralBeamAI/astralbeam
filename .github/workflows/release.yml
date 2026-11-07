@@ -77,7 +77,7 @@ jobs:
 
   build:
     name: Build release artifacts
-    needs: verify
+    if: ${{ !inputs.minimal || inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -85,7 +85,6 @@ jobs:
       # https://docs.github.com/repositories/releasing-projects-on-github/linking-to-releases
       PLATFORM_ASSET_PREFIX: astralbeam-platform
       CLI_ASSET_PREFIX: astralbeam
-      RELEASE_VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -97,19 +96,42 @@ jobs:
         with:
           bun-version-file: .bun-version
 
+      - name: Cache Bun packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
+
       - name: Install workspace dependencies for every release target
         # Include native Sharp packages for the cross-compiled executables.
         # https://bun.sh/docs/pm/cli/install#platform-specific-dependencies
         run: bun install --frozen-lockfile --os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc
 
+      - name: Cache release bundle
+        id: release-bundle
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            sdk/dist
+            platform/.output/server
+            platform/.output/public
+            platform/.output/sourcemaps
+            platform/public/api/openapi.json
+            platform/packages/sandbox/dist
+          key: release-bundle-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+
       - name: Build the SDK
+        if: steps.release-bundle.outputs.cache-hit != 'true'
         working-directory: sdk
         run: bun run build
 
       - name: Build the Platform
-        # Builds `.output` once and compiles the host binary from it.
+        # A cached bundle still needs the host executable and all binary smoke tests.
         working-directory: platform
-        run: bun run build
+        env:
+          RELEASE_BUNDLE_CACHED: ${{ steps.release-bundle.outputs.cache-hit }}
+        run: |
+          if [ "$RELEASE_BUNDLE_CACHED" = true ]; then bun run compile; else bun run build; fi
 
       - name: Upload the Platform source maps to PostHog
         if: ${{ !inputs.dry-run && vars.POSTHOG_PROJECT_ID != '' }}
@@ -142,6 +164,7 @@ jobs:
             working-directory: cli
             shell: bash
             run: |
+              RELEASE_VERSION="$(jq -r .version ../sdk/package.json)"
               bun run build
               test "$(bun dist/astralbeam.js --version)" = "$RELEASE_VERSION"
               mkdir ../cli-binaries
@@ -155,12 +178,22 @@ jobs:
               test "$("$binary" --version)" = "$RELEASE_VERSION"
               "$binary" skill | grep -q '^name: astralbeam$'
 
-      - name: Upload the CLI binaries
-        background: true
+      - name: Compress the release binaries
+        shell: bash
+        run: |
+          files=()
+          for suffix in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 windows-x86_64.exe; do
+            files+=("cli-binaries/${CLI_ASSET_PREFIX}-$suffix" "platform-binaries/${PLATFORM_ASSET_PREFIX}-$suffix")
+          done
+          tar -cf - "${files[@]}" | zstd -T0 -3 --long=30 -o binaries.tar.zst
+
+      # Keep JS uploads sequential until the runner stops rewriting their shared event file at startup.
+      # https://github.com/actions/runner/blob/v2.338.2/src/Runner.Worker/ExecutionContext.cs#L1208
+      - name: Upload the release binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cli-binaries
-          path: cli-binaries
+          archive: false
+          path: binaries.tar.zst
           if-no-files-found: error
 
       - name: Pack the SDK and CLI without publishing credentials
@@ -171,19 +204,10 @@ jobs:
           done
 
       - name: Upload the SDK and CLI packages
-        background: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: npm-packages
           path: npm-packages/*.tgz
-          if-no-files-found: error
-
-      - name: Upload the Platform binaries
-        background: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: platform-binaries
-          path: platform-binaries
           if-no-files-found: error
 
       - wait-all:
@@ -202,15 +226,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download the Platform binaries
+      - name: Download the release binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: platform-binaries
+          name: binaries.tar.zst
 
-      - name: Download the CLI binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: cli-binaries
+      - name: Extract the release binaries
+        shell: bash
+        run: zstd -dc --long=30 binaries.tar.zst | tar -xf - --strip-components=1
 
       - name: Generate release checksums
         run: sha256sum astralbeam-* > SHA256SUMS
@@ -238,7 +261,7 @@ jobs:
   docker-image:
     name: Build and publish the Docker image
     needs: verify
-    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
+    uses: docker/github-builder/.github/workflows/build.yml@a31d2311da4d55e21b978c1c52bab82ba97d51ee # v1
     permissions:
       contents: read
       packages: write
@@ -275,7 +298,7 @@ jobs:
   sandbox-image:
     name: Build and publish the sandbox image
     needs: verify
-    uses: docker/github-builder/.github/workflows/build.yml@4345a1cea1e4cfb65c8a5e2b1b80f9e630068827 # v1
+    uses: docker/github-builder/.github/workflows/build.yml@a31d2311da4d55e21b978c1c52bab82ba97d51ee # v1
     permissions:
       contents: read
       packages: write
@@ -346,7 +369,7 @@ jobs:
         env:
           IMAGE_SIGNED: ${{ needs[matrix.job].outputs.signed }}
         # Use the verification commands emitted by the pinned Docker builder.
-        # https://github.com/docker/github-builder/blob/4345a1cea1e4cfb65c8a5e2b1b80f9e630068827/.github/workflows/build.yml#L181
+        # https://github.com/docker/github-builder/blob/a31d2311da4d55e21b978c1c52bab82ba97d51ee/.github/workflows/build.yml#L179
         run: |
           test "$IMAGE_SIGNED" = true
           test -n "$VERIFY_COMMANDS"
