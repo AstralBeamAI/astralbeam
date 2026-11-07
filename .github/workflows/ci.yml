@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     name: Check ${{ matrix.leg || matrix.project }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 15
     strategy:
       # Every project reports its own result, so one failing leg does not hide the others.
@@ -57,7 +57,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', '.bun-version') }}
 
       - name: Install workspace dependencies
         run: >-

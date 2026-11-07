@@ -78,7 +78,7 @@ jobs:
   build:
     name: Build release artifacts
     if: ${{ !inputs.minimal || inputs.dry-run }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
     env:
       # Version-free names let `releases/latest/download/<asset>` always serve the newest binary.
@@ -100,7 +100,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', '.bun-version') }}
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', '.bun-version') }}
 
       - name: Install workspace dependencies for every release target
         # Include native Sharp packages for the cross-compiled executables.
@@ -153,8 +153,8 @@ jobs:
             shell: bash
             run: |
               mkdir ../platform-binaries
-              cp .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-x86_64"
-              for pair in bun-linux-arm64:linux-arm64 bun-darwin-x64:macos-x86_64 \
+              cp .output/astralbeam-platform "../platform-binaries/${PLATFORM_ASSET_PREFIX}-linux-arm64"
+              for pair in bun-linux-x64:linux-x86_64 bun-darwin-x64:macos-x86_64 \
                 bun-darwin-arm64:macos-arm64 bun-windows-x64:windows-x86_64.exe; do
                 bun run compile --target "${pair%%:*}" \
                   --outfile "../platform-binaries/${PLATFORM_ASSET_PREFIX}-${pair#*:}"
@@ -174,7 +174,7 @@ jobs:
                 bun build --compile --no-compile-autoload-dotenv --no-compile-autoload-bunfig \
                   --asset dist/skills --target "${pair%%:*}" --outfile "../cli-binaries/${CLI_ASSET_PREFIX}-${pair#*:}" dist/astralbeam.js
               done
-              binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-x86_64"
+              binary="../cli-binaries/${CLI_ASSET_PREFIX}-linux-arm64"
               test "$("$binary" --version)" = "$RELEASE_VERSION"
               "$binary" skill | grep -q '^name: astralbeam$'
 
