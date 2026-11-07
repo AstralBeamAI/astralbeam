@@ -25,7 +25,7 @@ The connection test creates a sandbox, runs a command, and destroys it. Creation
 
 Provider names must be unique within the organization. Cloud-provider forms offer the supported regions, templates, and runtimes.
 
-Docker and Microsandbox use the operator's `LOCAL_SANDBOX_IMAGE`. The default is `ghcr.io/astralbeamai/sandbox` tagged with the Platform version. It includes Node.js, TypeScript, Python, Git, and tools for Office files, PDFs, and OCR. Organization members cannot change this image.
+Docker and Microsandbox use the operator's `LOCAL_SANDBOX_IMAGE`. The default is `ghcr.io/astralbeamai/sandbox:latest`, updated independently of Platform releases. It includes Node.js, TypeScript, Python, Git, and tools for Office files, PDFs, and OCR. Organization members cannot change this image.
 
 ## Local providers
 

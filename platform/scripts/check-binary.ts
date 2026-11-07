@@ -210,7 +210,7 @@ async function checkEmbeddedPostgresBinary(options: {
   assert.ok(
     bootstrapEnvironment
       .split("\n")
-      .includes(`LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:${packageJson.version}`),
+      .includes("LOCAL_SANDBOX_IMAGE=ghcr.io/astralbeamai/sandbox:latest"),
   )
   await runBinaryCheckCommand(options.binaryPath, ["bootstrap"], commandOptions)
   assert.equal(await Bun.file(environmentPath).text(), bootstrapEnvironment)

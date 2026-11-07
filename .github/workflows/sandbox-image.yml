@@ -1,98 +1,30 @@
 name: Sandbox image
 
 on:
-  workflow_call:
+  push:
+    branches: [main]
+    paths:
+      - platform/packages/sandbox/image/**
+      - .github/workflows/sandbox-image.yml
+      - .github/workflows/cleanup-image.yml
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
     inputs:
-      version:
-        type: string
-        required: true
       dry-run:
+        description: Build and verify without publishing. Branches other than main always use dry-run mode.
         type: boolean
         default: false
-      force-rebuild:
-        type: boolean
-        default: false
-    outputs:
-      digest:
-        value: ${{ jobs.build.outputs.digest || jobs.reuse.outputs.digest }}
-      signed:
-        value: ${{ jobs.build.outputs.signed || jobs.reuse.outputs.signed }}
-      cosign-version:
-        value: ${{ jobs.build.outputs.cosign-version || jobs.reuse.outputs.cosign-version }}
-      cosign-verify-commands:
-        value: ${{ jobs.build.outputs.cosign-verify-commands || jobs.reuse.outputs.cosign-verify-commands }}
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}${{ inputs.dry-run && format('-dry-run-{0}', github.ref) || '' }}
+
 jobs:
-  reuse:
-    name: Reuse an unchanged sandbox image
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      packages: write
-    env:
-      IMAGE_NAME: ghcr.io/astralbeamai/sandbox
-    outputs:
-      digest: ${{ steps.previous.outputs.digest }}
-      signed: ${{ steps.previous.outputs.digest != '' && 'true' || '' }}
-      cosign-version: v3.1.4
-      cosign-verify-commands: ${{ steps.previous.outputs.cosign-verify-commands }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Find a reusable sandbox image
-        id: previous
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FORCE_REBUILD: ${{ inputs.force-rebuild }}
-        run: bash .github/scripts/reuse-sandbox-image.sh
-
-      - name: Install Cosign
-        if: steps.previous.outputs.digest != ''
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        with:
-          cosign-release: v3.1.4
-
-      - name: Verify the original build signatures
-        if: steps.previous.outputs.digest != ''
-        env:
-          VERIFY_COMMANDS: ${{ steps.previous.outputs.cosign-verify-commands }}
-        run: bash -euo pipefail -c "$VERIFY_COMMANDS"
-
-      - name: Log in to GHCR
-        if: steps.previous.outputs.digest != '' && !inputs.dry-run
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Reuse the original image under the release tags
-        if: steps.previous.outputs.digest != ''
-        env:
-          IMAGE_DIGEST: ${{ steps.previous.outputs.digest }}
-          RELEASE_VERSION: ${{ inputs.version }}
-          DRY_RUN: ${{ inputs.dry-run }}
-        run: |
-          args=()
-          if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
-          docker buildx imagetools create "${args[@]}" \
-            --tag "$IMAGE_NAME:$RELEASE_VERSION" --tag "$IMAGE_NAME:latest" "$IMAGE_NAME@$IMAGE_DIGEST"
-          if [ "$DRY_RUN" != true ]; then
-            test "$(docker buildx imagetools inspect "$IMAGE_NAME:$RELEASE_VERSION" --format '{{.Manifest.Digest}}')" = "$IMAGE_DIGEST"
-          fi
-
   build:
-    name: Build a new sandbox image
-    needs: reuse
-    if: needs.reuse.outputs.digest == ''
+    name: Build and publish the sandbox image
     uses: docker/github-builder/.github/workflows/build.yml@a31d2311da4d55e21b978c1c52bab82ba97d51ee # v1
     permissions:
       contents: read
@@ -100,15 +32,16 @@ jobs:
       id-token: write
     with:
       output: image
-      push: ${{ !inputs.dry-run }}
+      push: ${{ github.ref == 'refs/heads/main' && !inputs.dry-run }}
       context: platform/packages/sandbox/image
       platforms: linux/amd64,linux/arm64
-      # Reuse skips the whole build. Actual builds refresh apt/pip even when their RUN lines are unchanged.
+      # Builds only run for image changes or a refresh, so rerun apt/pip even when RUN lines are unchanged.
       cache: false
       meta-images: ghcr.io/astralbeamai/sandbox
+      # Keep a build tag so cleanup preserves images pinned by operators.
       meta-tags: |
-        type=raw,value=${{ inputs.version }}
         type=raw,value=latest
+        type=raw,value=build-${{ github.run_id }}-${{ github.run_attempt }}
       set-meta-labels: true
       set-meta-annotations: true
       meta-labels: &sandbox-metadata |
@@ -123,3 +56,18 @@ jobs:
         - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    name: Remove redundant sandbox build indexes
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && !inputs.dry-run }}
+    uses: ./.github/workflows/cleanup-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      package: sandbox
+      digest: ${{ needs.build.outputs.digest }}
+      cosign-version: ${{ needs.build.outputs.cosign-version }}
+      verify-commands: ${{ needs.build.outputs.cosign-verify-commands }}
+      signed: ${{ needs.build.outputs.signed }}

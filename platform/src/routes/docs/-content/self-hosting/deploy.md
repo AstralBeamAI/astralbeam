@@ -135,7 +135,7 @@ Standalone bootstrap saves `DATABASE_URL=embedded` in `.env` for later starts an
 
 ### Local sandbox image
 
-`LOCAL_SANDBOX_IMAGE` selects the shared Docker and Microsandbox image. Bootstrap prepares the release-tagged default and reuses cached images on later runs. To change it, stop Platform, set a new tag or digest in `.env`, rerun `bootstrap`, and restart. Organization settings cannot override this image.
+`LOCAL_SANDBOX_IMAGE` selects the shared Docker and Microsandbox image and defaults to `ghcr.io/astralbeamai/sandbox:latest`. Bootstrap downloads missing images and reuses the runtime's local cache on later runs. To refresh `latest`, pull it with your runtime before rerunning `bootstrap`. To pin another image, stop Platform, set a tag or digest in `.env`, rerun `bootstrap`, and restart. Organization settings cannot override this image.
 
 ## Containers
 
