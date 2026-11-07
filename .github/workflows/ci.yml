@@ -54,12 +54,6 @@ jobs:
         with:
           bun-version-file: .bun-version
 
-      - name: Cache Bun packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', '.bun-version') }}
-
       - name: Install workspace dependencies
         run: >-
           bun install --frozen-lockfile ${{ matrix.leg == 'platform build' && github.event_name != 'pull_request' && '--os=linux --os=darwin --os=win32 --cpu=x64 --cpu=arm64 --libc=glibc' || '' }}
