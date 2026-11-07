@@ -9,6 +9,10 @@ on:
         description: Build and verify everything without publishing images, creating the release, or staging npm packages
         type: boolean
         default: false
+      rebuild-sandbox:
+        description: Rebuild the sandbox image without cached layers even if its inputs are unchanged
+        type: boolean
+        default: false
       minimal:
         description: Skip verification, source maps, smoke tests, and Intel macOS and Windows binaries, and stage the SDK and CLI and release in one job. Dry runs use the full verification path.
         type: boolean
@@ -272,36 +276,15 @@ jobs:
   sandbox-image:
     name: Build and publish the sandbox image
     needs: verify
-    uses: docker/github-builder/.github/workflows/build.yml@a31d2311da4d55e21b978c1c52bab82ba97d51ee # v1
+    uses: ./.github/workflows/sandbox-image.yml
     permissions:
       contents: read
       packages: write
       id-token: write
     with:
-      output: image
-      push: ${{ !inputs.dry-run }}
-      context: platform/packages/sandbox/image
-      platforms: linux/amd64,linux/arm64
-      cache: true
-      cache-scope: sandbox
-      meta-images: ghcr.io/astralbeamai/sandbox
-      meta-tags: |
-        type=raw,value=${{ needs.verify.outputs.version }}
-        type=raw,value=latest
-      set-meta-labels: true
-      set-meta-annotations: true
-      meta-labels: &sandbox-metadata |
-        org.opencontainers.image.title=AstralBeam Sandbox
-        org.opencontainers.image.description=General-purpose execution environment for AI agents
-        org.opencontainers.image.url=https://astralbeam.ai
-        org.opencontainers.image.licenses=AGPL-3.0-only
-      meta-annotations: *sandbox-metadata
-      sbom: true
-    secrets:
-      registry-auths: |
-        - registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      version: ${{ needs.verify.outputs.version }}
+      dry-run: ${{ inputs.dry-run || false }}
+      force-rebuild: ${{ inputs.rebuild-sandbox || false }}
 
   docker-cleanup:
     name: Remove redundant Docker build indexes (${{ matrix.package }})
