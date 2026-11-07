@@ -70,7 +70,10 @@ vi.mock("@tanstack/ai-effect", async (original) => {
           chatRunTest.closed.resolve()
         }
       }
-      return actual.chat({ ...options, middleware: [] })
+      return actual.chat({
+        ...options,
+        middleware: options.middleware.filter((entry) => entry.name === "compaction"),
+      })
     },
   }
 })
@@ -227,25 +230,46 @@ beforeEach(() => {
 })
 
 describe("Chat.run", () => {
-  it.effect("reports missing compaction limits safely before calling the model", () =>
-    Effect.gen(function* () {
-      const events = yield* Stream.runCollect(yield* runChat())
-      assert.deepStrictEqual(events, [
-        {
-          type: EventType.RUN_ERROR,
-          message: "Set the model token limits in Models to continue long conversations.",
-        },
-      ])
-      assert.isEmpty(chatRunTest.options)
-      assert.deepStrictEqual(chatRunTest.order, ["interrupted"])
-    }).pipe(
-      Effect.provide(
-        chatTestLayer({
-          agent: { ...sandboxedAgent, compactionEnabled: true },
-          model: CHAT_TEST_MODEL,
-        }),
+  it.effect.each([false, true])(
+    "reports unavailable compaction capacity safely, limits configured: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const events = yield* Stream.runCollect(yield* runChat())
+        assert.include(
+          events.map((event) => event.type),
+          EventType.RUN_ERROR,
+        )
+        const error = events.find((event) => event.type === EventType.RUN_ERROR)
+        assert.strictEqual(
+          error?.message,
+          configured
+            ? "The agent instructions and tools exceed the model’s context limit. Reduce them or select a larger model."
+            : "Set the model token limits in Models to continue long conversations.",
+        )
+        assert.notInclude(chatRunTest.order, "aborted")
+        assert.include(chatRunTest.order, "interrupted")
+      }).pipe(
+        Effect.provide(
+          chatTestLayer({
+            agent: { ...sandboxedAgent, compactionEnabled: true },
+            model: CHAT_TEST_MODEL,
+            ...(configured
+              ? {
+                  pricing: {
+                    currency: "USD",
+                    pricingSource: { kind: "manual" },
+                    prices: { inputPerMillion: "1", outputPerMillion: "1" },
+                    contextTiers: [],
+                    contextWindowTokens: 10,
+                    maxInputTokens: null,
+                    maxOutputTokens: 1,
+                    outputCap: 1,
+                  },
+                }
+              : {}),
+          }),
+        ),
       ),
-    ),
   )
 
   it.effect.each([true, undefined])(

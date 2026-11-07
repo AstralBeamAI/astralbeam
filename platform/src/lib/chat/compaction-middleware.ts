@@ -6,7 +6,6 @@ import {
   type ChatMiddleware,
   type ModelMessage,
   type Tool,
-  type TokenUsage,
 } from "@tanstack/ai"
 import {
   COMPACTION_STARTED_EVENT,
@@ -151,6 +150,7 @@ export function createChatCompactionMiddleware(options: {
   const { state, adapter } = options
   let budget = modelInputAllowance(options.configuration)
   let systemPrompts: string[] = []
+  let tools: Tool[] = []
   const summarize = conversationSummarizer({
     adapter: options.summaryAdapter,
     modelOptions: options.summaryOptions,
@@ -179,14 +179,24 @@ export function createChatCompactionMiddleware(options: {
     const cut = chatCompactionCut(state, messages, budget)
     const suffix = messages.slice(cut.offset)
     let head: ModelMessage[]
-    if (native)
-      head = await adapter.compact!({
+    if (native) {
+      // Retained Anthropic thinking requires a cut between different provider message roles.
+      // https://platform.claude.com/docs/en/build-with-claude/compaction-thinking-blocks
+      if (
+        adapter.api === "anthropic-messages" &&
+        (messages[cut.offset - 1]?.role === "assistant") === (suffix[0]?.role === "assistant")
+      )
+        throw new ChatCompactionError({ code: "compaction_context_full" })
+      const input = {
         messages: messages.slice(0, cut.offset),
         model: options.modelId,
         ...(ctx.signal ? { signal: ctx.signal } : {}),
         systemPrompts,
-      })
-    else {
+        tools,
+        maxTokens: Math.min(options.configuration.outputCap, 4096),
+      }
+      head = await adapter.compact!(input)
+    } else {
       const strategy = summarizeOldest({
         summarize,
         summaryRole: "user",
@@ -234,6 +244,7 @@ export function createChatCompactionMiddleware(options: {
     ...middleware,
     async onConfig(ctx, config) {
       if (ctx.phase === "init") return
+      tools = config.tools
       systemPrompts = config.systemPrompts.map((prompt) =>
         typeof prompt === "string" ? prompt : prompt.content,
       )
@@ -275,48 +286,11 @@ export function createChatCompactionMiddleware(options: {
   }
 }
 
-const ChatCompactionNativeUsageSchema = Schema.Struct({
-  usage: Schema.Struct({
-    input_tokens: Schema.Number,
-    output_tokens: Schema.Number,
-    input_tokens_details: Schema.optional(Schema.Struct({ cached_tokens: Schema.Number })),
-  }),
-})
-
-// The adapter's compact() returns messages, so observe its usage without changing request mapping.
-export async function fetchChatCompactionUsage(options: {
-  model: ChatModelConfiguration
-  input: RequestInfo | URL
-  init?: RequestInit | undefined
-  record: (usage: TokenUsage) => Promise<void>
-}) {
-  const { model, input, init } = options
-  const response = await model.fetch(input, init)
-  const url = input instanceof Request ? input.url : String(input)
-  if (new URL(url).pathname.endsWith("/responses/compact")) {
-    const result: unknown = await response
-      .clone()
-      .json()
-      .catch(() => undefined)
-    if (Schema.is(ChatCompactionNativeUsageSchema)(result)) {
-      const usage = result.usage
-      await options.record({
-        promptTokens: usage.input_tokens,
-        completionTokens: usage.output_tokens,
-        totalTokens: usage.input_tokens + usage.output_tokens,
-        promptTokensDetails: { cachedTokens: usage.input_tokens_details?.cached_tokens ?? 0 },
-      })
-    }
-  }
-  return response
-}
-
 export function chatCompactionOutputOptions(
   model: Pick<ChatModelConfiguration, "api" | "providerType">,
   maxTokens: number,
-  web = false,
 ) {
-  if (web && model.providerType === "openrouter") return { maxCompletionTokens: maxTokens }
+  if (model.providerType === "openrouter") return { maxCompletionTokens: maxTokens }
   if (model.api === "responses") return { max_output_tokens: maxTokens }
   if (model.api === "gemini-generate-content") return { maxOutputTokens: maxTokens }
   return model.api === "chat-completions" && model.providerType === "openai"

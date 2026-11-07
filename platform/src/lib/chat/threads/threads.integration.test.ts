@@ -171,8 +171,27 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
       compatibilityKey: "model-config",
       payload: {
         version: 1 as const,
-        kind: "portable" as const,
-        messages: [{ role: "user", content: "Completed history" }],
+        kind: "native" as const,
+        messages: [
+          {
+            role: "assistant",
+            content: "Completed history",
+            metadata: {
+              anthropicCompaction: {
+                role: "assistant",
+                stop_reason: "compaction",
+                content: [
+                  {
+                    type: "compaction",
+                    content: "Completed history",
+                    signature: "unchanged-signed-state",
+                    encrypted_content: "opaque-state",
+                  },
+                ],
+              },
+            },
+          },
+        ],
       },
       usage: {},
     }
@@ -187,6 +206,7 @@ describe.skipIf(!integration.url)("PostgreSQL chat conversations", () => {
     await expect(save()).rejects.toMatchObject({ _tag: "ChatThreadConflict" })
     await runtime.runPromise(complete({ claim: first.claim!, payload }))
     const saved = await save()
+    expect(saved.payload).toEqual(artifact.payload)
     expect((await save()).id).toBe(saved.id)
     const [sibling] = await db
       .insert(chatMessage)

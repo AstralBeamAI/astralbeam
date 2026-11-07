@@ -6,6 +6,7 @@ import {
   type AnyTool,
   type AnyTextAdapter,
 } from "@tanstack/ai"
+import { toolSchema } from "@tanstack/ai-effect"
 import { fakeText } from "@tanstack/ai/testing"
 import { resolveDebugOption } from "@tanstack/ai/adapter-internals"
 import { expect, test, vi } from "vitest"
@@ -20,10 +21,9 @@ import {
   type ChatCompactionArtifact,
   type ChatCompactionState,
 } from "./compaction-middleware"
-import { chatToolInputSchema } from "./tool-schema"
 import { chatCompactionBoundaries, chatCompactionMessages } from "./compaction"
 import { createChatAdapter } from "./adapter"
-import { chatCompactionOutputOptions, fetchChatCompactionUsage } from "./compaction-middleware"
+import { chatCompactionOutputOptions } from "./compaction-middleware"
 import type { ChatModelConfiguration } from "@/lib/model-providers/model-providers.server"
 
 const compactionTestModel: ChatModelConfiguration = {
@@ -65,10 +65,7 @@ test("the installed OpenAI adapter round-trips the complete native window and re
         : Response.json({ error: { message: "Synthetic inference boundary" } }, { status: 400 })
     },
   }
-  const adapter: AnyTextAdapter = createChatAdapter({
-    ...model,
-    fetch: (input, init) => fetchChatCompactionUsage({ model, input, init, record }),
-  })
+  const adapter: AnyTextAdapter = createChatAdapter(model, record)
   const fixture = compactionTestSetup()
   Object.assign(fixture.adapter, { compact: adapter.compact!.bind(adapter) })
   await fixture.run(true)
@@ -94,6 +91,125 @@ test("the installed OpenAI adapter round-trips the complete native window and re
     totalTokens: 120,
     promptTokensDetails: { cachedTokens: 10 },
   })
+})
+
+test.each(["valid", "empty", "unsupported"])("Anthropic native compaction: %s", async (state) => {
+  const block = {
+    type: "compaction",
+    content: "AB-428 remains pending.",
+    signature: "signed-state",
+    encrypted_content: "opaque-state",
+    tool_changes: [],
+  }
+  const usage = {
+    input_tokens: 0,
+    output_tokens: 0,
+    iterations: [
+      {
+        type: "compaction",
+        input_tokens: 100,
+        output_tokens: 20,
+        cache_read_input_tokens: 10,
+        cache_creation_input_tokens: 5,
+        cache_creation: { ephemeral_1h_input_tokens: 2 },
+      },
+    ],
+  }
+  const record = vi.fn(() => Promise.resolve())
+  const requests: { headers: Headers; body: Record<string, unknown> }[] = []
+  const model: ChatModelConfiguration = {
+    ...compactionTestModel,
+    providerType: "anthropic",
+    api: "anthropic-messages",
+    baseUrl: "https://api.anthropic.com",
+    modelId: "claude-sonnet-5-5",
+    fetch: async (input, init) => {
+      const request = new Request(input, init)
+      expect(request.headers.get("x-api-key")).toBe("synthetic")
+      expect(request.headers.get("authorization")).toBeNull()
+      if (request.method === "GET")
+        return Response.json({
+          capabilities: { compaction: { summarize: { supported: state !== "unsupported" } } },
+        })
+      const body = (await request.json()) as Record<string, unknown>
+      requests.push({ headers: request.headers, body })
+      return body.compaction
+        ? Response.json({
+            role: "assistant",
+            model: "claude-sonnet-5-5",
+            content: state === "empty" ? [] : [block],
+            stop_reason: state === "empty" ? "max_tokens" : "compaction",
+            usage,
+          })
+        : Response.json(
+            { error: { type: "invalid_request_error", message: "Synthetic inference boundary" } },
+            { status: 400 },
+          )
+    },
+  }
+  const adapter: AnyTextAdapter = createChatAdapter(model, record)
+  const fixture = compactionTestSetup()
+  Object.assign(fixture.adapter, { compact: adapter.compact!.bind(adapter) })
+  await fixture.run(true)
+  expect(fixture.state.artifact?.payload.kind).toBe(state === "valid" ? "native" : "portable")
+  expect(fixture.summaryAdapter.state.callCount).toBe(state === "valid" ? 0 : 1)
+  expect(record).toHaveBeenCalledTimes(state === "unsupported" ? 0 : 1)
+  expect(requests).toHaveLength(state === "unsupported" ? 0 : 1)
+  if (state === "unsupported") return
+  expect(record).toHaveBeenCalledWith({
+    promptTokens: 115,
+    completionTokens: 20,
+    totalTokens: 135,
+    promptTokensDetails: { cachedTokens: 10, cacheWriteTokens: 5, cacheWrite1hTokens: 2 },
+    providerUsageDetails: { iterations: usage.iterations },
+  })
+  if (state !== "valid") return
+  const tools = [
+    toolDefinition({
+      name: "lookup",
+      description: "Look up an item",
+      inputSchema: toolSchema(Schema.Struct({})),
+    }).server(() => "Never executed"),
+  ]
+  const messages = [
+    ...chatCompactionMessages(fixture.state.artifact!.payload),
+    { role: "user", content: "Continue AB-428." },
+    {
+      role: "assistant",
+      content: "Retained answer.",
+      thinking: [{ content: "Synthetic retained thinking", signature: "thinking-signature" }],
+    },
+    { role: "user", content: "Next step?" },
+  ] satisfies ModelMessage[]
+  for await (const _event of adapter.chatStream({
+    model: model.modelId,
+    threadId: "thread",
+    messages,
+    systemPrompts: ["Current instructions"],
+    tools,
+    logger: resolveDebugOption(false),
+  })) {
+    /* Consume the synthetic inference error. */
+  }
+  const replay = requests[1]!
+  expect((replay.body.messages as unknown[])[0]).toEqual({ role: "assistant", content: [block] })
+  expect(JSON.stringify(replay.body.messages)).toContain("thinking-signature")
+  expect(replay.headers.get("anthropic-beta")).toContain("compact-2026-09-04")
+  const input = {
+    model: model.modelId,
+    messages,
+    systemPrompts: ["Current instructions"],
+    tools,
+    maxTokens: 128,
+  }
+  await adapter.compact!(input)
+  const repeated = requests[2]!
+  expect((repeated.body.messages as unknown[])[0]).toEqual({ role: "assistant", content: [block] })
+  expect(repeated.body.tools).toEqual(replay.body.tools)
+  expect(repeated.body.system).toEqual(replay.body.system)
+  expect(repeated.body.max_tokens).toBe(128)
+  expect(repeated.body.stream).toBe(false)
+  expect(repeated.headers.get("anthropic-beta")).toContain("compact-2026-09-04")
 })
 
 const compactionTestLimits: ModelConfiguration = {
@@ -206,7 +322,7 @@ test("compaction persists across model phases and reloads without repeating comm
   const lookup = toolDefinition({
     name: "lookup",
     description: "Read a result",
-    inputSchema: chatToolInputSchema(Schema.Struct({})),
+    inputSchema: toolSchema(Schema.Struct({})),
   }).server(() => {
     effects += 1
     const id = `decision-${effects}`
@@ -283,26 +399,42 @@ test("compaction persists across model phases and reloads without repeating comm
   expect(fixture.state.history).toEqual(original)
 })
 
-test("disconnect cancellation stops a summary before publication or inference", async () => {
-  const fixture = compactionTestSetup()
-  const started = Promise.withResolvers<void>()
-  fixture.summaryAdapter.setResponses([
-    ({ request }) =>
-      new Promise((_resolve, reject) => {
-        request.request?.signal?.addEventListener("abort", () => reject(new Error("Cancelled")), {
-          once: true,
-        })
+test.each([false, true])(
+  "disconnect cancellation stops a summary before publication or inference, native: %s",
+  async (native) => {
+    const fixture = compactionTestSetup()
+    const started = Promise.withResolvers<void>()
+    const waitForAbort = (signal: AbortSignal | undefined | null) =>
+      new Promise<never>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true })
         started.resolve()
-      }),
-  ])
-  const controller = new AbortController()
-  const running = fixture.run(false, controller)
-  await started.promise
-  controller.abort()
-  await running.catch(() => undefined)
-  expect(fixture.save).not.toHaveBeenCalled()
-  expect(fixture.adapter.state.callCount).toBe(0)
-})
+      })
+    if (native) {
+      const adapter: AnyTextAdapter = createChatAdapter({
+        ...compactionTestModel,
+        providerType: "anthropic",
+        api: "anthropic-messages",
+        baseUrl: "https://api.anthropic.com",
+        modelId: "claude-sonnet-5-5",
+        fetch: async (input, init) => {
+          const request = new Request(input, init)
+          return request.method === "GET"
+            ? Response.json({ capabilities: { compaction: { summarize: { supported: true } } } })
+            : waitForAbort(request.signal)
+        },
+      })
+      Object.assign(fixture.adapter, { compact: adapter.compact!.bind(adapter) })
+    } else
+      fixture.summaryAdapter.setResponses([({ request }) => waitForAbort(request.request?.signal)])
+    const controller = new AbortController()
+    const running = fixture.run(native, controller)
+    await started.promise
+    controller.abort()
+    await running.catch(() => undefined)
+    expect(fixture.save).not.toHaveBeenCalled()
+    expect(fixture.adapter.state.callCount).toBe(0)
+  },
+)
 
 test("compaction advances past terminal interrupted replies without replaying draft tool calls", async () => {
   const fixture = compactionTestSetup()
