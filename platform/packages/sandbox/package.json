@@ -11,6 +11,7 @@
     "build": "bun run ../../scripts/build-sandbox.ts"
   },
   "devDependencies": {
+    "@daytona/sdk": "0.227.3",
     "@tanstack/ai-sandbox": "1.0.0",
     "@tanstack/ai-sandbox-daytona": "^1.0.0",
     "@tanstack/ai-sandbox-docker": "^1.0.0",
@@ -18,7 +19,9 @@
     "@tanstack/ai-sandbox-sprites": "^1.0.0",
     "@tanstack/ai-sandbox-vercel": "^1.0.0",
     "@types/dockerode": "^4.0.2",
+    "@vercel/sandbox": "3.9.1",
     "dockerode": "^5.0.1",
+    "e2b": "2.62.1",
     "microsandbox": "0.7.13"
   }
 }

@@ -1,7 +1,7 @@
-import { SandboxCheckError } from "@astralbeam/sandbox"
+import { SandboxCheckError, SandboxConnection } from "@astralbeam/sandbox"
 import { DateTime, Effect, Predicate } from "effect"
 
-import { createSandboxProvider } from "./factory.server.ts"
+import { SandboxResources } from "./resources.server"
 import type {
   SandboxConnectionErrorCode,
   SandboxProviderCredentials,
@@ -11,13 +11,16 @@ import type {
 } from "./schemas.ts"
 
 export const runSandboxConnectionTest = Effect.fn("runSandboxConnectionTest")(function* (input: {
+  readonly organizationId: string
   readonly provider: SandboxProviderId
   readonly options: SandboxProviderOptions[SandboxProviderId]
   readonly credentials: SandboxProviderCredentials[SandboxProviderId]
 }) {
   const testedAt = DateTime.formatIso(yield* DateTime.now)
-  return yield* createSandboxProvider(input.provider, input).pipe(
-    Effect.flatMap((provider) => {
+  const resources = yield* SandboxResources
+  return yield* resources.provider(input).pipe(
+    Effect.flatMap((adapter) => {
+      const provider = new SandboxConnection(() => adapter)
       let checking: Promise<true> | undefined
       return Effect.tryPromise({
         try: (signal) => (checking = provider.valid({ signal })),

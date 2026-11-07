@@ -61,6 +61,7 @@ export const createSandboxProvider = Effect.fn("createSandboxProvider")(
           configuration,
         )
         await connection.provider
+        await connection.resourceScope
         return connection
       },
       catch: (cause) => new SandboxProviderUnavailable({ cause }),
