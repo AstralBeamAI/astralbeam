@@ -11,6 +11,7 @@ import { OperatorLoginForm } from "./-components/operator-login-form"
 import { OperatorSessionStatus } from "./-components/operator-session-status"
 import { SetupStatusAlert } from "./-components/setup-status-alert"
 import { PendingMigrationsCard } from "./-components/pending-migrations-card"
+import { UpdateAvailableButton } from "./-components/update-available-button"
 import { getConfigurePageState } from "./-functions/get-configure-page-state"
 
 export const Route = createFileRoute("/configure/")({
@@ -50,7 +51,10 @@ function ConfigurePage() {
             )}
         </div>
         {state.status === "ready" && (
-          <OperatorSessionStatus sessionExpiresAt={state.sessionExpiresAt} />
+          <div className="flex flex-wrap items-center gap-3">
+            <UpdateAvailableButton />
+            <OperatorSessionStatus sessionExpiresAt={state.sessionExpiresAt} />
+          </div>
         )}
       </header>
 

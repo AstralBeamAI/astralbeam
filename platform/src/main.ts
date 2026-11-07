@@ -1,15 +1,6 @@
 import { spawn } from "node:child_process"
-import { createHash, randomBytes } from "node:crypto"
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs"
+import { randomBytes } from "node:crypto"
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
@@ -26,8 +17,17 @@ import {
   stopEmbeddedPostgres,
 } from "./db/embedded-postgres.ts"
 import { migrateDatabase } from "./db/migrate-command.ts"
-import { APP_HANDLE, APP_RELEASES_REPOSITORY } from "./lib/constants.ts"
+import { APP_HANDLE } from "./lib/constants.ts"
 import { getDataDirectory } from "./lib/data-directory.server.ts"
+import {
+  BINARY_HOST,
+  RELEASE_TARGET,
+  comparePlatformVersions,
+  fetchLatestPlatformVersion,
+  installPlatformRelease,
+  parsePlatformReleaseTag,
+  replaceablePlatformBinary,
+} from "./lib/runtime/platform-release.server.ts"
 import { getLocalSandboxImage } from "./lib/sandboxes/image.server.ts"
 
 const CLI_HELP_FOOTER = `
@@ -59,17 +59,6 @@ const BOOTSTRAP_PROMPTS = {
     "Encryption keyring, 32+ characters per entry (DATABASE_ENCRYPTION_KEY):",
 }
 
-// Release asset suffixes keyed by `${process.platform}-${process.arch}`.
-const RELEASE_TARGETS: Record<string, string> = {
-  "linux-x64": "linux-x86_64",
-  "linux-arm64": "linux-arm64",
-  "darwin-x64": "macos-x86_64",
-  "darwin-arm64": "macos-arm64",
-  "win32-x64": "windows-x86_64.exe",
-}
-
-const BINARY_HOST = `${process.platform}-${process.arch}`
-const RELEASE_TARGET = RELEASE_TARGETS[BINARY_HOST]
 const VERSION_OUTPUT = `${APP_HANDLE}-platform ${packageJson.version} (${RELEASE_TARGET ?? BINARY_HOST})`
 
 type BootstrapVariable = keyof typeof BOOTSTRAP_PROMPTS
@@ -413,80 +402,22 @@ program
   .action(async (requested: string | undefined, options: { yes?: boolean }) => {
     const binaryPath = process.execPath
     try {
-      // Never replace the runtime when invoked from a checkout. https://bun.sh/docs/bundler/executables
-      if (!Bun.isStandaloneExecutable) {
-        throw new Error(
-          "upgrade replaces a compiled binary, so pull and rebuild a checkout instead",
-        )
-      }
-      if (!RELEASE_TARGET) throw new Error(`no release binary for ${BINARY_HOST}`)
-      let tag = requested
-      if (!tag) {
-        const response = await fetch(
-          `https://api.github.com/repos/${APP_RELEASES_REPOSITORY}/releases/latest`,
-        )
-        if (!response.ok) throw new Error(`latest release lookup returned HTTP ${response.status}`)
-        tag = ((await response.json()) as { tag_name: string }).tag_name
-      }
-      const version = tag.replace(/^v/, "")
-      if (!/^\d+\.\d+\.\d+$/.test(version)) {
-        throw new Error(`${tag} is not a release tag such as v0.13.4`)
-      }
-      const order = version.localeCompare(packageJson.version, undefined, { numeric: true })
+      replaceablePlatformBinary()
+      const version = requested
+        ? parsePlatformReleaseTag(requested)
+        : await fetchLatestPlatformVersion()
+      const order = comparePlatformVersions(version, packageJson.version)
       if (order === 0 || (order < 0 && !requested)) {
         return console.log(`Already at ${packageJson.version}`)
       }
-      if (order < 0) {
-        throw new Error(
-          `downgrading to ${version} is not supported, because migrations stay applied`,
-        )
-      }
-      // Earlier releases publish no SHA256SUMS to check the download against.
-      if (version.localeCompare("0.13.4", undefined, { numeric: true }) < 0) {
-        throw new Error("upgrade supports v0.13.4 and later releases, which publish SHA256SUMS")
-      }
       if (
+        order > 0 &&
         !options.yes &&
         !confirm(`Replace ${packageJson.version} with ${version} at ${binaryPath}?`)
       ) {
         throw new Error("upgrade cancelled")
       }
-      const asset = `${APP_HANDLE}-platform-${RELEASE_TARGET}`
-      const releaseUrl = `https://github.com/${APP_RELEASES_REPOSITORY}/releases/download/v${version}`
-      const sums = await fetch(`${releaseUrl}/SHA256SUMS`)
-      if (!sums.ok) {
-        throw new Error(`downloading v${version} SHA256SUMS returned HTTP ${sums.status}`)
-      }
-      // `sha256sum` writes `<hash>  <name>`, or `<hash> *<name>` in binary mode.
-      const expected = (await sums.text())
-        .split("\n")
-        .map((line) => line.split(/ [ *]/))
-        .find(([, name]) => name === asset)?.[0]
-      if (!expected) throw new Error(`v${version} SHA256SUMS lists no ${asset}`)
-      const response = await fetch(`${releaseUrl}/${asset}`)
-      if (!response.ok) {
-        throw new Error(`downloading v${version} ${asset} returned HTTP ${response.status}`)
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer())
-      if (createHash("sha256").update(bytes).digest("hex") !== expected) {
-        throw new Error(`v${version} ${asset} does not match its SHA256SUMS entry`)
-      }
-      const downloadDirectory = mkdtempSync(`${binaryPath}.upgrade-`)
-      const downloadPath = join(downloadDirectory, "binary")
-      try {
-        writeFileSync(downloadPath, bytes, { flag: "wx" })
-        chmodSync(downloadPath, 0o755)
-        // Windows cannot overwrite a running executable, but it can rename one.
-        if (process.platform === "win32") renameSync(binaryPath, `${binaryPath}.old`)
-        try {
-          renameSync(downloadPath, binaryPath)
-        } catch (error) {
-          if (process.platform === "win32") renameSync(`${binaryPath}.old`, binaryPath)
-          throw error
-        }
-      } finally {
-        rmSync(downloadDirectory, { recursive: true, force: true })
-      }
+      await installPlatformRelease(version)
       console.log(`Replaced ${packageJson.version} with ${version}`)
       console.log(`Run \`${program.name()} migrate\`, then restart the service`)
     } catch (error) {
