@@ -11,16 +11,18 @@ import { effectHandler } from "@/lib/runtime/server-fn.server"
 import { configureMiddleware } from "../-lib/configure-middleware"
 
 /** Returns the running and latest release versions when a release binary can upgrade itself. */
-export const getAvailableUpdate = createServerFn({ method: "GET" })
+export const getPlatformVersion = createServerFn({ method: "GET" })
   .middleware([configureMiddleware])
   .handler(
     effectHandler(() =>
       Effect.gen(function* () {
         if (!Bun.isStandaloneExecutable || !RELEASE_TARGET) return null
         const latestVersion = yield* Effect.promise(fetchLatestPlatformVersion)
-        return comparePlatformVersions(latestVersion, version) > 0
-          ? { currentVersion: version, latestVersion }
-          : null
+        return {
+          currentVersion: version,
+          latestVersion,
+          updateAvailable: comparePlatformVersions(latestVersion, version) > 0,
+        }
       }),
     ),
   )

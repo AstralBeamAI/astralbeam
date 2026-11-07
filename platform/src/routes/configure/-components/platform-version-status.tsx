@@ -1,7 +1,8 @@
 "use client"
 
 import { ArrowCircleUpIcon } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 import { DocsLink } from "@/components/docs-link"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -22,10 +23,8 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { APP_HANDLE, APP_NAME, APP_RELEASES_REPOSITORY } from "@/lib/constants"
 import { parseServerFnError } from "@/lib/runtime/server-fn-error"
-import { getAvailableUpdate } from "../-functions/get-available-update"
+import { getPlatformVersion } from "../-functions/get-platform-version"
 import { installUpdate } from "../-functions/install-update"
-
-type Update = Awaited<ReturnType<typeof getAvailableUpdate>>
 
 // Reload once the restarted server answers, giving systemd a moment to stop the old one first.
 async function reloadAfterRestart() {
@@ -38,18 +37,27 @@ async function reloadAfterRestart() {
   globalThis.location.reload()
 }
 
-export function UpdateAvailableButton() {
-  const [update, setUpdate] = useState<Update>(null)
+/** Shows the running release with an update button when a newer one exists. */
+export function PlatformVersionStatus() {
+  // The action row renders twice, so both copies share one lookup, and a failed lookup hides it.
+  const { data: update } = useQuery({
+    queryKey: ["configure", "platform-version"],
+    queryFn: () => getPlatformVersion(),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  })
   const [serviceName, setServiceName] = useState(`${APP_HANDLE}-platform`)
   const [status, setStatus] = useState<"idle" | "installing" | "done">("idle")
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null)
 
-  useEffect(() => {
-    // A failed release lookup only hides the button.
-    void getAvailableUpdate().then(setUpdate, () => undefined)
-  }, [])
-
   if (!update) return null
+  if (!update.updateAvailable) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Platform version {update.currentVersion} (latest)
+      </p>
+    )
+  }
 
   const handleInstall = async () => {
     setStatus("installing")
@@ -77,7 +85,7 @@ export function UpdateAvailableButton() {
 
   return (
     <AlertDialog>
-      <AlertDialogTrigger className={buttonVariants({ size: "sm" })}>
+      <AlertDialogTrigger className={buttonVariants({ variant: "outline" })}>
         <ArrowCircleUpIcon aria-hidden="true" />
         Update available
       </AlertDialogTrigger>
