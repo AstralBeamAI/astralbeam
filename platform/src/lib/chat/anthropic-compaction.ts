@@ -113,8 +113,8 @@ export function createChatAnthropicCompactionAdapter(
       const previous: unknown = input.messages[0]?.metadata?.anthropicCompaction
       if (previous !== undefined && !Schema.is(AnthropicCompactionMessageSchema)(previous))
         throw new ChatCompactionError({ code: "compaction_failed" })
-      // Remove this bridge when the upstream adapter supports compact() and signed-block replay.
-      // https://github.com/TanStack/ai/tree/main/packages/ai-anthropic
+      // Replace this native request bridge when TanStack implements Anthropic compact().
+      // https://github.com/TanStack/ai/issues/2081
       const mapper = makeAdapter(
         async (params: MessageCreateParamsStreaming, options?: Anthropic.RequestOptions) => {
           const { context_management: _context, ...request } = params
