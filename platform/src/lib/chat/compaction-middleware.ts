@@ -126,7 +126,7 @@ function chatCompactionCut(
     const size = messages
       .slice(0, offset)
       .reduce((sum, message) => sum + estimateChatContext(message), 0)
-    if (size > budget * 0.6) break
+    if (size > budget || (chosen && size > budget * 0.6)) break
     chosen = { anchor: state.history[index]!.id, offset }
     if (size > budget * 0.45) break
   }
