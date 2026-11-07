@@ -222,7 +222,13 @@ export function createChatCompactionMiddleware(options: {
     return [...chatCompactionMessages(state.artifact.payload), ...(await options.projectSuffix())]
   }
   const middleware = withCompaction({
-    maxTokens: () => Math.floor(budget * 0.8),
+    maxTokens: () => {
+      const settled = chatCompactionBoundaries(state.history).at(-1) ?? -1
+      const covered = state.history.findIndex(
+        (message) => message.id === state.artifact?.coveredThroughMessageId,
+      )
+      return Math.floor(budget * (settled > covered ? 0.8 : 1))
+    },
     estimateTokens: estimateChatContext,
     strategy: compact,
     ...(options.native && adapter.compact
