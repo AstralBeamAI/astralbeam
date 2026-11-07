@@ -321,6 +321,20 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
   return { state, adapter, summaryAdapter, save, requests, run }
 }
 
+test("a large settled turn can compact while the original conversation still fits", async () => {
+  const fixture = compactionTestSetup()
+  fixture.state.history = fixture.state.history.slice(0, 3)
+  for (const [index, size] of [3300, 3300, 2000].entries()) {
+    fixture.state.history[index]!.payload = {
+      version: 1,
+      parts: [{ id: `text-${index}`, type: "text", content: "x".repeat(size) }],
+    }
+  }
+  expect((await fixture.run()).text).toBe("Continued.")
+  expect(fixture.summaryAdapter.state.callCount).toBe(1)
+  expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
+})
+
 test("compaction persists across model phases and reloads without repeating committed tools", async () => {
   const fixture = compactionTestSetup()
   fixture.adapter.setResponses([
