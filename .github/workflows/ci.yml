@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     name: Check ${{ matrix.leg || matrix.project }}
-    runs-on: ubuntu-26.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       # Every project reports its own result, so one failing leg does not hide the others.
