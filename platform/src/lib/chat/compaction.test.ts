@@ -19,7 +19,7 @@ import {
   type ChatCompactionArtifact,
   type ChatCompactionState,
 } from "./compaction-middleware"
-import { chatCompactionBoundaries, chatCompactionMessages } from "./compaction"
+import { ChatCompactionError, chatCompactionBoundaries, chatCompactionMessages } from "./compaction"
 
 test("the persistence bridge retains native items and forwards TanStack request options", async () => {
   const output: ModelMessage[] = [
@@ -137,20 +137,31 @@ function compactionTestSetup(middleware: ChatMiddleware[] = []) {
   return { state, adapter, summaryAdapter, save, requests, run }
 }
 
-test("a large settled turn can compact while the original conversation still fits", async () => {
-  const fixture = compactionTestSetup()
-  fixture.state.history = fixture.state.history.slice(0, 3)
-  for (const [index, size] of [3300, 3300, 2000].entries()) {
-    fixture.state.history[index]!.payload = compactionTestPayload({
-      id: `text-${index}`,
-      type: "text",
-      content: "x".repeat(size),
-    })
-  }
-  expect((await fixture.run()).text).toBe("Continued.")
-  expect(fixture.summaryAdapter.state.callCount).toBe(1)
-  expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
-})
+test.each([
+  { sizes: [3300, 3300, 2000], covered: "a1", fits: true },
+  { sizes: [8500], covered: undefined, fits: true },
+  { sizes: [11000], covered: undefined, fits: false },
+])(
+  "large input capacity, settled prefix: $covered, fits: $fits",
+  async ({ sizes, covered, fits }) => {
+    const fixture = compactionTestSetup()
+    fixture.state.history = fixture.state.history.slice(0, sizes.length)
+    for (const [index, size] of sizes.entries()) {
+      fixture.state.history[index]!.payload = compactionTestPayload({
+        id: `text-${index}`,
+        type: "text",
+        content: "x".repeat(size),
+      })
+    }
+    const result = await fixture.run().then(
+      (reply) => reply.text,
+      (error: unknown) => (error instanceof ChatCompactionError ? error.code : error),
+    )
+    expect(result).toBe(fits ? "Continued." : "compaction_context_full")
+    expect(fixture.summaryAdapter.state.callCount).toBe(covered ? 1 : 0)
+    expect(fixture.state.artifact?.coveredThroughMessageId).toBe(covered)
+  },
+)
 
 test("compaction persists across model phases and reloads without repeating committed tools", async () => {
   const fixture = compactionTestSetup()

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { ModelConfiguration } from "./schemas.ts"
 import { modelUsageCost } from "./usage-cost.ts"
+import { chatAnthropicCompactionUsage } from "../chat/compaction-usage"
 
 const configuration: ModelConfiguration = {
   currency: "USD",
@@ -92,5 +93,30 @@ describe("modelUsageCost", () => {
         providerUsageDetails: { requestUsage },
       }),
     ).toBe("0.66")
+  })
+
+  it("prices Anthropic compaction iterations separately, including cached writes", () => {
+    const iteration = {
+      input_tokens: 90_000,
+      output_tokens: 1000,
+      cache_read_input_tokens: 50_000,
+      cache_creation_input_tokens: 10_000,
+      cache_creation: { ephemeral_1h_input_tokens: 4000 },
+    }
+    const usage = chatAnthropicCompactionUsage({
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_input_tokens: null,
+        cache_creation_input_tokens: null,
+        iterations: [iteration, iteration],
+      },
+    })!
+    const priced = {
+      ...configuration,
+      prices: { ...configuration.prices, cacheWritePerMillion: "4", cacheWrite1hPerMillion: "6" },
+    }
+    // Each iteration costs $0.27 input + $0.015 reads + $0.048 writes + $0.015 output.
+    expect(modelUsageCost(priced, usage)).toBe("0.696")
   })
 })

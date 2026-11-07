@@ -13,8 +13,8 @@ const ChatCompactionNativeUsageSchema = Schema.Struct({
 const AnthropicCompactionTokenUsageSchema = Schema.Struct({
   input_tokens: Schema.Number,
   output_tokens: Schema.Number,
-  cache_read_input_tokens: Schema.optional(Schema.Number),
-  cache_creation_input_tokens: Schema.optional(Schema.Number),
+  cache_read_input_tokens: Schema.optional(Schema.NullOr(Schema.Number)),
+  cache_creation_input_tokens: Schema.optional(Schema.NullOr(Schema.Number)),
   cache_creation: Schema.optional(
     Schema.NullOr(Schema.Struct({ ephemeral_1h_input_tokens: Schema.Number })),
   ),
@@ -29,6 +29,22 @@ export function chatAnthropicCompactionUsage(value: unknown): TokenUsage | undef
   if (!Schema.is(AnthropicCompactionUsageSchema)(value)) return undefined
   const { usage } = value
   const rows = usage.iterations?.length ? usage.iterations : [usage]
+  return {
+    ...chatAnthropicUsageTotal(rows),
+    ...(usage.iterations?.length
+      ? {
+          providerUsageDetails: {
+            iterations: usage.iterations,
+            requestUsage: rows.map((row) => chatAnthropicUsageTotal([row])),
+          },
+        }
+      : {}),
+  }
+}
+
+function chatAnthropicUsageTotal(
+  rows: readonly (typeof AnthropicCompactionTokenUsageSchema.Type)[],
+): TokenUsage {
   const total = (read: (row: typeof AnthropicCompactionTokenUsageSchema.Type) => number) =>
     rows.reduce((sum, row) => sum + read(row), 0)
   const cachedTokens = total((row) => row.cache_read_input_tokens ?? 0)
@@ -44,7 +60,6 @@ export function chatAnthropicCompactionUsage(value: unknown): TokenUsage | undef
       cacheWriteTokens,
       cacheWrite1hTokens: total((row) => row.cache_creation?.ephemeral_1h_input_tokens ?? 0),
     },
-    ...(usage.iterations ? { providerUsageDetails: { iterations: usage.iterations } } : {}),
   }
 }
 
