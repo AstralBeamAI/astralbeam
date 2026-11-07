@@ -11,7 +11,7 @@ runs:
       shell: bash
       env:
         IMAGE_NAME: ghcr.io/astralbeamai/${{ inputs.image }}
-        IMAGE_DIRECTORY: ${{ runner.temp }}/${{ inputs.image }}
+        IMAGE_DIRECTORY: ${{ runner.temp }}/release-artifacts/${{ inputs.image }}
       run: |
         digest="$(jq -er '."containerimage.digest" // ."containerimage.descriptor".digest' "$IMAGE_DIRECTORY/image-metadata.json")"
         docker buildx imagetools inspect "$IMAGE_NAME@$digest" \
