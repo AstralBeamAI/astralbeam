@@ -66,9 +66,24 @@ test("the installed OpenAI adapter round-trips the complete native window and re
     },
   }
   const adapter: AnyTextAdapter = createChatAdapter(model, record)
-  const fixture = compactionTestSetup()
-  Object.assign(fixture.adapter, { compact: adapter.compact!.bind(adapter) })
+  const systemPrompts = [{ content: "Current instructions", metadata: { source: "agent" } }]
+  let wrapped = false
+  const fixture = compactionTestSetup([
+    {
+      onConfig: () => ({
+        systemPrompts,
+        wrapFetch(fetch) {
+          wrapped = true
+          return fetch
+        },
+      }),
+    },
+  ])
+  const compact = vi.fn(adapter.compact!.bind(adapter))
+  Object.assign(fixture.adapter, { compact })
   await fixture.run(true)
+  expect(wrapped).toBe(true)
+  expect(compact).toHaveBeenCalledWith(expect.objectContaining({ systemPrompts }))
   expect(fixture.state.artifact?.coveredThroughMessageId).toBe("a1")
   expect(fixture.state.artifact?.payload.messages).toHaveLength(2)
   const messages = fixture.requests[0]!
@@ -240,7 +255,7 @@ function compactionTestHistory(): MessageRecord[] {
   })) as unknown as MessageRecord[]
 }
 
-function compactionTestSetup() {
+function compactionTestSetup(middleware: ChatMiddleware[] = []) {
   const state = {
     history: compactionTestHistory(),
     compatibilityKey: "provider-config",
@@ -270,16 +285,15 @@ function compactionTestSetup() {
     )
     return projectChatModelHistory(state.history.slice(index + 1))
   }
-  const middleware = (native = false) =>
+  const compaction = (native = false) =>
     createChatCompactionMiddleware({
       state,
       adapter,
       summaryAdapter,
-      modelId: adapter.model,
       native,
       configuration: compactionTestLimits,
       summaryOptions: {},
-      summaryMiddleware: [],
+      onUsage: async () => {},
       beforeCall: async () => {},
       save,
       projectSuffix: () => Promise.resolve(suffix()),
@@ -301,7 +315,7 @@ function compactionTestSetup() {
       stream: false,
       debug: false,
       tools,
-      middleware: [projection, middleware(native)],
+      middleware: [projection, ...middleware, compaction(native)],
       ...(abortController ? { abortController } : {}),
     })
   return { state, adapter, summaryAdapter, save, requests, run }
