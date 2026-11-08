@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/organization
-// Local changes: Replace Lucide with Phosphor icons, link each row to that organization's slug-scoped dashboard, open the setup checklist after creating an organization, and colocate private row and empty states.
+// Local changes: Replace Lucide with Phosphor icons, link each row to that organization's slug-scoped dashboard, open the setup checklist after creating an organization, colocate private row and empty states, and refresh memberships on navigation.
 "use client"
 
 import type { OrganizationAuthClient } from "@better-auth-ui/core/plugins/organization"
@@ -44,7 +44,9 @@ export function Organizations({ className }: OrganizationsProps) {
 
   const [createOpen, setCreateOpen] = useState(false)
 
-  const { data: organizations, isPending: organizationsPending } = useListOrganizations(authClient)
+  const { data: organizations, isPending } = useListOrganizations(authClient, {
+    refetchOnMount: "always",
+  })
   const canCreate =
     allowOrganizationCreation &&
     (organizationLimit === undefined || (organizations?.length ?? 0) < organizationLimit)
@@ -62,7 +64,7 @@ export function Organizations({ className }: OrganizationsProps) {
               <Button
                 className="shrink-0"
                 size="sm"
-                disabled={organizationsPending || !canCreate}
+                disabled={isPending || !canCreate}
                 onClick={() => setCreateOpen(true)}
               >
                 {organizationLocalization.createOrganization}
@@ -72,7 +74,7 @@ export function Organizations({ className }: OrganizationsProps) {
 
           <Card className="p-0">
             <CardContent className="p-0">
-              {organizationsPending ? (
+              {isPending ? (
                 <ItemGroup>
                   <Item>
                     <OrganizationViewSkeleton />
