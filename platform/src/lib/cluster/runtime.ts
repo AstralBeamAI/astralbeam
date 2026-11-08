@@ -41,7 +41,7 @@ const superviseClusterRunner = Effect.fnUntraced(function* (
   )
   yield* Effect.logInfo("Cluster runner ready", { address: config.runnerAddress })
   yield* Effect.gen(function* () {
-    if (yield* sharding.isShutdown) return yield* Effect.fail(new Error("Cluster runner stopped"))
+    if (yield* sharding.isShutdown) return yield* new ClusterUnavailableError()
   }).pipe(Effect.repeat(Schedule.spaced("5 seconds")))
 }, Effect.scoped)
 
@@ -90,10 +90,9 @@ export const startClusterRunner = Effect.gen(function* () {
     Effect.forkDetach,
   )
 }).pipe(
-  Effect.catchCause((cause) =>
-    Cause.hasInterruptsOnly(cause)
-      ? Effect.failCause(cause)
-      : Effect.logError("Cluster runner could not start. Check server configuration."),
+  Effect.catchCauseIf(
+    (cause) => !Cause.hasInterruptsOnly(cause),
+    () => Effect.logError("Cluster runner could not start. Check server configuration."),
   ),
   Semaphore.withPermit(clusterRuntimeState.transitions),
 )

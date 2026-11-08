@@ -1,11 +1,14 @@
 import { Effect, Schema, Stream } from "effect"
 
-class RequestTooLarge extends Schema.TaggedError<RequestTooLarge>()("RequestTooLarge", {}) {}
+class RequestTooLarge extends Schema.TaggedError<
+  RequestTooLarge,
+  { readonly brand: unique symbol }
+>()("RequestTooLarge", {}) {}
 
-class RequestBodyInvalid extends Schema.TaggedError<RequestBodyInvalid>()(
-  "RequestBodyInvalid",
-  {},
-) {}
+class RequestBodyInvalid extends Schema.TaggedError<
+  RequestBodyInvalid,
+  { readonly brand: unique symbol }
+>()("RequestBodyInvalid", {}) {}
 
 /** Reads a JSON body, refusing one over `maximumBytes` as declared and again while it streams. */
 export const readRequestJson = Effect.fn("readRequestJson")(function* (

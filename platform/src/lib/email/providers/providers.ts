@@ -74,10 +74,10 @@ export function emailProviderCall<A>(call: (signal: AbortSignal) => PromiseLike<
     try: call,
     catch: (cause) => new EmailDeliveryError({ reason: errorReason(cause) }),
   }).pipe(
-    Effect.timeout(EMAIL_PROVIDER_TIMEOUT),
-    Effect.catchTag("TimeoutError", () =>
-      Effect.fail(new EmailDeliveryError({ reason: "timeout" })),
-    ),
+    Effect.timeoutOrElse({
+      duration: EMAIL_PROVIDER_TIMEOUT,
+      orElse: () => Effect.fail(new EmailDeliveryError({ reason: "timeout" })),
+    }),
   )
 }
 
@@ -90,10 +90,11 @@ export function emailConnectionCheck<A>(check: (signal: AbortSignal) => PromiseL
         message: cause instanceof Error && cause.message ? cause.message : "Connection test failed",
       }),
   }).pipe(
-    Effect.timeout(EMAIL_PROVIDER_TIMEOUT),
-    Effect.catchTag("TimeoutError", () =>
-      Effect.fail(new EmailConnectionFailed({ message: "The provider did not respond in time" })),
-    ),
+    Effect.timeoutOrElse({
+      duration: EMAIL_PROVIDER_TIMEOUT,
+      orElse: () =>
+        Effect.fail(new EmailConnectionFailed({ message: "The provider did not respond in time" })),
+    }),
   )
 }
 

@@ -85,10 +85,10 @@ export const readDatabaseConfig = Effect.fnUntraced(function* (
       ),
     )
     .pipe(
-      Effect.map(Option.some),
+      Effect.asSome,
       Effect.catchIf(
         (error) => sqlState(error) === "42P01",
-        () => Effect.succeed(Option.none()),
+        () => Effect.succeedNone,
       ),
       Effect.orDie,
     )

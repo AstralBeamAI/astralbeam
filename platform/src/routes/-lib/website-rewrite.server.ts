@@ -33,7 +33,7 @@ const FORWARDED_REQUEST_HEADERS = [
 ]
 
 const websiteUrlSetting = Effect.flatMap(Config, (config) => config.get("website_url")).pipe(
-  Effect.catchCause(() => Effect.succeed(undefined)),
+  Effect.catchCause(() => Effect.undefined),
 )
 
 /** The configured website origin, unset before setup and while the database is unreachable. */
@@ -94,22 +94,20 @@ export function rewriteToWebsite(
         if (value !== null) headers.set(name, value)
       }
       headers.set("accept-encoding", request.headers.get("accept-encoding") ?? "identity")
-      return yield* Effect.tryPromise({
-        try: (signal) =>
-          // Preserve negotiated bytes and headers through the proxy without recompression.
-          // https://bun.sh/docs/runtime/networking/fetch#content-encoding
-          fetch(url, {
-            method: request.method,
-            headers,
-            redirect: "manual",
-            signal,
-            decompress: false,
-          }),
-        catch: (cause) => cause,
-      }).pipe(
+      return yield* Effect.tryPromise((signal) =>
+        // Preserve negotiated bytes and headers through the proxy without recompression.
+        // https://bun.sh/docs/runtime/networking/fetch#content-encoding
+        fetch(url, {
+          method: request.method,
+          headers,
+          redirect: "manual",
+          signal,
+          decompress: false,
+        }),
+      ).pipe(
         Effect.catch((error) =>
           Effect.logWarning("Website request failed").pipe(
-            Effect.annotateLogs({ reason: errorReason(error) }),
+            Effect.annotateLogs({ reason: errorReason(error.cause) }),
             Effect.as(new Response("Bad Gateway", { status: 502 })),
           ),
         ),

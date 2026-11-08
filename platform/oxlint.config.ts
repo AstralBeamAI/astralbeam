@@ -1,3 +1,4 @@
+import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import queryPlugin from "@tanstack/eslint-plugin-query"
 import routerPlugin from "@tanstack/eslint-plugin-router"
 import startPlugin from "@tanstack/eslint-plugin-start"
@@ -164,6 +165,10 @@ const projectPathImportPattern = {
 }
 
 const baseRules: RuleMap = {
+  // Required Effect v4 integrations are unstable. Re-enable when their APIs become stable.
+  // https://github.com/Effect-TS/tsgo/blob/main/docs/rules/unstable-api-usage.md
+  "effecttsgo/unstable-api-usage": "off",
+  "effecttsgo/experimental-api-usage": "off",
   ...recommendedRules.query,
   ...recommendedRules.router,
   ...recommendedRules.start,
@@ -221,7 +226,8 @@ const deepImportPatterns = [
 ]
 
 export default defineConfig({
-  plugins: ["eslint", "typescript", "unicorn", "oxc", "react"],
+  extends: [effectRecommended],
+  plugins: ["effecttsgo", "eslint", "typescript", "unicorn", "oxc", "react"],
   categories: { correctness: "error" },
   // A stale disable directive fails lint.
   options: { typeAware: true, denyWarnings: true, reportUnusedDisableDirectives: "error" },

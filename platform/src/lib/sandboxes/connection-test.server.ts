@@ -1,5 +1,5 @@
 import { SandboxCheckError } from "@astralbeam/sandbox"
-import { DateTime, Effect, Predicate } from "effect"
+import { Cause, DateTime, Effect, Predicate } from "effect"
 
 import { createSandboxProvider } from "./factory.server.ts"
 import type {
@@ -19,10 +19,7 @@ export const runSandboxConnectionTest = Effect.fn("runSandboxConnectionTest")(fu
   return yield* createSandboxProvider(input.provider, input).pipe(
     Effect.flatMap((provider) => {
       let checking: Promise<true> | undefined
-      return Effect.tryPromise({
-        try: (signal) => (checking = provider.valid({ signal })),
-        catch: (cause) => cause,
-      }).pipe(
+      return Effect.tryPromise((signal) => (checking = provider.valid({ signal }))).pipe(
         Effect.onInterrupt(() =>
           Effect.promise(async () => {
             await checking?.catch(() => undefined)
@@ -31,7 +28,8 @@ export const runSandboxConnectionTest = Effect.fn("runSandboxConnectionTest")(fu
       )
     }),
     Effect.as<SandboxTestMetadata>({ status: "success", testedAt }),
-    Effect.catch((cause) => {
+    Effect.catch((failure) => {
+      const cause = Cause.isUnknownError(failure) ? failure.cause : failure
       const errorCode =
         cause instanceof SandboxCheckError && cause.action === "destroy-sandbox"
           ? "cleanup_failed"

@@ -125,8 +125,9 @@ const makeMcpTools = Effect.gen(function* () {
       )
       const credentialInput = { ...input, expectedVersion: connection.lockVersion }
       const callSignals = new AsyncLocalStorage<AbortSignal | undefined>()
+      const runPromise = Effect.runPromiseWith(yield* Effect.context<never>())
       const readCredential = (rejectedToken?: string) =>
-        Effect.runPromise(authorization.getCredential({ ...credentialInput, rejectedToken }), {
+        runPromise(authorization.getCredential({ ...credentialInput, rejectedToken }), {
           signal: callSignals.getStore(),
         }).then(Redacted.value)
       let lastToken: string | undefined
@@ -256,9 +257,7 @@ const makeMcpTools = Effect.gen(function* () {
     const pending = yield* Effect.forEach(
       active.slice(0, MCP_MAX_CONNECTIONS),
       (connection) =>
-        openClient({ actor, reference: connection }).pipe(
-          Effect.catch(() => Effect.succeed(undefined)),
-        ),
+        openClient({ actor, reference: connection }).pipe(Effect.catch(() => Effect.undefined)),
       { concurrency: 4 },
     )
     const tools = pending.flatMap((entry) => entry ?? [])

@@ -93,7 +93,7 @@ export function ModelProviderForm({
   } | null>(null)
   const [saveError, setSaveError] = useState<ServerFnError | null>(null)
   const conflicted = saveError?.tag === "ModelProviderChanged"
-  const input = Schema.decodeUnknownResult(
+  const input = Schema.decodeResult(
     SaveModelProviderInputSchema,
     strictParseOptions,
   )({

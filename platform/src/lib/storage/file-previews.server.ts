@@ -66,7 +66,7 @@ const renderPreview = Effect.fn("FilePreviews.render")(
         .toBuffer()
       signal.throwIfAborted()
       return preview
-    }).pipe(Effect.catch(() => Effect.succeed(undefined))),
+    }).pipe(Effect.catch(() => Effect.undefined)),
 )
 
 export const FilePreviewRenderer = Context.Reference("astralbeam/storage/FilePreviewRenderer", {
@@ -105,31 +105,28 @@ export class FilePreviews extends Context.Service<
         const key = filePreviewObjectKey(file.objectKey)
         const cached = yield* storage
           .get({ key, maxBytes: 256 * 1024 })
-          .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.succeed(undefined)))
+          .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.undefined))
         if (cached) return { bytes: cached, mimeType: "image/webp" as const }
-        const controller = new AbortController()
-        const bytes = yield* Effect.acquireUseRelease(
-          files.read({ file }).pipe(
-            // Native work cannot be interrupted. Its service-owned fiber retains the permit.
-            Effect.flatMap((source) =>
-              render(file, source, controller.signal).pipe(Effect.uninterruptible),
+        const bytes = yield* Effect.gen(function* () {
+          const signal = yield* Effect.abortSignal
+          return yield* Effect.acquireUseRelease(
+            files.read({ file }).pipe(
+              // Native work cannot be interrupted. Its service-owned fiber retains the permit.
+              Effect.flatMap((source) => render(file, source, signal).pipe(Effect.uninterruptible)),
+              Semaphore.withPermit(renders),
+              Effect.forkIn(scope, { uninterruptible: false }),
             ),
-            Semaphore.withPermit(renders),
-            Effect.forkIn(scope, { uninterruptible: false }),
-          ),
-          Fiber.join,
-          (job) =>
-            Effect.sync(() => controller.abort()).pipe(
-              Effect.andThen(Fiber.interrupt(job).pipe(Effect.forkIn(scope))),
-            ),
-        )
+            Fiber.join,
+            (job) => Fiber.interrupt(job).pipe(Effect.forkIn(scope)),
+          )
+        }).pipe(Effect.scoped)
         if (!bytes) return
         yield* storage.put({ key, bytes, contentType: "image/webp" })
         const source = yield* storage
           .head({ key: file.objectKey })
-          .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.succeed(undefined)))
+          .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.undefined))
         if (!source) {
-          yield* storage.remove({ key }).pipe(Effect.catch(() => Effect.void))
+          yield* storage.remove({ key }).pipe(Effect.ignore)
           return
         }
         return { bytes, mimeType: "image/webp" as const }

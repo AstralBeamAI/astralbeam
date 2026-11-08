@@ -1,6 +1,6 @@
 import { calcPrice, REMOTE_DATA_JSON_URL, type Provider } from "@pydantic/genai-prices"
-import { Effect, Predicate, Schedule, Schema, Stream } from "effect"
-import { FetchHttpClient, HttpClient } from "effect/http"
+import { Data, Effect, Predicate, Schedule, Schema, Stream } from "effect"
+import { FetchHttpClient, HttpClient, type HttpClientError } from "effect/http"
 import { Activity, Workflow } from "effect/workflow"
 
 import { ModelPriceCatalogProvidersSchema } from "../model-providers/pricing-catalog-schemas.ts"
@@ -9,13 +9,19 @@ import {
   writeModelPriceCatalog,
 } from "../model-providers/pricing-catalog.server.ts"
 
+class ModelPriceCatalogInvalid extends Data.TaggedError("ModelPriceCatalogInvalid")<{
+  message: string
+}> {}
+
 const modelPriceCatalogRefresh = Effect.gen(function* () {
   const body = yield* Effect.gen(function* () {
     const client = HttpClient.filterStatusOk(HttpClient.withScope(yield* HttpClient.HttpClient))
     const response = yield* client.get(REMOTE_DATA_JSON_URL)
     return yield* response.stream.pipe(
-      Stream.limitBytes(16 * 1024 * 1024, () =>
-        Stream.fail(new Error("Pricing catalog is too large")),
+      Stream.limitBytes<HttpClientError.HttpClientError | ModelPriceCatalogInvalid, never>(
+        16 * 1024 * 1024,
+        () =>
+          Stream.fail(new ModelPriceCatalogInvalid({ message: "Pricing catalog is too large" })),
       ),
       Stream.mkUint8Array,
       Effect.map((bytes) => new TextDecoder().decode(bytes)),
@@ -25,13 +31,15 @@ const modelPriceCatalogRefresh = Effect.gen(function* () {
     Effect.scoped,
     Effect.timeout("30 seconds"),
   )
-  const providers = yield* Schema.decodeUnknownEffect(
+  const providers = yield* Schema.decodeEffect(
     Schema.fromJsonString(ModelPriceCatalogProvidersSchema),
   )(body)
   for (const id of Object.values(modelPriceCatalogProviderIds)) {
     const provider = providers.find((item) => item.id === id)
     if (!provider || provider.models.length === 0)
-      return yield* Effect.fail(new Error("Pricing catalog is missing a supported provider"))
+      return yield* new ModelPriceCatalogInvalid({
+        message: "Pricing catalog is missing a supported provider",
+      })
     for (const model of provider.models) {
       yield* Effect.try(() => calcPrice({}, model.id, { provider: provider as Provider }))
     }

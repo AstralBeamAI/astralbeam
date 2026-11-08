@@ -33,7 +33,7 @@ export const readModelPriceCatalog = Effect.gen(function* () {
   const config = yield* Config
   const value = yield* config.readStoredValue("model_price_catalog")
   if (value === null) return bundledModelPriceCatalog
-  const catalog = Schema.decodeUnknownOption(modelPriceCatalogJsonSchema)(value)
+  const catalog = Schema.decodeOption(modelPriceCatalogJsonSchema)(value)
   if (Option.isSome(catalog)) return catalog.value
   yield* Effect.logWarning("Ignoring invalid stored model pricing catalog")
   return bundledModelPriceCatalog
@@ -44,7 +44,10 @@ export const writeModelPriceCatalog = Effect.fn("writeModelPriceCatalog")(functi
 ) {
   const config = yield* Config
   yield* config.write([
-    { key: "model_price_catalog", value: Schema.encodeSync(modelPriceCatalogJsonSchema)(catalog) },
+    {
+      key: "model_price_catalog",
+      value: yield* Schema.encodeEffect(modelPriceCatalogJsonSchema)(catalog).pipe(Effect.orDie),
+    },
   ])
 })
 

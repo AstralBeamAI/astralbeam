@@ -23,7 +23,7 @@ const resumeOutsideRequest = Effect.callback<void>((resume) => {
 })
 
 /** Answers one request through TanStack's event storage, as its server function handler does. */
-function serveServerFn(evaluate: () => Effect.Effect<unknown, unknown, ServerRequest>) {
+function serveServerFn<A, E>(evaluate: () => Effect.Effect<A, E, ServerRequest>) {
   const handler = effectHandler(evaluate)
   return createServerEntry({
     fetch: async () => {
@@ -110,7 +110,9 @@ describe("Effect server functions", () => {
 
   it("throws an exposed failure as its tag and user-safe message with its status", async () => {
     const response = await serveServerFn(() =>
-      Effect.fail(new AgentNameTaken()).pipe(Effect.catchTag("AgentNameTaken", exposeError)),
+      Effect.fail(new AgentNameTaken()).pipe(
+        Effect.catchTag("AgentNameTaken", (error) => exposeError(error)),
+      ),
     )
     expect(await response.text()).toBe("[AgentNameTaken] An agent with this name already exists")
     expect(response.status).toBe(409)

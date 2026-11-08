@@ -16,7 +16,10 @@ const OWNER_ONBOARDING_MESSAGES = {
 } as const
 
 /** Each reason has one fixed message, written for the operator inviting the owner. */
-export class OwnerOnboardingFailed extends Schema.TaggedError<OwnerOnboardingFailed>()(
+export class OwnerOnboardingFailed extends Schema.TaggedError<
+  OwnerOnboardingFailed,
+  { readonly brand: unique symbol }
+>()(
   "OwnerOnboardingFailed",
   { reason: Schema.Literals(Object.keys(OWNER_ONBOARDING_MESSAGES) as OwnerOnboardingReason[]) },
   { httpApiStatus: 409 },
@@ -29,10 +32,9 @@ export class OwnerOnboardingFailed extends Schema.TaggedError<OwnerOnboardingFai
 type OwnerOnboardingReason = keyof typeof OWNER_ONBOARDING_MESSAGES
 
 /** Another operator request holds the provisioning lock. */
-export class ConfigurationBusy extends Schema.TaggedError<ConfigurationBusy>()(
-  "ConfigurationBusy",
-  {},
-  { httpApiStatus: 409 },
-) {
+export class ConfigurationBusy extends Schema.TaggedError<
+  ConfigurationBusy,
+  { readonly brand: unique symbol }
+>()("ConfigurationBusy", {}, { httpApiStatus: 409 }) {
   override readonly message = "Configuration is busy. Try again shortly."
 }

@@ -6,10 +6,10 @@ import { decryptCompactJwe, encryptCompactJwe } from "./compact-jwe.ts"
 import type { DatabaseEncryptionKeyring, DatabaseKeyringEntry } from "./database-credentials.ts"
 
 /** Every encryption failure reads alike, so it never describes or echoes the stored value. */
-export class DatabaseEncryptionError extends Schema.TaggedError<DatabaseEncryptionError>()(
-  "DatabaseEncryptionError",
-  {},
-) {
+export class DatabaseEncryptionError extends Schema.TaggedError<
+  DatabaseEncryptionError,
+  { readonly brand: unique symbol }
+>()("DatabaseEncryptionError", {}) {
   override readonly message = "Stored database value could not be processed"
 }
 

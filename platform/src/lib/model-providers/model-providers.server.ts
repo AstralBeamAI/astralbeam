@@ -495,14 +495,15 @@ export class ModelProviders extends Context.Service<
           )
           .pipe(
             mapModelProviderWriteErrors,
-            Effect.catchTag("OptimisticLockError", () => Effect.fail(new ModelProviderChanged())),
-            Effect.catchTag("ModelProviderInUse", () =>
-              failInUse(
-                input.organizationId,
-                existing!.id,
-                input.models.map((model) => model.modelId),
-              ),
-            ),
+            Effect.catchTags({
+              OptimisticLockError: () => Effect.fail(new ModelProviderChanged()),
+              ModelProviderInUse: () =>
+                failInUse(
+                  input.organizationId,
+                  existing!.id,
+                  input.models.map((model) => model.modelId),
+                ),
+            }),
           )
       })
 

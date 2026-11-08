@@ -105,7 +105,7 @@ export const makeDatabaseCache = Effect.fn("makeDatabaseCache")(function* <
   })
   const expiresAfter = milliseconds === Infinity ? null : milliseconds
   const sql = yield* SqlClient.SqlClient
-  const keyed = <A>(method: string, key: string, query: () => Effect.Effect<A, unknown>) =>
+  const keyed = <A, E>(method: string, key: string, query: () => Effect.Effect<A, E>) =>
     validateDatabaseCacheIdentity(method, key, DATABASE_CACHE_KEY_MAX_LENGTH).pipe(
       Effect.andThen(() =>
         query().pipe(Effect.mapError((cause) => databaseCacheError(method, cause))),

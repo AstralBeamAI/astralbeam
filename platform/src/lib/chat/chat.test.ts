@@ -473,9 +473,11 @@ describe("Chat.run", () => {
       assert.notInclude(output, "Incorrect API key provided:")
       assert.include(output, "Chat model request failed")
     }).pipe(
-      Effect.provide(chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL })),
-      Effect.provide(serverLoggerLayer),
-      Effect.provide(TestConsole.layer),
+      Effect.provide([
+        chatTestLayer({ agent: sandboxedAgent, model: CHAT_TEST_MODEL }),
+        serverLoggerLayer,
+        TestConsole.layer,
+      ]),
     ),
   )
 

@@ -12,11 +12,10 @@ import {
 } from "@/db/migration-log"
 
 /** Carries the migration runner's reason, which names the migration and SQLSTATE for operators. */
-export class MigrationsNotApplied extends Schema.TaggedError<MigrationsNotApplied>()(
-  "MigrationsNotApplied",
-  { message: Schema.String },
-  { httpApiStatus: 409 },
-) {}
+export class MigrationsNotApplied extends Schema.TaggedError<
+  MigrationsNotApplied,
+  { readonly brand: unique symbol }
+>()("MigrationsNotApplied", { message: Schema.String }, { httpApiStatus: 409 }) {}
 
 export interface DatabaseMigrationState {
   readonly pending: readonly BundledMigration[]

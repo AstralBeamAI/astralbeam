@@ -243,7 +243,7 @@ export function chatHandlers(api: typeof ApiV1) {
             }).pipe(Effect.provideContext(services))
             if (!admission)
               return HttpServerResponse.jsonUnsafe(
-                Schema.encodeSync(ChatSubmissionReceiptSchema)(receipt),
+                yield* Schema.encodeEffect(ChatSubmissionReceiptSchema)(receipt).pipe(Effect.orDie),
               )
             return yield* chatAdmissionResponse({ admission, params, principal, clientId }).pipe(
               Effect.provideContext(services),

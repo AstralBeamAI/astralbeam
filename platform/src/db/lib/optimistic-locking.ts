@@ -29,7 +29,10 @@ type OptimisticLockOptions<TTable extends LockedTable> = {
 }
 
 /** No row matched the expected lock version, because it changed or no longer exists. */
-export class OptimisticLockError extends Schema.TaggedError<OptimisticLockError>()(
+export class OptimisticLockError extends Schema.TaggedError<
+  OptimisticLockError,
+  { readonly brand: unique symbol }
+>()(
   "OptimisticLockError",
   { expectedLockVersion: Schema.Int, tableName: Schema.String },
   { httpApiStatus: 409 },

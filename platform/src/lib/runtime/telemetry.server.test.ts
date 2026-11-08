@@ -5,7 +5,7 @@ import * as Resource from "@effect/opentelemetry/Resource"
 import * as BunHttpClient from "@effect/platform-bun/BunHttpClient"
 import { SpanStatusCode } from "@opentelemetry/api"
 import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base"
-import { Cause, Effect, Option } from "effect"
+import { Cause, Context, Effect, Layer, Option } from "effect"
 import { TestConsole } from "effect/testing"
 import { afterEach, vi } from "vitest"
 
@@ -97,7 +97,9 @@ it("isolates concurrent errors, redacts exports, and preserves cancellation and 
             await Promise.resolve()
             span.setAttribute("db.query.text", "private-sql")
             span.addEvent("discard", { password: "opaque-event" })
-            Effect.runSync(reportFailure(id, failure).pipe(Effect.provide(serverLoggerLayer)))
+            Effect.runSyncWith(Context.empty())(
+              reportFailure(id, failure).pipe(Effect.provide(serverLoggerLayer)),
+            )
             return new Response()
           },
         )
@@ -109,34 +111,39 @@ it("isolates concurrent errors, redacts exports, and preserves cancellation and 
       yield* Effect.promise(() => processor.forceFlush())
       return [exporter.getFinishedSpans(), original.getFinishedSpans()] as const
     }).pipe(
-      Effect.provide(telemetryLoggerLayer(undefined, posthogErrorLogger)),
-      Effect.provide(BunHttpClient.layer),
-      Effect.provide(requestTracingLayer(withPostHogContext)),
       Effect.provide(
-        NodeSdk.layer(() => ({
-          spanProcessor: [processor, new SimpleSpanProcessor(original)],
-        })),
+        telemetryLoggerLayer(undefined, posthogErrorLogger).pipe(
+          Layer.provideMerge(BunHttpClient.layer),
+          Layer.provideMerge(requestTracingLayer(withPostHogContext)),
+          Layer.provideMerge(
+            NodeSdk.layer(() => ({
+              spanProcessor: [processor, new SimpleSpanProcessor(original)],
+            })),
+          ),
+          Layer.provideMerge(
+            posthogClientLayer({
+              ...posthogOptionsFromValues({
+                otel_exporter_otlp_endpoint: "https://eu.i.posthog.com/i/",
+                otel_exporter_otlp_headers: "Authorization=Bearer generic-token",
+                otel_exporter_otlp_traces_headers: "authorization=Bearer trace-token",
+              })!,
+              disableCompression: true,
+              fetch: (url, { body }) => {
+                assert.strictEqual(new URL(url).hostname, "eu.i.posthog.com")
+                assert.isString(body)
+                const payload = JSON.parse(body as string) as {
+                  api_key: string
+                  batch: typeof events
+                }
+                assert.strictEqual(payload.api_key, "trace-token")
+                events.push(...payload.batch)
+                return Promise.resolve(new Response("{}"))
+              },
+            }),
+          ),
+          Layer.provideMerge([serverLoggerLayer, TestConsole.layer]),
+        ),
       ),
-      Effect.provide(
-        posthogClientLayer({
-          ...posthogOptionsFromValues({
-            otel_exporter_otlp_endpoint: "https://eu.i.posthog.com/i/",
-            otel_exporter_otlp_headers: "Authorization=Bearer generic-token",
-            otel_exporter_otlp_traces_headers: "authorization=Bearer trace-token",
-          })!,
-          disableCompression: true,
-          fetch: (url, { body }) => {
-            assert.strictEqual(new URL(url).hostname, "eu.i.posthog.com")
-            assert.isString(body)
-            const payload = JSON.parse(body as string) as { api_key: string; batch: typeof events }
-            assert.strictEqual(payload.api_key, "trace-token")
-            events.push(...payload.batch)
-            return Promise.resolve(new Response("{}"))
-          },
-        }),
-      ),
-      Effect.provide(serverLoggerLayer),
-      Effect.provide(TestConsole.layer),
     ),
   )
   assert.isUndefined(getPostHogClient())

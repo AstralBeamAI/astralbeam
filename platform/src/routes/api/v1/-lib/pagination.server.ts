@@ -55,10 +55,10 @@ interface RestCursorInput {
 }
 
 /** A signing failure is a server fault, so it reaches the boundary as a reported defect. */
-class RestCursorSigningFailed extends Schema.TaggedError<RestCursorSigningFailed>()(
-  "RestCursorSigningFailed",
-  { cause: Schema.Defect() },
-) {}
+class RestCursorSigningFailed extends Schema.TaggedError<
+  RestCursorSigningFailed,
+  { readonly brand: unique symbol }
+>()("RestCursorSigningFailed", { cause: Schema.Defect() }) {}
 
 // A purpose-bound key keeps a cursor MAC from ever doubling as another use of the root.
 function restCursorKey(root: Uint8Array): Uint8Array {

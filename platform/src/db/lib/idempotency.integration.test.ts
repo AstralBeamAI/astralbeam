@@ -38,10 +38,10 @@ const idempotencyTestOperation = {
   error: Schema.String,
 }
 
-class IdempotencyTestDeclined extends Schema.TaggedError<IdempotencyTestDeclined>()(
-  "IdempotencyTestDeclined",
-  { reason: Schema.String },
-) {}
+class IdempotencyTestDeclined extends Schema.TaggedError<
+  IdempotencyTestDeclined,
+  { readonly brand: unique symbol }
+>()("IdempotencyTestDeclined", { reason: Schema.String }) {}
 
 describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
   let db: ReturnType<typeof getAuthDatabase>
@@ -187,7 +187,7 @@ describe.skipIf(!idempotencyIntegration.url)("PostgreSQL idempotency", () => {
       withDatabaseIdempotency(
         {
           ...idempotencyTestRequest("mismatch"),
-          operation: { ...idempotencyTestOperation, name: "OtherWrite/v1", success: Schema.Number },
+          operation: { ...idempotencyTestOperation, name: "OtherWrite/v1", success: Schema.Finite },
         },
         () => Effect.succeed(42),
       ).pipe(Effect.flip),

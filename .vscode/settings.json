@@ -16,4 +16,7 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "always"
   },
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsdk.path": "./scripts/tsgo",
+  "js/ts.experimental.useTsgo": true,
 }

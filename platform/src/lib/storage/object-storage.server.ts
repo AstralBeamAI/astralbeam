@@ -7,7 +7,7 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { Context, Effect, Layer, RcMap, Schema } from "effect"
+import { Cause, Context, Effect, Layer, RcMap, Schema } from "effect"
 
 import { Config } from "@/lib/config/config"
 import type { ConfigValues } from "@/lib/config/types"
@@ -27,13 +27,11 @@ const storageObjectMissing = (error: unknown) =>
   (["NoSuchKey", "NotFound"].includes(error.name) || ("code" in error && error.code === "ENOENT"))
 
 const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
-  Effect.tryPromise({
-    try: call,
-    catch: (error) => error,
-  }).pipe(
+  Effect.tryPromise(call).pipe(
     Effect.timeout("30 seconds"),
-    Effect.tapError((error) =>
-      storageObjectMissing(error)
+    Effect.tapError((failure) => {
+      const error = Cause.isUnknownError(failure) ? failure.cause : failure
+      return storageObjectMissing(error)
         ? Effect.void
         : Effect.logWarning("Object storage request failed", {
             errorType: error instanceof Error ? error.name : "Unknown",
@@ -44,10 +42,12 @@ const storageRequest = <A>(call: (signal: AbortSignal) => PromiseLike<A>) =>
             httpStatusCode:
               error instanceof S3ServiceException ? error.$metadata.httpStatusCode : undefined,
             requestId: error instanceof S3ServiceException ? error.$metadata.requestId : undefined,
-          }),
-    ),
-    Effect.mapError((error) =>
-      storageObjectMissing(error) ? new StorageObjectMissing() : new StorageUnavailable(),
+          })
+    }),
+    Effect.mapError((failure) =>
+      storageObjectMissing(Cause.isUnknownError(failure) ? failure.cause : failure)
+        ? new StorageObjectMissing()
+        : new StorageUnavailable(),
     ),
   )
 

@@ -14,7 +14,7 @@ import {
 import { parseSetCookieHeader } from "better-auth/cookies"
 import { captcha, haveIBeenPwned, lastLoginMethod, organization } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
-import { Context, Effect, identity, Layer, Predicate, Ref } from "effect"
+import { Context, Effect, Layer, Predicate, Ref } from "effect"
 
 import { getAuthDatabase } from "@/db/database"
 import { tables } from "@/db/schema"
@@ -631,7 +631,11 @@ export class Auth extends Context.Service<
 
       const callApi = <A>(call: (api: AppAuth["api"]) => Promise<A>) =>
         Effect.flatMap(instance, (auth) =>
-          Effect.tryPromise({ try: () => call(auth.api), catch: identity }),
+          Effect.tryPromise(() => call(auth.api)).pipe(
+            Effect.catch(({ cause }) =>
+              cause instanceof APIError ? Effect.fail(cause) : Effect.die(cause),
+            ),
+          ),
         )
 
       // Dies with Better Auth's own error, which a hook rethrows to its caller unchanged.
@@ -667,8 +671,11 @@ export class Auth extends Context.Service<
       })
 
       const requireSession = (input: { headers: Headers }) =>
-        Effect.flatMap(getSession(input), (session) =>
-          session ? Effect.succeed(session) : Effect.fail(new SignInRequired()),
+        getSession(input).pipe(
+          Effect.filterOrFail(
+            (session) => session !== null,
+            () => new SignInRequired(),
+          ),
         )
 
       const handler = Effect.fn("Auth.handler")(function* (

@@ -230,7 +230,7 @@ describe.skipIf(!cacheIntegration.url)("PostgreSQL cache", () => {
   })
 
   test("serializes read-modify-write of an absent key and joins an enclosing transaction", async () => {
-    const counter = { ...cacheTestOptions, schema: Schema.Number }
+    const counter = { ...cacheTestOptions, schema: Schema.Finite }
     await Promise.all(
       Array.from({ length: 10 }, () =>
         runAppEffect(

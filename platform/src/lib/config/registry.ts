@@ -458,7 +458,7 @@ export const CONFIG_DEFINITIONS: readonly ConfigDefinition[] = [
     kind: "text",
     required: false,
     defaultValue: String(SMTP_DEFAULTS.port),
-    schema: SmtpPortSchema.pipe(Schema.decodeTo(Schema.flip(Schema.NumberFromString))),
+    schema: SmtpPortSchema.pipe(Schema.decodeTo(Schema.flip(Schema.FiniteFromString))),
   },
   {
     key: "smtp_security",

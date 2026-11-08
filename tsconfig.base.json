@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
+  "$schema": "./node_modules/@effect/tsgo/schema.json",
   // Shared compiler defaults only: no `include`, `paths`, or `references`, so the six projects stay
   // independent rather than becoming one project graph. https://www.typescriptlang.org/tsconfig/#extends
   "compilerOptions": {
@@ -16,6 +16,12 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "strict": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": false
+      }
+    ]
   }
 }

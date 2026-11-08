@@ -65,6 +65,14 @@ The [Rails example](../examples/todos-rails/README.md) runs separately with `bin
 
 For one project, use `bun run --cwd <project> <task>` or a root alias such as `bun run dev:platform`. `bun run` lists tasks. `bun run build` builds all Bun projects with the SDK first. Follow [contribution validation](../CONTRIBUTING.md#validate-your-change) before opening a PR.
 
+#### TypeScript and Effect tooling
+
+Type checking uses the compiler bundled with `@effect/tsgo`, and lint tasks use its patched Oxlint and type-aware backend. The root install hook reapplies the Oxlint patch so the editor and project tasks use the same rules. The full recommended Effect preset is enabled, with stability notices excluded while the required PostgreSQL, cluster, workflow, and telemetry APIs remain unstable.
+
+Install the recommended TypeScript 7 editor extension and select the workspace version when prompted. The workspace setting points to `scripts/tsgo/tsc`, which launches the Effect compiler through Bun without a separate native TypeScript installation. Effect diagnostics come from Oxlint to avoid duplicate editor messages.
+
+No workspace declares `typescript` directly. Generators and lint plugins still require its JavaScript API transitively. Bun handles application execution and transpilation, while the project typecheck tasks use the Effect compiler.
+
 #### Try sandbox tools
 
 The seed prints verified dashboard accounts, so you can sign in without email delivery. Chat needs a model connection. Code execution and binary file analysis also need a sandbox.

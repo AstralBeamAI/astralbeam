@@ -73,7 +73,7 @@ interface ManagedChatStreamState {
   delivery: "streaming" | "waiting" | "saved" | "failed"
   version: number
   payload: ChatMessagePayload
-  usage: typeof Schema.JsonObject.Type | undefined
+  usage: Schema.JsonObject | undefined
   publicHistory: UIMessage[]
   readonly fileCache: ChatFileCache
   readonly partIds: Map<string, string>
@@ -96,7 +96,7 @@ function managedPartId(ids: Map<string, string>, key: string): string {
 function managedToolPart(
   options: ManagedChatStreamOptions,
   state: ManagedChatStreamState,
-  part: typeof Schema.JsonObject.Type,
+  part: Record<string, Schema.Json>,
 ) {
   const nativeId = Schema.decodeUnknownSync(Schema.String)(part.id)
   const tool = state.tools.find((candidate) => candidate.name === part.name)
@@ -251,14 +251,14 @@ async function saveManagedToolResult(
 ) {
   const part = state.payload.parts.find((candidate) => candidate.toolCallId === toolCallId)
   if (!part || !Array.isArray(part.targets)) throw new Error("Uncommitted tool decision")
-  const target = part.targets[0] as typeof Schema.JsonObject.Type
+  const target = part.targets[0] as Schema.JsonObject
   await options.execute(
     options.threads.appendToolResults({
       claim: state.claim,
       results: [
         {
           assistantMessageId: state.claim.assistantMessageId,
-          toolPartId: Schema.decodeUnknownSync(Schema.String)(part.id),
+          toolPartId: Schema.decodeSync(Schema.String)(part.id),
           responseTargetId: Schema.decodeUnknownSync(Schema.String)(target.id),
           payload: {
             version: 1,
