@@ -226,7 +226,9 @@ export class Dogfood extends Context.Service<
                       yield* transaction
                         .execute(sql`select 1`)
                         .pipe(Effect.timeout("5 seconds"), Effect.orDie)
-                      yield* Effect.raceFirst(Deferred.await(release), Effect.sleep("1 second"))
+                      yield* Deferred.await(release).pipe(
+                        Effect.timeoutOrElse({ duration: "1 second", orElse: () => Effect.void }),
+                      )
                     }
                   }),
                 )

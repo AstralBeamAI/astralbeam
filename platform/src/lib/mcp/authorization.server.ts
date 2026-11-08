@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto"
 import { and, eq, sql } from "drizzle-orm"
-import { Clock, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
+import { Cause, Clock, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect"
 import {
   extractWWWAuthenticateParams,
   OAuthError,
@@ -211,13 +211,14 @@ const makeMcpAuthorization = Effect.gen(function* () {
       pendingCredential: null,
     }
     yield* attemptLock(attempt, writeAttempt(payload))
+    const runPromise = Effect.runPromiseWith(yield* Effect.context<never>())
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({
           payload,
           baseUrl: origin,
           authConfig,
-          now: () => Effect.runPromise(Clock.currentTimeMillis),
+          now: () => runPromise(Clock.currentTimeMillis),
           dispatcher,
           serverUrl: server.endpointUrl,
           scope: authConfig.requestedScopes.join(" ") || challenge?.scope,
@@ -300,13 +301,14 @@ const makeMcpAuthorization = Effect.gen(function* () {
     const authConfig = server.authConfig
     if (authConfig.kind !== "oauth") return yield* new McpInvalidConfiguration()
     const origin = yield* baseUrl
+    const runPromise = Effect.runPromiseWith(yield* Effect.context<never>())
     yield* Effect.tryPromise({
       try: () =>
         mcpRunAuthorization({
           payload,
           baseUrl: origin,
           authConfig,
-          now: () => Effect.runPromise(Clock.currentTimeMillis),
+          now: () => runPromise(Clock.currentTimeMillis),
           dispatcher,
           serverUrl: server.endpointUrl,
           callback: input.params,
@@ -399,29 +401,26 @@ const makeMcpAuthorization = Effect.gen(function* () {
     const claim = and(predicate, sql`${mcpConnection.credentials} = ${claimed[0]!.credentials}`)
     const discovery = credential.discovery
     const binding = mcpDiscoveryBinding(discovery)
-    const refreshed = yield* Effect.tryPromise({
-      try: async () => {
-        const tokens = await refreshAuthorization(binding.issuer, {
-          ...(discovery.authorizationServerMetadata
-            ? { metadata: discovery.authorizationServerMetadata }
-            : {}),
-          clientInformation: credential.clientInformation as OAuthClientInformationMixed,
-          refreshToken: credential.tokens.refresh_token!,
-          resource: binding.resource,
-          fetchFn: guardedAuthFetch,
-        })
-        return mcpOAuthCredential({
-          tokens: { ...tokens, issuer: binding.issuer },
-          discovery,
-          clientInformation: credential.clientInformation,
-          now: started,
-          previous: credential,
-        })
-      },
-      catch: (error) => error,
+    const refreshed = yield* Effect.tryPromise(async () => {
+      const tokens = await refreshAuthorization(binding.issuer, {
+        ...(discovery.authorizationServerMetadata
+          ? { metadata: discovery.authorizationServerMetadata }
+          : {}),
+        clientInformation: credential.clientInformation as OAuthClientInformationMixed,
+        refreshToken: credential.tokens.refresh_token!,
+        resource: binding.resource,
+        fetchFn: guardedAuthFetch,
+      })
+      return mcpOAuthCredential({
+        tokens: { ...tokens, issuer: binding.issuer },
+        discovery,
+        clientInformation: credential.clientInformation,
+        now: started,
+        previous: credential,
+      })
     }).pipe(
       Effect.catch(
-        Effect.fnUntraced(function* (error: unknown) {
+        Effect.fnUntraced(function* ({ cause: error }: Cause.UnknownError) {
           const outcome = !(error instanceof OAuthError)
             ? "refresh_uncertain"
             : ["server_error", "temporarily_unavailable", "too_many_requests"].includes(error.code)

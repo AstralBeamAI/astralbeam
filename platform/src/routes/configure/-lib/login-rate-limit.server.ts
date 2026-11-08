@@ -34,26 +34,22 @@ function operatorLoginDecision(
   }
 }
 
-export function consumeOperatorLoginRateLimit() {
-  return Effect.flatMap(DatabaseRateLimiter, (limiter) =>
-    limiter.consume({
-      key: OPERATOR_LOGIN_RATE_LIMIT_KEY,
-      limit: OPERATOR_LOGIN_MAX_ATTEMPTS,
-      window: OPERATOR_LOGIN_WINDOW,
-    }),
-  ).pipe(
-    Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
-    Effect.catchIf(isMissingRateLimitTable, () =>
-      Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
-    ),
-    Effect.catchIf(isRateLimitExceeded, (error) =>
-      Effect.succeed(operatorLoginDecision(false, error.reason.retryAfter)),
-    ),
-  )
-}
+export const consumeOperatorLoginRateLimit = Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+  limiter.consume({
+    key: OPERATOR_LOGIN_RATE_LIMIT_KEY,
+    limit: OPERATOR_LOGIN_MAX_ATTEMPTS,
+    window: OPERATOR_LOGIN_WINDOW,
+  }),
+).pipe(
+  Effect.map((result) => operatorLoginDecision(true, result.resetAfter)),
+  Effect.catchIf(isMissingRateLimitTable, () =>
+    Effect.succeed({ allowed: true, retryAfterSeconds: 0 }),
+  ),
+  Effect.catchIf(isRateLimitExceeded, (error) =>
+    Effect.succeed(operatorLoginDecision(false, error.reason.retryAfter)),
+  ),
+)
 
-export function clearOperatorLoginRateLimit() {
-  return Effect.flatMap(DatabaseRateLimiter, (limiter) =>
-    limiter.reset({ key: OPERATOR_LOGIN_RATE_LIMIT_KEY }),
-  ).pipe(Effect.catchIf(isMissingRateLimitTable, () => Effect.void))
-}
+export const clearOperatorLoginRateLimit = Effect.flatMap(DatabaseRateLimiter, (limiter) =>
+  limiter.reset({ key: OPERATOR_LOGIN_RATE_LIMIT_KEY }),
+).pipe(Effect.catchIf(isMissingRateLimitTable, () => Effect.void))

@@ -461,7 +461,7 @@ export function createChatAttachmentSnapshotMiddleware(
   }
 }
 
-type JsonObject = typeof Schema.JsonObject.Type
+type JsonObject = Record<string, Schema.Json>
 export interface ChatFileScope extends Pick<ChatThreadScope, "organizationId" | "tenantId"> {
   threadId: string
   tenantUserId?: ChatThreadScope["tenantUserId"]
@@ -651,9 +651,7 @@ export class ChatFiles extends Context.Service<
         return mapChatMedia(payload, (inputPart) =>
           Effect.gen(function* () {
             const rawMetadata = inputPart.metadata
-            const metadata: Record<string, typeof Schema.Json.Type> = Schema.is(Schema.JsonObject)(
-              rawMetadata,
-            )
+            const metadata: Record<string, Schema.Json> = Schema.is(Schema.JsonObject)(rawMetadata)
               ? rawMetadata
               : {}
             const part: JsonObject = {
@@ -751,7 +749,7 @@ export class ChatFiles extends Context.Service<
         if (input.preview) {
           const cached = yield* storage
             .head({ key })
-            .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.succeed(undefined)))
+            .pipe(Effect.catchTag("StorageObjectMissing", () => Effect.undefined))
           if (cached && cached.size > 256 * 1024) return yield* new ChatFileUnavailable()
           if (!cached && !(yield* previews.read({ file })))
             return { bytes: new Uint8Array(), mimeType: "image/webp" }

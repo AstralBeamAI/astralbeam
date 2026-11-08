@@ -50,7 +50,10 @@ export interface RestError {
 }
 
 /** A problem read back from the wire, which carries its status instead of declaring it. */
-export class RestProblem extends Schema.TaggedError<RestProblem>()("RestProblem", {
+export class RestProblem extends Schema.TaggedError<
+  RestProblem,
+  { readonly brand: unique symbol }
+>()("RestProblem", {
   status: Schema.Int,
   message: Schema.String,
   issues: RestApiErrorSchema.fields.issues,
@@ -199,7 +202,7 @@ export const restPageQuery = Schema.Struct({
   ),
   page_size: Schema.optionalKey(
     Schema.String.check(Schema.isPattern(/^0*[1-9]\d*$/)).pipe(
-      Schema.decodeTo(Schema.Number, {
+      Schema.decodeTo(Schema.Finite, {
         decode: SchemaGetter.transform((value) => Math.min(Number(value), 100)),
         encode: SchemaGetter.transform<string, number>(String),
       }),

@@ -82,7 +82,10 @@ export function encryptedJson<Value>(options: EncryptedJsonOptions<Value>) {
   })()
 }
 
-class DatabaseJsonError extends Schema.TaggedError<DatabaseJsonError>()("DatabaseJsonError", {}) {
+class DatabaseJsonError extends Schema.TaggedError<
+  DatabaseJsonError,
+  { readonly brand: unique symbol }
+>()("DatabaseJsonError", {}) {
   override readonly message = "Database JSON does not match its column schema"
 }
 

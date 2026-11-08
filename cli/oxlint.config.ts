@@ -1,3 +1,4 @@
+import { recommended as effectRecommended } from "@effect/tsgo/oxlint-presets"
 import vitestPlugin from "@vitest/eslint-plugin"
 import regexpPlugin from "eslint-plugin-regexp"
 import { defineConfig, type DummyRule } from "oxlint"
@@ -77,6 +78,10 @@ const additionalRules: RuleMap = {
 }
 
 const baseRules: RuleMap = {
+  // Required Effect v4 integrations are unstable. Re-enable when their APIs become stable.
+  // https://github.com/Effect-TS/tsgo/blob/main/docs/rules/unstable-api-usage.md
+  "effecttsgo/unstable-api-usage": "off",
+  "effecttsgo/experimental-api-usage": "off",
   ...recommendedRules.regexp,
   ...typeAwareRules,
   ...additionalRules,
@@ -88,7 +93,8 @@ const baseRules: RuleMap = {
 }
 
 export default defineConfig({
-  plugins: ["eslint", "typescript", "unicorn", "oxc"],
+  extends: [effectRecommended],
+  plugins: ["effecttsgo", "eslint", "typescript", "unicorn", "oxc"],
   categories: { correctness: "error" },
   // A stale disable directive fails lint.
   options: { typeAware: true, denyWarnings: true, reportUnusedDisableDirectives: "error" },

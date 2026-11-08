@@ -23,7 +23,7 @@ export const loginOperator = createServerFn({ method: "POST" })
     effectHandler(({ data }) =>
       Effect.gen(function* () {
         yield* checkConfigureRequest()
-        const decision = yield* consumeOperatorLoginRateLimit().pipe(Effect.orDie)
+        const decision = yield* consumeOperatorLoginRateLimit.pipe(Effect.orDie)
         if (!decision.allowed) {
           const server = yield* ServerRequest
           yield* server.setHeaders({ "Retry-After": String(decision.retryAfterSeconds) })
@@ -32,7 +32,7 @@ export const loginOperator = createServerFn({ method: "POST" })
           })
         }
         if (!checkOperatorKey(data.key)) return yield* new OperatorKeyInvalid()
-        yield* clearOperatorLoginRateLimit().pipe(Effect.orDie)
+        yield* clearOperatorLoginRateLimit.pipe(Effect.orDie)
         yield* setOperatorSessionCookie(yield* createOperatorSession())
       }).pipe(
         Effect.catchTag(

@@ -47,13 +47,11 @@ export function fileResponse<R>(
   response: Effect.Effect<Response, SignInRequired | StorageObjectMissing | StorageUnavailable, R>,
 ): Effect.Effect<Response, never, R> {
   return response.pipe(
-    Effect.catchTag("SignInRequired", () => Effect.succeed(new Response(null, { status: 401 }))),
-    Effect.catchTag("StorageObjectMissing", () =>
-      Effect.succeed(new Response(null, { status: 404 })),
-    ),
-    Effect.catchTag("StorageUnavailable", () =>
-      Effect.succeed(new Response(null, { status: 503 })),
-    ),
+    Effect.catchTags({
+      SignInRequired: () => Effect.succeed(new Response(null, { status: 401 })),
+      StorageObjectMissing: () => Effect.succeed(new Response(null, { status: 404 })),
+      StorageUnavailable: () => Effect.succeed(new Response(null, { status: 503 })),
+    }),
     Effect.catchCause((cause) =>
       Effect.as(reportFailure("fileResponse", cause), new Response(null, { status: 500 })),
     ),

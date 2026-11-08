@@ -22,11 +22,11 @@ interface ChatProjectionTarget {
   readonly webAccessEnabled?: boolean
 }
 
-export function chatStoredJson(value: unknown): typeof Schema.JsonObject.Type {
+export function chatStoredJson(value: unknown): Record<string, Schema.Json> {
   return Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(JSON.stringify(value)))
 }
 
-function portableChatPart(part: typeof Schema.JsonObject.Type): (typeof Schema.JsonObject.Type)[] {
+function portableChatPart(part: Record<string, Schema.Json>): Record<string, Schema.Json>[] {
   switch (part.type) {
     case "text": {
       const citations = portableChatWebEvidence(part, "citations")
@@ -216,7 +216,7 @@ export function projectChatModelHistory(
       })) as unknown as ModelMessage[]
     } else if (record.role === "tool") {
       messages = record.payload.parts.map((part) => ({
-        id: Schema.decodeUnknownSync(Schema.String)(part.id),
+        id: Schema.decodeSync(Schema.String)(part.id),
         role: "tool" as const,
         toolCallId: Schema.decodeUnknownSync(Schema.String)(part.toolCallId),
         content: JSON.stringify(
@@ -232,7 +232,7 @@ export function projectChatModelHistory(
       if (parts.length === 0) return []
       messages = convertMessagesToModelMessages([
         {
-          id: Schema.decodeUnknownSync(Schema.String)(parts[0]!.id),
+          id: Schema.decodeSync(Schema.String)(parts[0]!.id),
           role: record.role,
           parts: parts.map((part) => part.portable),
         } as unknown as UIMessage,

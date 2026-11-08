@@ -213,11 +213,12 @@ describe("ChatSandboxes", () => {
       const caller = yield* Effect.withFiber(Effect.succeed)
       const closed = yield* Deferred.make<void>()
       const scheduler = new Scheduler.MixedScheduler()
+      const runFork = Effect.runForkWith(yield* Effect.context<never>())
       let shuttingDown = false
       scheduler.shouldYield = (fiber) => {
         if (fiber === caller || shuttingDown) return false
         shuttingDown = true
-        Effect.runFork(
+        runFork(
           Scope.close(scope, Exit.void).pipe(Effect.andThen(Deferred.succeed(closed, undefined))),
         )
         return true

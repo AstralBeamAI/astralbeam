@@ -3,13 +3,13 @@ import { BigDecimal, Schema } from "effect"
 import type { ModelConfiguration } from "./schemas.ts"
 
 export const ModelRequestUsageSchema = Schema.Struct({
-  promptTokens: Schema.Number,
-  completionTokens: Schema.Number,
+  promptTokens: Schema.Finite,
+  completionTokens: Schema.Finite,
   promptTokensDetails: Schema.optional(
     Schema.Struct({
-      cachedTokens: Schema.optional(Schema.Number),
-      cacheWriteTokens: Schema.optional(Schema.Number),
-      cacheWrite1hTokens: Schema.optional(Schema.Number),
+      cachedTokens: Schema.optional(Schema.Finite),
+      cacheWriteTokens: Schema.optional(Schema.Finite),
+      cacheWrite1hTokens: Schema.optional(Schema.Finite),
     }),
   ),
 })

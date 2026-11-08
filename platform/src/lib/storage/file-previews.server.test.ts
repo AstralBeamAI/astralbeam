@@ -42,7 +42,7 @@ const previewTest = Effect.gen(function* () {
           })
           signal.throwIfAborted()
           return output
-        }).pipe(Effect.catch(() => Effect.succeed(undefined))),
+        }).pipe(Effect.catch(() => Effect.undefined)),
       ),
       Layer.succeed(StoredFiles, {
         read: () => Effect.succeed(Uint8Array.of(1)),

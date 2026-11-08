@@ -449,7 +449,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
             }
             if (!admission.claim)
               return HttpServerResponse.jsonUnsafe(
-                Schema.encodeSync(ChatToolResultReceiptSchema)(receipt),
+                yield* Schema.encodeEffect(ChatToolResultReceiptSchema)(receipt).pipe(Effect.orDie),
               )
             // A browser tool may already have changed the host app, so its saved result is
             // acknowledged even when no allowance is left for the model call that would follow.
@@ -465,7 +465,10 @@ export function chatThreadHandlers(api: typeof ApiV1) {
             if (usageLimit) {
               yield* threads.interrupt({ claim: admission.claim }).pipe(Effect.orDie)
               return HttpServerResponse.jsonUnsafe(
-                Schema.encodeSync(ChatToolResultReceiptSchema)({ ...receipt, usageLimit }),
+                yield* Schema.encodeEffect(ChatToolResultReceiptSchema)({
+                  ...receipt,
+                  usageLimit,
+                }).pipe(Effect.orDie),
               )
             }
             return yield* chatAdmissionResponse({
@@ -540,7 +543,7 @@ export function chatThreadHandlers(api: typeof ApiV1) {
                 thread: threadResource(thread),
                 pendingInteractions: pending.map(({ message, part, target }) => ({
                   sourceMessageId: message.id,
-                  sourcePartId: Schema.decodeUnknownSync(Schema.String)(part.id),
+                  sourcePartId: Schema.decodeSync(Schema.String)(part.id),
                   responseTargetId: Schema.decodeUnknownSync(Schema.String)(target.id),
                   toolCallId: Schema.decodeUnknownSync(Schema.String)(part.toolCallId),
                   targetTenantUserId:

@@ -23,7 +23,7 @@ import {
   ComboboxStatus,
 } from "./ui/combobox.tsx"
 
-interface ThreadGroup {
+type ThreadGroup = {
   value: string
   items: ChatThread[]
 }

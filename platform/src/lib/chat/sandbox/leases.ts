@@ -84,13 +84,13 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
     Effect.gen(function* () {
       if (closed) return yield* new ChatSandboxUnavailable()
       const existing = leases.get(key)
-      if (existing?.cleanup) return existing.cleanup
+      if (existing?.cleanup) return { cleanup: existing.cleanup }
       if (!existing && leases.size >= CHAT_SANDBOX_MAX_LIVE) {
         const idle = [...leases]
           .filter(([, lease]) => lease.users === 0 && lease.pending === 0)
           .sort(([, a], [, b]) => a.idleSince - b.idleSince)[0]
         if (!idle) return yield* new ChatSandboxUnavailable()
-        return destroyLease(idle[0], idle[1], CHAT_SANDBOX_FILE_TIMEOUT_MS)
+        return { cleanup: destroyLease(idle[0], idle[1], CHAT_SANDBOX_FILE_TIMEOUT_MS) }
       }
       const lease = existing ?? {
         provider,
@@ -103,7 +103,7 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
       lease.users += 1
       leases.set(key, lease)
       yield* Effect.addFinalizer(() => releaseLease(key, lease))
-      return lease
+      return { lease }
     }).pipe(Effect.uninterruptible)
 
   // Shutdown and module reloads attempt bounded cleanup of every settled lease.
@@ -131,12 +131,12 @@ export const makeChatSandboxLeases = Effect.gen(function* () {
   }) {
     const scope = yield* Effect.scope
     let reservation = yield* reserveLease(key, definition.provider)
-    while (reservation instanceof Promise) {
-      const cleanup = reservation
+    while ("cleanup" in reservation) {
+      const { cleanup } = reservation
       if (!(yield* Effect.promise(() => cleanup))) return yield* new ChatSandboxUnavailable()
       reservation = yield* reserveLease(key, definition.provider)
     }
-    const lease = reservation
+    const { lease } = reservation
     return yield* chatSandboxCall(async (signal) => {
       // Shutdown can run before this callback starts. Check and reserve without yielding.
       if (closed || scope.state._tag === "Closed") throw new ChatSandboxUnavailable()

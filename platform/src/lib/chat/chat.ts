@@ -279,7 +279,7 @@ export class Chat extends Context.Service<
                   publishArtifact: (bytes) =>
                     threads
                       .publishArtifact({ claim: turn.claim, bytes })
-                      .pipe(Effect.catch(() => Effect.succeed(undefined))),
+                      .pipe(Effect.catch(() => Effect.undefined)),
                 })
               : []
             if (log && sandboxTools.length > 0) {

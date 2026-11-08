@@ -17,12 +17,12 @@ describe("operator login rate limiting", () => {
     const unavailable = queryError("08006")
 
     return Effect.gen(function* () {
-      const bootstrapDecision = yield* consumeOperatorLoginRateLimit().pipe(
+      const bootstrapDecision = yield* consumeOperatorLoginRateLimit.pipe(
         Effect.provide(limiterOver(missingTable)),
       )
       assert.deepStrictEqual(bootstrapDecision, { allowed: true, retryAfterSeconds: 0 })
 
-      const error = yield* consumeOperatorLoginRateLimit().pipe(
+      const error = yield* consumeOperatorLoginRateLimit.pipe(
         Effect.provide(limiterOver(unavailable)),
         Effect.flip,
       )
@@ -44,13 +44,13 @@ function queryError(code: string): EffectDrizzleQueryError {
   })
 }
 
-function limiterOver(cause: unknown) {
+function limiterOver(cause: EffectDrizzleQueryError) {
   return DatabaseRateLimiter.layerNoDeps.pipe(
     Layer.provide(Layer.succeed(Database, failingDatabase(cause))),
   )
 }
 
-function failingDatabase(cause: unknown): EffectDatabase {
+function failingDatabase(cause: EffectDrizzleQueryError): EffectDatabase {
   return {
     insert: () => ({
       values: () => ({

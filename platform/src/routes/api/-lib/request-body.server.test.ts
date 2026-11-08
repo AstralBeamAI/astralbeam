@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest"
-import { Effect, Fiber } from "effect"
+import { Effect, Fiber, Result } from "effect"
 import { TestClock } from "effect/testing"
 
 import { readRequestJson } from "./request-body.server"
@@ -19,7 +19,9 @@ it.effect("bounds a request body when content-length is absent", () =>
     })
 
     assert.isFalse(request.headers.has("content-length"))
-    assert.strictEqual((yield* Effect.flip(readRequestJson(request, 8)))._tag, "RequestTooLarge")
+    const result = yield* Effect.result(readRequestJson(request, 8))
+    assert(Result.isFailure(result))
+    assert.strictEqual(result.failure._tag, "RequestTooLarge")
   }),
 )
 
@@ -34,9 +36,11 @@ it.effect("cancels a stalled request body after the read deadline", () =>
         },
       }),
     })
-    const reading = yield* Effect.forkChild(Effect.flip(readRequestJson(request, 1024)))
+    const reading = yield* Effect.forkChild(Effect.result(readRequestJson(request, 1024)))
     yield* TestClock.adjust("30 seconds")
-    assert.strictEqual((yield* Fiber.join(reading))._tag, "RequestBodyInvalid")
+    const result = yield* Fiber.join(reading)
+    assert(Result.isFailure(result))
+    assert.strictEqual(result.failure._tag, "RequestBodyInvalid")
     assert.isTrue(cancelled)
   }),
 )

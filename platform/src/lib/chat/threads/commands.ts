@@ -100,7 +100,7 @@ const chatAdmissionOperation = {
   error: Schema.Never,
 }
 
-function storedResponseSchema(value: typeof Schema.Json.Type) {
+function storedResponseSchema(value: Schema.Json) {
   return Effect.try({
     try: () =>
       SchemaRepresentation.fromJsonSchemaDocument(
@@ -119,7 +119,7 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
   const threads = yield* ChatThreads
   const agents = yield* Agents
   const { params, scope } = input
-  const id = yield* Schema.decodeUnknownEffect(ApiUuidSchema)(params.threadId).pipe(
+  const id = yield* Schema.decodeEffect(ApiUuidSchema)(params.threadId).pipe(
     Effect.mapError(() => new ChatThreadInvalid()),
   )
   const options = yield* Schema.decodeUnknownEffect(managedChatOptions)(params.forwardedProps).pipe(
@@ -273,11 +273,11 @@ export const prepareManagedChat = Effect.fn("prepareManagedChat")(function* (inp
               }),
             ),
         ).pipe(
-          Effect.catchCause((cause) =>
-            rejected &&
-            cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected)
-              ? Effect.fail<AdmissionError | Cause.Cause.Error<typeof cause>>(rejected)
-              : Effect.failCause(cause),
+          Effect.catchCauseIf(
+            (cause) =>
+              rejected !== undefined &&
+              cause.reasons.every((reason) => reason._tag === "Die" && reason.defect === rejected),
+            (cause) => Effect.fail<AdmissionError | Cause.Cause.Error<typeof cause>>(rejected!),
           ),
         )
   return { admission, receipt, clientId: options.clientId }
@@ -288,11 +288,11 @@ export interface ManagedToolResultInput {
   readonly sourcePartId: string
   readonly responseTargetId: string
   readonly outcome: "succeeded" | "failed" | "skipped" | "unknown"
-  readonly output: typeof Schema.Json.Type
+  readonly output: Schema.Json
 }
 
 const validateBuiltinChatResult = Effect.fnUntraced(function* (
-  part: typeof Schema.JsonObject.Type,
+  part: Schema.JsonObject,
   result: ManagedToolResultInput,
 ) {
   if (part.name === "ask_questionnaire" && result.outcome === "skipped") {
@@ -368,7 +368,7 @@ export const resolveManagedChatTools = Effect.fn("resolveManagedChatTools")(func
       declaration.outputSchema !== undefined
     ) {
       const schema = yield* storedResponseSchema(declaration.outputSchema)
-      yield* Schema.decodeUnknownEffect(schema)(output, { onExcessProperty: "error" }).pipe(
+      yield* Schema.decodeEffect(schema)(output, { onExcessProperty: "error" }).pipe(
         Effect.mapError(() => new ChatThreadInvalid()),
       )
     }

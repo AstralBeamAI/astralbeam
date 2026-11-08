@@ -29,9 +29,11 @@
     "dev": "bun run --parallel dev:platform dev:website dev:sdk dev:todos dev:linearity",
     "build": "bun run build:sdk && bun run build:platform && bun run build:website && bun run build:cli && bun run build:todos && bun run build:linearity",
     "release": "scripts/release.sh",
-    "release:manual": "gh workflow run release.yml --ref main -f minimal=true"
+    "release:manual": "gh workflow run release.yml --ref main -f minimal=true",
+    "prepare": "bun run --cwd platform effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.67.5",
     "@types/bun": "1.4.4",
     "oxfmt": "0.73.0"
   },

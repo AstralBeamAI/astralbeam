@@ -305,9 +305,9 @@ const saveChatParts = Effect.fnUntraced(function* (
     if (typeof id !== "string") return yield* new ChatThreadInvalid()
     const location =
       part.type === "tool-call"
-        ? Schema.decodeUnknownSync(
+        ? yield* Schema.decodeUnknownEffect(
             Schema.Literals(["server_api", "sandbox", "browser", "provider"]),
-          )(executionLocation)
+          )(executionLocation).pipe(Effect.orDie)
         : null
     const values = {
       ...rowScope(scope),
@@ -335,7 +335,9 @@ const saveChatParts = Effect.fnUntraced(function* (
     if (!written.length) return yield* new ChatThreadConflict()
     if (part.type !== "tool-call") continue
     for (const target of toolTargets(part)) {
-      const targetId = Schema.decodeUnknownSync(Schema.String.check(Schema.isUUID()))(target.id)
+      const targetId = yield* Schema.decodeUnknownEffect(Schema.String.check(Schema.isUUID()))(
+        target.id,
+      ).pipe(Effect.orDie)
       const recipient =
         typeof target.tenantUserId === "string"
           ? TenantUserIdSchema.make(target.tenantUserId)

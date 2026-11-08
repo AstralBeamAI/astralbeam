@@ -92,7 +92,7 @@ export const testProviderModel = Effect.fn("testProviderModel")(
       ),
     )
     if (!completed || !hasText)
-      return yield* Effect.fail(failure ?? new ModelProviderTestFailed({ reason: "empty" }))
+      return yield* failure ?? new ModelProviderTestFailed({ reason: "empty" })
   },
   Effect.timeoutOrElse({
     duration: "30 seconds",

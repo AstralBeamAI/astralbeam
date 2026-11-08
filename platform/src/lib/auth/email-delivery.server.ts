@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks"
 
 import { queueAfterTransactionHook } from "@better-auth/core/context"
 import { APIError } from "better-auth/api"
-import { Cause, Effect, identity } from "effect"
+import { Cause, Effect } from "effect"
 
 import {
   AUTH_EMAIL_DELIVERY_FAILED_CODE,
@@ -23,11 +23,10 @@ export const withBlockingAuthEmailDelivery = Effect.fnUntraced(function* <A>(
   operation: () => Promise<A>,
 ) {
   const scope: { error?: APIError } = {}
-  const result = yield* Effect.tryPromise({
-    try: () => blockingAuthEmailContext.run(scope, operation),
-    catch: identity,
-  }).pipe(
-    Effect.catch((cause) =>
+  const result = yield* Effect.tryPromise(() =>
+    blockingAuthEmailContext.run(scope, operation),
+  ).pipe(
+    Effect.catch(({ cause }) =>
       scope.error ? Effect.fail(new AuthEmailNotDelivered()) : Effect.die(cause),
     ),
   )

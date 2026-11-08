@@ -113,7 +113,6 @@ const TenantUserUsageSchema = Schema.Struct({
 }).annotate({ identifier: "TenantUserUsage" })
 const CreateTenantUserSchema = TenantUserWriteSchema.pipe(
   Schema.encodeKeys({ externalId: "external_id" }),
-).pipe(
   Schema.annotateEncoded({
     identifier: "CreateTenantUserInput",
     examples: [
