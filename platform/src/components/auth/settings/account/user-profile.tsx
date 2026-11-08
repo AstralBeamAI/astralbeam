@@ -1,5 +1,5 @@
 // Added from @better-auth-ui/settings
-// Local changes: remove username and generic additional fields; use Base UI Toast, domain-specific function names, and strict typing.
+// Local changes: name-only editing, Base UI Toast, typed profile helpers, navigation refresh, and local draft/error state.
 
 "use client"
 
@@ -19,24 +19,19 @@ export type UserProfileProps = {
   className?: string
 }
 
-/**
- * Render a profile card that lets the authenticated user update their display name.
- *
- * @param className - Optional additional CSS class names applied to the card container
- * @returns A JSX element containing the profile card with avatar upload and an editable name field
- */
 export function UserProfile({ className }: UserProfileProps) {
   const { authClient, localization } = useAuth()
-  const { data: session } = useSession(authClient)
+  const { data: session } = useSession(authClient, { refetchOnMount: "always" })
+  const [editedName, setEditedName] = useState<string>()
 
   const { mutate: updateUser, isPending } = useUpdateUser(authClient, {
-    onSuccess: () =>
-      toast.add({ title: localization.settings.profileUpdatedSuccess, type: "success" }),
+    onSuccess: () => {
+      setEditedName(undefined)
+      toast.add({ title: localization.settings.profileUpdatedSuccess, type: "success" })
+    },
   })
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string | undefined
-  }>({})
+  const [nameError, setNameError] = useState<string>()
 
   function submitUserProfile(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -53,34 +48,28 @@ export function UserProfile({ className }: UserProfileProps) {
       <form onSubmit={submitUserProfile}>
         <Card className={cn(className)}>
           <CardContent className="flex flex-col gap-6">
-            <Field data-invalid={!!fieldErrors.name}>
+            <Field data-invalid={!!nameError}>
               <FieldLabel htmlFor="name">{localization.auth.name}</FieldLabel>
 
               {session ? (
                 <Input
-                  key={session?.user.name}
                   id="name"
                   name="name"
                   autoComplete="name"
-                  defaultValue={session?.user.name}
+                  value={editedName ?? session.user.name}
                   placeholder={localization.auth.name}
                   disabled={isPending}
                   required
-                  onChange={() => {
-                    setFieldErrors((prev) => ({
-                      ...prev,
-                      name: undefined,
-                    }))
+                  onChange={(event) => {
+                    setEditedName(event.currentTarget.value)
+                    setNameError(undefined)
                   }}
                   onInvalid={(e) => {
                     e.preventDefault()
 
-                    setFieldErrors((prev) => ({
-                      ...prev,
-                      name: (e.target as HTMLInputElement).validationMessage,
-                    }))
+                    setNameError(e.currentTarget.validationMessage)
                   }}
-                  aria-invalid={!!fieldErrors.name}
+                  aria-invalid={!!nameError}
                 />
               ) : (
                 <Skeleton>
@@ -88,7 +77,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 </Skeleton>
               )}
 
-              <FieldError>{fieldErrors.name}</FieldError>
+              <FieldError>{nameError}</FieldError>
             </Field>
           </CardContent>
 
