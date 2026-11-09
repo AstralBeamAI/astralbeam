@@ -221,9 +221,11 @@ describe("production website build", () => {
         await readFile(new URL(`../src/content${post.path}.md`, import.meta.url), "utf8"),
       )
       expect(html).toContain(`rel="alternate" type="text/plain" href="${post.path}.md"`)
-      expect(headers).toContain(
-        `${post.path}.md\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline`,
-      )
+      for (const suffix of [".md", ".md/"]) {
+        expect(headers).toContain(
+          `${post.path}${suffix}\n  Content-Type: text/plain; charset=utf-8\n  Content-Disposition: inline\n  Cache-Control: no-cache\n  Link: <${origin}${post.path}>; rel="canonical"`,
+        )
+      }
       expect(index).toContain(`href="${post.path}"`)
       expect(sitemap).toContain(`<loc>${origin}${post.path}</loc><lastmod>${post.date}</lastmod>`)
       expect(feed).toContain(`<link>${origin}${post.path}</link>`)

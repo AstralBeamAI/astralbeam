@@ -77,7 +77,10 @@ const responseHeadersPlugin: NitroAppPlugin = (nitro) => {
       // Runtime HTTP canonicals keep prerendered docs portable between deployments.
       // https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls#rel-canonical-http-header
       const origin = await resolveAppOrigin(event.req)
-      const path = pathname.replace(/\/$/u, "").replace(/\.md$/u, "")
+      const path = pathname
+        .replace(/\/$/u, "")
+        .replace(/\/index\.html$/u, "")
+        .replace(/\.md$/u, "")
       response.headers.set("Link", `<${new URL(path, origin).href}>; rel="canonical"`)
     }
   })

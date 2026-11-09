@@ -135,12 +135,14 @@ async function checkBinaryDocsDiscovery(baseUrl: URL) {
   }
   if (titles.size === 0) throw new Error("Docs sitemap did not contain any pages")
 
-  const canonical = new URL("/docs/sdk/getting-started", baseUrl)
-  for (const suffix of ["/", "?utm_source=check", ".md"]) {
-    const response = await fetchBinaryCheckResponse(new URL(`${canonical.href}${suffix}`))
-    await response.body?.cancel()
-    if (response.headers.get("link") !== `<${canonical.href}>; rel="canonical"`) {
-      throw new Error(`Docs variant ${suffix} did not identify its HTML canonical`)
+  for (const path of ["/docs", "/docs/sdk/getting-started"]) {
+    const canonical = new URL(path, baseUrl)
+    for (const suffix of ["/", "?utm_source=check", ".md", "/index.html"]) {
+      const response = await fetchBinaryCheckResponse(new URL(`${canonical.href}${suffix}`))
+      await response.body?.cancel()
+      if (response.headers.get("link") !== `<${canonical.href}>; rel="canonical"`) {
+        throw new Error(`Docs variant ${path}${suffix} did not identify its HTML canonical`)
+      }
     }
   }
 }
